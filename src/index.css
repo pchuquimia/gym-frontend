@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply font-sans bg-bg-dark text-white;
+  background: radial-gradient(circle at 20% 20%, rgba(47, 123, 253, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(30, 201, 134, 0.16), transparent 30%),
+    #0b1220;
+}
+
+.glass-card {
+  @apply bg-card border border-border-soft rounded-xl shadow-soft;
+}
+
+.primary-btn {
+  @apply bg-gradient-to-r from-accent-strong to-cyan-300 text-white font-semibold rounded-xl px-4 py-2 shadow-lg shadow-accent/30 transition-transform;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+}
+
+.secondary-btn {
+  @apply bg-gradient-to-r from-accent-strong to-accent-green text-white font-semibold rounded-xl px-4 py-2 shadow-lg shadow-accent-green/30 transition-transform;
+}
+
+.ghost-btn {
+  @apply border border-border-soft bg-white/5 text-white font-semibold rounded-lg px-3 py-2 transition-colors;
+}
+
+.ghost-btn:hover {
+  @apply border-accent text-accent;
+}
+
+.card {
+  @apply glass-card p-4;
+}
+
+.label {
+  @apply text-sm text-muted;
+}
+
+.muted {
+  @apply text-muted;
+}
+
+.section-title {
+  @apply text-lg font-semibold;
+}
+
+select {
+  background-color: #0f1b2f;
+  color: #ffffff;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+select option {
+  background-color: #0f1b2f;
+  color: #ffffff;
+}
+
+select:focus {
+  outline: none;
+  border-color: rgba(79, 163, 255, 0.5);
+}
