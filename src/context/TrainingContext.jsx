@@ -24,16 +24,30 @@ export function TrainingProvider({ children }) {
   const [trainings, setTrainings] = useState(initialTrainings)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [branch, setBranchState] = useState('general')
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true)
-        const [exs, sess, ph, tr] = await Promise.all([api.getExercises(), api.getSessions(), api.getPhotos(), api.getTrainings()])
+        const [exs, sess, ph, tr] = await Promise.all([
+          api.getExercises(),
+          api.getSessions(),
+          api.getPhotos(),
+          api.getTrainings(),
+        ])
         setExercises(exs.map((e) => ({ ...e, id: e._id || e.id })))
         setSessions(sess.map((s) => ({ ...s, id: s._id || s.id })))
         setPhotos(ph.map((p) => ({ ...p, id: p._id || p.id })))
         setTrainings(tr.map((t) => ({ ...t, id: t._id || t.id })))
+
+        try {
+          const pref = await api.getPreference()
+          if (pref?.branch) setBranchState(pref.branch)
+        } catch (prefErr) {
+          console.warn('Preferencia no disponible, usando general', prefErr?.message)
+          setBranchState('general')
+        }
         setError(null)
       } catch (e) {
         setError(e.message)
@@ -101,6 +115,11 @@ export function TrainingProvider({ children }) {
     setExercises((prev) => prev.filter((ex) => ex.id !== id))
   }
 
+  const setBranch = async (value) => {
+    const saved = await api.setPreference({ branch: value })
+    setBranchState(saved.branch || value)
+  }
+
   const addPhoto = async (photo) => {
     if (photo?.file) {
       const form = new FormData()
@@ -134,6 +153,7 @@ export function TrainingProvider({ children }) {
       trainings,
       loading,
       error,
+      branch,
       addSession,
       addTraining,
       addExercise,
@@ -141,9 +161,10 @@ export function TrainingProvider({ children }) {
       deleteExercise,
       addPhoto,
       deletePhoto,
+      setBranch,
       setTrainings,
     }),
-    [sessions, exercises, photos, trainings, loading, error],
+    [sessions, exercises, photos, trainings, loading, error, branch],
   )
 
   return <TrainingContext.Provider value={value}>{children}</TrainingContext.Provider>

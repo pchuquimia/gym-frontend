@@ -33,13 +33,19 @@ function RegisterTraining({ onNavigate }) {
   const [trainingElapsed, setTrainingElapsed] = useState(0)
   const [exerciseTimers, setExerciseTimers] = useState({})
   const [exerciseTick, setExerciseTick] = useState(0)
-  const { addSession, addTraining, sessions, exercises: libraryExercises } = useTrainingData()
+  const [isSelectorOpen, setIsSelectorOpen] = useState(true)
+  const [selectedBranch, setSelectedBranch] = useState('general')
+  const { addSession, addTraining, sessions, exercises: libraryExercises, branch, setBranch } = useTrainingData()
   const { routines } = useRoutines()
   const autosaveRef = useRef(null)
 
   const allRoutines = useMemo(() => {
     const libraryIds = new Set(libraryExercises.map((ex) => ex.id))
-    const mapped = (routines || [])
+    const filtered =
+      selectedBranch && selectedBranch !== 'general'
+        ? (routines || []).filter((r) => (r.branch || 'general') === selectedBranch)
+        : routines || []
+    const mapped = filtered
       .map((r) => {
         const validWorkouts = (r.exercises || []).filter((ex) => libraryIds.has(ex.exerciseId || slugify(ex.name)))
         return {
@@ -72,7 +78,7 @@ function RegisterTraining({ onNavigate }) {
       ]
     }
     return mapped
-  }, [routines, libraryExercises])
+  }, [routines, libraryExercises, selectedBranch])
 
   useEffect(() => {
     let interval
@@ -120,6 +126,10 @@ function RegisterTraining({ onNavigate }) {
       setCurrentRoutine(allRoutines[0])
     }
   }, [allRoutines, selectedRoutineId])
+
+  useEffect(() => {
+    if (branch) setSelectedBranch(branch)
+  }, [branch])
 
   useEffect(() => {
     if (autosaveRef.current) clearTimeout(autosaveRef.current)
@@ -302,6 +312,34 @@ function RegisterTraining({ onNavigate }) {
     }))
   }
 
+  const exerciseImages = useMemo(() => {
+    const map = {}
+    libraryExercises.forEach((ex) => {
+      map[ex.id] = ex.image || ''
+    })
+    return map
+  }, [libraryExercises])
+
+  const renderExerciseImage = (exercise) => {
+    const id = exercise.exerciseId || slugify(exercise.name)
+    const img = exerciseImages[id]
+    if (img) {
+      return (
+        <img
+          src={img}
+          alt={exercise.name}
+          className="w-full max-w-md h-48 object-cover rounded-2xl border border-border-soft bg-white/5"
+        />
+      )
+    }
+    const initial = exercise.name?.[0]?.toUpperCase() || '?'
+    return (
+      <div className="w-full max-w-md h-48 rounded-2xl border border-dashed border-border-soft bg-white/5 grid place-items-center text-2xl font-bold text-muted">
+        {initial}
+      </div>
+    )
+  }
+
   const routineCards = useMemo(
     () =>
       allRoutines.map((routine) => (
@@ -326,7 +364,7 @@ function RegisterTraining({ onNavigate }) {
             <div className="flex flex-col">
               <h3 className="text-base font-semibold">{routine.name}</h3>
               <p className="text-xs text-muted">
-                {routine.exercises} ejercicios · {routine.detail}
+                {routine.exercises} ejercicios • {routine.detail}
               </p>
             </div>
           </div>
@@ -379,6 +417,70 @@ function RegisterTraining({ onNavigate }) {
         title="Registrar Entrenamiento (Navegación Completa)"
         subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
       />
+      {isSelectorOpen && (
+        <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#0d1f33] border border-border-soft p-4 sm:p-6 space-y-4">
+            <h2 className="text-xl font-bold text-white">Configurar entrenamiento</h2>
+            <div className="space-y-2">
+              <p className="text-sm text-muted">Selecciona sucursal</p>
+              <div className="flex gap-2 flex-wrap">
+                {['sopocachi', 'miraflores'].map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    className={`px-4 py-2 rounded-lg border text-sm ${
+                      selectedBranch === b ? 'border-accent bg-accent/10 text-white' : 'border-border-soft text-muted'
+                    }`}
+                    onClick={() => setSelectedBranch(b)}
+                  >
+                    {b.charAt(0).toUpperCase() + b.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted">Selecciona rutina</p>
+              <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                {allRoutines.length === 0 && (
+                  <div className="text-sm text-muted">No hay rutinas para esta sucursal.</div>
+                )}
+                {allRoutines.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRoutineId(r.id)
+                      setCurrentRoutine(r)
+                    }}
+                    className={`w-full text-left rounded-xl border px-3 py-2 ${
+                      selectedRoutineId === r.id ? 'border-accent bg-accent/10 text-white' : 'border-border-soft bg-white/5 text-white'
+                    }`}
+                  >
+                    <div className="font-semibold">{r.name}</div>
+                    <div className="text-xs text-muted">{r.exercises} ejercicios</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button className="ghost-btn" onClick={() => setIsSelectorOpen(false)}>
+                Cancelar
+              </button>
+              <button
+                className="primary-btn"
+                disabled={!selectedRoutineId}
+                onClick={() => {
+                  setBranch(selectedBranch)
+                  setIsSelectorOpen(false)
+                  startTraining()
+                }}
+              >
+                Iniciar entrenamiento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card flex flex-col gap-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -422,7 +524,7 @@ function RegisterTraining({ onNavigate }) {
         </div>
 
         <div className="rounded-2xl border border-border-soft overflow-hidden bg-white/3">
-          <div className="grid grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] px-4 py-3 text-sm font-semibold text-muted bg-black/20">
+          <div className="hidden sm:grid grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] px-4 py-3 text-sm font-semibold text-muted bg-black/20">
             <span>Ejercicio</span>
             <span className="text-center">Set</span>
             <span>Referencia (PR / Último)</span>
@@ -432,89 +534,97 @@ function RegisterTraining({ onNavigate }) {
           </div>
           <div className="divide-y divide-border-soft/60">
             {currentRoutine.workouts.map((exercise, exerciseIndex) => (
-              <div key={exercise.name} className="px-4 py-3 space-y-2 bg-white/2">
-                <div className="grid grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3">
-                  <div className="font-semibold">{exercise.name}</div>
-                  <span className="text-xs text-muted">⏱</span>
-                  {(() => {
-                    const ref = getReference(exercise.exerciseId || slugify(exercise.name))
-                    return (
-                      <div className="text-sm text-muted">
-                        {ref.label} {ref.date && `· ${ref.date}`}
+              <div
+                key={exercise.name}
+                className="px-4 py-4 bg-white/5 rounded-xl border border-border-soft/60 shadow-sm"
+              >
+                <div className="flex flex-col lg:flex-row gap-6 items-start">
+                  <div className="lg:w-72 w-full flex-shrink-0 flex justify-center">{renderExerciseImage(exercise)}</div>
+                  <div className="flex-1 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-start gap-3 text-sm">
+                      <div className="font-semibold text-base sm:text-lg leading-tight">{exercise.name}</div>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
+                        <span>Ref:</span>
+                        {(() => {
+                          const ref = getReference(exercise.exerciseId || slugify(exercise.name))
+                          return (
+                            <span>
+                              {ref.label} {ref.date && `- ${ref.date}`}
+                            </span>
+                          )
+                        })()}
                       </div>
-                    )
-                  })()}
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted pl-6">
-                  <button
-                    type="button"
-                    className="ghost-btn text-xs"
-                    onClick={() => startExercise(exercise.exerciseId || slugify(exercise.name))}
-                  >
-                    Iniciar ejercicio
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-btn text-xs"
-                    onClick={() => stopExercise(exercise.exerciseId || slugify(exercise.name))}
-                  >
-                    Terminar ejercicio
-                  </button>
-                  <span>{formatSeconds(getExerciseElapsed(exercise.exerciseId || slugify(exercise.name)))}</span>
-                </div>
-                <div className="space-y-2">
-                  {exercise.sets.map((set, setIndex) => (
-                    <div
-                      key={setIndex}
-                      className="grid grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3 pl-6"
-                    >
-                      <div />
-                      <span className="text-sm text-muted">{setIndex + 1}</span>
-                      {(() => {
-                        const ref = getReference(exercise.exerciseId || slugify(exercise.name), setIndex)
-                        return (
-                          <span className="text-[11px] text-muted flex flex-col leading-tight">
-                            <span>{ref.label}</span>
-                            {ref.date && <span>{ref.date}</span>}
-                          </span>
-                        )
-                      })()}
-                      <input
-                        className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                        value={set.weight}
-                        onChange={(e) => updateSet(exerciseIndex, setIndex, 'weight', e.target.value)}
-                        placeholder="kg"
-                      />
-                      <input
-                        className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                        value={set.reps}
-                        onChange={(e) => updateSet(exerciseIndex, setIndex, 'reps', e.target.value)}
-                        placeholder="reps"
-                      />
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
+                        <button
+                          type="button"
+                          className="ghost-btn text-xs sm:text-sm"
+                          onClick={() => startExercise(exercise.exerciseId || slugify(exercise.name))}
+                        >
+                          Iniciar ejercicio
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-btn text-xs sm:text-sm"
+                          onClick={() => stopExercise(exercise.exerciseId || slugify(exercise.name))}
+                        >
+                          Terminar ejercicio
+                        </button>
+                        <span className="ml-auto text-xs sm:text-sm">
+                          {formatSeconds(getExerciseElapsed(exercise.exerciseId || slugify(exercise.name)))}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {exercise.sets.map((set, setIndex) => (
+                        <div
+                          key={setIndex}
+                          className="grid grid-cols-[0.4fr_1.2fr_1fr_1fr_0.6fr] sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3 text-sm"
+                        >
+                          <div className="text-sm text-muted text-center">{setIndex + 1}</div>
+                          {(() => {
+                            const ref = getReference(exercise.exerciseId || slugify(exercise.name), setIndex)
+                            return (
+                              <span className="text-xs sm:text-[12px] text-muted flex flex-col leading-tight">
+                                <span>{ref.label}</span>
+                                {ref.date && <span>{ref.date}</span>}
+                              </span>
+                            )
+                          })()}
+                          <input
+                            className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
+                            value={set.weight}
+                            onChange={(e) => updateSet(exerciseIndex, setIndex, 'weight', e.target.value)}
+                            placeholder="kg"
+                          />
+                          <input
+                            className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
+                            value={set.reps}
+                            onChange={(e) => updateSet(exerciseIndex, setIndex, 'reps', e.target.value)}
+                            placeholder="reps"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleDone(exerciseIndex, setIndex)}
+                            className="mx-auto w-6 h-6 sm:w-5 sm:h-5 rounded-full border border-border-soft bg-white/5 flex items-center justify-center"
+                            aria-label="Marcar set completado"
+                          >
+                            <span
+                              className={`w-3 h-3 rounded-full ${
+                                set.done ? 'bg-accent shadow-[0_0_8px_rgba(79,163,255,0.6)]' : 'bg-transparent'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      ))}
                       <button
                         type="button"
-                        onClick={() => toggleDone(exerciseIndex, setIndex)}
-                        className="mx-auto w-5 h-5 rounded-full border border-border-soft bg-white/5 flex items-center justify-center"
-                        aria-label="Marcar set completado"
+                        className="w-full text-center text-sm text-accent font-semibold py-2 border border-dashed border-accent/40 rounded-lg hover:bg-accent/10 transition-colors"
+                        onClick={() => addSet(exerciseIndex)}
                       >
-                        <span
-                          className={`w-3 h-3 rounded-full ${
-                            set.done ? 'bg-accent shadow-[0_0_8px_rgba(79,163,255,0.6)]' : 'bg-transparent'
-                          }`}
-                        />
+                        + Añadir Set
                       </button>
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="w-full text-center text-sm text-accent font-semibold py-2 border border-dashed border-accent/40 rounded-lg hover:bg-accent/10 transition-colors"
-                    onClick={() => addSet(exerciseIndex)}
-                  >
-                    + Añadir Set
-                  </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -535,7 +645,7 @@ function RegisterTraining({ onNavigate }) {
               <img src={photoPreview} alt="Vista previa" className="w-full max-h-72 object-cover rounded-xl" />
             ) : (
               <>
-                <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center text-xl text-muted">📷</div>
+                <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center text-xl text-muted">📤</div>
                 <p className="text-sm text-muted">
                   Haz clic para subir o arrastra y suelta <br />
                   <span className="text-xs">PNG, JPG o GIF (max. 10MB)</span>

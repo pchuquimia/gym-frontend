@@ -22,6 +22,8 @@ export const api = {
   createRoutine: (payload) => request('/api/routines', { method: 'POST', body: JSON.stringify(payload) }),
   updateRoutine: (id, payload) => request(`/api/routines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteRoutine: (id) => request(`/api/routines/${id}`, { method: 'DELETE' }),
+  getPreference: (userId) => request(`/api/preferences${userId ? `?userId=${userId}` : ''}`),
+  setPreference: (payload) => request('/api/preferences', { method: 'POST', body: JSON.stringify(payload) }),
 
   getSessions: () => request('/api/sessions'),
   createSession: (payload) => request('/api/sessions', { method: 'POST', body: JSON.stringify(payload) }),
