@@ -36,7 +36,7 @@ export function TrainingProvider({ children }) {
           api.getPhotos(),
           api.getTrainings(),
         ])
-        setExercises(exs.map((e) => ({ ...e, id: e._id || e.id })))
+        setExercises(exs.map((e) => ({ ...e, id: e._id || e.id, branches: e.branches?.length ? e.branches : ['general'] })))
         setSessions(sess.map((s) => ({ ...s, id: s._id || s.id })))
         setPhotos(ph.map((p) => ({ ...p, id: p._id || p.id })))
         setTrainings(tr.map((t) => ({ ...t, id: t._id || t.id })))
@@ -101,13 +101,15 @@ export function TrainingProvider({ children }) {
 
   const addExercise = async (exercise) => {
     const id = exercise.id || slugify(exercise.name)
-    const saved = await api.createExercise({ ...exercise, _id: id })
-    setExercises((prev) => [...prev, { ...saved, id }])
+    const payload = { ...exercise, _id: id, branches: exercise.branches?.length ? exercise.branches : ['general'] }
+    const saved = await api.createExercise(payload)
+    setExercises((prev) => [...prev, { ...saved, id, branches: saved.branches || payload.branches }])
   }
 
   const updateExerciseMeta = async (id, payload) => {
-    const saved = await api.updateExercise(id, payload)
-    setExercises((prev) => prev.map((ex) => (ex.id === id ? { ...ex, ...saved, id } : ex)))
+    const body = { ...payload, branches: payload.branches?.length ? payload.branches : ['general'] }
+    const saved = await api.updateExercise(id, body)
+    setExercises((prev) => prev.map((ex) => (ex.id === id ? { ...ex, ...saved, id, branches: saved.branches || body.branches } : ex)))
   }
 
   const deleteExercise = async (id) => {

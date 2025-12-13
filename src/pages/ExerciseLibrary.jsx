@@ -62,6 +62,7 @@ function ExerciseLibrary() {
       description: exercise.description,
       equipment: exercise.equipment,
       image: exercise.image,
+      branches: exercise.branches?.length ? exercise.branches : ['general'],
       type: exercise.type || "custom",
     };
 

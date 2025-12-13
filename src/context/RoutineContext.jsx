@@ -25,13 +25,15 @@ export function RoutineProvider({ children }) {
   }, [])
 
   const addRoutine = async (routine) => {
-    const saved = await api.createRoutine({ ...routine, _id: routine.id })
-    setRoutines((prev) => [{ ...saved, id: routine.id }, ...prev])
+    const payload = { ...routine, branch: routine.branch || 'general', _id: routine.id }
+    const saved = await api.createRoutine(payload)
+    setRoutines((prev) => [{ ...saved, id: routine.id, branch: saved.branch || payload.branch }, ...prev])
   }
 
   const updateRoutine = async (id, payload) => {
-    const saved = await api.updateRoutine(id, payload)
-    setRoutines((prev) => prev.map((r) => (r.id === id ? { ...saved, id } : r)))
+    const body = { ...payload, branch: payload.branch || 'general' }
+    const saved = await api.updateRoutine(id, body)
+    setRoutines((prev) => prev.map((r) => (r.id === id ? { ...saved, id, branch: saved.branch || body.branch } : r)))
   }
 
   const deleteRoutine = async (id) => {
@@ -42,7 +44,7 @@ export function RoutineProvider({ children }) {
   const duplicateRoutine = async (id) => {
     const found = routines.find((r) => r._id === id || r.id === id)
     if (!found) return
-    const copy = { ...found, id: `${id}-copy-${Date.now()}`, name: `${found.name} (Copia)` }
+    const copy = { ...found, id: `${id}-copy-${Date.now()}`, name: `${found.name} (Copia)`, branch: found.branch || 'general' }
     await addRoutine(copy)
   }
 

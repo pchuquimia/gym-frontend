@@ -1,4 +1,19 @@
-const muscles = ['Todos', 'Pecho', 'Espalda', 'Piernas', 'Brazos', 'Hombros', 'Core', 'Full Body']
+const muscles = [
+  'Todos',
+  'Pecho',
+  'Espalda',
+  'Piernas',
+  'Triceps',
+  'Biceps',
+  'Femoral',
+  'Cuadricep',
+  'Pantorrillas',
+  'Gluteo',
+  'Abdominales',
+  'Hombros',
+  'Core',
+  'Full Body',
+]
 
 function FilterBar({ search, onSearch, activeFilter, onFilter }) {
   return (

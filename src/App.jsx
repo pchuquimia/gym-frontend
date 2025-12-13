@@ -26,7 +26,18 @@ const PAGES = {
 }
 
 function App() {
-  const [activePage, setActivePage] = useState('dashboard')
+  const [activePage, setActivePage] = useState(() => {
+    if (typeof localStorage === 'undefined') return 'dashboard'
+    const stored = localStorage.getItem('active_page')
+    return stored || 'dashboard'
+  })
+
+  const handleNavigate = (page) => {
+    setActivePage(page)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('active_page', page)
+    }
+  }
 
   const pageEntry = useMemo(() => PAGES[activePage] || PAGES.dashboard, [activePage])
   const PageComponent = pageEntry.component
@@ -35,8 +46,8 @@ function App() {
     <TrainingProvider>
       <RoutineProvider>
         <UserProvider>
-          <MainLayout activePage={activePage} onNavigate={setActivePage}>
-            <PageComponent pageKey={pageEntry.label} onNavigate={setActivePage} />
+          <MainLayout activePage={activePage} onNavigate={handleNavigate}>
+            <PageComponent pageKey={pageEntry.label} onNavigate={handleNavigate} />
           </MainLayout>
         </UserProvider>
       </RoutineProvider>

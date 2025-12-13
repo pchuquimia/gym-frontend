@@ -21,7 +21,8 @@ const formatSeconds = (sec) => {
 }
 
 function RegisterTraining({ onNavigate }) {
-  const draftKey = 'training_draft'
+  const draftStoreKey = 'training_drafts'
+  const lastDraftKey = 'training_last_draft'
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [selectedRoutineId, setSelectedRoutineId] = useState(null)
   const [currentRoutine, setCurrentRoutine] = useState(null)
@@ -38,6 +39,14 @@ function RegisterTraining({ onNavigate }) {
   const { addSession, addTraining, sessions, exercises: libraryExercises, branch, setBranch } = useTrainingData()
   const { routines } = useRoutines()
   const autosaveRef = useRef(null)
+
+  const exerciseMeta = useMemo(() => {
+    const map = {}
+    libraryExercises.forEach((ex) => {
+      map[ex.id] = ex
+    })
+    return map
+  }, [libraryExercises])
 
   const allRoutines = useMemo(() => {
     const libraryIds = new Set(libraryExercises.map((ex) => ex.id))
@@ -58,6 +67,8 @@ function RegisterTraining({ onNavigate }) {
           workouts: validWorkouts.map((ex) => ({
             name: ex.name,
             exerciseId: ex.exerciseId || slugify(ex.name),
+            muscle: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.muscle || ex.muscle,
+            image: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.image || ex.image,
             sets: Array.from({ length: ex.sets || 1 }, () => ({ weight: '', reps: '', note: '', done: false })),
           })),
         }
@@ -102,20 +113,54 @@ function RegisterTraining({ onNavigate }) {
     return () => clearInterval(interval)
   }, [exerciseTimers])
 
+  const loadDraft = (routineId, date) => {
+    if (typeof localStorage === 'undefined') return null
+    try {
+      const storeRaw = localStorage.getItem(draftStoreKey)
+      if (!storeRaw) return null
+      const store = JSON.parse(storeRaw)
+      const key = `${routineId || 'none'}|${date || ''}`
+      return store[key] || null
+    } catch {
+      return null
+    }
+  }
+
+  const persistDraft = (draft) => {
+    if (typeof localStorage === 'undefined') return
+    try {
+      const storeRaw = localStorage.getItem(draftStoreKey)
+      const store = storeRaw ? JSON.parse(storeRaw) : {}
+      const key = `${draft.selectedRoutineId || 'none'}|${draft.sessionDate || ''}`
+      store[key] = draft
+      localStorage.setItem(draftStoreKey, JSON.stringify(store))
+      localStorage.setItem(lastDraftKey, key)
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
-    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(draftKey) : null
-    if (stored) {
+    if (typeof localStorage === 'undefined') return
+    const lastKey = localStorage.getItem(lastDraftKey)
+    if (lastKey) {
+      const storeRaw = localStorage.getItem(draftStoreKey)
       try {
-        const draft = JSON.parse(stored)
-        if (draft.sessionDate) setSessionDate(draft.sessionDate)
-        if (draft.currentRoutine) setCurrentRoutine(draft.currentRoutine)
-        if (draft.selectedRoutineId) setSelectedRoutineId(draft.selectedRoutineId)
-        if (draft.trainingElapsed) setTrainingElapsed(draft.trainingElapsed)
-        if (draft.trainingStart) setTrainingStart(draft.trainingStart)
-        if (draft.exerciseTimers) setExerciseTimers(draft.exerciseTimers)
-        if (draft.photoPreview) setPhotoPreview(draft.photoPreview)
-      } catch (e) {
-        // ignore parse error
+        const store = storeRaw ? JSON.parse(storeRaw) : {}
+        const draft = store[lastKey]
+        if (draft) {
+          if (draft.sessionDate) setSessionDate(draft.sessionDate)
+          if (draft.currentRoutine) setCurrentRoutine(draft.currentRoutine)
+          if (draft.selectedRoutineId) setSelectedRoutineId(draft.selectedRoutineId)
+          if (draft.trainingElapsed) setTrainingElapsed(draft.trainingElapsed)
+          if (draft.trainingStart) setTrainingStart(draft.trainingStart)
+          if (draft.exerciseTimers) setExerciseTimers(draft.exerciseTimers)
+          if (draft.photoPreview) setPhotoPreview(draft.photoPreview)
+          if (draft.selectedBranch) setSelectedBranch(draft.selectedBranch)
+          setIsSelectorOpen(!draft.selectedRoutineId)
+        }
+      } catch {
+        // ignore
       }
     }
   }, [])
@@ -126,6 +171,20 @@ function RegisterTraining({ onNavigate }) {
       setCurrentRoutine(allRoutines[0])
     }
   }, [allRoutines, selectedRoutineId])
+
+  useEffect(() => {
+    if (!selectedRoutineId) return
+    const draft = loadDraft(selectedRoutineId, sessionDate)
+    if (draft?.currentRoutine) {
+      setCurrentRoutine(draft.currentRoutine)
+      setTrainingElapsed(draft.trainingElapsed || 0)
+      setTrainingStart(draft.trainingStart || null)
+      setExerciseTimers(draft.exerciseTimers || {})
+      setPhotoPreview(draft.photoPreview || null)
+      if (draft.selectedBranch) setSelectedBranch(draft.selectedBranch)
+      setIsSelectorOpen(false)
+    }
+  }, [selectedRoutineId, sessionDate])
 
   useEffect(() => {
     if (branch) setSelectedBranch(branch)
@@ -142,13 +201,14 @@ function RegisterTraining({ onNavigate }) {
         trainingElapsed,
         exerciseTimers,
         photoPreview,
+        selectedBranch,
       }
-      localStorage.setItem(draftKey, JSON.stringify(payload))
+      persistDraft(payload)
     }, 800)
     return () => {
       if (autosaveRef.current) clearTimeout(autosaveRef.current)
     }
-  }, [sessionDate, selectedRoutineId, currentRoutine, trainingStart, trainingElapsed, exerciseTimers, photoPreview])
+  }, [sessionDate, selectedRoutineId, currentRoutine, trainingStart, trainingElapsed, exerciseTimers, photoPreview, selectedBranch])
 
   const handleSelectRoutine = (routineId) => {
     const found = allRoutines.find((r) => r.id === routineId) || allRoutines[0]
@@ -197,7 +257,7 @@ function RegisterTraining({ onNavigate }) {
     if (!nameToUse) return
     const match = libraryExercises.find((ex) => ex.name.toLowerCase() === nameToUse.toLowerCase())
     if (!match) {
-      setExerciseError('Solo puedes añadir ejercicios que estén en tu biblioteca.')
+      setExerciseError('Solo puedes anadir ejercicios que esten en tu biblioteca.')
       return
     }
     setExerciseError('')
@@ -210,6 +270,8 @@ function RegisterTraining({ onNavigate }) {
         {
           name: match.name,
           exerciseId: id,
+          muscle: match.muscle,
+          image: match.image,
           sets: [{ weight: '', reps: '', note: '', done: false }],
         },
       ],
@@ -271,7 +333,22 @@ function RegisterTraining({ onNavigate }) {
     setExerciseTimers({})
     setPhotoPreview(null)
     setPhotoFile(null)
-    localStorage.removeItem(draftKey)
+    // remove draft for this rutina+fecha
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const storeRaw = localStorage.getItem(draftStoreKey)
+        const key = `${selectedRoutineId || 'none'}|${sessionDate || ''}`
+        if (storeRaw) {
+          const store = JSON.parse(storeRaw)
+          delete store[key]
+          localStorage.setItem(draftStoreKey, JSON.stringify(store))
+          const lastKey = localStorage.getItem(lastDraftKey)
+          if (lastKey === key) localStorage.removeItem(lastDraftKey)
+        }
+      } catch {
+        // ignore
+      }
+    }
     onNavigate?.('historial')
   }
 
@@ -301,8 +378,9 @@ function RegisterTraining({ onNavigate }) {
       trainingElapsed,
       exerciseTimers,
       photoPreview,
+      selectedBranch,
     }
-    localStorage.setItem(draftKey, JSON.stringify(payload))
+    persistDraft(payload)
   }
 
   const startExercise = (exerciseId) => {
@@ -320,9 +398,40 @@ function RegisterTraining({ onNavigate }) {
     return map
   }, [libraryExercises])
 
+  useEffect(() => {
+    // Rehidrata la rutina en memoria con meta (músculo/imagen) si viene de localStorage o de un fetch sin esos campos.
+    if (!currentRoutine) return
+    const hydrated = {
+      ...currentRoutine,
+      workouts: (currentRoutine.workouts || []).map((w) => {
+        const meta = exerciseMeta[w.exerciseId || slugify(w.name)] || {}
+        return {
+          ...w,
+          muscle: w.muscle || meta.muscle || 'Sin grupo',
+          image: w.image || meta.image || exerciseImages[w.exerciseId || slugify(w.name)] || '',
+        }
+      }),
+    }
+    setCurrentRoutine(hydrated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseMeta, exerciseImages])
+
+  const groupedWorkouts = useMemo(() => {
+    const groups = new Map()
+    ;(currentRoutine?.workouts || []).forEach((w, idx) => {
+      const meta = exerciseMeta[w.exerciseId || slugify(w.name)] || {}
+      const muscle = w.muscle || meta.muscle || 'Sin grupo'
+      const image = w.image || meta.image || exerciseImages[w.exerciseId || slugify(w.name)] || ''
+      const key = muscle
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push({ ...w, muscle, image, sourceIdx: idx })
+    })
+    return Array.from(groups.entries())
+  }, [currentRoutine, exerciseMeta, exerciseImages])
+
   const renderExerciseImage = (exercise) => {
     const id = exercise.exerciseId || slugify(exercise.name)
-    const img = exerciseImages[id]
+    const img = exercise.image || exerciseImages[id]
     if (img) {
       return (
         <img
@@ -524,111 +633,111 @@ function RegisterTraining({ onNavigate }) {
         </div>
 
         <div className="rounded-2xl border border-border-soft overflow-hidden bg-white/3">
-          <div className="hidden sm:grid grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] px-4 py-3 text-sm font-semibold text-muted bg-black/20">
-            <span>Ejercicio</span>
-            <span className="text-center">Set</span>
-            <span>Referencia (PR / Último)</span>
-            <span>Peso (kg)</span>
-            <span>Repeticiones</span>
-            <span className="text-center">Hecho</span>
-          </div>
-          <div className="divide-y divide-border-soft/60">
-            {currentRoutine.workouts.map((exercise, exerciseIndex) => (
-              <div
-                key={exercise.name}
-                className="px-4 py-4 bg-white/5 rounded-xl border border-border-soft/60 shadow-sm"
-              >
-                <div className="flex flex-col lg:flex-row gap-6 items-start">
-                  <div className="lg:w-72 w-full flex-shrink-0 flex justify-center">{renderExerciseImage(exercise)}</div>
-                  <div className="flex-1 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-start gap-3 text-sm">
-                      <div className="font-semibold text-base sm:text-lg leading-tight">{exercise.name}</div>
-                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
-                        <span>Ref:</span>
-                        {(() => {
-                          const ref = getReference(exercise.exerciseId || slugify(exercise.name))
-                          return (
-                            <span>
-                              {ref.label} {ref.date && `- ${ref.date}`}
+          {groupedWorkouts.map(([muscle, items]) => (
+            <div key={muscle} className="border-b border-border-soft/60 last:border-b-0">
+              <div className="px-4 py-3 bg-black/20 flex items-center justify-between">
+                <span className="text-sm font-semibold">{muscle}</span>
+                <span className="text-xs text-muted">{items.length} ejercicios</span>
+              </div>
+              <div className="divide-y divide-border-soft/60">
+                {items.map((exercise, exerciseIndex) => (
+                  <div
+                    key={`${exercise.name}-${exerciseIndex}`}
+                    className="px-4 py-4 bg-white/5 rounded-xl border border-border-soft/60 shadow-sm"
+                  >
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                      <div className="lg:w-72 w-full flex-shrink-0 flex justify-center">{renderExerciseImage(exercise)}</div>
+                      <div className="flex-1 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-start gap-3 text-sm">
+                          <div className="font-semibold text-base sm:text-lg leading-tight">{exercise.name}</div>
+                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
+                            <span>Ref:</span>
+                            {(() => {
+                              const ref = getReference(exercise.exerciseId || slugify(exercise.name))
+                              return (
+                                <span>
+                                  {ref.label} {ref.date && `- ${ref.date}`}
+                                </span>
+                              )
+                            })()}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
+                            <button
+                              type="button"
+                              className="ghost-btn text-xs sm:text-sm"
+                              onClick={() => startExercise(exercise.exerciseId || slugify(exercise.name))}
+                            >
+                              Iniciar ejercicio
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost-btn text-xs sm:text-sm"
+                              onClick={() => stopExercise(exercise.exerciseId || slugify(exercise.name))}
+                            >
+                              Terminar ejercicio
+                            </button>
+                            <span className="ml-auto text-xs sm:text-sm">
+                              {formatSeconds(getExerciseElapsed(exercise.exerciseId || slugify(exercise.name)))}
                             </span>
-                          )
-                        })()}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
-                        <button
-                          type="button"
-                          className="ghost-btn text-xs sm:text-sm"
-                          onClick={() => startExercise(exercise.exerciseId || slugify(exercise.name))}
-                        >
-                          Iniciar ejercicio
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-btn text-xs sm:text-sm"
-                          onClick={() => stopExercise(exercise.exerciseId || slugify(exercise.name))}
-                        >
-                          Terminar ejercicio
-                        </button>
-                        <span className="ml-auto text-xs sm:text-sm">
-                          {formatSeconds(getExerciseElapsed(exercise.exerciseId || slugify(exercise.name)))}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {exercise.sets.map((set, setIndex) => (
-                        <div
-                          key={setIndex}
-                          className="grid grid-cols-[0.4fr_1.2fr_1fr_1fr_0.6fr] sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3 text-sm"
-                        >
-                          <div className="text-sm text-muted text-center">{setIndex + 1}</div>
-                          {(() => {
-                            const ref = getReference(exercise.exerciseId || slugify(exercise.name), setIndex)
-                            return (
-                              <span className="text-xs sm:text-[12px] text-muted flex flex-col leading-tight">
-                                <span>{ref.label}</span>
-                                {ref.date && <span>{ref.date}</span>}
-                              </span>
-                            )
-                          })()}
-                          <input
-                            className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                            value={set.weight}
-                            onChange={(e) => updateSet(exerciseIndex, setIndex, 'weight', e.target.value)}
-                            placeholder="kg"
-                          />
-                          <input
-                            className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                            value={set.reps}
-                            onChange={(e) => updateSet(exerciseIndex, setIndex, 'reps', e.target.value)}
-                            placeholder="reps"
-                          />
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          {exercise.sets.map((set, setIndex) => (
+                            <div
+                              key={setIndex}
+                              className="grid grid-cols-[0.4fr_1.2fr_1fr_1fr_0.6fr] sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3 text-sm"
+                            >
+                              <div className="text-sm text-muted text-center">{setIndex + 1}</div>
+                              {(() => {
+                                const ref = getReference(exercise.exerciseId || slugify(exercise.name), setIndex)
+                                return (
+                                  <span className="text-xs sm:text-[12px] text-muted flex flex-col leading-tight">
+                                    <span>{ref.label}</span>
+                                    {ref.date && <span>{ref.date}</span>}
+                                  </span>
+                                )
+                              })()}
+                              <input
+                                className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
+                                value={set.weight}
+                                onChange={(e) => updateSet(exercise.sourceIdx, setIndex, 'weight', e.target.value)}
+                                placeholder="kg"
+                              />
+                              <input
+                                className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
+                                value={set.reps}
+                                onChange={(e) => updateSet(exercise.sourceIdx, setIndex, 'reps', e.target.value)}
+                                placeholder="reps"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => toggleDone(exercise.sourceIdx, setIndex)}
+                                className="mx-auto w-6 h-6 sm:w-5 sm:h-5 rounded-full border border-border-soft bg-white/5 flex items-center justify-center"
+                                aria-label="Marcar set completado"
+                              >
+                                <span
+                                  className={`w-3 h-3 rounded-full ${
+                                    set.done ? 'bg-accent shadow-[0_0_8px_rgba(79,163,255,0.6)]' : 'bg-transparent'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          ))}
                           <button
                             type="button"
-                            onClick={() => toggleDone(exerciseIndex, setIndex)}
-                            className="mx-auto w-6 h-6 sm:w-5 sm:h-5 rounded-full border border-border-soft bg-white/5 flex items-center justify-center"
-                            aria-label="Marcar set completado"
+                            className="w-full text-center text-sm text-accent font-semibold py-2 border border-dashed border-accent/40 rounded-lg hover:bg-accent/10 transition-colors"
+                            onClick={() => addSet(exercise.sourceIdx)}
                           >
-                            <span
-                              className={`w-3 h-3 rounded-full ${
-                                set.done ? 'bg-accent shadow-[0_0_8px_rgba(79,163,255,0.6)]' : 'bg-transparent'
-                              }`}
-                            />
+                            + Anadir Set
                           </button>
                         </div>
-                      ))}
-                      <button
-                        type="button"
-                        className="w-full text-center text-sm text-accent font-semibold py-2 border border-dashed border-accent/40 rounded-lg hover:bg-accent/10 transition-colors"
-                        onClick={() => addSet(exerciseIndex)}
-                      >
-                        + Añadir Set
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
 
