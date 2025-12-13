@@ -533,13 +533,6 @@ function RegisterTraining({ onNavigate }) {
           title="Registrar Entrenamiento (Navegación Completa)"
           subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
         />
-        {onNavigate && (
-          <div className="md:hidden mb-3">
-            <button type="button" className="secondary-btn w-full text-sm" onClick={() => onNavigate('rutinas')}>
-              Ver Rutinas y Planificación
-            </button>
-          </div>
-        )}
         <div className="card">No hay rutinas disponibles. Crea una en Rutinas y Planificación.</div>
       </>
     )
@@ -551,13 +544,6 @@ function RegisterTraining({ onNavigate }) {
         title="Registrar Entrenamiento (Navegación Completa)"
         subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
       />
-      {onNavigate && (
-        <div className="md:hidden mb-3">
-          <button type="button" className="secondary-btn w-full text-sm" onClick={() => onNavigate('rutinas')}>
-            Ver Rutinas y Planificación
-          </button>
-        </div>
-      )}
       {isSelectorOpen && (
         <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="w-full max-w-2xl rounded-2xl bg-[#0d1f33] border border-border-soft p-4 sm:p-6 space-y-4">

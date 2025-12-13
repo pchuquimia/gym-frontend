@@ -16,7 +16,7 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-function ExerciseLibrary() {
+function ExerciseLibrary({ onNavigate }) {
   const { exercises, addExercise, updateExerciseMeta, deleteExercise } =
     useTrainingData();
   const [search, setSearch] = useState("");
@@ -94,6 +94,17 @@ function ExerciseLibrary() {
         title="Biblioteca de Ejercicios (Navegaci\u00f3n Completa)"
         subtitle="Administra y consulta tu cat\u00e1logo visual de ejercicios"
       />
+      {typeof onNavigate === "function" && (
+        <div className="md:hidden mb-3">
+          <button
+            type="button"
+            className="secondary-btn w-full text-sm"
+            onClick={() => onNavigate("rutinas")}
+          >
+            Ir a Rutinas y Planificaci\u00f3n
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <FilterBar
