@@ -34,7 +34,20 @@ function RegisterTraining({ onNavigate }) {
   const [trainingElapsed, setTrainingElapsed] = useState(0)
   const [exerciseTimers, setExerciseTimers] = useState({})
   const [exerciseTick, setExerciseTick] = useState(0)
-  const [isSelectorOpen, setIsSelectorOpen] = useState(true)
+  const [isSelectorOpen, setIsSelectorOpen] = useState(() => {
+    if (typeof localStorage === 'undefined') return true
+    try {
+      const lastKey = localStorage.getItem(lastDraftKey)
+      if (!lastKey) return true
+      const storeRaw = localStorage.getItem(draftStoreKey)
+      if (!storeRaw) return true
+      const store = JSON.parse(storeRaw)
+      const draft = store[lastKey]
+      return !(draft?.selectedRoutineId && draft?.currentRoutine)
+    } catch {
+      return true
+    }
+  })
   const [selectedBranch, setSelectedBranch] = useState('general')
   const { addSession, addTraining, sessions, exercises: libraryExercises, branch, setBranch } = useTrainingData()
   const { routines } = useRoutines()
@@ -113,13 +126,15 @@ function RegisterTraining({ onNavigate }) {
     return () => clearInterval(interval)
   }, [exerciseTimers])
 
+  const draftKeyFor = (routineId, date) => `${routineId || 'none'}|${date || ''}`
+
   const loadDraft = (routineId, date) => {
     if (typeof localStorage === 'undefined') return null
     try {
       const storeRaw = localStorage.getItem(draftStoreKey)
       if (!storeRaw) return null
       const store = JSON.parse(storeRaw)
-      const key = `${routineId || 'none'}|${date || ''}`
+      const key = draftKeyFor(routineId, date)
       return store[key] || null
     } catch {
       return null
@@ -131,10 +146,27 @@ function RegisterTraining({ onNavigate }) {
     try {
       const storeRaw = localStorage.getItem(draftStoreKey)
       const store = storeRaw ? JSON.parse(storeRaw) : {}
-      const key = `${draft.selectedRoutineId || 'none'}|${draft.sessionDate || ''}`
+      const key = draftKeyFor(draft.selectedRoutineId, draft.sessionDate)
       store[key] = draft
       localStorage.setItem(draftStoreKey, JSON.stringify(store))
       localStorage.setItem(lastDraftKey, key)
+    } catch {
+      // ignore
+    }
+  }
+
+  const removeDraft = (routineId, date) => {
+    if (typeof localStorage === 'undefined') return
+    try {
+      const key = draftKeyFor(routineId, date)
+      const storeRaw = localStorage.getItem(draftStoreKey)
+      if (storeRaw) {
+        const store = JSON.parse(storeRaw)
+        delete store[key]
+        localStorage.setItem(draftStoreKey, JSON.stringify(store))
+      }
+      const lastKey = localStorage.getItem(lastDraftKey)
+      if (lastKey === key) localStorage.removeItem(lastDraftKey)
     } catch {
       // ignore
     }
@@ -213,7 +245,8 @@ function RegisterTraining({ onNavigate }) {
   const handleSelectRoutine = (routineId) => {
     const found = allRoutines.find((r) => r.id === routineId) || allRoutines[0]
     setSelectedRoutineId(routineId)
-    setCurrentRoutine(JSON.parse(JSON.stringify(found)))
+      setCurrentRoutine(JSON.parse(JSON.stringify(found)))
+    setIsSelectorOpen(false)
   }
 
   const getExerciseElapsed = (exerciseId) => {
@@ -333,22 +366,7 @@ function RegisterTraining({ onNavigate }) {
     setExerciseTimers({})
     setPhotoPreview(null)
     setPhotoFile(null)
-    // remove draft for this rutina+fecha
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const storeRaw = localStorage.getItem(draftStoreKey)
-        const key = `${selectedRoutineId || 'none'}|${sessionDate || ''}`
-        if (storeRaw) {
-          const store = JSON.parse(storeRaw)
-          delete store[key]
-          localStorage.setItem(draftStoreKey, JSON.stringify(store))
-          const lastKey = localStorage.getItem(lastDraftKey)
-          if (lastKey === key) localStorage.removeItem(lastDraftKey)
-        }
-      } catch {
-        // ignore
-      }
-    }
+    removeDraft(selectedRoutineId, sessionDate)
     onNavigate?.('historial')
   }
 
@@ -515,6 +533,13 @@ function RegisterTraining({ onNavigate }) {
           title="Registrar Entrenamiento (Navegación Completa)"
           subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
         />
+        {onNavigate && (
+          <div className="md:hidden mb-3">
+            <button type="button" className="secondary-btn w-full text-sm" onClick={() => onNavigate('rutinas')}>
+              Ver Rutinas y Planificación
+            </button>
+          </div>
+        )}
         <div className="card">No hay rutinas disponibles. Crea una en Rutinas y Planificación.</div>
       </>
     )
@@ -526,6 +551,13 @@ function RegisterTraining({ onNavigate }) {
         title="Registrar Entrenamiento (Navegación Completa)"
         subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
       />
+      {onNavigate && (
+        <div className="md:hidden mb-3">
+          <button type="button" className="secondary-btn w-full text-sm" onClick={() => onNavigate('rutinas')}>
+            Ver Rutinas y Planificación
+          </button>
+        </div>
+      )}
       {isSelectorOpen && (
         <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="w-full max-w-2xl rounded-2xl bg-[#0d1f33] border border-border-soft p-4 sm:p-6 space-y-4">
@@ -596,6 +628,11 @@ function RegisterTraining({ onNavigate }) {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-semibold">Elige tu rutina para hoy</p>
             <div className="grid gap-3 md:grid-cols-3">{routineCards}</div>
+            <div>
+              <button type="button" className="ghost-btn text-xs mt-2" onClick={() => setIsSelectorOpen(true)}>
+                Cambiar rutina / sucursal
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-1">
             <p className="label">Fecha</p>
