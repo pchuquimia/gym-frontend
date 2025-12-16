@@ -1,313 +1,645 @@
-import { useMemo } from "react";
-import ExerciseTrends from "../components/dashboard/ExerciseTrends";
-import GoalsProgress from "../components/dashboard/GoalsProgress";
-import LastWorkout from "../components/dashboard/LastWorkout";
-import MetricCards from "../components/dashboard/MetricCards";
-import ProgressPhotos from "../components/dashboard/ProgressPhotos";
-import RecentAchievements from "../components/dashboard/RecentAchievements";
-import TrendCard from "../components/dashboard/TrendCard";
-import TopBar from "../components/layout/TopBar";
-import { useTrainingData } from "../context/TrainingContext";
+import { useEffect, useMemo, useState } from 'react'
+import { ResponsiveLine } from '@nivo/line'
+import { ResponsiveBar } from '@nivo/bar'
+import TopBar from '../components/layout/TopBar'
+import { useTrainingData } from '../context/TrainingContext'
+
+const formatDate = (iso) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
+
+const toReps = (sets = []) => sets.reduce((acc, s) => acc + (Number(s.reps) || 0), 0)
+const avgWeight = (sets = []) => {
+  const weights = sets
+    .map((s) => Number(s.weight))
+    .filter((w) => Number.isFinite(w) && w >= 0)
+  if (!weights.length) return 0
+  return weights.reduce((a, b) => a + b, 0) / weights.length
+}
+
+const chartTheme = {
+  background: 'transparent',
+  textColor: '#d1d5db',
+  axis: {
+    domain: { line: { stroke: '#2c3a50', strokeWidth: 1 } },
+    ticks: { line: { stroke: '#2c3a50', strokeWidth: 1 }, text: { fill: '#94a3b8', fontSize: 11 } },
+    legend: { text: { fill: '#94a3b8', fontSize: 12 } },
+  },
+  grid: { line: { stroke: '#1e293b', strokeWidth: 1 } },
+  legends: { text: { fill: '#e2e8f0', fontSize: 12 } },
+  tooltip: { container: { background: '#0b1626', color: '#e2e8f0', fontSize: 12 } },
+}
 
 function Dashboard({ onNavigate }) {
-  const { sessions, photos, trainings } = useTrainingData();
+  const { sessions = [], trainings = [], photos = [], exercises = [] } = useTrainingData()
+  const [currentMuscleIdx, setCurrentMuscleIdx] = useState(0)
 
-  const stats = useMemo(() => {
-    if (!sessions.length) {
+  const todayISO = useMemo(() => {
+    const now = new Date()
+    const offset = now.getTimezoneOffset()
+    const local = new Date(now.getTime() - offset * 60000)
+    return local.toISOString().slice(0, 10)
+  }, [])
+
+  const data = useMemo(() => {
+    const exerciseMeta = exercises.reduce((acc, ex) => {
+      acc[ex.id] = ex
+      return acc
+    }, {})
+
+    const sessionsSorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
+
+    const previousByExercise = {}
+    sessionsSorted.forEach((s) => {
+      if (s.date >= todayISO) return
+      const reps = toReps(s.sets)
+      const key = s.exerciseId
+      if (!key) return
+      if (!previousByExercise[key] || new Date(s.date) > new Date(previousByExercise[key].date)) {
+        previousByExercise[key] = { reps, date: s.date }
+      }
+    })
+
+    const sessionsToday = sessions.filter((s) => s.date === todayISO)
+    const todayRoutine = trainings.find((t) => t.date === todayISO)?.routineName || 'Sin rutina'
+    const todayReps = sessionsToday.reduce((acc, s) => acc + toReps(s.sets), 0)
+    const todaySets = sessionsToday.reduce((acc, s) => acc + (s.sets?.length || 0), 0)
+    const todayExercises = sessionsToday.map((s) => {
+      const reps = toReps(s.sets)
+      const prev = previousByExercise[s.exerciseId]
+      let status = 'nuevo'
+      if (prev && prev.date !== s.date) {
+        if (reps > prev.reps) status = 'mejora'
+        else if (reps === prev.reps) status = 'mantiene'
+        else status = 'baja'
+      }
       return {
-        trend: {
-          semanal: [0, 0, 0, 0, 0, 0, 0],
-          mensual: [0, 0, 0, 0, 0, 0, 0],
-          trimestral: [0, 0, 0, 0, 0, 0, 0],
-        },
-        metrics: [],
-        lastSession: null,
-        achievements: [],
-        trends: [],
-        goals: [],
-      };
+        id: s.exerciseId,
+        name: s.exerciseName,
+        reps,
+        status,
+        muscle: exerciseMeta[s.exerciseId]?.muscle || 'Sin grupo',
+        sets: s.sets?.length || 0,
+      }
+    })
+
+    const last7 = []
+    for (let i = 6; i >= 0; i -= 1) {
+      const d = new Date(todayISO)
+      d.setDate(d.getDate() - i)
+      const iso = d.toISOString().slice(0, 10)
+      const reps = sessions
+        .filter((s) => s.date === iso)
+        .reduce((acc, s) => acc + toReps(s.sets), 0)
+      last7.push({ label: formatDate(iso), y: reps })
     }
 
-    const toVolume = (sets) =>
-      sets.reduce(
-        (acc, s) => acc + (Number(s.weight) || 0) * (Number(s.reps) || 0),
-        0
-      );
-
-    const sessionsWithIdx = sessions.map((s, idx) => ({ ...s, _idx: idx }));
-    const bestByExercise = {};
-    const prSet = new Set();
-
-    const sortedSessions = [...sessionsWithIdx].sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
-
-    sortedSessions.forEach((s) => {
-      let hasPR = false;
-      s.sets.forEach((set) => {
-        const weight = Number(set.weight) || 0;
-        const reps = Number(set.reps) || 0;
-        const prev = bestByExercise[s.exerciseId];
-        const better =
-          !prev ||
-          weight > prev.weight ||
-          (weight === prev.weight && reps > prev.reps);
-        if (better) {
-          hasPR = true;
-          bestByExercise[s.exerciseId] = { weight, reps, date: s.date };
+    const bestByExercise = {}
+    const prs = []
+    sessionsSorted.forEach((s) => {
+      const reps = toReps(s.sets)
+      const prev = bestByExercise[s.exerciseId]
+      if (!prev || reps > prev.reps) {
+        if (prev) {
+          prs.push({
+            name: s.exerciseName,
+            reps,
+            date: s.date,
+            diff: reps - prev.reps,
+          })
         }
-      });
-      if (hasPR) prSet.add(s._idx);
-    });
-
-    const trainingMap = new Map();
-    trainings.forEach((t) => {
-      const key = t.id || t._id || t.trainingId;
-      if (key) trainingMap.set(key, t);
-    });
-
-    const volumes = sessionsWithIdx.map((s) => {
-      const training = trainingMap.get(s.trainingId) || {};
-      return {
-        date: new Date(s.date),
-        volume: toVolume(s.sets),
-        duration: s.trainingDurationSeconds || 0,
-        routine: training.routineName || "Sin rutina",
-        hasPR: prSet.has(s._idx),
-      };
-    });
-    const now = new Date();
-
-    const makeBuckets = (days, buckets) => {
-      const bucketSize = days / buckets;
-      const arrVol = [];
-      const arrDur = [];
-      const arrSes = [];
-      const arrMeta = [];
-      for (let i = buckets - 1; i >= 0; i -= 1) {
-        const start = new Date(now);
-        start.setDate(start.getDate() - bucketSize * (i + 1));
-        const end = new Date(now);
-        end.setDate(end.getDate() - bucketSize * i);
-        const filtered = volumes.filter((v) => v.date >= start && v.date < end);
-        const sumVol = filtered.reduce((acc, v) => acc + v.volume, 0);
-        const sumDur = filtered.reduce((acc, v) => acc + v.duration, 0);
-        const routineMap = filtered.reduce((acc, v) => {
-          acc[v.routine] = (acc[v.routine] || 0) + v.volume;
-          return acc;
-        }, {});
-        const dominantRoutine =
-          Object.entries(routineMap).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "Sin rutina";
-        const prCount = filtered.filter((f) => f.hasPR).length;
-        arrVol.push(Math.round(sumVol));
-        arrDur.push(Math.round(sumDur / 60)); // minutos
-        arrSes.push(filtered.length);
-        arrMeta.push({ routine: dominantRoutine, prs: prCount });
+        bestByExercise[s.exerciseId] = { reps, date: s.date }
       }
-      return { volume: arrVol, duration: arrDur, sessions: arrSes, meta: arrMeta };
-    };
+    })
+    const recentPRs = prs.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
 
-    const trend = {
-      semanal: makeBuckets(7, 7),
-      mensual: makeBuckets(30, 7),
-      trimestral: makeBuckets(90, 7),
-    };
+    const muscleVolumeMap = {}
+    const recentSessions = sessionsSorted.filter((s) => {
+      const diffDays = (new Date(todayISO) - new Date(s.date)) / (1000 * 60 * 60 * 24)
+      return diffDays >= 0 && diffDays <= 30
+    })
+    recentSessions.forEach((s) => {
+      const muscle = exerciseMeta[s.exerciseId]?.muscle || 'Sin grupo'
+      muscleVolumeMap[muscle] = (muscleVolumeMap[muscle] || 0) + toReps(s.sets)
+    })
+    const muscleDist = Object.entries(muscleVolumeMap)
+      .map(([label, value]) => ({ label, value, sublabel: `${Math.round(value)} reps` }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6)
 
-    const totalVolume30 = volumes
-      .filter((v) => {
-        const diff = (now - v.date) / (1000 * 60 * 60 * 24);
-        return diff <= 30;
-      })
-      .reduce((acc, v) => acc + v.volume, 0);
+    const uniqueDates = Array.from(new Set(sessions.map((s) => s.date))).sort((a, b) => new Date(b) - new Date(a))
+    let streak = 0
+    let cursor = new Date(todayISO)
+    for (let i = 0; i < uniqueDates.length; i += 1) {
+      const currentISO = cursor.toISOString().slice(0, 10)
+      if (uniqueDates.includes(currentISO)) {
+        streak += 1
+        cursor.setDate(cursor.getDate() - 1)
+      } else {
+        break
+      }
+    }
+    const adherenceLast7 = (() => {
+      let count = 0
+      for (let i = 0; i < 7; i += 1) {
+        const d = new Date(todayISO)
+        d.setDate(d.getDate() - i)
+        const iso = d.toISOString().slice(0, 10)
+        if (uniqueDates.includes(iso)) count += 1
+      }
+      return Math.round((count / 7) * 100)
+    })()
 
-    const totalDurationExercise = sessions.reduce(
-      (acc, s) => acc + (s.exerciseDurationSeconds || 0),
-      0
-    );
-    const totalDurationTraining = trainings.reduce(
-      (acc, t) => acc + (t.durationSeconds || 0),
-      0
-    );
-    const avgExerciseDuration = sessions.length
-      ? totalDurationExercise / sessions.length
-      : 0;
-    const longestSession = trainings.length
-      ? Math.max(...trainings.map((t) => t.durationSeconds || 0), 0)
-      : 0;
-    const trainingCount =
-      trainings.length || new Set(sessions.map((s) => s.trainingId || s.date)).size;
+    const avgDuration =
+      trainings.length > 0
+        ? Math.round(
+            trainings.reduce((acc, t) => acc + (Number(t.durationSeconds) || 0), 0) /
+              trainings.length /
+              60,
+          )
+        : 0
+    const topRoutines = Object.entries(
+      trainings.reduce((acc, t) => {
+        const name = t.routineName || 'Sin nombre'
+        acc[name] = (acc[name] || 0) + 1
+        return acc
+      }, {}),
+    )
+      .map(([label, value]) => ({ label, value, sublabel: `${value} veces` }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 4)
 
-    const metrics = [
+    const lastPhotos = [...photos].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
+
+    const totalExerciseDurationMin = Math.round(
+      sessions.reduce((acc, s) => acc + (Number(s.exerciseDurationSeconds) || 0), 0) / 60,
+    )
+
+    // Serie de rendimiento por ejercicio más frecuente
+    const byExerciseCount = sessionsSorted.reduce((acc, s) => {
+      acc[s.exerciseId] = (acc[s.exerciseId] || 0) + 1
+      return acc
+    }, {})
+    const mostUsedExerciseId = Object.entries(byExerciseCount).sort((a, b) => b[1] - a[1])[0]?.[0]
+    const performanceSeries = mostUsedExerciseId
+      ? [
+          {
+            id: exerciseMeta[mostUsedExerciseId]?.name || 'Ejercicio',
+            data: sessionsSorted
+              .filter((s) => s.exerciseId === mostUsedExerciseId)
+              .map((s) => ({ x: formatDate(s.date), y: toReps(s.sets) })),
+          },
+        ]
+      : []
+
+    const trendsSummary = [
       {
-        label: "Volumen Total (30d)",
-        value: `${totalVolume30.toLocaleString()} kg`,
-        delta: "",
-        trend: "neutral",
+        title: 'Consistencia 7d',
+        value: `${adherenceLast7}%`,
+        detail: 'Porcentaje de días entrenados',
       },
       {
-        label: "Entrenamientos Completados",
-        value: trainingCount,
-        delta: "",
-        trend: "neutral",
+        title: 'PRs recientes',
+        value: recentPRs.length,
+        detail: 'Mejoras detectadas por reps',
       },
       {
-        label: "Duración Total (ejercicios)",
-        value: `${Math.round(totalDurationExercise / 60)} min`,
-        delta: "",
-        trend: "neutral",
+        title: 'Músculo más trabajado',
+        value: muscleDist[0]?.label || 'N/A',
+        detail: muscleDist[0] ? `${Math.round(muscleDist[0].value)} reps (30d)` : '',
       },
-      {
-        label: "Duración Total (sesiones)",
-        value: `${Math.round(totalDurationTraining / 60)} min`,
-        delta: "",
-        trend: "neutral",
-      },
-      {
-        label: "Duración Promedio (ejercicio)",
-        value: `${Math.round(avgExerciseDuration / 60)} min`,
-        delta: "",
-        trend: "neutral",
-      },
-      {
-        label: "Sesión más larga",
-        value: longestSession ? `${Math.round(longestSession / 60)} min` : "—",
-        delta: "",
-        trend: "neutral",
-      },
-      {
-        label: "PRs Detectados",
-        value: sessions.length ? "Auto" : "0",
-        delta: "",
-        trend: "neutral",
-      },
-      {
-        label: "Ejercicios únicos",
-        value: new Set(sessions.map((s) => s.exerciseId)).size,
-        delta: "",
-        trend: "neutral",
-      },
-    ];
+    ]
 
-    const lastSession = [...sessions].sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    )[0];
-
-    const achievements = [];
-    const bestByExerciseAchievements = {};
-    [...sessions]
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .forEach((s) => {
-        s.sets.forEach((set) => {
-          const weight = Number(set.weight) || 0;
-          const reps = Number(set.reps) || 0;
-          const key = s.exerciseId;
-          const prev = bestByExerciseAchievements[key];
-          const isBetter =
-            !prev ||
-            weight > prev.weight ||
-            (weight === prev.weight && reps > prev.reps);
-          if (isBetter) {
-            // solo si supera el récord anterior
-            if (prev) {
-              achievements.push({
-                title: "¡Nuevo PR!",
-                detail: `${s.exerciseName}: ${weight} kg x ${reps} · ${new Date(
-                  s.date
-                ).toLocaleDateString("es-ES")}`,
-                type: "pr",
-              });
-            }
-            bestByExerciseAchievements[key] = {
-              weight,
-              reps,
-              date: s.date,
-              name: s.exerciseName,
-            };
-          }
-        });
-      });
-
-    const trends = Object.values(
-      sessions.reduce((acc, s) => {
-        const key = s.exerciseId;
-        if (!acc[key]) acc[key] = { name: s.exerciseName, entries: [] };
-        acc[key].entries.push({ date: s.date, volume: toVolume(s.sets) });
-        return acc;
-      }, {})
-    ).map((item) => {
-      const sorted = [...item.entries].sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
-      );
-      const last = sorted[sorted.length - 1];
-      const prev = sorted[sorted.length - 2];
-      const status =
-        prev && last.volume > prev.volume
-          ? "improving"
-          : prev && last.volume < prev.volume
-          ? "decline"
-          : "stable";
-      const change = prev ? last.volume - prev.volume : 0;
-      const changePct = prev && prev.volume ? (change / prev.volume) * 100 : 0;
-      return { name: item.name, status, changePct };
-    });
-
-    const latestPhotos = (photos || []).sort(
-      (a, b) => new Date(b.date) - new Date(a.date)
-    );
+    const exerciseSeries = Array.from(new Set(todayExercises.map((e) => e.id || e.name))).map((exerciseId) => {
+      const entries = sessionsSorted
+        .filter((s) => s.exerciseId === exerciseId)
+        .map((s) => ({ date: s.date, weight: avgWeight(s.sets) }))
+      const series = entries
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(-7)
+        .map((e) => ({ label: formatDate(e.date), y: e.weight }))
+      return { exerciseId, name: exerciseMeta[exerciseId]?.name || exerciseId, series }
+    })
 
     return {
-      trend,
-      metrics,
-      lastSession,
-      achievements,
-      trends,
-      goals: [],
-      photos: latestPhotos,
-    };
-  }, [sessions, photos]);
+      today: {
+        routine: todayRoutine,
+        reps: todayReps,
+        sets: todaySets,
+        exercises: todayExercises,
+      },
+      weeklyTrend: last7,
+      prs: recentPRs,
+      muscleDist,
+      streak,
+      adherence: adherenceLast7,
+      avgDuration,
+      topRoutines,
+      photos: lastPhotos,
+      totalExerciseDurationMin,
+      performanceSeries,
+      trendsSummary,
+      exerciseSeries,
+    }
+  }, [sessions, trainings, exercises, photos, todayISO])
+
+  const weeklyLineData = useMemo(
+    () => [
+      {
+        id: 'Volumen',
+        data: data.weeklyTrend.map((p) => ({ x: p.label, y: p.y })),
+      },
+    ],
+    [data.weeklyTrend],
+  )
+
+  const muscleBarData = useMemo(
+    () => data.muscleDist.map((d) => ({ label: d.label, value: Math.round(d.value) || 0 })),
+    [data.muscleDist],
+  )
+
+  const routineBarData = useMemo(
+    () => data.topRoutines.map((d) => ({ label: d.label, value: d.value })),
+    [data.topRoutines],
+  )
+
+  const currentMuscleLine = useMemo(() => {
+    const entry = data.exerciseSeries[currentMuscleIdx]
+    if (!entry) return []
+    return [{ id: entry.name, data: entry.series.map((p) => ({ x: p.label, y: p.y })) }]
+  }, [data.exerciseSeries, currentMuscleIdx])
+
+  const currentMaxY = useMemo(() => {
+    if (!currentMuscleLine.length) return null
+    const vals = currentMuscleLine[0].data.map((d) => Number(d.y) || 0)
+    if (!vals.length) return null
+    const max = Math.max(...vals)
+    return max <= 0 ? null : Math.max(max * 2, max + 20)
+  }, [currentMuscleLine])
 
   return (
     <>
-      <div className="md:hidden mb-4 flex items-center justify-between rounded-2xl bg-[#0d1f33] px-3 py-3 shadow-inner">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-accent text-bg-darker font-bold grid place-items-center">UA</div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-white font-semibold text-sm">Usuario Activo</span>
-            <span className="text-xs text-muted">Miembro desde 2023</span>
-          </div>
-        </div>
-        <button
-          className="w-9 h-9 rounded-full bg-accent text-bg-darker text-2xl leading-none grid place-items-center shadow-lg"
-          onClick={() => onNavigate?.('registrar')}
-          aria-label="Registrar entrenamiento"
-        >
-          +
-        </button>
-      </div>
       <TopBar
-        title="Dashboard Principal Profesional Avanzado"
-        subtitle="Aplicación web para seguimiento de progreso en el gimnasio"
+        title="Dashboard de Progreso"
+        subtitle="Resumen diario, tendencias y comparativas con tus últimos entrenamientos"
+        ctaLabel="Registrar entrenamiento"
+        onCta={() => onNavigate?.('registrar')}
       />
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+
+      <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
-          <TrendCard dataByRange={stats.trend} compact />
-          <MetricCards metrics={stats.metrics} />
-          <div className="grid gap-4 md:grid-cols-2">
-            <RecentAchievements items={stats.achievements} />
-            <GoalsProgress goals={stats.goals} />
+          {/* Resumen de hoy */}
+          <div className="card border border-border-soft/70 bg-gradient-to-br from-[#0f1e33] to-[#0a1423]">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <p className="text-xs text-muted">Hoy · {formatDate(todayISO)}</p>
+                <h3 className="text-xl font-semibold">Resumen del entrenamiento</h3>
+                <p className="text-sm text-muted">Rutina: {data.today.routine}</p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
+                  Ejercicios: <span className="text-white font-semibold">{data.today.exercises.length}</span>
+                </div>
+                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
+                  Sets: <span className="text-white font-semibold">{data.today.sets}</span>
+                </div>
+                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
+                  Reps: <span className="text-white font-semibold">{data.today.reps}</span>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 mt-3">
+              <div className="space-y-2">
+                {data.today.exercises.length ? (
+                  <>
+                    {data.today.exercises.slice(0, 5).map((ex) => (
+                      <div
+                        key={ex.id}
+                        className="flex items-center justify-between rounded-lg border border-border-soft/40 bg-white/5 px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              ex.status === 'mejora'
+                                ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]'
+                                : ex.status === 'baja'
+                                  ? 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.6)]'
+                                  : 'bg-amber-300 shadow-[0_0_5px_rgba(252,211,77,0.6)]'
+                            }`}
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold">{ex.name}</span>
+                            <span className="text-[11px] text-muted">{ex.muscle}</span>
+                          </div>
+                        </div>
+                        <div className="text-right text-xs leading-tight">
+                          <p className="font-semibold">{ex.reps} reps</p>
+                          <p className="text-muted capitalize">{ex.status}</p>
+                          <p className="text-muted">{ex.sets} sets</p>
+                        </div>
+                      </div>
+                    ))}
+                    {data.today.exercises.length > 5 && (
+                      <p className="text-[11px] text-muted">
+                        +{data.today.exercises.length - 5} ejercicios más
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted">Aún no registraste ejercicios hoy.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-border-soft/60 bg-gradient-to-br from-[#101b2d] to-[#0c1423] p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Peso promedio (últimos entrenamientos)</span>
+                    {data.exerciseSeries.length > 0 && (
+                      <span className="text-xs text-muted border border-border-soft rounded-full px-2 py-0.5">
+                        {data.exerciseSeries[currentMuscleIdx]?.name || 'Ejercicio'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="ghost-btn text-xs px-2"
+                      type="button"
+                      onClick={() =>
+                        setCurrentMuscleIdx((idx) =>
+                          data.exerciseSeries.length
+                            ? (idx - 1 + data.exerciseSeries.length) % data.exerciseSeries.length
+                            : 0,
+                        )
+                      }
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="ghost-btn text-xs px-2"
+                      type="button"
+                      onClick={() =>
+                        setCurrentMuscleIdx((idx) =>
+                          data.exerciseSeries.length ? (idx + 1) % data.exerciseSeries.length : 0,
+                        )
+                      }
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+                {currentMuscleLine.length ? (
+                  <div className="h-56 w-full">
+                    <ResponsiveLine
+                      data={currentMuscleLine}
+                      theme={chartTheme}
+                      margin={{ top: 14, right: 18, bottom: 34, left: 50 }}
+                      xScale={{ type: 'point' }}
+                      yScale={{ type: 'linear', min: 0, max: currentMaxY || 'auto', stacked: false }}
+                      axisBottom={{ tickSize: 0, tickPadding: 10, tickRotation: -15 }}
+                      axisLeft={{ tickSize: 0, tickPadding: 8, tickFormat: (v) => `${v} kg` }}
+                      curve="monotoneX"
+                      enablePoints
+                      pointSize={8}
+                      pointBorderWidth={2}
+                      pointBorderColor={{ from: 'color', modifiers: [['darker', 1]] }}
+                      enableArea
+                      areaOpacity={0.28}
+                      colors={['#7c3aed']}
+                      defs={[
+                        {
+                          id: 'lineGradient',
+                          type: 'linearGradient',
+                          colors: [
+                            { offset: 0, color: '#7c3aed' },
+                            { offset: 100, color: '#38bdf8' },
+                          ],
+                        },
+                      ]}
+                      fill={[{ match: '*', id: 'lineGradient' }]}
+                      useMesh
+                      enableGridX={false}
+                      enableGridY={false}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted mt-2">Aún no hay suficientes registros de peso para este ejercicio.</p>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <ProgressPhotos photos={stats.photos} />
-            <ExerciseTrends trends={stats.trends} />
+
+          {/* PRs y distribución */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="card">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">Mejores marcas recientes</h3>
+                <span className="text-xs text-muted">Top 5</span>
+              </div>
+              {data.prs.length ? (
+                <div className="space-y-2">
+                  {data.prs.map((pr) => (
+                    <div
+                      key={`${pr.name}-${pr.date}`}
+                      className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
+                      onClick={() => onNavigate?.('historial')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold">{pr.name}</p>
+                        <p className="text-xs text-muted">{formatDate(pr.date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">{Math.round(pr.reps)} reps</p>
+                        <p className="text-[11px] text-emerald-300">+{Math.round(pr.diff)} reps</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Aún no hay PRs registrados.</p>
+              )}
+            </div>
+            <div className="card">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">Distribución por músculo (últimos 30 días)</h3>
+                <span className="text-xs text-muted">Reps</span>
+              </div>
+              {data.muscleDist.length ? (
+                <div className="h-56">
+                  <ResponsiveBar
+                    data={muscleBarData}
+                    keys={['value']}
+                    indexBy="label"
+                    layout="horizontal"
+                    theme={chartTheme}
+                    margin={{ top: 10, right: 10, bottom: 30, left: 90 }}
+                    padding={0.35}
+                    colors={['#4fa3ff']}
+                    enableLabel={false}
+                    axisBottom={{ tickSize: 0, tickPadding: 8 }}
+                    axisLeft={{ tickSize: 0, tickPadding: 6 }}
+                    gridYValues={[]}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Sin datos de volumen por músculo.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Fotos y adherencia */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-2">Adherencia y racha</h3>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 rounded-xl border border-border-soft/60 bg-white/5 p-3 text-center">
+                  <p className="text-xs text-muted">Adherencia 7d</p>
+                  <p className="text-2xl font-semibold">{data.adherence}%</p>
+                </div>
+                <div className="flex-1 rounded-xl border border-border-soft/60 bg-white/5 p-3 text-center">
+                  <p className="text-xs text-muted">Racha</p>
+                  <p className="text-2xl font-semibold">{data.streak}d</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted mt-2">
+                Entrena al menos 4/7 días para mantener una racha saludable.
+              </p>
+            </div>
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-2">Duración promedio</h3>
+            <p className="text-3xl font-semibold">{data.avgDuration} min</p>
+            <p className="text-sm text-muted">Promedio de las sesiones registradas</p>
+            <div className="mt-3 text-xs text-muted">
+              <p>Consejo: calienta 10 min y deja 5 min para estiramientos.</p>
+            </div>
+          </div>
+            <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
+              <h3 className="text-lg font-semibold mb-1">Duración total (ejercicios)</h3>
+              <p className="text-3xl font-semibold">{data.totalExerciseDurationMin} min</p>
+              <p className="text-sm text-muted">Tiempo acumulado en ejercicios registrados</p>
+            </div>
+            <div className="card">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold">Rutinas más usadas</h3>
+                <button className="ghost-btn text-xs" onClick={() => onNavigate?.('rutinas')}>
+                  Ver rutinas
+                </button>
+              </div>
+              {data.topRoutines.length ? (
+                <div className="h-40">
+                  <ResponsiveBar
+                    data={routineBarData}
+                    keys={['value']}
+                    indexBy="label"
+                    layout="horizontal"
+                    theme={chartTheme}
+                    margin={{ top: 10, right: 10, bottom: 30, left: 90 }}
+                    padding={0.4}
+                    colors={['#c084fc']}
+                    enableLabel={false}
+                    axisBottom={{ tickSize: 0, tickPadding: 8 }}
+                    axisLeft={{ tickSize: 0, tickPadding: 6 }}
+                    gridYValues={[]}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted">Aún no hay rutinas registradas.</p>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Panel lateral */}
         <aside className="flex flex-col gap-4">
-          <LastWorkout session={stats.lastSession} onNavigate={onNavigate} />
+          <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Rendimiento por ejercicio</h3>
+              <span className="text-xs text-muted">Comparación</span>
+            </div>
+            {data.performanceSeries.length ? (
+              <div className="h-44">
+                <ResponsiveLine
+                  data={data.performanceSeries}
+                  theme={chartTheme}
+                  margin={{ top: 10, right: 10, bottom: 30, left: 40 }}
+                  xScale={{ type: 'point' }}
+                  yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
+                  axisBottom={{ tickSize: 0, tickPadding: 8, tickRotation: -25 }}
+                  axisLeft={{ tickSize: 0, tickPadding: 6 }}
+                  enablePoints
+                  pointSize={6}
+                  colors={['#22c55e']}
+                  useMesh
+                  enableGridX={false}
+                  enableGridY
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Aún no hay suficiente historial para mostrar.</p>
+            )}
+          </div>
+
+          <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Tendencias</h3>
+              <span className="text-xs text-muted">Ver historial</span>
+            </div>
+            <div className="space-y-2">
+              {data.trendsSummary.map((item) => (
+                <div
+                  key={item.title}
+                  className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">{item.title}</span>
+                    <span className="text-xs text-muted">{item.detail}</span>
+                  </div>
+                  <span className="text-sm font-semibold">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Foto de progreso</h3>
+              <button className="ghost-btn text-xs" onClick={() => onNavigate?.('fotos')}>
+                Ver todas
+              </button>
+            </div>
+            {data.photos.length ? (
+              <div className="grid gap-2">
+                {data.photos.map((photo) => (
+                  <div key={photo.id} className="rounded-xl overflow-hidden border border-border-soft bg-white/5">
+                    <img src={photo.url || photo.photoUrl} alt="Foto de progreso" className="w-full h-40 object-cover" />
+                    <div className="px-3 py-2 text-xs text-muted">{formatDate(photo.date || todayISO)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Sube tu primera foto para ver tu evolución.</p>
+            )}
+          </div>
+
+          <div className="card">
+            <h3 className="text-lg font-semibold mb-2">Próxima acción</h3>
+            <p className="text-sm text-muted">
+              Revisa tu rutina y registra el siguiente entrenamiento para mantener la racha.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button className="primary-btn flex-1" onClick={() => onNavigate?.('registrar')}>
+                Registrar hoy
+              </button>
+              <button className="ghost-btn" onClick={() => onNavigate?.('rutinas')}>
+                Rutinas
+              </button>
+            </div>
+          </div>
         </aside>
       </div>
     </>
-  );
+  )
 }
 
-export default Dashboard;
+export default Dashboard
