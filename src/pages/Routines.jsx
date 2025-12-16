@@ -21,6 +21,7 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
   const [branch, setBranch] = useState(initialData?.branch || 'general')
   const [branchError, setBranchError] = useState('')
   const [selectedMuscle, setSelectedMuscle] = useState(availableExercises?.[0]?.muscle || 'Pecho')
+  const [dragIndex, setDragIndex] = useState(null)
 
   const muscleOptions = useMemo(() => {
     const set = new Set()
@@ -90,6 +91,16 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
 
   const updateSets = (idx, sets) => {
     setExercises((prev) => prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex)))
+  }
+
+  const reorderExercises = (from, to) => {
+    setExercises((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev
+      const next = [...prev]
+      const [item] = next.splice(from, 1)
+      next.splice(to, 0, item)
+      return next
+    })
   }
 
   const removeExercise = (idx) => {
@@ -234,6 +245,7 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
 
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Ejercicios (solo desde tu biblioteca)</p>
+          <p className="text-xs text-muted">Arrastra las tarjetas para ordenar; el orden se reflejará en la rutina.</p>
           <div className="flex gap-2 flex-wrap">
             <input
               className="flex-1 rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
@@ -265,7 +277,22 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
                 {items.map((ex) => (
                   <div
                     key={`${ex.name}-${ex.idx}`}
-                    className="flex gap-3 rounded-xl border border-border-soft bg-[#121f33] p-3 items-center"
+                    className={`flex gap-3 rounded-xl border border-border-soft bg-[#121f33] p-3 items-center ${
+                      dragIndex === ex.idx ? 'ring-2 ring-accent/60' : ''
+                    }`}
+                    draggable
+                    onDragStart={() => setDragIndex(ex.idx)}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      if (dragIndex === null || dragIndex === ex.idx) return
+                      reorderExercises(dragIndex, ex.idx)
+                      setDragIndex(ex.idx)
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      setDragIndex(null)
+                    }}
                   >
                     <div className="w-16 h-16 rounded-lg overflow-hidden border border-border-soft bg-white/10 flex-shrink-0 grid place-items-center">
                       {ex.image ? (
@@ -287,7 +314,7 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
                         />
                       </div>
                     </div>
-                    <button className="ghost-btn text-sm" onClick={() => removeExercise(ex.idx)}>
+                    <button className="ghost-btn text-sm" onClick={() => removeExercise(ex.idx)} title="Eliminar">
                       🗑
                     </button>
                   </div>
