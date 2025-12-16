@@ -143,7 +143,7 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 h-full">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Nombre de la Rutina</p>
           <input
@@ -205,7 +205,7 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
                 key={ex.id}
                 className="rounded-2xl border border-border-soft bg-white/5 p-3 flex flex-col gap-2 shadow-sm"
               >
-                <div className="h-32 rounded-xl overflow-hidden border border-border-soft bg-white/10 grid place-items-center">
+                <div className="h-28 rounded-xl overflow-hidden border border-border-soft bg-white/10 grid place-items-center">
                   {ex.image ? (
                     <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" />
                   ) : (

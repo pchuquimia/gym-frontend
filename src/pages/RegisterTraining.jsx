@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as Accordion from '@radix-ui/react-accordion'
+import { AnimatePresence, motion } from 'framer-motion'
 import TopBar from '../components/layout/TopBar'
 import { useTrainingData } from '../context/TrainingContext'
 import { useRoutines } from '../context/RoutineContext'
@@ -12,6 +14,13 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '')
 
+const localToday = () => {
+  const now = new Date()
+  const offset = now.getTimezoneOffset()
+  const local = new Date(now.getTime() - offset * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 const formatSeconds = (sec) => {
@@ -23,7 +32,7 @@ const formatSeconds = (sec) => {
 function RegisterTraining({ onNavigate }) {
   const draftStoreKey = 'training_drafts'
   const lastDraftKey = 'training_last_draft'
-  const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [sessionDate, setSessionDate] = useState(() => localToday())
   const [selectedRoutineId, setSelectedRoutineId] = useState(null)
   const [currentRoutine, setCurrentRoutine] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
@@ -61,48 +70,69 @@ function RegisterTraining({ onNavigate }) {
     return map
   }, [libraryExercises])
 
-  const allRoutines = useMemo(() => {
-    const libraryIds = new Set(libraryExercises.map((ex) => ex.id))
-    const filtered =
-      selectedBranch && selectedBranch !== 'general'
-        ? (routines || []).filter((r) => (r.branch || 'general') === selectedBranch)
-        : routines || []
-    const mapped = filtered
-      .map((r) => {
-        const validWorkouts = (r.exercises || []).filter((ex) => libraryIds.has(ex.exerciseId || slugify(ex.name)))
-        return {
-          id: r.id,
-          name: r.name,
-          exercises: validWorkouts.length,
-          focus: r.description || '',
-          detail: r.description || '',
-          icon: '🏋️',
-          workouts: validWorkouts.map((ex) => ({
-            name: ex.name,
-            exerciseId: ex.exerciseId || slugify(ex.name),
-            muscle: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.muscle || ex.muscle,
-            image: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.image || ex.image,
-            sets: Array.from({ length: ex.sets || 1 }, () => ({ weight: '', reps: '', note: '', done: false })),
-          })),
-        }
-      })
-      .filter((r) => r.workouts.length)
+  const buildRoutine = useCallback(
+    (r) => {
+      const libraryIds = new Set(libraryExercises.map((ex) => ex.id))
+      const validWorkouts = (r.exercises || []).filter((ex) => libraryIds.has(ex.exerciseId || slugify(ex.name)))
+      return {
+        id: r.id,
+        name: r.name,
+        exercises: validWorkouts.length,
+        focus: r.description || '',
+        detail: r.description || '',
+        icon: '🏋️',
+        branch: r.branch || 'general',
+        workouts: validWorkouts.map((ex) => ({
+          name: ex.name,
+          exerciseId: ex.exerciseId || slugify(ex.name),
+          muscle: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.muscle || ex.muscle,
+          image: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.image || ex.image,
+          sets: Array.from({ length: ex.sets || 1 }, () => ({ weight: '', reps: '', note: '', done: false })),
+        })),
+      }
+    },
+    [libraryExercises, exerciseMeta],
+  )
 
-    if (!mapped.length) {
-      return [
-        {
-          id: 'entrenamiento-libre',
-          name: 'Entrenamiento Libre',
-          exercises: 0,
-          focus: 'Crea tu sesión',
-          detail: 'Añade ejercicios manualmente.',
-          icon: '🏋️',
-          workouts: [],
-        },
-      ]
+  const routinesByBranch = useMemo(() => {
+    const map = new Map()
+    ;(routines || []).forEach((r) => {
+      const built = buildRoutine(r)
+      if (!built.workouts.length) return
+      const key = r.branch || 'general'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(built)
+    })
+    return map
+  }, [routines, buildRoutine])
+
+  const fallbackRoutine = useCallback(
+    (branchKey) => ({
+      id: `entrenamiento-libre-${branchKey || 'general'}`,
+      name: 'Entrenamiento Libre',
+      exercises: 0,
+      focus: 'Crea tu sesión',
+      detail: 'Añade ejercicios manualmente.',
+      icon: '🏋️',
+      branch: branchKey || 'general',
+      workouts: [],
+    }),
+    [],
+  )
+
+  const branchOptions = useMemo(() => {
+    const set = new Set(['sopocachi', 'miraflores', 'general'])
+    routinesByBranch.forEach((_, key) => set.add(key))
+    return Array.from(set)
+  }, [routinesByBranch])
+
+  const allRoutines = useMemo(() => {
+    const list = routinesByBranch.get(selectedBranch) || []
+    if (!list.length) {
+      return [fallbackRoutine(selectedBranch)]
     }
-    return mapped
-  }, [routines, libraryExercises, selectedBranch])
+    return list
+  }, [routinesByBranch, selectedBranch, fallbackRoutine])
 
   useEffect(() => {
     let interval
@@ -198,7 +228,9 @@ function RegisterTraining({ onNavigate }) {
   }, [])
 
   useEffect(() => {
-    if (!selectedRoutineId && allRoutines.length) {
+    if (!allRoutines.length) return
+    const found = allRoutines.find((r) => r.id === selectedRoutineId)
+    if (!found) {
       setSelectedRoutineId(allRoutines[0].id)
       setCurrentRoutine(allRoutines[0])
     }
@@ -242,10 +274,14 @@ function RegisterTraining({ onNavigate }) {
     }
   }, [sessionDate, selectedRoutineId, currentRoutine, trainingStart, trainingElapsed, exerciseTimers, photoPreview, selectedBranch])
 
-  const handleSelectRoutine = (routineId) => {
-    const found = allRoutines.find((r) => r.id === routineId) || allRoutines[0]
+  const handleSelectRoutine = (routineId, branchOverride = null) => {
+    const branchToUse = branchOverride || selectedBranch
+    const list = routinesByBranch.get(branchToUse) || allRoutines
+    const found = list.find((r) => r.id === routineId) || list[0]
+    setSelectedBranch(branchToUse)
+    setBranch?.(branchToUse)
     setSelectedRoutineId(routineId)
-      setCurrentRoutine(JSON.parse(JSON.stringify(found)))
+    setCurrentRoutine(JSON.parse(JSON.stringify(found)))
     setIsSelectorOpen(false)
   }
 
@@ -377,6 +413,11 @@ function RegisterTraining({ onNavigate }) {
     }
   }
 
+  const resetTrainingTimer = () => {
+    setTrainingStart(Date.now())
+    setTrainingElapsed(0)
+  }
+
   const stopExercise = (exerciseId) => {
     setExerciseTimers((prev) => {
       const current = prev[exerciseId] || {}
@@ -466,39 +507,6 @@ function RegisterTraining({ onNavigate }) {
       </div>
     )
   }
-
-  const routineCards = useMemo(
-    () =>
-      allRoutines.map((routine) => (
-        <button
-          key={routine.id}
-          type="button"
-          onClick={() => handleSelectRoutine(routine.id)}
-          className={`w-full text-left rounded-2xl border px-4 py-3 transition-all ${
-            selectedRoutineId === routine.id
-              ? 'border-accent/40 bg-gradient-to-br from-accent/15 to-blue-900/30 shadow-lg shadow-accent/10'
-              : 'border-border-soft bg-white/5 hover:border-accent/30'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-xl grid place-items-center text-xl ${
-                selectedRoutineId === routine.id ? 'bg-accent text-bg-darker' : 'bg-white/5 text-accent'
-              }`}
-            >
-              {routine.icon || '🏋️'}
-            </div>
-            <div className="flex flex-col">
-              <h3 className="text-base font-semibold">{routine.name}</h3>
-              <p className="text-xs text-muted">
-                {routine.exercises} ejercicios • {routine.detail}
-              </p>
-            </div>
-          </div>
-        </button>
-      )),
-    [allRoutines, selectedRoutineId],
-  )
 
   const getReference = (exerciseId, setIndex = null) => {
     const filtered = sessions.filter((s) => s.exerciseId === exerciseId)
@@ -610,10 +618,104 @@ function RegisterTraining({ onNavigate }) {
       )}
 
       <div className="card flex flex-col gap-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+          <div className="flex flex-col gap-2 w-full">
             <p className="text-sm font-semibold">Elige tu rutina para hoy</p>
-            <div className="grid gap-3 md:grid-cols-3">{routineCards}</div>
+            <Accordion.Root
+              type="single"
+              collapsible
+              value={selectedBranch}
+              onValueChange={(val) => {
+                if (val) {
+                  setSelectedBranch(val)
+                  setBranch?.(val)
+                }
+              }}
+              className="space-y-2"
+            >
+              {branchOptions.map((branchKey) => {
+                const routinesForBranch = routinesByBranch.get(branchKey) || []
+                const displayList = routinesForBranch.length ? routinesForBranch : [fallbackRoutine(branchKey)]
+                const isOpen = selectedBranch === branchKey
+                const label = branchKey.charAt(0).toUpperCase() + branchKey.slice(1)
+                return (
+                  <Accordion.Item
+                    key={branchKey}
+                    value={branchKey}
+                    className="overflow-hidden rounded-xl border border-border-soft bg-white/5"
+                  >
+                    <Accordion.Header>
+                      <Accordion.Trigger
+                        className="w-full flex items-center justify-between px-4 py-3 text-left font-semibold text-sm focus:outline-none"
+                        onClick={() => {
+                          setSelectedBranch(branchKey)
+                          setBranch?.(branchKey)
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-accent" />
+                          <span>{label}</span>
+                          <span className="text-xs text-muted">({routinesForBranch.length} rutinas)</span>
+                        </div>
+                        <motion.span
+                          initial={false}
+                          animate={{ rotate: isOpen ? 180 : 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-xs text-muted"
+                        >
+                          ▼
+                        </motion.span>
+                      </Accordion.Trigger>
+                    </Accordion.Header>
+                    <Accordion.Content asChild>
+                      <AnimatePresence initial={false}>
+                        {isOpen ? (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="border-t border-border-soft/60 bg-[#0e1c2c] px-4 py-3 space-y-2"
+                          >
+                            {displayList.map((routine) => (
+                              <button
+                                key={routine.id}
+                                type="button"
+                                onClick={() => handleSelectRoutine(routine.id, branchKey)}
+                                className={`w-full text-left rounded-xl border px-4 py-3 transition-all ${
+                                  selectedRoutineId === routine.id
+                                    ? 'border-accent/40 bg-gradient-to-br from-accent/15 to-blue-900/30 shadow-lg shadow-accent/10'
+                                    : 'border-border-soft bg-white/5 hover:border-accent/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className={`w-9 h-9 rounded-lg grid place-items-center text-base ${
+                                      selectedRoutineId === routine.id ? 'bg-accent text-bg-darker' : 'bg-white/5 text-accent'
+                                    }`}
+                                  >
+                                    {routine.icon || '🏋️'}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <h3 className="text-sm font-semibold">{routine.name}</h3>
+                                    <p className="text-xs text-muted">
+                                      {routine.exercises} ejercicios • {routine.detail}
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                            {!routinesForBranch.length && (
+                              <p className="text-xs text-muted">No hay rutinas para esta sucursal.</p>
+                            )}
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </Accordion.Content>
+                  </Accordion.Item>
+                )
+              })}
+            </Accordion.Root>
             <div>
               <button type="button" className="ghost-btn text-xs mt-2" onClick={() => setIsSelectorOpen(true)}>
                 Cambiar rutina / sucursal
@@ -634,6 +736,12 @@ function RegisterTraining({ onNavigate }) {
             <div className="flex items-center gap-2">
               <button className="ghost-btn text-sm" onClick={startTraining} disabled={!!trainingStart}>
                 Iniciar entrenamiento
+              </button>
+              <button className="ghost-btn text-sm flex items-center gap-1" onClick={resetTrainingTimer}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M10 3a7 7 0 1 0 7 7 .75.75 0 0 1 1.5 0 8.5 8.5 0 1 1-2.494-6.007l.239-1.67a.75.75 0 0 1 1.484.212l-.5 3.5a.75.75 0 0 1-.85.637l-3.5-.5a.75.75 0 0 1 .212-1.484l1.5.214A7 7 0 0 0 10 3Z" />
+                </svg>
+                Reiniciar
               </button>
               <span className="text-sm text-muted">{formatSeconds(trainingElapsed)}</span>
             </div>
@@ -758,6 +866,11 @@ function RegisterTraining({ onNavigate }) {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="px-4 py-3 bg-white/5 flex justify-end">
+                <button type="button" className="ghost-btn text-sm" onClick={saveDraft}>
+                  Guardar borrador
+                </button>
               </div>
             </div>
           ))}
