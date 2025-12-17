@@ -77,7 +77,7 @@ const applyHistoryToExercises = (list, historyMap) =>
 
 export default function RegisterTraining({ onNavigate = () => {} }) {
   const { routines, loading: routinesLoading } = useRoutines();
-  const { exercises: libraryExercises, trainings, sessions } = useTrainingData();
+  const { exercises: libraryExercises, trainings, sessions, addTraining } = useTrainingData();
 
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -404,10 +404,40 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     saveSnapshot({ exercises: next });
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     setIsRunning(false);
-    toast.success("Entrenamiento finalizado");
-    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+    if (timerRef.current) clearInterval(timerRef.current);
+    try {
+      const payload = {
+        date: sessionDate,
+        routineId: selectorRoutine?.id,
+        routineName: selectorRoutine?.name,
+        durationSeconds,
+        exercises: exercises.map((ex, exIdx) => ({
+          exerciseId: ex.id,
+          exerciseName: ex.name,
+          muscleGroup: ex.muscle,
+          order: exIdx + 1,
+          sets: (ex.sets || [])
+            .map((s, idx) => ({
+              weightKg: s.kg === "" ? null : Number(s.kg),
+              reps: s.reps === "" ? null : Number(s.reps),
+              done: Boolean(s.done),
+              order: idx + 1,
+            }))
+            .filter((s) => s.weightKg !== null || s.reps !== null || s.done),
+        })),
+      };
+      await addTraining(payload);
+      toast.success("Entrenamiento finalizado");
+      if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+      if (typeof onNavigate === "function") onNavigate("resumen_sesion");
+    } catch (err) {
+      console.error("No se pudo guardar el entrenamiento", err);
+      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexion.");
+      // conserva snapshot para no perder datos
+      saveSnapshot();
+    }
   };
 
   const totalSets = useMemo(() => exercises.reduce((acc, ex) => acc + ex.sets.length, 0), [exercises]);
