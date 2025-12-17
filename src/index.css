@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,23 +8,64 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
+
+  /* Light tokens */
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #0f172a;
+  --text-muted: #475569;
+  }
+
+  .dark {
+    /* Dark tokens mapped to existing palette */
+    --bg: #0d1526; /* base background */
+    --card: #111d32; /* card stands out from bg */
+    --border: rgba(255, 255, 255, 0.18); /* clearer outlines */
+    --text: #eef3fb; /* crisper white */
+    --text-muted: #c3d0e8; /* brighter secondary for readability */
+  }
 
 body {
-  @apply font-sans bg-bg-dark text-white;
+  @apply font-sans;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.dark body {
   background: radial-gradient(circle at 20% 20%, rgba(47, 123, 253, 0.12), transparent 35%),
     radial-gradient(circle at 80% 0%, rgba(30, 201, 134, 0.16), transparent 30%),
     #0b1220;
 }
 
+/* Token-based helpers */
 .glass-card {
-  @apply bg-card border border-border-soft rounded-xl shadow-soft;
+  background: var(--card);
+  border: 1px solid var(--border);
+  @apply rounded-xl shadow-soft;
 }
 
+.card {
+  @apply glass-card p-4;
+}
+
+.label {
+  color: var(--text-muted);
+  @apply text-sm;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.section-title {
+  @apply text-lg font-semibold;
+}
+
+/* Buttons that already existed */
 .primary-btn {
   @apply bg-gradient-to-r from-accent-strong to-cyan-300 text-white font-semibold rounded-xl px-4 py-2 shadow-lg shadow-accent/30 transition-transform;
 }
-
 .primary-btn:hover {
   transform: translateY(-2px);
 }
@@ -41,34 +82,46 @@ body {
   @apply border-accent text-accent;
 }
 
-.card {
-  @apply glass-card p-4;
-}
-
-.label {
-  @apply text-sm text-muted;
-}
-
-.muted {
-  @apply text-muted;
-}
-
-.section-title {
-  @apply text-lg font-semibold;
-}
-
 select {
-  background-color: #0f1b2f;
-  color: #ffffff;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background-color: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 select option {
-  background-color: #0f1b2f;
-  color: #ffffff;
+  background-color: var(--card);
+  color: var(--text);
 }
 
 select:focus {
   outline: none;
   border-color: rgba(79, 163, 255, 0.5);
+}
+
+/* Light-mode fallbacks for antiguos estilos oscuros */
+[data-theme='light'] .bg-bg-dark,
+[data-theme='light'] .bg-bg-darker {
+  background-color: var(--bg) !important;
+}
+
+[data-theme='light'] .bg-white\/5 {
+  background-color: var(--card) !important;
+}
+
+[data-theme='light'] .bg-\[\#0d1a2b\] {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme='light'] .text-white {
+  color: var(--text) !important;
+}
+
+[data-theme='light'] .text-muted {
+  color: var(--text-muted) !important;
+}
+
+[data-theme='light'] .border-border-soft {
+  border-color: var(--border) !important;
 }

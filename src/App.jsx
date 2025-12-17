@@ -7,6 +7,8 @@ import ComingSoon from './components/shared/ComingSoon'
 import RegisterTraining from './pages/RegisterTraining'
 import ProgressHistory from './pages/ProgressHistory'
 import Analytics from './pages/Analytics'
+import ExerciseAnalyticsPage from './pages/ExerciseAnalyticsPage'
+import SessionSummaryPage from './pages/SessionSummaryPage'
 import Routines from './pages/Routines'
 import ProfileSettings from './pages/ProfileSettings'
 import PhotosLibrary from './pages/PhotosLibrary'
@@ -20,6 +22,8 @@ const PAGES = {
   registrar: { label: 'Registrar Entrenamiento', component: RegisterTraining },
   historial: { label: 'Historial de Progreso', component: ProgressHistory },
   graficos: { label: 'Gráficos y Análisis', component: Analytics },
+  ejercicio_analitica: { label: 'Exercise Analytics', component: ExerciseAnalyticsPage },
+  resumen_sesion: { label: 'Resumen de Sesión', component: SessionSummaryPage },
   rutinas: { label: 'Rutinas y Planificación', component: Routines },
   perfil: { label: 'Perfil y Ajustes', component: ProfileSettings },
   fotos: { label: 'Biblioteca de Fotos', component: PhotosLibrary },

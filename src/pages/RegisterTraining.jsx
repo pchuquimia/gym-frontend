@@ -1,918 +1,579 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as Accordion from '@radix-ui/react-accordion'
-import { AnimatePresence, motion } from 'framer-motion'
-import TopBar from '../components/layout/TopBar'
-import { useTrainingData } from '../context/TrainingContext'
-import { useRoutines } from '../context/RoutineContext'
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, Flag, MoreVertical } from "lucide-react";
+import { Toaster, toast } from "sonner";
+import Card from "../components/ui/card";
+import Button from "../components/ui/button";
+import Badge from "../components/ui/badge";
+import SessionHeader from "../components/training/SessionHeader";
+import RoutineSelector from "../components/training/RoutineSelector";
+import ExerciseCard from "../components/training/ExerciseCard";
+import BottomActionBar from "../components/training/BottomActionBar";
+import { useRoutines } from "../context/RoutineContext";
+import { useTrainingData } from "../context/TrainingContext";
+
+const todayISO = new Date().toISOString().slice(0, 10);
+const STORAGE_KEY = "active_training";
+
+const formatLongDate = (iso) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+const formatShort = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "short",
+      })
+    : "--";
 
 const slugify = (text) =>
   text
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    ?.toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
 
-const localToday = () => {
-  const now = new Date()
-  const offset = now.getTimezoneOffset()
-  const local = new Date(now.getTime() - offset * 60000)
-  return local.toISOString().slice(0, 10)
-}
+const applyHistoryToExercises = (list, historyMap) =>
+  (list || []).map((ex) => {
+    const hist =
+      historyMap.get(ex.id) ||
+      historyMap.get(slugify(ex.name || "")) ||
+      historyMap.get(ex.exerciseId || "") ||
+      historyMap.get(slugify(ex.exerciseName || ""));
+    const histSets = hist?.sets || [];
+    const prFromHist =
+      hist && (hist.weight || hist.reps)
+        ? `Ult: ${hist.weight || "--"}kg x ${hist.reps || "--"} | ${formatShort(hist.date)}`
+        : null;
 
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
-const formatSeconds = (sec) => {
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-function RegisterTraining({ onNavigate }) {
-  const draftStoreKey = 'training_drafts'
-  const lastDraftKey = 'training_last_draft'
-  const [sessionDate, setSessionDate] = useState(() => localToday())
-  const [selectedRoutineId, setSelectedRoutineId] = useState(null)
-  const [currentRoutine, setCurrentRoutine] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState(null)
-  const [photoFile, setPhotoFile] = useState(null)
-  const [newExerciseName, setNewExerciseName] = useState('')
-  const [exerciseError, setExerciseError] = useState('')
-  const [trainingStart, setTrainingStart] = useState(null)
-  const [trainingElapsed, setTrainingElapsed] = useState(0)
-  const [exerciseTimers, setExerciseTimers] = useState({})
-  const [exerciseTick, setExerciseTick] = useState(0)
-  const [isSelectorOpen, setIsSelectorOpen] = useState(() => {
-    if (typeof localStorage === 'undefined') return true
-    try {
-      const lastKey = localStorage.getItem(lastDraftKey)
-      if (!lastKey) return true
-      const storeRaw = localStorage.getItem(draftStoreKey)
-      if (!storeRaw) return true
-      const store = JSON.parse(storeRaw)
-      const draft = store[lastKey]
-      return !(draft?.selectedRoutineId && draft?.currentRoutine)
-    } catch {
-      return true
-    }
-  })
-  const [selectedBranch, setSelectedBranch] = useState('general')
-  const { addSession, addTraining, sessions, exercises: libraryExercises, branch, setBranch } = useTrainingData()
-  const { routines } = useRoutines()
-  const autosaveRef = useRef(null)
-
-  const exerciseMeta = useMemo(() => {
-    const map = {}
-    libraryExercises.forEach((ex) => {
-      map[ex.id] = ex
-    })
-    return map
-  }, [libraryExercises])
-
-  const buildRoutine = useCallback(
-    (r) => {
-      const libraryIds = new Set(libraryExercises.map((ex) => ex.id))
-      const validWorkouts = (r.exercises || []).filter((ex) => libraryIds.has(ex.exerciseId || slugify(ex.name)))
+    const sets = (ex.sets || []).map((set, idx) => {
+      const prev = histSets[idx] || histSets[histSets.length - 1] || {};
+      const hasPrev = prev.weight || prev.reps;
+      if (!hasPrev) return set;
+      const label = `${prev.weight || "--"}kg x ${prev.reps || "--"} | ${formatShort(hist?.date)}`;
       return {
+        ...set,
+        previousText: !set.previousText || set.previousText === "Sin referencia" ? label : set.previousText,
+        kg: set.kg || (prev.weight ? prev.weight : ""),
+        reps: set.reps || (prev.reps ? prev.reps : ""),
+      };
+    });
+
+    return {
+      ...ex,
+      prText:
+        !ex.prText || ex.prText.toLowerCase().includes("sin referencia") || ex.prText.toLowerCase().includes("ult:")
+          ? prFromHist || ex.prText || "Sin referencia"
+          : ex.prText,
+      sets,
+    };
+  });
+
+export default function RegisterTraining({ onNavigate = () => {} }) {
+  const { routines, loading: routinesLoading } = useRoutines();
+  const { exercises: libraryExercises, trainings, sessions } = useTrainingData();
+
+  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [selectedRoutineId, setSelectedRoutineId] = useState(null);
+  const [selectedRoutine, setSelectedRoutine] = useState(null);
+  const [exercises, setExercises] = useState([]);
+  const [sessionDate, setSessionDate] = useState(todayISO);
+  const timerRef = useRef(null);
+
+  const mergeMeta = (ex) => {
+    const meta =
+      libraryExercises.find(
+        (m) =>
+          m.id === ex.id ||
+          m.id === ex.exerciseId ||
+          slugify(m.name || "") === slugify(ex.name || "") ||
+          slugify(m.name || "") === slugify(ex.exerciseName || "")
+      ) || {};
+    const image =
+      ex.image ||
+      meta.image ||
+      meta.photoUrl ||
+      meta.url ||
+      meta.thumbnail ||
+      (Array.isArray(meta.photos) && meta.photos[0]?.url) ||
+      "";
+    const muscle = ex.muscle || meta.muscle || ex.muscleGroup || meta.muscleGroup || "Sin grupo";
+    return { ...ex, image, muscle };
+  };
+
+  const routineOptions = useMemo(
+    () =>
+      (routines || []).map((r) => ({
         id: r.id,
         name: r.name,
-        exercises: validWorkouts.length,
-        focus: r.description || '',
-        detail: r.description || '',
-        icon: '🏋️',
-        branch: r.branch || 'general',
-        workouts: validWorkouts.map((ex) => ({
-          name: ex.name,
-          exerciseId: ex.exerciseId || slugify(ex.name),
-          muscle: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.muscle || ex.muscle,
-          image: exerciseMeta[ex.exerciseId || slugify(ex.name)]?.image || ex.image,
-          sets: Array.from({ length: ex.sets || 1 }, () => ({ weight: '', reps: '', note: '', done: false })),
-        })),
-      }
-    },
-    [libraryExercises, exerciseMeta],
-  )
+        location: r.branch || "general",
+        exerciseCount: (r.exercises || []).length,
+        lastDate: formatShort(r.updatedAt || r.createdAt) || "--",
+        raw: r,
+      })),
+    [routines]
+  );
 
-  const routinesByBranch = useMemo(() => {
-    const map = new Map()
-    ;(routines || []).forEach((r) => {
-      const built = buildRoutine(r)
-      if (!built.workouts.length) return
-      const key = r.branch || 'general'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key).push(built)
-    })
-    return map
-  }, [routines, buildRoutine])
+  const historyByExercise = useMemo(() => {
+    const map = new Map();
+    const saveIfNewer = (key, payload) => {
+      if (!key) return;
+      const current = map.get(key);
+      const currentDate = current?.date ? new Date(current.date).getTime() : 0;
+      const thisDate = payload.date ? new Date(payload.date).getTime() : 0;
+      if (thisDate >= currentDate) map.set(key, payload);
+    };
 
-  const fallbackRoutine = useCallback(
-    (branchKey) => ({
-      id: `entrenamiento-libre-${branchKey || 'general'}`,
-      name: 'Entrenamiento Libre',
-      exercises: 0,
-      focus: 'Crea tu sesión',
-      detail: 'Añade ejercicios manualmente.',
-      icon: '🏋️',
-      branch: branchKey || 'general',
-      workouts: [],
-    }),
-    [],
-  )
+    const normalizeSets = (sets = []) =>
+      sets.map((s) => ({
+        weight: Number(s.weightKg ?? s.weight ?? s.kg) || 0,
+        reps: Number(s.reps ?? s.rep) || 0,
+        done: Boolean(s.done),
+      }));
 
-  const branchOptions = useMemo(() => {
-    const set = new Set(['sopocachi', 'miraflores', 'general'])
-    routinesByBranch.forEach((_, key) => set.add(key))
-    return Array.from(set)
-  }, [routinesByBranch])
-
-  const allRoutines = useMemo(() => {
-    const list = routinesByBranch.get(selectedBranch) || []
-    if (!list.length) {
-      return [fallbackRoutine(selectedBranch)]
-    }
-    return list
-  }, [routinesByBranch, selectedBranch, fallbackRoutine])
-
-  useEffect(() => {
-    let interval
-    if (trainingStart) {
-      interval = setInterval(() => {
-        const diff = Math.floor((Date.now() - trainingStart) / 1000)
-        setTrainingElapsed(diff)
-      }, 1000)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [trainingStart])
-
-  useEffect(() => {
-    const hasRunning = Object.values(exerciseTimers).some((t) => t?.start)
-    if (!hasRunning) return undefined
-    const interval = setInterval(() => {
-      setExerciseTick((v) => v + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [exerciseTimers])
-
-  const draftKeyFor = (routineId, date) => `${routineId || 'none'}|${date || ''}`
-
-  const loadDraft = (routineId, date) => {
-    if (typeof localStorage === 'undefined') return null
-    try {
-      const storeRaw = localStorage.getItem(draftStoreKey)
-      if (!storeRaw) return null
-      const store = JSON.parse(storeRaw)
-      const key = draftKeyFor(routineId, date)
-      return store[key] || null
-    } catch {
-      return null
-    }
-  }
-
-  const persistDraft = (draft) => {
-    if (typeof localStorage === 'undefined') return
-    try {
-      const storeRaw = localStorage.getItem(draftStoreKey)
-      const store = storeRaw ? JSON.parse(storeRaw) : {}
-      const key = draftKeyFor(draft.selectedRoutineId, draft.sessionDate)
-      store[key] = draft
-      localStorage.setItem(draftStoreKey, JSON.stringify(store))
-      localStorage.setItem(lastDraftKey, key)
-    } catch {
-      // ignore
-    }
-  }
-
-  const removeDraft = (routineId, date) => {
-    if (typeof localStorage === 'undefined') return
-    try {
-      const key = draftKeyFor(routineId, date)
-      const storeRaw = localStorage.getItem(draftStoreKey)
-      if (storeRaw) {
-        const store = JSON.parse(storeRaw)
-        delete store[key]
-        localStorage.setItem(draftStoreKey, JSON.stringify(store))
-      }
-      const lastKey = localStorage.getItem(lastDraftKey)
-      if (lastKey === key) localStorage.removeItem(lastDraftKey)
-    } catch {
-      // ignore
-    }
-  }
-
-  useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    const lastKey = localStorage.getItem(lastDraftKey)
-    if (lastKey) {
-      const storeRaw = localStorage.getItem(draftStoreKey)
-      try {
-        const store = storeRaw ? JSON.parse(storeRaw) : {}
-        const draft = store[lastKey]
-        if (draft) {
-          if (draft.sessionDate) setSessionDate(draft.sessionDate)
-          if (draft.currentRoutine) setCurrentRoutine(draft.currentRoutine)
-          if (draft.selectedRoutineId) setSelectedRoutineId(draft.selectedRoutineId)
-          if (draft.trainingElapsed) setTrainingElapsed(draft.trainingElapsed)
-          if (draft.trainingStart) setTrainingStart(draft.trainingStart)
-          if (draft.exerciseTimers) setExerciseTimers(draft.exerciseTimers)
-          if (draft.photoPreview) setPhotoPreview(draft.photoPreview)
-          if (draft.selectedBranch) setSelectedBranch(draft.selectedBranch)
-          setIsSelectorOpen(!draft.selectedRoutineId)
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!allRoutines.length) return
-    const found = allRoutines.find((r) => r.id === selectedRoutineId)
-    if (!found) {
-      setSelectedRoutineId(allRoutines[0].id)
-      setCurrentRoutine(allRoutines[0])
-    }
-  }, [allRoutines, selectedRoutineId])
-
-  useEffect(() => {
-    if (!selectedRoutineId) return
-    const draft = loadDraft(selectedRoutineId, sessionDate)
-    if (draft?.currentRoutine) {
-      setCurrentRoutine(draft.currentRoutine)
-      setTrainingElapsed(draft.trainingElapsed || 0)
-      setTrainingStart(draft.trainingStart || null)
-      setExerciseTimers(draft.exerciseTimers || {})
-      setPhotoPreview(draft.photoPreview || null)
-      if (draft.selectedBranch) setSelectedBranch(draft.selectedBranch)
-      setIsSelectorOpen(false)
-    }
-  }, [selectedRoutineId, sessionDate])
-
-  useEffect(() => {
-    if (branch) setSelectedBranch(branch)
-  }, [branch])
-
-  useEffect(() => {
-    if (autosaveRef.current) clearTimeout(autosaveRef.current)
-    autosaveRef.current = setTimeout(() => {
+    const addEntry = (id, name, date, sets) => {
+      const slug = name ? slugify(name) : null;
+      const normSets = normalizeSets(sets);
       const payload = {
-        sessionDate,
-        selectedRoutineId,
-        currentRoutine,
-        trainingStart,
-        trainingElapsed,
-        exerciseTimers,
-        photoPreview,
-        selectedBranch,
-      }
-      persistDraft(payload)
-    }, 800)
-    return () => {
-      if (autosaveRef.current) clearTimeout(autosaveRef.current)
-    }
-  }, [sessionDate, selectedRoutineId, currentRoutine, trainingStart, trainingElapsed, exerciseTimers, photoPreview, selectedBranch])
+        date,
+        sets: normSets,
+        weight: normSets.at(-1)?.weight || 0,
+        reps: normSets.at(-1)?.reps || 0,
+      };
+      saveIfNewer(id, payload);
+      saveIfNewer(slug, payload);
+    };
 
-  const handleSelectRoutine = (routineId, branchOverride = null) => {
-    const branchToUse = branchOverride || selectedBranch
-    const list = routinesByBranch.get(branchToUse) || allRoutines
-    const found = list.find((r) => r.id === routineId) || list[0]
-    setSelectedBranch(branchToUse)
-    setBranch?.(branchToUse)
-    setSelectedRoutineId(routineId)
-    setCurrentRoutine(JSON.parse(JSON.stringify(found)))
-    setIsSelectorOpen(false)
-  }
+    (Array.isArray(sessions) ? sessions : []).forEach((s) => {
+      addEntry(s.exerciseId || s.id, s.exerciseName || s.name, s.date || s.createdAt, s.sets || []);
+    });
 
-  const getExerciseElapsed = (exerciseId) => {
-    const timer = exerciseTimers[exerciseId]
-    if (!timer) return 0
-    const base = timer.duration || 0
-    if (timer.start) {
-      return base + Math.floor((Date.now() - timer.start) / 1000)
-    }
-    return base
-  }
+    (Array.isArray(trainings) ? trainings : []).forEach((tr) => {
+      const date = tr.date || tr.createdAt;
+      (tr.exercises || []).forEach((ex) => {
+        addEntry(ex.exerciseId || ex.id, ex.exerciseName || ex.name, date, ex.sets || []);
+      });
+    });
 
-  const updateSet = (exerciseIndex, setIndex, field, value) => {
-    setCurrentRoutine((prev) => {
-      const copy = JSON.parse(JSON.stringify(prev))
-      const set = copy.workouts[exerciseIndex].sets[setIndex]
-      set[field] = value
-      return copy
-    })
-  }
+    return map;
+  }, [sessions, trainings]);
 
-  const toggleDone = (exerciseIndex, setIndex) => {
-    setCurrentRoutine((prev) => {
-      const copy = JSON.parse(JSON.stringify(prev))
-      copy.workouts[exerciseIndex].sets[setIndex].done = !copy.workouts[exerciseIndex].sets[setIndex].done
-      return copy
-    })
-  }
-
-  const addSet = (exerciseIndex) => {
-    setCurrentRoutine((prev) => {
-      const copy = JSON.parse(JSON.stringify(prev))
-      copy.workouts[exerciseIndex].sets.push({ weight: '', reps: '', note: '', done: false })
-      return copy
-    })
-  }
-
-  const addExercise = () => {
-    if (!currentRoutine) return
-    const nameToUse = newExerciseName.trim()
-    if (!nameToUse) return
-    const match = libraryExercises.find((ex) => ex.name.toLowerCase() === nameToUse.toLowerCase())
-    if (!match) {
-      setExerciseError('Solo puedes anadir ejercicios que esten en tu biblioteca.')
-      return
-    }
-    setExerciseError('')
-    const id = match.id || slugify(nameToUse)
-    setNewExerciseName('')
-    setCurrentRoutine((prev) => ({
-      ...prev,
-      workouts: [
-        ...prev.workouts,
-        {
-          name: match.name,
-          exerciseId: id,
-          muscle: match.muscle,
-          image: match.image,
-          sets: [{ weight: '', reps: '', note: '', done: false }],
-        },
-      ],
-    }))
-  }
-
-  const handlePhoto = (event) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const url = URL.createObjectURL(file)
-      setPhotoPreview(url)
-      setPhotoFile(file)
-    }
-  }
-
-  const finalizeTraining = async () => {
-    const stamp = Date.now()
-    if (!currentRoutine?.workouts?.length) return
-    const trainingId = `training-${stamp}`
-    let totalVolume = 0
-    currentRoutine.workouts.forEach((workout) => {
-      totalVolume += workout.sets.reduce((acc, s) => acc + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0)
-    })
-    await addTraining({
-      id: trainingId,
-      date: sessionDate,
-      durationSeconds: trainingElapsed,
-      totalVolume,
-      routineName: currentRoutine?.name || '',
-    })
-    currentRoutine.workouts.forEach((workout, idx) => {
-      const exerciseId = workout.exerciseId || slugify(workout.name)
-      const parsedSets = workout.sets.map((s) => ({
-        reps: Number(s.reps) || 0,
-        weight: Number.isFinite(Number(s.weight)) ? Number(s.weight) : 0,
-        durationSeconds: workout.sets.length ? Math.round((exerciseTimers[exerciseId]?.duration || 0) / workout.sets.length) : 0,
-      }))
-      const exerciseDurationSeconds = exerciseTimers[exerciseId]?.duration || 0
-      const includePhoto = idx === 0 && photoFile
-      const session = {
-        id: `sess-${stamp}-${idx}`,
-        trainingId,
-        date: sessionDate,
-        exerciseId,
-        exerciseName: workout.name,
-        sets: parsedSets,
-        trainingDurationSeconds: trainingElapsed,
-        exerciseDurationSeconds,
-        photoUrl: '',
-        photoFile: includePhoto ? photoFile : undefined,
-        photoType: includePhoto ? 'gym' : '',
-        photoPersisted: false,
-      }
-      addSession(session)
-      localStorage.setItem('last_exercise_id', exerciseId)
-    })
-    setTrainingStart(null)
-    setTrainingElapsed(0)
-    setExerciseTimers({})
-    setPhotoPreview(null)
-    setPhotoFile(null)
-    removeDraft(selectedRoutineId, sessionDate)
-    onNavigate?.('historial')
-  }
-
-  const startTraining = () => {
-    if (!trainingStart) {
-      setTrainingStart(Date.now())
-      setTrainingElapsed(0)
-    }
-  }
-
-  const resetTrainingTimer = () => {
-    setTrainingStart(Date.now())
-    setTrainingElapsed(0)
-  }
-
-  const stopExercise = (exerciseId) => {
-    setExerciseTimers((prev) => {
-      const current = prev[exerciseId] || {}
-      const start = current.start
-      if (!start) return prev
-      const duration = (current.duration || 0) + Math.floor((Date.now() - start) / 1000)
-      return { ...prev, [exerciseId]: { duration, start: null } }
-    })
-  }
-
-  const saveDraft = () => {
-    const payload = {
-      sessionDate,
-      selectedRoutineId,
-      currentRoutine,
-      trainingStart,
-      trainingElapsed,
-      exerciseTimers,
-      photoPreview,
-      selectedBranch,
-    }
-    persistDraft(payload)
-  }
-
-  const startExercise = (exerciseId) => {
-    setExerciseTimers((prev) => ({
-      ...prev,
-      [exerciseId]: { duration: prev[exerciseId]?.duration || 0, start: Date.now() },
-    }))
-  }
-
-  const exerciseImages = useMemo(() => {
-    const map = {}
-    libraryExercises.forEach((ex) => {
-      map[ex.id] = ex.image || ''
-    })
-    return map
-  }, [libraryExercises])
+  const buildExercisesForRoutine = (routine) => {
+    const list = routine?.exercises || [];
+    return list.map((ex, idx) => {
+      const meta =
+        libraryExercises.find(
+          (m) => m.id === ex.exerciseId || m.id === ex.id || m.name?.toLowerCase() === ex.name?.toLowerCase()
+        ) || {};
+      const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
+      const setsCount = Number(ex.sets) || 3;
+      const hist =
+        historyByExercise.get(id) ||
+        historyByExercise.get(slugify(ex.name || "")) ||
+        historyByExercise.get(meta.id) ||
+        historyByExercise.get(slugify(meta.name || ""));
+      const histSets = hist?.sets || [];
+      const sets = Array.from({ length: setsCount }).map((_, sIdx) => {
+        const prev = histSets[sIdx] || histSets[histSets.length - 1] || {};
+        const hasPrev = prev.weight || prev.reps;
+        return {
+          id: `${id}-set-${sIdx}`,
+          previousText: hasPrev
+            ? `${prev.weight || "--"}kg x ${prev.reps || "--"} | ${formatShort(hist?.date)}`
+            : "Sin referencia",
+          kg: hasPrev ? prev.weight : "",
+          reps: hasPrev ? prev.reps : "",
+          done: Boolean(prev.done),
+        };
+      });
+      const headerText =
+        hist && (hist.weight || hist.reps)
+          ? `Ult: ${hist.weight || "--"}kg x ${hist.reps || "--"} | ${formatShort(hist.date)}`
+          : meta.pr || meta.prText || "Sin referencia";
+      return {
+        id,
+        name: ex.name || meta.name || "Ejercicio",
+        prText: headerText,
+        image: ex.image || meta.image || "",
+        muscle: ex.muscle || ex.muscleGroup || meta.muscle || meta.muscleGroup || "Sin grupo",
+        sets,
+      };
+    });
+  };
 
   useEffect(() => {
-    // Rehidrata la rutina en memoria con meta (músculo/imagen) si viene de localStorage o de un fetch sin esos campos.
-    if (!currentRoutine) return
-    const hydrated = {
-      ...currentRoutine,
-      workouts: (currentRoutine.workouts || []).map((w) => {
-        const meta = exerciseMeta[w.exerciseId || slugify(w.name)] || {}
-        return {
-          ...w,
-          muscle: w.muscle || meta.muscle || 'Sin grupo',
-          image: w.image || meta.image || exerciseImages[w.exerciseId || slugify(w.name)] || '',
+    if (!routineOptions.length) return;
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+    if (raw) {
+      try {
+        const snap = JSON.parse(raw);
+        const current = routineOptions.find((r) => r.id === snap.selectedRoutineId) || routineOptions[0];
+        setSelectedRoutineId(current.id);
+        setSelectedRoutine(current);
+        if (snap.dateISO) setSessionDate(snap.dateISO);
+        const hydrated = applyHistoryToExercises(
+          snap.exercises || buildExercisesForRoutine(current.raw),
+          historyByExercise
+        ).map(mergeMeta);
+        setExercises(hydrated);
+        setIsRunning(Boolean(snap.isRunning));
+        const now = Date.now();
+        const baseElapsed = Number(snap.elapsed || 0);
+        if (snap.isRunning && snap.startTimestamp) {
+          setDurationSeconds(baseElapsed + Math.floor((now - snap.startTimestamp) / 1000));
+        } else {
+          setDurationSeconds(baseElapsed);
         }
-      }),
+        return;
+      } catch (e) {
+        console.warn("No se pudo hidratar entrenamiento activo", e);
+      }
     }
-    setCurrentRoutine(hydrated)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exerciseMeta, exerciseImages])
+    const current = routineOptions.find((r) => r.id === selectedRoutineId) || routineOptions[0];
+    setSelectedRoutineId(current.id);
+    setSelectedRoutine(current);
+    setSessionDate(todayISO);
+    setExercises(applyHistoryToExercises(buildExercisesForRoutine(current.raw), historyByExercise).map(mergeMeta));
+    setIsRunning(false);
+  }, [routineOptions, selectedRoutineId, libraryExercises, historyByExercise]);
 
-  const groupedWorkouts = useMemo(() => {
-    const groups = new Map()
-    ;(currentRoutine?.workouts || []).forEach((w, idx) => {
-      const meta = exerciseMeta[w.exerciseId || slugify(w.name)] || {}
-      const muscle = w.muscle || meta.muscle || 'Sin grupo'
-      const image = w.image || meta.image || exerciseImages[w.exerciseId || slugify(w.name)] || ''
-      const key = muscle
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key).push({ ...w, muscle, image, sourceIdx: idx })
-    })
-    return Array.from(groups.entries())
-  }, [currentRoutine, exerciseMeta, exerciseImages])
+  const sanitizeExercisesForStorage = (list = []) =>
+    list.map((ex) => ({
+      id: ex.id,
+      name: ex.name,
+      prText: ex.prText,
+      muscle: ex.muscle,
+      sets: (ex.sets || []).map((s) => ({
+        id: s.id,
+        previousText: s.previousText,
+        kg: s.kg,
+        reps: s.reps,
+        done: s.done,
+      })),
+    }));
 
-  const renderExerciseImage = (exercise) => {
-    const id = exercise.exerciseId || slugify(exercise.name)
-    const img = exercise.image || exerciseImages[id]
-    if (img) {
-      return (
-        <img
-          src={img}
-          alt={exercise.name}
-          className="w-full max-w-md h-48 object-cover rounded-2xl border border-border-soft bg-white/5"
-        />
-      )
+  const saveSnapshot = (override = {}, options = {}) => {
+    if (typeof localStorage === "undefined") return;
+    let current = {};
+    try {
+      current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch (e) {
+      current = {};
     }
-    const initial = exercise.name?.[0]?.toUpperCase() || '?'
-    return (
-      <div className="w-full max-w-md h-48 rounded-2xl border border-dashed border-border-soft bg-white/5 grid place-items-center text-2xl font-bold text-muted">
-        {initial}
-      </div>
-    )
-  }
+    const baseExercises = override.exercises ?? current.exercises ?? exercises;
+    const sanitizedExercises = options.light
+      ? current.exercises ?? sanitizeExercisesForStorage(exercises)
+      : sanitizeExercisesForStorage(baseExercises);
 
-  const getReference = (exerciseId, setIndex = null) => {
-    const filtered = sessions.filter((s) => s.exerciseId === exerciseId)
-    if (!filtered.length) return { label: 'Sin registros', date: '' }
+    const snap = {
+      selectedRoutineId: override.selectedRoutineId ?? current.selectedRoutineId ?? selectedRoutineId,
+      exercises: sanitizedExercises,
+      isRunning: override.isRunning ?? current.isRunning ?? isRunning,
+      startTimestamp:
+        override.startTimestamp ?? current.startTimestamp ?? (override.isRunning ?? isRunning ? Date.now() : null),
+      elapsed: override.elapsed ?? current.elapsed ?? durationSeconds,
+      dateISO: override.dateISO ?? current.dateISO ?? sessionDate,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
+    } catch (err) {
+      console.warn("No se pudo guardar el entrenamiento activo (quota?)", err);
+    }
+  };
 
-    let best = { weight: 0, reps: 0, date: '' }
-    filtered.forEach((session) => {
-      const setsToCheck =
-        setIndex === null
-          ? session.sets
-          : session.sets[setIndex] !== undefined
-            ? [session.sets[setIndex]]
-            : []
-      setsToCheck.forEach((set) => {
-        const w = Number(set.weight) || 0
-        const r = Number(set.reps) || 0
-        if (w > best.weight || (w === best.weight && r > best.reps)) {
-          best = { weight: w, reps: r, date: session.date }
-        }
-      })
-    })
+  useEffect(() => {
+    if (!isRunning) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return undefined;
+    }
+    timerRef.current = setInterval(() => {
+      setDurationSeconds((sec) => {
+        const next = sec + 1;
+        saveSnapshot({ elapsed: next, isRunning: true, startTimestamp: Date.now() }, { light: true });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, [isRunning]);
 
-    if (best.weight === 0) return { label: 'Sin registros', date: '' }
-    const label = `PR: ${best.weight} kg x ${best.reps}`
-    return { label, date: formatDate(best.date) }
-  }
+  const handleStart = () => {
+    setIsRunning(true);
+    saveSnapshot({ isRunning: true, startTimestamp: Date.now() });
+    toast.success("Entrenamiento iniciado");
+  };
 
-  if (!currentRoutine) {
-    return (
-      <>
-        <TopBar
-          title="Registrar Entrenamiento (Navegación Completa)"
-          subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
-        />
-        <div className="card">No hay rutinas disponibles. Crea una en Rutinas y Planificación.</div>
-      </>
-    )
-  }
+  const handlePause = () => {
+    setIsRunning(false);
+    saveSnapshot({ isRunning: false, startTimestamp: null });
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setDurationSeconds(0);
+    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const handleSelectRoutine = (id) => {
+    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+    setSelectedRoutineId(id);
+  };
+
+  const handleAddSet = (exerciseId) => {
+    let nextExercises = [];
+    setExercises((prev) => {
+      nextExercises = prev.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: [
+                ...ex.sets,
+                { id: `${exerciseId}-set-${Date.now()}`, previousText: "Sin referencia", kg: "", reps: "", done: false },
+              ],
+            }
+          : ex
+      );
+      return nextExercises;
+    });
+    toast.success("Set anadido");
+    saveSnapshot({ exercises: nextExercises });
+  };
+
+  const handleUpdateSet = (exerciseId, setId, field, value) => {
+    let nextExercises = [];
+    setExercises((prev) => {
+      nextExercises = prev.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) }
+          : ex
+      );
+      return nextExercises;
+    });
+    saveSnapshot({ exercises: nextExercises });
+  };
+
+  const handleToggleDone = (exerciseId, setId) => {
+    let nextExercises = [];
+    setExercises((prev) => {
+      nextExercises = prev.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s)) }
+          : ex
+      );
+      return nextExercises;
+    });
+    saveSnapshot({ exercises: nextExercises });
+  };
+
+  const handleRemoveSet = (exerciseId, setId) => {
+    let nextExercises = [];
+    setExercises((prev) => {
+      nextExercises = prev.map((ex) => (ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex));
+      return nextExercises;
+    });
+    saveSnapshot({ exercises: nextExercises });
+  };
+
+  const handleRemoveExercise = (exerciseId) => {
+    let nextExercises = [];
+    setExercises((prev) => {
+      nextExercises = prev.filter((ex) => ex.id !== exerciseId);
+      return nextExercises;
+    });
+    toast("Ejercicio eliminado solo para hoy");
+    saveSnapshot({ exercises: nextExercises });
+  };
+
+  const handleAddExercise = () => {
+    const next = [
+      ...exercises,
+      {
+        id: `extra-${Date.now()}`,
+        name: "Nuevo ejercicio",
+        prText: "Sin referencia previa",
+        sets: [{ id: `extra-${Date.now()}-1`, previousText: "Previo: 0", kg: "", reps: "", done: false }],
+      },
+    ];
+    setExercises(next);
+    saveSnapshot({ exercises: next });
+  };
+
+  const handleFinish = () => {
+    setIsRunning(false);
+    toast.success("Entrenamiento finalizado");
+    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const totalSets = useMemo(() => exercises.reduce((acc, ex) => acc + ex.sets.length, 0), [exercises]);
+  const selectorRoutine = selectedRoutine || routineOptions[0];
+  const groupedExercises = useMemo(() => {
+    const groups = new Map();
+    exercises.forEach((ex) => {
+      const key = ex.muscle || "Sin grupo";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(ex);
+    });
+    return Array.from(groups.entries());
+  }, [exercises]);
 
   return (
-    <>
-      <TopBar
-        title="Registrar Entrenamiento (Navegación Completa)"
-        subtitle="Selecciona una rutina, registra tus series y añade una foto de progreso al finalizar"
-      />
-      {isSelectorOpen && (
-        <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-[#0d1f33] border border-border-soft p-4 sm:p-6 space-y-4">
-            <h2 className="text-xl font-bold text-white">Configurar entrenamiento</h2>
-            <div className="space-y-2">
-              <p className="text-sm text-muted">Selecciona sucursal</p>
-              <div className="flex gap-2 flex-wrap">
-                {['sopocachi', 'miraflores'].map((b) => (
-                  <button
-                    key={b}
-                    type="button"
-                    className={`px-4 py-2 rounded-lg border text-sm ${
-                      selectedBranch === b ? 'border-accent bg-accent/10 text-white' : 'border-border-soft text-muted'
-                    }`}
-                    onClick={() => setSelectedBranch(b)}
-                  >
-                    {b.charAt(0).toUpperCase() + b.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted">Selecciona rutina</p>
-              <div className="space-y-2 max-h-56 overflow-auto pr-1">
-                {allRoutines.length === 0 && (
-                  <div className="text-sm text-muted">No hay rutinas para esta sucursal.</div>
-                )}
-                {allRoutines.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRoutineId(r.id)
-                      setCurrentRoutine(r)
-                    }}
-                    className={`w-full text-left rounded-xl border px-3 py-2 ${
-                      selectedRoutineId === r.id ? 'border-accent bg-accent/10 text-white' : 'border-border-soft bg-white/5 text-white'
-                    }`}
-                  >
-                    <div className="font-semibold">{r.name}</div>
-                    <div className="text-xs text-muted">{r.exercises} ejercicios</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button className="ghost-btn" onClick={() => setIsSelectorOpen(false)}>
-                Cancelar
-              </button>
-              <button
-                className="primary-btn"
-                disabled={!selectedRoutineId}
-                onClick={() => {
-                  setBranch(selectedBranch)
-                  setIsSelectorOpen(false)
-                  startTraining()
-                }}
-              >
-                Iniciar entrenamiento
-              </button>
-            </div>
-          </div>
+    <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
+      <Toaster position="top-center" richColors />
+      <div className="mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="icon" className="rounded-full border border-[color:var(--border)] h-10 w-10">
+            <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
+          </Button>
+          <h1 className="text-base font-semibold">Registrar Entrenamiento</h1>
+          <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-[color:var(--text-muted)]">
+            <MoreVertical className="h-5 w-5" />
+          </Button>
         </div>
-      )}
 
-      <div className="card flex flex-col gap-3">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-          <div className="flex flex-col gap-2 w-full">
-            <p className="text-sm font-semibold">Elige tu rutina para hoy</p>
-            <Accordion.Root
-              type="single"
-              collapsible
-              value={selectedBranch}
-              onValueChange={(val) => {
-                if (val) {
-                  setSelectedBranch(val)
-                  setBranch?.(val)
-                }
-              }}
-              className="space-y-2"
-            >
-              {branchOptions.map((branchKey) => {
-                const routinesForBranch = routinesByBranch.get(branchKey) || []
-                const displayList = routinesForBranch.length ? routinesForBranch : [fallbackRoutine(branchKey)]
-                const isOpen = selectedBranch === branchKey
-                const label = branchKey.charAt(0).toUpperCase() + branchKey.slice(1)
-                return (
-                  <Accordion.Item
-                    key={branchKey}
-                    value={branchKey}
-                    className="overflow-hidden rounded-xl border border-border-soft bg-white/5"
-                  >
-                    <Accordion.Header>
-                      <Accordion.Trigger
-                        className="w-full flex items-center justify-between px-4 py-3 text-left font-semibold text-sm focus:outline-none"
-                        onClick={() => {
-                          setSelectedBranch(branchKey)
-                          setBranch?.(branchKey)
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-accent" />
-                          <span>{label}</span>
-                          <span className="text-xs text-muted">({routinesForBranch.length} rutinas)</span>
-                        </div>
-                        <motion.span
-                          initial={false}
-                          animate={{ rotate: isOpen ? 180 : 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="text-xs text-muted"
-                        >
-                          ▼
-                        </motion.span>
-                      </Accordion.Trigger>
-                    </Accordion.Header>
-                    <Accordion.Content asChild>
-                      <AnimatePresence initial={false}>
-                        {isOpen ? (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.25 }}
-                            className="border-t border-border-soft/60 bg-[#0e1c2c] px-4 py-3 space-y-2"
-                          >
-                            {displayList.map((routine) => (
-                              <button
-                                key={routine.id}
-                                type="button"
-                                onClick={() => handleSelectRoutine(routine.id, branchKey)}
-                                className={`w-full text-left rounded-xl border px-4 py-3 transition-all ${
-                                  selectedRoutineId === routine.id
-                                    ? 'border-accent/40 bg-gradient-to-br from-accent/15 to-blue-900/30 shadow-lg shadow-accent/10'
-                                    : 'border-border-soft bg-white/5 hover:border-accent/30'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`w-9 h-9 rounded-lg grid place-items-center text-base ${
-                                      selectedRoutineId === routine.id ? 'bg-accent text-bg-darker' : 'bg-white/5 text-accent'
-                                    }`}
-                                  >
-                                    {routine.icon || '🏋️'}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <h3 className="text-sm font-semibold">{routine.name}</h3>
-                                    <p className="text-xs text-muted">
-                                      {routine.exercises} ejercicios • {routine.detail}
-                                    </p>
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                            {!routinesForBranch.length && (
-                              <p className="text-xs text-muted">No hay rutinas para esta sucursal.</p>
-                            )}
-                          </motion.div>
-                        ) : null}
-                      </AnimatePresence>
-                    </Accordion.Content>
-                  </Accordion.Item>
-                )
-              })}
-            </Accordion.Root>
+        {/* Mobile static bar: duracion + finalizar (simula desktop) */}
+        <div className="md:hidden sticky top-0 z-20 bg-[color:var(--bg)] pb-3">
+        <div className="flex items-center gap-2">
+          <Card className="flex-1 px-3 py-2 flex items-center justify-between">
             <div>
-              <button type="button" className="ghost-btn text-xs mt-2" onClick={() => setIsSelectorOpen(true)}>
-                Cambiar rutina / sucursal
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="label">Fecha</p>
-            <input
-              type="date"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-              className="rounded-full border border-border-soft bg-white/5 px-4 py-2 text-white"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="label">Duración Entrenamiento</p>
-            <div className="flex items-center gap-2">
-              <button className="ghost-btn text-sm" onClick={startTraining} disabled={!!trainingStart}>
-                Iniciar entrenamiento
-              </button>
-              <button className="ghost-btn text-sm flex items-center gap-1" onClick={resetTrainingTimer}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                  <path d="M10 3a7 7 0 1 0 7 7 .75.75 0 0 1 1.5 0 8.5 8.5 0 1 1-2.494-6.007l.239-1.67a.75.75 0 0 1 1.484.212l-.5 3.5a.75.75 0 0 1-.85.637l-3.5-.5a.75.75 0 0 1 .212-1.484l1.5.214A7 7 0 0 0 10 3Z" />
-                </svg>
-                Reiniciar
-              </button>
-              <span className="text-sm text-muted">{formatSeconds(trainingElapsed)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <section className="card flex flex-col gap-3">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h3 className="text-xl font-semibold">Rutina: {currentRoutine.name}</h3>
-            <p className="text-sm text-muted">Completa peso y repeticiones para cada set</p>
-          </div>
-          <div className="flex items-center gap-2 text-muted text-sm">
-            <span className="w-3 h-3 rounded-full bg-accent/70 shadow-[0_0_8px_rgba(79,163,255,0.6)]" />
-            {sessionDate
-              ? new Date(`${sessionDate}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
-              : ''}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border-soft overflow-hidden bg-white/3">
-          {groupedWorkouts.map(([muscle, items]) => (
-            <div key={muscle} className="border-b border-border-soft/60 last:border-b-0">
-              <div className="px-4 py-3 bg-black/20 flex items-center justify-between">
-                <span className="text-sm font-semibold">{muscle}</span>
-                <span className="text-xs text-muted">{items.length} ejercicios</span>
-              </div>
-              <div className="divide-y divide-border-soft/60">
-                {items.map((exercise, exerciseIndex) => (
-                  <div
-                    key={`${exercise.name}-${exerciseIndex}`}
-                    className="px-4 py-4 bg-white/5 rounded-xl border border-border-soft/60 shadow-sm"
-                  >
-                    <div className="flex flex-col lg:flex-row gap-6 items-start">
-                      <div className="lg:w-72 w-full flex-shrink-0 flex justify-center">{renderExerciseImage(exercise)}</div>
-                      <div className="flex-1 space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-start gap-3 text-sm">
-                          <div className="font-semibold text-base sm:text-lg leading-tight">{exercise.name}</div>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
-                            <span>Ref:</span>
-                            {(() => {
-                              const ref = getReference(exercise.exerciseId || slugify(exercise.name))
-                              return (
-                                <span>
-                                  {ref.label} {ref.date && `- ${ref.date}`}
-                                </span>
-                              )
-                            })()}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted sm:col-span-2">
-                            <button
-                              type="button"
-                              className="ghost-btn text-xs sm:text-sm"
-                              onClick={() => startExercise(exercise.exerciseId || slugify(exercise.name))}
-                            >
-                              Iniciar ejercicio
-                            </button>
-                            <button
-                              type="button"
-                              className="ghost-btn text-xs sm:text-sm"
-                              onClick={() => stopExercise(exercise.exerciseId || slugify(exercise.name))}
-                            >
-                              Terminar ejercicio
-                            </button>
-                            <span className="ml-auto text-xs sm:text-sm">
-                              {formatSeconds(getExerciseElapsed(exercise.exerciseId || slugify(exercise.name)))}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          {exercise.sets.map((set, setIndex) => (
-                            <div
-                              key={setIndex}
-                              className="grid grid-cols-[0.4fr_1.2fr_1fr_1fr_0.6fr] sm:grid-cols-[1.5fr_0.4fr_0.8fr_0.8fr_0.8fr_0.4fr] items-center gap-3 text-sm"
-                            >
-                              <div className="text-sm text-muted text-center">{setIndex + 1}</div>
-                              {(() => {
-                                const ref = getReference(exercise.exerciseId || slugify(exercise.name), setIndex)
-                                return (
-                                  <span className="text-xs sm:text-[12px] text-muted flex flex-col leading-tight">
-                                    <span>{ref.label}</span>
-                                    {ref.date && <span>{ref.date}</span>}
-                                  </span>
-                                )
-                              })()}
-                              <input
-                                className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                                value={set.weight}
-                                onChange={(e) => updateSet(exercise.sourceIdx, setIndex, 'weight', e.target.value)}
-                                placeholder="kg"
-                              />
-                              <input
-                                className="w-full rounded-full border border-border-soft bg-[#121f33] px-3 py-2 text-white"
-                                value={set.reps}
-                                onChange={(e) => updateSet(exercise.sourceIdx, setIndex, 'reps', e.target.value)}
-                                placeholder="reps"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => toggleDone(exercise.sourceIdx, setIndex)}
-                                className="mx-auto w-6 h-6 sm:w-5 sm:h-5 rounded-full border border-border-soft bg-white/5 flex items-center justify-center"
-                                aria-label="Marcar set completado"
-                              >
-                                <span
-                                  className={`w-3 h-3 rounded-full ${
-                                    set.done ? 'bg-accent shadow-[0_0_8px_rgba(79,163,255,0.6)]' : 'bg-transparent'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="w-full text-center text-sm text-accent font-semibold py-2 border border-dashed border-accent/40 rounded-lg hover:bg-accent/10 transition-colors"
-                            onClick={() => addSet(exercise.sourceIdx)}
-                          >
-                            + Anadir Set
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-4 py-3 bg-white/5 flex justify-end">
-                <button type="button" className="ghost-btn text-sm" onClick={saveDraft}>
-                  Guardar borrador
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card space-y-3">
-        <div>
-          <h3 className="text-lg font-semibold">Foto de Progreso del Día</h3>
-          <p className="text-sm text-muted">
-            Añade una foto para documentar tu progreso. Esta imagen se guardará junto con los detalles del entrenamiento y en tu Biblioteca de Fotos.
-          </p>
-        </div>
-        <label className="w-full border-2 border-dashed border-border-soft rounded-2xl min-h-[220px] grid place-items-center text-center cursor-pointer hover:border-accent/60 transition-colors">
-          <div className="flex flex-col items-center gap-2">
-            {photoPreview ? (
-              <img src={photoPreview} alt="Vista previa" className="w-full max-h-72 object-cover rounded-xl" />
-            ) : (
-              <>
-                <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center text-xl text-muted">📤</div>
-                <p className="text-sm text-muted">
-                  Haz clic para subir o arrastra y suelta <br />
-                  <span className="text-xs">PNG, JPG o GIF (max. 10MB)</span>
+              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Duracion</p>
+              <p className="text-base font-semibold text-[color:var(--text)]">
+                  {String(Math.floor(durationSeconds / 60)).padStart(2, "0")}:
+                  {String(durationSeconds % 60).padStart(2, "0")}
                 </p>
-              </>
-            )}
+            </div>
+            <div className="text-[11px] text-[color:var(--text-muted)]">LIVE</div>
+          </Card>
+          <Button
+            className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
+            onClick={handleFinish}
+            disabled={!exercises.length}
+          >
+            <Flag className="h-4 w-4" />
+            <span>Finalizar</span>
+          </Button>
+        </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[360px,1fr]">
+          <div className="space-y-4">
+            <SessionHeader
+              title="HOY"
+              dateISO={sessionDate}
+              durationSeconds={durationSeconds}
+              isRunning={isRunning}
+              onStart={handleStart}
+              onPause={handlePause}
+              onReset={handleReset}
+              onChangeDate={(value) => {
+                const nextDate = value || todayISO;
+                setSessionDate(nextDate);
+                saveSnapshot({ dateISO: nextDate }, { light: true });
+              }}
+            />
+
+            <Card className="p-4 space-y-3">
+              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Rutina seleccionada</p>
+              <RoutineSelector
+                routine={
+                  selectorRoutine || {
+                    id: "sin-rutina",
+                    name: routinesLoading ? "Cargando..." : "Sin rutinas",
+                    location: "general",
+                    exerciseCount: 0,
+                    lastDate: "--",
+                  }
+                }
+                routines={routineOptions}
+                onSelect={handleSelectRoutine}
+              />
+              <div className="flex gap-2 pt-1">
+                <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
+                  <Button className="w-full" onClick={handleStart} disabled={isRunning}>
+                    Iniciar
+                  </Button>
+                </motion.div>
+                <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
+                  <Button
+                    variant="outline"
+                    className="w-full border-[color:var(--border)] text-[color:var(--text)]"
+                    onClick={handleReset}
+                  >
+                    Reiniciar
+                  </Button>
+                </motion.div>
+              </div>
+              <p className="text-xs text-[color:var(--text-muted)]">Ultimo: {selectorRoutine?.lastDate || "--"}</p>
+            </Card>
+
+            <Card className="p-4 space-y-1">
+              <p className="text-sm font-semibold text-[color:var(--text)]">Resumen rapido</p>
+              <p className="text-sm text-[color:var(--text-muted)]">Fecha: {formatLongDate(sessionDate)}</p>
+              <p className="text-sm text-[color:var(--text-muted)]">Ejercicios: {exercises.length}</p>
+              <p className="text-sm text-[color:var(--text-muted)]">Sets totales: {totalSets}</p>
+            </Card>
           </div>
-          <input type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-        </label>
-      </section>
 
-      <div className="flex flex-col md:flex-row md:justify-end gap-3">
-        <button className="ghost-btn w-full md:w-auto">Cancelar</button>
-        <button className="ghost-btn w-full md:w-auto" onClick={saveDraft}>
-          Guardar como Borrador
-        </button>
-        <button className="primary-btn w-full md:w-auto" onClick={finalizeTraining}>
-          Finalizar Entrenamiento
-        </button>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
+                  EJERCICIOS ({exercises.length})
+                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">En progreso</p>
+              </div>
+              <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">Total sets: {totalSets}</Badge>
+            </div>
+
+            <div className="space-y-4">
+              {groupedExercises.map(([muscle, items]) => (
+                <div key={muscle} className="space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-sm font-semibold text-[color:var(--text)]">{muscle}</p>
+                    <span className="text-[11px] text-[color:var(--text-muted)]">{items.length} ejercicios</span>
+                  </div>
+                  <AnimatePresence>
+                    {items.map((ex) => (
+                      <ExerciseCard
+                        key={ex.id}
+                        exercise={ex}
+                        onAddSet={() => handleAddSet(ex.id)}
+                        onUpdateSet={(setId, field, value) => handleUpdateSet(ex.id, setId, field, value)}
+                        onToggleDone={(setId) => handleToggleDone(ex.id, setId)}
+                        onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
+                        onRemoveExercise={() => handleRemoveExercise(ex.id)}
+                        onViewHistory={() => {
+                          if (typeof localStorage !== "undefined") localStorage.setItem("last_exercise_id", ex.id);
+                          if (typeof onNavigate === "function") onNavigate("ejercicio_analitica");
+                        }}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              ))}
+
+              <motion.div whileTap={{ scale: 0.97 }}>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
+                  onClick={handleAddExercise}
+                >
+                  + Anadir ejercicio
+                </Button>
+              </motion.div>
+            </div>
+          </section>
+        </div>
       </div>
-    </>
-  )
-}
 
-export default RegisterTraining
+      <div className="hidden md:block">
+        <BottomActionBar onFinish={handleFinish} disabled={!exercises.length} durationSeconds={durationSeconds} />
+      </div>
+    </main>
+  );
+}

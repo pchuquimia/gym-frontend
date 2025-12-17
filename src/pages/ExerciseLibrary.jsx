@@ -21,6 +21,7 @@ function ExerciseLibrary({ onNavigate }) {
     useTrainingData();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
+  const [branchFilter, setBranchFilter] = useState("todos");
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
 
@@ -29,10 +30,17 @@ function ExerciseLibrary({ onNavigate }) {
       exercise.name.toLowerCase().includes(search.toLowerCase());
     const byMuscle = (exercise) =>
       filter === "Todos" || exercise.muscle === filter;
+    const byBranch = (exercise) => {
+      if (branchFilter === "todos") return true;
+      const branches = exercise.branches?.length
+        ? exercise.branches
+        : ["general"];
+      return branches.includes(branchFilter);
+    };
     return exercises.filter(
-      (exercise) => byName(exercise) && byMuscle(exercise)
+      (exercise) => byName(exercise) && byMuscle(exercise) && byBranch(exercise)
     );
-  }, [exercises, search, filter]);
+  }, [exercises, search, filter, branchFilter]);
 
   const handleAdd = () => {
     setSelectedExercise(null);
@@ -112,6 +120,8 @@ function ExerciseLibrary({ onNavigate }) {
           onSearch={setSearch}
           activeFilter={filter}
           onFilter={setFilter}
+          branch={branchFilter}
+          onBranch={setBranchFilter}
         />
         <button
           type="button"

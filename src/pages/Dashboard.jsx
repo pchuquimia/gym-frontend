@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveLine } from '@nivo/line'
-import { ResponsiveBar } from '@nivo/bar'
 import TopBar from '../components/layout/TopBar'
 import { useTrainingData } from '../context/TrainingContext'
+import MuscleProgressWidget from '../components/analytics/MuscleProgressWidget'
 
 const formatDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
@@ -112,66 +112,16 @@ function Dashboard({ onNavigate }) {
     })
     const recentPRs = prs.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
 
-    const muscleVolumeMap = {}
-    const recentSessions = sessionsSorted.filter((s) => {
-      const diffDays = (new Date(todayISO) - new Date(s.date)) / (1000 * 60 * 60 * 24)
-      return diffDays >= 0 && diffDays <= 30
-    })
-    recentSessions.forEach((s) => {
-      const muscle = exerciseMeta[s.exerciseId]?.muscle || 'Sin grupo'
-      muscleVolumeMap[muscle] = (muscleVolumeMap[muscle] || 0) + toReps(s.sets)
-    })
-    const muscleDist = Object.entries(muscleVolumeMap)
-      .map(([label, value]) => ({ label, value, sublabel: `${Math.round(value)} reps` }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6)
-
-    const uniqueDates = Array.from(new Set(sessions.map((s) => s.date))).sort((a, b) => new Date(b) - new Date(a))
-    let streak = 0
-    let cursor = new Date(todayISO)
-    for (let i = 0; i < uniqueDates.length; i += 1) {
-      const currentISO = cursor.toISOString().slice(0, 10)
-      if (uniqueDates.includes(currentISO)) {
-        streak += 1
-        cursor.setDate(cursor.getDate() - 1)
-      } else {
-        break
-      }
-    }
-    const adherenceLast7 = (() => {
-      let count = 0
-      for (let i = 0; i < 7; i += 1) {
-        const d = new Date(todayISO)
-        d.setDate(d.getDate() - i)
-        const iso = d.toISOString().slice(0, 10)
-        if (uniqueDates.includes(iso)) count += 1
-      }
-      return Math.round((count / 7) * 100)
-    })()
-
-    const avgDuration =
-      trainings.length > 0
-        ? Math.round(
-            trainings.reduce((acc, t) => acc + (Number(t.durationSeconds) || 0), 0) /
-              trainings.length /
-              60,
-          )
-        : 0
-    const topRoutines = Object.entries(
-      trainings.reduce((acc, t) => {
-        const name = t.routineName || 'Sin nombre'
-        acc[name] = (acc[name] || 0) + 1
-        return acc
-      }, {}),
-    )
-      .map(([label, value]) => ({ label, value, sublabel: `${value} veces` }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 4)
-
     const lastPhotos = [...photos].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
 
     const totalExerciseDurationMin = Math.round(
       sessions.reduce((acc, s) => acc + (Number(s.exerciseDurationSeconds) || 0), 0) / 60,
+    )
+
+    const trainingDurationTodayMin = Math.round(
+      trainings
+        .filter((t) => t.date === todayISO)
+        .reduce((acc, t) => acc + (Number(t.durationSeconds) || 0), 0) / 60,
     )
 
     // Serie de rendimiento por ejercicio más frecuente
@@ -190,24 +140,6 @@ function Dashboard({ onNavigate }) {
           },
         ]
       : []
-
-    const trendsSummary = [
-      {
-        title: 'Consistencia 7d',
-        value: `${adherenceLast7}%`,
-        detail: 'Porcentaje de días entrenados',
-      },
-      {
-        title: 'PRs recientes',
-        value: recentPRs.length,
-        detail: 'Mejoras detectadas por reps',
-      },
-      {
-        title: 'Músculo más trabajado',
-        value: muscleDist[0]?.label || 'N/A',
-        detail: muscleDist[0] ? `${Math.round(muscleDist[0].value)} reps (30d)` : '',
-      },
-    ]
 
     const exerciseSeries = Array.from(new Set(todayExercises.map((e) => e.id || e.name))).map((exerciseId) => {
       const entries = sessionsSorted
@@ -229,18 +161,25 @@ function Dashboard({ onNavigate }) {
       },
       weeklyTrend: last7,
       prs: recentPRs,
-      muscleDist,
-      streak,
-      adherence: adherenceLast7,
-      avgDuration,
-      topRoutines,
       photos: lastPhotos,
       totalExerciseDurationMin,
       performanceSeries,
-      trendsSummary,
       exerciseSeries,
+      trainingDurationTodayMin,
     }
   }, [sessions, trainings, exercises, photos, todayISO])
+
+  const workoutsForAnalytics = useMemo(
+    () =>
+      sessions
+        .filter((s) => s.exerciseId && Array.isArray(s.sets) && s.sets.length)
+        .map((s) => ({
+          exerciseId: s.exerciseId,
+          date: s.date,
+          sets: (s.sets || []).map((set) => ({ weight: Number(set.weight) || 0, reps: Number(set.reps) || 0 })),
+        })),
+    [sessions],
+  )
 
   const weeklyLineData = useMemo(
     () => [
@@ -250,16 +189,6 @@ function Dashboard({ onNavigate }) {
       },
     ],
     [data.weeklyTrend],
-  )
-
-  const muscleBarData = useMemo(
-    () => data.muscleDist.map((d) => ({ label: d.label, value: Math.round(d.value) || 0 })),
-    [data.muscleDist],
-  )
-
-  const routineBarData = useMemo(
-    () => data.topRoutines.map((d) => ({ label: d.label, value: d.value })),
-    [data.topRoutines],
   )
 
   const currentMuscleLine = useMemo(() => {
@@ -287,6 +216,12 @@ function Dashboard({ onNavigate }) {
 
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
+          <MuscleProgressWidget
+            workouts={workoutsForAnalytics}
+            rangeWeeks={12}
+            mode="dark"
+            onViewDetails={() => onNavigate?.('ejercicio_analitica')}
+          />
           {/* Resumen de hoy */}
           <div className="card border border-border-soft/70 bg-gradient-to-br from-[#0f1e33] to-[#0a1423]">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -426,126 +361,52 @@ function Dashboard({ onNavigate }) {
             </div>
           </div>
 
-          {/* PRs y distribución */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="card">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">Mejores marcas recientes</h3>
-                <span className="text-xs text-muted">Top 5</span>
-              </div>
-              {data.prs.length ? (
-                <div className="space-y-2">
-                  {data.prs.map((pr) => (
-                    <div
-                      key={`${pr.name}-${pr.date}`}
-                      className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
-                      onClick={() => onNavigate?.('historial')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div>
-                        <p className="text-sm font-semibold">{pr.name}</p>
-                        <p className="text-xs text-muted">{formatDate(pr.date)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">{Math.round(pr.reps)} reps</p>
-                        <p className="text-[11px] text-emerald-300">+{Math.round(pr.diff)} reps</p>
-                      </div>
+          {/* PRs */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Mejores marcas recientes</h3>
+              <span className="text-xs text-muted">Top 5</span>
+            </div>
+            {data.prs.length ? (
+              <div className="space-y-2">
+                {data.prs.map((pr) => (
+                  <div
+                    key={`${pr.name}-${pr.date}`}
+                    className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
+                    onClick={() => onNavigate?.('historial')}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold">{pr.name}</p>
+                      <p className="text-xs text-muted">{formatDate(pr.date)}</p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted">Aún no hay PRs registrados.</p>
-              )}
-            </div>
-            <div className="card">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">Distribución por músculo (últimos 30 días)</h3>
-                <span className="text-xs text-muted">Reps</span>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">{Math.round(pr.reps)} reps</p>
+                      <p className="text-[11px] text-emerald-300">+{Math.round(pr.diff)} reps</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              {data.muscleDist.length ? (
-                <div className="h-56">
-                  <ResponsiveBar
-                    data={muscleBarData}
-                    keys={['value']}
-                    indexBy="label"
-                    layout="horizontal"
-                    theme={chartTheme}
-                    margin={{ top: 10, right: 10, bottom: 30, left: 90 }}
-                    padding={0.35}
-                    colors={['#4fa3ff']}
-                    enableLabel={false}
-                    axisBottom={{ tickSize: 0, tickPadding: 8 }}
-                    axisLeft={{ tickSize: 0, tickPadding: 6 }}
-                    gridYValues={[]}
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted">Sin datos de volumen por músculo.</p>
-              )}
-            </div>
+            ) : (
+              <p className="text-sm text-muted">Aún no hay PRs registrados.</p>
+            )}
           </div>
 
-          {/* Fotos y adherencia */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="card">
-              <h3 className="text-lg font-semibold mb-2">Adherencia y racha</h3>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 rounded-xl border border-border-soft/60 bg-white/5 p-3 text-center">
-                  <p className="text-xs text-muted">Adherencia 7d</p>
-                  <p className="text-2xl font-semibold">{data.adherence}%</p>
-                </div>
-                <div className="flex-1 rounded-xl border border-border-soft/60 bg-white/5 p-3 text-center">
-                  <p className="text-xs text-muted">Racha</p>
-                  <p className="text-2xl font-semibold">{data.streak}d</p>
-                </div>
-              </div>
-              <p className="text-xs text-muted mt-2">
-                Entrena al menos 4/7 días para mantener una racha saludable.
+              <h3 className="text-lg font-semibold mb-1">Duración de hoy</h3>
+              <p className="text-3xl font-semibold">
+                {data.trainingDurationTodayMin > 0 ? `${data.trainingDurationTodayMin} min` : 'Sin registro'}
               </p>
+              <p className="text-sm text-muted">Tiempo total del entrenamiento de la fecha actual.</p>
             </div>
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-2">Duración promedio</h3>
-            <p className="text-3xl font-semibold">{data.avgDuration} min</p>
-            <p className="text-sm text-muted">Promedio de las sesiones registradas</p>
-            <div className="mt-3 text-xs text-muted">
-              <p>Consejo: calienta 10 min y deja 5 min para estiramientos.</p>
-            </div>
-          </div>
             <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
               <h3 className="text-lg font-semibold mb-1">Duración total (ejercicios)</h3>
               <p className="text-3xl font-semibold">{data.totalExerciseDurationMin} min</p>
               <p className="text-sm text-muted">Tiempo acumulado en ejercicios registrados</p>
-            </div>
-            <div className="card">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold">Rutinas más usadas</h3>
-                <button className="ghost-btn text-xs" onClick={() => onNavigate?.('rutinas')}>
-                  Ver rutinas
-                </button>
-              </div>
-              {data.topRoutines.length ? (
-                <div className="h-40">
-                  <ResponsiveBar
-                    data={routineBarData}
-                    keys={['value']}
-                    indexBy="label"
-                    layout="horizontal"
-                    theme={chartTheme}
-                    margin={{ top: 10, right: 10, bottom: 30, left: 90 }}
-                    padding={0.4}
-                    colors={['#c084fc']}
-                    enableLabel={false}
-                    axisBottom={{ tickSize: 0, tickPadding: 8 }}
-                    axisLeft={{ tickSize: 0, tickPadding: 6 }}
-                    gridYValues={[]}
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted">Aún no hay rutinas registradas.</p>
-              )}
             </div>
           </div>
         </div>
@@ -578,27 +439,6 @@ function Dashboard({ onNavigate }) {
             ) : (
               <p className="text-sm text-muted">Aún no hay suficiente historial para mostrar.</p>
             )}
-          </div>
-
-          <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">Tendencias</h3>
-              <span className="text-xs text-muted">Ver historial</span>
-            </div>
-            <div className="space-y-2">
-              {data.trendsSummary.map((item) => (
-                <div
-                  key={item.title}
-                  className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold">{item.title}</span>
-                    <span className="text-xs text-muted">{item.detail}</span>
-                  </div>
-                  <span className="text-sm font-semibold">{item.value}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="card">

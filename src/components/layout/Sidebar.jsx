@@ -4,6 +4,8 @@ export const navLinks = [
   { id: 'registrar', label: 'Registrar Entrenamiento' },
   { id: 'historial', label: 'Historial de Progreso' },
   { id: 'graficos', label: 'Gráficos y Análisis' },
+  { id: 'ejercicio_analitica', label: 'Analítica por Ejercicio' },
+  { id: 'resumen_sesion', label: 'Resumen de Sesión' },
   { id: 'rutinas', label: 'Rutinas y Planificación' },
   { id: 'perfil', label: 'Perfil y Ajustes' },
   { id: 'fotos', label: 'Biblioteca de Fotos' },
