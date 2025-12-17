@@ -123,12 +123,36 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const historyByExercise = useMemo(() => {
     const map = new Map();
-    const saveIfNewer = (key, payload) => {
+    const computeOneRM = (w = 0, r = 0) => Number(((Number(w) || 0) * (1 + (Number(r) || 0) / 30)).toFixed(2));
+    const bestFromSets = (sets = [], fallbackDate) => {
+      let best = { weight: 0, reps: 0, oneRM: 0, date: fallbackDate };
+      sets.forEach((s) => {
+        const oneRM = computeOneRM(s.weightKg ?? s.weight, s.reps);
+        if (oneRM > best.oneRM) {
+          best = {
+            weight: Number(s.weightKg ?? s.weight) || 0,
+            reps: Number(s.reps) || 0,
+            oneRM,
+            date: s.date || fallbackDate,
+          };
+        }
+      });
+      return best;
+    };
+
+    const saveIfBetter = (key, payload) => {
       if (!key) return;
       const current = map.get(key);
-      const currentDate = current?.date ? new Date(current.date).getTime() : 0;
-      const thisDate = payload.date ? new Date(payload.date).getTime() : 0;
-      if (thisDate >= currentDate) map.set(key, payload);
+      if (!current || payload.oneRM > (current.oneRM || 0)) {
+        map.set(key, payload);
+        return;
+      }
+      // si empata en fuerza, preferir la fecha mas reciente
+      if (payload.oneRM === (current.oneRM || 0)) {
+        const currentDate = current?.date ? new Date(current.date).getTime() : 0;
+        const thisDate = payload.date ? new Date(payload.date).getTime() : 0;
+        if (thisDate >= currentDate) map.set(key, payload);
+      }
     };
 
     const normalizeSets = (sets = []) =>
@@ -141,14 +165,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const addEntry = (id, name, date, sets) => {
       const slug = name ? slugify(name) : null;
       const normSets = normalizeSets(sets);
+      const best = bestFromSets(normSets, date);
       const payload = {
-        date,
+        date: best.date || date,
         sets: normSets,
-        weight: normSets.at(-1)?.weight || 0,
-        reps: normSets.at(-1)?.reps || 0,
+        weight: best.weight,
+        reps: best.reps,
+        oneRM: best.oneRM,
       };
-      saveIfNewer(id, payload);
-      saveIfNewer(slug, payload);
+      saveIfBetter(id, payload);
+      saveIfBetter(slug, payload);
     };
 
     (Array.isArray(sessions) ? sessions : []).forEach((s) => {
@@ -239,7 +265,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const current = routineOptions.find((r) => r.id === selectedRoutineId) || routineOptions[0];
     setSelectedRoutineId(current.id);
     setSelectedRoutine(current);
-    setSessionDate(todayISO);
+    // no sobrescribir la fecha seleccionada manualmente; conservar sessionDate actual
     setExercises(applyHistoryToExercises(buildExercisesForRoutine(current.raw), historyByExercise).map(mergeMeta));
     setIsRunning(false);
   }, [routineOptions, selectedRoutineId, libraryExercises, historyByExercise]);
@@ -429,6 +455,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         })),
       };
       await addTraining(payload);
+      setSelectedRoutine((prev) => (prev ? { ...prev, lastDate: formatShort(sessionDate) } : prev));
       toast.success("Entrenamiento finalizado");
       if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");

@@ -13,7 +13,7 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, '')
 
 function ExerciseAnalyticsPage() {
-  const { sessions = [], exercises = [] } = useTrainingData()
+  const { sessions = [], trainings = [], exercises = [] } = useTrainingData()
   const [selectedExerciseId, setSelectedExerciseId] = useState(() => {
     if (typeof localStorage !== 'undefined') {
       const last = localStorage.getItem('last_exercise_id')
@@ -24,17 +24,33 @@ function ExerciseAnalyticsPage() {
 
   const workouts = useMemo(
     () =>
-      sessions
-        .filter((s) => s.exerciseId)
-        .map((s) => ({
-          exerciseId: s.exerciseId || slugify(s.exerciseName || ''),
-          date: s.date,
-          sets: (s.sets || []).map((set) => ({
-            weight: Number(set.weightKg ?? set.weight) || 0,
-            reps: Number(set.reps) || 0,
+      [
+        // sesiones simples
+        ...sessions
+          .filter((s) => s.exerciseId)
+          .map((s) => ({
+            exerciseId: s.exerciseId || slugify(s.exerciseName || ''),
+            date: s.date,
+            sets: (s.sets || []).map((set) => ({
+              weight: Number(set.weightKg ?? set.weight) || 0,
+              reps: Number(set.reps) || 0,
+            })),
           })),
-        })),
-    [sessions],
+        // entrenamientos completos
+        ...trainings.flatMap((t) =>
+          (t.exercises || [])
+            .filter((ex) => ex.exerciseId || ex.exerciseName)
+            .map((ex) => ({
+              exerciseId: ex.exerciseId || slugify(ex.exerciseName || ''),
+              date: t.date,
+              sets: (ex.sets || []).map((set) => ({
+                weight: Number(set.weightKg ?? set.weight) || 0,
+                reps: Number(set.reps) || 0,
+              })),
+            })),
+        ),
+      ],
+    [sessions, trainings],
   )
 
   const exerciseName =
