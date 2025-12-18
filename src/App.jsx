@@ -3,15 +3,14 @@ import './App.css'
 import Dashboard from './pages/Dashboard'
 import ExerciseLibrary from './pages/ExerciseLibrary'
 import MainLayout from './components/layout/MainLayout'
-import ComingSoon from './components/shared/ComingSoon'
 import RegisterTraining from './pages/RegisterTraining'
-import ProgressHistory from './pages/ProgressHistory'
-import Analytics from './pages/Analytics'
 import ExerciseAnalyticsPage from './pages/ExerciseAnalyticsPage'
 import SessionSummaryPage from './pages/SessionSummaryPage'
 import Routines from './pages/Routines'
 import ProfileSettings from './pages/ProfileSettings'
 import PhotosLibrary from './pages/PhotosLibrary'
+import TrainingAdmin from './pages/TrainingAdmin'
+import Goals from './pages/Goals'
 import { TrainingProvider } from './context/TrainingContext'
 import { RoutineProvider } from './context/RoutineContext'
 import { UserProvider } from './context/UserContext'
@@ -20,13 +19,13 @@ const PAGES = {
   dashboard: { label: 'Dashboard', component: Dashboard },
   library: { label: 'Biblioteca de Ejercicios', component: ExerciseLibrary },
   registrar: { label: 'Registrar Entrenamiento', component: RegisterTraining },
-  historial: { label: 'Historial de Progreso', component: ProgressHistory },
-  graficos: { label: 'Gráficos y Análisis', component: Analytics },
   ejercicio_analitica: { label: 'Exercise Analytics', component: ExerciseAnalyticsPage },
   resumen_sesion: { label: 'Resumen de Sesión', component: SessionSummaryPage },
   rutinas: { label: 'Rutinas y Planificación', component: Routines },
+  admin_sesiones: { label: 'Administrar sesiones', component: TrainingAdmin },
   perfil: { label: 'Perfil y Ajustes', component: ProfileSettings },
   fotos: { label: 'Biblioteca de Fotos', component: PhotosLibrary },
+  objetivos: { label: 'Objetivos', component: Goals },
 }
 
 function App() {
@@ -60,3 +59,4 @@ function App() {
 }
 
 export default App
+

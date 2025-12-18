@@ -1,129 +1,119 @@
-import { useEffect, useMemo, useState } from 'react'
-import TopBar from '../components/layout/TopBar'
-import Modal from '../components/shared/Modal'
-import { useRoutines } from '../context/RoutineContext'
-import { useTrainingData } from '../context/TrainingContext'
+import { useMemo, useState } from "react";
+import TopBar from "../components/layout/TopBar";
+import Modal from "../components/shared/Modal";
+import { useRoutines } from "../context/RoutineContext";
+import { useTrainingData } from "../context/TrainingContext";
 
 const slugify = (text) =>
   text
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    ?.toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
 
-function RoutineModal({ mode = 'create', initialData, onSave, onClose, availableExercises }) {
-  const [name, setName] = useState(initialData?.name || '')
-  const [exercises, setExercises] = useState(initialData?.exercises || [])
-  const [search, setSearch] = useState('')
-  const [error, setError] = useState('')
-  const [branch, setBranch] = useState(initialData?.branch || 'general')
-  const [branchError, setBranchError] = useState('')
-  const [selectedMuscle, setSelectedMuscle] = useState(availableExercises?.[0]?.muscle || 'Pecho')
-  const [dragIndex, setDragIndex] = useState(null)
+function RoutineModal({ mode = "create", initialData, onSave, onClose, availableExercises }) {
+  const [name, setName] = useState(initialData?.name || "");
+  const [branch, setBranch] = useState(initialData?.branch || "general");
+  const [branchError, setBranchError] = useState("");
+  const [exercises, setExercises] = useState(
+    (initialData?.exercises || []).map((ex) => {
+      const meta = availableExercises.find(
+        (a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name
+      );
+      return {
+        ...ex,
+        exerciseId: ex.exerciseId || slugify(ex.name),
+        muscle: ex.muscle || meta?.muscle,
+        image: ex.image || meta?.image || meta?.thumb,
+      };
+    })
+  );
+  const [selectedMuscle, setSelectedMuscle] = useState(availableExercises?.[0]?.muscle || "Pecho");
+  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
+  const [dragIndex, setDragIndex] = useState(null);
+
+  const groupedSelected = useMemo(() => {
+    const map = new Map();
+    exercises.forEach((ex, idx) => {
+      const key = ex.muscle || "Sin grupo";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({ ...ex, idx });
+    });
+    return Array.from(map.entries());
+  }, [exercises]);
 
   const muscleOptions = useMemo(() => {
-    const set = new Set()
+    const set = new Set();
     availableExercises.forEach((ex) => {
-      if (ex.muscle) set.add(ex.muscle)
-    })
-    const list = Array.from(set)
-    return list.length ? list : ['Pecho']
-  }, [availableExercises])
-
-  useEffect(() => {
-    if (!muscleOptions.includes(selectedMuscle)) {
-      setSelectedMuscle(muscleOptions[0] || 'Pecho')
-    }
-  }, [muscleOptions, selectedMuscle])
-
-  useEffect(() => {
-    if (initialData?.exercises?.length) {
-      const withMeta = initialData.exercises.map((ex) => {
-        const meta =
-          availableExercises.find((a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name) || {}
-        return { ...ex, muscle: ex.muscle || meta.muscle, image: ex.image || meta.image }
-      })
-      setExercises(withMeta)
-    }
-  }, [initialData, availableExercises])
+      if (ex.muscle) set.add(ex.muscle);
+    });
+    const list = Array.from(set);
+    return list.length ? list : ["Pecho"];
+  }, [availableExercises]);
 
   const branchMatches = (ex) => {
-    if (!branch || branch === 'general') return true
-    const b = ex.branches || []
-    return b.includes(branch) || b.includes('general')
-  }
+    if (!branch || branch === "general") return true;
+    const b = ex.branches || [];
+    return b.includes(branch) || b.includes("general");
+  };
 
   const filteredExercises = useMemo(
-    () => availableExercises.filter((ex) => branchMatches(ex) && (!selectedMuscle || ex.muscle === selectedMuscle)),
-    [availableExercises, selectedMuscle, branch],
-  )
+    () =>
+      availableExercises.filter(
+        (ex) =>
+          branchMatches(ex) &&
+          (!selectedMuscle || ex.muscle === selectedMuscle) &&
+          ex.name.toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    [availableExercises, selectedMuscle, branch, search]
+  );
 
-  const addExercise = (exerciseName) => {
-    if (!exerciseName.trim()) return
-    const match = availableExercises.find(
-      (ex) => ex.name.toLowerCase() === exerciseName.trim().toLowerCase() && branchMatches(ex),
-    )
-    if (!match) {
-      setError('Solo puedes agregar ejercicios disponibles en esta sede.')
-      return
-    }
-    setError('')
-    setExercises((prev) => [
-      ...prev,
-      { name: match.name, exerciseId: match.id, sets: 3, muscle: match.muscle, image: match.image },
-    ])
-    setSearch('')
-  }
-
-  const addExerciseFromLibrary = (exercise) => {
+  const addExercise = (exercise) => {
     if (!exercise || !branchMatches(exercise)) {
-      setError('Solo puedes agregar ejercicios disponibles en esta sede.')
-      return
+      setError("Solo puedes agregar ejercicios disponibles en esta sede.");
+      return;
     }
-    setError('')
+    setError("");
     setExercises((prev) => [
       ...prev,
-      { name: exercise.name, exerciseId: exercise.id, sets: 3, muscle: exercise.muscle, image: exercise.image },
-    ])
-  }
+      {
+        name: exercise.name,
+        exerciseId: exercise.id,
+        sets: 3,
+        muscle: exercise.muscle,
+        image: exercise.image || exercise.thumb,
+      },
+    ]);
+  };
 
   const updateSets = (idx, sets) => {
-    setExercises((prev) => prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex)))
-  }
+    setExercises((prev) => prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex)));
+  };
+
+  const removeExercise = (idx) => {
+    setExercises((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const reorderExercises = (from, to) => {
     setExercises((prev) => {
-      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev
-      const next = [...prev]
-      const [item] = next.splice(from, 1)
-      next.splice(to, 0, item)
-      return next
-    })
-  }
-
-  const removeExercise = (idx) => {
-    setExercises((prev) => prev.filter((_, i) => i !== idx))
-  }
-
-  const groupedExercises = useMemo(() => {
-    const map = new Map()
-    exercises.forEach((ex, idx) => {
-      const key = ex.muscle || 'Sin grupo'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key).push({ ...ex, idx })
-    })
-    return Array.from(map.entries())
-  }, [exercises])
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
 
   const handleSubmit = () => {
-    if (!name.trim()) return
+    if (!name.trim()) return;
     if (!branch) {
-      setBranchError('Selecciona la sede para esta rutina.')
-      return
+      setBranchError("Selecciona la sede para esta rutina.");
+      return;
     }
-    setBranchError('')
+    setBranchError("");
     const payload = {
       ...initialData,
       id: initialData?.id || slugify(name),
@@ -134,31 +124,31 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
       })),
-    }
-    onSave(payload)
-  }
+    };
+    onSave(payload);
+  };
 
   return (
     <Modal
-      title={mode === 'create' ? 'Crear Nueva Rutina' : 'Editar Rutina'}
-      subtitle="Busca y añade ejercicios desde la biblioteca."
+      title={mode === "create" ? "Crear Nueva Rutina" : "Editar Rutina"}
+      subtitle="Elige sede, grupo muscular y agrega ejercicios de tu biblioteca."
       onClose={onClose}
       footer={
         <>
-          <button className="ghost-btn" onClick={onClose}>
+          <button className="px-3 py-2 rounded-md border border-[color:var(--border)] text-sm" onClick={onClose}>
             Cancelar
           </button>
           <button className="primary-btn" onClick={handleSubmit}>
-            {mode === 'create' ? 'Guardar Rutina' : 'Guardar Cambios'}
+            {mode === "create" ? "Guardar Rutina" : "Guardar Cambios"}
           </button>
         </>
       }
     >
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-4 h-full bg-[color:var(--bg)] text-[color:var(--text)]">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Nombre de la Rutina</p>
           <input
-            className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)]"
             placeholder="Ej. Día de Pierna"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -168,22 +158,24 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Sede / Gym</p>
           <div className="flex gap-2 flex-wrap">
-            {['general', 'sopocachi', 'miraflores'].map((b) => (
+            {["general", "sopocachi", "miraflores"].map((b) => (
               <button
                 key={b}
                 type="button"
                 onClick={() => setBranch(b)}
-                className={`px-4 py-2 rounded-full border text-sm transition ${
+                className={`px-3 py-2 rounded-full border text-sm transition ${
                   branch === b
-                    ? 'border-accent bg-accent/15 text-white shadow-[0_0_10px_rgba(79,163,255,0.3)]'
-                    : 'border-border-soft bg-white/5 text-muted hover:border-accent/40'
+                    ? "border-accent bg-accent/15 text-[color:var(--text)] shadow-[0_0_10px_rgba(79,163,255,0.3)]"
+                    : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
-                {b === 'general' ? 'General' : b.charAt(0).toUpperCase() + b.slice(1)}
+                {b === "general" ? "General" : b.charAt(0).toUpperCase() + b.slice(1)}
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted">Define en qu゚ sede aplica esta rutina. General = visible para todas.</p>
+          <p className="text-xs text-[color:var(--text-muted)]">
+            Define en qué sede aplica esta rutina. General = visible para todas.
+          </p>
           {branchError && <p className="text-xs text-accent-red">{branchError}</p>}
         </div>
 
@@ -197,108 +189,98 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
                 onClick={() => setSelectedMuscle(muscle)}
                 className={`px-3 py-2 rounded-full border text-sm transition ${
                   selectedMuscle === muscle
-                    ? 'border-accent bg-accent/15 text-white shadow-[0_0_10px_rgba(79,163,255,0.3)]'
-                    : 'border-border-soft bg-white/5 text-muted hover:border-accent/40'
+                    ? "border-accent bg-accent/15 text-[color:var(--text)] shadow-[0_0_10px_rgba(79,163,255,0.3)]"
+                    : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
                 {muscle}
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted">Primero selecciona el grupo; abajo ver?s los ejercicios de tu biblioteca para ese m?sculo.</p>
+          <p className="text-xs text-[color:var(--text-muted)]">
+            Primero selecciona el grupo; abajo verás los ejercicios de tu biblioteca para ese músculo y sede.
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold">Ejercicios sugeridos de {selectedMuscle}</p>
+          <p className="text-sm font-semibold">Ejercicios sugeridos</p>
+          <input
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)]"
+            placeholder="Buscar ejercicio..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             {filteredExercises.map((ex) => (
               <div
                 key={ex.id}
-                className="rounded-2xl border border-border-soft bg-white/5 p-3 flex flex-col gap-2 shadow-sm"
+                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 flex flex-col gap-2 shadow-sm"
               >
-                <div className="h-28 rounded-xl overflow-hidden border border-border-soft bg-white/10 grid place-items-center">
-                  {ex.image ? (
-                    <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" />
+                <div className="h-28 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] grid place-items-center">
+                  {ex.image || ex.thumb ? (
+                    <img src={ex.image || ex.thumb} alt={ex.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-muted text-sm">Sin imagen</div>
+                    <div className="text-[color:var(--text-muted)] text-sm">Sin imagen</div>
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold text-sm leading-tight">{ex.name}</p>
-                    <p className="text-xs text-muted">{ex.muscle}</p>
+                    <p className="text-xs text-[color:var(--text-muted)]">{ex.muscle}</p>
                   </div>
-                  <button className="ghost-btn text-xs" type="button" onClick={() => addExerciseFromLibrary(ex)}>
+                  <button
+                    className="px-3 py-1 rounded-md border border-[color:var(--border)] text-xs bg-[color:var(--card)] text-[color:var(--text)]"
+                    type="button"
+                    onClick={() => addExercise(ex)}
+                  >
                     Agregar
                   </button>
                 </div>
               </div>
             ))}
             {filteredExercises.length === 0 && (
-              <div className="border border-dashed border-border-soft rounded-xl p-3 text-sm text-muted">
-                No hay ejercicios para este grupo muscular.
+              <div className="border border-dashed border-[color:var(--border)] rounded-xl p-3 text-sm text-[color:var(--text-muted)]">
+                No hay ejercicios para este grupo muscular en esta sede.
               </div>
             )}
-          </div>
-        </div>
-
-
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold">Ejercicios (solo desde tu biblioteca)</p>
-          <p className="text-xs text-muted">Arrastra las tarjetas para ordenar; el orden se reflejará en la rutina.</p>
-          <div className="flex gap-2 flex-wrap">
-            <input
-              className="flex-1 rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
-              placeholder="Buscar ejercicio en la biblioteca..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              list="exercise-options"
-            />
-            <datalist id="exercise-options">
-              {filteredExercises.map((ex) => (
-                <option key={ex.id} value={ex.name} />
-              ))}
-            </datalist>
-            <button className="ghost-btn text-sm" onClick={() => addExercise(search)}>
-              + Añadir
-            </button>
           </div>
           {error && <p className="text-xs text-accent-red">{error}</p>}
         </div>
 
-              <div className="flex flex-col gap-3">
-          {groupedExercises.map(([muscle, items]) => (
-            <div key={muscle} className="rounded-2xl border border-border-soft bg-white/5 p-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold">{muscle}</p>
-                <span className="text-xs text-muted">{items.length} ejercicios</span>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-semibold">Ejercicios de la rutina</p>
+          {groupedSelected.map(([muscle, list]) => (
+            <div key={muscle} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 space-y-2 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[color:var(--text)]">{muscle}</span>
+                <span className="text-xs text-[color:var(--text-muted)]">{list.length} ejercicios</span>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {items.map((ex) => (
+              <div className="flex flex-col gap-2">
+                {list.map((ex) => (
                   <div
                     key={`${ex.name}-${ex.idx}`}
-                    className={`flex gap-3 rounded-xl border border-border-soft bg-[#121f33] p-3 items-center ${
-                      dragIndex === ex.idx ? 'ring-2 ring-accent/60' : ''
+                    className={`flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 ${
+                      dragIndex === ex.idx ? "ring-2 ring-accent/40" : ""
                     }`}
                     draggable
                     onDragStart={() => setDragIndex(ex.idx)}
                     onDragOver={(e) => {
-                      e.preventDefault()
-                      if (dragIndex === null || dragIndex === ex.idx) return
-                      reorderExercises(dragIndex, ex.idx)
-                      setDragIndex(ex.idx)
+                      e.preventDefault();
+                      if (dragIndex === null || dragIndex === ex.idx) return;
+                      reorderExercises(dragIndex, ex.idx);
+                      setDragIndex(ex.idx);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragIndex(null);
                     }}
                     onDragEnd={() => setDragIndex(null)}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      setDragIndex(null)
-                    }}
                   >
-                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-border-soft bg-white/10 flex-shrink-0 grid place-items-center">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] grid place-items-center">
                       {ex.image ? (
                         <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-muted text-sm">{(ex.name || '?').charAt(0).toUpperCase()}</span>
+                        <span className="text-[color:var(--text-muted)] text-sm">{(ex.name || "?").charAt(0).toUpperCase()}</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -308,103 +290,82 @@ function RoutineModal({ mode = 'create', initialData, onSave, onClose, available
                         <input
                           type="number"
                           min="1"
-                          className="w-14 rounded-md border border-border-soft bg-bg-darker px-2 py-1 text-white text-center"
+                          className="w-14 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1 text-[color:var(--text)] text-center"
                           value={ex.sets}
                           onChange={(e) => updateSets(ex.idx, e.target.value)}
                         />
                       </div>
                     </div>
-                    <button className="ghost-btn text-sm" onClick={() => removeExercise(ex.idx)} title="Eliminar">
-                      🗑
+                    <button
+                      className="px-3 py-1 rounded-md border border-red-200 text-sm text-red-600"
+                      onClick={() => removeExercise(ex.idx)}
+                      title="Eliminar"
+                    >
+                      Eliminar
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           ))}
+          {exercises.length === 0 && (
+            <div className="text-sm text-[color:var(--text-muted)]">Aún no agregas ejercicios.</div>
+          )}
         </div>
       </div>
     </Modal>
-  )
+  );
 }
 
 function Routines() {
-  const { routines, addRoutine, updateRoutine, deleteRoutine, duplicateRoutine } = useRoutines()
-  const [modalMode, setModalMode] = useState(null)
-  const [selectedRoutine, setSelectedRoutine] = useState(null)
-  const { exercises: libraryExercises } = useTrainingData()
+  const { routines, addRoutine, updateRoutine, deleteRoutine, duplicateRoutine } = useRoutines();
+  const [modalMode, setModalMode] = useState(null);
+  const [selectedRoutine, setSelectedRoutine] = useState(null);
+  const { exercises: libraryExercises } = useTrainingData();
 
   const availableExercises = useMemo(() => {
-    const seen = new Set()
+    const seen = new Set();
     return libraryExercises
       .filter((ex) => {
-        if (seen.has(ex.id)) return false
-        seen.add(ex.id)
-        return true
+        if (seen.has(ex.id)) return false;
+        seen.add(ex.id);
+        return true;
       })
-      .map((ex) => ({ id: ex.id, name: ex.name, muscle: ex.muscle, image: ex.image, branches: ex.branches }))
-  }, [libraryExercises])
+      .map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        muscle: ex.muscle,
+        image: ex.image || ex.thumb,
+        thumb: ex.thumb,
+        branches: ex.branches,
+      }));
+  }, [libraryExercises]);
 
   const openCreate = () => {
-    setSelectedRoutine(null)
-    setModalMode('create')
-  }
+    setSelectedRoutine(null);
+    setModalMode("create");
+  };
 
   const openEdit = (routine) => {
-    setSelectedRoutine(routine)
-    setModalMode('edit')
-  }
+    setSelectedRoutine(routine);
+    setModalMode("edit");
+  };
 
   const closeModal = () => {
-    setSelectedRoutine(null)
-    setModalMode(null)
-  }
+    setSelectedRoutine(null);
+    setModalMode(null);
+  };
 
   const handleSave = (routine) => {
-    if (modalMode === 'create') addRoutine(routine)
-    if (modalMode === 'edit') updateRoutine(routine.id, routine)
-    closeModal()
-  }
-
-  const routineCards = useMemo(
-    () =>
-      routines.map((routine) => (
-        <div
-          key={routine.id}
-          className="flex items-center gap-3 rounded-2xl border border-border-soft bg-white/5 px-4 py-3"
-        >
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold">{routine.name}</p>
-              <span className="text-xs px-2.5 py-1 rounded-full border border-border-soft bg-white/10 text-muted">
-                {(() => {
-                  const b = routine.branch || 'general'
-                  return b === 'general' ? 'General' : b.charAt(0).toUpperCase() + b.slice(1)
-                })()}
-              </span>
-            </div>
-            <p className="text-sm text-muted">{routine.description}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="ghost-btn text-sm" onClick={() => openEdit(routine)} aria-label="Editar rutina">
-              ✏️
-            </button>
-            <button className="ghost-btn text-sm" onClick={() => duplicateRoutine(routine.id)} aria-label="Duplicar rutina">
-              📄
-            </button>
-            <button className="ghost-btn text-sm" onClick={() => deleteRoutine(routine.id)} aria-label="Eliminar rutina">
-              🗑
-            </button>
-          </div>
-        </div>
-      )),
-    [routines],
-  )
+    if (modalMode === "create") addRoutine(routine);
+    if (modalMode === "edit") updateRoutine(routine.id, routine);
+    closeModal();
+  };
 
   return (
     <>
       <TopBar
-        title="Rutinas y Planificación (Navegación Completa)"
+        title="Rutinas y Planificación"
         subtitle="Crea, gestiona y monitorea tus planes de entrenamiento."
         ctaLabel="+ Crear Nueva Rutina"
         onCta={openCreate}
@@ -412,7 +373,48 @@ function Routines() {
 
       <section className="card flex flex-col gap-3">
         <h3 className="text-lg font-semibold">Mis Rutinas</h3>
-        <div className="flex flex-col gap-2">{routineCards}</div>
+        <div className="flex flex-col gap-2">
+          {routines.map((routine) => (
+            <div
+              key={routine.id}
+              className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 shadow-sm"
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-[color:var(--text)]">{routine.name}</p>
+                  <span className="text-xs px-2.5 py-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]">
+                    {(() => {
+                      const b = routine.branch || "general";
+                      return b === "general" ? "General" : b.charAt(0).toUpperCase() + b.slice(1);
+                    })()}
+                  </span>
+                </div>
+                <p className="text-sm text-[color:var(--text-muted)]">{routine.description}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-1 rounded-md border border-[color:var(--border)] text-sm"
+                  onClick={() => openEdit(routine)}
+                >
+                  Editar
+                </button>
+                <button
+                  className="px-3 py-1 rounded-md border border-[color:var(--border)] text-sm"
+                  onClick={() => duplicateRoutine(routine.id)}
+                >
+                  Duplicar
+                </button>
+                <button
+                  className="px-3 py-1 rounded-md border border-red-200 text-sm text-red-600"
+                  onClick={() => deleteRoutine(routine.id)}
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          ))}
+          {!routines.length && <p className="text-sm text-[color:var(--text-muted)]">No tienes rutinas creadas.</p>}
+        </div>
       </section>
 
       {modalMode && (
@@ -425,7 +427,7 @@ function Routines() {
         />
       )}
     </>
-  )
+  );
 }
 
-export default Routines
+export default Routines;

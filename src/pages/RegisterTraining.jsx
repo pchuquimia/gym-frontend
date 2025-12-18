@@ -11,9 +11,17 @@ import ExerciseCard from "../components/training/ExerciseCard";
 import BottomActionBar from "../components/training/BottomActionBar";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { api } from "../services/api";
 
-const todayISO = new Date().toISOString().slice(0, 10);
-const STORAGE_KEY = "active_training";
+const getLocalISODate = (value) => {
+  if (value) return value.slice(0, 10);
+  const d = new Date();
+  const offsetMs = d.getTimezoneOffset() * 60000;
+  const local = new Date(d.getTime() - offsetMs);
+  return local.toISOString().slice(0, 10);
+};
+const todayISO = getLocalISODate();
+const SNAPSHOT_KEY = "active_training_snapshot";
 
 const formatLongDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", {
@@ -22,13 +30,14 @@ const formatLongDate = (iso) =>
     year: "numeric",
   });
 
-const formatShort = (iso) =>
-  iso
-    ? new Date(iso).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "short",
-      })
-    : "--";
+const formatShort = (iso) => {
+  if (!iso) return "--";
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+  });
+};
 
 const slugify = (text) =>
   text
@@ -39,45 +48,63 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-const applyHistoryToExercises = (list, historyMap) =>
-  (list || []).map((ex) => {
-    const hist =
-      historyMap.get(ex.id) ||
-      historyMap.get(slugify(ex.name || "")) ||
-      historyMap.get(ex.exerciseId || "") ||
-      historyMap.get(slugify(ex.exerciseName || ""));
-    const histSets = hist?.sets || [];
-    const prFromHist =
-      hist && (hist.weight || hist.reps)
-        ? `Ult: ${hist.weight || "--"}kg x ${hist.reps || "--"} | ${formatShort(hist.date)}`
-        : null;
-
-    const sets = (ex.sets || []).map((set, idx) => {
-      const prev = histSets[idx] || histSets[histSets.length - 1] || {};
-      const hasPrev = prev.weight || prev.reps;
-      if (!hasPrev) return set;
-      const label = `${prev.weight || "--"}kg x ${prev.reps || "--"} | ${formatShort(hist?.date)}`;
-      return {
-        ...set,
-        previousText: !set.previousText || set.previousText === "Sin referencia" ? label : set.previousText,
-        kg: set.kg || (prev.weight ? prev.weight : ""),
-        reps: set.reps || (prev.reps ? prev.reps : ""),
-      };
+const computeBestFromHistory = (trainings = []) => {
+  const map = new Map();
+  trainings.forEach((tr) => {
+    const date = tr.date || tr.createdAt;
+    (tr.exercises || []).forEach((ex) => {
+      const sets = ex.sets || [];
+      sets.forEach((s) => {
+        const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
+        if (!key) return;
+        const w = Number(s.weightKg ?? s.weight ?? 0);
+        const r = Number(s.reps ?? 0);
+        const current = map.get(key);
+        const isBetter =
+          !current ||
+          w > current.weight ||
+          (w === current.weight && r > current.reps) ||
+          (w === current.weight && r === current.reps && date > (current.date || ""));
+        if (isBetter) {
+          map.set(key, { weight: w, reps: r, date });
+        }
+      });
     });
-
-    return {
-      ...ex,
-      prText:
-        !ex.prText || ex.prText.toLowerCase().includes("sin referencia") || ex.prText.toLowerCase().includes("ult:")
-          ? prFromHist || ex.prText || "Sin referencia"
-          : ex.prText,
-      sets,
-    };
   });
+  return map;
+};
+
+const computeBestBySetFromHistory = (trainings = []) => {
+  const map = new Map();
+  trainings.forEach((tr) => {
+    const date = tr.date || tr.createdAt;
+    (tr.exercises || []).forEach((ex) => {
+      const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
+      if (!key) return;
+      const sets = ex.sets || [];
+      const arr = map.get(key) || [];
+      sets.forEach((s, idx) => {
+        const w = Number(s.weightKg ?? s.weight ?? 0);
+        const r = Number(s.reps ?? 0);
+        const current = arr[idx];
+        const isBetter =
+          !current ||
+          w > current.weight ||
+          (w === current.weight && r > current.reps) ||
+          (w === current.weight && r === current.reps && date > (current.date || ""));
+        if (isBetter) {
+          arr[idx] = { weight: w, reps: r, date };
+        }
+      });
+      map.set(key, arr);
+    });
+  });
+  return map;
+};
 
 export default function RegisterTraining({ onNavigate = () => {} }) {
   const { routines, loading: routinesLoading } = useRoutines();
-  const { exercises: libraryExercises, trainings, sessions, addTraining } = useTrainingData();
+  const { exercises: libraryExercises, addTraining, updateTraining, branch: userBranch, setBranch } = useTrainingData();
 
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -85,114 +112,65 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [sessionDate, setSessionDate] = useState(todayISO);
+  const [loadingTraining, setLoadingTraining] = useState(false);
+  const [historyTrainings, setHistoryTrainings] = useState([]);
+  const [editingId, setEditingId] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState(userBranch || "general");
+  const branchChangeReason = useRef("user"); // "user" | "routine"
+  const restoredFromSnapshot = useRef(false);
+  const lastUpdateRef = useRef(Date.now());
+  const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
 
-  const mergeMeta = (ex) => {
-    const meta =
-      libraryExercises.find(
-        (m) =>
-          m.id === ex.id ||
-          m.id === ex.exerciseId ||
-          slugify(m.name || "") === slugify(ex.name || "") ||
-          slugify(m.name || "") === slugify(ex.exerciseName || "")
-      ) || {};
-    const image =
-      ex.image ||
-      meta.image ||
-      meta.photoUrl ||
-      meta.url ||
-      meta.thumbnail ||
-      (Array.isArray(meta.photos) && meta.photos[0]?.url) ||
-      "";
-    const muscle = ex.muscle || meta.muscle || ex.muscleGroup || meta.muscleGroup || "Sin grupo";
-    return { ...ex, image, muscle };
-  };
+  const branchOptions = useMemo(() => {
+    const set = new Set();
+    (routines || []).forEach((r) => set.add(r.branch || "general"));
+    return Array.from(set);
+  }, [routines]);
 
-  const routineOptions = useMemo(
-    () =>
-      (routines || []).map((r) => ({
+  const routineOptions = useMemo(() => {
+    const filtered =
+      (routines || []).filter((r) => (selectedBranch ? (r.branch || "general") === selectedBranch : true)) || [];
+    if (filtered.length) {
+      return filtered.map((r) => ({
         id: r.id,
         name: r.name,
         location: r.branch || "general",
         exerciseCount: (r.exercises || []).length,
         lastDate: formatShort(r.updatedAt || r.createdAt) || "--",
         raw: r,
-      })),
-    [routines]
-  );
-
-  const historyByExercise = useMemo(() => {
-    const map = new Map();
-    const computeOneRM = (w = 0, r = 0) => Number(((Number(w) || 0) * (1 + (Number(r) || 0) / 30)).toFixed(2));
-    const bestFromSets = (sets = [], fallbackDate) => {
-      let best = { weight: 0, reps: 0, oneRM: 0, date: fallbackDate };
-      sets.forEach((s) => {
-        const oneRM = computeOneRM(s.weightKg ?? s.weight, s.reps);
-        if (oneRM > best.oneRM) {
-          best = {
-            weight: Number(s.weightKg ?? s.weight) || 0,
-            reps: Number(s.reps) || 0,
-            oneRM,
-            date: s.date || fallbackDate,
-          };
-        }
-      });
-      return best;
-    };
-
-    const saveIfBetter = (key, payload) => {
-      if (!key) return;
-      const current = map.get(key);
-      if (!current || payload.oneRM > (current.oneRM || 0)) {
-        map.set(key, payload);
-        return;
-      }
-      // si empata en fuerza, preferir la fecha mas reciente
-      if (payload.oneRM === (current.oneRM || 0)) {
-        const currentDate = current?.date ? new Date(current.date).getTime() : 0;
-        const thisDate = payload.date ? new Date(payload.date).getTime() : 0;
-        if (thisDate >= currentDate) map.set(key, payload);
-      }
-    };
-
-    const normalizeSets = (sets = []) =>
-      sets.map((s) => ({
-        weight: Number(s.weightKg ?? s.weight ?? s.kg) || 0,
-        reps: Number(s.reps ?? s.rep) || 0,
-        done: Boolean(s.done),
       }));
+    }
+    // si no hay rutinas de esa sucursal, devolver todas para no dejar vacío
+    return (routines || []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      location: r.branch || "general",
+      exerciseCount: (r.exercises || []).length,
+      lastDate: formatShort(r.updatedAt || r.createdAt) || "--",
+      raw: r,
+    }));
+  }, [routines, selectedBranch]);
 
-    const addEntry = (id, name, date, sets) => {
-      const slug = name ? slugify(name) : null;
-      const normSets = normalizeSets(sets);
-      const best = bestFromSets(normSets, date);
-      const payload = {
-        date: best.date || date,
-        sets: normSets,
-        weight: best.weight,
-        reps: best.reps,
-        oneRM: best.oneRM,
-      };
-      saveIfBetter(id, payload);
-      saveIfBetter(slug, payload);
-    };
+  const historyBest = useMemo(() => computeBestFromHistory(historyTrainings), [historyTrainings]);
+  const historyBestBySet = useMemo(() => computeBestBySetFromHistory(historyTrainings), [historyTrainings]);
 
-    (Array.isArray(sessions) ? sessions : []).forEach((s) => {
-      addEntry(s.exerciseId || s.id, s.exerciseName || s.name, s.date || s.createdAt, s.sets || []);
+  const buildExercisesForRoutine = (routine, training, bestMap = historyBest, bestBySetMap = historyBestBySet) => {
+    const list = (routine?.exercises || []).length
+      ? routine.exercises
+      : (training?.exercises || []).map((ex) => ({
+          exerciseId: ex.exerciseId,
+          name: ex.exerciseName,
+          muscle: ex.muscleGroup,
+          sets: ex.sets?.length || 3,
+        }));
+    const trainingById = new Map();
+    (training?.exercises || []).forEach((ex) => {
+      const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
+      trainingById.set(key, ex);
     });
 
-    (Array.isArray(trainings) ? trainings : []).forEach((tr) => {
-      const date = tr.date || tr.createdAt;
-      (tr.exercises || []).forEach((ex) => {
-        addEntry(ex.exerciseId || ex.id, ex.exerciseName || ex.name, date, ex.sets || []);
-      });
-    });
-
-    return map;
-  }, [sessions, trainings]);
-
-  const buildExercisesForRoutine = (routine) => {
-    const list = routine?.exercises || [];
     return list.map((ex, idx) => {
       const meta =
         libraryExercises.find(
@@ -200,29 +178,33 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ) || {};
       const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
       const setsCount = Number(ex.sets) || 3;
-      const hist =
-        historyByExercise.get(id) ||
-        historyByExercise.get(slugify(ex.name || "")) ||
-        historyByExercise.get(meta.id) ||
-        historyByExercise.get(slugify(meta.name || ""));
-      const histSets = hist?.sets || [];
-      const sets = Array.from({ length: setsCount }).map((_, sIdx) => {
-        const prev = histSets[sIdx] || histSets[histSets.length - 1] || {};
-        const hasPrev = prev.weight || prev.reps;
-        return {
-          id: `${id}-set-${sIdx}`,
-          previousText: hasPrev
-            ? `${prev.weight || "--"}kg x ${prev.reps || "--"} | ${formatShort(hist?.date)}`
-            : "Sin referencia",
-          kg: hasPrev ? prev.weight : "",
-          reps: hasPrev ? prev.reps : "",
-          done: Boolean(prev.done),
-        };
-      });
-      const headerText =
-        hist && (hist.weight || hist.reps)
-          ? `Ult: ${hist.weight || "--"}kg x ${hist.reps || "--"} | ${formatShort(hist.date)}`
-          : meta.pr || meta.prText || "Sin referencia";
+      const trainingEx = trainingById.get(id);
+      const best = bestMap.get(id);
+      const bestBySet = bestBySetMap.get(id) || [];
+      const sets =
+        (trainingEx?.sets || []).length > 0
+          ? (trainingEx.sets || []).map((s, sIdx) => ({
+              id: `${id}-set-${sIdx}`,
+              previousText: `${s.weightKg ?? "--"}kg x ${s.reps ?? "--"} | ${formatShort(training?.date)}`,
+              kg: s.weightKg ?? "",
+              reps: s.reps ?? "",
+              done: Boolean(s.done),
+            }))
+          : Array.from({ length: setsCount }).map((_, sIdx) => {
+              const perSet = bestBySet[sIdx];
+              return {
+                id: `${id}-set-${sIdx}`,
+                previousText: perSet
+                  ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+                  : best
+                  ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+                  : "Sin referencia",
+                kg: perSet ? perSet.weight : best ? best.weight : "",
+                reps: perSet ? perSet.reps : best ? best.reps : "",
+                done: false,
+              };
+            });
+      const headerText = best ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}` : "Sin referencia";
       return {
         id,
         name: ex.name || meta.name || "Ejercicio",
@@ -234,85 +216,214 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     });
   };
 
-  useEffect(() => {
-    if (!routineOptions.length) return;
-    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    if (raw) {
-      try {
-        const snap = JSON.parse(raw);
-        const current = routineOptions.find((r) => r.id === snap.selectedRoutineId) || routineOptions[0];
-        setSelectedRoutineId(current.id);
-        setSelectedRoutine(current);
-        if (snap.dateISO) setSessionDate(snap.dateISO);
-        const hydrated = applyHistoryToExercises(
-          snap.exercises || buildExercisesForRoutine(current.raw),
-          historyByExercise
-        ).map(mergeMeta);
-        setExercises(hydrated);
-        setIsRunning(Boolean(snap.isRunning));
-        const now = Date.now();
-        const baseElapsed = Number(snap.elapsed || 0);
-        if (snap.isRunning && snap.startTimestamp) {
-          setDurationSeconds(baseElapsed + Math.floor((now - snap.startTimestamp) / 1000));
-        } else {
-          setDurationSeconds(baseElapsed);
-        }
-        return;
-      } catch (e) {
-        console.warn("No se pudo hidratar entrenamiento activo", e);
+  const loadTrainingForDate = async (date, routineId, bestMap = historyBest, bestBySetMap = historyBestBySet) => {
+    if (!routineOptions.length || !routineId) {
+      setExercises([]);
+      return;
+    }
+    const routine = routineOptions.find((r) => r.id === routineId);
+    if (!routine) {
+      setExercises([]);
+      return;
+    }
+    setSelectedRoutineId(routine.id);
+    setSelectedRoutine(routine);
+    setLoadingTraining(true);
+    try {
+      const resp = await api.getTrainings({
+        from: date,
+        to: date,
+        limit: 1,
+        fields:
+          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done",
+        meta: false,
+        routineId: routine.id,
+      });
+      const list = Array.isArray(resp) ? resp : resp?.items || [];
+      const trainingMatch = list.find((t) => {
+        if (!t) return false;
+        if (t.date !== date) return false;
+        if (routine.id && t.routineId) return t.routineId === routine.id;
+        return true;
+      });
+      if (trainingMatch?.branch && !branchLocked) {
+        branchChangeReason.current = "routine";
+        setSelectedBranch(trainingMatch.branch);
       }
-    }
-    const current = routineOptions.find((r) => r.id === selectedRoutineId) || routineOptions[0];
-    setSelectedRoutineId(current.id);
-    setSelectedRoutine(current);
-    // no sobrescribir la fecha seleccionada manualmente; conservar sessionDate actual
-    setExercises(applyHistoryToExercises(buildExercisesForRoutine(current.raw), historyByExercise).map(mergeMeta));
-    setIsRunning(false);
-  }, [routineOptions, selectedRoutineId, libraryExercises, historyByExercise]);
-
-  const sanitizeExercisesForStorage = (list = []) =>
-    list.map((ex) => ({
-      id: ex.id,
-      name: ex.name,
-      prText: ex.prText,
-      muscle: ex.muscle,
-      sets: (ex.sets || []).map((s) => ({
-        id: s.id,
-        previousText: s.previousText,
-        kg: s.kg,
-        reps: s.reps,
-        done: s.done,
-      })),
-    }));
-
-  const saveSnapshot = (override = {}, options = {}) => {
-    if (typeof localStorage === "undefined") return;
-    let current = {};
-    try {
-      current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      setExercises(buildExercisesForRoutine(routine.raw, trainingMatch, bestMap, bestBySetMap));
+      if (trainingMatch?.durationSeconds) setDurationSeconds(trainingMatch.durationSeconds);
     } catch (e) {
-      current = {};
-    }
-    const baseExercises = override.exercises ?? current.exercises ?? exercises;
-    const sanitizedExercises = options.light
-      ? current.exercises ?? sanitizeExercisesForStorage(exercises)
-      : sanitizeExercisesForStorage(baseExercises);
-
-    const snap = {
-      selectedRoutineId: override.selectedRoutineId ?? current.selectedRoutineId ?? selectedRoutineId,
-      exercises: sanitizedExercises,
-      isRunning: override.isRunning ?? current.isRunning ?? isRunning,
-      startTimestamp:
-        override.startTimestamp ?? current.startTimestamp ?? (override.isRunning ?? isRunning ? Date.now() : null),
-      elapsed: override.elapsed ?? current.elapsed ?? durationSeconds,
-      dateISO: override.dateISO ?? current.dateISO ?? sessionDate,
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
-    } catch (err) {
-      console.warn("No se pudo guardar el entrenamiento activo (quota?)", err);
+      console.warn("No se pudo cargar entrenamiento previo", e);
+      setExercises(buildExercisesForRoutine(routine.raw, null, bestMap, bestBySetMap));
+    } finally {
+      setLoadingTraining(false);
     }
   };
+
+  const loadTrainingById = async (id) => {
+    if (!id) return;
+    setLoadingTraining(true);
+    try {
+      const training = await api.getTraining(id);
+      const routineId = training.routineId || routineOptions[0]?.id;
+      const routine = routineOptions.find((r) => r.id === routineId) || routineOptions[0];
+      const branch = training.branch || routine.location || "general";
+      branchChangeReason.current = "routine";
+      setSelectedBranch(branch);
+      setSessionDate(training.date);
+      setSelectedRoutineId(routine.id);
+      setSelectedRoutine(routine);
+      setIsEditing(true);
+      const hist = await loadHistoryForRoutine(routine.id);
+      const bestMap = computeBestFromHistory(hist);
+      const bestBySetMap = computeBestBySetFromHistory(hist);
+      setExercises(buildExercisesForRoutine(routine.raw, training, bestMap, bestBySetMap));
+      if (training.durationSeconds) setDurationSeconds(training.durationSeconds);
+    } catch (e) {
+      console.warn("No se pudo cargar el entrenamiento a editar", e);
+      if (typeof localStorage !== "undefined") localStorage.removeItem("edit_training_id");
+      setEditingId("");
+      setIsEditing(false);
+      // fallback: cargar rutina inicial en la fecha actual
+      const routine = routineOptions.find((r) => r.id === selectedRoutineId) || routineOptions[0];
+      await loadHistoryForRoutine(routine.id);
+      await loadTrainingForDate(sessionDate, routine.id);
+    } finally {
+      setLoadingTraining(false);
+    }
+  };
+  const loadHistoryForRoutine = async (routineId) => {
+    if (!routineId) {
+      setHistoryTrainings([]);
+      return [];
+    }
+    try {
+      let resp = await api.getTrainings({
+        routineId,
+        limit: 60,
+        fields: "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
+        meta: false,
+      });
+      let list = Array.isArray(resp) ? resp : resp?.items || [];
+      // si no hay historial de esa rutina (datos antiguos sin routineId), intenta sin filtro
+      if (!list.length) {
+        resp = await api.getTrainings({
+          limit: 60,
+          fields: "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
+          meta: false,
+        });
+        list = Array.isArray(resp) ? resp : resp?.items || [];
+      }
+      setHistoryTrainings(list);
+      return list;
+    } catch (e) {
+      console.warn("No se pudo cargar historial de la rutina", e);
+      setHistoryTrainings([]);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    if (!routineOptions.length) return;
+    const editId = typeof localStorage !== "undefined" ? localStorage.getItem("edit_training_id") : "";
+    const editDate = typeof localStorage !== "undefined" ? localStorage.getItem("edit_training_date") : "";
+    if (editId) {
+      setEditingId(editId);
+      (async () => {
+        await loadTrainingById(editId);
+        if (editDate) setSessionDate(editDate);
+      })();
+    } else {
+      setIsEditing(false);
+      setBranchLocked(false);
+      // esperar a que el usuario seleccione rutina
+      setSelectedRoutineId(null);
+      setSelectedRoutine(null);
+      setExercises([]);
+      setHistoryTrainings([]);
+      setDurationSeconds(0);
+      setIsRunning(false);
+    }
+  }, [routineOptions]);
+
+  // Restaurar entrenamiento activo desde snapshot local
+  useEffect(() => {
+    if (!routineOptions.length) return;
+    if (isEditing) return;
+    if (selectedRoutineId) return;
+    if (typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return;
+    try {
+      const snap = JSON.parse(raw);
+      if (!snap?.selectedRoutineId) return;
+      const routine = routineOptions.find((r) => r.id === snap.selectedRoutineId);
+      if (!routine) return;
+      const now = Date.now();
+      const baseSeconds = Number(snap.durationSeconds ?? snap.elapsed ?? 0) || 0;
+      const extraSeconds =
+        snap.isRunning && snap.lastUpdate ? Math.max(0, Math.floor((now - snap.lastUpdate) / 1000)) : 0;
+      const totalSeconds = baseSeconds + extraSeconds;
+      restoredFromSnapshot.current = true;
+      branchChangeReason.current = "routine";
+      setSelectedBranch(snap.selectedBranch || routine.location || "general");
+      setSelectedRoutineId(snap.selectedRoutineId);
+      setSelectedRoutine(routine);
+      setSessionDate(snap.sessionDate || todayISO);
+      lastUpdateRef.current = now;
+      setDurationSeconds(totalSeconds);
+      setIsRunning(Boolean(snap.isRunning));
+      if (Array.isArray(snap.exercises)) setExercises(snap.exercises);
+    } catch (e) {
+      console.warn("No se pudo restaurar el entrenamiento activo", e);
+    }
+  }, [routineOptions, isEditing, selectedRoutineId]);
+
+  useEffect(() => {
+    if (!selectedRoutineId || !sessionDate) return;
+    if (isEditing) return;
+    if (restoredFromSnapshot.current) {
+      restoredFromSnapshot.current = false;
+      return;
+    }
+    loadTrainingForDate(sessionDate, selectedRoutineId);
+  }, [sessionDate, isEditing]);
+
+  // Mantener rutinas al cambiar sucursal (solo limpiar cuando el cambio es iniciado por el usuario)
+  useEffect(() => {
+    if (branchChangeReason.current === "routine") {
+      branchChangeReason.current = "user";
+    } else {
+      setSelectedRoutineId(null);
+      setSelectedRoutine(null);
+      setExercises([]);
+      setHistoryTrainings([]);
+    }
+    if (typeof setBranch === "function") setBranch(selectedBranch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranch, routineOptions.length]);
+
+  // Guardar snapshot local del entrenamiento en curso
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    if (!selectedRoutineId) return;
+    try {
+      const snapshot = {
+        selectedRoutineId,
+        selectedRoutine,
+        selectedBranch,
+        sessionDate,
+        durationSeconds,
+        elapsed: durationSeconds,
+        isRunning,
+        lastUpdate: lastUpdateRef.current,
+        exercises,
+      };
+      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+    } catch (e) {
+      console.warn("No se pudo guardar el estado del entrenamiento", e);
+    }
+  }, [selectedRoutineId, selectedRoutine, selectedBranch, sessionDate, durationSeconds, isRunning, exercises]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -320,41 +431,66 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return undefined;
     }
     timerRef.current = setInterval(() => {
-      setDurationSeconds((sec) => {
-        const next = sec + 1;
-        saveSnapshot({ elapsed: next, isRunning: true, startTimestamp: Date.now() }, { light: true });
-        return next;
-      });
+      lastUpdateRef.current = Date.now();
+      setDurationSeconds((sec) => sec + 1);
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [isRunning]);
 
   const handleStart = () => {
+    lastUpdateRef.current = Date.now();
     setIsRunning(true);
-    saveSnapshot({ isRunning: true, startTimestamp: Date.now() });
     toast.success("Entrenamiento iniciado");
   };
 
   const handlePause = () => {
+    lastUpdateRef.current = Date.now();
     setIsRunning(false);
-    saveSnapshot({ isRunning: false, startTimestamp: null });
   };
 
   const handleReset = () => {
+    lastUpdateRef.current = Date.now();
     setIsRunning(false);
     setDurationSeconds(0);
-    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
   };
 
   const handleSelectRoutine = (id) => {
-    if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+    if (!id || id === "sin-rutina") return;
+    const found = routineOptions.find((r) => r.id === id);
+    const branch = found?.location || "general";
+    branchChangeReason.current = "routine";
+    setSelectedBranch(branch);
     setSelectedRoutineId(id);
+    setSelectedRoutine(found || null);
+    (async () => {
+      const hist = await loadHistoryForRoutine(id);
+      const bestMap = computeBestFromHistory(hist);
+      const bestBySetMap = computeBestBySetFromHistory(hist);
+      await loadTrainingForDate(sessionDate, id, bestMap, bestBySetMap);
+    })();
+  };
+
+  const handleExitEdit = async () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+      localStorage.removeItem(SNAPSHOT_KEY);
+    }
+    if (timerRef.current) clearInterval(timerRef.current);
+    setEditingId("");
+    setIsEditing(false);
+    setBranchLocked(false);
+    setSelectedRoutineId(null);
+    setSelectedRoutine(null);
+    setExercises([]);
+    setHistoryTrainings([]);
+    setDurationSeconds(0);
+    setIsRunning(false);
   };
 
   const handleAddSet = (exerciseId) => {
-    let nextExercises = [];
-    setExercises((prev) => {
-      nextExercises = prev.map((ex) =>
+    setExercises((prev) =>
+      prev.map((ex) =>
         ex.id === exerciseId
           ? {
               ...ex,
@@ -364,111 +500,124 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ],
             }
           : ex
-      );
-      return nextExercises;
-    });
-    toast.success("Set anadido");
-    saveSnapshot({ exercises: nextExercises });
+      )
+    );
   };
 
   const handleUpdateSet = (exerciseId, setId, field, value) => {
-    let nextExercises = [];
-    setExercises((prev) => {
-      nextExercises = prev.map((ex) =>
-        ex.id === exerciseId
-          ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) }
-          : ex
-      );
-      return nextExercises;
-    });
-    saveSnapshot({ exercises: nextExercises });
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === exerciseId ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) } : ex
+      )
+    );
   };
 
   const handleToggleDone = (exerciseId, setId) => {
-    let nextExercises = [];
-    setExercises((prev) => {
-      nextExercises = prev.map((ex) =>
-        ex.id === exerciseId
-          ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s)) }
-          : ex
-      );
-      return nextExercises;
-    });
-    saveSnapshot({ exercises: nextExercises });
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === exerciseId ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s)) } : ex
+      )
+    );
   };
 
   const handleRemoveSet = (exerciseId, setId) => {
-    let nextExercises = [];
-    setExercises((prev) => {
-      nextExercises = prev.map((ex) => (ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex));
-      return nextExercises;
-    });
-    saveSnapshot({ exercises: nextExercises });
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex))
+    );
   };
 
   const handleRemoveExercise = (exerciseId) => {
-    let nextExercises = [];
-    setExercises((prev) => {
-      nextExercises = prev.filter((ex) => ex.id !== exerciseId);
-      return nextExercises;
-    });
+    setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
     toast("Ejercicio eliminado solo para hoy");
-    saveSnapshot({ exercises: nextExercises });
   };
 
   const handleAddExercise = () => {
-    const next = [
-      ...exercises,
+    setExercises((prev) => [
+      ...prev,
       {
         id: `extra-${Date.now()}`,
         name: "Nuevo ejercicio",
         prText: "Sin referencia previa",
-        sets: [{ id: `extra-${Date.now()}-1`, previousText: "Previo: 0", kg: "", reps: "", done: false }],
+        muscle: "Sin grupo",
+        sets: [{ id: `extra-${Date.now()}-1`, previousText: "Sin referencia", kg: "", reps: "", done: false }],
       },
-    ];
-    setExercises(next);
-    saveSnapshot({ exercises: next });
+    ]);
   };
 
   const handleFinish = async () => {
     setIsRunning(false);
     if (timerRef.current) clearInterval(timerRef.current);
     try {
+      if (!selectedRoutineId || !selectedRoutine) {
+        toast.error("Selecciona sucursal y rutina antes de guardar.");
+        return;
+      }
+      const dateStr = sessionDate || getLocalISODate();
       const payload = {
-        date: sessionDate,
-        routineId: selectorRoutine?.id,
-        routineName: selectorRoutine?.name,
+        date: dateStr,
+        routineId: selectedRoutine?.id,
+        routineName: selectedRoutine?.name,
+        branch: selectedBranch || selectedRoutine?.location || "general",
         durationSeconds,
-        exercises: exercises.map((ex, exIdx) => ({
-          exerciseId: ex.id,
-          exerciseName: ex.name,
-          muscleGroup: ex.muscle,
-          order: exIdx + 1,
-          sets: (ex.sets || [])
-            .map((s, idx) => ({
-              weightKg: s.kg === "" ? null : Number(s.kg),
-              reps: s.reps === "" ? null : Number(s.reps),
-              done: Boolean(s.done),
-              order: idx + 1,
-            }))
-            .filter((s) => s.weightKg !== null || s.reps !== null || s.done),
-        })),
+        exercises: exercises
+          .map((ex, exIdx) => ({
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            muscleGroup: ex.muscle,
+            order: exIdx + 1,
+            sets: (ex.sets || [])
+              .map((s, idx) => ({
+                weightKg: s.kg === "" ? null : Number(s.kg),
+                reps: s.reps === "" ? null : Number(s.reps),
+                done: Boolean(s.done),
+                order: idx + 1,
+              }))
+              .filter((s) => s.weightKg !== null || s.reps !== null || s.done),
+          }))
+          .filter((ex) => ex.sets.length > 0),
       };
-      await addTraining(payload);
-      setSelectedRoutine((prev) => (prev ? { ...prev, lastDate: formatShort(sessionDate) } : prev));
-      toast.success("Entrenamiento finalizado");
-      if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
+      // verificar duplicados en misma fecha + rutina
+      if (selectedRoutine?.id) {
+        const existing = await api.getTrainings({
+          from: dateStr,
+          to: dateStr,
+          routineId: selectedRoutine.id,
+          limit: 3,
+          fields: "_id,id,date,routineId",
+          meta: false,
+        });
+        const dup = (Array.isArray(existing) ? existing : []).find(
+          (t) => (t._id || t.id) !== editingId
+        );
+        if (dup) {
+          const proceed = window.confirm(
+            "Ya existe un entrenamiento para esta rutina en esa fecha. ¿Deseas sobrescribirlo?"
+          );
+          if (!proceed) return;
+        }
+      }
+
+      if (editingId) {
+        await updateTraining(editingId, payload);
+        if (typeof localStorage !== "undefined") localStorage.removeItem("edit_training_id");
+        setEditingId("");
+        setIsEditing(false);
+        toast.success("Entrenamiento actualizado");
+      } else {
+        await addTraining(payload);
+        toast.success("Entrenamiento finalizado y guardado");
+      }
+      if (typeof localStorage !== "undefined") localStorage.removeItem(SNAPSHOT_KEY);
+      await loadTrainingForDate(dateStr, selectedRoutine?.id);
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
-      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexion.");
-      // conserva snapshot para no perder datos
-      saveSnapshot();
+      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexión o intenta de nuevo.");
     }
   };
 
   const totalSets = useMemo(() => exercises.reduce((acc, ex) => acc + ex.sets.length, 0), [exercises]);
-  const selectorRoutine = selectedRoutine || routineOptions[0];
+  const selectorRoutine = selectedRoutine || null;
   const groupedExercises = useMemo(() => {
     const groups = new Map();
     exercises.forEach((ex) => {
@@ -483,42 +632,64 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
       <Toaster position="top-center" richColors />
       <div className="mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" className="rounded-full border border-[color:var(--border)] h-10 w-10">
-            <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
-          </Button>
-          <h1 className="text-base font-semibold">Registrar Entrenamiento</h1>
-          <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-[color:var(--text-muted)]">
-            <MoreVertical className="h-5 w-5" />
-          </Button>
-        </div>
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="icon" className="rounded-full border border-[color:var(--border)] h-10 w-10">
+              <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
+            </Button>
+            <h1 className="text-base font-semibold">Registrar Entrenamiento</h1>
+            <div className="flex items-center gap-2">
+              {isEditing && (
+                <Button variant="outline" size="sm" onClick={handleExitEdit}>
+                  Salir de edición
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-[color:var(--text-muted)]">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
 
-        {/* Mobile static bar: duracion + finalizar (simula desktop) */}
         <div className="md:hidden sticky top-0 z-20 bg-[color:var(--bg)] pb-3">
-        <div className="flex items-center gap-2">
-          <Card className="flex-1 px-3 py-2 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Duracion</p>
-              <p className="text-base font-semibold text-[color:var(--text)]">
+          <div className="flex items-center gap-2">
+            <Card className="flex-1 px-3 py-2 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Duracion</p>
+                <p className="text-base font-semibold text-[color:var(--text)]">
                   {String(Math.floor(durationSeconds / 60)).padStart(2, "0")}:
                   {String(durationSeconds % 60).padStart(2, "0")}
                 </p>
-            </div>
-            <div className="text-[11px] text-[color:var(--text-muted)]">LIVE</div>
-          </Card>
-          <Button
-            className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
-            onClick={handleFinish}
-            disabled={!exercises.length}
-          >
-            <Flag className="h-4 w-4" />
-            <span>Finalizar</span>
-          </Button>
-        </div>
+              </div>
+              <div className="text-[11px] text-[color:var(--text-muted)]">LIVE</div>
+            </Card>
+            <Button
+              className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
+              onClick={handleFinish}
+              disabled={!exercises.length}
+            >
+              <Flag className="h-4 w-4" />
+              <span>Finalizar</span>
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
+              <Card className="p-4 space-y-3">
+                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Sucursal</p>
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                className="w-full rounded-md border border-[color:var(--border)] bg-transparent px-3 py-2 text-sm"
+              >
+                {branchOptions.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[color:var(--text-muted)]">Rutinas disponibles para: {selectedBranch}</p>
+            </Card>
+
             <SessionHeader
               title="HOY"
               dateISO={sessionDate}
@@ -528,9 +699,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               onPause={handlePause}
               onReset={handleReset}
               onChangeDate={(value) => {
-                const nextDate = value || todayISO;
+                const nextDate = value ? value.slice(0, 10) : getLocalISODate();
                 setSessionDate(nextDate);
-                saveSnapshot({ dateISO: nextDate }, { light: true });
               }}
             />
 
@@ -540,8 +710,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 routine={
                   selectorRoutine || {
                     id: "sin-rutina",
-                    name: routinesLoading ? "Cargando..." : "Sin rutinas",
-                    location: "general",
+                    name: routinesLoading ? "Cargando..." : "Selecciona una rutina",
+                    location: selectedBranch || "general",
                     exerciseCount: 0,
                     lastDate: "--",
                   }
@@ -549,23 +719,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 routines={routineOptions}
                 onSelect={handleSelectRoutine}
               />
-              <div className="flex gap-2 pt-1">
-                <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
-                  <Button className="w-full" onClick={handleStart} disabled={isRunning}>
-                    Iniciar
-                  </Button>
-                </motion.div>
-                <motion.div whileTap={{ scale: 0.97 }} className="flex-1">
-                  <Button
-                    variant="outline"
-                    className="w-full border-[color:var(--border)] text-[color:var(--text)]"
-                    onClick={handleReset}
-                  >
-                    Reiniciar
-                  </Button>
-                </motion.div>
-              </div>
-              <p className="text-xs text-[color:var(--text-muted)]">Ultimo: {selectorRoutine?.lastDate || "--"}</p>
+              <p className="text-xs text-[color:var(--text-muted)]">Fecha: {formatLongDate(sessionDate)}</p>
             </Card>
 
             <Card className="p-4 space-y-1">
@@ -577,59 +731,74 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
 
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
-                  EJERCICIOS ({exercises.length})
-                </p>
-                <p className="text-xs text-[color:var(--text-muted)]">En progreso</p>
-              </div>
-              <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">Total sets: {totalSets}</Badge>
-            </div>
-
-            <div className="space-y-4">
-              {groupedExercises.map(([muscle, items]) => (
-                <div key={muscle} className="space-y-3">
-                  <div className="flex items-center justify-between px-1">
-                    <p className="text-sm font-semibold text-[color:var(--text)]">{muscle}</p>
-                    <span className="text-[11px] text-[color:var(--text-muted)]">{items.length} ejercicios</span>
+      {selectedRoutineId ? (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
+                      EJERCICIOS ({exercises.length})
+                    </p>
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      {loadingTraining ? "Cargando..." : "En progreso"}
+                    </p>
                   </div>
-                  <AnimatePresence>
-                    {items.map((ex) => (
-                      <ExerciseCard
-                        key={ex.id}
-                        exercise={ex}
-                        onAddSet={() => handleAddSet(ex.id)}
-                        onUpdateSet={(setId, field, value) => handleUpdateSet(ex.id, setId, field, value)}
-                        onToggleDone={(setId) => handleToggleDone(ex.id, setId)}
-                        onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
-                        onRemoveExercise={() => handleRemoveExercise(ex.id)}
-                        onViewHistory={() => {
-                          if (typeof localStorage !== "undefined") localStorage.setItem("last_exercise_id", ex.id);
-                          if (typeof onNavigate === "function") onNavigate("ejercicio_analitica");
-                        }}
-                      />
-                    ))}
-                  </AnimatePresence>
+                  <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">Total sets: {totalSets}</Badge>
                 </div>
-              ))}
 
-              <motion.div whileTap={{ scale: 0.97 }}>
-                <Button
-                  variant="outline"
-                  className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
-                  onClick={handleAddExercise}
-                >
-                  + Anadir ejercicio
-                </Button>
-              </motion.div>
-            </div>
+                <div className="space-y-4">
+                  {groupedExercises.map(([muscle, items]) => (
+                    <div key={muscle} className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <p className="text-sm font-semibold text-[color:var(--text)]">{muscle}</p>
+                        <span className="text-[11px] text-[color:var(--text-muted)]">{items.length} ejercicios</span>
+                      </div>
+                      <AnimatePresence>
+                        {items.map((ex) => (
+                          <ExerciseCard
+                            key={ex.id}
+                            exercise={ex}
+                            onAddSet={() => handleAddSet(ex.id)}
+                            onUpdateSet={(setId, field, value) => handleUpdateSet(ex.id, setId, field, value)}
+                            onToggleDone={(setId) => handleToggleDone(ex.id, setId)}
+                            onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
+                            onRemoveExercise={() => handleRemoveExercise(ex.id)}
+                            onViewHistory={() => {
+                              if (typeof localStorage !== "undefined") localStorage.setItem("last_exercise_id", ex.id);
+                              if (typeof onNavigate === "function") onNavigate("ejercicio_analitica");
+                            }}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  ))}
+
+                  <motion.div whileTap={{ scale: 0.97 }}>
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
+                      onClick={handleAddExercise}
+                    >
+                      + Añadir ejercicio
+                    </Button>
+                  </motion.div>
+                </div>
+              </>
+            ) : (
+              <Card className="p-6 text-center text-sm text-[color:var(--text-muted)]">
+                Selecciona primero la sucursal y la rutina para cargar los ejercicios.
+              </Card>
+            )}
           </section>
         </div>
       </div>
 
       <div className="hidden md:block">
-        <BottomActionBar onFinish={handleFinish} disabled={!exercises.length} durationSeconds={durationSeconds} />
+        <BottomActionBar
+          onFinish={handleFinish}
+          onCancel={handleExitEdit}
+          disabled={!exercises.length}
+          durationSeconds={durationSeconds}
+        />
       </div>
     </main>
   );

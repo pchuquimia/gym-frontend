@@ -7,6 +7,7 @@ const initialSessions = []
 const initialExercises = []
 const initialPhotos = []
 const initialTrainings = []
+const initialGoals = {}
 
 const slugify = (text) =>
   text
@@ -25,17 +26,20 @@ export function TrainingProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [branch, setBranchState] = useState('general')
+  const [goals, setGoals] = useState(initialGoals)
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true)
-        const [exs, sess, ph, tr] = await Promise.all([
-          api.getExercises(),
+        const [exsResponse, sess, ph, trResp] = await Promise.all([
+          api.getExercises({ fields: 'name,muscle,branches,type,thumb,updatedAt,createdAt', limit: 120 }),
           api.getSessions(),
           api.getPhotos(),
-          api.getTrainings(),
+          api.getTrainings({ limit: 120 }),
         ])
+        const exs = Array.isArray(exsResponse) ? exsResponse : exsResponse?.items || []
+        const tr = Array.isArray(trResp) ? trResp : trResp?.items || []
         setExercises(exs.map((e) => ({ ...e, id: e._id || e.id, branches: e.branches?.length ? e.branches : ['general'] })))
         setSessions(sess.map((s) => ({ ...s, id: s._id || s.id })))
         setPhotos(ph.map((p) => ({ ...p, id: p._id || p.id })))
@@ -44,6 +48,7 @@ export function TrainingProvider({ children }) {
         try {
           const pref = await api.getPreference()
           if (pref?.branch) setBranchState(pref.branch)
+          if (pref?.goals) setGoals(pref.goals)
         } catch (prefErr) {
           console.warn('Preferencia no disponible, usando general', prefErr?.message)
           setBranchState('general')
@@ -99,6 +104,14 @@ export function TrainingProvider({ children }) {
     return normalized
   }
 
+  const updateTraining = async (id, training) => {
+    const payload = { ...training, id: undefined, _id: undefined }
+    const saved = await api.updateTraining(id, payload)
+    const normalized = { ...saved, id: saved._id || saved.id }
+    setTrainings((prev) => prev.map((t) => (t.id === normalized.id || t._id === normalized.id ? normalized : t)))
+    return normalized
+  }
+
   const addExercise = async (exercise) => {
     const id = exercise.id || slugify(exercise.name)
     const payload = { ...exercise, _id: id, branches: exercise.branches?.length ? exercise.branches : ['general'] }
@@ -118,8 +131,14 @@ export function TrainingProvider({ children }) {
   }
 
   const setBranch = async (value) => {
-    const saved = await api.setPreference({ branch: value })
+    const saved = await api.setPreference({ branch: value, goals })
     setBranchState(saved.branch || value)
+    if (saved?.goals) setGoals(saved.goals)
+  }
+
+  const saveGoals = async (nextGoals) => {
+    const saved = await api.setPreference({ goals: nextGoals, branch })
+    setGoals(saved.goals || nextGoals)
   }
 
   const addPhoto = async (photo) => {
@@ -156,17 +175,21 @@ export function TrainingProvider({ children }) {
       loading,
       error,
       branch,
+      goals,
       addSession,
       addTraining,
+      updateTraining,
       addExercise,
       updateExerciseMeta,
       deleteExercise,
       addPhoto,
       deletePhoto,
       setBranch,
+      saveGoals,
       setTrainings,
+      setGoals,
     }),
-    [sessions, exercises, photos, trainings, loading, error, branch],
+    [sessions, exercises, photos, trainings, loading, error, branch, goals],
   )
 
   return <TrainingContext.Provider value={value}>{children}</TrainingContext.Provider>

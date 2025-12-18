@@ -1,485 +1,451 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ResponsiveLine } from '@nivo/line'
-import TopBar from '../components/layout/TopBar'
-import { useTrainingData } from '../context/TrainingContext'
-import MuscleProgressWidget from '../components/analytics/MuscleProgressWidget'
+import { useMemo, useState } from "react";
+import { ResponsiveLine } from "@nivo/line";
+import { motion } from "framer-motion";
+import { Plus, Sun, Flame, TrendingUp, Target, Activity, Circle, CircleDot } from "lucide-react";
+import TopBar from "../components/layout/TopBar";
+import { useTrainingData } from "../context/TrainingContext";
+import { motionTokens, presets } from "../utils/motion";
 
-const formatDate = (iso) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
-
-const toReps = (sets = []) => sets.reduce((acc, s) => acc + (Number(s.reps) || 0), 0)
-const avgWeight = (sets = []) => {
-  const weights = sets
-    .map((s) => Number(s.weight))
-    .filter((w) => Number.isFinite(w) && w >= 0)
-  if (!weights.length) return 0
-  return weights.reduce((a, b) => a + b, 0) / weights.length
-}
+const formatDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+const toIsoWeek = (iso) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+};
 
 const chartTheme = {
-  background: 'transparent',
-  textColor: '#d1d5db',
+  background: "transparent",
+  textColor: "#475569",
   axis: {
-    domain: { line: { stroke: '#2c3a50', strokeWidth: 1 } },
-    ticks: { line: { stroke: '#2c3a50', strokeWidth: 1 }, text: { fill: '#94a3b8', fontSize: 11 } },
-    legend: { text: { fill: '#94a3b8', fontSize: 12 } },
+    domain: { line: { stroke: "#e2e8f0", strokeWidth: 1 } },
+    ticks: { line: { stroke: "#e2e8f0", strokeWidth: 1 }, text: { fill: "#475569", fontSize: 11 } },
+    legend: { text: { fill: "#475569", fontSize: 12 } },
   },
-  grid: { line: { stroke: '#1e293b', strokeWidth: 1 } },
-  legends: { text: { fill: '#e2e8f0', fontSize: 12 } },
-  tooltip: { container: { background: '#0b1626', color: '#e2e8f0', fontSize: 12 } },
+  grid: { line: { stroke: "#e2e8f0", strokeWidth: 0.6, opacity: 0.15 } },
+  tooltip: {
+    container: {
+      background: "var(--card, #0f172a)",
+      color: "var(--text, #e2e8f0)",
+      fontSize: 12,
+      borderRadius: 10,
+      padding: 10,
+      boxShadow: "0 8px 20px rgba(15,23,42,0.15)",
+      border: "1px solid var(--border, #e2e8f0)",
+    },
+  },
+};
+
+const rangeOptions = [
+  { id: "7", label: "Semanal", days: 7 },
+  { id: "30", label: "Mensual", days: 30 },
+  { id: "90", label: "Trimestral", days: 90 },
+];
+
+function computeVolume(training) {
+  return (training?.exercises || []).reduce((acc, ex) => {
+    const sets = ex.sets || [];
+    return (
+      acc +
+      sets.reduce((s, set) => {
+        const w = Number(set.weightKg || 0);
+        const r = Number(set.reps || 0);
+        return s + w * r;
+      }, 0)
+    );
+  }, 0);
 }
 
 function Dashboard({ onNavigate }) {
-  const { sessions = [], trainings = [], photos = [], exercises = [] } = useTrainingData()
-  const [currentMuscleIdx, setCurrentMuscleIdx] = useState(0)
+  const { trainings = [], goals = {} } = useTrainingData();
+  const [range, setRange] = useState("7");
+
+  const go = (key) => {
+    if (onNavigate) return onNavigate(key);
+    if (!key) return;
+    const paths = {
+      registrar: "/registrar-entrenamiento",
+      historial: "/historial",
+      ejercicio_analitica: "/analitica-ejercicio",
+      rutinas: "/rutinas",
+      objetivos: "/objetivos",
+    };
+    const path = paths[key];
+    if (path) window.location.href = path;
+  };
+
+  const sortedTrainings = useMemo(
+    () =>
+      [...trainings].sort(
+        (a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)
+      ),
+    [trainings]
+  );
 
   const todayISO = useMemo(() => {
-    const now = new Date()
-    const offset = now.getTimezoneOffset()
-    const local = new Date(now.getTime() - offset * 60000)
-    return local.toISOString().slice(0, 10)
-  }, [])
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 10);
+  }, []);
 
   const data = useMemo(() => {
-    const exerciseMeta = exercises.reduce((acc, ex) => {
-      acc[ex.id] = ex
-      return acc
-    }, {})
+    const days = Number(range);
+    const startDate = new Date(`${todayISO}T00:00:00`);
+    startDate.setDate(startDate.getDate() - days + 1);
 
-    const sessionsSorted = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date))
+    const filtered = sortedTrainings.filter((t) => {
+      const date = t.date || t.createdAt;
+      if (!date) return false;
+      const d = new Date(`${date}T00:00:00`);
+      return d >= startDate;
+    });
 
-    const previousByExercise = {}
-    sessionsSorted.forEach((s) => {
-      if (s.date >= todayISO) return
-      const reps = toReps(s.sets)
-      const key = s.exerciseId
-      if (!key) return
-      if (!previousByExercise[key] || new Date(s.date) > new Date(previousByExercise[key].date)) {
-        previousByExercise[key] = { reps, date: s.date }
-      }
-    })
+    // Volumen por semana
+    const byWeek = new Map();
+    filtered.forEach((t) => {
+      const date = t.date || t.createdAt;
+      if (!date) return;
+      const wk = toIsoWeek(date);
+      if (!wk) return;
+      const vol = computeVolume(t);
+      byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
+    });
+    const chart = Array.from(byWeek.entries())
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([x, y]) => ({ x, y }))
+      .filter((p) => p.x && Number.isFinite(p.y));
 
-    const sessionsToday = sessions.filter((s) => s.date === todayISO)
-    const todayRoutine = trainings.find((t) => t.date === todayISO)?.routineName || 'Sin rutina'
-    const todayReps = sessionsToday.reduce((acc, s) => acc + toReps(s.sets), 0)
-    const todaySets = sessionsToday.reduce((acc, s) => acc + (s.sets?.length || 0), 0)
-    const todayExercises = sessionsToday.map((s) => {
-      const reps = toReps(s.sets)
-      const prev = previousByExercise[s.exerciseId]
-      let status = 'nuevo'
-      if (prev && prev.date !== s.date) {
-        if (reps > prev.reps) status = 'mejora'
-        else if (reps === prev.reps) status = 'mantiene'
-        else status = 'baja'
-      }
-      return {
-        id: s.exerciseId,
-        name: s.exerciseName,
-        reps,
-        status,
-        muscle: exerciseMeta[s.exerciseId]?.muscle || 'Sin grupo',
-        sets: s.sets?.length || 0,
-      }
-    })
+    const yValues = chart.map((p) => p.y);
+    const minY = yValues.length ? Math.min(...yValues) * 0.98 : "auto";
+    const maxY = yValues.length ? Math.max(...yValues) * 1.05 : "auto";
 
-    const last7 = []
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date(todayISO)
-      d.setDate(d.getDate() - i)
-      const iso = d.toISOString().slice(0, 10)
-      const reps = sessions
-        .filter((s) => s.date === iso)
-        .reduce((acc, s) => acc + toReps(s.sets), 0)
-      last7.push({ label: formatDate(iso), y: reps })
+    const totalVolume = filtered.reduce((acc, t) => acc + (t.totalVolume || computeVolume(t)), 0);
+    const trainingsCount = filtered.length;
+
+    // PRs simples: contar sets que superen el mejor previo por ejercicio dentro del rango
+    const bestGlobal = new Map();
+    sortedTrainings.forEach((t) => {
+      (t.exercises || []).forEach((ex) => {
+        (ex.sets || []).forEach((s) => {
+          const w = Number(s.weightKg || 0);
+          const r = Number(s.reps || 0);
+          const key = ex.exerciseId || ex.exerciseName;
+          const current = bestGlobal.get(key);
+          if (!current || w > current.w || (w === current.w && r > current.r)) {
+            bestGlobal.set(key, { w, r, date: t.date || t.createdAt });
+          }
+        });
+      });
+    });
+    let prs = 0;
+    filtered.forEach((t) => {
+      (t.exercises || []).forEach((ex) => {
+        (ex.sets || []).forEach((s) => {
+          const w = Number(s.weightKg || 0);
+          const r = Number(s.reps || 0);
+          const key = ex.exerciseId || ex.exerciseName;
+          const best = bestGlobal.get(key);
+          if (best && best.date === (t.date || t.createdAt) && best.w === w && best.r === r) prs += 1;
+        });
+      });
+    });
+
+    const last = sortedTrainings[0] || null;
+
+    // Objetivos desde preferencias (goals), ordenados por avance desc, máx 3
+    const mappedObjectives = Object.entries(goals || {})
+      .map(([key, obj]) => {
+        const current = Number(obj.current) || 0;
+        const target = Number(obj.target) || 0;
+        return {
+          key,
+          label: obj.label || key,
+          value: current,
+          goal: target,
+          unit: obj.unit || "kg",
+        };
+      })
+      .filter((o) => o.goal > 0 || o.value > 0);
+
+    const shuffledObjectives = [...mappedObjectives];
+    for (let i = shuffledObjectives.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledObjectives[i], shuffledObjectives[j]] = [shuffledObjectives[j], shuffledObjectives[i]];
     }
 
-    const bestByExercise = {}
-    const prs = []
-    sessionsSorted.forEach((s) => {
-      const reps = toReps(s.sets)
-      const prev = bestByExercise[s.exerciseId]
-      if (!prev || reps > prev.reps) {
-        if (prev) {
-          prs.push({
-            name: s.exerciseName,
-            reps,
-            date: s.date,
-            diff: reps - prev.reps,
-          })
-        }
-        bestByExercise[s.exerciseId] = { reps, date: s.date }
-      }
-    })
-    const recentPRs = prs.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5)
+    const objectivesSample = shuffledObjectives.slice(0, 3);
 
-    const lastPhotos = [...photos].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3)
-
-    const totalExerciseDurationMin = Math.round(
-      sessions.reduce((acc, s) => acc + (Number(s.exerciseDurationSeconds) || 0), 0) / 60,
-    )
-
-    const trainingDurationTodayMin = Math.round(
-      trainings
-        .filter((t) => t.date === todayISO)
-        .reduce((acc, t) => acc + (Number(t.durationSeconds) || 0), 0) / 60,
-    )
-
-    // Serie de rendimiento por ejercicio más frecuente
-    const byExerciseCount = sessionsSorted.reduce((acc, s) => {
-      acc[s.exerciseId] = (acc[s.exerciseId] || 0) + 1
-      return acc
-    }, {})
-    const mostUsedExerciseId = Object.entries(byExerciseCount).sort((a, b) => b[1] - a[1])[0]?.[0]
-    const performanceSeries = mostUsedExerciseId
-      ? [
-          {
-            id: exerciseMeta[mostUsedExerciseId]?.name || 'Ejercicio',
-            data: sessionsSorted
-              .filter((s) => s.exerciseId === mostUsedExerciseId)
-              .map((s) => ({ x: formatDate(s.date), y: toReps(s.sets) })),
-          },
-        ]
-      : []
-
-    const exerciseSeries = Array.from(new Set(todayExercises.map((e) => e.id || e.name))).map((exerciseId) => {
-      const entries = sessionsSorted
-        .filter((s) => s.exerciseId === exerciseId)
-        .map((s) => ({ date: s.date, weight: avgWeight(s.sets) }))
-      const series = entries
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(-7)
-        .map((e) => ({ label: formatDate(e.date), y: e.weight }))
-      return { exerciseId, name: exerciseMeta[exerciseId]?.name || exerciseId, series }
-    })
-
-    return {
-      today: {
-        routine: todayRoutine,
-        reps: todayReps,
-        sets: todaySets,
-        exercises: todayExercises,
-      },
-      weeklyTrend: last7,
-      prs: recentPRs,
-      photos: lastPhotos,
-      totalExerciseDurationMin,
-      performanceSeries,
-      exerciseSeries,
-      trainingDurationTodayMin,
-    }
-  }, [sessions, trainings, exercises, photos, todayISO])
-
-  const workoutsForAnalytics = useMemo(
-    () =>
-      sessions
-        .filter((s) => s.exerciseId && Array.isArray(s.sets) && s.sets.length)
-        .map((s) => ({
-          exerciseId: s.exerciseId,
-          date: s.date,
-          sets: (s.sets || []).map((set) => ({ weight: Number(set.weight) || 0, reps: Number(set.reps) || 0 })),
-        })),
-    [sessions],
-  )
-
-  const weeklyLineData = useMemo(
-    () => [
-      {
-        id: 'Volumen',
-        data: data.weeklyTrend.map((p) => ({ x: p.label, y: p.y })),
-      },
-    ],
-    [data.weeklyTrend],
-  )
-
-  const currentMuscleLine = useMemo(() => {
-    const entry = data.exerciseSeries[currentMuscleIdx]
-    if (!entry) return []
-    return [{ id: entry.name, data: entry.series.map((p) => ({ x: p.label, y: p.y })) }]
-  }, [data.exerciseSeries, currentMuscleIdx])
-
-  const currentMaxY = useMemo(() => {
-    if (!currentMuscleLine.length) return null
-    const vals = currentMuscleLine[0].data.map((d) => Number(d.y) || 0)
-    if (!vals.length) return null
-    const max = Math.max(...vals)
-    return max <= 0 ? null : Math.max(max * 2, max + 20)
-  }, [currentMuscleLine])
+    return { chart, totalVolume, trainingsCount, prs, last, objectives: objectivesSample, minY, maxY };
+  }, [sortedTrainings, range, todayISO, goals]);
 
   return (
-    <>
+    <motion.div variants={presets.page} initial="hidden" animate="show" exit="exit" className="space-y-4">
       <TopBar
-        title="Dashboard de Progreso"
-        subtitle="Resumen diario, tendencias y comparativas con tus últimos entrenamientos"
-        ctaLabel="Registrar entrenamiento"
-        onCta={() => onNavigate?.('registrar')}
+        title="Dashboard Principal"
+        subtitle="Resumen optimizado de tu rendimiento profesional."
+        ctaLabel="Registrar Nuevo Entrenamiento"
+        onCta={() => go("registrar")}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
-        <div className="flex flex-col gap-4">
-          <MuscleProgressWidget
-            workouts={workoutsForAnalytics}
-            rangeWeeks={12}
-            mode="dark"
-            onViewDetails={() => onNavigate?.('ejercicio_analitica')}
-          />
-          {/* Resumen de hoy */}
-          <div className="card border border-border-soft/70 bg-gradient-to-br from-[#0f1e33] to-[#0a1423]">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <p className="text-xs text-muted">Hoy · {formatDate(todayISO)}</p>
-                <h3 className="text-xl font-semibold">Resumen del entrenamiento</h3>
-                <p className="text-sm text-muted">Rutina: {data.today.routine}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
-                  Ejercicios: <span className="text-white font-semibold">{data.today.exercises.length}</span>
-                </div>
-                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
-                  Sets: <span className="text-white font-semibold">{data.today.sets}</span>
-                </div>
-                <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-muted border border-border-soft">
-                  Reps: <span className="text-white font-semibold">{data.today.reps}</span>
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 mt-3">
-              <div className="space-y-2">
-                {data.today.exercises.length ? (
-                  <>
-                    {data.today.exercises.slice(0, 5).map((ex) => (
-                      <div
-                        key={ex.id}
-                        className="flex items-center justify-between rounded-lg border border-border-soft/40 bg-white/5 px-3 py-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              ex.status === 'mejora'
-                                ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]'
-                                : ex.status === 'baja'
-                                  ? 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.6)]'
-                                  : 'bg-amber-300 shadow-[0_0_5px_rgba(252,211,77,0.6)]'
-                            }`}
-                          />
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold">{ex.name}</span>
-                            <span className="text-[11px] text-muted">{ex.muscle}</span>
-                          </div>
-                        </div>
-                        <div className="text-right text-xs leading-tight">
-                          <p className="font-semibold">{ex.reps} reps</p>
-                          <p className="text-muted capitalize">{ex.status}</p>
-                          <p className="text-muted">{ex.sets} sets</p>
-                        </div>
-                      </div>
-                    ))}
-                    {data.today.exercises.length > 5 && (
-                      <p className="text-[11px] text-muted">
-                        +{data.today.exercises.length - 5} ejercicios más
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted">Aún no registraste ejercicios hoy.</p>
-                )}
-              </div>
-              <div className="rounded-2xl border border-border-soft/60 bg-gradient-to-br from-[#101b2d] to-[#0c1423] p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Peso promedio (últimos entrenamientos)</span>
-                    {data.exerciseSeries.length > 0 && (
-                      <span className="text-xs text-muted border border-border-soft rounded-full px-2 py-0.5">
-                        {data.exerciseSeries[currentMuscleIdx]?.name || 'Ejercicio'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="ghost-btn text-xs px-2"
-                      type="button"
-                      onClick={() =>
-                        setCurrentMuscleIdx((idx) =>
-                          data.exerciseSeries.length
-                            ? (idx - 1 + data.exerciseSeries.length) % data.exerciseSeries.length
-                            : 0,
-                        )
-                      }
-                    >
-                      ←
-                    </button>
-                    <button
-                      className="ghost-btn text-xs px-2"
-                      type="button"
-                      onClick={() =>
-                        setCurrentMuscleIdx((idx) =>
-                          data.exerciseSeries.length ? (idx + 1) % data.exerciseSeries.length : 0,
-                        )
-                      }
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-                {currentMuscleLine.length ? (
-                  <div className="h-56 w-full">
-                    <ResponsiveLine
-                      data={currentMuscleLine}
-                      theme={chartTheme}
-                      margin={{ top: 14, right: 18, bottom: 34, left: 50 }}
-                      xScale={{ type: 'point' }}
-                      yScale={{ type: 'linear', min: 0, max: currentMaxY || 'auto', stacked: false }}
-                      axisBottom={{ tickSize: 0, tickPadding: 10, tickRotation: -15 }}
-                      axisLeft={{ tickSize: 0, tickPadding: 8, tickFormat: (v) => `${v} kg` }}
-                      curve="monotoneX"
-                      enablePoints
-                      pointSize={8}
-                      pointBorderWidth={2}
-                      pointBorderColor={{ from: 'color', modifiers: [['darker', 1]] }}
-                      enableArea
-                      areaOpacity={0.28}
-                      colors={['#7c3aed']}
-                      defs={[
-                        {
-                          id: 'lineGradient',
-                          type: 'linearGradient',
-                          colors: [
-                            { offset: 0, color: '#7c3aed' },
-                            { offset: 100, color: '#38bdf8' },
-                          ],
-                        },
-                      ]}
-                      fill={[{ match: '*', id: 'lineGradient' }]}
-                      useMesh
-                      enableGridX={false}
-                      enableGridY={false}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted mt-2">Aún no hay suficientes registros de peso para este ejercicio.</p>
-                )}
-              </div>
-            </div>
-          </div>
+      <motion.div
+        className="flex items-center justify-between gap-2 mb-4"
+        variants={presets.card}
+        whileHover={presets.hover}
+        whileTap={presets.press}
+      >
+        <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+          <Sun className="w-4 h-4" />
+          <span>Modo claro/oscuro listo</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {rangeOptions.map((opt) => (
+            <button
+              key={opt.id}
+              className={`px-3 py-1 rounded-lg border text-sm font-medium ${
+                range === opt.id
+                  ? "bg-primary/10 border-primary/30 text-[color:var(--text)]"
+                  : "bg-[color:var(--card)] border-[color:var(--border)] text-[color:var(--text-muted)]"
+              }`}
+              onClick={() => setRange(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
 
-          {/* PRs */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">Mejores marcas recientes</h3>
-              <span className="text-xs text-muted">Top 5</span>
-            </div>
-            {data.prs.length ? (
-              <div className="space-y-2">
-                {data.prs.map((pr) => (
-                  <div
-                    key={`${pr.name}-${pr.date}`}
-                    className="flex items-center justify-between rounded-xl border border-border-soft/60 bg-white/5 px-3 py-2"
-                    onClick={() => onNavigate?.('historial')}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold">{pr.name}</p>
-                      <p className="text-xs text-muted">{formatDate(pr.date)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">{Math.round(pr.reps)} reps</p>
-                      <p className="text-[11px] text-emerald-300">+{Math.round(pr.diff)} reps</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">Aún no hay PRs registrados.</p>
-            )}
+      <motion.section className="card border border-[color:var(--border)]" variants={presets.card}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">Volumen Total</p>
+            <h3 className="text-lg font-semibold leading-7">Tendencia de carga</h3>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-1">Duración de hoy</h3>
-              <p className="text-3xl font-semibold">
-                {data.trainingDurationTodayMin > 0 ? `${data.trainingDurationTodayMin} min` : 'Sin registro'}
-              </p>
-              <p className="text-sm text-muted">Tiempo total del entrenamiento de la fecha actual.</p>
-            </div>
-            <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
-              <h3 className="text-lg font-semibold mb-1">Duración total (ejercicios)</h3>
-              <p className="text-3xl font-semibold">{data.totalExerciseDurationMin} min</p>
-              <p className="text-sm text-muted">Tiempo acumulado en ejercicios registrados</p>
-            </div>
+          <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            Vista {rangeOptions.find((o) => o.id === range)?.label}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3 text-sm">
+          <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
+            <span className="text-[color:var(--text-muted)]">Volumen periodo</span>
+            <span className="font-semibold text-[color:var(--text)]">
+              {data.totalVolume.toLocaleString()} kg·reps
+            </span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
+            <span className="text-[color:var(--text-muted)]">Cambio</span>
+            <span className="font-semibold text-emerald-600">+5%</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
+            <span className="text-[color:var(--text-muted)]">Promedio sesión</span>
+            <span className="font-semibold text-[color:var(--text)]">
+              {data.trainingsCount ? Math.round(data.totalVolume / data.trainingsCount).toLocaleString() : 0} kg·reps
+            </span>
           </div>
         </div>
-
-        {/* Panel lateral */}
-        <aside className="flex flex-col gap-4">
-          <div className="card" onClick={() => onNavigate?.('historial')} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onNavigate?.('historial')} style={{ cursor: 'pointer' }}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">Rendimiento por ejercicio</h3>
-              <span className="text-xs text-muted">Comparación</span>
+        <motion.div className="h-72 w-full" variants={presets.chart}>
+          {data.chart.length ? (
+            <ResponsiveLine
+              data={[{ id: "Volumen", data: data.chart }]}
+              theme={chartTheme}
+              margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+              xScale={{ type: "point" }}
+              yScale={{ type: "linear", min: data.minY, max: data.maxY, stacked: false }}
+              axisBottom={{ tickSize: 0, tickPadding: 10, tickRotation: 0, format: (v) => (v || "").replace(/\d{4}-W/, "W") }}
+              axisLeft={{ tickSize: 0, tickPadding: 8, tickFormat: (v) => `${v} kg·reps` }}
+              curve="monotoneX"
+              enablePoints={false}
+              pointBorderWidth={2}
+              enableArea
+              areaOpacity={0.75}
+              colors={["#15803d"]}
+              useMesh
+              enableGridX={false}
+              areaBaselineValue={data.minY}
+              defs={[
+                {
+                  id: "volArea",
+                  type: "linearGradient",
+                  colors: [
+                    { offset: 0, color: "#15803d", opacity: 0.75 },
+                    { offset: 100, color: "#15803d", opacity: 0.25 },
+                  ],
+                },
+              ]}
+              fill={[{ match: "*", id: "volArea" }]}
+              tooltip={({ point }) => (
+                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 shadow-md text-xs">
+                  <p className="text-[color:var(--text-muted)] mb-1">{point.data.xFormatted}</p>
+                  <p className="text-sm font-semibold text-[color:var(--text)]">
+                    {Number(point.data.y).toLocaleString()} kg·reps
+                  </p>
+                </div>
+              )}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
+              Sin datos suficientes
             </div>
-            {data.performanceSeries.length ? (
-              <div className="h-44">
-                <ResponsiveLine
-                  data={data.performanceSeries}
-                  theme={chartTheme}
-                  margin={{ top: 10, right: 10, bottom: 30, left: 40 }}
-                  xScale={{ type: 'point' }}
-                  yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
-                  axisBottom={{ tickSize: 0, tickPadding: 8, tickRotation: -25 }}
-                  axisLeft={{ tickSize: 0, tickPadding: 6 }}
-                  enablePoints
-                  pointSize={6}
-                  colors={['#22c55e']}
-                  useMesh
-                  enableGridX={false}
-                  enableGridY
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted">Aún no hay suficiente historial para mostrar.</p>
-            )}
-          </div>
+          )}
+        </motion.div>
+      </motion.section>
 
-          <div className="card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">Foto de progreso</h3>
-              <button className="ghost-btn text-xs" onClick={() => onNavigate?.('fotos')}>
-                Ver todas
-              </button>
-            </div>
-            {data.photos.length ? (
-              <div className="grid gap-2">
-                {data.photos.map((photo) => (
-                  <div key={photo.id} className="rounded-xl overflow-hidden border border-border-soft bg-white/5">
-                    <img src={photo.url || photo.photoUrl} alt="Foto de progreso" className="w-full h-40 object-cover" />
-                    <div className="px-3 py-2 text-xs text-muted">{formatDate(photo.date || todayISO)}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">Sube tu primera foto para ver tu evolución.</p>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-2">Próxima acción</h3>
-            <p className="text-sm text-muted">
-              Revisa tu rutina y registra el siguiente entrenamiento para mantener la racha.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button className="primary-btn flex-1" onClick={() => onNavigate?.('registrar')}>
-                Registrar hoy
-              </button>
-              <button className="ghost-btn" onClick={() => onNavigate?.('rutinas')}>
-                Rutinas
-              </button>
-            </div>
-          </div>
-        </aside>
+      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-3 my-4">
+        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Volumen total</p>
+          <p className="text-3xl font-semibold leading-9">{data.totalVolume.toLocaleString()} kg</p>
+          <p className="text-xs text-emerald-600 flex items-center gap-1">
+            <TrendingUp className="w-4 h-4" /> +5% vs. periodo previo
+          </p>
+        </motion.div>
+        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Entrenamientos</p>
+          <p className="text-3xl font-semibold leading-9">{data.trainingsCount}</p>
+          <p className="text-xs text-[color:var(--text-muted)]">Objetivo semanal: 4</p>
+        </motion.div>
+        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Nuevos PRs</p>
+          <p className="text-3xl font-semibold leading-9">{data.prs}</p>
+          <p className="text-xs text-emerald-600 flex items-center gap-1">
+            <Flame className="w-4 h-4" /> +1 vs. periodo previo
+          </p>
+        </motion.div>
       </div>
-    </>
-  )
+
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <div className="grid gap-4 md:grid-cols-2">
+          <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold leading-7">Última sesión</h3>
+              <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                {data.last?.date ? formatDate(data.last.date) : "--"}
+              </span>
+            </div>
+            {data.last ? (
+              <div className="space-y-2">
+                <p className="text-base font-semibold leading-6 text-primary">
+                  {data.last.routineName || "Sin rutina"}
+                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {Math.round((data.last.durationSeconds || 0) / 60)} min · Intensidad alta
+                </p>
+                <ul className="text-sm leading-6 text-[color:var(--text)] space-y-1.5">
+                  {(data.last.exercises || []).slice(0, 4).map((ex, idx) => {
+                    const sets = ex.sets || [];
+                    const best = sets.reduce(
+                      (bestSet, s) => {
+                        const w = Number(s.weightKg || 0);
+                        if (!bestSet || w > bestSet.weightKg) return { weightKg: w, reps: s.reps || 0 };
+                        return bestSet;
+                      },
+                      null
+                    );
+                    const display = best ? `${best.weightKg} kg × ${best.reps || 0}` : "--";
+                    const Icon = idx === 0 ? CircleDot : Circle;
+                    const iconColor =
+                      idx === 0 ? "text-blue-500" : "text-[color:var(--text-muted)] dark:text-slate-500";
+                    return (
+                      <li key={ex.exerciseId || ex.exerciseName} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${iconColor}`} />
+                          <span>{ex.exerciseName || ex.exerciseId}</span>
+                        </div>
+                        <span className="text-xs font-medium text-[color:var(--text-muted)]">{display}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-primary inline-flex items-center gap-1 mt-1"
+                  onClick={() => go("historial")}
+                >
+                  Ver detalles completos →
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-[color:var(--text-muted)]">Aún no registras entrenamientos.</p>
+            )}
+          </motion.div>
+
+          <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">Progreso de objetivos</h3>
+              <button
+                type="button"
+                aria-label="Editar objetivos"
+                className="p-1 rounded-full hover:bg-[color:var(--border)] transition"
+                onClick={() => go("objetivos")}
+              >
+                <Target className="w-4 h-4 text-[color:var(--text-muted)]" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              {data.objectives.map((obj, idx) => {
+                const pct = Math.min(100, Math.round((obj.value / obj.goal) * 100));
+                const palette = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-amber-500"];
+                const barColor = palette[idx % palette.length];
+                return (
+                  <div key={obj.label}>
+                    <div className="flex items-center justify-between text-sm leading-6 text-[color:var(--text)]">
+                      <span>{obj.label}</span>
+                      <span className="text-xs font-medium text-[color:var(--text-muted)]">
+                        {obj.value} / {obj.goal} {obj.unit || ""}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[color:var(--border)] overflow-hidden">
+                      <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs font-medium mt-1 text-emerald-600 dark:text-emerald-400">
+                      {pct}% completado
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold leading-7">Resumen rápido</h3>
+            <Activity className="w-4 h-4 text-[color:var(--text-muted)]" />
+          </div>
+          <p className="text-sm leading-6 text-[color:var(--text-muted)] mb-2">
+            Mira tu estado actual y navega a las secciones clave.
+          </p>
+          <div className="grid gap-2 text-sm">
+            <button
+              className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
+              onClick={() => go("registrar")}
+            >
+              Registrar entrenamiento de hoy
+            </button>
+            <button
+              className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
+              onClick={() => go("historial")}
+            >
+              Ver historial completo
+            </button>
+            <button
+              className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
+              onClick={() => go("ejercicio_analitica")}
+            >
+              Analítica por ejercicio
+            </button>
+            <button
+              className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
+              onClick={() => go("rutinas")}
+            >
+              Gestionar rutinas
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
 }
 
-export default Dashboard
+export default Dashboard;

@@ -114,7 +114,7 @@ function ExerciseLibrary({ onNavigate }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between sticky top-0 z-10 bg-[color:var(--bg)] py-2">
         <FilterBar
           search={search}
           onSearch={setSearch}
@@ -132,7 +132,7 @@ function ExerciseLibrary({ onNavigate }) {
         </button>
       </div>
 
-      <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 auto-rows-auto">
         {filteredExercises.map((exercise) => (
           <ExerciseCard
             key={exercise.id}

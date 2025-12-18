@@ -1,11 +1,12 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Trash2 } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
 import Badge from "../ui/badge";
 import SetRow from "./SetRow";
+import { api } from "../../services/api";
 
 export default function ExerciseCard({
   exercise,
@@ -17,6 +18,34 @@ export default function ExerciseCard({
   onViewHistory = null,
 }) {
   const [open, setOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState(() => {
+    const key = `exercise_thumb_${exercise.id}`;
+    if (typeof localStorage !== "undefined") {
+      const cached = localStorage.getItem(key);
+      if (cached) return cached;
+    }
+    return exercise.image || "";
+  });
+  const imgLoaded = useRef(false);
+
+  useEffect(() => {
+    if (imageSrc || imgLoaded.current) return;
+    imgLoaded.current = true;
+    (async () => {
+      try {
+        const full = await api.getExercise(exercise.id);
+        if (full?.image) {
+          setImageSrc(full.image);
+          if (typeof localStorage !== "undefined") {
+            const key = `exercise_thumb_${exercise.id}`;
+            localStorage.setItem(key, full.image);
+          }
+        }
+      } catch (e) {
+        // ignore image errors
+      }
+    })();
+  }, [exercise.id, imageSrc]);
 
   return (
     <motion.div layout whileHover={{ y: -2 }}>
@@ -26,9 +55,9 @@ export default function ExerciseCard({
           onClick={() => setOpen((v) => !v)}
           className="w-full flex items-center gap-3 p-4 text-left"
         >
-          {exercise.image ? (
+          {imageSrc ? (
             <div className="h-12 w-12 rounded-xl overflow-hidden bg-slate-100">
-              <img src={exercise.image} alt={exercise.name} className="h-full w-full object-cover" />
+              <img src={imageSrc} alt={exercise.name} className="h-full w-full object-cover" />
             </div>
           ) : (
             <div className="h-12 w-12 rounded-xl bg-slate-100" />

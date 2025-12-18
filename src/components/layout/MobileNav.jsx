@@ -2,17 +2,14 @@ import { navLinks } from './Sidebar'
 
 const icons = {
   dashboard: '🏠',
-  library: '📚',
+  library: '🏋️',
   registrar: '📝',
-  historial: '📈',
-  graficos: '📊',
-  rutinas: '📅',
+  rutinas: '📋',
   perfil: '👤',
-  fotos: '🖼️',
 }
 
 function MobileNav({ activePage, onNavigate }) {
-  const items = ['dashboard', 'library', 'historial', 'graficos', 'perfil']
+  const items = ['dashboard', 'library', 'registrar', 'rutinas', 'perfil']
   return (
     <nav className="md:hidden bg-bg-darker border-t border-border-soft px-4 py-2">
       <div className="grid grid-cols-5 text-xs text-muted">
