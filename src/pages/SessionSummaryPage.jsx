@@ -18,7 +18,10 @@ function SessionSummaryPage({
 }) {
   const { trainings: ctxTrainings = [], exercises: exerciseMeta = [] } = useTrainingData();
   const { routines = [] } = useRoutines();
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => {
+    if (typeof localStorage !== "undefined") return localStorage.getItem("last_training_id") || null;
+    return null;
+  });
   const [selectedDate, setSelectedDate] = useState("");
   const [showList, setShowList] = useState(false);
   const [menuRoutine, setMenuRoutine] = useState("");

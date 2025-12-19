@@ -1,6 +1,6 @@
 // Para desarrollo local apuntamos al backend local por defecto.
 // En producción, define VITE_API_URL en el entorno del build.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const API_URL = import.meta.env.VITE_API_URL || "https://gym-backend-1fod.onrender.com";
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {

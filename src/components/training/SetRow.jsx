@@ -18,6 +18,10 @@ export default function SetRow({
   const stateClasses = done ? "bg-slate-100 text-[color:var(--text-muted)]" : "bg-[color:var(--card)]";
   const x = useMotionValue(0);
   const isMobile = typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false;
+  const normalizeDecimal = (val) => {
+    if (val === "" || val === null || val === undefined) return "";
+    return String(val).replace(",", ".");
+  };
 
   const handleDragEnd = (_, info) => {
     if (!isMobile) return;
@@ -47,7 +51,7 @@ export default function SetRow({
         type="number"
         inputMode="decimal"
         value={kg ?? ""}
-        onChange={(e) => onChangeKg(e.target.value)}
+        onChange={(e) => onChangeKg(normalizeDecimal(e.target.value))}
         placeholder="Kg"
       />
       <input

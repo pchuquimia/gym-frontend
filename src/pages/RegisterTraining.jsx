@@ -567,8 +567,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             order: exIdx + 1,
             sets: (ex.sets || [])
               .map((s, idx) => ({
-                weightKg: s.kg === "" ? null : Number(s.kg),
-                reps: s.reps === "" ? null : Number(s.reps),
+                weightKg: s.kg === "" ? null : Number(String(s.kg).replace(",", ".")),
+                reps: s.reps === "" ? null : Number(String(s.reps).replace(",", ".")),
                 done: Boolean(s.done),
                 order: idx + 1,
               }))
@@ -597,15 +597,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         }
       }
 
+      let savedTraining = null;
       if (editingId) {
-        await updateTraining(editingId, payload);
+        savedTraining = await updateTraining(editingId, payload);
         if (typeof localStorage !== "undefined") localStorage.removeItem("edit_training_id");
         setEditingId("");
         setIsEditing(false);
         toast.success("Entrenamiento actualizado");
       } else {
-        await addTraining(payload);
+        savedTraining = await addTraining(payload);
         toast.success("Entrenamiento finalizado y guardado");
+      }
+      if (savedTraining && typeof localStorage !== "undefined") {
+        const lastId = savedTraining.id || savedTraining._id;
+        if (lastId) localStorage.setItem("last_training_id", lastId);
       }
       if (typeof localStorage !== "undefined") localStorage.removeItem(SNAPSHOT_KEY);
       await loadTrainingForDate(dateStr, selectedRoutine?.id);
