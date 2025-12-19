@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { motion } from "framer-motion";
 import { Plus, Sun, Flame, TrendingUp, Target, Activity, Circle, CircleDot } from "lucide-react";
@@ -119,8 +119,8 @@ function Dashboard({ onNavigate }) {
       .filter((p) => p.x && Number.isFinite(p.y));
 
     const yValues = chart.map((p) => p.y);
-    const minY = yValues.length ? Math.min(...yValues) * 0.98 : "auto";
-    const maxY = yValues.length ? Math.max(...yValues) * 1.05 : "auto";
+    const minY = yValues.length ? Math.min(...yValues) * 0.98 : undefined;
+    const maxY = yValues.length ? Math.max(...yValues) * 1.05 : undefined;
 
     const totalVolume = filtered.reduce((acc, t) => acc + (t.totalVolume || computeVolume(t)), 0);
     const trainingsCount = filtered.length;
@@ -155,7 +155,7 @@ function Dashboard({ onNavigate }) {
 
     const last = sortedTrainings[0] || null;
 
-    // Objetivos desde preferencias (goals), ordenados por avance desc, máx 3
+    // Objetivos desde preferencias (goals), ordenados por avance desc, mÃ¡x 3
     const mappedObjectives = Object.entries(goals || {})
       .map(([key, obj]) => {
         const current = Number(obj.current) || 0;
@@ -230,19 +230,15 @@ function Dashboard({ onNavigate }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3 text-sm">
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
             <span className="text-[color:var(--text-muted)]">Volumen periodo</span>
-            <span className="font-semibold text-[color:var(--text)]">
-              {data.totalVolume.toLocaleString()} kg·reps
-            </span>
+            <span className="font-semibold text-[color:var(--text)]">{data.totalVolume.toLocaleString()} kg·reps</span>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
             <span className="text-[color:var(--text-muted)]">Cambio</span>
             <span className="font-semibold text-emerald-600">+5%</span>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
-            <span className="text-[color:var(--text-muted)]">Promedio sesión</span>
-            <span className="font-semibold text-[color:var(--text)]">
-              {data.trainingsCount ? Math.round(data.totalVolume / data.trainingsCount).toLocaleString() : 0} kg·reps
-            </span>
+            <span className="text-[color:var(--text-muted)]">Promedio sesion</span>
+            <span className="font-semibold text-[color:var(--text)]">{data.trainingsCount ? Math.round(data.totalVolume / data.trainingsCount).toLocaleString() : 0} kg·reps</span>
           </div>
         </div>
         <motion.div className="h-72 w-full" variants={presets.chart}>
@@ -252,7 +248,7 @@ function Dashboard({ onNavigate }) {
               theme={chartTheme}
               margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
               xScale={{ type: "point" }}
-              yScale={{ type: "linear", min: data.minY, max: data.maxY, stacked: false }}
+              yScale={{ type: "linear", min: data.minY ?? "auto", max: data.maxY ?? "auto", stacked: false }}
               axisBottom={{ tickSize: 0, tickPadding: 10, tickRotation: 0, format: (v) => (v || "").replace(/\d{4}-W/, "W") }}
               axisLeft={{ tickSize: 0, tickPadding: 8, tickFormat: (v) => `${v} kg·reps` }}
               curve="monotoneX"
@@ -263,7 +259,7 @@ function Dashboard({ onNavigate }) {
               colors={["#15803d"]}
               useMesh
               enableGridX={false}
-              areaBaselineValue={data.minY}
+              areaBaselineValue={data.minY ?? 0}
               defs={[
                 {
                   id: "volArea",
@@ -318,7 +314,7 @@ function Dashboard({ onNavigate }) {
         <div className="grid gap-4 md:grid-cols-2">
           <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold leading-7">Última sesión</h3>
+              <h3 className="text-lg font-semibold leading-7">Ãšltima sesion</h3>
               <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                 {data.last?.date ? formatDate(data.last.date) : "--"}
               </span>
@@ -329,7 +325,7 @@ function Dashboard({ onNavigate }) {
                   {data.last.routineName || "Sin rutina"}
                 </p>
                 <p className="text-xs text-[color:var(--text-muted)]">
-                  {Math.round((data.last.durationSeconds || 0) / 60)} min · Intensidad alta
+                  {Math.round((data.last.durationSeconds || 0) / 60)} min Â· Intensidad alta
                 </p>
                 <ul className="text-sm leading-6 text-[color:var(--text)] space-y-1.5">
                   {(data.last.exercises || []).slice(0, 4).map((ex, idx) => {
@@ -342,7 +338,7 @@ function Dashboard({ onNavigate }) {
                       },
                       null
                     );
-                    const display = best ? `${best.weightKg} kg × ${best.reps || 0}` : "--";
+                    const display = best ? `${best.weightKg} kg x ${best.reps || 0}` : "--";
                     const Icon = idx === 0 ? CircleDot : Circle;
                     const iconColor =
                       idx === 0 ? "text-blue-500" : "text-[color:var(--text-muted)] dark:text-slate-500";
@@ -362,11 +358,11 @@ function Dashboard({ onNavigate }) {
                   className="text-sm font-semibold text-primary inline-flex items-center gap-1 mt-1"
                   onClick={() => go("historial")}
                 >
-                  Ver detalles completos →
+                  Ver detalles completos â†’
                 </button>
               </div>
             ) : (
-              <p className="text-sm text-[color:var(--text-muted)]">Aún no registras entrenamientos.</p>
+              <p className="text-sm text-[color:var(--text-muted)]">AÃºn no registras entrenamientos.</p>
             )}
           </motion.div>
 
@@ -410,7 +406,7 @@ function Dashboard({ onNavigate }) {
 
         <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-semibold leading-7">Resumen rápido</h3>
+            <h3 className="text-lg font-semibold leading-7">Resumen rÃ¡pido</h3>
             <Activity className="w-4 h-4 text-[color:var(--text-muted)]" />
           </div>
           <p className="text-sm leading-6 text-[color:var(--text-muted)] mb-2">
@@ -433,7 +429,7 @@ function Dashboard({ onNavigate }) {
               className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
               onClick={() => go("ejercicio_analitica")}
             >
-              Analítica por ejercicio
+              AnalÃ­tica por ejercicio
             </button>
             <button
               className="w-full rounded-lg border border-[color:var(--border)] px-3 py-2 text-left hover:bg-[color:var(--bg)] transition"
@@ -449,3 +445,20 @@ function Dashboard({ onNavigate }) {
 }
 
 export default Dashboard;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

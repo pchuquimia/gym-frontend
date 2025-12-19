@@ -33,7 +33,7 @@ export function TrainingProvider({ children }) {
       try {
         setLoading(true)
         const [exsResponse, sess, ph, trResp] = await Promise.all([
-          api.getExercises({ fields: 'name,muscle,branches,type,thumb,updatedAt,createdAt', limit: 120 }),
+          api.getExercises({ fields: 'name,muscle,branches,type,thumb,image,updatedAt,createdAt', limit: 200 }),
           api.getSessions(),
           api.getPhotos(),
           api.getTrainings({ limit: 120 }),

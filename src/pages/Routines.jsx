@@ -19,14 +19,12 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
   const [branchError, setBranchError] = useState("");
   const [exercises, setExercises] = useState(
     (initialData?.exercises || []).map((ex) => {
-      const meta = availableExercises.find(
-        (a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name
-      );
+      const meta = availableExercises.find((a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name);
       return {
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
         muscle: ex.muscle || meta?.muscle,
-        image: ex.image || meta?.image || meta?.thumb,
+        image: ex.image || meta?.thumb || meta?.image,
       };
     })
   );
@@ -144,18 +142,18 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
         </>
       }
     >
-      <div className="flex flex-col gap-4 h-full bg-[color:var(--bg)] text-[color:var(--text)]">
-        <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4 h-full max-h-[75vh] overflow-y-auto bg-[color:var(--bg)] text-[color:var(--text)]">
+        <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Nombre de la Rutina</p>
           <input
             className="rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)]"
-            placeholder="Ej. Día de Pierna"
+            placeholder="Ej. Dia de Pierna"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Sede / Gym</p>
           <div className="flex gap-2 flex-wrap">
             {["general", "sopocachi", "miraflores"].map((b) => (
@@ -163,9 +161,9 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
                 key={b}
                 type="button"
                 onClick={() => setBranch(b)}
-                className={`px-3 py-2 rounded-full border text-sm transition ${
+                className={`px-3 py-2 rounded-full border text-sm transition focus-visible:outline-none focus-visible:ring-0 ${
                   branch === b
-                    ? "border-accent bg-accent/15 text-[color:var(--text)] shadow-[0_0_10px_rgba(79,163,255,0.3)]"
+                    ? "border-accent bg-accent/15 text-[color:var(--text)] font-semibold"
                     : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
@@ -174,12 +172,12 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             ))}
           </div>
           <p className="text-xs text-[color:var(--text-muted)]">
-            Define en qué sede aplica esta rutina. General = visible para todas.
+            Define en que sede aplica esta rutina. General = visible para todas.
           </p>
           {branchError && <p className="text-xs text-accent-red">{branchError}</p>}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Elige grupo muscular</p>
           <div className="flex gap-2 flex-wrap">
             {muscleOptions.map((muscle) => (
@@ -187,9 +185,9 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
                 key={muscle}
                 type="button"
                 onClick={() => setSelectedMuscle(muscle)}
-                className={`px-3 py-2 rounded-full border text-sm transition ${
+                className={`px-3 py-2 rounded-full border text-sm transition focus-visible:outline-none focus-visible:ring-0 ${
                   selectedMuscle === muscle
-                    ? "border-accent bg-accent/15 text-[color:var(--text)] shadow-[0_0_10px_rgba(79,163,255,0.3)]"
+                    ? "border-accent bg-accent/15 text-[color:var(--text)] font-semibold"
                     : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
@@ -198,14 +196,14 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             ))}
           </div>
           <p className="text-xs text-[color:var(--text-muted)]">
-            Primero selecciona el grupo; abajo verás los ejercicios de tu biblioteca para ese músculo y sede.
+            Primero selecciona el grupo; abajo veras los ejercicios de tu biblioteca para ese musculo y sede.
           </p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Ejercicios sugeridos</p>
           <input
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)]"
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)]"
             placeholder="Buscar ejercicio..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -214,11 +212,11 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             {filteredExercises.map((ex) => (
               <div
                 key={ex.id}
-                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 flex flex-col gap-2 shadow-sm"
+                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 flex flex-col gap-2 shadow-sm"
               >
-                <div className="h-28 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] grid place-items-center">
+                <div className="aspect-video w-full rounded-xl overflow-hidden border border-[color:var(--border)] bg-slate-100 grid place-items-center">
                   {ex.image || ex.thumb ? (
-                    <img src={ex.image || ex.thumb} alt={ex.name} className="w-full h-full object-cover" />
+                    <img src={ex.image || ex.thumb} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
                     <div className="text-[color:var(--text-muted)] text-sm">Sin imagen</div>
                   )}
@@ -278,7 +276,7 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
                   >
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] grid place-items-center">
                       {ex.image ? (
-                        <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" />
+                        <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <span className="text-[color:var(--text-muted)] text-sm">{(ex.name || "?").charAt(0).toUpperCase()}</span>
                       )}
@@ -309,7 +307,7 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             </div>
           ))}
           {exercises.length === 0 && (
-            <div className="text-sm text-[color:var(--text-muted)]">Aún no agregas ejercicios.</div>
+            <div className="text-sm text-[color:var(--text-muted)]">Aun no agregas ejercicios.</div>
           )}
         </div>
       </div>
@@ -365,7 +363,7 @@ function Routines() {
   return (
     <>
       <TopBar
-        title="Rutinas y Planificación"
+        title="Rutinas y Planificacion"
         subtitle="Crea, gestiona y monitorea tus planes de entrenamiento."
         ctaLabel="+ Crear Nueva Rutina"
         onCta={openCreate}

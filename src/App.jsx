@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import './App.css'
 import Dashboard from './pages/Dashboard'
 import ExerciseLibrary from './pages/ExerciseLibrary'
@@ -50,7 +51,22 @@ function App() {
       <RoutineProvider>
         <UserProvider>
           <MainLayout activePage={activePage} onNavigate={handleNavigate}>
-            <PageComponent pageKey={pageEntry.label} onNavigate={handleNavigate} />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activePage}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{
+                  duration: 0.28,
+                  ease: [0.2, 0.8, 0.2, 1],
+                  exit: { duration: 0.2, ease: [0.4, 0, 1, 1] },
+                }}
+                className="h-full"
+              >
+                <PageComponent pageKey={pageEntry.label} onNavigate={handleNavigate} />
+              </motion.div>
+            </AnimatePresence>
           </MainLayout>
         </UserProvider>
       </RoutineProvider>
@@ -59,4 +75,3 @@ function App() {
 }
 
 export default App
-

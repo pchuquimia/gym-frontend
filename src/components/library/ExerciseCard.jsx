@@ -57,7 +57,7 @@ function ExerciseCard({ exercise, onView, onEdit, onDelete }) {
     >
       <button
         type="button"
-        className="relative block h-40 w-full overflow-hidden"
+        className="relative block h-40 w-full overflow-hidden bg-slate-100"
         onClick={() => onView(exercise)}
       >
         <img
@@ -91,6 +91,14 @@ function ExerciseCard({ exercise, onView, onEdit, onDelete }) {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            className="w-9 h-9 grid place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+            onClick={() => onView(exercise)}
+            aria-label="Ver ejercicio"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
           <div className="relative">
             <button
               type="button"
@@ -98,7 +106,7 @@ function ExerciseCard({ exercise, onView, onEdit, onDelete }) {
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Más acciones"
             >
-              ⋮
+              ⋯
             </button>
             {menuOpen && (
               <div className="absolute right-0 mt-1 w-36 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-lg z-20">
