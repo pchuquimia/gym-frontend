@@ -431,10 +431,28 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return undefined;
     }
     timerRef.current = setInterval(() => {
-      lastUpdateRef.current = Date.now();
-      setDurationSeconds((sec) => sec + 1);
+      const now = Date.now();
+      const delta = Math.floor((now - lastUpdateRef.current) / 1000);
+      if (delta > 0) {
+        setDurationSeconds((sec) => sec + delta);
+        lastUpdateRef.current = now;
+      }
     }, 1000);
     return () => clearInterval(timerRef.current);
+  }, [isRunning]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!isRunning) return;
+      const now = Date.now();
+      const delta = Math.floor((now - lastUpdateRef.current) / 1000);
+      if (delta > 0) {
+        setDurationSeconds((sec) => sec + delta);
+        lastUpdateRef.current = now;
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning]);
 
   const handleStart = () => {
@@ -452,6 +470,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     lastUpdateRef.current = Date.now();
     setIsRunning(false);
     setDurationSeconds(0);
+  };
+
+  const resetState = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIsRunning(false);
+    setDurationSeconds(0);
+    setSelectedBranch("");
+    setSelectedRoutineId("");
+    setSelectedRoutine(null);
+    setExercises([]);
+    setSessionDate(todayISO);
+    setEditingId("");
+    setIsEditing(false);
+    setBranchLocked(false);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(SNAPSHOT_KEY);
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+    }
   };
 
   const handleSelectRoutine = (id) => {
@@ -600,20 +637,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       let savedTraining = null;
       if (editingId) {
         savedTraining = await updateTraining(editingId, payload);
-        if (typeof localStorage !== "undefined") localStorage.removeItem("edit_training_id");
         setEditingId("");
         setIsEditing(false);
-        toast.success("Entrenamiento actualizado");
       } else {
         savedTraining = await addTraining(payload);
-        toast.success("Entrenamiento finalizado y guardado");
       }
       if (savedTraining && typeof localStorage !== "undefined") {
         const lastId = savedTraining.id || savedTraining._id;
         if (lastId) localStorage.setItem("last_training_id", lastId);
       }
-      if (typeof localStorage !== "undefined") localStorage.removeItem(SNAPSHOT_KEY);
-      await loadTrainingForDate(dateStr, selectedRoutine?.id);
+      toast.success("Entrenamiento guardado correctamente.");
+      resetState();
+      await loadTrainingForDate(todayISO, null);
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);

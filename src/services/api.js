@@ -58,6 +58,14 @@ export const api = {
   updateTraining: (id, payload) => request(`/api/trainings/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   createTraining: (payload) => request('/api/trainings', { method: 'POST', body: JSON.stringify(payload) }),
   deleteTraining: (id) => request(`/api/trainings/${id}`, { method: 'DELETE' }),
+  getTrainingsSummary: (params = {}) => {
+    const query = new URLSearchParams({
+      from: params.from ?? '',
+      to: params.to ?? '',
+      routineId: params.routineId ?? '',
+    }).toString()
+    return request(`/api/trainings/summary?${query}`)
+  },
 
   getPhotos: (type) => request(`/api/photos${type ? `?type=${type}` : ''}`),
   createPhoto: (payload) => request('/api/photos', { method: 'POST', body: JSON.stringify(payload) }),

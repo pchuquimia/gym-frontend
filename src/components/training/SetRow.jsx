@@ -1,4 +1,4 @@
-import PropTypes from "prop-types";
+﻿import PropTypes from "prop-types";
 import { motion, useMotionValue } from "framer-motion";
 import { Check, X } from "lucide-react";
 
@@ -48,18 +48,20 @@ export default function SetRow({
       <div className="text-[12px] text-[color:var(--text-muted)]">{previousText}</div>
       <input
         className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-sm text-center focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-        type="number"
+        type="text"
         inputMode="decimal"
+        pattern="[0-9]*[.,]?[0-9]*"
         value={kg ?? ""}
         onChange={(e) => onChangeKg(normalizeDecimal(e.target.value))}
         placeholder="Kg"
       />
       <input
         className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-sm text-center focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-        type="number"
-        inputMode="numeric"
+        type="text"
+        inputMode="decimal"
+        pattern="[0-9]*[.,]?[0-9]*"
         value={reps ?? ""}
-        onChange={(e) => onChangeReps(e.target.value)}
+        onChange={(e) => onChangeReps(normalizeDecimal(e.target.value))}
         placeholder="Reps"
       />
       <div className="flex items-center justify-end gap-2">
