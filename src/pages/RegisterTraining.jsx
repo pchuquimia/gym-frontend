@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
@@ -142,7 +142,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         raw: r,
       }));
     }
-    // si no hay rutinas de esa sucursal, devolver todas para no dejar vacío
+    // si no hay rutinas de esa sucursal, devolver todas para no dejar vacÃ­o
     return (routines || []).map((r) => ({
       id: r.id,
       name: r.name,
@@ -472,6 +472,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setDurationSeconds(0);
   };
 
+
   const resetState = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
@@ -628,7 +629,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         );
         if (dup) {
           const proceed = window.confirm(
-            "Ya existe un entrenamiento para esta rutina en esa fecha. ¿Deseas sobrescribirlo?"
+            "Ya existe un entrenamiento para esta rutina en esa fecha. Â¿Deseas sobrescribirlo?"
           );
           if (!proceed) return;
         }
@@ -652,7 +653,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
-      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexión o intenta de nuevo.");
+      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexiÃ³n o intenta de nuevo.");
     }
   };
 
@@ -680,7 +681,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             <div className="flex items-center gap-2">
               {isEditing && (
                 <Button variant="outline" size="sm" onClick={handleExitEdit}>
-                  Salir de edición
+                  Salir de ediciÃ³n
                 </Button>
               )}
               <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-[color:var(--text-muted)]">
@@ -701,14 +702,26 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               </div>
               <div className="text-[11px] text-[color:var(--text-muted)]">LIVE</div>
             </Card>
-            <Button
-              className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
-              onClick={handleFinish}
-              disabled={!exercises.length}
-            >
-              <Flag className="h-4 w-4" />
-              <span>Finalizar</span>
-            </Button>
+            <div className="flex-1 flex gap-2">
+              <Button
+                className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
+                onClick={handleFinish}
+                disabled={!exercises.length}
+              >
+                <Flag className="h-4 w-4" />
+                <span>Finalizar</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-[52px] px-3 rounded-xl font-semibold text-[color:var(--text)]"
+                onClick={() => {
+                  resetState();
+                  toast.message("Entrenamiento cancelado");
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -818,7 +831,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
                       onClick={handleAddExercise}
                     >
-                      + Añadir ejercicio
+                      + AÃ±adir ejercicio
                     </Button>
                   </motion.div>
                 </div>
