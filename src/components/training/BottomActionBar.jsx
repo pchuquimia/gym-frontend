@@ -1,6 +1,13 @@
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 
+const formatDuration = (sec) => {
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  return [hours, minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
+};
+
 export default function BottomActionBar({ onFinish, onCancel, disabled = false, durationSeconds }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 border-t border-[color:var(--border)] bg-[color:var(--card)]/95 backdrop-blur shadow-lg px-4 py-3">
@@ -29,11 +36,8 @@ export default function BottomActionBar({ onFinish, onCancel, disabled = false, 
           </motion.button>
         </div>
         <div className="text-[11px] text-[color:var(--text-muted)] font-semibold text-right leading-tight">
-          <p>Duración</p>
-          <p className="text-sm text-[color:var(--text)]">
-            {String(Math.floor(durationSeconds / 60)).padStart(2, "0")}:
-            {String(durationSeconds % 60).padStart(2, "0")}
-          </p>
+          <p>Duracion</p>
+          <p className="text-sm text-[color:var(--text)]">{formatDuration(durationSeconds)}</p>
         </div>
       </div>
     </div>

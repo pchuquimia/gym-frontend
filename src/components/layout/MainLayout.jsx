@@ -12,6 +12,14 @@ function MainLayout({ children, activePage, onNavigate }) {
   const pollRef = useRef(null)
   const [showDrawer, setShowDrawer] = useState(false)
 
+  const formatDuration = (sec) => {
+    const total = Math.max(0, Math.floor(sec || 0))
+    const hours = Math.floor(total / 3600)
+    const minutes = Math.floor((total % 3600) / 60)
+    const seconds = total % 60
+    return [hours, minutes, seconds].map((n) => String(n).padStart(2, '0')).join(':')
+  }
+
   const readSnapshot = () => {
     if (typeof localStorage === 'undefined') return null
     const raw = localStorage.getItem(SNAPSHOT_KEY) ?? localStorage.getItem(LEGACY_KEY)
@@ -54,11 +62,10 @@ function MainLayout({ children, activePage, onNavigate }) {
       {activePage !== 'registrar' && activeTraining && (
         <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm">
           <div className="flex items-center justify-between px-4 py-2 md:px-8">
-            <div className="text-sm text-[color:var(--text-muted)]">
-              Sesión en curso ·
-              <span className="ml-1 font-semibold text-[color:var(--text)]">
-                {String(Math.floor((activeTraining.elapsed || 0) / 60)).padStart(2, '0')}:
-                {String(Math.floor((activeTraining.elapsed || 0) % 60)).padStart(2, '0')}
+            <div className="text-sm text-[color:var(--text-muted)] flex items-center gap-1">
+              <span>Sesión en curso</span>
+              <span className="ml-1 font-semibold text-[color:var(--text)] font-mono">
+                {formatDuration(activeTraining.elapsed || 0)}
               </span>
             </div>
             <button

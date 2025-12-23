@@ -1,19 +1,122 @@
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 
-function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
+function TopBar({
+  title,
+  subtitle,
+  meta,
+  ctaLabel,
+  onCta,
+  rightSlot,
+  leftSlot,
+  variant = "default",
+}) {
+  if (variant === "dashboard") {
+    return (
+      <header className="space-y-4">
+        {/* Row superior */}
+        <div className="flex items-center justify-between">
+          <div className="shrink-0">
+            {leftSlot ? (
+              leftSlot
+            ) : (
+              <button
+                type="button"
+                className="
+                  h-10 w-10 rounded-2xl
+                  border border-[color:var(--border)]
+                  bg-[color:var(--card)]
+                  grid place-items-center
+                  text-[color:var(--text)]
+                  hover:bg-[color:var(--bg)]
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/25
+                "
+                aria-label="Menú"
+                title="Menú"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <div className="shrink-0">{rightSlot ? rightSlot : null}</div>
+        </div>
+
+        {/* Hero card */}
+        <div
+          className="
+            rounded-3xl
+            border border-[color:var(--border)]
+            bg-[color:var(--card)]
+            shadow-sm
+            px-5 py-5
+          "
+        >
+          {subtitle ? (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+              {subtitle}
+            </p>
+          ) : null}
+
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-[color:var(--text)]">
+            {title}
+          </h1>
+
+          {meta ? (
+            <div className="mt-2">
+              <span
+                className="
+                  inline-flex items-center rounded-full
+                  border border-[color:var(--border)]
+                  bg-[color:var(--bg)]
+                  px-3 py-1 text-xs font-medium
+                  text-[color:var(--text-muted)]
+                "
+              >
+                {meta}
+              </span>
+            </div>
+          ) : null}
+
+          {ctaLabel ? (
+            <motion.button
+              type="button"
+              onClick={onCta}
+              whileTap={{ scale: 0.99 }}
+              className="
+                mt-4 inline-flex w-full items-center justify-center gap-2
+                rounded-2xl
+                bg-blue-600 px-4 py-3
+                text-sm font-semibold text-white
+                shadow-sm
+                hover:bg-blue-700
+                focus:outline-none focus:ring-2 focus:ring-blue-500/25
+              "
+            >
+              <Plus className="h-4 w-4" />
+              {ctaLabel}
+            </motion.button>
+          ) : null}
+        </div>
+      </header>
+    );
+  }
+
+  // ---- tu versión actual default (sin cambios) ----
   return (
     <header className="space-y-3">
-      {/* Row superior (si quieres meter Menú / Modo oscuro aquí) */}
       <div className="flex items-center justify-between">
-        {/* left slot opcional (ej: botón menú) */}
         <div className="min-w-0">{/* leftSlot si lo necesitas */}</div>
-
-        {/* rightSlot opcional (ej: toggle dark mode) */}
         {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
       </div>
 
-      {/* Card principal */}
       <div
         className="
           rounded-2xl border border-slate-200/70
@@ -37,7 +140,6 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
 
             {meta ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {/* Si meta es string, lo mostramos como chip. Si prefieres, pásalo ya separado en chips */}
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   {meta}
                 </span>
@@ -45,7 +147,6 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
             ) : null}
           </div>
 
-          {/* CTA compacto en desktop */}
           {ctaLabel ? (
             <motion.button
               type="button"
@@ -68,7 +169,6 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
           ) : null}
         </div>
 
-        {/* CTA full-width en mobile (mejor UX) */}
         {ctaLabel ? (
           <motion.button
             type="button"
@@ -78,16 +178,15 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
               mt-4 inline-flex w-full items-center justify-center gap-2
               rounded-xl
               bg-blue-700
-    px-4 py-3
+              px-4 py-3
               text-sm font-semibold text-slate-900
               shadow-sm
-             hover:bg-blue-800
+              hover:bg-blue-800
               dark:border-slate-700 dark:bg-slate-700 dark:text-slate-50 dark:hover:bg-slate-500
               sm:hidden
               active:bg-emerald-800
-    transition
-    focus:outline-none focus:ring-2 focus:ring-emerald-500/40
-
+              transition
+              focus:outline-none focus:ring-2 focus:ring-emerald-500/40
             "
           >
             <Plus className="h-4 w-4" />

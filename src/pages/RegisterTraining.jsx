@@ -39,6 +39,13 @@ const formatShort = (iso) => {
   });
 };
 
+const formatDuration = (sec) => {
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+  const seconds = sec % 60;
+  return [hours, minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
+};
+
 const slugify = (text) =>
   text
     ?.toString()
@@ -829,8 +836,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   Duracion
                 </p>
                 <p className="text-base font-semibold text-[color:var(--text)]">
-                  {String(Math.floor(durationSeconds / 60)).padStart(2, "0")}:
-                  {String(durationSeconds % 60).padStart(2, "0")}
+                  {formatDuration(durationSeconds)}
                 </p>
               </div>
               <div className="text-[11px] text-[color:var(--text-muted)]">
