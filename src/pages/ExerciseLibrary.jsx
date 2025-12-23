@@ -70,7 +70,7 @@ function ExerciseLibrary({ onNavigate }) {
       description: exercise.description,
       equipment: exercise.equipment,
       image: exercise.image,
-      branches: exercise.branches?.length ? exercise.branches : ['general'],
+      branches: exercise.branches?.length ? exercise.branches : ["general"],
       type: exercise.type || "custom",
     };
 
@@ -98,10 +98,7 @@ function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <TopBar
-        title="Biblioteca de Ejercicios (Navegaci\u00f3n Completa)"
-        subtitle="Administra y consulta tu cat\u00e1logo visual de ejercicios"
-      />
+      <TopBar title="Biblioteca de Ejercicios" />
       {typeof onNavigate === "function" && (
         <div className="md:hidden mb-3">
           <button
@@ -109,7 +106,7 @@ function ExerciseLibrary({ onNavigate }) {
             className="secondary-btn w-full text-sm"
             onClick={() => onNavigate("rutinas")}
           >
-            Ir a Rutinas y Planificaci\u00f3n
+            Ir a Rutinas y Planificación
           </button>
         </div>
       )}
@@ -125,7 +122,22 @@ function ExerciseLibrary({ onNavigate }) {
         />
         <button
           type="button"
-          className="secondary-btn text-sm self-start md:self-auto"
+          className="inline-flex items-center justify-center gap-2
+      rounded-xl
+      border border-slate-200
+      bg-white
+      px-4 py-3
+      text-sm font-semibold text-slate-900
+      shadow-sm
+      transition
+      hover:bg-slate-700
+      active:bg-slate-100
+      focus:outline-none
+      focus:ring-2 focus:ring-slate-300/60
+      dark:border-slate-700
+      dark:bg-slate-900
+      dark:text-slate-50
+      dark:hover:bg-slate-800 dark:hover:text-slate-500;"
           onClick={handleAdd}
         >
           + Agregar Ejercicio

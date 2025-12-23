@@ -5,13 +5,16 @@ import { Plus, Sun, Flame, TrendingUp, Target, Activity } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
 import { api } from "../services/api";
 import { motionTokens, presets } from "../utils/motion";
-
+import { Clock, MapPin } from "lucide-react";
 const chartTheme = {
   background: "transparent",
   textColor: "#475569",
   axis: {
     domain: { line: { stroke: "#e2e8f0", strokeWidth: 1 } },
-    ticks: { line: { stroke: "#e2e8f0", strokeWidth: 1 }, text: { fill: "#475569", fontSize: 11 } },
+    ticks: {
+      line: { stroke: "#e2e8f0", strokeWidth: 1 },
+      text: { fill: "#475569", fontSize: 11 },
+    },
     legend: { text: { fill: "#475569", fontSize: 12 } },
   },
   grid: { line: { stroke: "#e2e8f0", strokeWidth: 0.6, opacity: 0.12 } },
@@ -106,26 +109,30 @@ function Dashboard({ onNavigate }) {
             const dayNum = d.getUTCDay() || 7;
             d.setUTCDate(d.getUTCDate() + 4 - dayNum);
             const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            const wk = `${d.getUTCFullYear()}-W${String(Math.ceil(((d - yearStart) / 86400000 + 1) / 7)).padStart(2, "0")}`;
+            const wk = `${d.getUTCFullYear()}-W${String(
+              Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
+            ).padStart(2, "0")}`;
             byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
           });
           data = {
             chart: Array.from(byWeek.entries())
               .sort((a, b) => (a[0] < b[0] ? -1 : 1))
               .map(([x, y]) => ({ x, y })),
-          totalVolume,
-          sessionsCount: (list || []).length,
-          prs: 0,
-          recentSessions: (list || []).slice(0, 5),
-          objectives: [],
-        };
+            totalVolume,
+            sessionsCount: (list || []).length,
+            prs: 0,
+            recentSessions: (list || []).slice(0, 5),
+            objectives: [],
+          };
         }
         setSummary({
           chart: Array.isArray(data.chart) ? data.chart : [],
           totalVolume: Number(data.totalVolume) || 0,
           sessionsCount: Number(data.sessionsCount) || 0,
           prs: Number(data.prs) || 0,
-          recentSessions: Array.isArray(data.recentSessions) ? data.recentSessions : [],
+          recentSessions: Array.isArray(data.recentSessions)
+            ? data.recentSessions
+            : [],
           objectives: Array.isArray(data.objectives) ? data.objectives : [],
         });
       } catch (err) {
@@ -163,9 +170,15 @@ function Dashboard({ onNavigate }) {
   const minY = yValues.length ? Math.min(...yValues) * 0.98 : "auto";
   const maxY = yValues.length ? Math.max(...yValues) * 1.05 : "auto";
   const last = summary.recentSessions?.[0] || null;
-
+  const rangeLabel =
+    rangeOptions.find((o) => o.id === range)?.label ?? "Semanal";
+  const avg = summary.sessionsCount
+    ? Math.round(summary.totalVolume / summary.sessionsCount)
+    : 0;
   const objectives = useMemo(() => {
-    const backendObjectives = Array.isArray(summary.objectives) ? summary.objectives : [];
+    const backendObjectives = Array.isArray(summary.objectives)
+      ? summary.objectives
+      : [];
     const list = backendObjectives.length ? backendObjectives : prefGoals;
     const shuffled = [...list];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -176,11 +189,20 @@ function Dashboard({ onNavigate }) {
   }, [summary.objectives, prefGoals]);
 
   return (
-    <motion.div variants={presets.page} initial="hidden" animate="show" exit="exit" className="space-y-4">
+    <motion.div
+      variants={presets.page}
+      initial="hidden"
+      animate="show"
+      exit="exit"
+      className="space-y-4"
+    >
       <TopBar
-        title="Dashboard Principal"
-        subtitle="Resumen optimizado de tu rendimiento profesional."
-        ctaLabel="Registrar Nuevo Entrenamiento"
+        subtitle={`Resumen ${rangeLabel.toLowerCase()}`}
+        title="Tu progreso"
+        meta={`${summary.totalVolume.toLocaleString()} kg·reps · ${
+          summary.sessionsCount
+        } sesiones · prom ${avg.toLocaleString()}`}
+        ctaLabel="Registrar"
         onCta={() => go("registrar")}
       />
 
@@ -190,10 +212,7 @@ function Dashboard({ onNavigate }) {
         whileHover={presets.hover}
         whileTap={presets.press}
       >
-        <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
-          <Sun className="w-4 h-4" />
-          <span>Modo claro/oscuro listo</span>
-        </div>
+        <div className="flex items-center gap-2 text-sm text-[color:var(--text-muted)]"></div>
         <div className="flex items-center gap-2">
           {rangeOptions.map((opt) => (
             <button
@@ -211,11 +230,61 @@ function Dashboard({ onNavigate }) {
         </div>
       </motion.div>
 
-      <motion.section className="card border border-[color:var(--border)]" variants={presets.card}>
+      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-3 my-4">
+        <motion.div
+          className="card border border-[color:var(--border)]"
+          variants={presets.card}
+        >
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            Volumen total
+          </p>
+          <p className="text-3xl font-semibold leading-9">
+            {summary.totalVolume.toLocaleString()} kg
+          </p>
+          <p className="text-xs text-emerald-600 flex items-center gap-1">
+            <TrendingUp className="w-4 h-4" /> Tendencia basada en periodo
+          </p>
+        </motion.div>
+        <motion.div
+          className="card border border-[color:var(--border)]"
+          variants={presets.card}
+        >
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            Entrenamientos
+          </p>
+          <p className="text-3xl font-semibold leading-9">
+            {summary.sessionsCount}
+          </p>
+          <p className="text-xs text-[color:var(--text-muted)]">
+            Periodo seleccionado
+          </p>
+        </motion.div>
+
+        <motion.div
+          className="card border border-[color:var(--border)]"
+          variants={presets.card}
+        >
+          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+            Nuevos PRs
+          </p>
+          <p className="text-3xl font-semibold leading-9">{summary.prs}</p>
+          <p className="text-xs text-emerald-600 flex items-center gap-1">
+            <Flame className="w-4 h-4" /> Mejores marcas detectadas
+          </p>
+        </motion.div>
+      </div>
+      <motion.section
+        className="card border border-[color:var(--border)]"
+        variants={presets.card}
+      >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">Volumen Total</p>
-            <h3 className="text-lg font-semibold leading-7">Tendencia de carga</h3>
+            <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              Volumen Total
+            </p>
+            <h3 className="text-lg font-semibold leading-7">
+              Tendencia de carga
+            </h3>
           </div>
           <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
             Vista {rangeOptions.find((o) => o.id === range)?.label}
@@ -223,17 +292,30 @@ function Dashboard({ onNavigate }) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3 text-sm">
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
-            <span className="text-[color:var(--text-muted)]">Volumen periodo</span>
-            <span className="font-semibold text-[color:var(--text)]">{summary.totalVolume.toLocaleString()} kg·reps</span>
+            <span className="text-[color:var(--text-muted)]">
+              Volumen periodo
+            </span>
+            <span className="font-semibold text-[color:var(--text)]">
+              {summary.totalVolume.toLocaleString()} kg·reps
+            </span>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
             <span className="text-[color:var(--text-muted)]">Sesiones</span>
-            <span className="font-semibold text-[color:var(--text)]">{summary.sessionsCount}</span>
+            <span className="font-semibold text-[color:var(--text)]">
+              {summary.sessionsCount}
+            </span>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-[color:var(--border)] px-3 py-2 bg-[color:var(--bg)]/60">
-            <span className="text-[color:var(--text-muted)]">Promedio sesion</span>
+            <span className="text-[color:var(--text-muted)]">
+              Promedio sesion
+            </span>
             <span className="font-semibold text-[color:var(--text)]">
-              {summary.sessionsCount ? Math.round(summary.totalVolume / summary.sessionsCount).toLocaleString() : 0} kg·reps
+              {summary.sessionsCount
+                ? Math.round(
+                    summary.totalVolume / summary.sessionsCount
+                  ).toLocaleString()
+                : 0}{" "}
+              kg·reps
             </span>
           </div>
         </div>
@@ -245,8 +327,17 @@ function Dashboard({ onNavigate }) {
               margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
               xScale={{ type: "point" }}
               yScale={{ type: "linear", min: minY, max: maxY, stacked: false }}
-              axisBottom={{ tickSize: 0, tickPadding: 10, tickRotation: 0, format: (v) => (v || "").replace(/\d{4}-W/, "W") }}
-              axisLeft={{ tickSize: 0, tickPadding: 8, tickFormat: (v) => `${v} kg·reps` }}
+              axisBottom={{
+                tickSize: 0,
+                tickPadding: 10,
+                tickRotation: 0,
+                format: (v) => (v || "").replace(/\d{4}-W/, "W"),
+              }}
+              axisLeft={{
+                tickSize: 0,
+                tickPadding: 8,
+                tickFormat: (v) => `${v} kg·reps`,
+              }}
               curve="monotoneX"
               enablePoints={false}
               pointBorderWidth={2}
@@ -269,7 +360,9 @@ function Dashboard({ onNavigate }) {
               fill={[{ match: "*", id: "volArea" }]}
               tooltip={({ point }) => (
                 <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 shadow-md text-xs">
-                  <p className="text-[color:var(--text-muted)] mb-1">{point.data.xFormatted}</p>
+                  <p className="text-[color:var(--text-muted)] mb-1">
+                    {point.data.xFormatted}
+                  </p>
                   <p className="text-sm font-semibold text-[color:var(--text)]">
                     {Number(point.data.y).toLocaleString()} kg·reps
                   </p>
@@ -283,45 +376,44 @@ function Dashboard({ onNavigate }) {
           )}
         </motion.div>
       </motion.section>
-
-      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-3 my-4">
-        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
-          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Volumen total</p>
-          <p className="text-3xl font-semibold leading-9">{summary.totalVolume.toLocaleString()} kg</p>
-          <p className="text-xs text-emerald-600 flex items-center gap-1">
-            <TrendingUp className="w-4 h-4" /> Tendencia basada en periodo
-          </p>
-        </motion.div>
-        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
-          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Entrenamientos</p>
-          <p className="text-3xl font-semibold leading-9">{summary.sessionsCount}</p>
-          <p className="text-xs text-[color:var(--text-muted)]">Periodo seleccionado</p>
-        </motion.div>
-        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
-          <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">Nuevos PRs</p>
-          <p className="text-3xl font-semibold leading-9">{summary.prs}</p>
-          <p className="text-xs text-emerald-600 flex items-center gap-1">
-            <Flame className="w-4 h-4" /> Mejores marcas detectadas
-          </p>
-        </motion.div>
-      </div>
-
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="grid gap-4 md:grid-cols-2">
-          <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <motion.div
+            className="card border border-[color:var(--border)]"
+            variants={presets.card}
+          >
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold leading-7">Ultima sesion</h3>
+              <h3 className="text-lg font-bold leading-7">Ultima sesion</h3>
               <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                {last?.date ? new Date(`${last.date}T00:00:00`).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }) : "--"}
+                {last?.date
+                  ? new Date(`${last.date}T00:00:00`).toLocaleDateString(
+                      "es-ES",
+                      { day: "2-digit", month: "short" }
+                    )
+                  : "--"}
               </span>
             </div>
             {last ? (
               <div className="space-y-2">
-                <p className="text-base font-semibold leading-6 text-primary">{last.routineName || "Sin rutina"}</p>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  {Math.round((last.durationSeconds || 0) / 60)} min · Sede: {last.branch || "N/A"}
+                <p className="text-base font-semibold leading-6 text-primary">
+                  {last.routineName || "Sin rutina"}
                 </p>
-                <p className="text-sm text-[color:var(--text-muted)]">Volumen: {last.totalVolume?.toLocaleString?.() || 0} kg·reps</p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  <span className="inline-flex gap-1">
+                    <Clock className="h-3.5 w-3.5 " strokeWidth={3.5} />
+                  </span>{" "}
+                  {Math.round((last.durationSeconds || 0) / 60)} min ·
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" strokeWidth={3.5} />
+                  </span>{" "}
+                  Sede: {last.branch || "N/A"}
+                </p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Volumen:{" "}
+                  <span className="font-bold text-black">
+                    {last.totalVolume?.toLocaleString?.() || 0} kg·reps
+                  </span>
+                </p>
                 <button
                   type="button"
                   className="text-sm font-semibold text-primary inline-flex items-center gap-1 mt-1"
@@ -331,11 +423,16 @@ function Dashboard({ onNavigate }) {
                 </button>
               </div>
             ) : (
-              <p className="text-sm text-[color:var(--text-muted)]">Aun no registras entrenamientos.</p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Aun no registras entrenamientos.
+              </p>
             )}
           </motion.div>
 
-          <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+          <motion.div
+            className="card border border-[color:var(--border)]"
+            variants={presets.card}
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Progreso de objetivos</h3>
               <button
@@ -350,8 +447,15 @@ function Dashboard({ onNavigate }) {
             <div className="space-y-3">
               {objectives.length ? (
                 objectives.map((obj, idx) => {
-                  const pct = obj.goal ? Math.min(100, Math.round((obj.value / obj.goal) * 100)) : 0;
-                  const palette = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-amber-500"];
+                  const pct = obj.goal
+                    ? Math.min(100, Math.round((obj.value / obj.goal) * 100))
+                    : 0;
+                  const palette = [
+                    "bg-blue-500",
+                    "bg-violet-500",
+                    "bg-emerald-500",
+                    "bg-amber-500",
+                  ];
                   const barColor = palette[idx % palette.length];
                   return (
                     <div key={obj.label}>
@@ -362,20 +466,30 @@ function Dashboard({ onNavigate }) {
                         </span>
                       </div>
                       <div className="w-full h-2 rounded-full bg-[color:var(--border)] overflow-hidden">
-                        <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                        <div
+                          className={`h-2 rounded-full ${barColor}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
-                      <p className="text-xs font-medium mt-1 text-emerald-600 dark:text-emerald-400">{pct}% completado</p>
+                      <p className="text-xs font-medium mt-1 text-emerald-600 dark:text-emerald-400">
+                        {pct}% completado
+                      </p>
                     </div>
                   );
                 })
               ) : (
-                <p className="text-sm text-[color:var(--text-muted)]">Configura tus objetivos en la pagina de Objetivos.</p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Configura tus objetivos en la pagina de Objetivos.
+                </p>
               )}
             </div>
           </motion.div>
         </div>
 
-        <motion.div className="card border border-[color:var(--border)]" variants={presets.card}>
+        <motion.div
+          className="card border border-[color:var(--border)]"
+          variants={presets.card}
+        >
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-semibold leading-7">Resumen rapido</h3>
             <Activity className="w-4 h-4 text-[color:var(--text-muted)]" />

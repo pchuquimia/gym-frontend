@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,16 +15,16 @@
   --border: #e5e7eb;
   --text: #0f172a;
   --text-muted: #475569;
-  }
+}
 
-  .dark {
-    /* Dark tokens mapped to existing palette */
-    --bg: #0d1526; /* base background */
-    --card: #111d32; /* card stands out from bg */
-    --border: rgba(255, 255, 255, 0.18); /* clearer outlines */
-    --text: #eef3fb; /* crisper white */
-    --text-muted: #c3d0e8; /* brighter secondary for readability */
-  }
+.dark {
+  /* Dark tokens mapped to existing palette */
+  --bg: #0d1526; /* base background */
+  --card: #111d32; /* card stands out from bg */
+  --border: rgba(255, 255, 255, 0.18); /* clearer outlines */
+  --text: #eef3fb; /* crisper white */
+  --text-muted: #c3d0e8; /* brighter secondary for readability */
+}
 
 body {
   @apply font-sans;
@@ -33,7 +33,11 @@ body {
 }
 
 .dark body {
-  background: radial-gradient(circle at 20% 20%, rgba(47, 123, 253, 0.12), transparent 35%),
+  background: radial-gradient(
+      circle at 20% 20%,
+      rgba(47, 123, 253, 0.12),
+      transparent 35%
+    ),
     radial-gradient(circle at 80% 0%, rgba(30, 201, 134, 0.16), transparent 30%),
     #0b1220;
 }
@@ -64,14 +68,34 @@ body {
 
 /* Buttons that already existed */
 .primary-btn {
-  @apply bg-gradient-to-r from-accent-strong to-cyan-300 text-white font-semibold rounded-xl px-4 py-2 shadow-lg shadow-accent/30 transition-transform;
+  @apply inline-flex items-center justify-center gap-2
+      rounded-xl
+      bg-blue-600
+      px-4 py-3
+      text-sm font-semibold text-white
+      shadow-sm
+      transition
+      hover:bg-blue-700
+      active:bg-blue-800
+      focus:outline-none
+      focus:ring-2 focus:ring-blue-500/40;
 }
 .primary-btn:hover {
   transform: translateY(-2px);
 }
 
 .secondary-btn {
-  @apply bg-gradient-to-r from-accent-strong to-accent-green text-white font-semibold rounded-xl px-4 py-2 shadow-lg shadow-accent-green/30 transition-transform;
+  @apply inline-flex items-center justify-center gap-2
+      rounded-xl
+      bg-blue-600
+      px-4 py-3
+      text-sm font-semibold text-white
+      shadow-sm
+      transition
+      hover:bg-blue-700
+      active:bg-blue-800
+      focus:outline-none
+      focus:ring-2 focus:ring-blue-500/40;
 }
 
 .ghost-btn {
@@ -99,29 +123,29 @@ select:focus {
 }
 
 /* Light-mode fallbacks for antiguos estilos oscuros */
-[data-theme='light'] .bg-bg-dark,
-[data-theme='light'] .bg-bg-darker {
+[data-theme="light"] .bg-bg-dark,
+[data-theme="light"] .bg-bg-darker {
   background-color: var(--bg) !important;
 }
 
-[data-theme='light'] .bg-white\/5 {
+[data-theme="light"] .bg-white\/5 {
   background-color: var(--card) !important;
 }
 
-[data-theme='light'] .bg-\[\#0d1a2b\] {
+[data-theme="light"] .bg-\[\#0d1a2b\] {
   background-color: var(--card) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
 
-[data-theme='light'] .text-white {
+[data-theme="light"] .text-white {
   color: var(--text) !important;
 }
 
-[data-theme='light'] .text-muted {
+[data-theme="light"] .text-muted {
   color: var(--text-muted) !important;
 }
 
-[data-theme='light'] .border-border-soft {
+[data-theme="light"] .border-border-soft {
   border-color: var(--border) !important;
 }

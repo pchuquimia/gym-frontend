@@ -13,13 +13,21 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-function RoutineModal({ mode = "create", initialData, onSave, onClose, availableExercises }) {
+function RoutineModal({
+  mode = "create",
+  initialData,
+  onSave,
+  onClose,
+  availableExercises,
+}) {
   const [name, setName] = useState(initialData?.name || "");
   const [branch, setBranch] = useState(initialData?.branch || "general");
   const [branchError, setBranchError] = useState("");
   const [exercises, setExercises] = useState(
     (initialData?.exercises || []).map((ex) => {
-      const meta = availableExercises.find((a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name);
+      const meta = availableExercises.find(
+        (a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name
+      );
       return {
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
@@ -28,7 +36,9 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
       };
     })
   );
-  const [selectedMuscle, setSelectedMuscle] = useState(availableExercises?.[0]?.muscle || "Pecho");
+  const [selectedMuscle, setSelectedMuscle] = useState(
+    availableExercises?.[0]?.muscle || "Pecho"
+  );
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [dragIndex, setDragIndex] = useState(null);
@@ -88,7 +98,9 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
   };
 
   const updateSets = (idx, sets) => {
-    setExercises((prev) => prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex)));
+    setExercises((prev) =>
+      prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex))
+    );
   };
 
   const removeExercise = (idx) => {
@@ -97,7 +109,14 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
 
   const reorderExercises = (from, to) => {
     setExercises((prev) => {
-      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= prev.length ||
+        to >= prev.length
+      )
+        return prev;
       const next = [...prev];
       const [item] = next.splice(from, 1);
       next.splice(to, 0, item);
@@ -133,7 +152,10 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
       onClose={onClose}
       footer={
         <>
-          <button className="px-3 py-2 rounded-md border border-[color:var(--border)] text-sm" onClick={onClose}>
+          <button
+            className="px-3 py-2 rounded-md border border-[color:var(--border)] text-sm"
+            onClick={onClose}
+          >
             Cancelar
           </button>
           <button className="primary-btn" onClick={handleSubmit}>
@@ -167,14 +189,18 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
                     : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
-                {b === "general" ? "General" : b.charAt(0).toUpperCase() + b.slice(1)}
+                {b === "general"
+                  ? "General"
+                  : b.charAt(0).toUpperCase() + b.slice(1)}
               </button>
             ))}
           </div>
           <p className="text-xs text-[color:var(--text-muted)]">
             Define en que sede aplica esta rutina. General = visible para todas.
           </p>
-          {branchError && <p className="text-xs text-accent-red">{branchError}</p>}
+          {branchError && (
+            <p className="text-xs text-accent-red">{branchError}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
@@ -196,7 +222,8 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             ))}
           </div>
           <p className="text-xs text-[color:var(--text-muted)]">
-            Primero selecciona el grupo; abajo veras los ejercicios de tu biblioteca para ese musculo y sede.
+            Primero selecciona el grupo; abajo veras los ejercicios de tu
+            biblioteca para ese musculo y sede.
           </p>
         </div>
 
@@ -216,15 +243,26 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
               >
                 <div className="aspect-video w-full rounded-xl overflow-hidden border border-[color:var(--border)] bg-slate-100 grid place-items-center">
                   {ex.image || ex.thumb ? (
-                    <img src={ex.image || ex.thumb} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                    <img
+                      src={ex.image || ex.thumb}
+                      alt={ex.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   ) : (
-                    <div className="text-[color:var(--text-muted)] text-sm">Sin imagen</div>
+                    <div className="text-[color:var(--text-muted)] text-sm">
+                      Sin imagen
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-sm leading-tight">{ex.name}</p>
-                    <p className="text-xs text-[color:var(--text-muted)]">{ex.muscle}</p>
+                    <p className="font-semibold text-sm leading-tight">
+                      {ex.name}
+                    </p>
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      {ex.muscle}
+                    </p>
                   </div>
                   <button
                     className="px-3 py-1 rounded-md border border-[color:var(--border)] text-xs bg-[color:var(--card)] text-[color:var(--text)]"
@@ -248,10 +286,17 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
         <div className="flex flex-col gap-3">
           <p className="text-sm font-semibold">Ejercicios de la rutina</p>
           {groupedSelected.map(([muscle, list]) => (
-            <div key={muscle} className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 space-y-2 shadow-sm">
+            <div
+              key={muscle}
+              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 space-y-2 shadow-sm"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[color:var(--text)]">{muscle}</span>
-                <span className="text-xs text-[color:var(--text-muted)]">{list.length} ejercicios</span>
+                <span className="text-sm font-semibold text-[color:var(--text)]">
+                  {muscle}
+                </span>
+                <span className="text-xs text-[color:var(--text-muted)]">
+                  {list.length} ejercicios
+                </span>
               </div>
               <div className="flex flex-col gap-2">
                 {list.map((ex) => (
@@ -276,13 +321,22 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
                   >
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] grid place-items-center">
                       {ex.image ? (
-                        <img src={ex.image} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                        <img
+                          src={ex.image}
+                          alt={ex.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
                       ) : (
-                        <span className="text-[color:var(--text-muted)] text-sm">{(ex.name || "?").charAt(0).toUpperCase()}</span>
+                        <span className="text-[color:var(--text-muted)] text-sm">
+                          {(ex.name || "?").charAt(0).toUpperCase()}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{ex.name}</p>
+                      <p className="text-sm font-semibold truncate">
+                        {ex.name}
+                      </p>
                       <div className="flex items-center gap-2 text-xs mt-1">
                         <span>Series</span>
                         <input
@@ -307,7 +361,9 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
             </div>
           ))}
           {exercises.length === 0 && (
-            <div className="text-sm text-[color:var(--text-muted)]">Aun no agregas ejercicios.</div>
+            <div className="text-sm text-[color:var(--text-muted)]">
+              Aun no agregas ejercicios.
+            </div>
           )}
         </div>
       </div>
@@ -316,7 +372,13 @@ function RoutineModal({ mode = "create", initialData, onSave, onClose, available
 }
 
 function Routines() {
-  const { routines, addRoutine, updateRoutine, deleteRoutine, duplicateRoutine } = useRoutines();
+  const {
+    routines,
+    addRoutine,
+    updateRoutine,
+    deleteRoutine,
+    duplicateRoutine,
+  } = useRoutines();
   const [modalMode, setModalMode] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const { exercises: libraryExercises } = useTrainingData();
@@ -365,7 +427,7 @@ function Routines() {
       <TopBar
         title="Rutinas y Planificacion"
         subtitle="Crea, gestiona y monitorea tus planes de entrenamiento."
-        ctaLabel="+ Crear Nueva Rutina"
+        ctaLabel="Crear Nueva Rutina"
         onCta={openCreate}
       />
 
@@ -379,15 +441,21 @@ function Routines() {
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-[color:var(--text)]">{routine.name}</p>
+                  <p className="font-semibold text-[color:var(--text)]">
+                    {routine.name}
+                  </p>
                   <span className="text-xs px-2.5 py-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]">
                     {(() => {
                       const b = routine.branch || "general";
-                      return b === "general" ? "General" : b.charAt(0).toUpperCase() + b.slice(1);
+                      return b === "general"
+                        ? "General"
+                        : b.charAt(0).toUpperCase() + b.slice(1);
                     })()}
                   </span>
                 </div>
-                <p className="text-sm text-[color:var(--text-muted)]">{routine.description}</p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  {routine.description}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -411,7 +479,11 @@ function Routines() {
               </div>
             </div>
           ))}
-          {!routines.length && <p className="text-sm text-[color:var(--text-muted)]">No tienes rutinas creadas.</p>}
+          {!routines.length && (
+            <p className="text-sm text-[color:var(--text-muted)]">
+              No tienes rutinas creadas.
+            </p>
+          )}
         </div>
       </section>
 
