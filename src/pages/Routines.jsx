@@ -4,6 +4,7 @@ import Modal from "../components/shared/Modal";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 
+// ================= Helpers =================
 const slugify = (text) =>
   text
     ?.toString()
@@ -13,6 +14,71 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+// ============ UI helpers (solo presentación) ============
+const BranchPill = ({ label, active, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`
+      inline-flex items-center rounded-full px-3 py-1 text-sm font-medium transition
+      border
+      ${
+        active
+          ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/30"
+          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
+      }
+    `}
+  >
+    {label}
+  </button>
+);
+
+const BranchTag = ({ label }) => (
+  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+    {label}
+  </span>
+);
+
+const DotsButton = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="
+      h-9 w-9 rounded-xl
+      border border-slate-200 bg-white
+      grid place-items-center
+      text-slate-600
+      hover:bg-slate-50 transition
+      dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
+      focus:outline-none focus:ring-2 focus:ring-blue-500/25
+    "
+    aria-label="Opciones"
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 6.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM12 13.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3ZM12 20.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"
+        fill="currentColor"
+      />
+    </svg>
+  </button>
+);
+
+const ChevronLink = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="
+      inline-flex items-center gap-1
+      text-sm font-semibold text-blue-700
+      hover:text-blue-800 transition
+      dark:text-blue-300 dark:hover:text-blue-200
+    "
+  >
+    Ver detalles <span aria-hidden>›</span>
+  </button>
+);
+
+// ================= Routine Modal =================
 function RoutineModal({
   mode = "create",
   initialData,
@@ -164,6 +230,7 @@ function RoutineModal({
         </>
       }
     >
+      {/* ======= TU CONTENIDO ORIGINAL COMPLETO (sin omitir) ======= */}
       <div className="flex flex-col gap-4 h-full max-h-[75vh] overflow-y-auto bg-[color:var(--bg)] text-[color:var(--text)]">
         <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Nombre de la Rutina</p>
@@ -352,6 +419,7 @@ function RoutineModal({
                       className="px-3 py-1 rounded-md border border-red-200 text-sm text-red-600"
                       onClick={() => removeExercise(ex.idx)}
                       title="Eliminar"
+                      type="button"
                     >
                       Eliminar
                     </button>
@@ -371,6 +439,7 @@ function RoutineModal({
   );
 }
 
+// ===================== Page: Routines =====================
 function Routines() {
   const {
     routines,
@@ -379,9 +448,14 @@ function Routines() {
     deleteRoutine,
     duplicateRoutine,
   } = useRoutines();
+
   const [modalMode, setModalMode] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const { exercises: libraryExercises } = useTrainingData();
+
+  // UI states (solo presentación)
+  const [activeBranch, setActiveBranch] = useState("all");
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const availableExercises = useMemo(() => {
     const seen = new Set();
@@ -422,69 +496,166 @@ function Routines() {
     closeModal();
   };
 
+  const visibleRoutines = useMemo(() => {
+    if (activeBranch === "all") return routines;
+    return routines.filter((r) => (r.branch || "general") === activeBranch);
+  }, [routines, activeBranch]);
+
+  const branchLabel = (b) => {
+    if (!b || b === "general") return "General";
+    return b.charAt(0).toUpperCase() + b.slice(1);
+  };
+
+  const countByBranch = useMemo(() => {
+    const total = routines.length;
+    const mir = routines.filter(
+      (r) => (r.branch || "general") === "miraflores"
+    ).length;
+    const sop = routines.filter(
+      (r) => (r.branch || "general") === "sopocachi"
+    ).length;
+    return { total, miraflores: mir, sopocachi: sop };
+  }, [routines]);
+
   return (
     <>
-      <TopBar
-        title="Rutinas y Planificacion"
-        subtitle="Crea, gestiona y monitorea tus planes de entrenamiento."
-        ctaLabel="Crear Nueva Rutina"
-        onCta={openCreate}
-      />
+      {/* Si quieres mantener TopBar por consistencia del layout global, puedes dejarlo.
+          Pero para replicar la imagen, usamos este header local. */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+          Planificación
+        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+          Mis Rutinas
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-300">
+          Crea, gestiona y monitorea tus planes de entrenamiento diarios.
+        </p>
 
-      <section className="card flex flex-col gap-3">
-        <h3 className="text-lg font-semibold">Mis Rutinas</h3>
-        <div className="flex flex-col gap-2">
-          {routines.map((routine) => (
-            <div
-              key={routine.id}
-              className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 shadow-sm"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-[color:var(--text)]">
-                    {routine.name}
-                  </p>
-                  <span className="text-xs px-2.5 py-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]">
-                    {(() => {
-                      const b = routine.branch || "general";
-                      return b === "general"
-                        ? "General"
-                        : b.charAt(0).toUpperCase() + b.slice(1);
-                    })()}
-                  </span>
-                </div>
-                <p className="text-sm text-[color:var(--text-muted)]">
-                  {routine.description}
+        <button
+          type="button"
+          onClick={openCreate}
+          className="
+            mt-2 inline-flex w-full items-center justify-center gap-2
+            rounded-2xl bg-blue-600 px-4 py-3
+            text-sm font-semibold text-white
+            shadow-sm hover:bg-blue-700 active:bg-blue-800 transition
+            focus:outline-none focus:ring-2 focus:ring-blue-500/35
+          "
+        >
+          <span className="text-lg leading-none">+</span>
+          Crear Nueva Rutina
+        </button>
+      </div>
+
+      {/* Chips */}
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+        <BranchPill
+          label={`Todas (${countByBranch.total})`}
+          active={activeBranch === "all"}
+          onClick={() => setActiveBranch("all")}
+        />
+        <BranchPill
+          label="Miraflores"
+          active={activeBranch === "miraflores"}
+          onClick={() => setActiveBranch("miraflores")}
+        />
+        <BranchPill
+          label="Sopocachi"
+          active={activeBranch === "sopocachi"}
+          onClick={() => setActiveBranch("sopocachi")}
+        />
+      </div>
+
+      {/* Lista */}
+      <section className="mt-4 space-y-3">
+        {visibleRoutines.map((routine) => (
+          <div
+            key={routine.id}
+            className="
+              rounded-2xl border border-slate-200 bg-white
+              p-4 shadow-sm
+              dark:border-slate-800 dark:bg-slate-900
+            "
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                  {routine.name}
                 </p>
+                <div className="mt-1">
+                  <BranchTag label={branchLabel(routine.branch)} />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-1 rounded-md border border-[color:var(--border)] text-sm"
-                  onClick={() => openEdit(routine)}
-                >
-                  Editar
-                </button>
-                <button
-                  className="px-3 py-1 rounded-md border border-[color:var(--border)] text-sm"
-                  onClick={() => duplicateRoutine(routine.id)}
-                >
-                  Duplicar
-                </button>
-                <button
-                  className="px-3 py-1 rounded-md border border-red-200 text-sm text-red-600"
-                  onClick={() => deleteRoutine(routine.id)}
-                >
-                  Eliminar
-                </button>
+
+              <div className="relative">
+                <DotsButton
+                  onClick={() =>
+                    setOpenMenuId((prev) =>
+                      prev === routine.id ? null : routine.id
+                    )
+                  }
+                />
+                {openMenuId === routine.id && (
+                  <div
+                    className="
+                      absolute right-0 mt-2 w-44
+                      rounded-2xl border border-slate-200 bg-white
+                      shadow-xl overflow-hidden
+                      dark:border-slate-800 dark:bg-slate-900
+                    "
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        openEdit(routine);
+                      }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        duplicateRoutine(routine.id);
+                      }}
+                    >
+                      Duplicar
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        deleteRoutine(routine.id);
+                      }}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-          {!routines.length && (
-            <p className="text-sm text-[color:var(--text-muted)]">
-              No tienes rutinas creadas.
-            </p>
-          )}
-        </div>
+
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300">
+                <span aria-hidden>↻</span>
+                <span>{routine.description}</span>
+              </div>
+
+              <ChevronLink onClick={() => openEdit(routine)} />
+            </div>
+          </div>
+        ))}
+
+        {!visibleRoutines.length && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            No tienes rutinas creadas.
+          </div>
+        )}
       </section>
 
       {modalMode && (

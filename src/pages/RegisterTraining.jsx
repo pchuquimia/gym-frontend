@@ -64,7 +64,9 @@ const computeBestFromHistory = (trainings = []) => {
           !current ||
           w > current.weight ||
           (w === current.weight && r > current.reps) ||
-          (w === current.weight && r === current.reps && date > (current.date || ""));
+          (w === current.weight &&
+            r === current.reps &&
+            date > (current.date || ""));
         if (isBetter) {
           map.set(key, { weight: w, reps: r, date });
         }
@@ -91,7 +93,9 @@ const computeBestBySetFromHistory = (trainings = []) => {
           !current ||
           w > current.weight ||
           (w === current.weight && r > current.reps) ||
-          (w === current.weight && r === current.reps && date > (current.date || ""));
+          (w === current.weight &&
+            r === current.reps &&
+            date > (current.date || ""));
         if (isBetter) {
           arr[idx] = { weight: w, reps: r, date };
         }
@@ -104,7 +108,13 @@ const computeBestBySetFromHistory = (trainings = []) => {
 
 export default function RegisterTraining({ onNavigate = () => {} }) {
   const { routines, loading: routinesLoading } = useRoutines();
-  const { exercises: libraryExercises, addTraining, updateTraining, branch: userBranch, setBranch } = useTrainingData();
+  const {
+    exercises: libraryExercises,
+    addTraining,
+    updateTraining,
+    branch: userBranch,
+    setBranch,
+  } = useTrainingData();
 
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -131,7 +141,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const routineOptions = useMemo(() => {
     const filtered =
-      (routines || []).filter((r) => (selectedBranch ? (r.branch || "general") === selectedBranch : true)) || [];
+      (routines || []).filter((r) =>
+        selectedBranch ? (r.branch || "general") === selectedBranch : true
+      ) || [];
     if (filtered.length) {
       return filtered.map((r) => ({
         id: r.id,
@@ -153,10 +165,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }));
   }, [routines, selectedBranch]);
 
-  const historyBest = useMemo(() => computeBestFromHistory(historyTrainings), [historyTrainings]);
-  const historyBestBySet = useMemo(() => computeBestBySetFromHistory(historyTrainings), [historyTrainings]);
+  const historyBest = useMemo(
+    () => computeBestFromHistory(historyTrainings),
+    [historyTrainings]
+  );
+  const historyBestBySet = useMemo(
+    () => computeBestBySetFromHistory(historyTrainings),
+    [historyTrainings]
+  );
 
-  const buildExercisesForRoutine = (routine, training, bestMap = historyBest, bestBySetMap = historyBestBySet) => {
+  const buildExercisesForRoutine = (
+    routine,
+    training,
+    bestMap = historyBest,
+    bestBySetMap = historyBestBySet
+  ) => {
     const list = (routine?.exercises || []).length
       ? routine.exercises
       : (training?.exercises || []).map((ex) => ({
@@ -174,7 +197,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     return list.map((ex, idx) => {
       const meta =
         libraryExercises.find(
-          (m) => m.id === ex.exerciseId || m.id === ex.id || m.name?.toLowerCase() === ex.name?.toLowerCase()
+          (m) =>
+            m.id === ex.exerciseId ||
+            m.id === ex.id ||
+            m.name?.toLowerCase() === ex.name?.toLowerCase()
         ) || {};
       const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
       const setsCount = Number(ex.sets) || 3;
@@ -185,7 +211,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         (trainingEx?.sets || []).length > 0
           ? (trainingEx.sets || []).map((s, sIdx) => ({
               id: `${id}-set-${sIdx}`,
-              previousText: `${s.weightKg ?? "--"}kg x ${s.reps ?? "--"} | ${formatShort(training?.date)}`,
+              previousText: `${s.weightKg ?? "--"}kg x ${
+                s.reps ?? "--"
+              } | ${formatShort(training?.date)}`,
               kg: s.weightKg ?? "",
               reps: s.reps ?? "",
               done: Boolean(s.done),
@@ -195,28 +223,44 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               return {
                 id: `${id}-set-${sIdx}`,
                 previousText: perSet
-                  ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+                  ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
+                      perSet.date
+                    )}`
                   : best
-                  ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+                  ? `${best.weight}kg x ${best.reps} | ${formatShort(
+                      best.date
+                    )}`
                   : "Sin referencia",
                 kg: perSet ? perSet.weight : best ? best.weight : "",
                 reps: perSet ? perSet.reps : best ? best.reps : "",
                 done: false,
               };
             });
-      const headerText = best ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}` : "Sin referencia";
+      const headerText = best
+        ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : "Sin referencia";
       return {
         id,
         name: ex.name || meta.name || "Ejercicio",
         prText: headerText,
         image: ex.image || meta.image || "",
-        muscle: ex.muscle || ex.muscleGroup || meta.muscle || meta.muscleGroup || "Sin grupo",
+        muscle:
+          ex.muscle ||
+          ex.muscleGroup ||
+          meta.muscle ||
+          meta.muscleGroup ||
+          "Sin grupo",
         sets,
       };
     });
   };
 
-  const loadTrainingForDate = async (date, routineId, bestMap = historyBest, bestBySetMap = historyBestBySet) => {
+  const loadTrainingForDate = async (
+    date,
+    routineId,
+    bestMap = historyBest,
+    bestBySetMap = historyBestBySet
+  ) => {
     if (!routineOptions.length || !routineId) {
       setExercises([]);
       return;
@@ -250,11 +294,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         branchChangeReason.current = "routine";
         setSelectedBranch(trainingMatch.branch);
       }
-      setExercises(buildExercisesForRoutine(routine.raw, trainingMatch, bestMap, bestBySetMap));
-      if (trainingMatch?.durationSeconds) setDurationSeconds(trainingMatch.durationSeconds);
+      setExercises(
+        buildExercisesForRoutine(
+          routine.raw,
+          trainingMatch,
+          bestMap,
+          bestBySetMap
+        )
+      );
+      if (trainingMatch?.durationSeconds)
+        setDurationSeconds(trainingMatch.durationSeconds);
     } catch (e) {
       console.warn("No se pudo cargar entrenamiento previo", e);
-      setExercises(buildExercisesForRoutine(routine.raw, null, bestMap, bestBySetMap));
+      setExercises(
+        buildExercisesForRoutine(routine.raw, null, bestMap, bestBySetMap)
+      );
     } finally {
       setLoadingTraining(false);
     }
@@ -266,7 +320,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     try {
       const training = await api.getTraining(id);
       const routineId = training.routineId || routineOptions[0]?.id;
-      const routine = routineOptions.find((r) => r.id === routineId) || routineOptions[0];
+      const routine =
+        routineOptions.find((r) => r.id === routineId) || routineOptions[0];
       const branch = training.branch || routine.location || "general";
       branchChangeReason.current = "routine";
       setSelectedBranch(branch);
@@ -277,15 +332,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const hist = await loadHistoryForRoutine(routine.id);
       const bestMap = computeBestFromHistory(hist);
       const bestBySetMap = computeBestBySetFromHistory(hist);
-      setExercises(buildExercisesForRoutine(routine.raw, training, bestMap, bestBySetMap));
-      if (training.durationSeconds) setDurationSeconds(training.durationSeconds);
+      setExercises(
+        buildExercisesForRoutine(routine.raw, training, bestMap, bestBySetMap)
+      );
+      if (training.durationSeconds)
+        setDurationSeconds(training.durationSeconds);
     } catch (e) {
       console.warn("No se pudo cargar el entrenamiento a editar", e);
-      if (typeof localStorage !== "undefined") localStorage.removeItem("edit_training_id");
+      if (typeof localStorage !== "undefined")
+        localStorage.removeItem("edit_training_id");
       setEditingId("");
       setIsEditing(false);
       // fallback: cargar rutina inicial en la fecha actual
-      const routine = routineOptions.find((r) => r.id === selectedRoutineId) || routineOptions[0];
+      const routine =
+        routineOptions.find((r) => r.id === selectedRoutineId) ||
+        routineOptions[0];
       await loadHistoryForRoutine(routine.id);
       await loadTrainingForDate(sessionDate, routine.id);
     } finally {
@@ -301,7 +362,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       let resp = await api.getTrainings({
         routineId,
         limit: 60,
-        fields: "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
+        fields:
+          "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
         meta: false,
       });
       let list = Array.isArray(resp) ? resp : resp?.items || [];
@@ -309,7 +371,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (!list.length) {
         resp = await api.getTrainings({
           limit: 60,
-          fields: "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
+          fields:
+            "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
           meta: false,
         });
         list = Array.isArray(resp) ? resp : resp?.items || [];
@@ -325,8 +388,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   useEffect(() => {
     if (!routineOptions.length) return;
-    const editId = typeof localStorage !== "undefined" ? localStorage.getItem("edit_training_id") : "";
-    const editDate = typeof localStorage !== "undefined" ? localStorage.getItem("edit_training_date") : "";
+    const editId =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("edit_training_id")
+        : "";
+    const editDate =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("edit_training_date")
+        : "";
     if (editId) {
       setEditingId(editId);
       (async () => {
@@ -357,12 +426,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     try {
       const snap = JSON.parse(raw);
       if (!snap?.selectedRoutineId) return;
-      const routine = routineOptions.find((r) => r.id === snap.selectedRoutineId);
+      const routine = routineOptions.find(
+        (r) => r.id === snap.selectedRoutineId
+      );
       if (!routine) return;
       const now = Date.now();
-      const baseSeconds = Number(snap.durationSeconds ?? snap.elapsed ?? 0) || 0;
+      const baseSeconds =
+        Number(snap.durationSeconds ?? snap.elapsed ?? 0) || 0;
       const extraSeconds =
-        snap.isRunning && snap.lastUpdate ? Math.max(0, Math.floor((now - snap.lastUpdate) / 1000)) : 0;
+        snap.isRunning && snap.lastUpdate
+          ? Math.max(0, Math.floor((now - snap.lastUpdate) / 1000))
+          : 0;
       const totalSeconds = baseSeconds + extraSeconds;
       restoredFromSnapshot.current = true;
       branchChangeReason.current = "routine";
@@ -423,7 +497,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } catch (e) {
       console.warn("No se pudo guardar el estado del entrenamiento", e);
     }
-  }, [selectedRoutineId, selectedRoutine, selectedBranch, sessionDate, durationSeconds, isRunning, exercises]);
+  }, [
+    selectedRoutineId,
+    selectedRoutine,
+    selectedBranch,
+    sessionDate,
+    durationSeconds,
+    isRunning,
+    exercises,
+  ]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -452,7 +534,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning]);
 
   const handleStart = () => {
@@ -471,7 +554,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
     setDurationSeconds(0);
   };
-
 
   const resetState = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -534,7 +616,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ...ex,
               sets: [
                 ...ex.sets,
-                { id: `${exerciseId}-set-${Date.now()}`, previousText: "Sin referencia", kg: "", reps: "", done: false },
+                {
+                  id: `${exerciseId}-set-${Date.now()}`,
+                  previousText: "Sin referencia",
+                  kg: "",
+                  reps: "",
+                  done: false,
+                },
               ],
             }
           : ex
@@ -545,7 +633,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleUpdateSet = (exerciseId, setId, field, value) => {
     setExercises((prev) =>
       prev.map((ex) =>
-        ex.id === exerciseId ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) } : ex
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.id === setId ? { ...s, [field]: value } : s
+              ),
+            }
+          : ex
       )
     );
   };
@@ -553,14 +648,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleToggleDone = (exerciseId, setId) => {
     setExercises((prev) =>
       prev.map((ex) =>
-        ex.id === exerciseId ? { ...ex, sets: ex.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s)) } : ex
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((s) =>
+                s.id === setId ? { ...s, done: !s.done } : s
+              ),
+            }
+          : ex
       )
     );
   };
 
   const handleRemoveSet = (exerciseId, setId) => {
     setExercises((prev) =>
-      prev.map((ex) => (ex.id === exerciseId ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) } : ex))
+      prev.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, sets: ex.sets.filter((s) => s.id !== setId) }
+          : ex
+      )
     );
   };
 
@@ -577,7 +683,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: "Nuevo ejercicio",
         prText: "Sin referencia previa",
         muscle: "Sin grupo",
-        sets: [{ id: `extra-${Date.now()}-1`, previousText: "Sin referencia", kg: "", reps: "", done: false }],
+        sets: [
+          {
+            id: `extra-${Date.now()}-1`,
+            previousText: "Sin referencia",
+            kg: "",
+            reps: "",
+            done: false,
+          },
+        ],
       },
     ]);
   };
@@ -605,8 +719,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             order: exIdx + 1,
             sets: (ex.sets || [])
               .map((s, idx) => ({
-                weightKg: s.kg === "" ? null : Number(String(s.kg).replace(",", ".")),
-                reps: s.reps === "" ? null : Number(String(s.reps).replace(",", ".")),
+                weightKg:
+                  s.kg === "" ? null : Number(String(s.kg).replace(",", ".")),
+                reps:
+                  s.reps === ""
+                    ? null
+                    : Number(String(s.reps).replace(",", ".")),
                 done: Boolean(s.done),
                 order: idx + 1,
               }))
@@ -653,11 +771,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
-      toast.error("No se pudo guardar el entrenamiento. Revisa tu conexiÃ³n o intenta de nuevo.");
+      toast.error(
+        "No se pudo guardar el entrenamiento. Revisa tu conexiÃ³n o intenta de nuevo."
+      );
     }
   };
 
-  const totalSets = useMemo(() => exercises.reduce((acc, ex) => acc + ex.sets.length, 0), [exercises]);
+  const totalSets = useMemo(
+    () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0),
+    [exercises]
+  );
   const selectorRoutine = selectedRoutine || null;
   const groupedExercises = useMemo(() => {
     const groups = new Map();
@@ -673,34 +796,46 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
       <Toaster position="top-center" richColors />
       <div className="mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="icon" className="rounded-full border border-[color:var(--border)] h-10 w-10">
-              <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
-            </Button>
-            <h1 className="text-base font-semibold">Registrar Entrenamiento</h1>
-            <div className="flex items-center gap-2">
-              {isEditing && (
-                <Button variant="outline" size="sm" onClick={handleExitEdit}>
-                  Salir de ediciÃ³n
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-[color:var(--text-muted)]">
-                <MoreVertical className="h-5 w-5" />
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full border border-[color:var(--border)] h-10 w-10"
+          >
+            <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
+          </Button>
+          <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
+          <div className="flex items-center gap-2">
+            {isEditing && (
+              <Button variant="outline" size="sm" onClick={handleExitEdit}>
+                Salir de ediciÃ³n
               </Button>
-            </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full h-10 w-10 text-[color:var(--text-muted)]"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </Button>
           </div>
+        </div>
 
         <div className="md:hidden sticky top-0 z-20 bg-[color:var(--bg)] pb-3">
           <div className="flex items-center gap-2">
             <Card className="flex-1 px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Duracion</p>
+                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                  Duracion
+                </p>
                 <p className="text-base font-semibold text-[color:var(--text)]">
                   {String(Math.floor(durationSeconds / 60)).padStart(2, "0")}:
                   {String(durationSeconds % 60).padStart(2, "0")}
                 </p>
               </div>
-              <div className="text-[11px] text-[color:var(--text-muted)]">LIVE</div>
+              <div className="text-[11px] text-[color:var(--text-muted)]">
+                LIVE
+              </div>
             </Card>
             <div className="flex-1 flex gap-2">
               <Button
@@ -727,11 +862,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
         <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
-              <Card className="p-4 space-y-3">
-                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Sucursal</p>
-                <select
-                  value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
+            <Card className="p-4 space-y-3">
+              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                Sucursal
+              </p>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
                 className="w-full rounded-md border border-[color:var(--border)] bg-transparent px-3 py-2 text-sm"
               >
                 {branchOptions.map((b) => (
@@ -740,7 +877,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-[color:var(--text-muted)]">Rutinas disponibles para: {selectedBranch}</p>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Rutinas disponibles para: {selectedBranch}
+              </p>
             </Card>
 
             <SessionHeader
@@ -758,12 +897,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             />
 
             <Card className="p-4 space-y-3">
-              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">Rutina seleccionada</p>
+              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                Rutina seleccionada
+              </p>
               <RoutineSelector
                 routine={
                   selectorRoutine || {
                     id: "sin-rutina",
-                    name: routinesLoading ? "Cargando..." : "Selecciona una rutina",
+                    name: routinesLoading
+                      ? "Cargando..."
+                      : "Selecciona una rutina",
                     location: selectedBranch || "general",
                     exerciseCount: 0,
                     lastDate: "--",
@@ -772,38 +915,54 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 routines={routineOptions}
                 onSelect={handleSelectRoutine}
               />
-              <p className="text-xs text-[color:var(--text-muted)]">Fecha: {formatLongDate(sessionDate)}</p>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Fecha: {formatLongDate(sessionDate)}
+              </p>
             </Card>
 
             <Card className="p-4 space-y-1">
-              <p className="text-sm font-semibold text-[color:var(--text)]">Resumen rapido</p>
-              <p className="text-sm text-[color:var(--text-muted)]">Fecha: {formatLongDate(sessionDate)}</p>
-              <p className="text-sm text-[color:var(--text-muted)]">Ejercicios: {exercises.length}</p>
-              <p className="text-sm text-[color:var(--text-muted)]">Sets totales: {totalSets}</p>
+              <p className="text-sm font-semibold text-[color:var(--text)]">
+                Resumen rapido
+              </p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Fecha: {formatLongDate(sessionDate)}
+              </p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Ejercicios: {exercises.length}
+              </p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Sets totales: {totalSets}
+              </p>
             </Card>
           </div>
 
           <section className="space-y-3">
-      {selectedRoutineId ? (
-        <>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
+            {selectedRoutineId ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
                       EJERCICIOS ({exercises.length})
                     </p>
                     <p className="text-xs text-[color:var(--text-muted)]">
                       {loadingTraining ? "Cargando..." : "En progreso"}
                     </p>
                   </div>
-                  <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">Total sets: {totalSets}</Badge>
+                  <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
+                    Total sets: {totalSets}
+                  </Badge>
                 </div>
 
                 <div className="space-y-4">
                   {groupedExercises.map(([muscle, items]) => (
                     <div key={muscle} className="space-y-3">
                       <div className="flex items-center justify-between px-1">
-                        <p className="text-sm font-semibold text-[color:var(--text)]">{muscle}</p>
-                        <span className="text-[11px] text-[color:var(--text-muted)]">{items.length} ejercicios</span>
+                        <p className="text-sm font-semibold text-[color:var(--text)]">
+                          {muscle}
+                        </p>
+                        <span className="text-[11px] text-[color:var(--text-muted)]">
+                          {items.length} ejercicios
+                        </span>
                       </div>
                       <AnimatePresence>
                         {items.map((ex) => (
@@ -811,13 +970,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             key={ex.id}
                             exercise={ex}
                             onAddSet={() => handleAddSet(ex.id)}
-                            onUpdateSet={(setId, field, value) => handleUpdateSet(ex.id, setId, field, value)}
-                            onToggleDone={(setId) => handleToggleDone(ex.id, setId)}
-                            onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
+                            onUpdateSet={(setId, field, value) =>
+                              handleUpdateSet(ex.id, setId, field, value)
+                            }
+                            onToggleDone={(setId) =>
+                              handleToggleDone(ex.id, setId)
+                            }
+                            onRemoveSet={(setId) =>
+                              handleRemoveSet(ex.id, setId)
+                            }
                             onRemoveExercise={() => handleRemoveExercise(ex.id)}
                             onViewHistory={() => {
-                              if (typeof localStorage !== "undefined") localStorage.setItem("last_exercise_id", ex.id);
-                              if (typeof onNavigate === "function") onNavigate("ejercicio_analitica");
+                              if (typeof localStorage !== "undefined")
+                                localStorage.setItem("last_exercise_id", ex.id);
+                              if (typeof onNavigate === "function")
+                                onNavigate("ejercicio_analitica");
                             }}
                           />
                         ))}
@@ -831,14 +998,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
                       onClick={handleAddExercise}
                     >
-                      + AÃ±adir ejercicio
+                      + Agregar Ejercicio
                     </Button>
                   </motion.div>
                 </div>
               </>
             ) : (
               <Card className="p-6 text-center text-sm text-[color:var(--text-muted)]">
-                Selecciona primero la sucursal y la rutina para cargar los ejercicios.
+                Selecciona primero la sucursal y la rutina para cargar los
+                ejercicios.
               </Card>
             )}
           </section>

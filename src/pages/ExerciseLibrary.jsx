@@ -125,12 +125,12 @@ function ExerciseLibrary({ onNavigate }) {
           className="inline-flex items-center justify-center gap-2
       rounded-xl
       border border-slate-200
-      bg-white
-      px-4 py-3
+      bg-blue-700
+      px-8 py-3
       text-sm font-semibold text-slate-900
       shadow-sm
       transition
-      hover:bg-slate-700
+      hover:bg-blue-800
       active:bg-slate-100
       focus:outline-none
       focus:ring-2 focus:ring-slate-300/60

@@ -31,7 +31,7 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
               </p>
             ) : null}
 
-            <h1 className="mt-1 text-[22px] font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h1 className="mt-1 text-[30px] font-bold tracking-tight text-slate-900 dark:text-slate-50">
               {title}
             </h1>
 
@@ -55,10 +55,10 @@ function TopBar({ title, subtitle, meta, ctaLabel, onCta, rightSlot }) {
                 hidden sm:inline-flex
                 items-center gap-2
                 rounded-xl
-                bg-slate-900 px-3.5 py-2
+                bg-blue-700 px-8 py-3
                 text-sm font-semibold text-white
                 shadow-sm
-                hover:bg-slate-800
+                hover:bg-blue-800
                 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100
               "
             >

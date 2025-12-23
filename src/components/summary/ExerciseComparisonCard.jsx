@@ -1,80 +1,134 @@
-import PropTypes from 'prop-types'
+import PropTypes from "prop-types";
 
 const formatDelta = (delta) => {
-  if (delta === null || Number.isNaN(delta)) return '—'
-  const val = Number(delta).toFixed(1)
-  return `${delta >= 0 ? '+' : ''}${val}%`
-}
+  if (delta === null || Number.isNaN(delta)) return "—";
+  const val = Number(delta).toFixed(1);
+  return `${delta >= 0 ? "+" : ""}${val}%`;
+};
+
+const getBadgeClassByDelta = (delta) => {
+  if (delta === null || Number.isNaN(delta))
+    return "bg-slate-50 text-slate-600 border-slate-200";
+  return delta >= 0
+    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+    : "bg-rose-50 text-rose-700 border-rose-200";
+};
 
 const ExerciseComparisonCard = ({
   exercise,
-  refData = null,
   delta = null,
-  status = 'Sin referencia',
-  refCount = 0,
   onViewProgress = null,
   index = 0,
 }) => {
-  const badgeClass =
-    status === 'Mejoró'
-      ? 'bg-emerald-500/15 text-emerald-200 border border-emerald-400/30'
-      : status === 'Bajó'
-        ? 'bg-rose-500/15 text-rose-200 border border-rose-400/30'
-        : status === 'Insuficiente data' || status === 'Sin referencia'
-          ? 'bg-white/5 text-muted border border-border-soft'
-          : 'bg-amber-500/15 text-amber-200 border border-amber-400/30'
+  const badgeClass = getBadgeClassByDelta(delta);
 
   return (
-    <div className="rounded-2xl border border-border-soft bg-white/5 p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold">{exercise.exerciseName}</p>
-          <p className="text-xs text-muted">{exercise.muscleGroup}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold tracking-tight text-slate-900 line-clamp-2">
+            {exercise.exerciseName}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">{exercise.muscleGroup}</p>
         </div>
-        <span className={`text-xs px-3 py-1 rounded-full ${badgeClass}`}>{status} {formatDelta(delta)}</span>
+
+        {/* Delta badge */}
+        <span
+          className={`
+            inline-flex items-center
+            rounded-full
+            px-3 py-1
+            text-sm font-semibold
+            border
+            ${badgeClass}
+          `}
+        >
+          {formatDelta(delta)}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div className="rounded-xl border border-border-soft/60 bg-bg-darker/40 p-3 space-y-1">
-          <p className="text-[11px] text-muted uppercase">Hoy</p>
-          <p className="text-sm font-semibold">
-            Top set: {exercise.topSet?.weightKg || 0} kg x {exercise.topSet?.reps || 0}
-          </p>
-          <p className="text-muted">1RM: {exercise.oneRMTop?.toFixed(1)} kg</p>
-          <p className="text-muted">Volumen: {Math.round(exercise.volume)} kg·reps</p>
-          <p className="text-muted">Sets: {exercise.setsCount} · Reps: {exercise.repsTotal}</p>
+
+      {/* Panel HOY */}
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        {/* HOY label */}
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-blue-600" />
+          <span className="text-xs font-semibold tracking-wide text-slate-900 uppercase">
+            Hoy
+          </span>
         </div>
-        <div className="rounded-xl border border-border-soft/60 bg-bg-darker/20 p-3 space-y-1">
-          <p className="text-[11px] text-muted uppercase">Promedio últimos {refCount || '—'} (máx 7)</p>
-          <p className="text-sm font-semibold">
-            1RM: {refData?.oneRMTop ? refData.oneRMTop.toFixed(1) : '—'} kg
-          </p>
-          <p className="text-muted">
-            Volumen: {refData?.volume ? Math.round(refData.volume) : '—'} kg·reps
-          </p>
-          <p className="text-muted">
-            Sets: {refData?.setsCount ? refData.setsCount.toFixed(1) : '—'} · Reps:{' '}
-            {refData?.repsTotal ? refData.repsTotal.toFixed(1) : '—'}
-          </p>
-          {!refCount && <p className="text-muted text-[11px]">Primera vez registrado</p>}
+
+        {/* Top row */}
+        <div className="mt-3 grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-slate-500">Top set</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {exercise.topSet?.weightKg || 0} kg x {exercise.topSet?.reps || 0}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-slate-500">1RM Estimado</p>
+            <p className="mt-1 text-xl font-black text-slate-900">
+              {exercise.oneRMTop ? exercise.oneRMTop.toFixed(1) : "—"} kg
+            </p>
+          </div>
+        </div>
+
+        <div className="my-4 h-px bg-slate-200" />
+
+        {/* Bottom row */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+              Volumen
+            </p>
+            <p className="mt-1 text-lg font-bold text-slate-900">
+              {Math.round(exercise.volume || 0)}{" "}
+              <span className="font-normal text-slate-900">kg·reps</span>
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+              Sets / Reps
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {exercise.setsCount || 0} sets{" "}
+              <span className="font-medium text-slate-900">·</span>{" "}
+              {exercise.repsTotal || 0} reps
+            </p>
+          </div>
         </div>
       </div>
-      <div className="flex justify-end">
-        <button className="ghost-btn text-xs" type="button" onClick={() => onViewProgress?.(exercise.exerciseId, index)}>
-          Ver progreso
-        </button>
-      </div>
+
+      {/* Footer button */}
+      <button
+        type="button"
+        onClick={() => onViewProgress?.(exercise.exerciseId, index)}
+        className="
+          mt-4 w-full rounded-2xl
+          border border-slate-200
+          bg-white
+          px-4 py-3
+          text-sm font-semibold text-blue-700
+          hover:bg-blue-50
+          active:bg-blue-100
+          transition
+          focus:outline-none focus:ring-2 focus:ring-blue-500/25
+        "
+      >
+        Ver progreso detallado
+      </button>
     </div>
-  )
-}
+  );
+};
 
 ExerciseComparisonCard.propTypes = {
   exercise: PropTypes.object.isRequired,
-  refData: PropTypes.object,
   delta: PropTypes.number,
-  status: PropTypes.string,
-  refCount: PropTypes.number,
   onViewProgress: PropTypes.func,
   index: PropTypes.number,
-}
+};
 
-export default ExerciseComparisonCard
+export default ExerciseComparisonCard;

@@ -1,35 +1,44 @@
-import { useState } from 'react'
-import TopBar from '../components/layout/TopBar'
-import { useUserProfile } from '../context/UserContext'
+import { useState } from "react";
+import TopBar from "../components/layout/TopBar";
+import { useUserProfile } from "../context/UserContext";
 
 function ProfileSettings() {
-  const { profile, updateProfile } = useUserProfile()
-  const [localProfile, setLocalProfile] = useState(profile)
+  const { profile, updateProfile } = useUserProfile();
+  const [localProfile, setLocalProfile] = useState(profile);
 
   const handleChange = (field, value) => {
-    setLocalProfile((prev) => ({ ...prev, [field]: value }))
-  }
+    setLocalProfile((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleNotif = (key, value) => {
-    setLocalProfile((prev) => ({ ...prev, notifications: { ...prev.notifications, [key]: value } }))
-  }
+    setLocalProfile((prev) => ({
+      ...prev,
+      notifications: { ...prev.notifications, [key]: value },
+    }));
+  };
 
   const saveSection = (fields) => {
-    const payload = {}
+    const payload = {};
     fields.forEach((f) => {
-      if (f in localProfile) payload[f] = localProfile[f]
-    })
-    updateProfile(payload)
-  }
+      if (f in localProfile) payload[f] = localProfile[f];
+    });
+    updateProfile(payload);
+  };
 
   return (
     <>
-      <TopBar title="Perfil y Ajustes (Navegación Completa)" subtitle="Configura tus datos y preferencias." />
+      <TopBar
+        title="Perfil y Ajustes (Navegación Completa)"
+        subtitle="Configura tus datos y preferencias."
+      />
 
       <section className="card flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Información Personal</h3>
-          <button className="primary-btn text-sm" onClick={() => saveSection(['weight', 'height'])}>
+          <button
+            className="primary-btn text-sm"
+            onClick={() => saveSection(["weight", "height"])}
+          >
             Guardar Cambios
           </button>
         </div>
@@ -40,7 +49,9 @@ function ProfileSettings() {
               type="number"
               className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
               value={localProfile.weight}
-              onChange={(e) => handleChange('weight', Number(e.target.value) || 0)}
+              onChange={(e) =>
+                handleChange("weight", Number(e.target.value) || 0)
+              }
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -49,7 +60,9 @@ function ProfileSettings() {
               type="number"
               className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
               value={localProfile.height}
-              onChange={(e) => handleChange('height', Number(e.target.value) || 0)}
+              onChange={(e) =>
+                handleChange("height", Number(e.target.value) || 0)
+              }
             />
           </div>
         </div>
@@ -58,7 +71,10 @@ function ProfileSettings() {
       <section className="card flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Objetivos y Estado Físico</h3>
-          <button className="primary-btn text-sm" onClick={() => saveSection(['goal', 'calories'])}>
+          <button
+            className="primary-btn text-sm"
+            onClick={() => saveSection(["goal", "calories"])}
+          >
             Guardar Cambios
           </button>
         </div>
@@ -68,7 +84,7 @@ function ProfileSettings() {
             <select
               className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
               value={localProfile.goal}
-              onChange={(e) => handleChange('goal', e.target.value)}
+              onChange={(e) => handleChange("goal", e.target.value)}
             >
               <option value="volumen">Volumen</option>
               <option value="mantenimiento">Mantenimiento</option>
@@ -81,7 +97,9 @@ function ProfileSettings() {
               type="number"
               className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
               value={localProfile.calories}
-              onChange={(e) => handleChange('calories', Number(e.target.value) || 0)}
+              onChange={(e) =>
+                handleChange("calories", Number(e.target.value) || 0)
+              }
             />
           </div>
         </div>
@@ -89,8 +107,13 @@ function ProfileSettings() {
 
       <section className="card flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Preferencias de la Aplicación</h3>
-          <button className="primary-btn text-sm" onClick={() => saveSection(['units', 'notifications'])}>
+          <h3 className="text-lg font-semibold">
+            Preferencias de la Aplicación
+          </h3>
+          <button
+            className="primary-btn text-sm"
+            onClick={() => saveSection(["units", "notifications"])}
+          >
             Guardar Cambios
           </button>
         </div>
@@ -100,7 +123,7 @@ function ProfileSettings() {
             <select
               className="rounded-full border border-border-soft bg-white/5 px-4 py-3 text-white"
               value={localProfile.units}
-              onChange={(e) => handleChange('units', e.target.value)}
+              onChange={(e) => handleChange("units", e.target.value)}
             >
               <option value="metric">Métrico (kg)</option>
               <option value="imperial">Imperial (lb)</option>
@@ -113,7 +136,7 @@ function ProfileSettings() {
                 <input
                   type="checkbox"
                   checked={localProfile.notifications.push}
-                  onChange={(e) => handleNotif('push', e.target.checked)}
+                  onChange={(e) => handleNotif("push", e.target.checked)}
                 />
                 Push
               </label>
@@ -121,7 +144,7 @@ function ProfileSettings() {
                 <input
                   type="checkbox"
                   checked={localProfile.notifications.email}
-                  onChange={(e) => handleNotif('email', e.target.checked)}
+                  onChange={(e) => handleNotif("email", e.target.checked)}
                 />
                 Email
               </label>
@@ -134,11 +157,13 @@ function ProfileSettings() {
         <h3 className="text-lg font-semibold">Gestión de Cuenta</h3>
         <div className="flex flex-wrap gap-3">
           <button className="ghost-btn">Cambiar Contraseña</button>
-          <button className="ghost-btn border-accent-red/60 text-accent-red">Eliminar Cuenta</button>
+          <button className="ghost-btn border-accent-red/60 text-accent-red">
+            Eliminar Cuenta
+          </button>
         </div>
       </section>
     </>
-  )
+  );
 }
 
-export default ProfileSettings
+export default ProfileSettings;

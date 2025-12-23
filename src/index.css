@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,143 +9,66 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Light tokens */
+  /* Light (screenshot) */
   --bg: #f8fafc;
   --card: #ffffff;
   --border: #e5e7eb;
   --text: #0f172a;
-  --text-muted: #475569;
+  --text-muted: #64748b;
 }
 
 .dark {
-  /* Dark tokens mapped to existing palette */
-  --bg: #0d1526; /* base background */
-  --card: #111d32; /* card stands out from bg */
-  --border: rgba(255, 255, 255, 0.18); /* clearer outlines */
-  --text: #eef3fb; /* crisper white */
-  --text-muted: #c3d0e8; /* brighter secondary for readability */
+  /* Dark legible */
+  --bg: #0b1220;
+  --card: #0f172a;
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #e5e7eb;
+  --text-muted: #94a3b8;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  @apply font-sans;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Arial, "Noto Sans";
   background: var(--bg);
   color: var(--text);
 }
 
-.dark body {
+/* Glow suave en dark (opcional) */
+.dark body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
   background: radial-gradient(
       circle at 20% 20%,
-      rgba(47, 123, 253, 0.12),
-      transparent 35%
+      rgba(59, 130, 246, 0.1),
+      transparent 40%
     ),
-    radial-gradient(circle at 80% 0%, rgba(30, 201, 134, 0.16), transparent 30%),
-    #0b1220;
+    radial-gradient(circle at 85% 0%, rgba(16, 185, 129, 0.1), transparent 38%);
 }
 
-/* Token-based helpers */
-.glass-card {
+/* Card utilitaria consistente */
+.card {
   background: var(--card);
   border: 1px solid var(--border);
-  @apply rounded-xl shadow-soft;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  padding: 1rem;
 }
 
-.card {
-  @apply glass-card p-4;
-}
-
-.label {
-  color: var(--text-muted);
-  @apply text-sm;
-}
-
-.muted {
+/* Si sigues usando estas clases en componentes viejos */
+.text-muted {
   color: var(--text-muted);
 }
-
-.section-title {
-  @apply text-lg font-semibold;
+.border-border-soft {
+  border-color: var(--border);
 }
-
-/* Buttons that already existed */
-.primary-btn {
-  @apply inline-flex items-center justify-center gap-2
-      rounded-xl
-      bg-blue-600
-      px-4 py-3
-      text-sm font-semibold text-white
-      shadow-sm
-      transition
-      hover:bg-blue-700
-      active:bg-blue-800
-      focus:outline-none
-      focus:ring-2 focus:ring-blue-500/40;
-}
-.primary-btn:hover {
-  transform: translateY(-2px);
-}
-
-.secondary-btn {
-  @apply inline-flex items-center justify-center gap-2
-      rounded-xl
-      bg-blue-600
-      px-4 py-3
-      text-sm font-semibold text-white
-      shadow-sm
-      transition
-      hover:bg-blue-700
-      active:bg-blue-800
-      focus:outline-none
-      focus:ring-2 focus:ring-blue-500/40;
-}
-
-.ghost-btn {
-  @apply border border-border-soft bg-white/5 text-white font-semibold rounded-lg px-3 py-2 transition-colors;
-}
-
-.ghost-btn:hover {
-  @apply border-accent text-accent;
-}
-
-select {
-  background-color: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-select option {
-  background-color: var(--card);
-  color: var(--text);
-}
-
-select:focus {
-  outline: none;
-  border-color: rgba(79, 163, 255, 0.5);
-}
-
-/* Light-mode fallbacks for antiguos estilos oscuros */
-[data-theme="light"] .bg-bg-dark,
-[data-theme="light"] .bg-bg-darker {
-  background-color: var(--bg) !important;
-}
-
-[data-theme="light"] .bg-white\/5 {
-  background-color: var(--card) !important;
-}
-
-[data-theme="light"] .bg-\[\#0d1a2b\] {
-  background-color: var(--card) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
-}
-
-[data-theme="light"] .text-white {
-  color: var(--text) !important;
-}
-
-[data-theme="light"] .text-muted {
-  color: var(--text-muted) !important;
-}
-
-[data-theme="light"] .border-border-soft {
-  border-color: var(--border) !important;
+.bg-bg-darker,
+.bg-bg-dark {
+  background: var(--bg);
 }
