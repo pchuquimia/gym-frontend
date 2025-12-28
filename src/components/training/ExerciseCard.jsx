@@ -58,11 +58,11 @@ export default function ExerciseCard({
           className="w-full flex items-center gap-3 p-4 text-left"
         >
           {imageSrc ? (
-            <div className="h-12 w-12 rounded-xl overflow-hidden bg-slate-100">
+            <div className="h-12 w-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
               <img src={imageSrc} alt={exercise.name} className="h-full w-full object-cover" />
             </div>
           ) : (
-            <div className="h-12 w-12 rounded-xl bg-slate-100" />
+            <div className="h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800" />
           )}
           <div className="flex-1">
             <p className="text-sm font-semibold text-[color:var(--text)]">{exercise.name}</p>

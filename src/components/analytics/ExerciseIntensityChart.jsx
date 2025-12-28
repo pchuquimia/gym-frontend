@@ -4,9 +4,9 @@ import { cleanSets, toIsoWeek, estimate1RM, formatCompactWeekLabel } from '../..
 import { nivoTheme } from '../../utils/nivoTheme'
 
 const EmptyState = () => (
-  <div className="border border-dashed border-border-soft rounded-xl p-4 text-center text-sm text-muted">
-    <p className="font-semibold text-white/80 mb-1">Sin datos suficientes</p>
-    <p className="text-muted text-xs">Registra al menos 2 semanas para ver progreso</p>
+  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+    <p className="font-semibold text-[color:var(--text)] mb-1">Sin datos suficientes</p>
+    <p className="text-[color:var(--text-muted)] text-xs">Registra al menos 2 semanas para ver progreso</p>
   </div>
 )
 
@@ -92,11 +92,11 @@ const ExerciseIntensityChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 
             curve="monotoneX"
             useMesh
             tooltip={({ point }) => (
-              <div className="rounded-xl border border-border-soft bg-bg-darker px-3 py-2 text-xs shadow-lg">
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                 <p className="font-semibold">{point.serieId}</p>
-                <p className="text-muted">{formatCompactWeekLabel(point.data.x)}</p>
+                <p className="text-[color:var(--text-muted)]">{formatCompactWeekLabel(point.data.x)}</p>
                 <p>Valor: {Number(point.data.y).toFixed(1)}%</p>
-                {point.data.oneRM && <p className="text-muted">1RM semana: {Number(point.data.oneRM).toFixed(1)} kg</p>}
+                {point.data.oneRM && <p className="text-[color:var(--text-muted)]">1RM semana: {Number(point.data.oneRM).toFixed(1)} kg</p>}
               </div>
             )}
           />
@@ -104,7 +104,7 @@ const ExerciseIntensityChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 
           <EmptyState />
         )}
       </div>
-      <p className="text-xs text-muted">
+      <p className="text-xs text-[color:var(--text-muted)]">
         65–80%: hipertrofia · 85%+: fuerza. Ajusta según tu fase y fatiga.
       </p>
     </div>

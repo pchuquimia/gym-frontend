@@ -15,7 +15,9 @@ export default function SetRow({
 }) {
   const baseClasses =
     "grid grid-cols-[48px,1fr,1fr,60px,40px] items-center gap-2 px-2 py-2 rounded-xl border border-[color:var(--border)]";
-  const stateClasses = done ? "bg-slate-100 text-[color:var(--text-muted)]" : "bg-[color:var(--card)]";
+  const stateClasses = done
+    ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
+    : "bg-[color:var(--card)]";
   const x = useMotionValue(0);
   const isMobile = typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false;
   const normalizeDecimal = (val) => {

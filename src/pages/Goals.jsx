@@ -165,9 +165,12 @@ export default function Goals() {
       const candidate = bestForGoal > 0 ? bestForGoal : bestOverall;
       if (candidate > 0) {
         const currentStored = Number(next[goalKey]?.current || 0);
+        const shouldFill = !currentStored;
         next[goalKey] = {
           ...next[goalKey],
-          current: Math.max(currentStored, Number(candidate.toFixed(1))),
+          current: shouldFill
+            ? Number(candidate.toFixed(1))
+            : currentStored,
         };
       }
     });
@@ -181,14 +184,15 @@ export default function Goals() {
           muscle: obj.muscle || "General",
         };
       } else {
+        const currentStored = Number(next[exId].current || 0);
+        const shouldFill = !currentStored;
         next[exId] = {
           ...next[exId],
           label: next[exId].label || obj.name || exId,
           muscle: next[exId].muscle || obj.muscle || "General",
-          current: Math.max(
-            Number(next[exId].current || 0),
-            Number(obj.oneRM.toFixed(1))
-          ),
+          current: shouldFill
+            ? Number(obj.oneRM.toFixed(1))
+            : currentStored,
         };
       }
     });
@@ -208,8 +212,9 @@ export default function Goals() {
     try {
       setSaving(true);
       if (setGoals) setGoals(form);
+      const saved = await saveGoals(form);
+      if (saved?.goals) setForm(saved.goals);
       toast.success("Objetivos guardados correctamente");
-      await saveGoals(form);
     } catch (e) {
       console.error("No se pudo guardar objetivos", e);
       if (setGoals) setGoals(prevGoals);

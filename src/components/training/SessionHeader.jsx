@@ -60,7 +60,7 @@ export default function SessionHeader({
         </button>
         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
           <p className="text-[11px] text-[color:var(--text-muted)] font-semibold">DURACION</p>
-          <p className="text-base font-semibold mt-1 font-mono text-blue-600">
+          <p className="text-base font-semibold mt-1 font-mono text-blue-600 dark:text-blue-400">
             {formatTime(durationSeconds)}
           </p>
         </div>
@@ -75,7 +75,7 @@ export default function SessionHeader({
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.97 }}
-          className="rounded-lg border border-slate-200 bg-white text-slate-700 px-3 py-2 text-sm font-semibold"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] px-3 py-2 text-sm font-semibold hover:bg-[color:var(--bg)] transition-colors"
           onClick={onReset}
         >
           Reset

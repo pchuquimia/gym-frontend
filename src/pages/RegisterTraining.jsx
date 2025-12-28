@@ -43,7 +43,9 @@ const formatDuration = (sec) => {
   const hours = Math.floor(sec / 3600);
   const minutes = Math.floor((sec % 3600) / 60);
   const seconds = sec % 60;
-  return [hours, minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
+  return [hours, minutes, seconds]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
 };
 
 const slugify = (text) =>
@@ -795,18 +797,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       <Toaster position="top-center" richColors />
       <div className="mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
         <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full border border-[color:var(--border)] h-10 w-10"
-          >
-            <ArrowLeft className="h-5 w-5 text-[color:var(--text)]" />
-          </Button>
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           <div className="flex items-center gap-2">
             {isEditing && (
               <Button variant="outline" size="sm" onClick={handleExitEdit}>
-                Salir de ediciÃ³n
+                Salir de edicion
               </Button>
             )}
             <Button
@@ -866,10 +861,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <select
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
-                className="w-full rounded-md border border-[color:var(--border)] bg-transparent px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 {branchOptions.map((b) => (
-                  <option key={b} value={b}>
+                  <option
+                    key={b}
+                    value={b}
+                    className="bg-[color:var(--card)] text-[color:var(--text)]"
+                  >
                     {b}
                   </option>
                 ))}
@@ -945,7 +944,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       {loadingTraining ? "Cargando..." : "En progreso"}
                     </p>
                   </div>
-                  <Badge className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100">
+                  <Badge variant="secondary" className="text-[11px]">
                     Total sets: {totalSets}
                   </Badge>
                 </div>

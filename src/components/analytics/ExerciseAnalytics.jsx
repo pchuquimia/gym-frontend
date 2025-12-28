@@ -23,14 +23,14 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
     <div className="card space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <p className="text-xs text-muted">Exercise Analytics</p>
+          <p className="text-xs text-[color:var(--text-muted)]">Exercise Analytics</p>
           <h3 className="text-lg font-semibold">{exerciseName}</h3>
         </div>
         <div className="flex items-center gap-2">
           {ranges.map((r) => (
             <button
               key={r}
-              className={`px-3 py-1 rounded-full border text-xs ${range === r ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+              className={`px-3 py-1 rounded-full border text-xs ${range === r ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
               onClick={() => setRange(r)}
               type="button"
             >
@@ -44,7 +44,7 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
         {tabs.map((t) => (
           <button
             key={t.key}
-            className={`px-3 py-1 rounded-full border ${tab === t.key ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+            className={`px-3 py-1 rounded-full border ${tab === t.key ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
             onClick={() => setTab(t.key)}
             type="button"
           >
@@ -52,17 +52,17 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2 text-xs">
-          <span className="text-muted">Agrupar por:</span>
+          <span className="text-[color:var(--text-muted)]">Agrupar por:</span>
           <button
             type="button"
-            className={`px-3 py-1 rounded-full border ${groupBy === 'week' ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+            className={`px-3 py-1 rounded-full border ${groupBy === 'week' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
             onClick={() => setGroupBy('week')}
           >
             Semana
           </button>
           <button
             type="button"
-            className={`px-3 py-1 rounded-full border ${groupBy === 'session' ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+            className={`px-3 py-1 rounded-full border ${groupBy === 'session' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
             onClick={() => setGroupBy('session')}
           >
             Sesión
@@ -70,7 +70,7 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
         </div>
       </div>
 
-      <div className="border border-border-soft rounded-2xl bg-white/5 p-3">
+      <div className="border border-[color:var(--border)] rounded-2xl bg-[color:var(--bg)] p-3">
         {tab === 'fuerza' && (
           <ExerciseOneRMChart workouts={data} exerciseId={exerciseId} rangeWeeks={range} mode={mode} groupBy={groupBy} />
         )}

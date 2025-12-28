@@ -15,39 +15,6 @@ function TopBar({
     return (
       <header className="space-y-4">
         {/* Row superior */}
-        <div className="flex items-center justify-between">
-          <div className="shrink-0">
-            {leftSlot ? (
-              leftSlot
-            ) : (
-              <button
-                type="button"
-                className="
-                  h-10 w-10 rounded-2xl
-                  border border-[color:var(--border)]
-                  bg-[color:var(--card)]
-                  grid place-items-center
-                  text-[color:var(--text)]
-                  hover:bg-[color:var(--bg)]
-                  focus:outline-none focus:ring-2 focus:ring-blue-500/25
-                "
-                aria-label="Menú"
-                title="Menú"
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-                  <path
-                    d="M4 7h16M4 12h16M4 17h16"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          <div className="shrink-0">{rightSlot ? rightSlot : null}</div>
-        </div>
 
         {/* Hero card */}
         <div

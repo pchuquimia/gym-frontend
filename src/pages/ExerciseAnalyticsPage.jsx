@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/layout/TopBar'
 import ExerciseAnalytics from '../components/analytics/ExerciseAnalytics'
 import { useTrainingData } from '../context/TrainingContext'
@@ -14,6 +14,12 @@ const slugify = (text) =>
 
 function ExerciseAnalyticsPage() {
   const { sessions = [], trainings = [], exercises = [] } = useTrainingData()
+  const getThemeMode = () => {
+    if (typeof document === 'undefined') return 'light'
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  }
+  const [themeMode, setThemeMode] = useState(getThemeMode)
+  
   const [selectedExerciseId, setSelectedExerciseId] = useState(() => {
     if (typeof localStorage !== 'undefined') {
       const last = localStorage.getItem('last_exercise_id')
@@ -22,6 +28,17 @@ function ExerciseAnalyticsPage() {
     return exercises[0]?.id || ''
   })
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+    const root = document.documentElement
+    const observer = new MutationObserver(() => {
+      setThemeMode(getThemeMode())
+    })
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  
+  
   const workouts = useMemo(
     () =>
       [
@@ -68,12 +85,12 @@ function ExerciseAnalyticsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm text-muted">Selecciona ejercicio</p>
           <select
-            className="rounded-full border border-border-soft bg-white/5 px-4 py-2 text-sm text-white"
+            className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             value={selectedExerciseId}
             onChange={(e) => setSelectedExerciseId(e.target.value)}
           >
             {exercises.map((ex) => (
-              <option key={ex.id} value={ex.id}>
+              <option key={ex.id} value={ex.id} className="bg-[color:var(--card)] text-[color:var(--text)]">
                 {ex.name}
               </option>
             ))}
@@ -83,7 +100,7 @@ function ExerciseAnalyticsPage() {
           exerciseId={selectedExerciseId || exercises[0]?.id || ''}
           exerciseName={exerciseName}
           workouts={workouts}
-          mode="dark"
+          mode={themeMode}
         />
       </div>
     </>

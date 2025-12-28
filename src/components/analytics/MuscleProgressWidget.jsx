@@ -33,14 +33,14 @@ const muscleGroups = {
 }
 
 const EmptyState = () => (
-  <div className="border border-dashed border-border-soft rounded-xl p-4 text-center text-sm text-muted">
-    <p className="font-semibold text-white/80 mb-1">Sin datos suficientes</p>
-    <p className="text-muted text-xs">Registra al menos 2 semanas para ver progreso</p>
+  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+    <p className="font-semibold text-[color:var(--text)] mb-1">Sin datos suficientes</p>
+    <p className="text-[color:var(--text-muted)] text-xs">Registra al menos 2 semanas para ver progreso</p>
   </div>
 )
 
 const statusFromDelta = (delta) => {
-  if (delta === null) return { label: 'Insuficiente data', color: 'text-muted', bg: 'bg-white/5' }
+  if (delta === null) return { label: 'Insuficiente data', color: 'text-[color:var(--text-muted)]', bg: 'bg-[color:var(--bg)]' }
   if (delta >= 1) return { label: `Mejorando ${delta.toFixed(1)}%`, color: 'text-emerald-300', bg: 'bg-emerald-400/10' }
   if (delta <= -1) return { label: `Retroceso ${delta.toFixed(1)}%`, color: 'text-rose-300', bg: 'bg-rose-400/10' }
   return { label: `Estable ${delta.toFixed(1)}%`, color: 'text-amber-300', bg: 'bg-amber-400/10' }
@@ -124,7 +124,7 @@ const MuscleProgressWidget = ({ workouts, rangeWeeks = 12, mode = 'dark', onView
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Progreso por músculo</h3>
           <select
-            className="rounded-full border border-border-soft bg-white/5 px-3 py-1 text-sm text-white"
+            className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-sm text-[color:var(--text)]"
             value={muscle}
             onChange={(e) => setMuscle(e.target.value)}
           >
@@ -145,11 +145,11 @@ const MuscleProgressWidget = ({ workouts, rangeWeeks = 12, mode = 'dark', onView
       <div className="flex items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold">Progreso por músculo</h3>
-          <p className="text-xs text-muted">Índice de fuerza (1RM ponderado) + MA3</p>
+          <p className="text-xs text-[color:var(--text-muted)]">Índice de fuerza (1RM ponderado) + MA3</p>
         </div>
         <div className="flex items-center gap-2">
           <select
-            className="rounded-full border border-border-soft bg-white/5 px-3 py-1 text-sm text-white"
+            className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-sm text-[color:var(--text)]"
             value={muscle}
             onChange={(e) => setMuscle(e.target.value)}
           >
@@ -183,9 +183,9 @@ const MuscleProgressWidget = ({ workouts, rangeWeeks = 12, mode = 'dark', onView
           tooltip={({ point }) => {
             const { data: d } = point
             return (
-              <div className="rounded-xl border border-border-soft bg-bg-darker px-3 py-2 text-xs shadow-lg">
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                 <p className="font-semibold">{point.serieId}</p>
-                <p className="text-muted">{formatCompactWeekLabel(d.x)}</p>
+                <p className="text-[color:var(--text-muted)]">{formatCompactWeekLabel(d.x)}</p>
                 <p>Valor: {d.y ? `${Number(d.y).toFixed(1)} kg` : '—'}</p>
               </div>
             )

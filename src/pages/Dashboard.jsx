@@ -488,36 +488,44 @@ function Dashboard({ onNavigate }) {
           </button>
         </div>
 
-        {/* Si quieres mostrar barras aquí, descomenta:
         <div className="mt-4 space-y-3">
           {objectives.length ? (
             objectives.map((obj, idx) => {
               const pct = obj.goal
                 ? Math.min(100, Math.round((obj.value / obj.goal) * 100))
                 : 0;
-              const palette = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-amber-500"];
+              const palette = [
+                "bg-blue-500",
+                "bg-violet-500",
+                "bg-emerald-500",
+                "bg-amber-500",
+              ];
               const barColor = palette[idx % palette.length];
               return (
                 <div key={obj.label}>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[color:var(--text)]">{obj.label}</span>
+                    <span className="text-[color:var(--text)]">
+                      {obj.label}
+                    </span>
                     <span className="text-xs text-[color:var(--text-muted)]">
                       {obj.value} / {obj.goal} {obj.unit || ""}
                     </span>
                   </div>
-                  <div className="mt-2 w-full h-2 rounded-full bg-[color:var(--border)] overflow-hidden">
-                    <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                  <div className="mt-2 w-full h-2.5 rounded-full bg-[color:var(--border)] overflow-hidden">
+                    <div
+                      className={`h-2.5 rounded-full ${barColor}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
                 </div>
               );
             })
           ) : (
             <p className="text-sm text-[color:var(--text-muted)] mt-3">
-              Configura tus objetivos en la página de Objetivos.
+              Configura tus objetivos en la pagina de Objetivos.
             </p>
           )}
         </div>
-        */}
       </motion.div>
 
       {/* Resumen rápido */}

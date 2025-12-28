@@ -29,7 +29,9 @@ export default function BottomActionBar({ onFinish, onCancel, disabled = false, 
             onClick={onFinish}
             disabled={disabled}
             className={`flex-1 rounded-full py-3 text-sm font-semibold text-white shadow-sm ${
-              disabled ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+              disabled
+                ? "bg-[color:var(--border)] text-[color:var(--text-muted)] cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
             Finalizar Entrenamiento

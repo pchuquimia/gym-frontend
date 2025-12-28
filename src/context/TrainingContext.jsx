@@ -188,6 +188,10 @@ export function TrainingProvider({ children }) {
   const saveGoals = async (nextGoals) => {
     const saved = await updatePreferences.mutateAsync({ goals: nextGoals, branch })
     setGoals(saved?.goals || nextGoals)
+    queryClient.invalidateQueries({ queryKey: PREFS_KEY })
+    queryClient.invalidateQueries({
+      predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'dashboardSummary',
+    })
     return saved
   }
 

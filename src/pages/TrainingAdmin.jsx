@@ -13,10 +13,15 @@ const formatDuration = (sec = 0) => {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(
-    2,
-    "0"
-  )}:${String(s).padStart(2, "0")}`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(
+    s
+  ).padStart(2, "0")}`;
+};
+
+const formatVolume = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0";
+  return num.toLocaleString("es-ES", { maximumFractionDigits: 2 });
 };
 
 const branchLabel = (b) => {
@@ -34,17 +39,16 @@ const branchPillClass = (b) => {
   return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700";
 };
 
-/* FIX: chips consistentes (label arriba / valor abajo centrado) */
 const chipBase =
-  "min-w-[96px] h-[56px] px-3 py-2 rounded-2xl border text-center " +
-  "grid grid-rows-[auto,1fr] place-items-center gap-1";
+  "min-w-[100px] h-[64px] px-3 py-2 rounded-2xl border text-center " +
+  "grid grid-rows-2 place-items-center gap-2";
 
 const chip = {
   duration:
-    "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700",
-  sets: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-400/25",
+    "bg-slate-900 text-black border-slate-200 dark:bg-dark-900 dark:text-white-500 dark:border-slate-700",
+  sets: "bg-dark text-emerald-700 border-emerald-200 dark:bg-dark dark:border-emerald-400/25",
   volume:
-    "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-400/25",
+    "bg-dark text-yellow-700 border-amber-200 dark:bg-dark dark:text-yellow-800 dark:border-amber-200/25",
 };
 
 function IconSearch(props) {
@@ -242,50 +246,45 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
 
   return (
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto max-w-3xl px-4 py-5 space-y-4">
-        {/* Header compacto */}
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-base font-semibold text-[color:var(--text)]">
+      <div className="mx-auto w-full max-w-6xl px-6 sm:px-8 lg:px-12 py-8 space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-[color:var(--text)]">
               Administrar Sesiones
             </h1>
-          </div>
-
-          <div className="flex items-center gap-2">
             <Badge className="rounded-full px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/25">
               {filtered.length} de {trainings.length}
             </Badge>
-
-            <button
-              type="button"
-              className="
-                h-9 w-9 rounded-xl border border-[color:var(--border)]
-                bg-[color:var(--card)] grid place-items-center
-                text-[color:var(--text-muted)]
-                hover:bg-[color:var(--bg)] transition
-                focus:outline-none focus:ring-2 focus:ring-blue-500/25
-              "
-              aria-label="Notificaciones"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Z"
-                  fill="currentColor"
-                  opacity="0.9"
-                />
-                <path
-                  d="M18 16V11a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
           </div>
+
+          <button
+            type="button"
+            className="
+              h-9 w-9 rounded-xl border border-[color:var(--border)]
+              bg-[color:var(--card)] grid place-items-center
+              text-[color:var(--text-muted)]
+              hover:bg-[color:var(--bg)] transition
+              focus:outline-none focus:ring-2 focus:ring-blue-500/25
+            "
+            aria-label="Notificaciones"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Z"
+                fill="currentColor"
+                opacity="0.9"
+              />
+              <path
+                d="M18 16V11a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
 
-        {/* Filtros */}
-        <Card className="p-4 space-y-3">
+        <Card className="p-6 sm:p-7 space-y-5">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]">
@@ -298,7 +297,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                 placeholder="Buscar rutina o fecha..."
                 className="
                   w-full rounded-xl border border-[color:var(--border)]
-                  bg-[color:var(--bg)] pl-10 pr-3 py-2 text-sm
+                  bg-[color:var(--card)] pl-10 pr-3 py-2.5 text-sm
                   outline-none focus:ring-2 focus:ring-blue-500/25
                 "
               />
@@ -308,9 +307,9 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               type="button"
               className="
                 h-10 w-10 rounded-xl border border-[color:var(--border)]
-                bg-[color:var(--bg)] grid place-items-center
+                bg-[color:var(--card)] grid place-items-center
                 text-[color:var(--text-muted)]
-                hover:bg-[color:var(--card)] transition
+                hover:bg-[color:var(--bg)] transition
                 focus:outline-none focus:ring-2 focus:ring-blue-500/25
               "
               aria-label="Opciones"
@@ -319,7 +318,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="text-xs text-[color:var(--text-muted)]">
                 Desde
@@ -334,7 +333,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                   onChange={(e) => setFrom(e.target.value)}
                   className="
                     w-full rounded-xl border border-[color:var(--border)]
-                    bg-[color:var(--bg)] px-3 py-2 text-sm
+                    bg-[color:var(--card)] px-3 py-2.5 text-sm
                     outline-none focus:ring-2 focus:ring-blue-500/25
                   "
                 />
@@ -355,7 +354,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                   onChange={(e) => setTo(e.target.value)}
                   className="
                     w-full rounded-xl border border-[color:var(--border)]
-                    bg-[color:var(--bg)] px-3 py-2 text-sm
+                    bg-[color:var(--card)] px-3 py-2.5 text-sm
                     outline-none focus:ring-2 focus:ring-blue-500/25
                   "
                 />
@@ -372,7 +371,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               onChange={(e) => setRoutineFilter(e.target.value)}
               className="
                 w-full rounded-xl border border-[color:var(--border)]
-                bg-[color:var(--bg)] px-3 py-2 text-sm
+                bg-[color:var(--card)] px-3 py-2.5 text-sm
                 outline-none focus:ring-2 focus:ring-blue-500/25
               "
             >
@@ -385,7 +384,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <Button
               onClick={loadTrainings}
               disabled={loading}
@@ -416,35 +415,30 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
           </div>
         )}
 
-        <div className="pt-1">
+        <div className="pt-2">
           <p className="text-[11px] font-semibold tracking-wide text-[color:var(--text-muted)]">
             HISTORIAL
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           {filtered.map((t) => {
             const id = t._id || t.id;
-
-            // ✅ total sets real (ya lo calculabas)
             const totalSets = (t.exercises || []).reduce(
               (acc, ex) => acc + (ex.sets?.length || 0),
               0
             );
-
             const branch = t.branch || t.routineBranch || "general";
-
-            // ✅ total volume real según tu API: totalVolume
             const totalVolume = t.totalVolume ?? 0;
 
             return (
-              <Card key={id} className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
+              <Card key={id} className="p-6 sm:p-7 space-y-5">
+                <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[color:var(--text)] truncate">
+                    <p className="text-base font-semibold text-[color:var(--text)] truncate">
                       {t.routineName || "Sin nombre"}
                     </p>
-                    <p className="mt-1 text-xs text-[color:var(--text-muted)] inline-flex items-center gap-2">
+                    <p className="mt-2 text-xs text-[color:var(--text-muted)] inline-flex items-center gap-2">
                       <span className="inline-flex items-center gap-1">
                         <IconCalendar />
                         {formatDate(t.date)}
@@ -461,50 +455,58 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                   </span>
                 </div>
 
-                {/* ✅ Chips finales: label arriba, valor abajo, centrado */}
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  {/* SETS */}
-                  <div className={`${chipBase} ${chip.sets}`}>
-                    <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div
+                    className={`${chipBase} bg-dark  border-emerald-200 dark:bg-dark  dark:border-emerald-400/25`}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70  ">
                       Sets
                     </span>
-                    <span className="text-sm font-bold">{totalSets}</span>
+                    <span className="text-emerald-600">
+                      <span className="text-xl font-bold">{totalSets}</span>
+                    </span>
                   </div>
 
-                  {/* DURACIÓN */}
-                  <div className={`${chipBase} ${chip.duration}`}>
+                  <div
+                    className={`${chipBase} border-amber-200  dark:border-amber-400/25 `}
+                  >
                     <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-                      Duración
+                      Duracion
                     </span>
-                    <span className="text-sm font-bold tabular-nums whitespace-nowrap">
+                    <span className="text-white text-xl font-bold tabular-nums">
                       {formatDuration(t.durationSeconds || 0)}
                     </span>
                   </div>
 
-                  {/* VOLUMEN */}
-                  <div className={`${chipBase} ${chip.volume}`}>
+                  <div
+                    className={`${chipBase} border-amber-200  dark:border-amber-400/25 `}
+                  >
                     <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
                       Volumen
                     </span>
-                    <span className="text-sm font-bold whitespace-nowrap">
-                      {totalVolume}{" "}
-                      <span className="text-[11px] opacity-70">kg</span>
+                    <span
+                      className={
+                        " text-yellow-600 text-xl font-bold whitespace-nowrap"
+                      }
+                    >
+                      {formatVolume(totalVolume)}{" "}
+                      <span className="text-[11px] text-yellow-600 ">kg</span>
                     </span>
                   </div>
                 </div>
 
                 <div
                   className="
-                    grid grid-cols-3 gap-2
+                    flex items-center gap-3 flex-nowrap
                     rounded-2xl border border-[color:var(--border)]
-                    bg-[color:var(--bg)] p-2
+                    bg-[color:var(--bg)] p-3
                   "
                 >
                   <button
                     type="button"
                     className="
-                      inline-flex items-center justify-center gap-2
-                      rounded-xl px-3 py-2 text-sm font-semibold
+                      inline-flex flex-1 items-center justify-center gap-2
+                      rounded-xl px-3 py-2.5 text-sm font-semibold
                       text-[color:var(--text)]
                       hover:bg-[color:var(--card)] transition
                       focus:outline-none focus:ring-2 focus:ring-blue-500/25
@@ -521,7 +523,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     type="button"
                     className="
                       inline-flex items-center justify-center
-                      rounded-xl px-3 py-2
+                      rounded-xl h-11 w-12
                       border border-slate-200 bg-white
                       text-slate-700 hover:bg-slate-50 transition
                       dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
@@ -545,7 +547,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     type="button"
                     className="
                       inline-flex items-center justify-center
-                      rounded-xl px-3 py-2
+                      rounded-xl h-11 w-12
                       border border-rose-200 bg-rose-50
                       text-rose-700 hover:bg-rose-100 transition
                       dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/15
@@ -575,7 +577,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                                   {ex.exerciseName}
                                 </span>
                                 <span className="text-[color:var(--text-muted)] text-xs">
-                                  {ex.muscleGroup || "—"}
+                                  {ex.muscleGroup || "Sin grupo"}
                                 </span>
                               </div>
                               <Badge className="bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
@@ -593,11 +595,11 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                                     Set {idx + 1}
                                   </span>
                                   <span className="font-semibold">
-                                    {s.weightKg ?? s.weight ?? 0} kg ×{" "}
+                                    {s.weightKg ?? s.weight ?? 0} kg -{" "}
                                     {s.reps ?? 0}
                                   </span>
                                   <span className="text-[color:var(--text-muted)]">
-                                    {s.done ? "✔" : ""}
+                                    {s.done ? "OK" : ""}
                                   </span>
                                 </div>
                               ))}

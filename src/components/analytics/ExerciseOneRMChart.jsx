@@ -4,15 +4,15 @@ import { estimate1RM, toIsoWeek, cleanSets, formatCompactWeekLabel, movingAverag
 import { nivoTheme } from '../../utils/nivoTheme'
 
 const EmptyState = ({ title, description }) => (
-  <div className="border border-dashed border-border-soft rounded-xl p-4 text-center text-sm text-muted">
-    <p className="font-semibold text-white/80 mb-1">{title}</p>
-    <p className="text-muted text-xs">{description}</p>
+  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+    <p className="font-semibold text-[color:var(--text)] mb-1">{title}</p>
+    <p className="text-[color:var(--text-muted)] text-xs">{description}</p>
   </div>
 )
 
 const KPI = ({ label, value }) => (
-  <div className="flex-1 rounded-lg border border-border-soft bg-white/5 px-3 py-2">
-    <p className="text-xs text-muted">{label}</p>
+  <div className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2">
+    <p className="text-xs text-[color:var(--text-muted)]">{label}</p>
     <p className="text-lg font-semibold">{value}</p>
   </div>
 )
@@ -136,12 +136,12 @@ const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dar
             tooltip={({ point }) => {
               const { data: d } = point
               return (
-                <div className="rounded-xl border border-border-soft bg-bg-darker px-3 py-2 text-xs shadow-lg">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{point.serieId}</p>
-                  <p className="text-muted">{d.xFormatted || d.x}</p>
+                  <p className="text-[color:var(--text-muted)]">{d.xFormatted || d.x}</p>
                   <p>1RM: {d.y ? `${Number(d.y).toFixed(1)} kg` : '—'}</p>
                   {d.topSet && (
-                    <p className="text-muted">Top set: {d.topSet.weight} kg x {d.topSet.reps}</p>
+                    <p className="text-[color:var(--text-muted)]">Top set: {d.topSet.weight} kg x {d.topSet.reps}</p>
                   )}
                 </div>
               )

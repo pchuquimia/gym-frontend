@@ -6,15 +6,15 @@ import { cleanSets, toIsoWeek, formatCompactWeekLabel, movingAverage } from '../
 import { nivoTheme } from '../../utils/nivoTheme'
 
 const EmptyState = () => (
-  <div className="border border-dashed border-border-soft rounded-xl p-4 text-center text-sm text-muted">
-    <p className="font-semibold text-white/80 mb-1">Sin datos suficientes</p>
-    <p className="text-muted text-xs">Registra al menos 2 semanas para ver progreso</p>
+  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+    <p className="font-semibold text-[color:var(--text)] mb-1">Sin datos suficientes</p>
+    <p className="text-[color:var(--text-muted)] text-xs">Registra al menos 2 semanas para ver progreso</p>
   </div>
 )
 
 const KPI = ({ label, value }) => (
-  <div className="flex-1 rounded-lg border border-border-soft bg-white/5 px-3 py-2">
-    <p className="text-xs text-muted">{label}</p>
+  <div className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2">
+    <p className="text-xs text-[color:var(--text-muted)]">{label}</p>
     <p className="text-lg font-semibold">{value}</p>
   </div>
 )
@@ -106,14 +106,14 @@ const ExerciseVolumeChart = ({
 
       <div className="flex items-center gap-2 text-xs">
         <button
-          className={`px-3 py-1 rounded-full border ${view === 'volume' ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+          className={`px-3 py-1 rounded-full border ${view === 'volume' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
           onClick={() => setView('volume')}
           type="button"
         >
           Volumen
         </button>
         <button
-          className={`px-3 py-1 rounded-full border ${view === 'trend' ? 'border-accent text-white bg-accent/20' : 'border-border-soft text-muted'}`}
+          className={`px-3 py-1 rounded-full border ${view === 'trend' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
           onClick={() => setView('trend')}
           type="button"
         >
@@ -140,7 +140,7 @@ const ExerciseVolumeChart = ({
               axisLeft={{ legend: 'Volumen (kg·reps)', legendPosition: 'middle', legendOffset: -50, tickPadding: 6 }}
               enableGridY
               tooltip={({ data }) => (
-                <div className="rounded-xl border border-border-soft bg-bg-darker px-3 py-2 text-xs shadow-lg">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{formatCompactWeekLabel(data.week)}</p>
                   <p>Volumen: {data.volume} kg·reps</p>
                   <p>Sets: {data.sets}</p>
@@ -171,7 +171,7 @@ const ExerciseVolumeChart = ({
               colors={['#c084fc']}
               useMesh
               tooltip={({ point }) => (
-                <div className="rounded-xl border border-border-soft bg-bg-darker px-3 py-2 text-xs shadow-lg">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{formatCompactWeekLabel(point.data.x)}</p>
                   <p>MA3: {Number(point.data.y).toFixed(1)} kg·reps</p>
                 </div>
