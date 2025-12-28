@@ -5,6 +5,7 @@ import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
 import FilterBar from "../components/library/FilterBar";
 import TopBar from "../components/layout/TopBar";
+import Skeleton from "../components/ui/skeleton";
 import { useTrainingData } from "../context/TrainingContext";
 
 const slugify = (text) =>
@@ -17,8 +18,13 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, "");
 
 function ExerciseLibrary({ onNavigate }) {
-  const { exercises, addExercise, updateExerciseMeta, deleteExercise } =
-    useTrainingData();
+  const {
+    exercises,
+    addExercise,
+    updateExerciseMeta,
+    deleteExercise,
+    loading,
+  } = useTrainingData();
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
@@ -53,8 +59,8 @@ function ExerciseLibrary({ onNavigate }) {
     return filteredExercises
       .slice()
       .sort((a, b) => {
-        const ai = Boolean(a.thumb || a.image);
-        const bi = Boolean(b.thumb || b.image);
+        const ai = Boolean(a.imagePublicId || a.thumb || a.image);
+        const bi = Boolean(b.imagePublicId || b.thumb || b.image);
         return Number(bi) - Number(ai);
       })
       .slice(0, 6);
@@ -88,6 +94,7 @@ function ExerciseLibrary({ onNavigate }) {
       description: exercise.description,
       equipment: exercise.equipment,
       image: exercise.image,
+      imagePublicId: exercise.imagePublicId || "",
       branches: exercise.branches?.length ? exercise.branches : ["general"],
       type: exercise.type || "custom",
     };
@@ -174,17 +181,21 @@ function ExerciseLibrary({ onNavigate }) {
         </div>
 
         <section className="space-y-3">
-          {popularExercises.map((exercise) => (
-            <ExerciseCard
-              key={exercise.id}
-              exercise={exercise}
-              onView={handleView}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
+          {loading
+            ? Array.from({ length: 6 }).map((_, idx) => (
+                <Skeleton key={idx} className="h-20 w-full md:h-64" />
+              ))
+            : popularExercises.map((exercise) => (
+                <ExerciseCard
+                  key={exercise.id}
+                  exercise={exercise}
+                  onView={handleView}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
 
-          {filteredExercises.length === 0 && (
+          {!loading && filteredExercises.length === 0 && (
             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
               <p className="text-sm text-[color:var(--text-muted)]">
                 No hay ejercicios para los filtros seleccionados.

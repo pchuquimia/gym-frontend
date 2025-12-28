@@ -119,6 +119,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     exercises: libraryExercises,
     addTraining,
     updateTraining,
+    trainings,
     branch: userBranch,
     setBranch,
   } = useTrainingData();
@@ -251,6 +252,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: ex.name || meta.name || "Ejercicio",
         prText: headerText,
         image: ex.image || meta.image || "",
+        imagePublicId: ex.imagePublicId || meta.imagePublicId || "",
         muscle:
           ex.muscle ||
           ex.muscleGroup ||
@@ -360,34 +362,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setLoadingTraining(false);
     }
   };
-  const loadHistoryForRoutine = async (routineId) => {
-    if (!routineId) {
-      setHistoryTrainings([]);
-      return [];
+  const loadHistoryForRoutine = async (_routineId) => {
+    if (Array.isArray(trainings) && trainings.length) {
+      setHistoryTrainings(trainings);
+      return trainings;
     }
     try {
-      let resp = await api.getTrainings({
-        routineId,
-        limit: 60,
+      const resp = await api.getTrainings({
+        limit: 200,
         fields:
           "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
         meta: false,
       });
-      let list = Array.isArray(resp) ? resp : resp?.items || [];
-      // si no hay historial de esa rutina (datos antiguos sin routineId), intenta sin filtro
-      if (!list.length) {
-        resp = await api.getTrainings({
-          limit: 60,
-          fields:
-            "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
-          meta: false,
-        });
-        list = Array.isArray(resp) ? resp : resp?.items || [];
-      }
+      const list = Array.isArray(resp) ? resp : resp?.items || [];
       setHistoryTrainings(list);
       return list;
     } catch (e) {
-      console.warn("No se pudo cargar historial de la rutina", e);
+      console.warn("No se pudo cargar historial general", e);
       setHistoryTrainings([]);
       return [];
     }

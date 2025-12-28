@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
   Flame,
@@ -11,8 +12,10 @@ import {
   MapPin,
 } from "lucide-react";
 import TopBar from "../components/layout/TopBar";
+import Skeleton from "../components/ui/skeleton";
 import { api } from "../services/api";
 import { presets } from "../utils/motion";
+import { useTrainingData } from "../context/TrainingContext";
 
 const chartTheme = {
   background: "transparent",
@@ -46,17 +49,8 @@ const rangeOptions = [
 ];
 
 function Dashboard({ onNavigate }) {
+  const { goals } = useTrainingData();
   const [range, setRange] = useState("7");
-  const [summary, setSummary] = useState({
-    chart: [],
-    totalVolume: 0,
-    sessionsCount: 0,
-    prs: 0,
-    recentSessions: [],
-    objectives: [],
-  });
-  const [loading, setLoading] = useState(false);
-  const [prefGoals, setPrefGoals] = useState([]);
   const [summarySupported, setSummarySupported] = useState(true);
 
   const go = (key) => {
@@ -73,9 +67,9 @@ function Dashboard({ onNavigate }) {
     if (path) window.location.href = path;
   };
 
-  useEffect(() => {
-    async function loadSummary() {
-      setLoading(true);
+  const summaryQuery = useQuery({
+    queryKey: ["dashboardSummary", range, summarySupported],
+    queryFn: async () => {
       const days = Number(range);
       const today = new Date();
       const to = today.toISOString().slice(0, 10);
@@ -83,105 +77,92 @@ function Dashboard({ onNavigate }) {
       fromDate.setDate(fromDate.getDate() - (days - 1));
       const from = fromDate.toISOString().slice(0, 10);
 
-      try {
-        let data;
-        const useSummary = summarySupported;
-
-        if (useSummary) {
-          try {
-            data = await api.getTrainingsSummary({ from, to });
-          } catch (err) {
-            if (err.message?.toLowerCase?.().includes("not found")) {
-              setSummarySupported(false);
-            } else {
-              throw err;
-            }
-          }
+      let data = null;
+      if (summarySupported) {
+        try {
+          data = await api.getTrainingsSummary({ from, to });
+        } catch (err) {
+          console.warn("Resumen no disponible, usando fallback", err?.message);
+          setSummarySupported(false);
         }
+      }
 
-        if (!data) {
-          const list = await api.getTrainings({
-            page: 1,
-            limit: 200,
-            fields: "date,totalVolume,routineName,branch,durationSeconds",
-            from,
-            to,
-            meta: false,
-          });
-
-          // Agrupar por semana ISO (fallback)
-          const byWeek = new Map();
-          let totalVolume = 0;
-
-          (list || []).forEach((t) => {
-            const date = t.date || t.createdAt;
-            if (!date) return;
-            const vol = Number(t.totalVolume || 0);
-            totalVolume += vol;
-
-            const d = new Date(`${date}T00:00:00Z`);
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            const wk = `${d.getUTCFullYear()}-W${String(
-              Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
-            ).padStart(2, "0")}`;
-
-            byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
-          });
-
-          data = {
-            chart: Array.from(byWeek.entries())
-              .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-              .map(([x, y]) => ({ x, y })),
-            totalVolume,
-            sessionsCount: (list || []).length,
-            prs: 0,
-            recentSessions: (list || []).slice(0, 5),
-            objectives: [],
-          };
-        }
-
-        setSummary({
-          chart: Array.isArray(data.chart) ? data.chart : [],
-          totalVolume: Number(data.totalVolume) || 0,
-          sessionsCount: Number(data.sessionsCount) || 0,
-          prs: Number(data.prs) || 0,
-          recentSessions: Array.isArray(data.recentSessions)
-            ? data.recentSessions
-            : [],
-          objectives: Array.isArray(data.objectives) ? data.objectives : [],
+      if (!data) {
+        const list = await api.getTrainings({
+          page: 1,
+          limit: 200,
+          fields: "date,totalVolume,routineName,branch,durationSeconds",
+          from,
+          to,
+          meta: false,
         });
-      } catch (err) {
-        console.error("No se pudo cargar el resumen", err);
-      } finally {
-        setLoading(false);
-      }
-    }
 
-    loadSummary();
-  }, [range, summarySupported]);
+        const byWeek = new Map();
+        let totalVolume = 0;
 
-  useEffect(() => {
-    async function loadPrefs() {
-      try {
-        const pref = await api.getPreference();
-        if (pref?.goals) {
-          const mapped = Object.entries(pref.goals).map(([key, obj]) => ({
-            key,
-            label: obj.label || key,
-            value: Number(obj.current) || 0,
-            goal: Number(obj.target) || 0,
-            unit: obj.unit || "kg",
-          }));
-          setPrefGoals(mapped);
-        }
-      } catch (err) {
-        console.warn("No se pudo cargar preferencias", err?.message);
+        (list || []).forEach((t) => {
+          const date = t.date || t.createdAt;
+          if (!date) return;
+          const vol = Number(t.totalVolume || 0);
+          totalVolume += vol;
+
+          const d = new Date(`${date}T00:00:00Z`);
+          const dayNum = d.getUTCDay() || 7;
+          d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          const wk = `${d.getUTCFullYear()}-W${String(
+            Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
+          ).padStart(2, "0")}`;
+
+          byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
+        });
+
+        data = {
+          chart: Array.from(byWeek.entries())
+            .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+            .map(([x, y]) => ({ x, y })),
+          totalVolume,
+          sessionsCount: (list || []).length,
+          prs: 0,
+          recentSessions: (list || []).slice(0, 5),
+          objectives: [],
+        };
       }
-    }
-    loadPrefs();
-  }, []);
+
+      return {
+        chart: Array.isArray(data.chart) ? data.chart : [],
+        totalVolume: Number(data.totalVolume) || 0,
+        sessionsCount: Number(data.sessionsCount) || 0,
+        prs: Number(data.prs) || 0,
+        recentSessions: Array.isArray(data.recentSessions)
+          ? data.recentSessions
+          : [],
+        objectives: Array.isArray(data.objectives) ? data.objectives : [],
+      };
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const summary = summaryQuery.data || {
+    chart: [],
+    totalVolume: 0,
+    sessionsCount: 0,
+    prs: 0,
+    recentSessions: [],
+    objectives: [],
+  };
+  const loading = summaryQuery.isLoading;
+
+  const prefGoals = useMemo(() => {
+    if (!goals) return [];
+    return Object.entries(goals).map(([key, obj]) => ({
+      key,
+      label: obj.label || key,
+      value: Number(obj.current) || 0,
+      goal: Number(obj.target) || 0,
+      unit: obj.unit || "kg",
+    }));
+  }, [goals]);
 
   const yValues = summary.chart.map((p) => Number(p.y || 0));
   const minY = yValues.length ? Math.min(...yValues) * 0.98 : "auto";
@@ -271,12 +252,16 @@ function Dashboard({ onNavigate }) {
             <p className="text-xs font-medium text-[color:var(--text-muted)]">
               Volumen total
             </p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--text)]">
-              {summary.totalVolume.toLocaleString()}{" "}
-              <span className="text-base font-semibold text-[color:var(--text-muted)]">
-                kg
-              </span>
-            </p>
+            {loading ? (
+              <Skeleton className="mt-2 h-8 w-40" />
+            ) : (
+              <p className="mt-1 text-2xl font-bold text-[color:var(--text)]">
+                {summary.totalVolume.toLocaleString()}{" "}
+                <span className="text-base font-semibold text-[color:var(--text-muted)]">
+                  kg
+                </span>
+              </p>
+            )}
             <p className="mt-2 text-xs text-emerald-600 inline-flex items-center gap-1">
               <TrendingUp className="h-4 w-4" />
               Tendencia basada en periodo
@@ -297,9 +282,13 @@ function Dashboard({ onNavigate }) {
           <p className="text-xs font-medium text-[color:var(--text-muted)]">
             Sesiones
           </p>
-          <p className="mt-1 text-2xl font-bold text-[color:var(--text)]">
-            {summary.sessionsCount}
-          </p>
+          {loading ? (
+            <Skeleton className="mt-2 h-8 w-16" />
+          ) : (
+            <p className="mt-1 text-2xl font-bold text-[color:var(--text)]">
+              {summary.sessionsCount}
+            </p>
+          )}
           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
             Periodo actual
           </p>
@@ -310,9 +299,13 @@ function Dashboard({ onNavigate }) {
             Nuevos PRs
           </p>
           <div className="mt-1 flex items-end gap-2">
-            <p className="text-2xl font-bold text-[color:var(--text)]">
-              {summary.prs}
-            </p>
+            {loading ? (
+              <Skeleton className="mt-2 h-8 w-12" />
+            ) : (
+              <p className="text-2xl font-bold text-[color:var(--text)]">
+                {summary.prs}
+              </p>
+            )}
             <Flame className="h-4 w-4 text-amber-500 mb-1" />
           </div>
           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
@@ -400,7 +393,7 @@ function Dashboard({ onNavigate }) {
             />
           ) : (
             <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
-              {loading ? "Cargando..." : "Sin datos suficientes"}
+              {loading ? <Skeleton className="h-32 w-full" /> : "Sin datos suficientes"}
             </div>
           )}
         </div>

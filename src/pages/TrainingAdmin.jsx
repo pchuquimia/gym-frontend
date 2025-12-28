@@ -9,9 +9,14 @@ const formatDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES");
 
 const formatDuration = (sec = 0) => {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const total = Number.isFinite(sec) ? Math.max(0, Math.floor(sec)) : 0;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(
+    2,
+    "0"
+  )}:${String(s).padStart(2, "0")}`;
 };
 
 const branchLabel = (b) => {

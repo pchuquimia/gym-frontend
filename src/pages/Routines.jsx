@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import TopBar from "../components/layout/TopBar";
 import Modal from "../components/shared/Modal";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 
@@ -98,7 +99,8 @@ function RoutineModal({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
         muscle: ex.muscle || meta?.muscle,
-        image: ex.image || meta?.thumb || meta?.image,
+        image: ex.image || meta?.image || "",
+        imagePublicId: ex.imagePublicId || meta?.imagePublicId || "",
       };
     })
   );
@@ -158,7 +160,8 @@ function RoutineModal({
         exerciseId: exercise.id,
         sets: 3,
         muscle: exercise.muscle,
-        image: exercise.image || exercise.thumb,
+        image: exercise.image || "",
+        imagePublicId: exercise.imagePublicId || "",
       },
     ]);
   };
@@ -309,9 +312,9 @@ function RoutineModal({
                 className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 flex flex-col gap-2 shadow-sm"
               >
                 <div className="aspect-video w-full rounded-xl overflow-hidden border border-[color:var(--border)] bg-slate-100 grid place-items-center">
-                  {ex.image || ex.thumb ? (
+                  {getExerciseImageUrl(ex, { width: 400, height: 225 }) ? (
                     <img
-                      src={ex.image || ex.thumb}
+                      src={getExerciseImageUrl(ex, { width: 400, height: 225 })}
                       alt={ex.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -387,9 +390,9 @@ function RoutineModal({
                     onDragEnd={() => setDragIndex(null)}
                   >
                     <div className="w-14 h-14 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] grid place-items-center">
-                      {ex.image ? (
+                      {getExerciseImageUrl(ex, { width: 160, height: 160 }) ? (
                         <img
-                          src={ex.image}
+                          src={getExerciseImageUrl(ex, { width: 160, height: 160 })}
                           alt={ex.name}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -469,8 +472,8 @@ function Routines() {
         id: ex.id,
         name: ex.name,
         muscle: ex.muscle,
-        image: ex.image || ex.thumb,
-        thumb: ex.thumb,
+        image: ex.image || "",
+        imagePublicId: ex.imagePublicId || "",
         branches: ex.branches,
       }));
   }, [libraryExercises]);

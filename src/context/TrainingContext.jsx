@@ -1,12 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 const TrainingContext = createContext(null)
 
-const initialSessions = []
-const initialExercises = []
-const initialPhotos = []
-const initialTrainings = []
 const initialGoals = {}
 
 const slugify = (text) =>
@@ -18,50 +15,90 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '')
 
+const normalizeExercise = (exercise) => ({
+  ...exercise,
+  id: exercise._id || exercise.id,
+  branches: exercise.branches?.length ? exercise.branches : ['general'],
+})
+
+const normalizeSession = (session) => ({
+  ...session,
+  id: session._id || session.id,
+})
+
+const normalizePhoto = (photo) => ({
+  ...photo,
+  id: photo._id || photo.id,
+})
+
+const normalizeTraining = (training) => ({
+  ...training,
+  id: training._id || training.id,
+})
+
+const EXERCISES_KEY = ['exercises']
+const SESSIONS_KEY = ['sessions']
+const PHOTOS_KEY = ['photos']
+const TRAININGS_KEY = ['trainings', 120]
+const PREFS_KEY = ['preferences']
+
 export function TrainingProvider({ children }) {
-  const [sessions, setSessions] = useState(initialSessions)
-  const [exercises, setExercises] = useState(initialExercises)
-  const [photos, setPhotos] = useState(initialPhotos)
-  const [trainings, setTrainings] = useState(initialTrainings)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const queryClient = useQueryClient()
   const [branch, setBranchState] = useState('general')
   const [goals, setGoals] = useState(initialGoals)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        const [exsResponse, sess, ph, trResp] = await Promise.all([
-          api.getExercises({ fields: 'name,muscle,branches,type,thumb,image,updatedAt,createdAt', limit: 200 }),
-          api.getSessions(),
-          api.getPhotos(),
-          api.getTrainings({ limit: 120 }),
-        ])
-        const exs = Array.isArray(exsResponse) ? exsResponse : exsResponse?.items || []
-        const tr = Array.isArray(trResp) ? trResp : trResp?.items || []
-        setExercises(exs.map((e) => ({ ...e, id: e._id || e.id, branches: e.branches?.length ? e.branches : ['general'] })))
-        setSessions(sess.map((s) => ({ ...s, id: s._id || s.id })))
-        setPhotos(ph.map((p) => ({ ...p, id: p._id || p.id })))
-        setTrainings(tr.map((t) => ({ ...t, id: t._id || t.id })))
+  const exercisesQuery = useQuery({
+    queryKey: EXERCISES_KEY,
+    queryFn: async () => {
+      const exsResponse = await api.getExercises({
+        fields: 'name,muscle,branches,type,image,imagePublicId,thumb,updatedAt,createdAt',
+        limit: 200,
+      })
+      const list = Array.isArray(exsResponse) ? exsResponse : exsResponse?.items || []
+      return list.map(normalizeExercise)
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
-        try {
-          const pref = await api.getPreference()
-          if (pref?.branch) setBranchState(pref.branch)
-          if (pref?.goals) setGoals(pref.goals)
-        } catch (prefErr) {
-          console.warn('Preferencia no disponible, usando general', prefErr?.message)
-          setBranchState('general')
-        }
-        setError(null)
-      } catch (e) {
-        setError(e.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
+  const sessionsQuery = useQuery({
+    queryKey: SESSIONS_KEY,
+    queryFn: async () => {
+      const list = await api.getSessions()
+      return (list || []).map(normalizeSession)
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const photosQuery = useQuery({
+    queryKey: PHOTOS_KEY,
+    queryFn: async () => {
+      const list = await api.getPhotos()
+      return (list || []).map(normalizePhoto)
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const trainingsQuery = useQuery({
+    queryKey: TRAININGS_KEY,
+    queryFn: async () => {
+      const trResp = await api.getTrainings({ limit: 120 })
+      const list = Array.isArray(trResp) ? trResp : trResp?.items || []
+      return list.map(normalizeTraining)
+    },
+    staleTime: 60 * 1000,
+  })
+
+  const prefsQuery = useQuery({
+    queryKey: PREFS_KEY,
+    queryFn: async () => api.getPreference(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    if (prefsQuery.data?.branch) setBranchState(prefsQuery.data.branch)
+    if (prefsQuery.data?.goals) setGoals(prefsQuery.data.goals)
+    if (prefsQuery.error) setBranchState('general')
+  }, [prefsQuery.data, prefsQuery.error])
 
   const addSession = async (session) => {
     let photoUrl = session.photoUrl || ''
@@ -74,8 +111,8 @@ export function TrainingProvider({ children }) {
       form.append('type', session.photoType || 'gym')
       form.append('sessionId', session.id || '')
       const uploaded = await api.uploadPhoto(form)
-      const normalizedPhoto = { ...uploaded, id: uploaded._id || uploaded.id }
-      setPhotos((prev) => [normalizedPhoto, ...prev])
+      const normalizedPhoto = normalizePhoto(uploaded)
+      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [normalizedPhoto, ...prev])
       photoUrl = normalizedPhoto.url
     } else if (photoUrl && !session.photoPersisted) {
       const photo = await api.createPhoto({
@@ -85,30 +122,32 @@ export function TrainingProvider({ children }) {
         type: session.photoType || 'gym',
         sessionId: session.id,
       })
-      const normalizedPhoto = { ...photo, id: photo._id || photo.id }
-      setPhotos((prev) => [normalizedPhoto, ...prev])
+      const normalizedPhoto = normalizePhoto(photo)
+      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [normalizedPhoto, ...prev])
       photoUrl = normalizedPhoto.url
     }
 
     const payload = { ...session, id: undefined, photoFile: undefined, photoPersisted: undefined, photoUrl }
     const saved = await api.createSession(payload)
-    const normalized = { ...saved, id: saved._id || saved.id }
-    setSessions((prev) => [normalized, ...prev])
+    const normalized = normalizeSession(saved)
+    queryClient.setQueryData(SESSIONS_KEY, (prev = []) => [normalized, ...prev])
   }
 
   const addTraining = async (training) => {
     const payload = { ...training, id: undefined, _id: training.id }
     const saved = await api.createTraining(payload)
-    const normalized = { ...saved, id: saved._id || saved.id }
-    setTrainings((prev) => [normalized, ...prev])
+    const normalized = normalizeTraining(saved)
+    queryClient.setQueryData(TRAININGS_KEY, (prev = []) => [normalized, ...prev])
     return normalized
   }
 
   const updateTraining = async (id, training) => {
     const payload = { ...training, id: undefined, _id: undefined }
     const saved = await api.updateTraining(id, payload)
-    const normalized = { ...saved, id: saved._id || saved.id }
-    setTrainings((prev) => prev.map((t) => (t.id === normalized.id || t._id === normalized.id ? normalized : t)))
+    const normalized = normalizeTraining(saved)
+    queryClient.setQueryData(TRAININGS_KEY, (prev = []) =>
+      prev.map((t) => (t.id === normalized.id || t._id === normalized.id ? normalized : t)),
+    )
     return normalized
   }
 
@@ -116,29 +155,40 @@ export function TrainingProvider({ children }) {
     const id = exercise.id || slugify(exercise.name)
     const payload = { ...exercise, _id: id, branches: exercise.branches?.length ? exercise.branches : ['general'] }
     const saved = await api.createExercise(payload)
-    setExercises((prev) => [...prev, { ...saved, id, branches: saved.branches || payload.branches }])
+    const normalized = normalizeExercise({ ...saved, id, branches: saved.branches || payload.branches })
+    queryClient.setQueryData(EXERCISES_KEY, (prev = []) => [...prev, normalized])
   }
 
   const updateExerciseMeta = async (id, payload) => {
     const body = { ...payload, branches: payload.branches?.length ? payload.branches : ['general'] }
     const saved = await api.updateExercise(id, body)
-    setExercises((prev) => prev.map((ex) => (ex.id === id ? { ...ex, ...saved, id, branches: saved.branches || body.branches } : ex)))
+    const normalized = normalizeExercise({ ...saved, id, branches: saved.branches || body.branches })
+    queryClient.setQueryData(EXERCISES_KEY, (prev = []) => prev.map((ex) => (ex.id === id ? normalized : ex)))
   }
 
   const deleteExercise = async (id) => {
     await api.deleteExercise(id)
-    setExercises((prev) => prev.filter((ex) => ex.id !== id))
+    queryClient.setQueryData(EXERCISES_KEY, (prev = []) => prev.filter((ex) => ex.id !== id))
   }
 
+  const updatePreferences = useMutation({
+    mutationFn: (payload) => api.setPreference(payload),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(PREFS_KEY, saved)
+      if (saved?.branch) setBranchState(saved.branch)
+      if (saved?.goals) setGoals(saved.goals)
+    },
+  })
+
   const setBranch = async (value) => {
-    const saved = await api.setPreference({ branch: value, goals })
-    setBranchState(saved.branch || value)
-    if (saved?.goals) setGoals(saved.goals)
+    const saved = await updatePreferences.mutateAsync({ branch: value, goals })
+    return saved
   }
 
   const saveGoals = async (nextGoals) => {
-    const saved = await api.setPreference({ goals: nextGoals, branch })
-    setGoals(saved.goals || nextGoals)
+    const saved = await updatePreferences.mutateAsync({ goals: nextGoals, branch })
+    setGoals(saved?.goals || nextGoals)
+    return saved
   }
 
   const addPhoto = async (photo) => {
@@ -150,21 +200,50 @@ export function TrainingProvider({ children }) {
       if (photo.type) form.append('type', photo.type)
       if (photo.sessionId) form.append('sessionId', photo.sessionId)
       const uploaded = await api.uploadPhoto(form)
-      const normalized = { ...uploaded, id: uploaded._id || uploaded.id }
-      setPhotos((prev) => [normalized, ...prev])
+      const normalized = normalizePhoto(uploaded)
+      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [normalized, ...prev])
       return normalized
     }
     const payload = { ...photo, id: undefined, file: undefined }
     const saved = await api.createPhoto(payload)
-    const normalized = { ...saved, id: saved._id || saved.id }
-    setPhotos((prev) => [normalized, ...prev])
+    const normalized = normalizePhoto(saved)
+    queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [normalized, ...prev])
     return normalized
   }
 
   const deletePhoto = async (id) => {
     await api.deletePhoto(id)
-    setPhotos((prev) => prev.filter((p) => p.id !== id))
+    queryClient.setQueryData(PHOTOS_KEY, (prev = []) => prev.filter((p) => p.id !== id))
   }
+
+  const setTrainings = (updater) => {
+    queryClient.setQueryData(TRAININGS_KEY, (prev = []) =>
+      typeof updater === 'function' ? updater(prev) : updater,
+    )
+  }
+
+  const setGoalsState = (nextGoals) => {
+    setGoals(nextGoals)
+    queryClient.setQueryData(PREFS_KEY, (prev = {}) => ({ ...prev, goals: nextGoals }))
+  }
+
+  const exercises = exercisesQuery.data || []
+  const sessions = sessionsQuery.data || []
+  const photos = photosQuery.data || []
+  const trainings = trainingsQuery.data || []
+  const loading =
+    exercisesQuery.isLoading ||
+    sessionsQuery.isLoading ||
+    photosQuery.isLoading ||
+    trainingsQuery.isLoading ||
+    prefsQuery.isLoading
+  const error =
+    exercisesQuery.error?.message ||
+    sessionsQuery.error?.message ||
+    photosQuery.error?.message ||
+    trainingsQuery.error?.message ||
+    prefsQuery.error?.message ||
+    null
 
   const value = useMemo(
     () => ({
@@ -187,7 +266,7 @@ export function TrainingProvider({ children }) {
       setBranch,
       saveGoals,
       setTrainings,
-      setGoals,
+      setGoals: setGoalsState,
     }),
     [sessions, exercises, photos, trainings, loading, error, branch, goals],
   )

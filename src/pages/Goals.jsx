@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
+import Spinner from "../components/ui/spinner";
 import { useTrainingData } from "../context/TrainingContext";
 import { toast } from "sonner";
 
@@ -267,7 +268,14 @@ export default function Goals() {
               disabled={saving}
               className="rounded-xl hidden sm:inline-flex"
             >
-              {saving ? "Guardando..." : "Guardar"}
+              {saving ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner className="h-4 w-4 text-white" />
+                  Guardando...
+                </span>
+              ) : (
+                "Guardar"
+              )}
             </Button>
           </div>
         </div>
@@ -519,7 +527,14 @@ export default function Goals() {
           disabled={saving}
           className="w-full rounded-xl"
         >
-          {saving ? "Guardando..." : "Guardar objetivos"}
+          {saving ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner className="h-4 w-4 text-white" />
+              Guardando...
+            </span>
+          ) : (
+            "Guardar objetivos"
+          )}
         </Button>
       </div>
     </main>

@@ -18,7 +18,9 @@ export const api = {
   getExercises: (params = {}) => {
     const query = new URLSearchParams({
       limit: params.limit ?? 100,
-      fields: params.fields ?? 'name,muscle,branches,type,thumb,updatedAt,createdAt',
+      fields:
+        params.fields ??
+        'name,muscle,branches,type,image,imagePublicId,thumb,updatedAt,createdAt',
       page: params.page ?? 1,
       meta: params.meta ?? false,
     }).toString()

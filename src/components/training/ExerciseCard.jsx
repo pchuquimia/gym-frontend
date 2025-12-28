@@ -7,6 +7,7 @@ import Button from "../ui/button";
 import Badge from "../ui/badge";
 import SetRow from "./SetRow";
 import { api } from "../../services/api";
+import { getExerciseImageUrl } from "../../utils/cloudinary";
 
 export default function ExerciseCard({
   exercise,
@@ -24,7 +25,7 @@ export default function ExerciseCard({
       const cached = localStorage.getItem(key);
       if (cached) return cached;
     }
-    return exercise.image || "";
+    return getExerciseImageUrl(exercise, { width: 240, height: 240 });
   });
   const imgLoaded = useRef(false);
 
@@ -34,11 +35,12 @@ export default function ExerciseCard({
     (async () => {
       try {
         const full = await api.getExercise(exercise.id);
-        if (full?.image) {
-          setImageSrc(full.image);
+        const nextImg = getExerciseImageUrl(full, { width: 240, height: 240 });
+        if (nextImg) {
+          setImageSrc(nextImg);
           if (typeof localStorage !== "undefined") {
             const key = `exercise_thumb_${exercise.id}`;
-            localStorage.setItem(key, full.image);
+            localStorage.setItem(key, nextImg);
           }
         }
       } catch (e) {
@@ -160,6 +162,7 @@ ExerciseCard.propTypes = {
     name: PropTypes.string.isRequired,
     prText: PropTypes.string,
     image: PropTypes.string,
+    imagePublicId: PropTypes.string,
     sets: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,
