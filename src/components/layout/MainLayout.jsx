@@ -61,7 +61,7 @@ function MainLayout({ children, activePage, onNavigate }) {
     <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
       {activePage !== 'registrar' && activeTraining && (
         <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm">
-          <div className="flex items-center justify-between px-4 py-2 md:px-8">
+          <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
             <div className="text-sm text-[color:var(--text-muted)] flex items-center gap-1">
               <span>Sesión en curso</span>
               <span className="ml-1 font-semibold text-[color:var(--text)] font-mono">
@@ -81,7 +81,7 @@ function MainLayout({ children, activePage, onNavigate }) {
         <div className="hidden md:block">
           <Sidebar activePage={activePage} onNavigate={onNavigate} />
         </div>
-        <div className="px-4 py-4 md:px-8 md:py-8">
+        <div className="px-3 py-4 sm:px-4 md:px-8 md:py-8">
           <div className="flex items-center justify-between mb-4 gap-3">
             <button
               type="button"

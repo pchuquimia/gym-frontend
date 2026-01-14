@@ -1,11 +1,12 @@
 import PropTypes from "prop-types";
 import { motion, useMotionValue } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Check, X } from "lucide-react";
 
 export default function SetRow({
   index,
   seriesType = "serie",
   entries = [],
+  prSummary = "",
   onChangeEntry,
   onToggleEntry,
   onRemove,
@@ -33,6 +34,11 @@ export default function SetRow({
     if (val === "" || val === null || val === undefined) return "";
     return String(val).replace(",", ".");
   };
+  const toNumber = (val) => {
+    if (val === "" || val === null || val === undefined) return null;
+    const parsed = Number(String(val).replace(",", "."));
+    return Number.isNaN(parsed) ? null : parsed;
+  };
 
   const handleDragEnd = (_, info) => {
     if (!isMobile) return;
@@ -56,7 +62,7 @@ export default function SetRow({
       className={`${baseClasses} ${stateClasses}`}
     >
       <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${
               setDone ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
@@ -67,6 +73,11 @@ export default function SetRow({
           <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
             Set de {seriesLabel}
           </span>
+          {prSummary ? (
+            <span className="text-[11px] text-[color:var(--text-muted)]">
+              PR {prSummary}
+            </span>
+          ) : null}
         </div>
         {!isMobile && onRemove && (
           <motion.button
@@ -85,6 +96,42 @@ export default function SetRow({
           const entryDone = Boolean(entry.done);
           const entryLabel =
             seriesType === "serie" ? `S${index}` : `E${entryIdx + 1}`;
+          const previousWeightValue = toNumber(entry.previousWeight);
+          const compareWeightValue = toNumber(entry.previousCompareWeight);
+          const previousRepsValue = toNumber(entry.previousReps);
+          const compareRepsValue = toNumber(entry.previousCompareReps);
+          const hasTrend =
+            (previousWeightValue != null && compareWeightValue != null) ||
+            (previousRepsValue != null && compareRepsValue != null);
+          let trend = null;
+          if (hasTrend) {
+            if (previousWeightValue != null && compareWeightValue != null) {
+              if (previousWeightValue > compareWeightValue) trend = "up";
+              else if (previousWeightValue < compareWeightValue) trend = "down";
+              else if (
+                previousRepsValue != null &&
+                compareRepsValue != null
+              ) {
+                if (previousRepsValue > compareRepsValue) trend = "up";
+                else if (previousRepsValue < compareRepsValue) trend = "down";
+                else trend = "same";
+              } else {
+                trend = "same";
+              }
+            } else if (previousRepsValue != null && compareRepsValue != null) {
+              if (previousRepsValue > compareRepsValue) trend = "up";
+              else if (previousRepsValue < compareRepsValue) trend = "down";
+              else trend = "same";
+            }
+          }
+          const trendClass =
+            trend === "up"
+              ? "text-emerald-500"
+              : trend === "down"
+              ? "text-rose-500"
+              : "text-[color:var(--text-muted)]";
+          const TrendIcon =
+            trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : null;
           return (
             <div
               key={entry.id || `${index}-${entryIdx}`}
@@ -97,8 +144,9 @@ export default function SetRow({
               <div className="text-xs font-semibold text-[color:var(--text-muted)]">
                 {entryLabel}
               </div>
-              <div className="text-[12px] text-[color:var(--text-muted)]">
-                {entry.previousText || "Sin referencia"}
+              <div className={`text-[12px] ${trendClass} flex items-center gap-1`}>
+                <span>{entry.previousText || "Sin referencia"}</span>
+                {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
               </div>
               <input
                 className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-sm text-center focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
@@ -164,11 +212,22 @@ SetRow.propTypes = {
     PropTypes.shape({
       id: PropTypes.string.isRequired,
       previousText: PropTypes.string.isRequired,
+      previousWeight: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      previousCompareWeight: PropTypes.oneOfType([
+        PropTypes.number,
+        PropTypes.string,
+      ]),
+      previousReps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+      previousCompareReps: PropTypes.oneOfType([
+        PropTypes.number,
+        PropTypes.string,
+      ]),
       kg: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       reps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       done: PropTypes.bool.isRequired,
     })
   ),
+  prSummary: PropTypes.string,
   onChangeEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,

@@ -246,7 +246,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
 
   return (
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto w-full max-w-6xl px-6 sm:px-8 lg:px-12 py-8 space-y-6">
+      <div className="mx-auto w-full max-w-6xl px-3 sm:px-6 lg:px-12 py-8 space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-[color:var(--text)]">

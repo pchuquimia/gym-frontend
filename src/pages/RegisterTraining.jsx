@@ -37,6 +37,18 @@ const formatShort = (iso) => {
   });
 };
 
+const buildPrevText = (meta, fallback) => {
+  if (meta && (meta.weight != null || meta.reps != null || meta.date)) {
+    const weightLabel =
+      meta.weight != null && meta.weight !== "" ? `${meta.weight}kg` : "--kg";
+    const repsLabel =
+      meta.reps != null && meta.reps !== "" ? meta.reps : "--";
+    const dateLabel = meta.date ? formatShort(meta.date) : "--";
+    return `${weightLabel} x ${repsLabel} | ${dateLabel}`;
+  }
+  return fallback || "Sin referencia";
+};
+
 const formatDuration = (sec) => {
   const hours = Math.floor(sec / 3600);
   const minutes = Math.floor((sec % 3600) / 60);
@@ -71,23 +83,73 @@ const normalizeEntries = ({
   seriesType,
   setId,
   fallbackPrev,
+  previousByIndex = [],
+  compareByIndex = [],
 }) => {
   const count = getSeriesCount(seriesType);
   const normalized = (Array.isArray(entries) ? entries : [])
     .filter(Boolean)
-    .map((entry, idx) => ({
-      id: entry.id || `${setId}-entry-${idx}`,
-      previousText:
-        entry.previousText || fallbackPrev || "Sin referencia",
-      kg: entry.kg ?? entry.weightKg ?? entry.weight ?? "",
-      reps: entry.reps ?? "",
-      done: Boolean(entry.done),
-    }));
+    .map((entry, idx) => {
+      const prevMeta = previousByIndex[idx] || {};
+      const compareMeta = compareByIndex[idx] || {};
+      const hasPrevMeta =
+        prevMeta &&
+        (prevMeta.weight != null || prevMeta.reps != null || prevMeta.date);
+      const hasCompareMeta =
+        compareMeta &&
+        (compareMeta.weight != null ||
+          compareMeta.reps != null ||
+          compareMeta.date);
+      const previousWeight = hasPrevMeta
+        ? prevMeta.weight ?? null
+        : entry.previousWeight ?? null;
+      const previousReps = hasPrevMeta
+        ? prevMeta.reps ?? null
+        : entry.previousReps ?? null;
+      const previousDate = hasPrevMeta
+        ? prevMeta.date ?? null
+        : entry.previousDate ?? null;
+      const previousCompareWeight = hasCompareMeta
+        ? compareMeta.weight ?? null
+        : entry.previousCompareWeight ?? null;
+      const previousCompareReps = hasCompareMeta
+        ? compareMeta.reps ?? null
+        : entry.previousCompareReps ?? null;
+      const previousCompareDate = hasCompareMeta
+        ? compareMeta.date ?? null
+        : entry.previousCompareDate ?? null;
+      const previousText = hasPrevMeta
+        ? buildPrevText(prevMeta, fallbackPrev)
+        : entry.previousText || buildPrevText(prevMeta, fallbackPrev);
+      return {
+        id: entry.id || `${setId}-entry-${idx}`,
+        previousText,
+        previousWeight,
+        previousReps,
+        previousDate,
+        previousCompareWeight,
+        previousCompareReps,
+        previousCompareDate,
+        kg: entry.kg ?? entry.weightKg ?? entry.weight ?? "",
+        reps: entry.reps ?? "",
+        done: Boolean(entry.done),
+      };
+    });
   while (normalized.length < count) {
+    const prevMeta = previousByIndex[normalized.length] || {};
+    const compareMeta = compareByIndex[normalized.length] || {};
     normalized.push({
       id: `${setId}-entry-${normalized.length}`,
-      previousText:
-        fallbackPrev || normalized[0]?.previousText || "Sin referencia",
+      previousText: buildPrevText(
+        prevMeta,
+        fallbackPrev || normalized[0]?.previousText
+      ),
+      previousWeight: prevMeta.weight ?? null,
+      previousReps: prevMeta.reps ?? null,
+      previousDate: prevMeta.date ?? null,
+      previousCompareWeight: compareMeta.weight ?? null,
+      previousCompareReps: compareMeta.reps ?? null,
+      previousCompareDate: compareMeta.date ?? null,
       kg: "",
       reps: "",
       done: false,
@@ -111,15 +173,32 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const getExerciseKeys = (exercise = {}) => {
+  const keys = new Set();
+  if (exercise.exerciseId) keys.add(exercise.exerciseId);
+  if (exercise.id) keys.add(exercise.id);
+  const name = exercise.exerciseName || exercise.name;
+  const slug = slugify(name || "");
+  if (slug) keys.add(slug);
+  return Array.from(keys);
+};
+
+const getDateTimestamp = (value) => {
+  if (!value) return 0;
+  const normalized = value.length <= 10 ? `${value}T00:00:00` : value;
+  const ts = Date.parse(normalized);
+  return Number.isNaN(ts) ? 0 : ts;
+};
+
 const computeBestFromHistory = (trainings = []) => {
   const map = new Map();
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
     (tr.exercises || []).forEach((ex) => {
+      const keys = getExerciseKeys(ex);
+      if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
-        const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
-        if (!key) return;
         const entries =
           Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
         entries.forEach((entry) => {
@@ -127,17 +206,19 @@ const computeBestFromHistory = (trainings = []) => {
             entry.weightKg ?? entry.weight ?? entry.kg ?? 0
           );
           const r = Number(entry.reps ?? 0);
-          const current = map.get(key);
-          const isBetter =
-            !current ||
-            w > current.weight ||
-            (w === current.weight && r > current.reps) ||
-            (w === current.weight &&
-              r === current.reps &&
-              date > (current.date || ""));
-          if (isBetter) {
-            map.set(key, { weight: w, reps: r, date });
-          }
+          keys.forEach((key) => {
+            const current = map.get(key);
+            const isBetter =
+              !current ||
+              w > current.weight ||
+              (w === current.weight && r > current.reps) ||
+              (w === current.weight &&
+                r === current.reps &&
+                date > (current.date || ""));
+            if (isBetter) {
+              map.set(key, { weight: w, reps: r, date });
+            }
+          });
         });
       });
     });
@@ -150,10 +231,11 @@ const computeBestBySetFromHistory = (trainings = []) => {
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
     (tr.exercises || []).forEach((ex) => {
-      const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
-      if (!key) return;
+      const keys = getExerciseKeys(ex);
+      if (!keys.length) return;
       const sets = ex.sets || [];
-      const arr = map.get(key) || [];
+      const existingKey = keys.find((key) => map.has(key));
+      const arr = existingKey ? map.get(existingKey) : [];
       sets.forEach((s, idx) => {
         const entries =
           Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
@@ -175,7 +257,50 @@ const computeBestBySetFromHistory = (trainings = []) => {
           }
         });
       });
-      map.set(key, arr);
+      keys.forEach((key) => map.set(key, arr));
+    });
+  });
+  return map;
+};
+
+const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
+  const map = new Map();
+  const cutoffTs = cutoffDate ? getDateTimestamp(cutoffDate) : null;
+  trainings.forEach((tr) => {
+    const date = tr.date || tr.createdAt;
+    const ts = getDateTimestamp(date);
+    if (cutoffTs && ts > cutoffTs) return;
+    (tr.exercises || []).forEach((ex) => {
+      const keys = getExerciseKeys(ex);
+      if (!keys.length) return;
+      const sets = ex.sets || [];
+      const existingKey = keys.find((key) => map.has(key));
+      const arr = existingKey ? map.get(existingKey) : [];
+      sets.forEach((s, sIdx) => {
+        const entries =
+          Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
+        if (!arr[sIdx]) arr[sIdx] = [];
+        entries.forEach((entry, entryIdx) => {
+          const weightRaw =
+            entry.weightKg ?? entry.weight ?? entry.kg ?? null;
+          const repsRaw = entry.reps ?? null;
+          const weight = parseDecimal(weightRaw);
+          const reps = parseDecimal(repsRaw);
+          const record = { weight, reps, date, ts };
+          const slot = arr[sIdx][entryIdx] || {
+            latest: null,
+            previous: null,
+          };
+          if (!slot.latest || ts > slot.latest.ts) {
+            slot.previous = slot.latest;
+            slot.latest = record;
+          } else if (!slot.previous || ts > slot.previous.ts) {
+            slot.previous = record;
+          }
+          arr[sIdx][entryIdx] = slot;
+        });
+      });
+      keys.forEach((key) => map.set(key, arr));
     });
   });
   return map;
@@ -205,6 +330,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedBranch, setSelectedBranch] = useState(userBranch || "general");
   const branchChangeReason = useRef("user"); // "user" | "routine"
   const restoredFromSnapshot = useRef(false);
+  const historyLoadAttempted = useRef(false);
   const lastUpdateRef = useRef(Date.now());
   const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
@@ -250,12 +376,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     () => computeBestBySetFromHistory(historyTrainings),
     [historyTrainings]
   );
+  const historyRecentBySet = useMemo(
+    () => computeRecentBySetFromHistory(historyTrainings),
+    [historyTrainings]
+  );
 
   const buildExercisesForRoutine = (
     routine,
     training,
     bestMap = historyBest,
-    bestBySetMap = historyBestBySet
+    bestBySetMap = historyBestBySet,
+    recentBySetMap = historyRecentBySet
   ) => {
     const list = (routine?.exercises || []).length
       ? routine.exercises
@@ -267,8 +398,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         }));
     const trainingById = new Map();
     (training?.exercises || []).forEach((ex) => {
-      const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
-      trainingById.set(key, ex);
+      getExerciseKeys(ex).forEach((key) => {
+        trainingById.set(key, ex);
+      });
     });
 
     return list.map((ex, idx) => {
@@ -280,20 +412,48 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             m.name?.toLowerCase() === ex.name?.toLowerCase()
         ) || {};
       const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
+      const nameKey = slugify(
+        ex.name || meta.name || ex.exerciseName || ex.exerciseId || ""
+      );
       const setsCount = Number(ex.sets) || 3;
-      const trainingEx = trainingById.get(id);
+      const trainingEx =
+        trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
       const seriesType = normalizeSeriesType(
         trainingEx?.seriesType || ex.seriesType
       );
-      const best = bestMap.get(id);
-      const bestBySet = bestBySetMap.get(id) || [];
+      const best =
+        bestMap.get(id) || (nameKey ? bestMap.get(nameKey) : null);
+      const bestBySet =
+        bestBySetMap.get(id) ||
+        (nameKey ? bestBySetMap.get(nameKey) : null) ||
+        [];
+      const recentBySet =
+        recentBySetMap.get(id) ||
+        (nameKey ? recentBySetMap.get(nameKey) : null) ||
+        [];
+      const prSummary = best
+        ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : "";
       const sets =
         (trainingEx?.sets || []).length > 0
           ? (trainingEx.sets || []).map((s, sIdx) => {
               const setId = s.id || `${id}-set-${sIdx}`;
+              const perSet = bestBySet[sIdx];
+              const perSetSummary = perSet
+                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
+                    perSet.date
+                  )}`
+                : s.prSummary || "";
               const fallbackPrev = `${s.weightKg ?? "--"}kg x ${
                 s.reps ?? "--"
               } | ${formatShort(training?.date)}`;
+              const recentEntries = recentBySet[sIdx] || [];
+              const previousByIndex = recentEntries.map(
+                (slot) => slot?.latest
+              );
+              const compareByIndex = recentEntries.map(
+                (slot) => slot?.previous
+              );
               const seedEntries = Array.isArray(s.entries)
                 ? s.entries
                 : [
@@ -307,17 +467,32 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   ];
               return {
                 id: setId,
+                prSummary: perSetSummary,
                 entries: normalizeEntries({
                   entries: seedEntries,
                   seriesType,
                   setId,
-                  fallbackPrev,
+                  fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
+                  previousByIndex,
+                  compareByIndex,
                 }),
               };
             })
           : Array.from({ length: setsCount }).map((_, sIdx) => {
               const setId = `${id}-set-${sIdx}`;
               const perSet = bestBySet[sIdx];
+              const perSetSummary = perSet
+                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
+                    perSet.date
+                  )}`
+                : "";
+              const recentEntries = recentBySet[sIdx] || [];
+              const previousByIndex = recentEntries.map(
+                (slot) => slot?.latest
+              );
+              const compareByIndex = recentEntries.map(
+                (slot) => slot?.previous
+              );
               const fallbackPrev = perSet
                 ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
                     perSet.date
@@ -343,10 +518,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   : "";
               return {
                 id: setId,
+                prSummary: perSetSummary,
                 entries: normalizeEntries({
                   entries: [
                     {
-                      previousText: fallbackPrev,
+                      previousText: buildPrevText(
+                        previousByIndex[0],
+                        fallbackPrev
+                      ),
                       kg: defaultKg,
                       reps: defaultReps,
                       done: false,
@@ -354,7 +533,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   ],
                   seriesType,
                   setId,
-                  fallbackPrev,
+                  fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
+                  previousByIndex,
+                  compareByIndex,
                 }),
               };
             });
@@ -374,16 +555,97 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           meta.muscleGroup ||
           "Sin grupo",
         seriesType,
+        prSummary,
+        prWeight: best?.weight ?? null,
         sets,
       };
     });
   };
 
+  const applyHistoryToExercises = (
+    list,
+    bestMap = historyBest,
+    bestBySetMap = historyBestBySet,
+    recentBySetMap = historyRecentBySet
+  ) =>
+    (list || []).map((ex, idx) => {
+      const id = ex.id || ex.exerciseId || slugify(ex.name || `ex-${idx}`);
+      const keys = getExerciseKeys({
+        ...ex,
+        id,
+        exerciseId: ex.exerciseId || ex.id,
+      });
+      const findKey = (map) => keys.find((key) => map.has(key)) || id;
+      const bestKey = findKey(bestMap);
+      const bestBySetKey = findKey(bestBySetMap);
+      const recentBySetKey = findKey(recentBySetMap);
+      const best = bestMap.get(bestKey);
+      const bestBySet = bestBySetMap.get(bestBySetKey) || [];
+      const recentBySet = recentBySetMap.get(recentBySetKey) || [];
+      const seriesType = normalizeSeriesType(ex.seriesType);
+      const prSummary = best
+        ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : ex.prSummary || "";
+      const prText = best
+        ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : ex.prText || "Sin referencia";
+      const sets = (ex.sets || []).map((set, sIdx) => {
+        const setId = set.id || `${id}-set-${sIdx}`;
+        const perSet = bestBySet[sIdx];
+        const perSetSummary = perSet
+          ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+          : set.prSummary || "";
+        const recentEntries = recentBySet[sIdx] || [];
+        const previousByIndex = recentEntries.map((slot) => slot?.latest);
+        const compareByIndex = recentEntries.map((slot) => slot?.previous);
+        const fallbackPrev = perSet
+          ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+          : best
+          ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+          : "Sin referencia";
+        const seedEntries =
+          Array.isArray(set.entries) && set.entries.length
+            ? set.entries
+            : [
+                {
+                  id: set.id,
+                  previousText: set.previousText,
+                  kg: set.kg ?? set.weightKg ?? "",
+                  reps: set.reps ?? "",
+                  done: set.done ?? false,
+                },
+              ];
+        return {
+          ...set,
+          id: setId,
+          prSummary: perSetSummary,
+          entries: normalizeEntries({
+            entries: seedEntries,
+            seriesType,
+            setId,
+            fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
+            previousByIndex,
+            compareByIndex,
+          }),
+        };
+      });
+      return {
+        ...ex,
+        id,
+        seriesType,
+        prSummary,
+        prWeight: best?.weight ?? ex.prWeight ?? null,
+        prText,
+        sets,
+      };
+    });
+
   const loadTrainingForDate = async (
     date,
     routineId,
     bestMap = historyBest,
-    bestBySetMap = historyBestBySet
+    bestBySetMap = historyBestBySet,
+    recentBySetMap = historyRecentBySet
   ) => {
     if (!routineOptions.length || !routineId) {
       setExercises([]);
@@ -423,7 +685,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           routine.raw,
           trainingMatch,
           bestMap,
-          bestBySetMap
+          bestBySetMap,
+          recentBySetMap
         )
       );
       if (trainingMatch?.durationSeconds)
@@ -431,7 +694,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } catch (e) {
       console.warn("No se pudo cargar entrenamiento previo", e);
       setExercises(
-        buildExercisesForRoutine(routine.raw, null, bestMap, bestBySetMap)
+        buildExercisesForRoutine(
+          routine.raw,
+          null,
+          bestMap,
+          bestBySetMap,
+          recentBySetMap
+        )
       );
     } finally {
       setLoadingTraining(false);
@@ -456,8 +725,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const hist = await loadHistoryForRoutine(routine.id);
       const bestMap = computeBestFromHistory(hist);
       const bestBySetMap = computeBestBySetFromHistory(hist);
+      const recentBySetMap = computeRecentBySetFromHistory(hist);
       setExercises(
-        buildExercisesForRoutine(routine.raw, training, bestMap, bestBySetMap)
+        buildExercisesForRoutine(
+          routine.raw,
+          training,
+          bestMap,
+          bestBySetMap,
+          recentBySetMap
+        )
       );
       if (training.durationSeconds)
         setDurationSeconds(training.durationSeconds);
@@ -478,15 +754,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
   };
   const loadHistoryForRoutine = async (_routineId) => {
-    if (Array.isArray(trainings) && trainings.length) {
-      setHistoryTrainings(trainings);
-      return trainings;
-    }
     try {
       const resp = await api.getTrainings({
         limit: 200,
         fields:
-          "date,exercises.exerciseId,exercises.exerciseName,exercises.sets.weightKg,exercises.sets.reps",
+          "date,exercises.exerciseId,exercises.exerciseName,exercises.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
         meta: false,
       });
       const list = Array.isArray(resp) ? resp : resp?.items || [];
@@ -494,6 +766,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return list;
     } catch (e) {
       console.warn("No se pudo cargar historial general", e);
+      if (Array.isArray(trainings) && trainings.length) {
+        setHistoryTrainings(trainings);
+        return trainings;
+      }
       setHistoryTrainings([]);
       return [];
     }
@@ -527,6 +803,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setIsRunning(false);
     }
   }, [routineOptions]);
+
+  useEffect(() => {
+    historyLoadAttempted.current = false;
+  }, [selectedRoutineId]);
+
+  useEffect(() => {
+    if (!selectedRoutineId) return;
+    if (historyTrainings.length) return;
+    if (historyLoadAttempted.current) return;
+    historyLoadAttempted.current = true;
+    loadHistoryForRoutine(selectedRoutineId);
+  }, [selectedRoutineId, historyTrainings.length]);
+
+  useEffect(() => {
+    if (historyTrainings.length) return;
+    if (trainings.length) setHistoryTrainings(trainings);
+  }, [trainings, historyTrainings.length]);
 
   // Restaurar entrenamiento activo desde snapshot local
   useEffect(() => {
@@ -590,6 +883,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   seriesType,
                   setId,
                   fallbackPrev,
+                  compareByIndex: (set.entries || []).map((entry) => ({
+                    weight: entry.previousCompareWeight ?? null,
+                    reps: entry.previousCompareReps ?? null,
+                    date: entry.previousCompareDate ?? null,
+                  })),
                 }),
               };
             });
@@ -610,6 +908,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     loadTrainingForDate(sessionDate, selectedRoutineId);
   }, [sessionDate, isEditing]);
+
+  useEffect(() => {
+    if (!historyTrainings.length) return;
+    if (!exercises.length) return;
+    setExercises((prev) =>
+      applyHistoryToExercises(
+        prev,
+        historyBest,
+        historyBestBySet,
+        historyRecentBySet
+      )
+    );
+  }, [
+    historyTrainings,
+    historyBest,
+    historyBestBySet,
+    historyRecentBySet,
+    exercises.length,
+  ]);
 
   // Mantener rutinas al cambiar sucursal (solo limpiar cuando el cambio es iniciado por el usuario)
   useEffect(() => {
@@ -734,7 +1051,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const hist = await loadHistoryForRoutine(id);
       const bestMap = computeBestFromHistory(hist);
       const bestBySetMap = computeBestBySetFromHistory(hist);
-      await loadTrainingForDate(sessionDate, id, bestMap, bestBySetMap);
+      const recentBySetMap = computeRecentBySetFromHistory(hist);
+      await loadTrainingForDate(
+        sessionDate,
+        id,
+        bestMap,
+        bestBySetMap,
+        recentBySetMap
+      );
     })();
   };
 
@@ -785,6 +1109,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     set.entries?.[0]?.previousText ||
                     set.previousText ||
                     "Sin referencia",
+                  previousByIndex: (set.entries || []).map((entry) => ({
+                    weight: entry.previousWeight ?? null,
+                    reps: entry.previousReps ?? null,
+                    date: entry.previousDate ?? null,
+                  })),
+                  compareByIndex: (set.entries || []).map((entry) => ({
+                    weight: entry.previousCompareWeight ?? null,
+                    reps: entry.previousCompareReps ?? null,
+                    date: entry.previousCompareDate ?? null,
+                  })),
                 }),
               })),
             }
@@ -804,6 +1138,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 ...ex.sets,
                 {
                   id: newSetId,
+                  prSummary: (() => {
+                    const keys = getExerciseKeys({
+                      ...ex,
+                      id: ex.id || exerciseId,
+                      exerciseId: ex.exerciseId || ex.id || exerciseId,
+                    });
+                    const bestKey = keys.find((key) =>
+                      historyBestBySet.has(key)
+                    );
+                    const bestBySet = bestKey
+                      ? historyBestBySet.get(bestKey) || []
+                      : [];
+                    const perSet = bestBySet[ex.sets.length];
+                    return perSet
+                      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
+                          perSet.date
+                        )}`
+                      : "";
+                  })(),
                   entries: normalizeEntries({
                     entries: [
                       {
@@ -1089,7 +1442,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
       />
       <Toaster position="top-center" richColors />
-      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
+      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 pt-4">
         <div className="hidden md:flex items-center justify-between">
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           <div className="flex items-center gap-2">

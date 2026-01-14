@@ -180,6 +180,7 @@ export default function ExerciseCard({
                         index={idx + 1}
                         seriesType={seriesValue}
                         entries={set.entries}
+                        prSummary={set.prSummary}
                         onChangeEntry={(entryId, field, value) =>
                           onUpdateEntry(set.id, entryId, field, value)
                         }
@@ -214,12 +215,15 @@ ExerciseCard.propTypes = {
     id: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,
     prText: PropTypes.string,
+    prSummary: PropTypes.string,
+    prWeight: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     image: PropTypes.string,
     imagePublicId: PropTypes.string,
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
     sets: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,
+        prSummary: PropTypes.string,
         entries: PropTypes.arrayOf(
           PropTypes.shape({
             id: PropTypes.string.isRequired,

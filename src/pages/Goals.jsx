@@ -244,7 +244,7 @@ export default function Goals() {
 
   return (
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto max-w-3xl px-4 py-6 space-y-5">
+      <div className="mx-auto max-w-3xl px-3 sm:px-4 py-6 space-y-5">
         {/* Header (como screenshot) */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">

@@ -126,7 +126,7 @@ function ExerciseLibrary({ onNavigate }) {
       <TopBar title="Biblioteca de Ejercicios" />
 
       {/* Contenedor móvil-first como el mock */}
-      <div className="mx-auto w-full max-w-md px-4 pb-24 space-y-4">
+      <div className="mx-auto w-full max-w-md px-3 sm:px-4 pb-24 space-y-4">
         {typeof onNavigate === "function" && (
           <div className="md:hidden pt-3">
             <button

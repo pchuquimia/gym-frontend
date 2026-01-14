@@ -197,7 +197,7 @@ function Dashboard({ onNavigate }) {
       initial="hidden"
       animate="show"
       exit="exit"
-      className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-4 md:px-6 pb-10 space-y-4 lg:space-y-6"
+      className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-3 sm:px-4 md:px-6 pb-10 space-y-4 lg:space-y-6"
     >
       {/* Header tipo captura */}
       <TopBar
