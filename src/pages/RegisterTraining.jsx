@@ -1,14 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Flag, MoreVertical } from "lucide-react";
+import { Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
-import SessionHeader from "../components/training/SessionHeader";
 import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
-import BottomActionBar from "../components/training/BottomActionBar";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
@@ -48,6 +46,62 @@ const formatDuration = (sec) => {
     .join(":");
 };
 
+const formatCounter = (value) => String(value || 0).padStart(2, "0");
+
+const parseDecimal = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const normalizeSeriesType = (value) => {
+  if (value === "triserie") return "triserie";
+  if (value === "biserie") return "biserie";
+  return "serie";
+};
+
+const getSeriesCount = (seriesType) => {
+  if (seriesType === "triserie") return 3;
+  if (seriesType === "biserie") return 2;
+  return 1;
+};
+
+const normalizeEntries = ({
+  entries = [],
+  seriesType,
+  setId,
+  fallbackPrev,
+}) => {
+  const count = getSeriesCount(seriesType);
+  const normalized = (Array.isArray(entries) ? entries : [])
+    .filter(Boolean)
+    .map((entry, idx) => ({
+      id: entry.id || `${setId}-entry-${idx}`,
+      previousText:
+        entry.previousText || fallbackPrev || "Sin referencia",
+      kg: entry.kg ?? entry.weightKg ?? entry.weight ?? "",
+      reps: entry.reps ?? "",
+      done: Boolean(entry.done),
+    }));
+  while (normalized.length < count) {
+    normalized.push({
+      id: `${setId}-entry-${normalized.length}`,
+      previousText:
+        fallbackPrev || normalized[0]?.previousText || "Sin referencia",
+      kg: "",
+      reps: "",
+      done: false,
+    });
+  }
+  return normalized.slice(0, count);
+};
+
+const isSetDone = (set) => {
+  const entries = Array.isArray(set?.entries) ? set.entries : [];
+  if (!entries.length) return Boolean(set?.done);
+  return entries.every((entry) => entry.done);
+};
+
 const slugify = (text) =>
   text
     ?.toString()
@@ -66,19 +120,25 @@ const computeBestFromHistory = (trainings = []) => {
       sets.forEach((s) => {
         const key = ex.exerciseId || slugify(ex.exerciseName || ex.name || "");
         if (!key) return;
-        const w = Number(s.weightKg ?? s.weight ?? 0);
-        const r = Number(s.reps ?? 0);
-        const current = map.get(key);
-        const isBetter =
-          !current ||
-          w > current.weight ||
-          (w === current.weight && r > current.reps) ||
-          (w === current.weight &&
-            r === current.reps &&
-            date > (current.date || ""));
-        if (isBetter) {
-          map.set(key, { weight: w, reps: r, date });
-        }
+        const entries =
+          Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
+        entries.forEach((entry) => {
+          const w = Number(
+            entry.weightKg ?? entry.weight ?? entry.kg ?? 0
+          );
+          const r = Number(entry.reps ?? 0);
+          const current = map.get(key);
+          const isBetter =
+            !current ||
+            w > current.weight ||
+            (w === current.weight && r > current.reps) ||
+            (w === current.weight &&
+              r === current.reps &&
+              date > (current.date || ""));
+          if (isBetter) {
+            map.set(key, { weight: w, reps: r, date });
+          }
+        });
       });
     });
   });
@@ -95,19 +155,25 @@ const computeBestBySetFromHistory = (trainings = []) => {
       const sets = ex.sets || [];
       const arr = map.get(key) || [];
       sets.forEach((s, idx) => {
-        const w = Number(s.weightKg ?? s.weight ?? 0);
-        const r = Number(s.reps ?? 0);
-        const current = arr[idx];
-        const isBetter =
-          !current ||
-          w > current.weight ||
-          (w === current.weight && r > current.reps) ||
-          (w === current.weight &&
-            r === current.reps &&
-            date > (current.date || ""));
-        if (isBetter) {
-          arr[idx] = { weight: w, reps: r, date };
-        }
+        const entries =
+          Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
+        entries.forEach((entry) => {
+          const w = Number(
+            entry.weightKg ?? entry.weight ?? entry.kg ?? 0
+          );
+          const r = Number(entry.reps ?? 0);
+          const current = arr[idx];
+          const isBetter =
+            !current ||
+            w > current.weight ||
+            (w === current.weight && r > current.reps) ||
+            (w === current.weight &&
+              r === current.reps &&
+              date > (current.date || ""));
+          if (isBetter) {
+            arr[idx] = { weight: w, reps: r, date };
+          }
+        });
       });
       map.set(key, arr);
     });
@@ -142,6 +208,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const lastUpdateRef = useRef(Date.now());
   const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
+  const datePickerRef = useRef(null);
 
   const branchOptions = useMemo(() => {
     const set = new Set();
@@ -215,35 +282,80 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
       const setsCount = Number(ex.sets) || 3;
       const trainingEx = trainingById.get(id);
+      const seriesType = normalizeSeriesType(
+        trainingEx?.seriesType || ex.seriesType
+      );
       const best = bestMap.get(id);
       const bestBySet = bestBySetMap.get(id) || [];
       const sets =
         (trainingEx?.sets || []).length > 0
-          ? (trainingEx.sets || []).map((s, sIdx) => ({
-              id: `${id}-set-${sIdx}`,
-              previousText: `${s.weightKg ?? "--"}kg x ${
+          ? (trainingEx.sets || []).map((s, sIdx) => {
+              const setId = s.id || `${id}-set-${sIdx}`;
+              const fallbackPrev = `${s.weightKg ?? "--"}kg x ${
                 s.reps ?? "--"
-              } | ${formatShort(training?.date)}`,
-              kg: s.weightKg ?? "",
-              reps: s.reps ?? "",
-              done: Boolean(s.done),
-            }))
-          : Array.from({ length: setsCount }).map((_, sIdx) => {
-              const perSet = bestBySet[sIdx];
+              } | ${formatShort(training?.date)}`;
+              const seedEntries = Array.isArray(s.entries)
+                ? s.entries
+                : [
+                    {
+                      id: s.id,
+                      previousText: fallbackPrev,
+                      kg: s.weightKg ?? "",
+                      reps: s.reps ?? "",
+                      done: Boolean(s.done),
+                    },
+                  ];
               return {
-                id: `${id}-set-${sIdx}`,
-                previousText: perSet
-                  ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
-                      perSet.date
-                    )}`
-                  : best
-                  ? `${best.weight}kg x ${best.reps} | ${formatShort(
-                      best.date
-                    )}`
-                  : "Sin referencia",
-                kg: perSet ? perSet.weight : best ? best.weight : "",
-                reps: perSet ? perSet.reps : best ? best.reps : "",
-                done: false,
+                id: setId,
+                entries: normalizeEntries({
+                  entries: seedEntries,
+                  seriesType,
+                  setId,
+                  fallbackPrev,
+                }),
+              };
+            })
+          : Array.from({ length: setsCount }).map((_, sIdx) => {
+              const setId = `${id}-set-${sIdx}`;
+              const perSet = bestBySet[sIdx];
+              const fallbackPrev = perSet
+                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
+                    perSet.date
+                  )}`
+                : best
+                ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+                : "Sin referencia";
+              const defaultKg =
+                seriesType === "serie"
+                  ? perSet
+                    ? perSet.weight
+                    : best
+                    ? best.weight
+                    : ""
+                  : "";
+              const defaultReps =
+                seriesType === "serie"
+                  ? perSet
+                    ? perSet.reps
+                    : best
+                    ? best.reps
+                    : ""
+                  : "";
+              return {
+                id: setId,
+                entries: normalizeEntries({
+                  entries: [
+                    {
+                      previousText: fallbackPrev,
+                      kg: defaultKg,
+                      reps: defaultReps,
+                      done: false,
+                    },
+                  ],
+                  seriesType,
+                  setId,
+                  fallbackPrev,
+                }),
               };
             });
       const headerText = best
@@ -261,6 +373,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           meta.muscle ||
           meta.muscleGroup ||
           "Sin grupo",
+        seriesType,
         sets,
       };
     });
@@ -290,7 +403,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done",
+          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
         meta: false,
         routineId: routine.id,
       });
@@ -447,7 +560,42 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       lastUpdateRef.current = now;
       setDurationSeconds(totalSeconds);
       setIsRunning(Boolean(snap.isRunning));
-      if (Array.isArray(snap.exercises)) setExercises(snap.exercises);
+      if (Array.isArray(snap.exercises))
+        setExercises(
+          snap.exercises.map((ex) => {
+            const seriesType = normalizeSeriesType(ex.seriesType);
+            const sets = (ex.sets || []).map((set, idx) => {
+              const setId = set.id || `${ex.id}-set-${idx}`;
+              const fallbackPrev =
+                set.entries?.[0]?.previousText ||
+                set.previousText ||
+                "Sin referencia";
+              const seedEntries =
+                Array.isArray(set.entries) && set.entries.length
+                  ? set.entries
+                  : [
+                      {
+                        id: set.id,
+                        previousText: fallbackPrev,
+                        kg: set.kg ?? "",
+                        reps: set.reps ?? "",
+                        done: set.done ?? false,
+                      },
+                    ];
+              return {
+                ...set,
+                id: setId,
+                entries: normalizeEntries({
+                  entries: seedEntries,
+                  seriesType,
+                  setId,
+                  fallbackPrev,
+                }),
+              };
+            });
+            return { ...ex, seriesType, sets };
+          })
+        );
     } catch (e) {
       console.warn("No se pudo restaurar el entrenamiento activo", e);
     }
@@ -608,7 +756,45 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
   };
 
+  const handleSeriesTypeChange = (exerciseId, value) => {
+    const nextType = normalizeSeriesType(value);
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              seriesType: nextType,
+              sets: ex.sets.map((set) => ({
+                ...set,
+                entries: normalizeEntries({
+                  entries:
+                    Array.isArray(set.entries) && set.entries.length
+                      ? set.entries
+                      : [
+                          {
+                            id: set.id,
+                            previousText: set.previousText,
+                            kg: set.kg,
+                            reps: set.reps,
+                            done: set.done,
+                          },
+                        ],
+                  seriesType: nextType,
+                  setId: set.id,
+                  fallbackPrev:
+                    set.entries?.[0]?.previousText ||
+                    set.previousText ||
+                    "Sin referencia",
+                }),
+              })),
+            }
+          : ex
+      )
+    );
+  };
+
   const handleAddSet = (exerciseId) => {
+    const newSetId = `${exerciseId}-set-${Date.now()}`;
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
@@ -617,11 +803,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               sets: [
                 ...ex.sets,
                 {
-                  id: `${exerciseId}-set-${Date.now()}`,
-                  previousText: "Sin referencia",
-                  kg: "",
-                  reps: "",
-                  done: false,
+                  id: newSetId,
+                  entries: normalizeEntries({
+                    entries: [
+                      {
+                        previousText: "Sin referencia",
+                        kg: "",
+                        reps: "",
+                        done: false,
+                      },
+                    ],
+                    seriesType: normalizeSeriesType(ex.seriesType),
+                    setId: newSetId,
+                    fallbackPrev: "Sin referencia",
+                  }),
                 },
               ],
             }
@@ -630,14 +825,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
   };
 
-  const handleUpdateSet = (exerciseId, setId, field, value) => {
+  const handleUpdateEntry = (exerciseId, setId, entryId, field, value) => {
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
           ? {
               ...ex,
               sets: ex.sets.map((s) =>
-                s.id === setId ? { ...s, [field]: value } : s
+                s.id === setId
+                  ? {
+                      ...s,
+                      entries: (s.entries || []).map((entry) =>
+                        entry.id === entryId
+                          ? { ...entry, [field]: value }
+                          : entry
+                      ),
+                    }
+                  : s
               ),
             }
           : ex
@@ -645,14 +849,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
   };
 
-  const handleToggleDone = (exerciseId, setId) => {
+  const handleToggleEntry = (exerciseId, setId, entryId) => {
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
           ? {
               ...ex,
               sets: ex.sets.map((s) =>
-                s.id === setId ? { ...s, done: !s.done } : s
+                s.id === setId
+                  ? {
+                      ...s,
+                      entries: (s.entries || []).map((entry) =>
+                        entry.id === entryId
+                          ? { ...entry, done: !entry.done }
+                          : entry
+                      ),
+                    }
+                  : s
               ),
             }
           : ex
@@ -676,20 +889,32 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleAddExercise = () => {
+    const newExerciseId = `extra-${Date.now()}`;
+    const newSetId = `${newExerciseId}-set-1`;
     setExercises((prev) => [
       ...prev,
       {
-        id: `extra-${Date.now()}`,
+        id: newExerciseId,
         name: "Nuevo ejercicio",
         prText: "Sin referencia previa",
         muscle: "Sin grupo",
+        seriesType: "serie",
         sets: [
           {
-            id: `extra-${Date.now()}-1`,
-            previousText: "Sin referencia",
-            kg: "",
-            reps: "",
-            done: false,
+            id: newSetId,
+            entries: normalizeEntries({
+              entries: [
+                {
+                  previousText: "Sin referencia",
+                  kg: "",
+                  reps: "",
+                  done: false,
+                },
+              ],
+              seriesType: "serie",
+              setId: newSetId,
+              fallbackPrev: "Sin referencia",
+            }),
           },
         ],
       },
@@ -712,24 +937,56 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         branch: selectedBranch || selectedRoutine?.location || "general",
         durationSeconds,
         exercises: exercises
-          .map((ex, exIdx) => ({
-            exerciseId: ex.id,
-            exerciseName: ex.name,
-            muscleGroup: ex.muscle,
-            order: exIdx + 1,
-            sets: (ex.sets || [])
-              .map((s, idx) => ({
-                weightKg:
-                  s.kg === "" ? null : Number(String(s.kg).replace(",", ".")),
-                reps:
-                  s.reps === ""
-                    ? null
-                    : Number(String(s.reps).replace(",", ".")),
-                done: Boolean(s.done),
-                order: idx + 1,
-              }))
-              .filter((s) => s.weightKg !== null || s.reps !== null || s.done),
-          }))
+          .map((ex, exIdx) => {
+            const seriesType = normalizeSeriesType(ex.seriesType);
+            const sets = (ex.sets || [])
+              .map((set, idx) => {
+                const entries =
+                  Array.isArray(set.entries) && set.entries.length
+                    ? set.entries
+                    : [
+                        {
+                          kg: set.kg,
+                          reps: set.reps,
+                          done: set.done,
+                          previousText: set.previousText,
+                        },
+                      ];
+                const entriesPayload = entries.map((entry, entryIdx) => ({
+                  weightKg: parseDecimal(entry.kg),
+                  reps: parseDecimal(entry.reps),
+                  done: Boolean(entry.done),
+                  order: entryIdx + 1,
+                  previousText: entry.previousText,
+                }));
+                const hasValues = entriesPayload.some(
+                  (entry) =>
+                    entry.weightKg !== null || entry.reps !== null || entry.done
+                );
+                if (!hasValues) return null;
+                const primary = entriesPayload[0] || {};
+                const setDone =
+                  entriesPayload.length > 0 &&
+                  entriesPayload.every((entry) => entry.done);
+                return {
+                  weightKg: primary.weightKg ?? null,
+                  reps: primary.reps ?? null,
+                  done: setDone,
+                  order: idx + 1,
+                  seriesType,
+                  entries: entriesPayload,
+                };
+              })
+              .filter(Boolean);
+            return {
+              exerciseId: ex.id,
+              exerciseName: ex.name,
+              muscleGroup: ex.muscle,
+              order: exIdx + 1,
+              seriesType,
+              sets,
+            };
+          })
           .filter((ex) => ex.sets.length > 0),
       };
       // verificar duplicados en misma fecha + rutina
@@ -777,10 +1034,43 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
   };
 
+  const handleCancel = () => {
+    if (isEditing) {
+      handleExitEdit();
+      toast.message("Edicion cancelada");
+      return;
+    }
+    resetState();
+    toast.message("Entrenamiento cancelado");
+  };
+
   const totalSets = useMemo(
     () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0),
     [exercises]
   );
+  const doneSets = useMemo(
+    () =>
+      exercises.reduce(
+        (acc, ex) => acc + ex.sets.filter((set) => isSetDone(set)).length,
+        0
+      ),
+    [exercises]
+  );
+  const completedExercises = useMemo(
+    () =>
+      exercises.reduce(
+        (acc, ex) =>
+          acc +
+          (ex.sets.length > 0 && ex.sets.every((set) => isSetDone(set))
+            ? 1
+            : 0),
+        0
+      ),
+    [exercises]
+  );
+  const progressPct = totalSets
+    ? Math.min(100, Math.round((doneSets / totalSets) * 100))
+    : 0;
   const selectorRoutine = selectedRoutine || null;
   const groupedExercises = useMemo(() => {
     const groups = new Map();
@@ -793,10 +1083,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [exercises]);
 
   return (
-    <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
+    <main className="relative min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
+      />
       <Toaster position="top-center" richColors />
-      <div className="mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
-        <div className="flex items-center justify-between">
+      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-4 pb-28 space-y-4 pt-4">
+        <div className="hidden md:flex items-center justify-between">
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           <div className="flex items-center gap-2">
             {isEditing && (
@@ -814,151 +1108,219 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         </div>
 
-        <div className="md:hidden sticky top-0 z-20 bg-[color:var(--bg)] pb-3">
-          <div className="flex items-center gap-2">
-            <Card className="flex-1 px-3 py-2 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+        <div className="sticky top-2 z-20">
+          <Card className="p-3 md:p-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-lg space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-[160px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                   Duracion
                 </p>
-                <p className="text-base font-semibold text-[color:var(--text)]">
-                  {formatDuration(durationSeconds)}
-                </p>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-xl md:text-2xl text-[color:var(--text)]">
+                    {formatDuration(durationSeconds)}
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold uppercase ${
+                      isRunning
+                        ? "text-red-400"
+                        : "text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    Live
+                  </span>
+                </div>
               </div>
-              <div className="text-[11px] text-[color:var(--text-muted)]">
-                LIVE
+              <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
+                <Button
+                  className="h-11 px-4 inline-flex items-center justify-center gap-2 rounded-full font-semibold text-white"
+                  onClick={handleFinish}
+                  disabled={!exercises.length}
+                >
+                  <Flag className="h-4 w-4" />
+                  <span>Finalizar</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11 px-4 rounded-full font-semibold text-[color:var(--text)]"
+                  onClick={handleCancel}
+                >
+                  Cancelar
+                </Button>
               </div>
-            </Card>
-            <div className="flex-1 flex gap-2">
-              <Button
-                className="flex-1 h-[52px] inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white"
-                onClick={handleFinish}
-                disabled={!exercises.length}
-              >
-                <Flag className="h-4 w-4" />
-                <span>Finalizar</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-[52px] px-3 rounded-xl font-semibold text-[color:var(--text)]"
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--text-muted)]">
+              <button
+                type="button"
                 onClick={() => {
-                  resetState();
-                  toast.message("Entrenamiento cancelado");
+                  if (datePickerRef.current?.showPicker) {
+                    datePickerRef.current.showPicker();
+                  } else if (datePickerRef.current) {
+                    datePickerRef.current.focus();
+                    datePickerRef.current.click();
+                  }
                 }}
+                className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)]"
               >
-                Cancelar
-              </Button>
+                Fecha: {formatLongDate(sessionDate)}
+                <input
+                  ref={datePickerRef}
+                  type="date"
+                  value={sessionDate}
+                  onChange={(e) => {
+                    const nextDate = e.target.value
+                      ? e.target.value.slice(0, 10)
+                      : getLocalISODate();
+                    setSessionDate(nextDate);
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  aria-label="Seleccionar fecha"
+                />
+              </button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="rounded-full px-3"
+                  onClick={isRunning ? handlePause : handleStart}
+                >
+                  {isRunning ? "Pausar" : "Iniciar"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full px-3"
+                  onClick={handleReset}
+                >
+                  Reset
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+            Resumen rapido
+          </p>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Ejercicios realizados:
+              </p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                Sets totales:
+              </p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-lg font-semibold text-[color:var(--text)]">
+                {formatCounter(completedExercises)} /{" "}
+                {formatCounter(exercises.length)}
+              </p>
+              <p className="text-lg font-semibold text-[color:var(--text)]">
+                {totalSets}
+              </p>
             </div>
           </div>
-        </div>
+          <div className="h-2 rounded-full bg-[color:var(--border)]/60 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p className="text-xs text-[color:var(--text-muted)]">
+            Fecha: {formatLongDate(sessionDate)}
+          </p>
+        </Card>
 
         <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
-            <Card className="p-4 space-y-3">
-              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
-                Sucursal
-              </p>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              >
-                {branchOptions.map((b) => (
-                  <option
-                    key={b}
-                    value={b}
-                    className="bg-[color:var(--card)] text-[color:var(--text)]"
-                  >
-                    {b}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[color:var(--text-muted)]">
-                Rutinas disponibles para: {selectedBranch}
-              </p>
-            </Card>
+            <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                  Sucursal
+                </p>
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  {branchOptions.map((b) => (
+                    <option
+                      key={b}
+                      value={b}
+                      className="bg-[color:var(--card)] text-[color:var(--text)]"
+                    >
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Rutinas disponibles para: {selectedBranch}
+                </p>
+              </div>
 
-            <SessionHeader
-              title="HOY"
-              dateISO={sessionDate}
-              durationSeconds={durationSeconds}
-              isRunning={isRunning}
-              onStart={handleStart}
-              onPause={handlePause}
-              onReset={handleReset}
-              onChangeDate={(value) => {
-                const nextDate = value ? value.slice(0, 10) : getLocalISODate();
-                setSessionDate(nextDate);
-              }}
-            />
-
-            <Card className="p-4 space-y-3">
-              <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
-                Rutina seleccionada
-              </p>
-              <RoutineSelector
-                routine={
-                  selectorRoutine || {
-                    id: "sin-rutina",
-                    name: routinesLoading
-                      ? "Cargando..."
-                      : "Selecciona una rutina",
-                    location: selectedBranch || "general",
-                    exerciseCount: 0,
-                    lastDate: "--",
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                  Rutina seleccionada
+                </p>
+                <RoutineSelector
+                  routine={
+                    selectorRoutine || {
+                      id: "sin-rutina",
+                      name: routinesLoading
+                        ? "Cargando..."
+                        : "Selecciona una rutina",
+                      location: selectedBranch || "general",
+                      exerciseCount: 0,
+                      lastDate: "--",
+                    }
                   }
-                }
-                routines={routineOptions}
-                onSelect={handleSelectRoutine}
-              />
-              <p className="text-xs text-[color:var(--text-muted)]">
-                Fecha: {formatLongDate(sessionDate)}
-              </p>
-            </Card>
-
-            <Card className="p-4 space-y-1">
-              <p className="text-sm font-semibold text-[color:var(--text)]">
-                Resumen rapido
-              </p>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Fecha: {formatLongDate(sessionDate)}
-              </p>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Ejercicios: {exercises.length}
-              </p>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Sets totales: {totalSets}
-              </p>
+                  routines={routineOptions}
+                  onSelect={handleSelectRoutine}
+                />
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Fecha: {formatLongDate(sessionDate)}
+                </p>
+              </div>
             </Card>
           </div>
 
           <section className="space-y-3">
             {selectedRoutineId ? (
               <>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-[color:var(--text-muted)] font-semibold">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                       EJERCICIOS ({exercises.length})
                     </p>
                     <p className="text-xs text-[color:var(--text-muted)]">
                       {loadingTraining ? "Cargando..." : "En progreso"}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="text-[11px]">
-                    Total sets: {totalSets}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[11px]">
+                      Total sets: {totalSets}
+                    </Badge>
+                    <Badge className="text-[11px]">
+                      {progressPct}% completado
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
                   {groupedExercises.map(([muscle, items]) => (
                     <div key={muscle} className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                        <p className="text-sm font-semibold text-[color:var(--text)]">
-                          {muscle}
-                        </p>
-                        <span className="text-[11px] text-[color:var(--text-muted)]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                        <div>
+                          <p className="text-xl font-semibold text-[color:var(--text)]">
+                            {muscle}
+                          </p>
+                          <p className="text-xs text-[color:var(--text-muted)]">
+                            {selectorRoutine?.name || "Rutina sin nombre"}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="text-[11px]">
                           {items.length} ejercicios
-                        </span>
+                        </Badge>
                       </div>
                       <AnimatePresence>
                         {items.map((ex) => (
@@ -966,19 +1328,33 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             key={ex.id}
                             exercise={ex}
                             onAddSet={() => handleAddSet(ex.id)}
-                            onUpdateSet={(setId, field, value) =>
-                              handleUpdateSet(ex.id, setId, field, value)
+                            onUpdateEntry={(setId, entryId, field, value) =>
+                              handleUpdateEntry(
+                                ex.id,
+                                setId,
+                                entryId,
+                                field,
+                                value
+                              )
                             }
-                            onToggleDone={(setId) =>
-                              handleToggleDone(ex.id, setId)
+                            onToggleEntry={(setId, entryId) =>
+                              handleToggleEntry(ex.id, setId, entryId)
                             }
                             onRemoveSet={(setId) =>
                               handleRemoveSet(ex.id, setId)
                             }
-                            onRemoveExercise={() => handleRemoveExercise(ex.id)}
+                            onRemoveExercise={() =>
+                              handleRemoveExercise(ex.id)
+                            }
+                            onSeriesTypeChange={(value) =>
+                              handleSeriesTypeChange(ex.id, value)
+                            }
                             onViewHistory={() => {
                               if (typeof localStorage !== "undefined")
-                                localStorage.setItem("last_exercise_id", ex.id);
+                                localStorage.setItem(
+                                  "last_exercise_id",
+                                  ex.id
+                                );
                               if (typeof onNavigate === "function")
                                 onNavigate("ejercicio_analitica");
                             }}
@@ -1007,15 +1383,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             )}
           </section>
         </div>
-      </div>
-
-      <div className="hidden md:block">
-        <BottomActionBar
-          onFinish={handleFinish}
-          onCancel={handleExitEdit}
-          disabled={!exercises.length}
-          durationSeconds={durationSeconds}
-        />
       </div>
     </main>
   );

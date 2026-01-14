@@ -12,10 +12,11 @@ import { getExerciseImageUrl } from "../../utils/cloudinary";
 export default function ExerciseCard({
   exercise,
   onAddSet,
-  onUpdateSet,
-  onToggleDone,
+  onUpdateEntry,
+  onToggleEntry,
   onRemoveSet,
   onRemoveExercise,
+  onSeriesTypeChange = () => {},
   onViewHistory = null,
 }) {
   const [open, setOpen] = useState(false);
@@ -28,6 +29,19 @@ export default function ExerciseCard({
     return getExerciseImageUrl(exercise, { width: 240, height: 240 });
   });
   const imgLoaded = useRef(false);
+  const seriesValue =
+    exercise.seriesType === "triserie"
+      ? "triserie"
+      : exercise.seriesType === "biserie"
+      ? "biserie"
+      : "serie";
+  const seriesLabel =
+    seriesValue === "triserie"
+      ? "Triserie"
+      : seriesValue === "biserie"
+      ? "Biserie"
+      : "Serie";
+  const seriesLabelLower = seriesLabel.toLowerCase();
 
   useEffect(() => {
     if (imageSrc || imgLoaded.current) return;
@@ -51,23 +65,35 @@ export default function ExerciseCard({
 
   return (
     <motion.div layout whileHover={{ y: -2 }}>
-      <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm overflow-hidden">
+      <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur overflow-hidden">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center gap-3 p-4 text-left"
+          className="w-full flex items-center gap-3 p-4 text-left hover:bg-[color:var(--bg)]/40 transition-colors"
         >
           {imageSrc ? (
-            <div className="h-12 w-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
-              <img src={imageSrc} alt={exercise.name} className="h-full w-full object-cover" />
+            <div className="h-12 w-12 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
+              <img
+                src={imageSrc}
+                alt={exercise.name}
+                className="h-full w-full object-cover"
+              />
             </div>
           ) : (
-            <div className="h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800" />
+            <div className="h-12 w-12 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
           )}
           <div className="flex-1">
-            <p className="text-sm font-semibold text-[color:var(--text)]">{exercise.name}</p>
-            <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-              <Badge variant="secondary">{exercise.prText || "Sin referencia"}</Badge>
+            <p className="text-sm font-semibold text-[color:var(--text)]">
+              {exercise.name}
+            </p>
+            <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)] flex-wrap">
+              <Badge
+                variant="secondary"
+                className="uppercase tracking-wide text-[10px]"
+              >
+                {seriesLabel}
+              </Badge>
+              <Badge>{exercise.prText || "Sin referencia"}</Badge>
             </div>
           </div>
           <ChevronDown
@@ -81,21 +107,39 @@ export default function ExerciseCard({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-[color:var(--border)] bg-[color:var(--bg)]"
+              className="border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Tipo de serie
+                </p>
+                <select
+                  value={seriesValue}
+                  onChange={(e) => onSeriesTypeChange(e.target.value)}
+                  className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                >
+                  <option value="serie">Serie</option>
+                  <option value="biserie">Biserie</option>
+                  <option value="triserie">Triserie</option>
+                </select>
+              </div>
               <div className="flex items-center justify-between px-4 py-3 gap-2">
                 <div className="flex gap-2 flex-wrap">
                   <motion.div whileTap={{ scale: 0.97 }}>
-                    <Button size="sm" onClick={onAddSet}>
+                    <Button
+                      size="sm"
+                      className="rounded-full px-4"
+                      onClick={onAddSet}
+                    >
                       Iniciar serie
                     </Button>
                   </motion.div>
                   <motion.div whileTap={{ scale: 0.97 }}>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-[color:var(--border)] text-[color:var(--text)]"
-                onClick={onViewHistory}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full px-4 border-[color:var(--border)] text-[color:var(--text)]"
+                      onClick={onViewHistory}
                     >
                       Historial
                     </Button>
@@ -106,13 +150,21 @@ export default function ExerciseCard({
                   variant="ghost"
                   className="text-red-600"
                   onClick={onRemoveExercise}
-                  aria-label="Eliminar ejercicio de la sesión"
+                  aria-label="Eliminar ejercicio de la sesion"
                 >
                   <Trash2 className="h-5 w-5" />
                 </Button>
               </div>
 
               <div className="px-3 pb-3 space-y-2">
+                <div className="flex items-center justify-between px-2">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                    Set de {seriesLabelLower}
+                  </span>
+                  <span className="text-[11px] text-[color:var(--text-muted)]">
+                    {exercise.sets.length} sets
+                  </span>
+                </div>
                 <div className="grid grid-cols-[48px,1fr,1fr,60px,40px] text-[11px] text-[color:var(--text-muted)] px-2">
                   <span>#</span>
                   <span>Previo</span>
@@ -126,13 +178,14 @@ export default function ExerciseCard({
                       <SetRow
                         key={set.id}
                         index={idx + 1}
-                        previousText={set.previousText}
-                        kg={set.kg}
-                        reps={set.reps}
-                        done={set.done}
-                        onChangeKg={(value) => onUpdateSet(set.id, "kg", value)}
-                        onChangeReps={(value) => onUpdateSet(set.id, "reps", value)}
-                        onToggleDone={() => onToggleDone(set.id)}
+                        seriesType={seriesValue}
+                        entries={set.entries}
+                        onChangeEntry={(entryId, field, value) =>
+                          onUpdateEntry(set.id, entryId, field, value)
+                        }
+                        onToggleEntry={(entryId) =>
+                          onToggleEntry(set.id, entryId)
+                        }
                         onRemove={() => onRemoveSet(set.id)}
                       />
                     ))}
@@ -144,7 +197,7 @@ export default function ExerciseCard({
                     className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
                     onClick={onAddSet}
                   >
-                    + Añadir set
+                    + Anadir set a la {seriesLabelLower}
                   </Button>
                 </motion.div>
               </div>
@@ -163,20 +216,27 @@ ExerciseCard.propTypes = {
     prText: PropTypes.string,
     image: PropTypes.string,
     imagePublicId: PropTypes.string,
+    seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
     sets: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,
-        previousText: PropTypes.string.isRequired,
-        kg: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-        reps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-        done: PropTypes.bool.isRequired,
+        entries: PropTypes.arrayOf(
+          PropTypes.shape({
+            id: PropTypes.string.isRequired,
+            previousText: PropTypes.string.isRequired,
+            kg: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+            reps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+            done: PropTypes.bool.isRequired,
+          })
+        ),
       })
     ).isRequired,
   }).isRequired,
   onAddSet: PropTypes.func.isRequired,
-  onUpdateSet: PropTypes.func.isRequired,
-  onToggleDone: PropTypes.func.isRequired,
+  onUpdateEntry: PropTypes.func.isRequired,
+  onToggleEntry: PropTypes.func.isRequired,
   onRemoveSet: PropTypes.func.isRequired,
   onRemoveExercise: PropTypes.func.isRequired,
+  onSeriesTypeChange: PropTypes.func,
   onViewHistory: PropTypes.func,
 };
