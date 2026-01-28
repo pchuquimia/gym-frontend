@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
@@ -58,6 +58,7 @@ function PhotosLibrary() {
   const [fileError, setFileError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [activePhoto, setActivePhoto] = useState(null);
+  const [modalSrc, setModalSrc] = useState("");
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
@@ -149,9 +150,18 @@ function PhotosLibrary() {
     setActivePhoto(null);
   };
 
-  const activePhotoUrl = activePhoto
-    ? getPhotoUrl(activePhoto, { width: 1400, height: 1400, crop: "limit" })
-    : "";
+  useEffect(() => {
+    if (!activePhoto) {
+      setModalSrc("");
+      return;
+    }
+    const primary = getPhotoUrl(activePhoto, {
+      width: 1200,
+      height: 1200,
+      crop: "limit",
+    });
+    setModalSrc(primary || activePhoto.url || "");
+  }, [activePhoto]);
 
   return (
     <main className="relative min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -483,11 +493,25 @@ function PhotosLibrary() {
         >
           <div className="space-y-4">
             <div className="rounded-2xl border border-[color:var(--border)] overflow-hidden">
-              <img
-                src={activePhotoUrl || activePhoto.url}
-                alt={activePhoto.label || "Foto de progreso"}
-                className="w-full max-h-[70vh] object-cover"
-              />
+              {modalSrc ? (
+                <img
+                  src={modalSrc}
+                  alt={activePhoto.label || "Foto de progreso"}
+                  className="w-full max-h-[70vh] object-cover"
+                  onError={() => {
+                    const fallback = activePhoto?.url || "";
+                    if (fallback && modalSrc !== fallback) {
+                      setModalSrc(fallback);
+                    } else {
+                      setModalSrc("");
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-full h-[40vh] grid place-items-center text-sm text-[color:var(--text-muted)] bg-[color:var(--bg)]">
+                  No se pudo cargar la foto.
+                </div>
+              )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
