@@ -47,7 +47,7 @@ function FilterBar({
           <input
             type="text"
             className="
-              w-full h-10 rounded-2xl
+              w-full h-11 sm:h-10 rounded-2xl
               border border-[color:var(--border)]
               bg-[color:var(--card)]
               pl-10 pr-3 text-sm
@@ -65,7 +65,7 @@ function FilterBar({
         <button
           type="button"
           className="
-            h-10 w-10 rounded-2xl
+            h-11 w-11 sm:h-10 sm:w-10 rounded-2xl
             border border-[color:var(--border)]
             bg-[color:var(--card)]
             grid place-items-center
@@ -98,7 +98,7 @@ function FilterBar({
       {/* Branch select compacto (si quieres ocultarlo como la imagen, lo pasamos a modal) */}
       <select
         className="
-          w-full h-10 rounded-2xl
+          w-full h-11 sm:h-10 rounded-2xl
           border border-[color:var(--border)]
           bg-[color:var(--card)]
           px-3 text-sm
@@ -122,24 +122,24 @@ function FilterBar({
             <button
               key={muscle}
               type="button"
-              className={[
-                "shrink-0 h-8 px-4 rounded-full border text-xs font-semibold whitespace-nowrap transition",
+            className={[
+                "shrink-0 h-7 sm:h-8 px-3 sm:px-4 rounded-full border text-[10px] sm:text-xs font-semibold whitespace-nowrap transition",
                 active
                   ? "bg-emerald-500 text-white border-emerald-500"
                   : "bg-[color:var(--card)] text-[color:var(--text)] border-[color:var(--border)] hover:bg-[color:var(--bg)]",
               ].join(" ")}
-              onClick={() => onFilter(muscle)}
-            >
-              {muscle}
-            </button>
-          );
-        })}
+            onClick={() => onFilter(muscle)}
+          >
+            {muscle}
+          </button>
+        );
+      })}
 
         {/* Clear */}
         <button
           type="button"
           className="
-            shrink-0 h-8 px-4 rounded-full border text-xs font-semibold whitespace-nowrap
+            shrink-0 h-7 sm:h-8 px-3 sm:px-4 rounded-full border text-[10px] sm:text-xs font-semibold whitespace-nowrap
             bg-[color:var(--card)] text-[color:var(--text-muted)] border-[color:var(--border)]
             hover:bg-[color:var(--bg)] hover:text-[color:var(--text)]
             transition

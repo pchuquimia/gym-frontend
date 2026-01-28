@@ -22,6 +22,7 @@ const getLocalISODate = (value) => {
 };
 const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
+const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -396,6 +397,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     exercises: libraryExercises,
     addTraining,
     updateTraining,
+    addPhoto,
     trainings,
     branch: userBranch,
     setBranch,
@@ -413,6 +415,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO);
+  const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
+  const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
+  const [trainingPhotoError, setTrainingPhotoError] = useState("");
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
   const [editingId, setEditingId] = useState("");
@@ -556,6 +561,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedMuscleGroup(muscleGroupOptions[0]);
     }
   }, [showExercisePicker, muscleGroupOptions, selectedMuscleGroup]);
+
+  useEffect(() => {
+    if (!trainingPhotoFile) {
+      setTrainingPhotoPreview("");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(trainingPhotoFile);
+    setTrainingPhotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [trainingPhotoFile]);
 
   const buildExercisesForRoutine = (
     routine,
@@ -1272,6 +1287,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSelectedMuscleGroup("");
     setShowTracking(false);
     setTrackingExerciseId("");
+    setTrainingPhotoFile(null);
+    setTrainingPhotoPreview("");
+    setTrainingPhotoError("");
     setSessionDate(todayISO);
     setEditingId("");
     setIsEditing(false);
@@ -1328,6 +1346,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSelectedMuscleGroup("");
     setShowTracking(false);
     setTrackingExerciseId("");
+    setTrainingPhotoFile(null);
+    setTrainingPhotoPreview("");
+    setTrainingPhotoError("");
     setHistoryTrainings([]);
     setDurationSeconds(0);
     setIsRunning(false);
@@ -1632,6 +1653,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setShowExercisePicker(true);
   };
 
+  const handleTrainingPhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_TRAINING_PHOTO_BYTES) {
+      setTrainingPhotoError("Max 10MB");
+      event.target.value = "";
+      return;
+    }
+    setTrainingPhotoError("");
+    setTrainingPhotoFile(file);
+    event.target.value = "";
+  };
+
+  const clearTrainingPhoto = () => {
+    setTrainingPhotoFile(null);
+    setTrainingPhotoError("");
+  };
+
   const handleFinish = async () => {
     setIsRunning(false);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -1728,6 +1767,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         setIsEditing(false);
       } else {
         savedTraining = await addTraining(payload);
+      }
+      if (savedTraining && trainingPhotoFile) {
+        const trainingId = savedTraining.id || savedTraining._id;
+        const routineLabel = selectedRoutine?.name
+          ? `Entrenamiento - ${selectedRoutine.name}`
+          : "Foto en entrenamiento";
+        try {
+          await addPhoto({
+            file: trainingPhotoFile,
+            date: dateStr,
+            label: routineLabel,
+            type: "gym",
+            sessionId: trainingId || "",
+          });
+        } catch (err) {
+          console.error("No se pudo subir la foto", err);
+          toast.error("No se pudo subir la foto del entrenamiento.");
+        }
       }
       if (savedTraining && typeof localStorage !== "undefined") {
         const lastId = savedTraining.id || savedTraining._id;
@@ -1982,10 +2039,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </Card>
         </div>
 
-        {selectedRoutineId && (
-          <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-              Resumen rapido
+          {selectedRoutineId && (
+            <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                Resumen rapido
             </p>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
@@ -2011,11 +2068,79 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
                 style={{ width: `${progressPct}%` }}
               />
-            </div>
-          </Card>
-        )}
+              </div>
+            </Card>
+          )}
 
-        <div className="grid gap-4 md:grid-cols-[360px,1fr]">
+          {selectedRoutineId && (
+            <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                    Foto del entrenamiento
+                  </p>
+                  <p className="text-xs text-[color:var(--text-muted)]">
+                    Se guarda junto al resumen cuando finalices.
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-[11px]">
+                  Opcional
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-20 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
+                  {trainingPhotoPreview ? (
+                    <img
+                      src={trainingPhotoPreview}
+                      alt="Vista previa"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center text-[11px] text-[color:var(--text-muted)]">
+                      Sin foto
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <p className="text-xs text-[color:var(--text-muted)]">
+                    Toma una foto al cerrar la sesion y guardala en tu
+                    biblioteca.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex">
+                      <Button size="sm" variant="outline" className="rounded-full" asChild>
+                        <span>
+                          {trainingPhotoFile ? "Cambiar foto" : "Tomar foto"}
+                        </span>
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleTrainingPhotoChange}
+                      />
+                    </label>
+                    {trainingPhotoFile && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full"
+                        onClick={clearTrainingPhoto}
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </div>
+                  {trainingPhotoError && (
+                    <p className="text-xs text-red-500">{trainingPhotoError}</p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
             <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
               <div className="space-y-2">

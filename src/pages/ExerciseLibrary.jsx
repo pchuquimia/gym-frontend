@@ -146,7 +146,7 @@ function ExerciseLibrary({ onNavigate }) {
   return (
     <>
       <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-3 sm:px-4 md:px-6 pb-24 space-y-4 lg:space-y-6">
-        <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-5 sm:p-6 shadow-sm">
+        <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:p-6 shadow-sm">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
             <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
@@ -158,7 +158,7 @@ function ExerciseLibrary({ onNavigate }) {
               <p className="text-[11px] uppercase tracking-[0.35em] text-[color:var(--text-muted)] font-semibold">
                 Biblioteca
               </p>
-              <h1 className="text-3xl sm:text-4xl font-display font-semibold text-[color:var(--text)]">
+              <h1 className="text-2xl sm:text-4xl font-display font-semibold text-[color:var(--text)]">
                 Ejercicios
               </h1>
               <p className="text-sm text-[color:var(--text-muted)] max-w-md">
@@ -180,36 +180,36 @@ function ExerciseLibrary({ onNavigate }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-sky-200/70 bg-sky-50/60 p-3 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/10">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="rounded-2xl border border-sky-200/70 bg-sky-50/60 p-2.5 sm:p-3 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/10">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                   Ejercicios
                 </p>
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                <p className="mt-2 text-base sm:text-lg font-semibold text-[color:var(--text)]">
                   {stats.total}
                 </p>
               </div>
-              <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-3 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+              <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-2.5 sm:p-3 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                   Con imagen
                 </p>
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                <p className="mt-2 text-base sm:text-lg font-semibold text-[color:var(--text)]">
                   {stats.withImages}
                 </p>
               </div>
-              <div className="rounded-2xl border border-violet-200/70 bg-violet-50/60 p-3 shadow-sm dark:border-violet-400/30 dark:bg-violet-500/10">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+              <div className="rounded-2xl border border-violet-200/70 bg-violet-50/60 p-2.5 sm:p-3 shadow-sm dark:border-violet-400/30 dark:bg-violet-500/10">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                   Grupos
                 </p>
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                <p className="mt-2 text-base sm:text-lg font-semibold text-[color:var(--text)]">
                   {stats.muscles}
                 </p>
               </div>
-              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/60 p-3 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/60 p-2.5 sm:p-3 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                   Resultados
                 </p>
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                <p className="mt-2 text-base sm:text-lg font-semibold text-[color:var(--text)]">
                   {stats.filtered}
                 </p>
               </div>
@@ -217,8 +217,8 @@ function ExerciseLibrary({ onNavigate }) {
           </div>
         </section>
 
-        <section className="sticky top-0 z-10 bg-[color:var(--bg)]/95 backdrop-blur-sm pt-3 pb-3">
-          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-3">
+        <section className="sticky top-0 z-10 bg-[color:var(--bg)]/95 backdrop-blur-sm pt-2 pb-2">
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 sm:p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--text-muted)] font-semibold">
@@ -243,10 +243,10 @@ function ExerciseLibrary({ onNavigate }) {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-[color:var(--text)]">
+              <h2 className="text-sm sm:text-base font-semibold text-[color:var(--text)]">
                 Destacados
               </h2>
               <p className="text-xs text-[color:var(--text-muted)]">
@@ -261,7 +261,7 @@ function ExerciseLibrary({ onNavigate }) {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
-                  <Skeleton key={idx} className="h-20 w-full md:h-64" />
+                <Skeleton key={idx} className="h-20 w-full md:h-64" />
                 ))
               : popularExercises.map((exercise) => (
                   <ExerciseCard
@@ -276,10 +276,10 @@ function ExerciseLibrary({ onNavigate }) {
         </section>
 
         {remainingExercises.length > 0 && (
-          <section className="space-y-4">
+          <section className="space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-[color:var(--text)]">
+                <h2 className="text-sm sm:text-base font-semibold text-[color:var(--text)]">
                   Biblioteca completa
                 </h2>
                 <p className="text-xs text-[color:var(--text-muted)]">
@@ -318,8 +318,8 @@ function ExerciseLibrary({ onNavigate }) {
         type="button"
         onClick={handleAdd}
         className="
-          fixed bottom-6 right-6 z-20
-          h-14 w-14 rounded-full
+          fixed bottom-5 right-5 z-20
+          h-12 w-12 sm:h-14 sm:w-14 rounded-full
           bg-emerald-500 text-white
           shadow-lg shadow-emerald-500/30
           grid place-items-center
@@ -329,7 +329,7 @@ function ExerciseLibrary({ onNavigate }) {
         aria-label="Agregar ejercicio"
         title="Agregar ejercicio"
       >
-        <span className="text-2xl leading-none">+</span>
+        <span className="text-xl sm:text-2xl leading-none">+</span>
       </button>
 
       {(activeModal === "add" || activeModal === "edit") && (
