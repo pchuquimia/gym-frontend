@@ -57,10 +57,12 @@ function MainLayout({ children, activePage, onNavigate }) {
     if (typeof onNavigate === 'function') onNavigate('registrar')
   }
 
+  const showReturnTraining = activePage !== 'registrar' && activeTraining
+
   return (
     <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
-      {activePage !== 'registrar' && activeTraining && (
-        <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm">
+      {showReturnTraining && (
+        <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm hidden md:block">
           <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
             <div className="text-sm text-[color:var(--text-muted)] flex items-center gap-1">
               <span>Sesión en curso</span>
@@ -82,16 +84,34 @@ function MainLayout({ children, activePage, onNavigate }) {
           <Sidebar activePage={activePage} onNavigate={onNavigate} />
         </div>
         <div className="px-3 py-4 sm:px-4 md:px-8 md:py-8">
-          <div className="flex items-center justify-between mb-4 gap-3">
+
+          <div
+            className={`flex items-center justify-between mb-4 gap-3 ${
+              showReturnTraining
+                ? 'sticky top-0 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0'
+                : ''
+            }`}
+          >
             <button
               type="button"
               className="md:hidden inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2 text-sm font-medium text-[color:var(--text)]"
               onClick={() => setShowDrawer(true)}
             >
               <Menu className="w-4 h-4" />
-              Menú
+              Men?
             </button>
             <div className="flex-1" />
+            {showReturnTraining && (
+              <button
+                onClick={handleReturnTraining}
+                className="md:hidden inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 text-[color:var(--text)] text-xs font-semibold px-3 py-1.5"
+              >
+                Volver
+                <span className="font-mono text-[11px] text-[color:var(--text-muted)]">
+                  {formatDuration(activeTraining.elapsed || 0)}
+                </span>
+              </button>
+            )}
             <ThemeToggle />
           </div>
           <main className="flex flex-col gap-6">{children}</main>

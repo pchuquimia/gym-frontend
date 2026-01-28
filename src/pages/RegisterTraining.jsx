@@ -1926,46 +1926,50 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       />
       <Toaster position="top-center" richColors />
       <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 pt-4">
-        <div className="sticky top-0 z-30 md:hidden -mx-3 sm:-mx-4">
-          <div className="px-3 sm:px-4 pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
-            <div className="flex items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono text-lg text-[color:var(--text)]">
-                  {formatDuration(durationSeconds)}
-                </span>
-                <span
-                  className={`text-[10px] font-semibold uppercase ${
-                    isRunning ? "text-red-400" : "text-[color:var(--text-muted)]"
-                  }`}
-                >
-                  Live
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {showFinishButton && (
-                  <Button
-                    size="sm"
-                    className="rounded-full px-3"
-                    onClick={handleFinish}
-                    disabled={!exercises.length}
+        {(hasStarted || isRunning || durationSeconds > 0) && (
+          <div className="sticky top-0 z-30 md:hidden -mx-3 sm:-mx-4">
+            <div className="px-3 sm:px-4 pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
+              <div className="flex items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-lg text-[color:var(--text)]">
+                    {formatDuration(durationSeconds)}
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold uppercase ${
+                      isRunning
+                        ? "text-red-400"
+                        : "text-[color:var(--text-muted)]"
+                    }`}
                   >
-                    Finalizar
-                  </Button>
-                )}
-                {showCancelButton && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full px-3"
-                    onClick={handleCancel}
-                  >
-                    Cancelar
-                  </Button>
-                )}
+                    Live
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {showFinishButton && (
+                    <Button
+                      size="sm"
+                      className="rounded-full px-3"
+                      onClick={handleFinish}
+                      disabled={!exercises.length}
+                    >
+                      Finalizar
+                    </Button>
+                  )}
+                  {showCancelButton && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full px-3"
+                      onClick={handleCancel}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
         <div className="hidden md:flex items-center justify-between">
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           <div className="flex items-center gap-2">
