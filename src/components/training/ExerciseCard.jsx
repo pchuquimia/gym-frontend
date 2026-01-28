@@ -17,6 +17,7 @@ export default function ExerciseCard({
   onRemoveSet,
   onRemoveExercise,
   onSeriesTypeChange = () => {},
+  onViewTracking = null,
   onViewHistory = null,
 }) {
   const [open, setOpen] = useState(false);
@@ -129,9 +130,9 @@ export default function ExerciseCard({
                     <Button
                       size="sm"
                       className="rounded-full px-4"
-                      onClick={onAddSet}
+                      onClick={onViewTracking}
                     >
-                      Iniciar serie
+                      Seguimiento
                     </Button>
                   </motion.div>
                   <motion.div whileTap={{ scale: 0.97 }}>
@@ -242,5 +243,6 @@ ExerciseCard.propTypes = {
   onRemoveSet: PropTypes.func.isRequired,
   onRemoveExercise: PropTypes.func.isRequired,
   onSeriesTypeChange: PropTypes.func,
+  onViewTracking: PropTypes.func,
   onViewHistory: PropTypes.func,
 };

@@ -18,55 +18,59 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
   const [range, setRange] = useState(12)
   const [groupBy, setGroupBy] = useState('week') // week | session
   const data = useMemo(() => (workouts.length ? workouts : workoutsMock), [workouts])
+  const hasRealData = workouts.length > 0
+
+  const pillGroup =
+    'inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1'
+  const pillButton = (active) =>
+    `px-3 py-1 rounded-full text-xs font-semibold transition ${
+      active
+        ? 'bg-[color:var(--card)] text-[color:var(--text)] shadow-sm'
+        : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
+    }`
 
   return (
-    <div className="card space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="card p-4 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-[color:var(--text-muted)]">Exercise Analytics</p>
-          <h3 className="text-lg font-semibold">{exerciseName}</h3>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+            Evolucion del ejercicio
+          </p>
+          <h3 className="text-lg font-semibold text-[color:var(--text)]">{exerciseName}</h3>
+          {!hasRealData && (
+            <p className="text-xs text-[color:var(--text-muted)]">Mostrando datos de ejemplo.</p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          {ranges.map((r) => (
-            <button
-              key={r}
-              className={`px-3 py-1 rounded-full border text-xs ${range === r ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
-              onClick={() => setRange(r)}
-              type="button"
-            >
-              {r} sem
-            </button>
-          ))}
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-[color:var(--text-muted)]">Rango</span>
+          <div className={pillGroup}>
+            {ranges.map((r) => (
+              <button key={r} className={pillButton(range === r)} onClick={() => setRange(r)} type="button">
+                {r} sem
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`px-3 py-1 rounded-full border ${tab === t.key ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
-            onClick={() => setTab(t.key)}
-            type="button"
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className={pillGroup}>
+          {tabs.map((t) => (
+            <button key={t.key} className={pillButton(tab === t.key)} onClick={() => setTab(t.key)} type="button">
+              {t.label}
+            </button>
+          ))}
+        </div>
         <div className="ml-auto flex items-center gap-2 text-xs">
-          <span className="text-[color:var(--text-muted)]">Agrupar por:</span>
-          <button
-            type="button"
-            className={`px-3 py-1 rounded-full border ${groupBy === 'week' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
-            onClick={() => setGroupBy('week')}
-          >
-            Semana
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-1 rounded-full border ${groupBy === 'session' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
-            onClick={() => setGroupBy('session')}
-          >
-            Sesión
-          </button>
+          <span className="text-[color:var(--text-muted)]">Agrupar por</span>
+          <div className={pillGroup}>
+            <button type="button" className={pillButton(groupBy === 'week')} onClick={() => setGroupBy('week')}>
+              Semana
+            </button>
+            <button type="button" className={pillButton(groupBy === 'session')} onClick={() => setGroupBy('session')}>
+              Sesion
+            </button>
+          </div>
         </div>
       </div>
 

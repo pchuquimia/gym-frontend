@@ -27,13 +27,27 @@ export function RoutineProvider({ children }) {
   const addRoutine = async (routine) => {
     const payload = { ...routine, branch: routine.branch || 'general', _id: routine.id }
     const saved = await api.createRoutine(payload)
-    setRoutines((prev) => [{ ...saved, id: routine.id, branch: saved.branch || payload.branch }, ...prev])
+    const merged = {
+      ...saved,
+      ...payload,
+      id: routine.id,
+      branch: saved.branch || payload.branch,
+      exercises: payload.exercises || saved.exercises,
+    }
+    setRoutines((prev) => [merged, ...prev])
   }
 
   const updateRoutine = async (id, payload) => {
     const body = { ...payload, branch: payload.branch || 'general' }
     const saved = await api.updateRoutine(id, body)
-    setRoutines((prev) => prev.map((r) => (r.id === id ? { ...saved, id, branch: saved.branch || body.branch } : r)))
+    const merged = {
+      ...saved,
+      ...body,
+      id,
+      branch: saved.branch || body.branch,
+      exercises: body.exercises || saved.exercises,
+    }
+    setRoutines((prev) => prev.map((r) => (r.id === id ? merged : r)))
   }
 
   const deleteRoutine = async (id) => {

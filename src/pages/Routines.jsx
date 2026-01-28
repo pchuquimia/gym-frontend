@@ -101,6 +101,7 @@ function RoutineModal({
         muscle: ex.muscle || meta?.muscle,
         image: ex.image || meta?.image || "",
         imagePublicId: ex.imagePublicId || meta?.imagePublicId || "",
+        isExtra: Boolean(ex.isExtra),
       };
     })
   );
@@ -162,6 +163,7 @@ function RoutineModal({
         muscle: exercise.muscle,
         image: exercise.image || "",
         imagePublicId: exercise.imagePublicId || "",
+        isExtra: false,
       },
     ]);
   };
@@ -169,6 +171,14 @@ function RoutineModal({
   const updateSets = (idx, sets) => {
     setExercises((prev) =>
       prev.map((ex, i) => (i === idx ? { ...ex, sets: Number(sets) || 0 } : ex))
+    );
+  };
+
+  const toggleExtra = (idx) => {
+    setExercises((prev) =>
+      prev.map((ex, i) =>
+        i === idx ? { ...ex, isExtra: !ex.isExtra } : ex
+      )
     );
   };
 
@@ -209,6 +219,7 @@ function RoutineModal({
       exercises: exercises.map((ex) => ({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
+        isExtra: Boolean(ex.isExtra),
       })),
     };
     onSave(payload);
@@ -407,7 +418,7 @@ function RoutineModal({
                       <p className="text-sm font-semibold truncate">
                         {ex.name}
                       </p>
-                      <div className="flex items-center gap-2 text-xs mt-1">
+                      <div className="flex items-center gap-2 text-xs mt-1 flex-wrap">
                         <span>Series</span>
                         <input
                           type="number"
@@ -416,6 +427,17 @@ function RoutineModal({
                           value={ex.sets}
                           onChange={(e) => updateSets(ex.idx, e.target.value)}
                         />
+                        <button
+                          type="button"
+                          onClick={() => toggleExtra(ex.idx)}
+                          className={`px-2 py-1 rounded-full border text-[11px] font-semibold transition ${
+                            ex.isExtra
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]"
+                          }`}
+                        >
+                          {ex.isExtra ? "Extra" : "Principal"}
+                        </button>
                       </div>
                     </div>
                     <button

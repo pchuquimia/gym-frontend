@@ -5,11 +5,13 @@ import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
+import Modal from "../components/shared/Modal";
 import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -21,16 +23,39 @@ const getLocalISODate = (value) => {
 const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
 
-const formatLongDate = (iso) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", {
+const toValidDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const normalized =
+      trimmed.length <= 10 ? `${trimmed}T00:00:00` : trimmed;
+    const d = new Date(normalized);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+};
+
+const formatLongDate = (iso) => {
+  const d = toValidDate(iso);
+  if (!d) return "--";
+  return d.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
+};
 
 const formatShort = (iso) => {
-  if (!iso) return "--";
-  const d = new Date(`${iso}T00:00:00`);
+  const d = toValidDate(iso);
+  if (!d) return "--";
   return d.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
@@ -60,6 +85,17 @@ const formatDuration = (sec) => {
 
 const formatCounter = (value) => String(value || 0).padStart(2, "0");
 
+const formatEntryValue = (entry = {}) => {
+  const weightRaw = entry.weightKg ?? entry.weight ?? entry.kg ?? null;
+  const repsRaw = entry.reps ?? null;
+  const hasWeight = weightRaw !== null && weightRaw !== "";
+  const hasReps = repsRaw !== null && repsRaw !== "";
+  if (!hasWeight && !hasReps) return "--";
+  const weightLabel = hasWeight ? `${weightRaw}kg` : "--kg";
+  const repsLabel = hasReps ? repsRaw : "--";
+  return `${weightLabel} x ${repsLabel}`;
+};
+
 const parseDecimal = (value) => {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(String(value).replace(",", "."));
@@ -76,6 +112,19 @@ const getSeriesCount = (seriesType) => {
   if (seriesType === "triserie") return 3;
   if (seriesType === "biserie") return 2;
   return 1;
+};
+
+const inferSeriesTypeFromSets = (sets = []) => {
+  let maxEntries = 0;
+  let foundType = null;
+  (Array.isArray(sets) ? sets : []).forEach((set) => {
+    if (set?.seriesType) foundType = normalizeSeriesType(set.seriesType);
+    const entriesCount = Array.isArray(set?.entries) ? set.entries.length : 0;
+    if (entriesCount > maxEntries) maxEntries = entriesCount;
+  });
+  if (maxEntries >= 3) return "triserie";
+  if (maxEntries === 2) return "biserie";
+  return foundType || null;
 };
 
 const normalizeEntries = ({
@@ -183,6 +232,11 @@ const getExerciseKeys = (exercise = {}) => {
   return Array.from(keys);
 };
 
+const pickMapKey = (map, keys = []) => {
+  if (!map) return null;
+  return keys.find((key) => key && map.has(key)) || null;
+};
+
 const getDateTimestamp = (value) => {
   if (!value) return 0;
   const normalized = value.length <= 10 ? `${value}T00:00:00` : value;
@@ -190,10 +244,39 @@ const getDateTimestamp = (value) => {
   return Number.isNaN(ts) ? 0 : ts;
 };
 
+const computeLatestSeriesTypeFromHistory = (
+  trainings = [],
+  routineId = null
+) => {
+  const map = new Map();
+  trainings.forEach((tr) => {
+    if (routineId && tr?.routineId && tr.routineId !== routineId) return;
+    const ts = getDateTimestamp(tr?.date || tr?.createdAt);
+    (tr?.exercises || []).forEach((ex) => {
+      const rawType =
+        ex?.seriesType ||
+        ex?.sets?.[0]?.seriesType ||
+        inferSeriesTypeFromSets(ex?.sets);
+      if (!rawType) return;
+      const type = normalizeSeriesType(rawType);
+      const keys = getExerciseKeys(ex);
+      if (!keys.length) return;
+      keys.forEach((key) => {
+        const current = map.get(key);
+        if (!current || ts > current.ts) {
+          map.set(key, { type, ts });
+        }
+      });
+    });
+  });
+  return map;
+};
+
 const computeBestFromHistory = (trainings = []) => {
   const map = new Map();
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
+    const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex) => {
       const keys = getExerciseKeys(ex);
       if (!keys.length) return;
@@ -211,12 +294,12 @@ const computeBestFromHistory = (trainings = []) => {
             const isBetter =
               !current ||
               w > current.weight ||
-              (w === current.weight && r > current.reps) ||
+              (w === current.weight && r > (current.reps ?? 0)) ||
               (w === current.weight &&
-                r === current.reps &&
-                date > (current.date || ""));
+                r === (current.reps ?? 0) &&
+                ts < current.ts);
             if (isBetter) {
-              map.set(key, { weight: w, reps: r, date });
+              map.set(key, { weight: w, reps: r, date, ts });
             }
           });
         });
@@ -230,6 +313,7 @@ const computeBestBySetFromHistory = (trainings = []) => {
   const map = new Map();
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
+    const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex) => {
       const keys = getExerciseKeys(ex);
       if (!keys.length) return;
@@ -248,12 +332,12 @@ const computeBestBySetFromHistory = (trainings = []) => {
           const isBetter =
             !current ||
             w > current.weight ||
-            (w === current.weight && r > current.reps) ||
+            (w === current.weight && r > (current.reps ?? 0)) ||
             (w === current.weight &&
-              r === current.reps &&
-              date > (current.date || ""));
+              r === (current.reps ?? 0) &&
+              ts < current.ts);
           if (isBetter) {
-            arr[idx] = { weight: w, reps: r, date };
+            arr[idx] = { weight: w, reps: r, date, ts };
           }
         });
       });
@@ -319,9 +403,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [exercises, setExercises] = useState([]);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState("");
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("");
+  const [trackingExerciseId, setTrackingExerciseId] = useState("");
+  const [showTracking, setShowTracking] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
@@ -342,6 +432,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     return Array.from(set);
   }, [routines]);
 
+  const latestRoutineDates = useMemo(() => {
+    const map = new Map();
+    (trainings || []).forEach((tr) => {
+      const routineId = tr?.routineId;
+      if (!routineId) return;
+      const ts = getDateTimestamp(tr.date || tr.createdAt);
+      if (!ts) return;
+      const current = map.get(routineId);
+      if (!current || ts > current.ts) {
+        map.set(routineId, { date: tr.date || tr.createdAt, ts });
+      }
+    });
+    return map;
+  }, [trainings]);
+
   const routineOptions = useMemo(() => {
     const filtered =
       (routines || []).filter((r) =>
@@ -353,7 +458,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: r.name,
         location: r.branch || "general",
         exerciseCount: (r.exercises || []).length,
-        lastDate: formatShort(r.updatedAt || r.createdAt) || "--",
+        lastDate:
+          formatShort(
+            latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt
+          ) || "--",
         raw: r,
       }));
     }
@@ -363,10 +471,55 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       name: r.name,
       location: r.branch || "general",
       exerciseCount: (r.exercises || []).length,
-      lastDate: formatShort(r.updatedAt || r.createdAt) || "--",
+      lastDate:
+        formatShort(
+          latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt
+        ) || "--",
       raw: r,
     }));
-  }, [routines, selectedBranch]);
+  }, [routines, selectedBranch, latestRoutineDates]);
+
+  const currentBranch =
+    selectedBranch || selectedRoutine?.location || "general";
+  const libraryExerciseOptions = useMemo(() => {
+    const seen = new Set();
+    return (libraryExercises || [])
+      .filter((ex) => {
+        if (seen.has(ex.id)) return false;
+        seen.add(ex.id);
+        return true;
+      })
+      .filter((ex) => {
+        if (!currentBranch || currentBranch === "general") return true;
+        const branches = ex.branches || [];
+        return (
+          branches.includes(currentBranch) || branches.includes("general")
+        );
+      })
+      .map((ex) => ({
+        id: ex.id,
+        name: ex.name,
+        muscle: ex.muscle || ex.muscleGroup || "Sin grupo",
+        image: ex.image || "",
+        imagePublicId: ex.imagePublicId || "",
+        branches: ex.branches || [],
+      }));
+  }, [libraryExercises, currentBranch]);
+  const muscleGroupOptions = useMemo(() => {
+    const set = new Set();
+    libraryExerciseOptions.forEach((ex) => {
+      if (ex.muscle) set.add(ex.muscle);
+    });
+    return Array.from(set);
+  }, [libraryExerciseOptions]);
+  const filteredLibraryExercises = useMemo(() => {
+    const search = exerciseSearch.trim().toLowerCase();
+    return libraryExerciseOptions.filter(
+      (ex) =>
+        (!selectedMuscleGroup || ex.muscle === selectedMuscleGroup) &&
+        (!search || ex.name.toLowerCase().includes(search))
+    );
+  }, [libraryExerciseOptions, exerciseSearch, selectedMuscleGroup]);
 
   const historyBest = useMemo(
     () => computeBestFromHistory(historyTrainings),
@@ -380,22 +533,61 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     () => computeRecentBySetFromHistory(historyTrainings),
     [historyTrainings]
   );
+  const historySeriesTypeMap = useMemo(
+    () =>
+      computeLatestSeriesTypeFromHistory(
+        historyTrainings,
+        selectedRoutineId
+      ),
+    [historyTrainings, selectedRoutineId]
+  );
+
+  useEffect(() => {
+    if (!showExercisePicker) return;
+    setExerciseSearch("");
+    if (!muscleGroupOptions.length) {
+      if (selectedMuscleGroup) setSelectedMuscleGroup("");
+      return;
+    }
+    if (
+      !selectedMuscleGroup ||
+      !muscleGroupOptions.includes(selectedMuscleGroup)
+    ) {
+      setSelectedMuscleGroup(muscleGroupOptions[0]);
+    }
+  }, [showExercisePicker, muscleGroupOptions, selectedMuscleGroup]);
 
   const buildExercisesForRoutine = (
     routine,
     training,
     bestMap = historyBest,
     bestBySetMap = historyBestBySet,
-    recentBySetMap = historyRecentBySet
+    recentBySetMap = historyRecentBySet,
+    seriesTypeMap = historySeriesTypeMap,
+    includeExtras = false
   ) => {
-    const list = (routine?.exercises || []).length
-      ? routine.exercises
-      : (training?.exercises || []).map((ex) => ({
-          exerciseId: ex.exerciseId,
-          name: ex.exerciseName,
-          muscle: ex.muscleGroup,
-          sets: ex.sets?.length || 3,
-        }));
+    const trainingList =
+      training?.exercises?.length &&
+      training.exercises.map((ex) => ({
+        exerciseId: ex.exerciseId,
+        name: ex.exerciseName,
+        muscle: ex.muscleGroup,
+        sets: ex.sets?.length || 3,
+      }));
+    const routineList =
+      (routine?.exercises || []).length
+        ? routine.exercises
+        : (training?.exercises || []).map((ex) => ({
+            exerciseId: ex.exerciseId,
+            name: ex.exerciseName,
+            muscle: ex.muscleGroup,
+            sets: ex.sets?.length || 3,
+          }));
+    const list = trainingList?.length
+      ? trainingList
+      : includeExtras
+      ? routineList
+      : routineList.filter((ex) => !ex.isExtra);
     const trainingById = new Map();
     (training?.exercises || []).forEach((ex) => {
       getExerciseKeys(ex).forEach((key) => {
@@ -403,6 +595,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       });
     });
 
+    const safeSeriesTypeMap = seriesTypeMap || new Map();
     return list.map((ex, idx) => {
       const meta =
         libraryExercises.find(
@@ -418,8 +611,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const setsCount = Number(ex.sets) || 3;
       const trainingEx =
         trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
+      const historySeriesType =
+        safeSeriesTypeMap.get(id) ||
+        (nameKey ? safeSeriesTypeMap.get(nameKey) : null);
+      const inferredSeriesType = trainingEx
+        ? inferSeriesTypeFromSets(trainingEx.sets)
+        : null;
       const seriesType = normalizeSeriesType(
-        trainingEx?.seriesType || ex.seriesType
+        trainingEx?.seriesType ||
+          trainingEx?.sets?.[0]?.seriesType ||
+          (inferredSeriesType && inferredSeriesType !== "serie"
+            ? inferredSeriesType
+            : null) ||
+          historySeriesType?.type ||
+          inferredSeriesType ||
+          ex.seriesType
       );
       const best =
         bestMap.get(id) || (nameKey ? bestMap.get(nameKey) : null);
@@ -554,6 +760,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           meta.muscle ||
           meta.muscleGroup ||
           "Sin grupo",
+        isExtra: Boolean(ex.isExtra),
         seriesType,
         prSummary,
         prWeight: best?.weight ?? null,
@@ -566,7 +773,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     list,
     bestMap = historyBest,
     bestBySetMap = historyBestBySet,
-    recentBySetMap = historyRecentBySet
+    recentBySetMap = historyRecentBySet,
+    seriesTypeMap = historySeriesTypeMap
   ) =>
     (list || []).map((ex, idx) => {
       const id = ex.id || ex.exerciseId || slugify(ex.name || `ex-${idx}`);
@@ -582,7 +790,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const best = bestMap.get(bestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
       const recentBySet = recentBySetMap.get(recentBySetKey) || [];
-      const seriesType = normalizeSeriesType(ex.seriesType);
+      const seriesTypeEntry = keys
+        .map((key) => seriesTypeMap?.get(key))
+        .find(Boolean);
+      const historySeriesType = seriesTypeEntry?.type || null;
+      const inferredSeriesType = inferSeriesTypeFromSets(ex.sets);
+      const seriesType = normalizeSeriesType(
+        ex.seriesType ||
+          (inferredSeriesType && inferredSeriesType !== "serie"
+            ? inferredSeriesType
+            : null) ||
+          historySeriesType ||
+          inferredSeriesType
+      );
       const prSummary = best
         ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : ex.prSummary || "";
@@ -645,7 +865,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     routineId,
     bestMap = historyBest,
     bestBySetMap = historyBestBySet,
-    recentBySetMap = historyRecentBySet
+    recentBySetMap = historyRecentBySet,
+    seriesTypeMap = historySeriesTypeMap
   ) => {
     if (!routineOptions.length || !routineId) {
       setExercises([]);
@@ -665,7 +886,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
+          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
         meta: false,
         routineId: routine.id,
       });
@@ -686,7 +907,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           trainingMatch,
           bestMap,
           bestBySetMap,
-          recentBySetMap
+          recentBySetMap,
+          seriesTypeMap
         )
       );
       if (trainingMatch?.durationSeconds)
@@ -699,7 +921,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           null,
           bestMap,
           bestBySetMap,
-          recentBySetMap
+          recentBySetMap,
+          seriesTypeMap
         )
       );
     } finally {
@@ -726,13 +949,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const bestMap = computeBestFromHistory(hist);
       const bestBySetMap = computeBestBySetFromHistory(hist);
       const recentBySetMap = computeRecentBySetFromHistory(hist);
+      const seriesTypeMap = computeLatestSeriesTypeFromHistory(
+        hist,
+        routine.id
+      );
       setExercises(
         buildExercisesForRoutine(
           routine.raw,
           training,
           bestMap,
           bestBySetMap,
-          recentBySetMap
+          recentBySetMap,
+          seriesTypeMap
         )
       );
       if (training.durationSeconds)
@@ -758,7 +986,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const resp = await api.getTrainings({
         limit: 200,
         fields:
-          "date,exercises.exerciseId,exercises.exerciseName,exercises.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
+          "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
         meta: false,
       });
       const list = Array.isArray(resp) ? resp : resp?.items || [];
@@ -853,6 +1081,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       lastUpdateRef.current = now;
       setDurationSeconds(totalSeconds);
       setIsRunning(Boolean(snap.isRunning));
+      setHasStarted(
+        Boolean(snap.hasStarted) ||
+          Boolean(snap.isRunning) ||
+          totalSeconds > 0
+      );
       if (Array.isArray(snap.exercises))
         setExercises(
           snap.exercises.map((ex) => {
@@ -925,6 +1158,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     historyBest,
     historyBestBySet,
     historyRecentBySet,
+    historySeriesTypeMap,
     exercises.length,
   ]);
 
@@ -955,6 +1189,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         durationSeconds,
         elapsed: durationSeconds,
         isRunning,
+        hasStarted,
         lastUpdate: lastUpdateRef.current,
         exercises,
       };
@@ -969,6 +1204,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     sessionDate,
     durationSeconds,
     isRunning,
+    hasStarted,
     exercises,
   ]);
 
@@ -1006,6 +1242,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleStart = () => {
     lastUpdateRef.current = Date.now();
     setIsRunning(true);
+    setHasStarted(true);
     toast.success("Entrenamiento iniciado");
   };
 
@@ -1018,19 +1255,27 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     lastUpdateRef.current = Date.now();
     setIsRunning(false);
     setDurationSeconds(0);
+    setHasStarted(false);
   };
 
   const resetState = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setDurationSeconds(0);
+    setHasStarted(false);
     setSelectedBranch("");
     setSelectedRoutineId("");
     setSelectedRoutine(null);
     setExercises([]);
+    setShowExercisePicker(false);
+    setExerciseSearch("");
+    setSelectedMuscleGroup("");
+    setShowTracking(false);
+    setTrackingExerciseId("");
     setSessionDate(todayISO);
     setEditingId("");
     setIsEditing(false);
+    setHasStarted(false);
     setBranchLocked(false);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
@@ -1052,12 +1297,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const bestMap = computeBestFromHistory(hist);
       const bestBySetMap = computeBestBySetFromHistory(hist);
       const recentBySetMap = computeRecentBySetFromHistory(hist);
+      const seriesTypeMap = computeLatestSeriesTypeFromHistory(hist, id);
       await loadTrainingForDate(
         sessionDate,
         id,
         bestMap,
         bestBySetMap,
-        recentBySetMap
+        recentBySetMap,
+        seriesTypeMap
       );
     })();
   };
@@ -1071,10 +1318,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (timerRef.current) clearInterval(timerRef.current);
     setEditingId("");
     setIsEditing(false);
+    setHasStarted(false);
     setBranchLocked(false);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
     setExercises([]);
+    setShowExercisePicker(false);
+    setExerciseSearch("");
+    setSelectedMuscleGroup("");
+    setShowTracking(false);
+    setTrackingExerciseId("");
     setHistoryTrainings([]);
     setDurationSeconds(0);
     setIsRunning(false);
@@ -1239,9 +1492,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleRemoveExercise = (exerciseId) => {
     setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
     toast("Ejercicio eliminado solo para hoy");
+    if (trackingExerciseId === exerciseId) {
+      setShowTracking(false);
+      setTrackingExerciseId("");
+    }
   };
 
-  const handleAddExercise = () => {
+  const handleAddExtraExercise = (exercise) => {
+    if (!exercise) return;
+    if (exercises.some((ex) => ex.id === exercise.id)) {
+      toast.message("Este ejercicio ya esta en la sesion.");
+      return;
+    }
+    const clone = JSON.parse(JSON.stringify(exercise));
+    setExercises((prev) => [...prev, { ...clone, isExtra: true }]);
+    toast.success("Ejercicio extra agregado.");
+  };
+
+  const addCustomExercise = () => {
     const newExerciseId = `extra-${Date.now()}`;
     const newSetId = `${newExerciseId}-set-1`;
     setExercises((prev) => [
@@ -1272,6 +1540,96 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ],
       },
     ]);
+  };
+
+  const handleAddExerciseFromLibrary = (exercise) => {
+    if (!exercise) return;
+    const exerciseId = exercise.id || slugify(exercise.name || "");
+    if (!exerciseId) return;
+    if (exercises.some((ex) => ex.id === exerciseId)) {
+      toast.message("Este ejercicio ya esta en la sesion.");
+      return;
+    }
+    const nameKey = slugify(exercise.name || "");
+    const keys = [exerciseId, nameKey].filter(Boolean);
+    const bestKey = pickMapKey(historyBest, keys);
+    const bestBySetKey = pickMapKey(historyBestBySet, keys);
+    const recentBySetKey = pickMapKey(historyRecentBySet, keys);
+    const seriesKey = pickMapKey(historySeriesTypeMap, keys);
+    const best = bestKey ? historyBest.get(bestKey) : null;
+    const bestBySet = bestBySetKey
+      ? historyBestBySet.get(bestBySetKey) || []
+      : [];
+    const recentBySet = recentBySetKey
+      ? historyRecentBySet.get(recentBySetKey) || []
+      : [];
+    const seriesFromHistory = seriesKey
+      ? historySeriesTypeMap.get(seriesKey)?.type
+      : null;
+    const seriesType = normalizeSeriesType(
+      seriesFromHistory || exercise.seriesType || "serie"
+    );
+    const prText = best
+      ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+      : "Sin referencia";
+    const prSummary = best
+      ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+      : "";
+    const perSet = bestBySet[0];
+    const perSetSummary = perSet
+      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+      : "";
+    const recentEntries = recentBySet[0] || [];
+    const previousByIndex = recentEntries.map((slot) => slot?.latest);
+    const compareByIndex = recentEntries.map((slot) => slot?.previous);
+    const fallbackPrev = perSet
+      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+      : prSummary || "Sin referencia";
+    const newSetId = `${exerciseId}-set-${Date.now()}`;
+
+    setExercises((prev) => [
+      ...prev,
+      {
+        id: exerciseId,
+        name: exercise.name || "Ejercicio",
+        prText,
+        prSummary,
+        prWeight: best?.weight ?? null,
+        image: exercise.image || "",
+        imagePublicId: exercise.imagePublicId || "",
+        muscle: exercise.muscle || exercise.muscleGroup || "Sin grupo",
+        seriesType,
+        sets: [
+          {
+            id: newSetId,
+            prSummary: perSetSummary,
+            entries: normalizeEntries({
+              entries: [
+                {
+                  previousText: buildPrevText(
+                    previousByIndex[0],
+                    fallbackPrev
+                  ),
+                  kg: "",
+                  reps: "",
+                  done: false,
+                },
+              ],
+              seriesType,
+              setId: newSetId,
+              fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
+              previousByIndex,
+              compareByIndex,
+            }),
+          },
+        ],
+      },
+    ]);
+    toast.success("Ejercicio agregado a la sesion.");
+  };
+
+  const handleAddExercise = () => {
+    setShowExercisePicker(true);
   };
 
   const handleFinish = async () => {
@@ -1421,6 +1779,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       ),
     [exercises]
   );
+  const showFinishButton =
+    isEditing || hasStarted || isRunning || durationSeconds > 0;
+  const showCancelButton = hasStarted || isRunning || durationSeconds > 0;
+  const showResetButton = hasStarted || durationSeconds > 0;
   const progressPct = totalSets
     ? Math.min(100, Math.round((doneSets / totalSets) * 100))
     : 0;
@@ -1434,6 +1796,70 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     });
     return Array.from(groups.entries());
   }, [exercises]);
+
+  const trackingExercise = useMemo(
+    () => exercises.find((ex) => ex.id === trackingExerciseId) || null,
+    [exercises, trackingExerciseId]
+  );
+
+  const extraExerciseOptions = useMemo(() => {
+    const routineExtras = selectedRoutine?.raw?.exercises || [];
+    const extras = routineExtras.filter((ex) => ex.isExtra);
+    if (!extras.length) return [];
+    return buildExercisesForRoutine(
+      { exercises: extras },
+      null,
+      historyBest,
+      historyBestBySet,
+      historyRecentBySet,
+      historySeriesTypeMap,
+      true
+    );
+  }, [
+    selectedRoutine,
+    historyBest,
+    historyBestBySet,
+    historyRecentBySet,
+    historySeriesTypeMap,
+  ]);
+
+  const trackingRows = useMemo(() => {
+    if (!trackingExercise) return [];
+    const keys = getExerciseKeys(trackingExercise);
+    if (!keys.length) return [];
+    const keySet = new Set(keys);
+    const rows = [];
+    (historyTrainings || []).forEach((tr) => {
+      const date = tr.date || tr.createdAt;
+      const exMatch = (tr.exercises || []).find((ex) =>
+        getExerciseKeys(ex).some((key) => keySet.has(key))
+      );
+      if (!exMatch) return;
+      const sets = (exMatch.sets || []).map((set) => {
+        if (Array.isArray(set.entries) && set.entries.length) {
+          return set.entries;
+        }
+        return [set];
+      });
+      rows.push({
+        date: date ? String(date).slice(0, 10) : "",
+        ts: getDateTimestamp(date),
+        routineName: tr.routineName || "",
+        sets,
+      });
+    });
+    return rows
+      .filter((row) => row.sets.length > 0)
+      .sort((a, b) => a.ts - b.ts);
+  }, [trackingExercise, historyTrainings]);
+
+  const trackingSetCount = useMemo(() => {
+    if (!trackingRows.length) return 0;
+    return trackingRows.reduce(
+      (acc, row) => Math.max(acc, row.sets.length),
+      0
+    );
+  }, [trackingRows]);
 
   return (
     <main className="relative min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -1484,21 +1910,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </div>
               </div>
               <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
-                <Button
-                  className="h-11 px-4 inline-flex items-center justify-center gap-2 rounded-full font-semibold text-white"
-                  onClick={handleFinish}
-                  disabled={!exercises.length}
-                >
-                  <Flag className="h-4 w-4" />
-                  <span>Finalizar</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-11 px-4 rounded-full font-semibold text-[color:var(--text)]"
-                  onClick={handleCancel}
-                >
-                  Cancelar
-                </Button>
+                {showFinishButton && (
+                  <Button
+                    className="rounded-full"
+                    onClick={handleFinish}
+                    disabled={!exercises.length}
+                  >
+                    <Flag className="h-4 w-4" />
+                    <span>Finalizar</span>
+                  </Button>
+                )}
+                {showCancelButton && (
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={handleCancel}
+                  >
+                    Cancelar
+                  </Button>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--text-muted)]">
@@ -1532,57 +1962,58 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
-                  className="rounded-full px-3"
+                  className="rounded-full px-4"
                   onClick={isRunning ? handlePause : handleStart}
                 >
                   {isRunning ? "Pausar" : "Iniciar"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full px-3"
-                  onClick={handleReset}
-                >
-                  Reset
-                </Button>
+                {showResetButton && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full px-3"
+                    onClick={handleReset}
+                  >
+                    Reiniciar
+                  </Button>
+                )}
               </div>
             </div>
           </Card>
         </div>
 
-        <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-            Resumen rapido
-          </p>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Ejercicios realizados:
-              </p>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Sets totales:
-              </p>
+        {selectedRoutineId && (
+          <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+              Resumen rapido
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Ejercicios realizados:
+                </p>
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  Sets totales:
+                </p>
+              </div>
+              <div className="text-right space-y-1">
+                <p className="text-lg font-semibold text-[color:var(--text)]">
+                  {formatCounter(completedExercises)} /{" "}
+                  {formatCounter(exercises.length)}
+                </p>
+                <p className="text-lg font-semibold text-[color:var(--text)]">
+                  {totalSets}
+                </p>
+              </div>
             </div>
-            <div className="text-right space-y-1">
-              <p className="text-lg font-semibold text-[color:var(--text)]">
-                {formatCounter(completedExercises)} /{" "}
-                {formatCounter(exercises.length)}
-              </p>
-              <p className="text-lg font-semibold text-[color:var(--text)]">
-                {totalSets}
-              </p>
+            <div className="h-2 rounded-full bg-[color:var(--border)]/60 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
-          </div>
-          <div className="h-2 rounded-full bg-[color:var(--border)]/60 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-          <p className="text-xs text-[color:var(--text-muted)]">
-            Fecha: {formatLongDate(sessionDate)}
-          </p>
-        </Card>
+          </Card>
+        )}
 
         <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
@@ -1630,9 +2061,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   routines={routineOptions}
                   onSelect={handleSelectRoutine}
                 />
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Fecha: {formatLongDate(sessionDate)}
-                </p>
               </div>
             </Card>
           </div>
@@ -1702,6 +2130,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             onSeriesTypeChange={(value) =>
                               handleSeriesTypeChange(ex.id, value)
                             }
+                            onViewTracking={() => {
+                              setTrackingExerciseId(ex.id);
+                              setShowTracking(true);
+                            }}
                             onViewHistory={() => {
                               if (typeof localStorage !== "undefined")
                                 localStorage.setItem(
@@ -1716,6 +2148,72 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       </AnimatePresence>
                     </div>
                   ))}
+
+                  {extraExerciseOptions.length > 0 && (
+                    <Card className="p-4 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                            Ejercicios extra (opcional)
+                          </p>
+                          <p className="text-xs text-[color:var(--text-muted)]">
+                            Agrega solo si te queda tiempo.
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="text-[11px]">
+                          {extraExerciseOptions.length}
+                        </Badge>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {extraExerciseOptions.map((ex) => {
+                          const alreadyAdded = exercises.some(
+                            (item) => item.id === ex.id
+                          );
+                          const extraThumb = getExerciseImageUrl(ex, {
+                            width: 120,
+                            height: 120,
+                          });
+                          return (
+                            <div
+                              key={`extra-${ex.id}`}
+                              className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
+                            >
+                              <div className="h-10 w-10 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)]">
+                                {extraThumb ? (
+                                  <img
+                                    src={extraThumb}
+                                    alt={ex.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
+                                    {(ex.name || "?").charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-[color:var(--text)] truncate">
+                                  {ex.name}
+                                </p>
+                                <p className="text-xs text-[color:var(--text-muted)]">
+                                  {ex.muscle || "Sin grupo"} • {ex.sets?.length || 0} sets
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={alreadyAdded}
+                                onClick={() => handleAddExtraExercise(ex)}
+                              >
+                                {alreadyAdded ? "Agregado" : "Agregar"}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
 
                   <motion.div whileTap={{ scale: 0.97 }}>
                     <Button
@@ -1737,6 +2235,306 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </section>
         </div>
       </div>
+
+      {showExercisePicker && (
+        <Modal
+          title="Agregar ejercicio"
+          subtitle="Selecciona el grupo muscular y agrega ejercicios disponibles."
+          onClose={() => setShowExercisePicker(false)}
+          footer={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExercisePicker(false)}
+            >
+              Cerrar
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                Rutina activa
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-[color:var(--text)]">
+                  {selectedRoutine?.name || "Rutina"}
+                </span>
+                <Badge variant="secondary" className="text-[11px]">
+                  {currentBranch || "general"}
+                </Badge>
+              </div>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Elige un grupo muscular para ver los ejercicios disponibles en
+                esta sede.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-3">
+              <p className="text-sm font-semibold text-[color:var(--text)]">
+                Elige grupo muscular
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {muscleGroupOptions.map((muscle) => (
+                  <button
+                    key={muscle}
+                    type="button"
+                    onClick={() => setSelectedMuscleGroup(muscle)}
+                    className={`px-3 py-2 rounded-full border text-sm transition ${
+                      selectedMuscleGroup === muscle
+                        ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)] font-semibold"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-blue-400/40"
+                    }`}
+                  >
+                    {muscle}
+                  </button>
+                ))}
+                {!muscleGroupOptions.length && (
+                  <span className="text-sm text-[color:var(--text-muted)]">
+                    No hay grupos musculares disponibles.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-2">
+              <p className="text-sm font-semibold text-[color:var(--text)]">
+                Buscar ejercicio
+              </p>
+              <input
+                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+                placeholder="Buscar por nombre..."
+                value={exerciseSearch}
+                onChange={(e) => setExerciseSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-[color:var(--text)]">
+                  Ejercicios disponibles
+                </p>
+                <Badge variant="secondary" className="text-[11px]">
+                  {filteredLibraryExercises.length} resultados
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {filteredLibraryExercises.map((ex) => {
+                  const thumb = getExerciseImageUrl(ex, {
+                    width: 400,
+                    height: 225,
+                  });
+                  return (
+                    <div
+                      key={ex.id}
+                      className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 flex flex-col gap-2 shadow-sm"
+                    >
+                      <div className="aspect-video w-full rounded-xl overflow-hidden border border-[color:var(--border)] bg-slate-100 grid place-items-center">
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt={ex.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="text-[color:var(--text-muted)] text-sm">
+                            Sin imagen
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm leading-tight">
+                            {ex.name}
+                          </p>
+                          <p className="text-xs text-[color:var(--text-muted)]">
+                            {ex.muscle}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddExerciseFromLibrary(ex)}
+                        >
+                          Agregar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filteredLibraryExercises.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]">
+                    No hay ejercicios para este grupo muscular.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-[color:var(--text)]">
+                  Agregar ejercicio personalizado
+                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Usa este modo si no encuentras el ejercicio en la biblioteca.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  addCustomExercise();
+                  setShowExercisePicker(false);
+                }}
+              >
+                Agregar
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showTracking && trackingExercise && (
+        <Modal
+          title={`Seguimiento: ${trackingExercise.name}`}
+          subtitle="Historial de pesos por serie (por fecha)."
+          onClose={() => {
+            setShowTracking(false);
+            setTrackingExerciseId("");
+          }}
+          footer={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowTracking(false);
+                setTrackingExerciseId("");
+              }}
+            >
+              Cerrar
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="h-14 w-14 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
+                  {getExerciseImageUrl(trackingExercise, {
+                    width: 160,
+                    height: 160,
+                  }) ? (
+                    <img
+                      src={getExerciseImageUrl(trackingExercise, {
+                        width: 160,
+                        height: 160,
+                      })}
+                      alt={trackingExercise.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
+                      Sin imagen
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-semibold text-[color:var(--text)] truncate">
+                    {trackingExercise.name}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-[11px]">
+                      {trackingExercise.seriesType || "serie"}
+                    </Badge>
+                    <span className="text-xs text-[color:var(--text-muted)]">
+                      {trackingRows.length
+                        ? `${trackingRows.length} sesiones registradas`
+                        : "Sin registros previos"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {trackingRows.length ? (
+              <div className="overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
+                <table className="min-w-[360px] w-full text-xs sm:text-sm">
+                  <thead className="bg-[color:var(--bg)]">
+                    <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                      <th className="px-3 py-2">Fecha</th>
+                      {Array.from({ length: trackingSetCount || 0 }).map(
+                        (_, idx) => (
+                          <th key={`set-head-${idx}`} className="px-3 py-2">
+                            Serie {idx + 1}
+                          </th>
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trackingRows.map((row, rowIdx) => (
+                      <tr
+                        key={`${row.date}-${rowIdx}`}
+                        className="border-t border-[color:var(--border)]"
+                      >
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-[color:var(--text)]">
+                            {row.date ? formatShort(row.date) : "--"}
+                          </div>
+                        </td>
+                        {Array.from({ length: trackingSetCount || 0 }).map(
+                          (_, idx) => {
+                            const entries = row.sets[idx] || [];
+                            if (!entries.length) {
+                              return (
+                                <td
+                                  key={`set-cell-${rowIdx}-${idx}`}
+                                  className="px-3 py-2 text-[color:var(--text-muted)]"
+                                >
+                                  --
+                                </td>
+                              );
+                            }
+                            return (
+                              <td
+                                key={`set-cell-${rowIdx}-${idx}`}
+                                className="px-3 py-2"
+                              >
+                                <div className="flex flex-col gap-1">
+                                  {entries.length > 1
+                                    ? entries.map((entry, entryIdx) => (
+                                        <span
+                                          key={`entry-${rowIdx}-${idx}-${entryIdx}`}
+                                          className="text-[11px] text-[color:var(--text)]"
+                                        >
+                                          E{entryIdx + 1}:{" "}
+                                          {formatEntryValue(entry)}
+                                        </span>
+                                      ))
+                                    : (
+                                      <span className="text-[11px] text-[color:var(--text)]">
+                                        {formatEntryValue(entries[0])}
+                                      </span>
+                                    )}
+                                </div>
+                              </td>
+                            );
+                          }
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]">
+                No hay historial para este ejercicio aun.
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }
