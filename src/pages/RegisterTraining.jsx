@@ -1824,6 +1824,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       ),
     [exercises]
   );
+  const allSetsDone = totalSets > 0 && doneSets === totalSets;
   const completedExercises = useMemo(
     () =>
       exercises.reduce(
@@ -1840,6 +1841,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     isEditing || hasStarted || isRunning || durationSeconds > 0;
   const showCancelButton = hasStarted || isRunning || durationSeconds > 0;
   const showResetButton = hasStarted || durationSeconds > 0;
+  const showMobileTrainingBar = hasStarted || isRunning || durationSeconds > 0;
   const progressPct = totalSets
     ? Math.min(100, Math.round((doneSets / totalSets) * 100))
     : 0;
@@ -1925,10 +1927,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
       />
       <Toaster position="top-center" richColors />
-      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 pt-4">
-        {(hasStarted || isRunning || durationSeconds > 0) && (
-          <div className="sticky top-0 z-30 md:hidden -mx-3 sm:-mx-4">
-            <div className="px-3 sm:px-4 pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
+      <div
+        className={`relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 ${
+          showMobileTrainingBar ? "pt-24 md:pt-4" : "pt-4"
+        }`}
+      >
+        {showMobileTrainingBar && (
+          <div className="fixed top-14 left-0 right-0 z-30 md:hidden px-3 sm:px-4">
+            <div className="pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
               <div className="flex items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
                 <div className="flex items-baseline gap-2">
                   <span className="font-mono text-lg text-[color:var(--text)]">
@@ -2337,7 +2343,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         </div>
 
-        {selectedRoutineId && (hasStarted || isRunning || durationSeconds > 0) && (
+        {selectedRoutineId && allSetsDone && (
           <Card className="p-4 md:p-6 border border-[color:var(--border)] bg-[color:var(--card)]/90 backdrop-blur shadow-lg space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>

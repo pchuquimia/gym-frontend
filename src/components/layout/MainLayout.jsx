@@ -86,11 +86,15 @@ function MainLayout({ children, activePage, onNavigate }) {
         <div className="hidden md:block">
           <Sidebar activePage={activePage} onNavigate={onNavigate} />
         </div>
-        <div className="px-3 py-4 sm:px-4 md:px-8 md:py-8">
+        <div
+          className={`px-3 pb-4 sm:px-4 md:px-8 md:py-8 ${
+            showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
+          }`}
+        >
           <div
             className={`flex items-center justify-between mb-4 gap-3 ${
               showReturnTraining
-                ? "sticky top-0 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
+                ? "fixed top-0 left-0 right-0 z-40 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
                 : ""
             }`}
           >

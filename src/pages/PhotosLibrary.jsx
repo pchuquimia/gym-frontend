@@ -9,23 +9,9 @@ import { buildCloudinaryUrl } from "../utils/cloudinary";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
-const rangeOptions = [
-  { id: "30d", label: "30 dias", days: 30 },
-  { id: "90d", label: "90 dias", days: 90 },
-  { id: "180d", label: "6 meses", days: 180 },
-  { id: "365d", label: "1 ano", days: 365 },
-  { id: "all", label: "Todo", days: null },
-];
-
-const typeOptions = [
-  { id: "all", label: "Todas" },
+const uploadTypeOptions = [
   { id: "gym", label: "Entrenamiento" },
   { id: "home", label: "Casa" },
-];
-
-const sortOptions = [
-  { id: "desc", label: "Recientes" },
-  { id: "asc", label: "Antiguas" },
 ];
 
 const toValidDate = (value) => {
@@ -48,11 +34,7 @@ const getPhotoUrl = (photo, opts = {}) => {
 };
 
 function PhotosLibrary() {
-  const { photos, addPhoto, deletePhoto } = useTrainingData();
-  const [range, setRange] = useState("90d");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("desc");
-  const [search, setSearch] = useState("");
+  const { photos, addPhoto, deletePhoto, trainings } = useTrainingData();
   const [uploadType, setUploadType] = useState("gym");
   const [uploadLabel, setUploadLabel] = useState("");
   const [fileError, setFileError] = useState("");
@@ -62,55 +44,58 @@ function PhotosLibrary() {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  const stats = useMemo(() => {
-    const list = photos || [];
-    const gymCount = list.filter((p) => p.type === "gym").length;
-    const homeCount = list.filter((p) => p.type === "home").length;
-    const lastDate = list.reduce((acc, photo) => {
-      const d = toValidDate(photo.date);
-      if (!d) return acc;
-      if (!acc || d > acc) return d;
-      return acc;
-    }, null);
-    return { total: list.length, gymCount, homeCount, lastDate };
-  }, [photos]);
+  const routineMap = useMemo(() => {
+    const map = new Map();
+    (trainings || []).forEach((training) => {
+      const id = training.id || training._id;
+      if (!id) return;
+      if (training.routineName) map.set(id, training.routineName);
+    });
+    return map;
+  }, [trainings]);
 
-  const filteredPhotos = useMemo(() => {
-    const now = new Date();
-    const rangeOption = rangeOptions.find((r) => r.id === range);
-    const fromDate = rangeOption?.days
-      ? new Date(now.getTime() - rangeOption.days * 24 * 60 * 60 * 1000)
-      : null;
-    const searchValue = search.trim().toLowerCase();
+  const resolveRoutineLabel = (photo) => {
+    if (!photo) return "";
+    if (photo.type === "home") return photo.label || "Progreso en casa";
+    const sessionId = photo.sessionId || photo.trainingId || "";
+    if (sessionId && routineMap.has(sessionId)) {
+      return routineMap.get(sessionId) || "Rutina";
+    }
+    if (photo.label) {
+      const match = /^Entrenamiento\\s*-\\s*(.+)$/i.exec(photo.label.trim());
+      if (match?.[1]) return match[1];
+      return photo.label;
+    }
+    return "Rutina sin nombre";
+  };
 
+  const orderedPhotos = useMemo(() => {
     return (photos || [])
-      .filter((photo) => (typeFilter === "all" ? true : photo.type === typeFilter))
-      .filter((photo) => {
-        if (!fromDate) return true;
-        const d = toValidDate(photo.date);
-        if (!d) return false;
-        return d >= fromDate;
-      })
-      .filter((photo) => {
-        if (!searchValue) return true;
-        return (photo.label || "").toLowerCase().includes(searchValue);
-      })
+      .slice()
       .sort((a, b) => {
         const da = toValidDate(a.date)?.getTime() || 0;
         const db = toValidDate(b.date)?.getTime() || 0;
-        return sortOrder === "asc" ? da - db : db - da;
+        return db - da;
       });
-  }, [photos, range, typeFilter, sortOrder, search]);
+  }, [photos]);
 
   const groupedPhotos = useMemo(() => {
     const map = new Map();
-    filteredPhotos.forEach((photo) => {
-      const key = formatDate(photo.date, { month: "long", year: "numeric" });
+    orderedPhotos.forEach((photo) => {
+      const key = formatDate(photo.date, { month: "long", year: "numeric" }) || "Sin fecha";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(photo);
     });
     return Array.from(map.entries());
-  }, [filteredPhotos]);
+  }, [orderedPhotos]);
+
+  const stats = useMemo(() => {
+    const total = orderedPhotos.length;
+    const gymCount = orderedPhotos.filter((p) => p.type === "gym").length;
+    const homeCount = orderedPhotos.filter((p) => p.type === "home").length;
+    const lastDate = orderedPhotos[0]?.date || null;
+    return { total, gymCount, homeCount, lastDate };
+  }, [orderedPhotos]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -179,10 +164,10 @@ function PhotosLibrary() {
             </Badge>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-display">
-                Progreso visual del entrenamiento
+                Progreso visual de tus rutinas
               </h1>
               <p className="text-sm text-[color:var(--text-muted)]">
-                Guarda y revisa tus fotos mas importantes sin ruido extra.
+                Cada foto guarda la rutina que realizaste para ver tu avance.
               </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -191,7 +176,7 @@ function PhotosLibrary() {
                 <p className="text-xl font-semibold">{stats.total}</p>
               </div>
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
-                <p className="text-xs text-[color:var(--text-muted)]">Entrenamiento</p>
+                <p className="text-xs text-[color:var(--text-muted)]">Entrenos</p>
                 <p className="text-xl font-semibold">{stats.gymCount}</p>
               </div>
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
@@ -201,7 +186,7 @@ function PhotosLibrary() {
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
                 <p className="text-xs text-[color:var(--text-muted)]">Ultima</p>
                 <p className="text-sm font-semibold">
-                  {stats.lastDate ? stats.lastDate.toLocaleDateString("es-ES") : "--"}
+                  {stats.lastDate ? formatDate(stats.lastDate) : "--"}
                 </p>
               </div>
             </div>
@@ -214,21 +199,21 @@ function PhotosLibrary() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                    Galeria
+                    Galeria de rutinas
                   </p>
                   <p className="text-sm text-[color:var(--text-muted)]">
-                    {filteredPhotos.length} fotos segun tu filtro
+                    {orderedPhotos.length} fotos registradas
                   </p>
                 </div>
                 <Badge variant="secondary" className="text-[11px]">
-                  {rangeOptions.find((option) => option.id === range)?.label || "Todo"}
+                  {orderedPhotos.length} total
                 </Badge>
               </div>
             </Card>
 
             {groupedPhotos.length === 0 && (
               <Card className="p-6 text-center text-sm text-[color:var(--text-muted)]">
-                No hay fotos en este rango. Prueba otro filtro o sube una nueva.
+                Aun no hay fotos guardadas. Sube la primera al terminar tu sesion.
               </Card>
             )}
 
@@ -248,6 +233,7 @@ function PhotosLibrary() {
                       crop: "fill",
                       gravity: "auto",
                     });
+                    const routineLabel = resolveRoutineLabel(photo);
                     return (
                       <button
                         key={photo.id}
@@ -257,22 +243,17 @@ function PhotosLibrary() {
                         <div className="aspect-[4/5] w-full overflow-hidden">
                           <img
                             src={preview || photo.url}
-                            alt={photo.label || "Foto de progreso"}
+                            alt={routineLabel || "Foto de progreso"}
                             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             loading="lazy"
                           />
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-90" />
                         <div className="absolute bottom-2 left-2 right-2 space-y-1 text-left">
-                          <p className="text-xs font-semibold text-white">
+                          <p className="text-[11px] font-semibold text-white">
                             {formatDate(photo.date, { day: "2-digit", month: "short" })}
                           </p>
-                          <p className="text-[11px] text-white/75 truncate">
-                            {photo.label ||
-                              (photo.type === "home"
-                                ? "Progreso en casa"
-                                : "Entrenamiento")}
-                          </p>
+                          <p className="text-xs text-white truncate">{routineLabel}</p>
                         </div>
                         <span className="absolute top-2 left-2 rounded-full bg-white/80 text-[10px] font-semibold text-slate-900 px-2 py-0.5">
                           {photo.type === "home" ? "Casa" : "Gym"}
@@ -293,7 +274,7 @@ function PhotosLibrary() {
                     Subir foto
                   </p>
                   <p className="text-xs text-[color:var(--text-muted)]">
-                    Guarda tu progreso o una foto del entrenamiento.
+                    Guarda una foto al final de tu entrenamiento.
                   </p>
                 </div>
                 <Badge variant="secondary" className="text-[11px]">
@@ -302,32 +283,28 @@ function PhotosLibrary() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {typeOptions
-                  .filter((opt) => opt.id !== "all")
-                  .map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setUploadType(option.id)}
-                      className={`px-3 py-2 rounded-full border text-xs font-semibold transition ${
-                        uploadType === option.id
-                          ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                {uploadTypeOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setUploadType(option.id)}
+                    className={`px-3 py-2 rounded-full border text-xs font-semibold transition ${
+                      uploadType === option.id
+                        ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Nota rapida (opcional)
-                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">Nota rapida (opcional)</p>
                 <input
                   value={uploadLabel}
                   onChange={(event) => setUploadLabel(event.target.value)}
-                  placeholder="Ej: cierre de sesion, semana 4, etc"
+                  placeholder="Ej: semana 4, cierre de sesion"
                   className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/25"
                 />
               </div>
@@ -371,95 +348,13 @@ function PhotosLibrary() {
               </div>
             </Card>
 
-            <Card className="p-4 md:p-5 space-y-3 bg-[color:var(--card)]/90 backdrop-blur">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Filtros
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  onClick={() => {
-                    setRange("90d");
-                    setTypeFilter("all");
-                    setSortOrder("desc");
-                    setSearch("");
-                  }}
-                >
-                  Limpiar
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[color:var(--text)]">Tipo</p>
-                <div className="flex flex-wrap gap-2">
-                  {typeOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setTypeFilter(option.id)}
-                      className={`px-3 py-2 rounded-full border text-xs font-semibold transition ${
-                        typeFilter === option.id
-                          ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[color:var(--text)]">Periodo</p>
-                <div className="flex flex-wrap gap-2">
-                  {rangeOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setRange(option.id)}
-                      className={`px-3 py-2 rounded-full border text-xs font-semibold transition ${
-                        range === option.id
-                          ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[color:var(--text)]">Orden</p>
-                <div className="flex flex-wrap gap-2">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setSortOrder(option.id)}
-                      className={`px-3 py-2 rounded-full border text-xs font-semibold transition ${
-                        sortOrder === option.id
-                          ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-[color:var(--text)]">Buscar</p>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por nota"
-                  className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/25"
-                />
-              </div>
+            <Card className="p-4 md:p-5 bg-[color:var(--card)]/90 backdrop-blur">
+              <p className="text-sm font-semibold text-[color:var(--text)]">Guia rapida</p>
+              <ul className="mt-3 space-y-2 text-xs text-[color:var(--text-muted)]">
+                <li>Usa la misma luz y distancia para comparar progreso.</li>
+                <li>Tu rutina queda guardada en cada foto para revisar avances.</li>
+                <li>Las fotos se optimizan automaticamente para ocupar menos espacio.</li>
+              </ul>
             </Card>
           </div>
         </div>
@@ -467,7 +362,7 @@ function PhotosLibrary() {
 
       {activePhoto && (
         <Modal
-          title={activePhoto.label || "Detalle de foto"}
+          title={resolveRoutineLabel(activePhoto)}
           subtitle={formatDate(activePhoto.date, {
             day: "2-digit",
             month: "long",
@@ -496,7 +391,7 @@ function PhotosLibrary() {
               {modalSrc ? (
                 <img
                   src={modalSrc}
-                  alt={activePhoto.label || "Foto de progreso"}
+                  alt={resolveRoutineLabel(activePhoto)}
                   className="w-full max-h-[70vh] object-cover"
                   onError={() => {
                     const fallback = activePhoto?.url || "";
@@ -515,12 +410,16 @@ function PhotosLibrary() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                <p className="text-xs text-[color:var(--text-muted)]">Rutina</p>
+                <p className="text-sm font-semibold">{resolveRoutineLabel(activePhoto)}</p>
+              </div>
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                 <p className="text-xs text-[color:var(--text-muted)]">Tipo</p>
                 <p className="text-sm font-semibold">
                   {activePhoto.type === "home" ? "Casa" : "Entrenamiento"}
                 </p>
               </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 sm:col-span-2">
                 <p className="text-xs text-[color:var(--text-muted)]">Fecha</p>
                 <p className="text-sm font-semibold">
                   {formatDate(activePhoto.date, {
