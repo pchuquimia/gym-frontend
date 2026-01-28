@@ -2116,75 +2116,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             </Card>
           )}
 
-          {selectedRoutineId && (
-            <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                    Foto del entrenamiento
-                  </p>
-                  <p className="text-xs text-[color:var(--text-muted)]">
-                    Se guarda junto al resumen cuando finalices.
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-[11px]">
-                  Opcional
-                </Badge>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-16 w-20 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
-                  {trainingPhotoPreview ? (
-                    <img
-                      src={trainingPhotoPreview}
-                      alt="Vista previa"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center text-[11px] text-[color:var(--text-muted)]">
-                      Sin foto
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-xs text-[color:var(--text-muted)]">
-                    Toma una foto al cerrar la sesion y guardala en tu
-                    biblioteca.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex">
-                      <Button size="sm" variant="outline" className="rounded-full" asChild>
-                        <span>
-                          {trainingPhotoFile ? "Cambiar foto" : "Tomar foto"}
-                        </span>
-                      </Button>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={handleTrainingPhotoChange}
-                      />
-                    </label>
-                    {trainingPhotoFile && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="rounded-full"
-                        onClick={clearTrainingPhoto}
-                      >
-                        Quitar
-                      </Button>
-                    )}
-                  </div>
-                  {trainingPhotoError && (
-                    <p className="text-xs text-red-500">{trainingPhotoError}</p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-[360px,1fr]">
+        <div className="grid gap-4 md:grid-cols-[360px,1fr]">
           <div className="space-y-4">
             <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
               <div className="space-y-2">
@@ -2401,12 +2333,92 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 ejercicios.
               </Card>
             )}
-          </section>
+            </section>
+          </div>
         </div>
-      </div>
 
-      {showExercisePicker && (
-        <Modal
+        {selectedRoutineId && (hasStarted || isRunning || durationSeconds > 0) && (
+          <Card className="p-4 md:p-6 border border-[color:var(--border)] bg-[color:var(--card)]/90 backdrop-blur shadow-lg space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Cierre del entrenamiento
+                </p>
+                <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                  Foto final de la sesion
+                </h3>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Se guardara en tu biblioteca al finalizar.
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">
+                Opcional
+              </Badge>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[1fr,200px] items-start">
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-xs text-[color:var(--text-muted)]">
+                  Consejo: toma la foto con buena luz y la misma distancia para
+                  comparar tu progreso.
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full"
+                      asChild
+                    >
+                      <span>
+                        {trainingPhotoFile ? "Cambiar foto" : "Tomar foto"}
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleTrainingPhotoChange}
+                    />
+                  </label>
+                  {trainingPhotoFile && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full"
+                      onClick={clearTrainingPhoto}
+                    >
+                      Quitar
+                    </Button>
+                  )}
+                </div>
+                {trainingPhotoError && (
+                  <p className="text-xs text-red-500">{trainingPhotoError}</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] overflow-hidden">
+                <div className="aspect-[4/5] w-full">
+                  {trainingPhotoPreview ? (
+                    <img
+                      src={trainingPhotoPreview}
+                      alt="Vista previa"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
+                      Sin foto
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {showExercisePicker && (
+          <Modal
           title="Agregar ejercicio"
           subtitle="Selecciona el grupo muscular y agrega ejercicios disponibles."
           onClose={() => setShowExercisePicker(false)}
