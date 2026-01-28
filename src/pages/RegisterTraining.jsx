@@ -1925,9 +1925,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
       />
       <Toaster position="top-center" richColors />
-      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 pt-24 md:pt-4">
-        <div className="fixed top-0 left-0 right-0 z-40 md:hidden">
-          <div className="mx-auto max-w-md px-3 pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
+      <div className="relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl px-3 sm:px-4 pb-28 space-y-4 pt-4">
+        <div className="sticky top-0 z-30 md:hidden -mx-3 sm:-mx-4">
+          <div className="px-3 sm:px-4 pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
             <div className="flex items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-lg text-[color:var(--text)]">
