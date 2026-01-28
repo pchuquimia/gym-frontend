@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import ConfirmModal from "../components/library/ConfirmModal";
 import DetailModal from "../components/library/DetailModal";
 import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
 import FilterBar from "../components/library/FilterBar";
-import TopBar from "../components/layout/TopBar";
 import Skeleton from "../components/ui/skeleton";
+import Button from "../components/ui/button";
+import Badge from "../components/ui/badge";
 import { useTrainingData } from "../context/TrainingContext";
 
 const slugify = (text) =>
@@ -54,7 +55,18 @@ function ExerciseLibrary({ onNavigate }) {
     );
   }, [exercises, search, filter, branchFilter]);
 
-  // Sección "Populares" (puedes cambiar el criterio)
+  const stats = useMemo(() => {
+    const total = exercises.length;
+    const filtered = filteredExercises.length;
+    const muscles = new Set(
+      exercises.map((ex) => ex.muscle).filter(Boolean)
+    ).size;
+    const withImages = exercises.filter(
+      (ex) => ex.imagePublicId || ex.thumb || ex.image
+    ).length;
+    return { total, filtered, muscles, withImages };
+  }, [exercises, filteredExercises]);
+
   const popularExercises = useMemo(() => {
     return filteredExercises
       .slice()
@@ -65,6 +77,16 @@ function ExerciseLibrary({ onNavigate }) {
       })
       .slice(0, 6);
   }, [filteredExercises]);
+
+  const popularIds = useMemo(
+    () => new Set(popularExercises.map((exercise) => exercise.id)),
+    [popularExercises]
+  );
+  const remainingExercises = useMemo(
+    () =>
+      filteredExercises.filter((exercise) => !popularIds.has(exercise.id)),
+    [filteredExercises, popularIds]
+  );
 
   const handleAdd = () => {
     setSelectedExercise(null);
@@ -123,69 +145,154 @@ function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <TopBar title="Biblioteca de Ejercicios" />
-
-      {/* Contenedor móvil-first como el mock */}
-      <div className="mx-auto w-full max-w-md px-3 sm:px-4 pb-24 space-y-4">
-        {typeof onNavigate === "function" && (
-          <div className="md:hidden pt-3">
-            <button
-              type="button"
-              className="secondary-btn w-full text-sm"
-              onClick={() => onNavigate("rutinas")}
-            >
-              Ir a Rutinas y Planificación
-            </button>
+      <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-3 sm:px-4 md:px-6 pb-24 space-y-4 lg:space-y-6">
+        <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-5 sm:p-6 shadow-sm">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent" />
           </div>
-        )}
 
-        {/* Sticky filter bar */}
-        <div className="sticky top-0 z-10 bg-[color:var(--bg)] pt-3 pb-3">
-          <FilterBar
-            search={search}
-            onSearch={setSearch}
-            activeFilter={filter}
-            onFilter={setFilter}
-            branch={branchFilter}
-            onBranch={setBranchFilter}
-          />
+          <div className="relative z-10 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.35em] text-[color:var(--text-muted)] font-semibold">
+                Biblioteca
+              </p>
+              <h1 className="text-3xl sm:text-4xl font-display font-semibold text-[color:var(--text)]">
+                Ejercicios
+              </h1>
+              <p className="text-sm text-[color:var(--text-muted)] max-w-md">
+                Encuentra y organiza tus ejercicios por grupo muscular y sede.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button className="w-full sm:w-auto" onClick={handleAdd}>
+                  Agregar ejercicio
+                </Button>
+                {typeof onNavigate === "function" && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => onNavigate("rutinas")}
+                  >
+                    Ir a rutinas
+                  </Button>
+                )}
+              </div>
+            </div>
 
-          {/* Si quieres mantener el botón grande arriba, descomenta esto */}
-          {/*
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 active:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:hover:bg-slate-800"
-              onClick={handleAdd}
-            >
-              + Agregar Ejercicio
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-sky-200/70 bg-sky-50/60 p-3 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/10">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Ejercicios
+                </p>
+                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                  {stats.total}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-3 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Con imagen
+                </p>
+                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                  {stats.withImages}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-violet-200/70 bg-violet-50/60 p-3 shadow-sm dark:border-violet-400/30 dark:bg-violet-500/10">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Grupos
+                </p>
+                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                  {stats.muscles}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/60 p-3 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                  Resultados
+                </p>
+                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
+                  {stats.filtered}
+                </p>
+              </div>
+            </div>
           </div>
-          */}
-        </div>
+        </section>
 
-        {/* Populares */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[color:var(--text)]">
-            Populares
-          </h2>
-          <button
-            type="button"
-            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-            onClick={() => {
-              // opcional: podrías setear un estado "showAll" o navegar a otra vista
-            }}
-          >
-            Ver todo &gt;
-          </button>
-        </div>
+        <section className="sticky top-0 z-10 bg-[color:var(--bg)]/95 backdrop-blur-sm pt-3 pb-3">
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--text-muted)] font-semibold">
+                  Filtros
+                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {stats.filtered} resultados activos
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">
+                {filter === "Todos" ? "Todos" : filter}
+              </Badge>
+            </div>
+            <FilterBar
+              search={search}
+              onSearch={setSearch}
+              activeFilter={filter}
+              onFilter={setFilter}
+              branch={branchFilter}
+              onBranch={setBranchFilter}
+            />
+          </div>
+        </section>
 
-        <section className="space-y-3">
-          {loading
-            ? Array.from({ length: 6 }).map((_, idx) => (
-                <Skeleton key={idx} className="h-20 w-full md:h-64" />
-              ))
-            : popularExercises.map((exercise) => (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-[color:var(--text)]">
+                Destacados
+              </h2>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Ejercicios con mejor contenido visual
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-[11px]">
+              {popularExercises.length}
+            </Badge>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {loading
+              ? Array.from({ length: 6 }).map((_, idx) => (
+                  <Skeleton key={idx} className="h-20 w-full md:h-64" />
+                ))
+              : popularExercises.map((exercise) => (
+                  <ExerciseCard
+                    key={exercise.id}
+                    exercise={exercise}
+                    onView={handleView}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+          </div>
+        </section>
+
+        {remainingExercises.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-[color:var(--text)]">
+                  Biblioteca completa
+                </h2>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {remainingExercises.length} ejercicios adicionales
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">
+                {remainingExercises.length}
+              </Badge>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {remainingExercises.map((exercise) => (
                 <ExerciseCard
                   key={exercise.id}
                   exercise={exercise}
@@ -194,18 +301,19 @@ function ExerciseLibrary({ onNavigate }) {
                   onDelete={handleDelete}
                 />
               ))}
-
-          {!loading && filteredExercises.length === 0 && (
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
-              <p className="text-sm text-[color:var(--text-muted)]">
-                No hay ejercicios para los filtros seleccionados.
-              </p>
             </div>
-          )}
-        </section>
+          </section>
+        )}
+
+        {!loading && filteredExercises.length === 0 && (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
+            <p className="text-sm text-[color:var(--text-muted)]">
+              No hay ejercicios para los filtros seleccionados.
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* FAB (+) como en la imagen */}
       <button
         type="button"
         onClick={handleAdd}

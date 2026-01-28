@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import TopBar from "../components/layout/TopBar";
+﻿import { useMemo, useState } from "react";
 import Modal from "../components/shared/Modal";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
+import Card from "../components/ui/card";
+import Button from "../components/ui/button";
+import Badge from "../components/ui/badge";
 
 // ================= Helpers =================
 const slugify = (text) =>
@@ -15,29 +17,92 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const toValidDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const normalized =
+    typeof value === "string" && value.length <= 10
+      ? `${value}T00:00:00`
+      : value;
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const formatShortDate = (value) => {
+  const d = toValidDate(value);
+  if (!d) return "--";
+  return d.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+
+const getDateTimestamp = (value) => {
+  const d = toValidDate(value);
+  return d ? d.getTime() : 0;
+};
+
+const getISODateKey = (value) => {
+  if (!value) return null;
+  if (typeof value === "string") return value.slice(0, 10);
+  const d = toValidDate(value);
+  if (!d) return null;
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 10);
+};
+
+const titleCase = (text) =>
+  text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+
+const clampText = (text = "", max = 14) => {
+  if (!text) return "";
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(1, max - 3))}...`;
+};
+
 // ============ UI helpers (solo presentación) ============
-const BranchPill = ({ label, active, onClick }) => (
+const FilterPill = ({ label, count, active, onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className={`
-      inline-flex items-center rounded-full px-3 py-1 text-sm font-medium transition
-      border
-      ${
-        active
-          ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/30"
-          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
-      }
-    `}
+    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+      active
+        ? "border-blue-400/50 bg-blue-500/10 text-[color:var(--text)]"
+        : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-blue-400/40"
+    }`}
   >
-    {label}
+    <span
+      className={`h-2 w-2 rounded-full ${
+        active ? "bg-blue-500" : "bg-slate-300"
+      }`}
+    />
+    <span>{label}</span>
+    {typeof count === "number" && (
+      <span
+        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+          active
+            ? "bg-blue-500/15 text-blue-700 dark:text-blue-200"
+            : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+        }`}
+      >
+        {count}
+      </span>
+    )}
   </button>
 );
 
-const BranchTag = ({ label }) => (
-  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-    {label}
-  </span>
+const StatTile = ({ label, value, hint }) => (
+  <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]/70 p-3 sm:p-4 shadow-sm">
+    <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.26em] text-[color:var(--text-muted)] font-semibold">
+      {label}
+    </p>
+    <div className="mt-2 text-xl sm:text-2xl font-semibold text-[color:var(--text)]">
+      {value}
+    </div>
+    <p className="text-xs text-[color:var(--text-muted)] mt-1">{hint}</p>
+  </div>
 );
 
 const DotsButton = ({ onClick }) => (
@@ -46,11 +111,10 @@ const DotsButton = ({ onClick }) => (
     onClick={onClick}
     className="
       h-9 w-9 rounded-xl
-      border border-slate-200 bg-white
+      border border-[color:var(--border)] bg-[color:var(--card)]
       grid place-items-center
-      text-slate-600
-      hover:bg-slate-50 transition
-      dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
+      text-[color:var(--text-muted)]
+      hover:bg-[color:var(--bg)] transition
       focus:outline-none focus:ring-2 focus:ring-blue-500/25
     "
     aria-label="Opciones"
@@ -64,19 +128,10 @@ const DotsButton = ({ onClick }) => (
   </button>
 );
 
-const ChevronLink = ({ onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="
-      inline-flex items-center gap-1
-      text-sm font-semibold text-blue-700
-      hover:text-blue-800 transition
-      dark:text-blue-300 dark:hover:text-blue-200
-    "
-  >
-    Ver detalles <span aria-hidden>›</span>
-  </button>
+const BranchTag = ({ label }) => (
+  <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
+    {label}
+  </Badge>
 );
 
 // ================= Routine Modal =================
@@ -473,14 +528,13 @@ function Routines() {
     deleteRoutine,
     duplicateRoutine,
   } = useRoutines();
+  const { exercises: libraryExercises, trainings } = useTrainingData();
 
   const [modalMode, setModalMode] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
-  const { exercises: libraryExercises } = useTrainingData();
-
-  // UI states (solo presentación)
   const [activeBranch, setActiveBranch] = useState("all");
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const availableExercises = useMemo(() => {
     const seen = new Set();
@@ -499,6 +553,223 @@ function Routines() {
         branches: ex.branches,
       }));
   }, [libraryExercises]);
+
+  const exerciseMetaMap = useMemo(() => {
+    const map = new Map();
+    availableExercises.forEach((ex) => {
+      map.set(ex.id, ex);
+      if (ex.name) map.set(slugify(ex.name), ex);
+    });
+    return map;
+  }, [availableExercises]);
+
+  const routineMuscleMap = useMemo(() => {
+    const map = new Map();
+    routines.forEach((routine) => {
+      const set = new Set();
+      (routine.exercises || []).forEach((ex) => {
+        const meta =
+          exerciseMetaMap.get(ex.exerciseId) ||
+          exerciseMetaMap.get(slugify(ex.name));
+        const muscle = ex.muscle || meta?.muscle;
+        if (muscle) set.add(muscle);
+      });
+      map.set(routine.id, set);
+    });
+    return map;
+  }, [routines, exerciseMetaMap]);
+
+  const muscleCounts = useMemo(() => {
+    const map = new Map();
+    routineMuscleMap.forEach((muscles) => {
+      muscles.forEach((muscle) => {
+        map.set(muscle, (map.get(muscle) || 0) + 1);
+      });
+    });
+    return map;
+  }, [routineMuscleMap]);
+
+  const topMuscles = useMemo(() => {
+    return Array.from(muscleCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+  }, [muscleCounts]);
+
+  const routineHistoryMap = useMemo(() => {
+    const map = new Map();
+    (trainings || []).forEach((tr) => {
+      const routineId = tr?.routineId;
+      if (!routineId) return;
+      const ts = getDateTimestamp(tr.date || tr.createdAt);
+      const current = map.get(routineId) || {
+        count: 0,
+        lastDate: null,
+        lastTs: 0,
+      };
+      const next = { ...current, count: current.count + 1 };
+      if (ts > next.lastTs) {
+        next.lastTs = ts;
+        next.lastDate = tr.date || tr.createdAt;
+      }
+      map.set(routineId, next);
+    });
+    return map;
+  }, [trainings]);
+
+  const routineNameMap = useMemo(() => {
+    const map = new Map();
+    routines.forEach((routine) => {
+      if (routine?.id) map.set(routine.id, routine.name || "");
+    });
+    return map;
+  }, [routines]);
+
+  const totals = useMemo(() => {
+    let totalExercises = 0;
+    let totalExtras = 0;
+    let totalSets = 0;
+    routines.forEach((routine) => {
+      (routine.exercises || []).forEach((ex) => {
+        totalExercises += 1;
+        totalSets += Number(ex.sets) || 0;
+        if (ex.isExtra) totalExtras += 1;
+      });
+    });
+    return {
+      routines: routines.length,
+      exercises: totalExercises,
+      extras: totalExtras,
+      sets: totalSets,
+    };
+  }, [routines]);
+
+  const weekSummary = useMemo(() => {
+    const byDate = new Map();
+    (trainings || []).forEach((tr) => {
+      const key = getISODateKey(tr.date || tr.createdAt);
+      if (!key) return;
+      const routineName =
+        tr.routineName ||
+        routineNameMap.get(tr.routineId) ||
+        tr.routineId ||
+        "";
+      const ts = getDateTimestamp(tr.date || tr.createdAt);
+      const current = byDate.get(key) || {
+        count: 0,
+        lastTs: 0,
+        routine: "",
+      };
+      current.count = 1;
+      if (routineName && ts >= current.lastTs) {
+        current.lastTs = ts;
+        current.routine = routineName;
+      }
+      byDate.set(key, current);
+    });
+    const days = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = getISODateKey(d);
+      const label = titleCase(
+        d
+          .toLocaleDateString("es-ES", { weekday: "short" })
+          .replace(".", "")
+      );
+      const shortLabel = label ? label.slice(0, 1) : "";
+      const info = byDate.get(key) || {
+        count: 0,
+        routine: "",
+      };
+      const primaryRoutine = info.routine || "";
+      days.push({
+        key,
+        label,
+        shortLabel,
+        count: info.count || 0,
+        routine: primaryRoutine,
+        routineShort: clampText(primaryRoutine, 12),
+        isToday: i === 0,
+      });
+    }
+    const total = days.reduce((sum, day) => sum + day.count, 0);
+    return { days, total };
+  }, [trainings, routineNameMap]);
+
+  const branchCounts = useMemo(() => {
+    const counts = {
+      all: routines.length,
+      general: 0,
+      miraflores: 0,
+      sopocachi: 0,
+    };
+    routines.forEach((r) => {
+      const b = r.branch || "general";
+      counts[b] = (counts[b] || 0) + 1;
+    });
+    return counts;
+  }, [routines]);
+
+  const visibleRoutines = useMemo(() => {
+    let list = routines;
+    if (activeBranch !== "all") {
+      list = list.filter((r) => (r.branch || "general") === activeBranch);
+    }
+    if (searchTerm.trim()) {
+      const search = searchTerm.trim().toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.name?.toLowerCase().includes(search) ||
+          r.description?.toLowerCase().includes(search)
+      );
+    }
+    return list;
+  }, [routines, activeBranch, searchTerm]);
+
+  const routineCards = useMemo(() => {
+    return visibleRoutines.map((routine) => {
+      const exs = routine.exercises || [];
+      const muscles = new Set();
+      const preview = [];
+      let totalSets = 0;
+      let extraCount = 0;
+
+      exs.forEach((ex) => {
+        totalSets += Number(ex.sets) || 0;
+        if (ex.isExtra) extraCount += 1;
+        const meta =
+          exerciseMetaMap.get(ex.exerciseId) ||
+          exerciseMetaMap.get(slugify(ex.name));
+        const muscle = ex.muscle || meta?.muscle;
+        if (muscle) muscles.add(muscle);
+        if (preview.length < 4) {
+          const source = meta || ex;
+          const url = getExerciseImageUrl(source, { width: 120, height: 120 });
+          preview.push({
+            url,
+            name: ex.name || meta?.name || "Ejercicio",
+          });
+        }
+      });
+
+      const history = routineHistoryMap.get(routine.id) || {
+        count: 0,
+        lastDate: null,
+      };
+
+      return {
+        ...routine,
+        muscles: Array.from(muscles),
+        preview,
+        totalSets,
+        extraCount,
+        sessionsCount: history.count,
+        lastDate: history.lastDate,
+        exerciseCount: exs.length,
+      };
+    });
+  }, [visibleRoutines, routineHistoryMap, exerciseMetaMap]);
 
   const openCreate = () => {
     setSelectedRoutine(null);
@@ -521,98 +792,195 @@ function Routines() {
     closeModal();
   };
 
-  const visibleRoutines = useMemo(() => {
-    if (activeBranch === "all") return routines;
-    return routines.filter((r) => (r.branch || "general") === activeBranch);
-  }, [routines, activeBranch]);
-
   const branchLabel = (b) => {
     if (!b || b === "general") return "General";
     return b.charAt(0).toUpperCase() + b.slice(1);
   };
 
-  const countByBranch = useMemo(() => {
-    const total = routines.length;
-    const mir = routines.filter(
-      (r) => (r.branch || "general") === "miraflores"
-    ).length;
-    const sop = routines.filter(
-      (r) => (r.branch || "general") === "sopocachi"
-    ).length;
-    return { total, miraflores: mir, sopocachi: sop };
-  }, [routines]);
-
   return (
     <>
-      {/* Si quieres mantener TopBar por consistencia del layout global, puedes dejarlo.
-          Pero para replicar la imagen, usamos este header local. */}
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-          Planificación
-        </p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-          Mis Rutinas
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-300">
-          Crea, gestiona y monitorea tus planes de entrenamiento diarios.
-        </p>
+      <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-5 sm:p-6 shadow-sm">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+        </div>
 
-        <button
-          type="button"
-          onClick={openCreate}
-          className="
-            mt-2 inline-flex w-full items-center justify-center gap-2
-            rounded-2xl bg-blue-600 px-4 py-3
-            text-sm font-semibold text-white
-            shadow-sm hover:bg-blue-700 active:bg-blue-800 transition
-            focus:outline-none focus:ring-2 focus:ring-blue-500/35
-          "
-        >
-          <span className="text-lg leading-none">+</span>
-          Crear Nueva Rutina
-        </button>
-      </div>
+        <div className="relative z-10 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold tracking-[0.35em] uppercase text-[color:var(--text-muted)]">
+                Planificación
+              </p>
+              <h1 className="text-2xl sm:text-4xl font-display font-semibold text-[color:var(--text)]">
+                Rutinas y planificación
+              </h1>
+              <p className="text-sm text-[color:var(--text-muted)] max-w-md">
+                Organiza tus sesiones, destaca los ejercicios clave y crea
+                planes flexibles para cada semana.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button className="w-full sm:w-auto" onClick={openCreate}>
+                  Crear nueva rutina
+                </Button>
+              </div>
+            </div>
 
-      {/* Chips */}
-      <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
-        <BranchPill
-          label={`Todas (${countByBranch.total})`}
-          active={activeBranch === "all"}
-          onClick={() => setActiveBranch("all")}
-        />
-        <BranchPill
-          label="Miraflores"
-          active={activeBranch === "miraflores"}
-          onClick={() => setActiveBranch("miraflores")}
-        />
-        <BranchPill
-          label="Sopocachi"
-          active={activeBranch === "sopocachi"}
-          onClick={() => setActiveBranch("sopocachi")}
-        />
-      </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatTile
+                label="Rutinas"
+                value={totals.routines}
+                hint="Activas"
+              />
+              <StatTile
+                label="Ejercicios"
+                value={totals.exercises}
+                hint={`${totals.extras} extras`}
+              />
+              <StatTile
+                label="Sesiones"
+                value={weekSummary.total}
+                hint="Últimos 7 días"
+              />
+            </div>
+          </div>
 
-      {/* Lista */}
-      <section className="mt-4 space-y-3">
-        {visibleRoutines.map((routine) => (
-          <div
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="p-4 bg-[color:var(--bg)]/60 border-[color:var(--border)]">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--text-muted)] font-semibold">
+                Semana activa
+              </p>
+              <div className="mt-3 grid grid-cols-4 sm:grid-cols-7 gap-2">
+                {weekSummary.days.map((day) => (
+                  <div
+                    key={day.key}
+                    className={`rounded-xl border px-1.5 py-2 sm:px-2 text-center ${
+                      day.count > 0
+                        ? "border-emerald-300/60 bg-emerald-500/10"
+                        : "border-[color:var(--border)] bg-[color:var(--card)]"
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                      <span className="sm:hidden">{day.shortLabel}</span>
+                      <span className="hidden sm:inline">{day.label}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-center text-xs font-semibold text-[color:var(--text)]">
+                      <span className="max-w-[80px] truncate text-center">
+                        {day.routineShort || "Libre"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-[color:var(--bg)]/60 border-[color:var(--border)]">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--text-muted)] font-semibold">
+                Enfoque principal
+              </p>
+              <p className="mt-2 text-base font-semibold text-[color:var(--text)]">
+                {topMuscles.length
+                  ? topMuscles[0][0]
+                  : "Define un foco esta semana"}
+              </p>
+              <p className="text-xs text-[color:var(--text-muted)] mt-1">
+                Distribuye tu energía según los grupos que más trabajas.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {topMuscles.length ? (
+                  topMuscles.map(([muscle, count]) => (
+                    <Badge
+                      key={muscle}
+                      variant="secondary"
+                      className="text-[10px]"
+                    >
+                      {muscle} · {count}
+                    </Badge>
+                  ))
+                ) : (
+                  <Badge className="text-[10px]">Sin datos</Badge>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      <Card className="mt-6 p-3 sm:p-4 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--text)]">
+              Rutinas
+            </p>
+            <p className="text-xs text-[color:var(--text-muted)]">
+              {visibleRoutines.length} de {routines.length} visibles
+            </p>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar rutina..."
+              className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-10 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]">
+              ??
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: "all", label: "Todas", count: branchCounts.all },
+            { id: "general", label: "General", count: branchCounts.general },
+            {
+              id: "miraflores",
+              label: "Miraflores",
+              count: branchCounts.miraflores,
+            },
+            {
+              id: "sopocachi",
+              label: "Sopocachi",
+              count: branchCounts.sopocachi,
+            },
+          ]
+            .filter((item) => item.count > 0 || item.id === "all")
+            .map((item) => (
+              <FilterPill
+                key={item.id}
+                label={item.label}
+                count={item.count}
+                active={activeBranch === item.id}
+                onClick={() => setActiveBranch(item.id)}
+              />
+            ))}
+        </div>
+
+      </Card>
+
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {routineCards.map((routine) => (
+          <Card
             key={routine.id}
-            className="
-              rounded-2xl border border-slate-200 bg-white
-              p-4 shadow-sm
-              dark:border-slate-800 dark:bg-slate-900
-            "
+            className="relative overflow-hidden p-4 flex flex-col gap-4"
           >
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500/50 via-emerald-400/50 to-transparent" />
+
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-50">
+                <p className="text-lg font-semibold text-[color:var(--text)] truncate">
                   {routine.name}
                 </p>
-                <div className="mt-1">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <BranchTag label={branchLabel(routine.branch)} />
+                  <span className="text-xs text-[color:var(--text-muted)]">
+                    Última vez:{" "}
+                    {routine.lastDate
+                      ? formatShortDate(routine.lastDate)
+                      : "Sin registros"}
+                  </span>
                 </div>
               </div>
-
               <div className="relative">
                 <DotsButton
                   onClick={() =>
@@ -622,37 +990,10 @@ function Routines() {
                   }
                 />
                 {openMenuId === routine.id && (
-                  <div
-                    className="
-                      absolute right-0 mt-2 w-44
-                      rounded-2xl border border-slate-200 bg-white
-                      shadow-xl overflow-hidden
-                      dark:border-slate-800 dark:bg-slate-900
-                    "
-                  >
+                  <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-xl overflow-hidden">
                     <button
                       type="button"
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        openEdit(routine);
-                      }}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                      onClick={() => {
-                        setOpenMenuId(null);
-                        duplicateRoutine(routine.id);
-                      }}
-                    >
-                      Duplicar
-                    </button>
-                    <button
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
                       onClick={() => {
                         setOpenMenuId(null);
                         deleteRoutine(routine.id);
@@ -665,21 +1006,91 @@ function Routines() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-300">
-                <span aria-hidden>↻</span>
-                <span>{routine.description}</span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex -space-x-3">
+                {routine.preview.map((item, idx) => (
+                  <div
+                    key={`${routine.id}-preview-${idx}`}
+                    className="h-10 w-10 rounded-full overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]"
+                  >
+                    {item.url ? (
+                      <img
+                        src={item.url}
+                        alt={item.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
+                        {item.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {routine.exerciseCount > routine.preview.length && (
+                  <div className="h-10 w-10 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] grid place-items-center text-xs font-semibold text-[color:var(--text-muted)]">
+                    +{routine.exerciseCount - routine.preview.length}
+                  </div>
+                )}
               </div>
-
-              <ChevronLink onClick={() => openEdit(routine)} />
+              <div className="text-xs text-[color:var(--text-muted)]">
+                {routine.exerciseCount} ejercicios · {routine.totalSets} series
+                {routine.extraCount > 0
+                  ? ` · ${routine.extraCount} extras`
+                  : ""}
+              </div>
             </div>
-          </div>
+
+            <div className="flex flex-wrap gap-2">
+              {routine.muscles.slice(0, 3).map((muscle) => (
+                <Badge key={muscle} className="text-[10px]">
+                  {muscle}
+                </Badge>
+              ))}
+              {routine.muscles.length > 3 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  +{routine.muscles.length - 3}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => openEdit(routine)}
+                >
+                  Editar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => duplicateRoutine(routine.id)}
+                >
+                  Duplicar
+                </Button>
+              </div>
+              <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                {routine.sessionsCount} sesiones
+              </span>
+            </div>
+          </Card>
         ))}
 
-        {!visibleRoutines.length && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-            No tienes rutinas creadas.
-          </div>
+        {!routineCards.length && (
+          <Card className="p-6 text-center text-sm text-[color:var(--text-muted)]">
+            <p>
+              {routines.length
+                ? "No hay rutinas con estos filtros."
+                : "Aún no tienes rutinas creadas."}
+            </p>
+            {!routines.length && (
+              <div className="mt-4">
+                <Button onClick={openCreate}>Crear primera rutina</Button>
+              </div>
+            )}
+          </Card>
         )}
       </section>
 
@@ -697,3 +1108,4 @@ function Routines() {
 }
 
 export default Routines;
+
