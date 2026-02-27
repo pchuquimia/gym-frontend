@@ -269,6 +269,18 @@ const buildVariantList = (baseExercise, library = []) => {
   return variants;
 };
 
+const findRoutineSlot = (routineExercises = [], exercise = {}) => {
+  if (!Array.isArray(routineExercises) || !routineExercises.length) return null;
+  const keys = getExerciseKeys(exercise);
+  if (!keys.length) return null;
+  const keySet = new Set(keys);
+  return (
+    routineExercises.find((item) =>
+      getExerciseKeys(item).some((key) => keySet.has(key))
+    ) || null
+  );
+};
+
 const pickVariantIndex = (variants = [], exercise = {}) => {
   if (!variants.length) return 0;
   const byId = variants.findIndex(
@@ -692,7 +704,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const safeSeriesTypeMap = seriesTypeMap || new Map();
       return list.map((ex, idx) => {
         const meta = findExerciseMeta(libraryExercises, ex) || {};
-        const routineSlot = routineList[idx] || ex;
+        const routineExercises = routine?.exercises || routineList;
+        const routineSlot =
+          findRoutineSlot(routineExercises, ex) || routineExercises[idx] || ex;
         const variants = buildVariantList(routineSlot, libraryExercises);
         const currentCandidate = {
           exerciseId:
