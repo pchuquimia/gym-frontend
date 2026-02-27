@@ -15,6 +15,24 @@ const formatDateLong = (iso) =>
       })
     : "--";
 
+const flattenSets = (sets = []) =>
+  (sets || []).flatMap((set) => {
+    const entries =
+      Array.isArray(set?.entries) && set.entries.length ? set.entries : null;
+    if (!entries) {
+      return [
+        {
+          weightKg: Number(set?.weightKg ?? set?.weight ?? set?.kg ?? 0) || 0,
+          reps: Number(set?.reps ?? 0) || 0,
+        },
+      ];
+    }
+    return entries.map((entry) => ({
+      weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
+      reps: Number(entry?.reps ?? 0) || 0,
+    }));
+  });
+
 function SessionSummaryPage({
   sessions: propSessions = [],
   currentSession: propCurrentSession,
@@ -56,10 +74,7 @@ function SessionSummaryPage({
             ex.muscleGroup ||
             exerciseMeta.find((m) => m.id === ex.exerciseId)?.muscle ||
             "Sin grupo",
-          sets: (ex.sets || []).map((set) => ({
-            weightKg: Number(set.weightKg ?? set.weight) || 0,
-            reps: Number(set.reps) || 0,
-          })),
+          sets: flattenSets(ex.sets || []),
         })),
       }))
       .sort((a, b) => new Date(b.date) - new Date(a.date));

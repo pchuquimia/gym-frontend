@@ -28,8 +28,27 @@ export const muscleGroupConfig = {
   },
 }
 
+const expandSets = (sets = []) =>
+  sets.flatMap((set) => {
+    const entries = Array.isArray(set?.entries) && set.entries.length ? set.entries : null
+    if (!entries) {
+      return [
+        {
+          weightKg: Number(set?.weightKg ?? set?.weight ?? set?.kg ?? 0),
+          reps: Number(set?.reps ?? 0),
+        },
+      ]
+    }
+    return entries.map((entry) => ({
+      weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0),
+      reps: Number(entry?.reps ?? 0),
+    }))
+  })
+
 const cleanSets = (sets = []) =>
-  sets.filter((s) => Number(s?.weightKg) > 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.weightKg)))
+  expandSets(sets).filter(
+    (s) => Number(s?.weightKg) > 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.weightKg)),
+  )
 
 const selectTopSet = (sets = []) =>
   [...sets].sort((a, b) => {

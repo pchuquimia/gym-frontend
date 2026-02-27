@@ -19,6 +19,7 @@ export default function ExerciseCard({
   onSeriesTypeChange = () => {},
   onViewTracking = null,
   onViewHistory = null,
+  onSwapVariant = null,
 }) {
   const [open, setOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState(() => {
@@ -43,6 +44,21 @@ export default function ExerciseCard({
       ? "Biserie"
       : "Serie";
   const seriesLabelLower = seriesLabel.toLowerCase();
+  const hasVariants =
+    Array.isArray(exercise.variants) && exercise.variants.length > 1;
+  const variantIndex =
+    typeof exercise.variantIndex === "number" ? exercise.variantIndex : 0;
+  const variantLabel = hasVariants
+    ? `Alternativa ${variantIndex + 1}/${exercise.variants.length}`
+    : "";
+
+  const handleDragEnd = (_, info) => {
+    if (!onSwapVariant || !hasVariants) return;
+    const offsetX = info.offset?.x ?? 0;
+    const velocityX = info.velocity?.x ?? 0;
+    if (offsetX > 70 || velocityX > 700) onSwapVariant(1);
+    if (offsetX < -70 || velocityX < -700) onSwapVariant(-1);
+  };
 
   useEffect(() => {
     if (imageSrc || imgLoaded.current) return;
@@ -65,7 +81,17 @@ export default function ExerciseCard({
   }, [exercise.id, imageSrc]);
 
   return (
-    <motion.div layout whileHover={{ y: -2 }}>
+    <motion.div
+      layout
+      whileHover={{ y: -2 }}
+      drag={onSwapVariant && hasVariants ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.2}
+      dragMomentum={false}
+      dragDirectionLock
+      onDragEnd={handleDragEnd}
+      style={onSwapVariant && hasVariants ? { touchAction: "pan-y" } : undefined}
+    >
       <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur overflow-hidden">
         <button
           type="button"
@@ -94,8 +120,16 @@ export default function ExerciseCard({
               >
                 {seriesLabel}
               </Badge>
+              {variantLabel && (
+                <Badge className="text-[10px]">{variantLabel}</Badge>
+              )}
               <Badge>{exercise.prText || "Sin referencia"}</Badge>
             </div>
+            {hasVariants && (
+              <p className="text-[10px] text-[color:var(--text-muted)] mt-1">
+                Desliza para cambiar ejercicio
+              </p>
+            )}
           </div>
           <ChevronDown
             className={`h-5 w-5 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
@@ -221,6 +255,16 @@ ExerciseCard.propTypes = {
     image: PropTypes.string,
     imagePublicId: PropTypes.string,
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
+    variantIndex: PropTypes.number,
+    variants: PropTypes.arrayOf(
+      PropTypes.shape({
+        exerciseId: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired,
+        muscle: PropTypes.string,
+        image: PropTypes.string,
+        imagePublicId: PropTypes.string,
+      })
+    ),
     sets: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,
@@ -245,4 +289,5 @@ ExerciseCard.propTypes = {
   onSeriesTypeChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onViewHistory: PropTypes.func,
+  onSwapVariant: PropTypes.func,
 };

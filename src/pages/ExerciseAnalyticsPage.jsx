@@ -43,6 +43,23 @@ const getDateTimestamp = (value) => {
   return d ? d.getTime() : 0
 }
 
+const flattenSets = (sets = []) =>
+  (sets || []).flatMap((set) => {
+    const entries = Array.isArray(set?.entries) && set.entries.length ? set.entries : null
+    if (!entries) {
+      return [
+        {
+          weight: Number(set?.weightKg ?? set?.weight ?? set?.kg ?? 0) || 0,
+          reps: Number(set?.reps ?? 0) || 0,
+        },
+      ]
+    }
+    return entries.map((entry) => ({
+      weight: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
+      reps: Number(entry?.reps ?? 0) || 0,
+    }))
+  })
+
 function ExerciseAnalyticsPage() {
   const { sessions = [], trainings = [], exercises = [] } = useTrainingData()
   const getThemeMode = () => {
@@ -80,10 +97,7 @@ function ExerciseAnalyticsPage() {
           .map((s) => ({
             exerciseId: s.exerciseId || slugify(s.exerciseName || ''),
             date: s.date,
-            sets: (s.sets || []).map((set) => ({
-              weight: Number(set.weightKg ?? set.weight) || 0,
-              reps: Number(set.reps) || 0,
-            })),
+            sets: flattenSets(s.sets || []),
           })),
         // entrenamientos completos
         ...trainings.flatMap((t) =>
@@ -92,10 +106,7 @@ function ExerciseAnalyticsPage() {
             .map((ex) => ({
               exerciseId: ex.exerciseId || slugify(ex.exerciseName || ''),
               date: t.date,
-              sets: (ex.sets || []).map((set) => ({
-                weight: Number(set.weightKg ?? set.weight) || 0,
-                reps: Number(set.reps) || 0,
-              })),
+              sets: flattenSets(ex.sets || []),
             })),
         ),
       ],

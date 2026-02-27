@@ -233,6 +233,85 @@ const getExerciseKeys = (exercise = {}) => {
   return Array.from(keys);
 };
 
+const findExerciseMeta = (library = [], exercise = {}) => {
+  const name = exercise.exerciseName || exercise.name || "";
+  return (
+    library.find(
+      (m) =>
+        m.id === exercise.exerciseId ||
+        m.id === exercise.id ||
+        m.id === exercise.exerciseName ||
+        m.name?.toLowerCase() === name.toLowerCase()
+    ) || null
+  );
+};
+
+const buildVariantList = (baseExercise, library = []) => {
+  const variants = [];
+  const seen = new Set();
+  const addVariant = (entry) => {
+    if (!entry) return;
+    const meta = findExerciseMeta(library, entry) || {};
+    const exerciseId =
+      entry.exerciseId || entry.id || meta.id || slugify(entry.name || "");
+    if (!exerciseId || seen.has(exerciseId)) return;
+    seen.add(exerciseId);
+    variants.push({
+      exerciseId,
+      name: entry.name || entry.exerciseName || meta.name || "Ejercicio",
+      muscle: entry.muscle || meta.muscle || "Sin grupo",
+      image: entry.image || meta.image || "",
+      imagePublicId: entry.imagePublicId || meta.imagePublicId || "",
+    });
+  };
+  addVariant(baseExercise);
+  (baseExercise?.alternatives || []).forEach(addVariant);
+  return variants;
+};
+
+const pickVariantIndex = (variants = [], exercise = {}) => {
+  if (!variants.length) return 0;
+  const byId = variants.findIndex(
+    (variant) => variant.exerciseId === exercise.exerciseId || variant.exerciseId === exercise.id
+  );
+  if (byId >= 0) return byId;
+  const nameSlug = slugify(
+    exercise.exerciseName || exercise.name || ""
+  );
+  if (!nameSlug) return 0;
+  const byName = variants.findIndex(
+    (variant) => slugify(variant.name || "") === nameSlug
+  );
+  return byName >= 0 ? byName : 0;
+};
+
+const wrapIndex = (index, length) => {
+  if (!length) return 0;
+  const next = index % length;
+  return next < 0 ? next + length : next;
+};
+
+const hasEntryValue = (value) =>
+  value !== null && value !== undefined && value !== "";
+
+const exerciseHasInput = (exercise) =>
+  (exercise?.sets || []).some((set) =>
+    (set?.entries || []).length
+      ? (set?.entries || []).some(
+          (entry) =>
+            hasEntryValue(entry?.kg) ||
+            hasEntryValue(entry?.weightKg) ||
+            hasEntryValue(entry?.weight) ||
+            hasEntryValue(entry?.reps) ||
+            entry?.done
+        )
+      : hasEntryValue(set?.kg) ||
+        hasEntryValue(set?.weightKg) ||
+        hasEntryValue(set?.weight) ||
+        hasEntryValue(set?.reps) ||
+        set?.done
+  );
+
 const pickMapKey = (map, keys = []) => {
   if (!map) return null;
   return keys.find((key) => key && map.has(key)) || null;
@@ -611,21 +690,41 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     });
 
     const safeSeriesTypeMap = seriesTypeMap || new Map();
-    return list.map((ex, idx) => {
-      const meta =
-        libraryExercises.find(
-          (m) =>
-            m.id === ex.exerciseId ||
-            m.id === ex.id ||
-            m.name?.toLowerCase() === ex.name?.toLowerCase()
-        ) || {};
-      const id = ex.exerciseId || ex.id || slugify(ex.name || `ex-${idx}`);
-      const nameKey = slugify(
-        ex.name || meta.name || ex.exerciseName || ex.exerciseId || ""
-      );
-      const setsCount = Number(ex.sets) || 3;
-      const trainingEx =
-        trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
+      return list.map((ex, idx) => {
+        const meta = findExerciseMeta(libraryExercises, ex) || {};
+        const routineSlot = routineList[idx] || ex;
+        const variants = buildVariantList(routineSlot, libraryExercises);
+        const currentCandidate = {
+          exerciseId:
+            ex.exerciseId || ex.id || meta.id || slugify(ex.name || `ex-${idx}`),
+          name: ex.name || meta.name || ex.exerciseName || "Ejercicio",
+          muscle:
+            ex.muscle || ex.muscleGroup || meta.muscle || "Sin grupo",
+          image: ex.image || meta.image || "",
+          imagePublicId: ex.imagePublicId || meta.imagePublicId || "",
+        };
+        const hasCurrent = variants.some(
+          (variant) => variant.exerciseId === currentCandidate.exerciseId
+        );
+        if (!hasCurrent && currentCandidate.exerciseId) variants.push(currentCandidate);
+        const variantIndex = pickVariantIndex(variants, ex);
+        const activeVariant = variants[variantIndex] || variants[0] || currentCandidate;
+        const id =
+          activeVariant?.exerciseId ||
+          ex.exerciseId ||
+          ex.id ||
+          slugify(ex.name || `ex-${idx}`);
+        const nameKey = slugify(
+          activeVariant?.name ||
+            ex.name ||
+            meta.name ||
+            ex.exerciseName ||
+            ex.exerciseId ||
+            ""
+        );
+        const setsCount = Number(ex.sets) || 3;
+        const trainingEx =
+          trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
       const historySeriesType =
         safeSeriesTypeMap.get(id) ||
         (nameKey ? safeSeriesTypeMap.get(nameKey) : null);
@@ -763,26 +862,33 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const headerText = best
         ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : "Sin referencia";
-      return {
-        id,
-        name: ex.name || meta.name || "Ejercicio",
-        prText: headerText,
-        image: ex.image || meta.image || "",
-        imagePublicId: ex.imagePublicId || meta.imagePublicId || "",
-        muscle:
-          ex.muscle ||
-          ex.muscleGroup ||
-          meta.muscle ||
-          meta.muscleGroup ||
-          "Sin grupo",
-        isExtra: Boolean(ex.isExtra),
-        seriesType,
-        prSummary,
-        prWeight: best?.weight ?? null,
-        sets,
-      };
-    });
-  };
+        return {
+          id,
+          name: activeVariant?.name || ex.name || meta.name || "Ejercicio",
+          prText: headerText,
+          image: activeVariant?.image || ex.image || meta.image || "",
+          imagePublicId:
+            activeVariant?.imagePublicId ||
+            ex.imagePublicId ||
+            meta.imagePublicId ||
+            "",
+          muscle:
+            activeVariant?.muscle ||
+            ex.muscle ||
+            ex.muscleGroup ||
+            meta.muscle ||
+            meta.muscleGroup ||
+            "Sin grupo",
+          isExtra: Boolean(ex.isExtra ?? routineSlot?.isExtra),
+          seriesType,
+          prSummary,
+          prWeight: best?.weight ?? null,
+          variants,
+          variantIndex,
+          sets,
+        };
+      });
+    };
 
   const applyHistoryToExercises = (
     list,
@@ -1397,8 +1503,103 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               })),
             }
           : ex
-      )
-    );
+        )
+      );
+    };
+
+  const handleSwapVariant = (exerciseId, direction = 1) => {
+    setExercises((prev) => {
+      const startIndex = prev.findIndex((ex) => ex.id === exerciseId);
+      if (startIndex < 0) return prev;
+      const target = prev[startIndex];
+      const targetVariants = Array.isArray(target.variants)
+        ? target.variants
+        : [];
+      if (targetVariants.length < 2) return prev;
+      const nextIndex = wrapIndex(
+        (typeof target.variantIndex === "number" ? target.variantIndex : 0) +
+          direction,
+        targetVariants.length
+      );
+      const muscleKey = target.muscle;
+      let nextTrackingId = trackingExerciseId;
+      const nextList = prev.map((ex, idx) => {
+        if (idx < startIndex) return ex;
+        if ((ex.muscle || "") !== muscleKey) return ex;
+        const variants =
+          Array.isArray(ex.variants) && ex.variants.length
+            ? ex.variants
+            : [
+                {
+                  exerciseId: ex.id,
+                  name: ex.name,
+                  muscle: ex.muscle,
+                  image: ex.image || "",
+                  imagePublicId: ex.imagePublicId || "",
+                },
+              ];
+        if (variants.length < 2) return ex;
+        const appliedIndex = wrapIndex(nextIndex, variants.length);
+        const variant = variants[appliedIndex] || variants[0];
+        const shouldReset = !exerciseHasInput(ex);
+        let updated = {
+          ...ex,
+          id: variant.exerciseId,
+          name: variant.name,
+          muscle: variant.muscle || ex.muscle,
+          image: variant.image || ex.image || "",
+          imagePublicId: variant.imagePublicId || ex.imagePublicId || "",
+          variantIndex: appliedIndex,
+          variants,
+        };
+        if (shouldReset) {
+          const template = buildExercisesForRoutine(
+            {
+              exercises: [
+                {
+                  exerciseId: variant.exerciseId,
+                  name: variant.name,
+                  muscle: variant.muscle || ex.muscle,
+                  sets: ex.sets?.length || 3,
+                  image: variant.image || ex.image || "",
+                  imagePublicId: variant.imagePublicId || ex.imagePublicId || "",
+                  isExtra: ex.isExtra,
+                  seriesType: ex.seriesType,
+                },
+              ],
+            },
+            null,
+            historyBest,
+            historyBestBySet,
+            historyRecentBySet,
+            historySeriesTypeMap,
+            true
+          );
+          if (template?.[0]) {
+            updated = {
+              ...updated,
+              ...template[0],
+              variants,
+              variantIndex: appliedIndex,
+            };
+          }
+        }
+        if (nextTrackingId && nextTrackingId === ex.id) {
+          nextTrackingId = updated.id;
+        }
+        return updated;
+      });
+      if (nextTrackingId !== trackingExerciseId) {
+        setTrackingExerciseId(nextTrackingId);
+      }
+      return applyHistoryToExercises(
+        nextList,
+        historyBest,
+        historyBestBySet,
+        historyRecentBySet,
+        historySeriesTypeMap
+      );
+    });
   };
 
   const handleAddSet = (exerciseId) => {
@@ -2234,13 +2435,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             onRemoveExercise={() =>
                               handleRemoveExercise(ex.id)
                             }
-                            onSeriesTypeChange={(value) =>
-                              handleSeriesTypeChange(ex.id, value)
-                            }
-                            onViewTracking={() => {
-                              setTrackingExerciseId(ex.id);
-                              setShowTracking(true);
-                            }}
+                              onSeriesTypeChange={(value) =>
+                                handleSeriesTypeChange(ex.id, value)
+                              }
+                              onSwapVariant={(direction) =>
+                                handleSwapVariant(ex.id, direction)
+                              }
+                              onViewTracking={() => {
+                                setTrackingExerciseId(ex.id);
+                                setShowTracking(true);
+                              }}
                             onViewHistory={() => {
                               if (typeof localStorage !== "undefined")
                                 localStorage.setItem(

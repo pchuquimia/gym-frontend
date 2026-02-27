@@ -142,20 +142,31 @@ function RoutineModal({
   onClose,
   availableExercises,
 }) {
+  const resolveExercise = (entry = {}) => {
+    const meta = availableExercises.find(
+      (a) =>
+        a.id === entry.exerciseId ||
+        a.id === entry.id ||
+        a.name === entry.name
+    );
+    return {
+      exerciseId:
+        entry.exerciseId || entry.id || meta?.id || slugify(entry.name || ""),
+      name: entry.name || meta?.name || "Ejercicio",
+      muscle: entry.muscle || meta?.muscle,
+      image: entry.image || meta?.image || "",
+      imagePublicId: entry.imagePublicId || meta?.imagePublicId || "",
+    };
+  };
   const [name, setName] = useState(initialData?.name || "");
   const [branch, setBranch] = useState(initialData?.branch || "general");
   const [branchError, setBranchError] = useState("");
   const [exercises, setExercises] = useState(
     (initialData?.exercises || []).map((ex) => {
-      const meta = availableExercises.find(
-        (a) => a.id === ex.exerciseId || a.id === ex.id || a.name === ex.name
-      );
       return {
         ...ex,
-        exerciseId: ex.exerciseId || slugify(ex.name),
-        muscle: ex.muscle || meta?.muscle,
-        image: ex.image || meta?.image || "",
-        imagePublicId: ex.imagePublicId || meta?.imagePublicId || "",
+        ...resolveExercise(ex),
+        alternatives: (ex.alternatives || []).map((alt) => resolveExercise(alt)),
         isExtra: Boolean(ex.isExtra),
       };
     })
@@ -219,6 +230,7 @@ function RoutineModal({
         image: exercise.image || "",
         imagePublicId: exercise.imagePublicId || "",
         isExtra: false,
+        alternatives: [],
       },
     ]);
   };
@@ -239,6 +251,43 @@ function RoutineModal({
 
   const removeExercise = (idx) => {
     setExercises((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const addAlternative = (idx, optionId) => {
+    if (!optionId) return;
+    const option = availableExercises.find((ex) => ex.id === optionId);
+    if (!option) return;
+    setExercises((prev) =>
+      prev.map((ex, i) => {
+        if (i !== idx) return ex;
+        const baseId = ex.exerciseId;
+        const existing = new Set(
+          (ex.alternatives || []).map((alt) => alt.exerciseId)
+        );
+        if (option.id === baseId || existing.has(option.id)) return ex;
+        return {
+          ...ex,
+          alternatives: [
+            ...(ex.alternatives || []),
+            resolveExercise(option),
+          ],
+        };
+      })
+    );
+  };
+
+  const removeAlternative = (idx, altId) => {
+    setExercises((prev) =>
+      prev.map((ex, i) => {
+        if (i !== idx) return ex;
+        return {
+          ...ex,
+          alternatives: (ex.alternatives || []).filter(
+            (alt) => alt.exerciseId !== altId
+          ),
+        };
+      })
+    );
   };
 
   const reorderExercises = (from, to) => {
@@ -275,6 +324,13 @@ function RoutineModal({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
         isExtra: Boolean(ex.isExtra),
+        alternatives: (ex.alternatives || []).map((alt) => ({
+          exerciseId: alt.exerciseId || slugify(alt.name),
+          name: alt.name,
+          muscle: alt.muscle,
+          image: alt.image || "",
+          imagePublicId: alt.imagePublicId || "",
+        })),
       })),
     };
     onSave(payload);
@@ -493,6 +549,67 @@ function RoutineModal({
                         >
                           {ex.isExtra ? "Extra" : "Principal"}
                         </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                          Alternativas
+                        </span>
+                        {(ex.alternatives || []).length ? (
+                          (ex.alternatives || []).map((alt) => (
+                            <span
+                              key={alt.exerciseId}
+                              className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-0.5 text-[11px] text-[color:var(--text)]"
+                            >
+                              {alt.name}
+                              <button
+                                type="button"
+                                className="text-[color:var(--text-muted)] hover:text-red-500"
+                                onClick={() =>
+                                  removeAlternative(ex.idx, alt.exerciseId)
+                                }
+                                aria-label="Quitar alternativa"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-[color:var(--text-muted)]">
+                            Sin alternativas
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2">
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (!value) return;
+                            addAlternative(ex.idx, value);
+                            e.target.value = "";
+                          }}
+                          className="w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1 text-[11px] text-[color:var(--text)]"
+                        >
+                          <option value="">Agregar alternativa...</option>
+                          {availableExercises
+                            .filter(
+                              (option) =>
+                                branchMatches(option) &&
+                                (!ex.muscle || option.muscle === ex.muscle)
+                            )
+                            .filter(
+                              (option) =>
+                                option.id !== ex.exerciseId &&
+                                !(ex.alternatives || []).some(
+                                  (alt) => alt.exerciseId === option.id
+                                )
+                            )
+                            .map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                     </div>
                     <button

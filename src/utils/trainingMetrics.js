@@ -21,8 +21,29 @@ export const formatCompactWeekLabel = (weekKey) => {
   return `W${wk} ${year.slice(-2)}`
 }
 
+const expandSets = (sets = []) =>
+  sets.flatMap((set) => {
+    const entries = Array.isArray(set?.entries) && set.entries.length ? set.entries : null
+    if (!entries) {
+      return [
+        {
+          ...set,
+          weight: Number(set?.weight ?? set?.weightKg ?? set?.kg ?? 0),
+          reps: Number(set?.reps ?? 0),
+        },
+      ]
+    }
+    return entries.map((entry) => ({
+      ...entry,
+      weight: Number(entry?.weight ?? entry?.weightKg ?? entry?.kg ?? 0),
+      reps: Number(entry?.reps ?? 0),
+    }))
+  })
+
 export const cleanSets = (sets = []) =>
-  sets.filter((s) => Number(s?.weight) >= 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.reps)))
+  expandSets(sets).filter(
+    (s) => Number(s?.weight) >= 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.reps)),
+  )
 
 export const flattenWorkouts = (workouts = []) =>
   workouts.flatMap((w) =>
