@@ -20,7 +20,7 @@ export const api = {
       limit: params.limit ?? 100,
       fields:
         params.fields ??
-        'name,muscle,branches,type,image,imagePublicId,thumb,updatedAt,createdAt',
+        'name,muscle,branches,type,image,imagePublicId,thumb,supportsUnilateral,updatedAt,createdAt',
       page: params.page ?? 1,
       meta: params.meta ?? false,
     }).toString()
@@ -48,7 +48,7 @@ export const api = {
       limit: params.limit ?? 120,
       fields:
         params.fields ??
-        'date,routineId,routineName,durationSeconds,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.sets',
+        'date,routineId,routineName,durationSeconds,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.movementMode,exercises.sets',
       from: params.from ?? '',
       to: params.to ?? '',
       routineId: params.routineId ?? '',

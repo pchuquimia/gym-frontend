@@ -17,6 +17,7 @@ export default function ExerciseCard({
   onRemoveSet,
   onRemoveExercise,
   onSeriesTypeChange = () => {},
+  onMovementModeChange = () => {},
   onViewTracking = null,
   onViewHistory = null,
   onSwapVariant = null,
@@ -35,15 +36,18 @@ export default function ExerciseCard({
     exercise.seriesType === "triserie"
       ? "triserie"
       : exercise.seriesType === "biserie"
-      ? "biserie"
-      : "serie";
+        ? "biserie"
+        : "serie";
   const seriesLabel =
     seriesValue === "triserie"
       ? "Triserie"
       : seriesValue === "biserie"
-      ? "Biserie"
-      : "Serie";
+        ? "Biserie"
+        : "Serie";
   const seriesLabelLower = seriesLabel.toLowerCase();
+  const supportsUnilateral = Boolean(exercise.supportsUnilateral);
+  const movementMode =
+    exercise.movementMode === "unilateral" ? "unilateral" : "bilateral";
   const hasVariants =
     Array.isArray(exercise.variants) && exercise.variants.length > 1;
   const variantIndex =
@@ -90,7 +94,9 @@ export default function ExerciseCard({
       dragMomentum={false}
       dragDirectionLock
       onDragEnd={handleDragEnd}
-      style={onSwapVariant && hasVariants ? { touchAction: "pan-y" } : undefined}
+      style={
+        onSwapVariant && hasVariants ? { touchAction: "pan-y" } : undefined
+      }
     >
       <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur overflow-hidden">
         <button
@@ -123,6 +129,11 @@ export default function ExerciseCard({
               {variantLabel && (
                 <Badge className="text-[10px]">{variantLabel}</Badge>
               )}
+              {supportsUnilateral && (
+                <Badge className="text-[10px]">
+                  {movementMode === "unilateral" ? "Unilateral" : "Bilateral"}
+                </Badge>
+              )}
               <Badge>{exercise.prText || "Sin referencia"}</Badge>
             </div>
             {hasVariants && (
@@ -144,19 +155,36 @@ export default function ExerciseCard({
               exit={{ opacity: 0, height: 0 }}
               className="border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Tipo de serie
-                </p>
-                <select
-                  value={seriesValue}
-                  onChange={(e) => onSeriesTypeChange(e.target.value)}
-                  className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                >
-                  <option value="serie">Serie</option>
-                  <option value="biserie">Biserie</option>
-                  <option value="triserie">Triserie</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-5 px-4 pt-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                    Tipo de serie
+                  </p>
+                  <select
+                    value={seriesValue}
+                    onChange={(e) => onSeriesTypeChange(e.target.value)}
+                    className="mt-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  >
+                    <option value="serie">Serie</option>
+                    <option value="biserie">Biserie</option>
+                    <option value="triserie">Triserie</option>
+                  </select>
+                </div>
+                {supportsUnilateral && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold text-align-left">
+                      Modo
+                    </p>
+                    <select
+                      value={movementMode}
+                      onChange={(e) => onMovementModeChange(e.target.value)}
+                      className="mt-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    >
+                      <option value="bilateral">Bilateral</option>
+                      <option value="unilateral">Unilateral</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between px-4 py-3 gap-2">
                 <div className="flex gap-2 flex-wrap">
@@ -169,16 +197,7 @@ export default function ExerciseCard({
                       Seguimiento
                     </Button>
                   </motion.div>
-                  <motion.div whileTap={{ scale: 0.97 }}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full px-4 border-[color:var(--border)] text-[color:var(--text)]"
-                      onClick={onViewHistory}
-                    >
-                      Historial
-                    </Button>
-                  </motion.div>
+                  <motion.div whileTap={{ scale: 0.97 }}></motion.div>
                 </div>
                 <Button
                   size="icon"
@@ -254,6 +273,8 @@ ExerciseCard.propTypes = {
     prWeight: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     image: PropTypes.string,
     imagePublicId: PropTypes.string,
+    supportsUnilateral: PropTypes.bool,
+    movementMode: PropTypes.oneOf(["bilateral", "unilateral"]),
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
     variantIndex: PropTypes.number,
     variants: PropTypes.arrayOf(
@@ -263,7 +284,7 @@ ExerciseCard.propTypes = {
         muscle: PropTypes.string,
         image: PropTypes.string,
         imagePublicId: PropTypes.string,
-      })
+      }),
     ),
     sets: PropTypes.arrayOf(
       PropTypes.shape({
@@ -276,9 +297,9 @@ ExerciseCard.propTypes = {
             kg: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
             reps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
             done: PropTypes.bool.isRequired,
-          })
+          }),
         ),
-      })
+      }),
     ).isRequired,
   }).isRequired,
   onAddSet: PropTypes.func.isRequired,
@@ -287,6 +308,7 @@ ExerciseCard.propTypes = {
   onRemoveSet: PropTypes.func.isRequired,
   onRemoveExercise: PropTypes.func.isRequired,
   onSeriesTypeChange: PropTypes.func,
+  onMovementModeChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onViewHistory: PropTypes.func,
   onSwapVariant: PropTypes.func,

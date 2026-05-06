@@ -5,6 +5,9 @@ import { api } from '../services/api'
 const TrainingContext = createContext(null)
 
 const initialGoals = {}
+const DEFAULT_BRANCH = 'sopocachi'
+const normalizeBranch = (value) =>
+  value === 'miraflores' || value === 'sopocachi' ? value : DEFAULT_BRANCH
 
 const slugify = (text) =>
   text
@@ -44,14 +47,14 @@ const PREFS_KEY = ['preferences']
 
 export function TrainingProvider({ children }) {
   const queryClient = useQueryClient()
-  const [branch, setBranchState] = useState('general')
+  const [branch, setBranchState] = useState(DEFAULT_BRANCH)
   const [goals, setGoals] = useState(initialGoals)
 
   const exercisesQuery = useQuery({
     queryKey: EXERCISES_KEY,
     queryFn: async () => {
       const exsResponse = await api.getExercises({
-        fields: 'name,muscle,branches,type,image,imagePublicId,thumb,updatedAt,createdAt',
+        fields: 'name,muscle,branches,type,image,imagePublicId,thumb,supportsUnilateral,updatedAt,createdAt',
         limit: 200,
       })
       const list = Array.isArray(exsResponse) ? exsResponse : exsResponse?.items || []
@@ -95,9 +98,9 @@ export function TrainingProvider({ children }) {
   })
 
   useEffect(() => {
-    if (prefsQuery.data?.branch) setBranchState(prefsQuery.data.branch)
+    if (prefsQuery.data?.branch) setBranchState(normalizeBranch(prefsQuery.data.branch))
     if (prefsQuery.data?.goals) setGoals(prefsQuery.data.goals)
-    if (prefsQuery.error) setBranchState('general')
+    if (prefsQuery.error) setBranchState(DEFAULT_BRANCH)
   }, [prefsQuery.data, prefsQuery.error])
 
   const addSession = async (session) => {
@@ -175,13 +178,13 @@ export function TrainingProvider({ children }) {
     mutationFn: (payload) => api.setPreference(payload),
     onSuccess: (saved) => {
       queryClient.setQueryData(PREFS_KEY, saved)
-      if (saved?.branch) setBranchState(saved.branch)
+      if (saved?.branch) setBranchState(normalizeBranch(saved.branch))
       if (saved?.goals) setGoals(saved.goals)
     },
   })
 
   const setBranch = async (value) => {
-    const saved = await updatePreferences.mutateAsync({ branch: value, goals })
+    const saved = await updatePreferences.mutateAsync({ branch: normalizeBranch(value), goals })
     return saved
   }
 

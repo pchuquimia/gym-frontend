@@ -23,6 +23,10 @@ const getLocalISODate = (value) => {
 const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
 const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
+const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
+const DEFAULT_BRANCH = "sopocachi";
+const normalizeBranch = (value) =>
+  BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -107,6 +111,17 @@ const normalizeSeriesType = (value) => {
   if (value === "triserie") return "triserie";
   if (value === "biserie") return "biserie";
   return "serie";
+};
+
+const normalizeMovementMode = (value) =>
+  value === "unilateral" ? "unilateral" : "bilateral";
+
+const getMovementHistoryKey = (key, movementMode = "bilateral") =>
+  `${key}::${normalizeMovementMode(movementMode)}`;
+
+const getMovementHistoryKeys = (exercise = {}) => {
+  const mode = normalizeMovementMode(exercise.movementMode);
+  return getExerciseKeys(exercise).map((key) => getMovementHistoryKey(key, mode));
 };
 
 const getSeriesCount = (seriesType) => {
@@ -262,6 +277,7 @@ const buildVariantList = (baseExercise, library = []) => {
       muscle: entry.muscle || meta.muscle || "Sin grupo",
       image: entry.image || meta.image || "",
       imagePublicId: entry.imagePublicId || meta.imagePublicId || "",
+      supportsUnilateral: Boolean(entry.supportsUnilateral || meta.supportsUnilateral),
     });
   };
   addVariant(baseExercise);
@@ -279,6 +295,25 @@ const findRoutineSlot = (routineExercises = [], exercise = {}) => {
       getExerciseKeys(item).some((key) => keySet.has(key))
     ) || null
   );
+};
+
+const getRoutineMovementConfig = (routineExercises = [], exercise = {}) => {
+  const slot = findRoutineSlot(routineExercises, exercise);
+  if (!slot) {
+    return {
+      supportsUnilateral: Boolean(exercise.supportsUnilateral),
+      movementMode: normalizeMovementMode(exercise.movementMode),
+    };
+  }
+  const supportsUnilateral = Boolean(
+    slot.supportsUnilateral || exercise.supportsUnilateral
+  );
+  return {
+    supportsUnilateral,
+    movementMode: supportsUnilateral
+      ? normalizeMovementMode(exercise.movementMode || slot.movementMode)
+      : "bilateral",
+  };
 };
 
 const pickVariantIndex = (variants = [], exercise = {}) => {
@@ -351,7 +386,7 @@ const computeLatestSeriesTypeFromHistory = (
         inferSeriesTypeFromSets(ex?.sets);
       if (!rawType) return;
       const type = normalizeSeriesType(rawType);
-      const keys = getExerciseKeys(ex);
+      const keys = getMovementHistoryKeys(ex);
       if (!keys.length) return;
       keys.forEach((key) => {
         const current = map.get(key);
@@ -370,7 +405,7 @@ const computeBestFromHistory = (trainings = []) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex) => {
-      const keys = getExerciseKeys(ex);
+      const keys = getMovementHistoryKeys(ex);
       if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
@@ -407,7 +442,7 @@ const computeBestBySetFromHistory = (trainings = []) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex) => {
-      const keys = getExerciseKeys(ex);
+      const keys = getMovementHistoryKeys(ex);
       if (!keys.length) return;
       const sets = ex.sets || [];
       const existingKey = keys.find((key) => map.has(key));
@@ -447,7 +482,7 @@ const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
     const ts = getDateTimestamp(date);
     if (cutoffTs && ts > cutoffTs) return;
     (tr.exercises || []).forEach((ex) => {
-      const keys = getExerciseKeys(ex);
+      const keys = getMovementHistoryKeys(ex);
       if (!keys.length) return;
       const sets = ex.sets || [];
       const existingKey = keys.find((key) => map.has(key));
@@ -513,18 +548,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [historyTrainings, setHistoryTrainings] = useState([]);
   const [editingId, setEditingId] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState(userBranch || "general");
+  const [selectedBranch, setSelectedBranch] = useState(() =>
+    normalizeBranch(userBranch)
+  );
   const branchChangeReason = useRef("user"); // "user" | "routine"
   const restoredFromSnapshot = useRef(false);
   const historyLoadAttempted = useRef(false);
+  const initializedTrainingScreen = useRef(false);
   const lastUpdateRef = useRef(Date.now());
   const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
 
   const branchOptions = useMemo(() => {
-    const set = new Set();
-    (routines || []).forEach((r) => set.add(r.branch || "general"));
+    const set = new Set(BRANCH_OPTIONS);
+    (routines || []).forEach((r) => {
+      const branch = normalizeBranch(r.branch);
+      if (branch) set.add(branch);
+    });
     return Array.from(set);
   }, [routines]);
 
@@ -546,26 +587,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const routineOptions = useMemo(() => {
     const filtered =
       (routines || []).filter((r) =>
-        selectedBranch ? (r.branch || "general") === selectedBranch : true
+        selectedBranch ? normalizeBranch(r.branch) === selectedBranch : true
       ) || [];
-    if (filtered.length) {
-      return filtered.map((r) => ({
-        id: r.id,
-        name: r.name,
-        location: r.branch || "general",
-        exerciseCount: (r.exercises || []).length,
-        lastDate:
-          formatShort(
-            latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt
-          ) || "--",
-        raw: r,
-      }));
-    }
-    // si no hay rutinas de esa sucursal, devolver todas para no dejar vacÃ­o
-    return (routines || []).map((r) => ({
+    return filtered.map((r) => ({
       id: r.id,
       name: r.name,
-      location: r.branch || "general",
+      location: normalizeBranch(r.branch),
       exerciseCount: (r.exercises || []).length,
       lastDate:
         formatShort(
@@ -576,7 +603,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [routines, selectedBranch, latestRoutineDates]);
 
   const currentBranch =
-    selectedBranch || selectedRoutine?.location || "general";
+    selectedBranch || selectedRoutine?.location || DEFAULT_BRANCH;
   const libraryExerciseOptions = useMemo(() => {
     const seen = new Set();
     return (libraryExercises || [])
@@ -586,7 +613,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         return true;
       })
       .filter((ex) => {
-        if (!currentBranch || currentBranch === "general") return true;
+        if (!currentBranch) return true;
         const branches = ex.branches || [];
         return (
           branches.includes(currentBranch) || branches.includes("general")
@@ -598,6 +625,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         muscle: ex.muscle || ex.muscleGroup || "Sin grupo",
         image: ex.image || "",
         imagePublicId: ex.imagePublicId || "",
+        supportsUnilateral: Boolean(ex.supportsUnilateral),
         branches: ex.branches || [],
       }));
   }, [libraryExercises, currentBranch]);
@@ -679,6 +707,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: ex.exerciseName,
         muscle: ex.muscleGroup,
         sets: ex.sets?.length || 3,
+        movementMode: normalizeMovementMode(ex.movementMode),
       }));
     const routineList =
       (routine?.exercises || []).length
@@ -688,6 +717,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             name: ex.exerciseName,
             muscle: ex.muscleGroup,
             sets: ex.sets?.length || 3,
+            movementMode: normalizeMovementMode(ex.movementMode),
           }));
     const list = trainingList?.length
       ? trainingList
@@ -716,6 +746,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             ex.muscle || ex.muscleGroup || meta.muscle || "Sin grupo",
           image: ex.image || meta.image || "",
           imagePublicId: ex.imagePublicId || meta.imagePublicId || "",
+          supportsUnilateral: Boolean(
+            ex.supportsUnilateral || routineSlot?.supportsUnilateral || meta.supportsUnilateral
+          ),
         };
         const hasCurrent = variants.some(
           (variant) => variant.exerciseId === currentCandidate.exerciseId
@@ -737,11 +770,27 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             ""
         );
         const setsCount = Number(ex.sets) || 3;
-        const trainingEx =
+      const trainingEx =
           trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
+      const supportsUnilateral = Boolean(
+        routineSlot?.supportsUnilateral ||
+          ex.supportsUnilateral ||
+          activeVariant?.supportsUnilateral ||
+          meta.supportsUnilateral
+      );
+      const movementMode = supportsUnilateral
+        ? normalizeMovementMode(
+            trainingEx?.movementMode ||
+              ex.movementMode ||
+              routineSlot?.movementMode
+          )
+        : "bilateral";
+      const historyKeys = [id, nameKey]
+        .filter(Boolean)
+        .map((key) => getMovementHistoryKey(key, movementMode));
       const historySeriesType =
-        safeSeriesTypeMap.get(id) ||
-        (nameKey ? safeSeriesTypeMap.get(nameKey) : null);
+        safeSeriesTypeMap.get(historyKeys[0]) ||
+        (historyKeys[1] ? safeSeriesTypeMap.get(historyKeys[1]) : null);
       const inferredSeriesType = trainingEx
         ? inferSeriesTypeFromSets(trainingEx.sets)
         : null;
@@ -756,14 +805,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           ex.seriesType
       );
       const best =
-        bestMap.get(id) || (nameKey ? bestMap.get(nameKey) : null);
+        bestMap.get(historyKeys[0]) ||
+        (historyKeys[1] ? bestMap.get(historyKeys[1]) : null);
       const bestBySet =
-        bestBySetMap.get(id) ||
-        (nameKey ? bestBySetMap.get(nameKey) : null) ||
+        bestBySetMap.get(historyKeys[0]) ||
+        (historyKeys[1] ? bestBySetMap.get(historyKeys[1]) : null) ||
         [];
       const recentBySet =
-        recentBySetMap.get(id) ||
-        (nameKey ? recentBySetMap.get(nameKey) : null) ||
+        recentBySetMap.get(historyKeys[0]) ||
+        (historyKeys[1] ? recentBySetMap.get(historyKeys[1]) : null) ||
         [];
       const prSummary = best
         ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
@@ -894,6 +944,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             meta.muscleGroup ||
             "Sin grupo",
           isExtra: Boolean(ex.isExtra ?? routineSlot?.isExtra),
+          supportsUnilateral,
+          movementMode,
           seriesType,
           prSummary,
           prWeight: best?.weight ?? null,
@@ -918,14 +970,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         id,
         exerciseId: ex.exerciseId || ex.id,
       });
-      const findKey = (map) => keys.find((key) => map.has(key)) || id;
+      const movementMode = normalizeMovementMode(ex.movementMode);
+      const historyKeys = keys.map((key) =>
+        getMovementHistoryKey(key, movementMode)
+      );
+      const findKey = (map) =>
+        historyKeys.find((key) => map.has(key)) ||
+        getMovementHistoryKey(id, movementMode);
       const bestKey = findKey(bestMap);
       const bestBySetKey = findKey(bestBySetMap);
       const recentBySetKey = findKey(recentBySetMap);
       const best = bestMap.get(bestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
       const recentBySet = recentBySetMap.get(recentBySetKey) || [];
-      const seriesTypeEntry = keys
+      const seriesTypeEntry = historyKeys
         .map((key) => seriesTypeMap?.get(key))
         .find(Boolean);
       const historySeriesType = seriesTypeEntry?.type || null;
@@ -958,8 +1016,32 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : best
           ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
           : "Sin referencia";
-        const seedEntries =
-          Array.isArray(set.entries) && set.entries.length
+        const shouldReloadInputs = Boolean(ex.reloadMovementHistory);
+        const seedEntries = shouldReloadInputs
+          ? [
+              {
+                id: set.entries?.[0]?.id || `${setId}-entry-0`,
+                previousText: buildPrevText(previousByIndex[0], fallbackPrev),
+                kg:
+                  seriesType === "serie"
+                    ? perSet
+                      ? perSet.weight
+                      : best
+                      ? best.weight
+                      : ""
+                    : "",
+                reps:
+                  seriesType === "serie"
+                    ? perSet
+                      ? perSet.reps
+                      : best
+                      ? best.reps
+                      : ""
+                    : "",
+                done: false,
+              },
+            ]
+          : Array.isArray(set.entries) && set.entries.length
             ? set.entries
             : [
                 {
@@ -987,6 +1069,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return {
         ...ex,
         id,
+        reloadMovementHistory: undefined,
+        movementMode,
         seriesType,
         prSummary,
         prWeight: best?.weight ?? ex.prWeight ?? null,
@@ -1021,7 +1105,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
+          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
         meta: false,
         routineId: routine.id,
       });
@@ -1034,7 +1118,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       });
       if (trainingMatch?.branch && !branchLocked) {
         branchChangeReason.current = "routine";
-        setSelectedBranch(trainingMatch.branch);
+        setSelectedBranch(normalizeBranch(trainingMatch.branch));
       }
       setExercises(
         buildExercisesForRoutine(
@@ -1073,7 +1157,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const routineId = training.routineId || routineOptions[0]?.id;
       const routine =
         routineOptions.find((r) => r.id === routineId) || routineOptions[0];
-      const branch = training.branch || routine.location || "general";
+      const branch = normalizeBranch(training.branch || routine.location);
       branchChangeReason.current = "routine";
       setSelectedBranch(branch);
       setSessionDate(training.date);
@@ -1118,12 +1202,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
   const loadHistoryForRoutine = async (_routineId) => {
     try {
-      const resp = await api.getTrainings({
-        limit: 200,
-        fields:
-          "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done",
-        meta: false,
-      });
+      let resp;
+      try {
+        resp = await api.getTrainings({
+          limit: 200,
+          fields:
+            "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+          meta: false,
+        });
+      } catch (projectionError) {
+        console.warn(
+          "No se pudo cargar historial optimizado, intentando historial completo",
+          projectionError
+        );
+        resp = await api.getTrainings({
+          limit: 200,
+          fields: "date,routineId,exercises",
+          meta: false,
+        });
+      }
       const list = Array.isArray(resp) ? resp : resp?.items || [];
       setHistoryTrainings(list);
       return list;
@@ -1140,6 +1237,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   useEffect(() => {
     if (!routineOptions.length) return;
+    if (initializedTrainingScreen.current) return;
+    initializedTrainingScreen.current = true;
     const editId =
       typeof localStorage !== "undefined"
         ? localStorage.getItem("edit_training_id")
@@ -1180,6 +1279,29 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [selectedRoutineId, historyTrainings.length]);
 
   useEffect(() => {
+    if (!selectedRoutineId || !routineOptions.length) return;
+    const latestRoutine = routineOptions.find((r) => r.id === selectedRoutineId);
+    if (!latestRoutine) return;
+    setSelectedRoutine((current) =>
+      current?.raw === latestRoutine.raw ? current : latestRoutine
+    );
+    const routineExercises = latestRoutine.raw?.exercises || [];
+    if (!routineExercises.length) return;
+    setExercises((prev) =>
+      prev.map((ex) => {
+        const config = getRoutineMovementConfig(routineExercises, ex);
+        return {
+          ...ex,
+          supportsUnilateral: config.supportsUnilateral,
+          movementMode: config.supportsUnilateral
+            ? config.movementMode
+            : "bilateral",
+        };
+      })
+    );
+  }, [selectedRoutineId, routineOptions]);
+
+  useEffect(() => {
     if (historyTrainings.length) return;
     if (trainings.length) setHistoryTrainings(trainings);
   }, [trainings, historyTrainings.length]);
@@ -1209,7 +1331,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const totalSeconds = baseSeconds + extraSeconds;
       restoredFromSnapshot.current = true;
       branchChangeReason.current = "routine";
-      setSelectedBranch(snap.selectedBranch || routine.location || "general");
+      setSelectedBranch(normalizeBranch(snap.selectedBranch || routine.location));
       setSelectedRoutineId(snap.selectedRoutineId);
       setSelectedRoutine(routine);
       setSessionDate(snap.sessionDate || todayISO);
@@ -1259,7 +1381,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 }),
               };
             });
-            return { ...ex, seriesType, sets };
+            return {
+              ...ex,
+              movementMode: normalizeMovementMode(ex.movementMode),
+              seriesType,
+              sets,
+            };
           })
         );
     } catch (e) {
@@ -1309,7 +1436,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     if (typeof setBranch === "function") setBranch(selectedBranch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranch, routineOptions.length]);
+  }, [selectedBranch]);
 
   // Guardar snapshot local del entrenamiento en curso
   useEffect(() => {
@@ -1398,7 +1525,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
     setDurationSeconds(0);
     setHasStarted(false);
-    setSelectedBranch("");
+    setSelectedBranch(DEFAULT_BRANCH);
     setSelectedRoutineId("");
     setSelectedRoutine(null);
     setExercises([]);
@@ -1425,7 +1552,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleSelectRoutine = (id) => {
     if (!id || id === "sin-rutina") return;
     const found = routineOptions.find((r) => r.id === id);
-    const branch = found?.location || "general";
+    const branch = normalizeBranch(found?.location);
     branchChangeReason.current = "routine";
     setSelectedBranch(branch);
     setSelectedRoutineId(id);
@@ -1445,6 +1572,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         seriesTypeMap
       );
     })();
+  };
+
+  const handleBranchChange = (value) => {
+    branchChangeReason.current = "user";
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(SNAPSHOT_KEY);
+    }
+    setSelectedBranch(normalizeBranch(value));
   };
 
   const handleExitEdit = async () => {
@@ -1521,6 +1656,51 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
     };
 
+  const handleMovementModeChange = (exerciseId, value) => {
+    const nextMode = normalizeMovementMode(value);
+    setExercises((prev) => {
+      const nextList = prev.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              movementMode: nextMode,
+              reloadMovementHistory: true,
+              seriesType: "serie",
+              sets: ex.sets.map((set) => ({
+                ...set,
+                entries: normalizeEntries({
+                  entries: Array.isArray(set.entries) ? set.entries : [],
+                  seriesType: "serie",
+                  setId: set.id,
+                  fallbackPrev:
+                    set.entries?.[0]?.previousText ||
+                    set.previousText ||
+                    "Sin referencia",
+                  previousByIndex: (set.entries || []).map((entry) => ({
+                    weight: entry.previousWeight ?? null,
+                    reps: entry.previousReps ?? null,
+                    date: entry.previousDate ?? null,
+                  })),
+                  compareByIndex: (set.entries || []).map((entry) => ({
+                    weight: entry.previousCompareWeight ?? null,
+                    reps: entry.previousCompareReps ?? null,
+                    date: entry.previousCompareDate ?? null,
+                  })),
+                }),
+              })),
+            }
+          : ex
+      );
+      return applyHistoryToExercises(
+        nextList,
+        historyBest,
+        historyBestBySet,
+        historyRecentBySet,
+        historySeriesTypeMap
+      );
+    });
+  };
+
   const handleSwapVariant = (exerciseId, direction = 1) => {
     setExercises((prev) => {
       const startIndex = prev.findIndex((ex) => ex.id === exerciseId);
@@ -1550,6 +1730,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   muscle: ex.muscle,
                   image: ex.image || "",
                   imagePublicId: ex.imagePublicId || "",
+                  supportsUnilateral: Boolean(ex.supportsUnilateral),
                 },
               ];
         if (variants.length < 2) return ex;
@@ -1578,6 +1759,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   image: variant.image || ex.image || "",
                   imagePublicId: variant.imagePublicId || ex.imagePublicId || "",
                   isExtra: ex.isExtra,
+                  supportsUnilateral: Boolean(
+                    ex.supportsUnilateral || variant.supportsUnilateral
+                  ),
+                  movementMode: normalizeMovementMode(ex.movementMode),
                   seriesType: ex.seriesType,
                 },
               ],
@@ -1632,7 +1817,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       ...ex,
                       id: ex.id || exerciseId,
                       exerciseId: ex.exerciseId || ex.id || exerciseId,
-                    });
+                    }).map((key) =>
+                      getMovementHistoryKey(key, ex.movementMode)
+                    );
                     const bestKey = keys.find((key) =>
                       historyBestBySet.has(key)
                     );
@@ -1755,6 +1942,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: "Nuevo ejercicio",
         prText: "Sin referencia previa",
         muscle: "Sin grupo",
+        supportsUnilateral: false,
+        movementMode: "bilateral",
         seriesType: "serie",
         sets: [
           {
@@ -1787,7 +1976,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return;
     }
     const nameKey = slugify(exercise.name || "");
-    const keys = [exerciseId, nameKey].filter(Boolean);
+    const supportsUnilateral = Boolean(exercise.supportsUnilateral);
+    const movementMode = "bilateral";
+    const keys = [exerciseId, nameKey]
+      .filter(Boolean)
+      .map((key) => getMovementHistoryKey(key, movementMode));
     const bestKey = pickMapKey(historyBest, keys);
     const bestBySetKey = pickMapKey(historyBestBySet, keys);
     const recentBySetKey = pickMapKey(historyRecentBySet, keys);
@@ -1834,6 +2027,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         image: exercise.image || "",
         imagePublicId: exercise.imagePublicId || "",
         muscle: exercise.muscle || exercise.muscleGroup || "Sin grupo",
+        supportsUnilateral,
+        movementMode,
         seriesType,
         sets: [
           {
@@ -1899,7 +2094,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         date: dateStr,
         routineId: selectedRoutine?.id,
         routineName: selectedRoutine?.name,
-        branch: selectedBranch || selectedRoutine?.location || "general",
+        branch: normalizeBranch(selectedBranch || selectedRoutine?.location),
         durationSeconds,
         exercises: exercises
           .map((ex, exIdx) => {
@@ -1948,6 +2143,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               exerciseName: ex.name,
               muscleGroup: ex.muscle,
               order: exIdx + 1,
+              movementMode: normalizeMovementMode(ex.movementMode),
               seriesType,
               sets,
             };
@@ -2099,14 +2295,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const trackingRows = useMemo(() => {
     if (!trackingExercise) return [];
-    const keys = getExerciseKeys(trackingExercise);
+    const keys = getMovementHistoryKeys(trackingExercise);
     if (!keys.length) return [];
     const keySet = new Set(keys);
     const rows = [];
     (historyTrainings || []).forEach((tr) => {
       const date = tr.date || tr.createdAt;
       const exMatch = (tr.exercises || []).find((ex) =>
-        getExerciseKeys(ex).some((key) => keySet.has(key))
+        getMovementHistoryKeys(ex).some((key) => keySet.has(key))
       );
       if (!exMatch) return;
       const sets = (exMatch.sets || []).map((set) => {
@@ -2346,7 +2542,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </p>
                 <select
                   value={selectedBranch}
-                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  onChange={(e) => handleBranchChange(e.target.value)}
                   className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 >
                   {branchOptions.map((b) => (
@@ -2375,7 +2571,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       name: routinesLoading
                         ? "Cargando..."
                         : "Selecciona una rutina",
-                      location: selectedBranch || "general",
+                      location: selectedBranch || DEFAULT_BRANCH,
                       exerciseCount: 0,
                       lastDate: "--",
                     }
@@ -2426,10 +2622,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         </Badge>
                       </div>
                       <AnimatePresence>
-                        {items.map((ex) => (
+                        {items.map((ex) => {
+                          const movementConfig = getRoutineMovementConfig(
+                            selectedRoutine?.raw?.exercises || [],
+                            ex
+                          );
+                          return (
                           <ExerciseCard
                             key={ex.id}
-                            exercise={ex}
+                            exercise={{
+                              ...ex,
+                              supportsUnilateral:
+                                movementConfig.supportsUnilateral,
+                              movementMode: movementConfig.movementMode,
+                            }}
                             onAddSet={() => handleAddSet(ex.id)}
                             onUpdateEntry={(setId, entryId, field, value) =>
                               handleUpdateEntry(
@@ -2449,12 +2655,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             onRemoveExercise={() =>
                               handleRemoveExercise(ex.id)
                             }
-                              onSeriesTypeChange={(value) =>
-                                handleSeriesTypeChange(ex.id, value)
-                              }
-                              onSwapVariant={(direction) =>
-                                handleSwapVariant(ex.id, direction)
-                              }
+                            onSeriesTypeChange={(value) =>
+                              handleSeriesTypeChange(ex.id, value)
+                            }
+                            onMovementModeChange={(value) =>
+                              handleMovementModeChange(ex.id, value)
+                            }
+                            onSwapVariant={(direction) =>
+                              handleSwapVariant(ex.id, direction)
+                            }
                               onViewTracking={() => {
                                 setTrackingExerciseId(ex.id);
                                 setShowTracking(true);
@@ -2469,7 +2678,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 onNavigate("ejercicio_analitica");
                             }}
                           />
-                        ))}
+                          );
+                        })}
                       </AnimatePresence>
                     </div>
                   ))}
@@ -2666,7 +2876,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   {selectedRoutine?.name || "Rutina"}
                 </span>
                 <Badge variant="secondary" className="text-[11px]">
-                  {currentBranch || "general"}
+                  {currentBranch || DEFAULT_BRANCH}
                 </Badge>
               </div>
               <p className="text-xs text-[color:var(--text-muted)]">
@@ -2852,6 +3062,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     <Badge variant="secondary" className="text-[11px]">
                       {trackingExercise.seriesType || "serie"}
                     </Badge>
+                    {trackingExercise.supportsUnilateral && (
+                      <Badge variant="secondary" className="text-[11px]">
+                        {trackingExercise.movementMode === "unilateral"
+                          ? "unilateral"
+                          : "bilateral"}
+                      </Badge>
+                    )}
                     <span className="text-xs text-[color:var(--text-muted)]">
                       {trackingRows.length
                         ? `${trackingRows.length} sesiones registradas`

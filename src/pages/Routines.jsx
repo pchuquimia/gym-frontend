@@ -8,6 +8,11 @@ import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 
 // ================= Helpers =================
+const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
+const DEFAULT_BRANCH = "sopocachi";
+const normalizeBranch = (value) =>
+  BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
+
 const slugify = (text) =>
   text
     ?.toString()
@@ -156,10 +161,15 @@ function RoutineModal({
       muscle: entry.muscle || meta?.muscle,
       image: entry.image || meta?.image || "",
       imagePublicId: entry.imagePublicId || meta?.imagePublicId || "",
+      supportsUnilateral: Boolean(entry.supportsUnilateral),
+      movementMode:
+        entry.movementMode === "unilateral" ? "unilateral" : "bilateral",
     };
   };
   const [name, setName] = useState(initialData?.name || "");
-  const [branch, setBranch] = useState(initialData?.branch || "general");
+  const [branch, setBranch] = useState(() =>
+    normalizeBranch(initialData?.branch)
+  );
   const [branchError, setBranchError] = useState("");
   const [exercises, setExercises] = useState(
     (initialData?.exercises || []).map((ex) => {
@@ -198,7 +208,7 @@ function RoutineModal({
   }, [availableExercises]);
 
   const branchMatches = (ex) => {
-    if (!branch || branch === "general") return true;
+    if (!branch) return true;
     const b = ex.branches || [];
     return b.includes(branch) || b.includes("general");
   };
@@ -229,6 +239,8 @@ function RoutineModal({
         muscle: exercise.muscle,
         image: exercise.image || "",
         imagePublicId: exercise.imagePublicId || "",
+        supportsUnilateral: Boolean(exercise.supportsUnilateral),
+        movementMode: "bilateral",
         isExtra: false,
         alternatives: [],
       },
@@ -245,6 +257,20 @@ function RoutineModal({
     setExercises((prev) =>
       prev.map((ex, i) =>
         i === idx ? { ...ex, isExtra: !ex.isExtra } : ex
+      )
+    );
+  };
+
+  const toggleUnilateral = (idx) => {
+    setExercises((prev) =>
+      prev.map((ex, i) =>
+        i === idx
+          ? {
+              ...ex,
+              supportsUnilateral: !ex.supportsUnilateral,
+              movementMode: ex.supportsUnilateral ? "bilateral" : ex.movementMode || "bilateral",
+            }
+          : ex
       )
     );
   };
@@ -319,10 +345,15 @@ function RoutineModal({
       id: initialData?.id || slugify(name),
       name: name.trim(),
       description: `${exercises.length} ejercicios.`,
-      branch,
+      branch: normalizeBranch(branch),
       exercises: exercises.map((ex) => ({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
+        supportsUnilateral: Boolean(ex.supportsUnilateral),
+        movementMode:
+          ex.supportsUnilateral && ex.movementMode === "unilateral"
+            ? "unilateral"
+            : "bilateral",
         isExtra: Boolean(ex.isExtra),
         alternatives: (ex.alternatives || []).map((alt) => ({
           exerciseId: alt.exerciseId || slugify(alt.name),
@@ -370,7 +401,7 @@ function RoutineModal({
         <div className="flex flex-col gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
           <p className="text-sm font-semibold">Sede / Gym</p>
           <div className="flex gap-2 flex-wrap">
-            {["general", "sopocachi", "miraflores"].map((b) => (
+            {BRANCH_OPTIONS.map((b) => (
               <button
                 key={b}
                 type="button"
@@ -381,14 +412,12 @@ function RoutineModal({
                     : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:border-accent/40"
                 }`}
               >
-                {b === "general"
-                  ? "General"
-                  : b.charAt(0).toUpperCase() + b.slice(1)}
+                {b.charAt(0).toUpperCase() + b.slice(1)}
               </button>
             ))}
           </div>
           <p className="text-xs text-[color:var(--text-muted)]">
-            Define en que sede aplica esta rutina. General = visible para todas.
+            Define en que sede aplica esta rutina.
           </p>
           {branchError && (
             <p className="text-xs text-accent-red">{branchError}</p>
@@ -549,6 +578,17 @@ function RoutineModal({
                         >
                           {ex.isExtra ? "Extra" : "Principal"}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleUnilateral(ex.idx)}
+                          className={`px-2 py-1 rounded-full border text-[11px] font-semibold transition ${
+                            ex.supportsUnilateral
+                              ? "border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
+                              : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]"
+                          }`}
+                        >
+                          {ex.supportsUnilateral ? "Uni/Bi" : "Bilateral"}
+                        </button>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
@@ -668,6 +708,7 @@ function Routines() {
         image: ex.image || "",
         imagePublicId: ex.imagePublicId || "",
         branches: ex.branches,
+        supportsUnilateral: Boolean(ex.supportsUnilateral),
       }));
   }, [libraryExercises]);
 
@@ -817,12 +858,11 @@ function Routines() {
   const branchCounts = useMemo(() => {
     const counts = {
       all: routines.length,
-      general: 0,
       miraflores: 0,
       sopocachi: 0,
     };
     routines.forEach((r) => {
-      const b = r.branch || "general";
+      const b = normalizeBranch(r.branch);
       counts[b] = (counts[b] || 0) + 1;
     });
     return counts;
@@ -831,7 +871,7 @@ function Routines() {
   const visibleRoutines = useMemo(() => {
     let list = routines;
     if (activeBranch !== "all") {
-      list = list.filter((r) => (r.branch || "general") === activeBranch);
+      list = list.filter((r) => normalizeBranch(r.branch) === activeBranch);
     }
     if (searchTerm.trim()) {
       const search = searchTerm.trim().toLowerCase();
@@ -910,8 +950,8 @@ function Routines() {
   };
 
   const branchLabel = (b) => {
-    if (!b || b === "general") return "General";
-    return b.charAt(0).toUpperCase() + b.slice(1);
+    const branch = normalizeBranch(b);
+    return branch.charAt(0).toUpperCase() + branch.slice(1);
   };
 
   return (
@@ -1049,7 +1089,6 @@ function Routines() {
         <div className="flex flex-wrap gap-2">
           {[
             { id: "all", label: "Todas", count: branchCounts.all },
-            { id: "general", label: "General", count: branchCounts.general },
             {
               id: "miraflores",
               label: "Miraflores",

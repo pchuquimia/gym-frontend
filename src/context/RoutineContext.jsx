@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../services/api'
 
 const RoutineContext = createContext(null)
+const DEFAULT_BRANCH = 'sopocachi'
+const normalizeBranch = (value) =>
+  value === 'miraflores' || value === 'sopocachi' ? value : DEFAULT_BRANCH
 
 export function RoutineProvider({ children }) {
   const [routines, setRoutines] = useState([])
@@ -25,7 +28,7 @@ export function RoutineProvider({ children }) {
   }, [])
 
   const addRoutine = async (routine) => {
-    const payload = { ...routine, branch: routine.branch || 'general', _id: routine.id }
+    const payload = { ...routine, branch: normalizeBranch(routine.branch), _id: routine.id }
     const saved = await api.createRoutine(payload)
     const merged = {
       ...saved,
@@ -38,7 +41,7 @@ export function RoutineProvider({ children }) {
   }
 
   const updateRoutine = async (id, payload) => {
-    const body = { ...payload, branch: payload.branch || 'general' }
+    const body = { ...payload, branch: normalizeBranch(payload.branch) }
     const saved = await api.updateRoutine(id, body)
     const merged = {
       ...saved,
@@ -58,7 +61,7 @@ export function RoutineProvider({ children }) {
   const duplicateRoutine = async (id) => {
     const found = routines.find((r) => r._id === id || r.id === id)
     if (!found) return
-    const copy = { ...found, id: `${id}-copy-${Date.now()}`, name: `${found.name} (Copia)`, branch: found.branch || 'general' }
+    const copy = { ...found, id: `${id}-copy-${Date.now()}`, name: `${found.name} (Copia)`, branch: normalizeBranch(found.branch) }
     await addRoutine(copy)
   }
 

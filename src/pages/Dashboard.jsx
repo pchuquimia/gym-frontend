@@ -1,50 +1,13 @@
 ﻿import { useMemo, useState } from "react";
-import { ResponsiveLine } from "@nivo/line";
+import { ResponsiveBar } from "@nivo/bar";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import {
-  TrendingUp,
-  Flame,
-  Activity,
-  Clock,
-  MapPin,
-} from "lucide-react";
+import { Flame, Activity } from "lucide-react";
 import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
 import { api } from "../services/api";
 import { presets } from "../utils/motion";
 import { useTrainingData } from "../context/TrainingContext";
-
-const chartTheme = {
-  background: "transparent",
-  textColor: "var(--text-muted)",
-  axis: {
-    domain: { line: { stroke: "var(--border)", strokeWidth: 1 } },
-    ticks: {
-      line: { stroke: "var(--border)", strokeWidth: 1 },
-      text: { fill: "var(--text-muted)", fontSize: 11 },
-    },
-    legend: { text: { fill: "var(--text-muted)", fontSize: 12 } },
-  },
-  grid: { line: { stroke: "var(--border)", strokeWidth: 1, opacity: 0.35 } },
-  tooltip: {
-    container: {
-      background: "var(--card)",
-      color: "var(--text)",
-      fontSize: 12,
-      borderRadius: 12,
-      padding: 10,
-      boxShadow: "0 10px 24px rgba(15,23,42,0.12)",
-      border: "1px solid var(--border)",
-    },
-  },
-};
-
-const rangeOptions = [
-  { id: "7", label: "Semanal", days: 7 },
-  { id: "30", label: "Mensual", days: 30 },
-  { id: "90", label: "Trimestral", days: 90 },
-];
 
 const slugify = (text) =>
   text
@@ -118,7 +81,7 @@ const isBetter = (next, current) => {
 
 function Dashboard({ onNavigate }) {
   const { trainings } = useTrainingData();
-  const [range, setRange] = useState("7");
+  const range = "7";
   const [summarySupported, setSummarySupported] = useState(true);
 
   const go = (key) => {
@@ -180,7 +143,7 @@ function Dashboard({ onNavigate }) {
           d.setUTCDate(d.getUTCDate() + 4 - dayNum);
           const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
           const wk = `${d.getUTCFullYear()}-W${String(
-            Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
+            Math.ceil(((d - yearStart) / 86400000 + 1) / 7),
           ).padStart(2, "0")}`;
 
           byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
@@ -221,10 +184,6 @@ function Dashboard({ onNavigate }) {
     objectives: [],
   };
   const loading = summaryQuery.isLoading;
-
-  const yValues = summary.chart.map((p) => Number(p.y || 0));
-  const minY = yValues.length ? Math.min(...yValues) * 0.98 : "auto";
-  const maxY = yValues.length ? Math.max(...yValues) * 1.05 : "auto";
 
   const last = summary.recentSessions?.[0] || null;
 
@@ -339,9 +298,7 @@ function Dashboard({ onNavigate }) {
       d.setDate(today.getDate() - i);
       const key = getISODateKey(d);
       const label = titleCase(
-        d
-          .toLocaleDateString("es-ES", { weekday: "short" })
-          .replace(".", "")
+        d.toLocaleDateString("es-ES", { weekday: "short" }).replace(".", ""),
       );
       const shortLabel = label ? label.slice(0, 1) : "";
       const info = byDate.get(key) || { routine: "" };
@@ -355,6 +312,77 @@ function Dashboard({ onNavigate }) {
       });
     }
     return { days };
+  }, [trainings]);
+
+  const monthActivity = useMemo(() => {
+    const byDate = new Map();
+    (trainings || []).forEach((tr) => {
+      const key = getISODateKey(tr.date || tr.createdAt);
+      if (!key) return;
+      const current = byDate.get(key) || {
+        sessions: 0,
+        routines: new Set(),
+        exercises: new Set(),
+        volume: 0,
+        minutes: 0,
+      };
+      current.sessions += 1;
+      current.volume += Number(tr.totalVolume || 0);
+      current.minutes += Math.round((tr.durationSeconds || 0) / 60);
+      const routineName = tr.routineName || tr.routineId;
+      if (routineName) current.routines.add(routineName);
+      (tr.exercises || []).forEach((ex) => {
+        const name = ex.exerciseName || ex.name;
+        if (name && current.exercises.size < 4) current.exercises.add(name);
+      });
+      byDate.set(key, current);
+    });
+
+    const days = [];
+    const today = new Date();
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = getISODateKey(d);
+      const info = byDate.get(key);
+      const routines = info ? Array.from(info.routines) : [];
+      const exercises = info ? Array.from(info.exercises) : [];
+      const primary = routines[0] || exercises.slice(0, 2).join(", ");
+      const weekday = titleCase(
+        d.toLocaleDateString("es-ES", { weekday: "short" }).replace(".", ""),
+      );
+      days.push({
+        key,
+        weekday,
+        label: d.toLocaleDateString("es-ES", {
+          day: "2-digit",
+          month: "short",
+        }),
+        trained: Boolean(info),
+        sessions: info?.sessions || 0,
+        volume: info?.volume || 0,
+        routineShort: clampText(primary || "Descanso", 16),
+        detail: routines.length
+          ? routines.join(", ")
+          : exercises.length
+            ? exercises.join(", ")
+            : "Sin entrenamiento",
+        minutes: info?.minutes || 0,
+        isToday: i === 0,
+      });
+    }
+    return {
+      days,
+      trainedDays: days.filter((day) => day.trained).length,
+      chart: days.map((day) => ({
+        day: day.label.replace(".", ""),
+        sesiones: day.sessions,
+        entreno: day.trained ? 1 : 0,
+        volume: day.volume,
+        detail: day.detail,
+        minutes: day.minutes,
+      })),
+    };
   }, [trainings]);
 
   const weekInsights = useMemo(() => {
@@ -385,7 +413,7 @@ function Dashboard({ onNavigate }) {
     });
 
     const topRoutineEntry = Array.from(routineCounts.entries()).sort(
-      (a, b) => b[1] - a[1]
+      (a, b) => b[1] - a[1],
     )[0];
 
     return {
@@ -398,6 +426,51 @@ function Dashboard({ onNavigate }) {
       topRoutineCount: topRoutineEntry ? topRoutineEntry[1] : 0,
       branches: Array.from(branchCounts.entries()).sort((a, b) => b[1] - a[1]),
     };
+  }, [trainings]);
+
+  const threeMonthSummary = useMemo(() => {
+    const monthMap = new Map();
+    const today = new Date();
+    for (let i = 2; i >= 0; i -= 1) {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = `${monthDate.getFullYear()}-${String(
+        monthDate.getMonth() + 1,
+      ).padStart(2, "0")}`;
+      const daysInMonth = new Date(
+        monthDate.getFullYear(),
+        monthDate.getMonth() + 1,
+        0,
+      ).getDate();
+      const label = titleCase(
+        monthDate.toLocaleDateString("es-ES", { month: "long" }),
+      );
+      monthMap.set(key, {
+        month: label,
+        monthKey: key,
+        entrenamientos: 0,
+        diasEntrenados: new Set(),
+        diasMes: daysInMonth,
+        sesiones: 0,
+      });
+    }
+
+    (trainings || []).forEach((tr) => {
+      const key = getISODateKey(tr.date || tr.createdAt);
+      if (!key) return;
+      const monthKey = key.slice(0, 7);
+      const item = monthMap.get(monthKey);
+      if (!item) return;
+      item.sesiones += 1;
+      item.diasEntrenados.add(key);
+    });
+
+    return Array.from(monthMap.values()).map((item) => ({
+      month: item.month,
+      entrenamientos: item.diasEntrenados.size,
+      sesiones: item.sesiones,
+      diasMes: item.diasMes,
+      ratio: `${item.diasEntrenados.size}/${item.diasMes}`,
+    }));
   }, [trainings]);
 
   return (
@@ -415,7 +488,7 @@ function Dashboard({ onNavigate }) {
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
         </div>
 
-        <div className="relative z-10 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="relative z-10">
           <div className="space-y-3">
             <p className="text-[11px] uppercase tracking-[0.35em] text-[color:var(--text-muted)] font-semibold">
               Dashboard
@@ -428,7 +501,10 @@ function Dashboard({ onNavigate }) {
               tu ritmo y tus objetivos.
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button className="w-full sm:w-auto" onClick={() => go("registrar")}>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => go("registrar")}
+              >
                 Registrar entrenamiento
               </Button>
               <Button
@@ -440,377 +516,322 @@ function Dashboard({ onNavigate }) {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-3 shadow-sm dark:border-emerald-400/30 dark:bg-emerald-500/10">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Volumen
-                </p>
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-              </div>
-              {loading ? (
-                <Skeleton className="mt-2 h-6 w-20" />
-              ) : (
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
-                  {summary.totalVolume.toLocaleString()} kg
-                </p>
-              )}
+      <div className="space-y-4">
+        <motion.section className="card" variants={presets.card}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-[color:var(--text)]">
+                Semana activa
+              </h3>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Rutina realizada por dia
+              </p>
             </div>
+            <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+              7 dias
+            </div>
+          </div>
 
-            <div className="rounded-2xl border border-blue-200/70 bg-blue-50/60 p-3 shadow-sm dark:border-blue-400/30 dark:bg-blue-500/10">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+          <div className="mt-4 grid grid-cols-2 lg:grid-cols-6 gap-3 text-xs text-[color:var(--text-muted)]">
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
+                Dias activos
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                {weekInsights.trainedDays}/7
+              </p>
+            </div>
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
                   Sesiones
                 </p>
                 <Activity className="h-4 w-4 text-blue-600" />
               </div>
-              {loading ? (
-                <Skeleton className="mt-2 h-6 w-12" />
-              ) : (
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
-                  {summary.sessionsCount}
-                </p>
-              )}
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                {weekInsights.totalSessions}
+              </p>
             </div>
-
-            <div className="rounded-2xl border border-violet-200/70 bg-violet-50/60 p-3 shadow-sm dark:border-violet-400/30 dark:bg-violet-500/10">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Promedio
-                </p>
-                <TrendingUp className="h-4 w-4 text-violet-600" />
-              </div>
-              {loading ? (
-                <Skeleton className="mt-2 h-6 w-16" />
-              ) : (
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
-                  {avg.toLocaleString()} kg
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-amber-200/70 bg-amber-50/60 p-3 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Nuevas marcas
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
+                  Marcas
                 </p>
                 <Flame className="h-4 w-4 text-amber-500" />
               </div>
-              {loading ? (
-                <Skeleton className="mt-2 h-6 w-10" />
-              ) : (
-                <p className="mt-2 text-lg font-semibold text-[color:var(--text)]">
-                  {prStats.current}
-                </p>
-              )}
-              <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                {prStats.current}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
+                Vs anterior
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
                 {prStats.diff >= 0 ? "+" : ""}
-                {prStats.diff} vs periodo anterior
+                {prStats.diff}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
+                Tiempo total
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                {weekInsights.totalMinutes} min
+              </p>
+            </div>
+            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
+                Promedio
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                {weekInsights.avgMinutes} min
               </p>
             </div>
           </div>
-        </div>
-      </section>
 
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr] lg:items-start">
-        <div className="space-y-4">
-          <motion.section className="card" variants={presets.card}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[color:var(--text)]">
-                  Semana activa
-                </h3>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Rutina realizada por dia
+          <div className="mt-3 grid grid-cols-4 sm:grid-cols-7 gap-2">
+            {weekSummary.days.map((day) => (
+              <div
+                key={day.key}
+                className={`rounded-xl border px-1.5 py-2 sm:px-2 text-center ${
+                  day.isToday
+                    ? "border-emerald-400/60 bg-emerald-500/10"
+                    : "border-[color:var(--border)] bg-[color:var(--card)]"
+                }`}
+              >
+                <div className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                  <span className="sm:hidden">{day.shortLabel}</span>
+                  <span className="hidden sm:inline">{day.label}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-center text-xs font-semibold text-[color:var(--text)]">
+                  <span className="max-w-[80px] truncate text-center">
+                    {day.routineShort}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        <motion.section className="card" variants={presets.card}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-[color:var(--text)]">
+                Actividad de 30 dias
+              </h3>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Dias entrenados, descanso y rutina realizada
+              </p>
+            </div>
+            <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+              {monthActivity.trainedDays}/30 dias
+            </div>
+          </div>
+          <div className="mt-5 h-56 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+            <ResponsiveBar
+              data={monthActivity.chart}
+              keys={["entreno"]}
+              indexBy="day"
+              margin={{ top: 10, right: 8, bottom: 42, left: 28 }}
+              padding={0.22}
+              valueScale={{ type: "linear" }}
+              indexScale={{ type: "band", round: true }}
+              colors={({ data }) =>
+                data.entreno ? "#10b981" : "rgba(148,163,184,0.45)"
+              }
+              borderRadius={4}
+              enableLabel={false}
+              enableGridY={false}
+              axisLeft={null}
+              axisBottom={{
+                tickSize: 0,
+                tickPadding: 8,
+                tickRotation: -45,
+                tickValues: monthActivity.chart
+                  .filter((_, idx) => idx % 3 === 0 || idx === 29)
+                  .map((item) => item.day),
+              }}
+              theme={{
+                textColor: "var(--text-muted)",
+                axis: {
+                  ticks: {
+                    text: { fill: "var(--text-muted)", fontSize: 10 },
+                  },
+                },
+                tooltip: {
+                  container: {
+                    background: "var(--card)",
+                    color: "var(--text)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    boxShadow: "0 10px 24px rgba(15,23,42,0.12)",
+                  },
+                },
+              }}
+              tooltip={({ data }) => (
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-md">
+                  <p className="font-semibold text-[color:var(--text)]">
+                    {data.day}
+                  </p>
+                  <p className="text-[color:var(--text-muted)]">
+                    {data.entreno ? data.detail : "Descanso"}
+                  </p>
+                  {data.entreno ? (
+                    <p className="mt-1 text-[color:var(--text-muted)]">
+                      {data.sesiones} ses. · {data.minutes} min
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-6 gap-2">
+            {monthActivity.days.map((day) => (
+              <div
+                key={day.key}
+                title={`${day.label}: ${day.detail}`}
+                className={`min-h-[86px] rounded-xl border px-2.5 py-2 transition ${
+                  day.trained
+                    ? "border-emerald-300/70 bg-emerald-500/10"
+                    : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                } ${day.isToday ? "ring-2 ring-blue-400/30" : ""}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)] font-semibold">
+                    {day.weekday}
+                  </span>
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      day.trained ? "bg-emerald-500" : "bg-slate-300"
+                    }`}
+                  />
+                </div>
+                <p className="mt-1 text-xs font-semibold text-[color:var(--text)]">
+                  {day.label}
                 </p>
+                <p className="mt-1 text-[11px] leading-snug text-[color:var(--text-muted)] line-clamp-2">
+                  {day.routineShort}
+                </p>
+                {day.trained && (
+                  <p className="mt-1 text-[10px] text-[color:var(--text-muted)]">
+                    {day.sessions} ses. · {day.minutes} min
+                  </p>
+                )}
               </div>
-              <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                7 dias
-              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        <motion.section className="card" variants={presets.card}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-[color:var(--text)]">
+                Ultimos 3 meses
+              </h3>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Dias entrenados sobre dias del mes
+              </p>
+            </div>
+            <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+              Mensual
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr,260px]">
+            <div className="h-64 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <ResponsiveBar
+                data={threeMonthSummary}
+                keys={["entrenamientos"]}
+                indexBy="month"
+                margin={{ top: 12, right: 10, bottom: 36, left: 34 }}
+                padding={0.35}
+                valueScale={{ type: "linear" }}
+                indexScale={{ type: "band", round: true }}
+                colors={["#2563eb"]}
+                borderRadius={6}
+                enableGridY
+                enableLabel
+                label={(bar) => bar.data.ratio}
+                labelTextColor="#ffffff"
+                axisBottom={{ tickSize: 0, tickPadding: 10 }}
+                axisLeft={{
+                  tickSize: 0,
+                  tickPadding: 8,
+                  tickValues: 4,
+                }}
+                theme={{
+                  textColor: "var(--text-muted)",
+                  grid: {
+                    line: {
+                      stroke: "var(--border)",
+                      strokeWidth: 1,
+                      opacity: 0.35,
+                    },
+                  },
+                  axis: {
+                    ticks: {
+                      text: { fill: "var(--text-muted)", fontSize: 11 },
+                    },
+                  },
+                  labels: {
+                    text: { fontSize: 12, fontWeight: 700 },
+                  },
+                  tooltip: {
+                    container: {
+                      background: "var(--card)",
+                      color: "var(--text)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      boxShadow: "0 10px 24px rgba(15,23,42,0.12)",
+                    },
+                  },
+                }}
+                tooltip={({ data }) => (
+                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-md">
+                    <p className="font-semibold text-[color:var(--text)]">
+                      {data.month}
+                    </p>
+                    <p className="text-[color:var(--text-muted)]">
+                      {data.ratio} dias entrenados
+                    </p>
+                    <p className="mt-1 text-[color:var(--text-muted)]">
+                      {data.sesiones} sesiones registradas
+                    </p>
+                  </div>
+                )}
+              />
             </div>
 
-            <div className="mt-3 grid grid-cols-4 sm:grid-cols-7 gap-2">
-              {weekSummary.days.map((day) => (
+            <div className="grid gap-2">
+              {threeMonthSummary.map((item) => (
                 <div
-                  key={day.key}
-                  className={`rounded-xl border px-1.5 py-2 sm:px-2 text-center ${
-                    day.isToday
-                      ? "border-emerald-400/60 bg-emerald-500/10"
-                      : "border-[color:var(--border)] bg-[color:var(--card)]"
-                  }`}
+                  key={item.month}
+                  className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3"
                 >
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
-                    <span className="sm:hidden">{day.shortLabel}</span>
-                    <span className="hidden sm:inline">{day.label}</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-center text-xs font-semibold text-[color:var(--text)]">
-                    <span className="max-w-[80px] truncate text-center">
-                      {day.routineShort}
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[color:var(--text)]">
+                      {item.month}
+                    </p>
+                    <span className="rounded-full bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-600">
+                      {item.ratio}
                     </span>
                   </div>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {item.sesiones} entrenamientos registrados
+                  </p>
                 </div>
               ))}
             </div>
-          </motion.section>
-
-          <motion.section className="card" variants={presets.card}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[color:var(--text)]">
-                  Tendencia de carga
-                </h3>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Volumen total por periodo
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] p-1">
-                {rangeOptions.map((opt) => {
-                  const active = range === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      className={[
-                        "h-8 px-3 rounded-full text-xs font-semibold transition",
-                        active
-                          ? "bg-[color:var(--bg)] text-[color:var(--text)] shadow-sm"
-                          : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                      ].join(" ")}
-                      onClick={() => setRange(opt.id)}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-4 h-52 md:h-64 lg:h-72 w-full">
-              {summary.chart.length ? (
-                <ResponsiveLine
-                  data={[{ id: "Volumen", data: summary.chart }]}
-                  theme={chartTheme}
-                  margin={{ top: 10, right: 12, bottom: 32, left: 40 }}
-                  xScale={{ type: "point" }}
-                  yScale={{ type: "linear", min: minY, max: maxY, stacked: false }}
-                  axisBottom={{
-                    tickSize: 0,
-                    tickPadding: 10,
-                    format: (v) => (v || "").replace(/\d{4}-W/, "W"),
-                  }}
-                  axisLeft={{
-                    tickSize: 0,
-                    tickPadding: 8,
-                    tickFormat: (v) => `${v}`,
-                  }}
-                  curve="monotoneX"
-                  enablePoints={false}
-                  enableArea
-                  areaOpacity={0.18}
-                  colors={["#10b981"]}
-                  useMesh
-                  enableGridX={false}
-                  gridYValues={4}
-                  areaBaselineValue={minY === "auto" ? 0 : minY}
-                  defs={[
-                    {
-                      id: "volArea",
-                      type: "linearGradient",
-                      colors: [
-                        { offset: 0, color: "#10b981", opacity: 0.35 },
-                        { offset: 100, color: "#10b981", opacity: 0.05 },
-                      ],
-                    },
-                  ]}
-                  fill={[{ match: "*", id: "volArea" }]}
-                  tooltip={({ point }) => (
-                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 shadow-md text-xs">
-                      <p className="text-[color:var(--text-muted)] mb-1">
-                        {point.data.xFormatted}
-                      </p>
-                      <p className="text-sm font-semibold text-[color:var(--text)]">
-                        {Number(point.data.y).toLocaleString()} kg reps
-                      </p>
-                    </div>
-                  )}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
-                  {loading ? (
-                    <Skeleton className="h-32 w-full" />
-                  ) : (
-                    "Sin datos suficientes"
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.section>
-
-          <motion.section className="card" variants={presets.card}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[color:var(--text)]">
-                Ultima sesion
-              </h3>
-              <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                {last?.date
-                  ? new Date(`${last.date}T00:00:00`).toLocaleDateString("es-ES", {
-                      day: "2-digit",
-                      month: "short",
-                    })
-                  : "--"}
-              </span>
-            </div>
-
-            {last ? (
-              <div className="mt-3 space-y-3">
-                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
-                  <p className="text-base font-semibold text-[color:var(--text)]">
-                    {last.routineName || "Sin rutina"}
-                  </p>
-                  <p className="text-xs text-[color:var(--text-muted)] mt-1">
-                    Volumen:{" "}
-                    <span className="font-semibold text-[color:var(--text)]">
-                      {last.totalVolume?.toLocaleString?.() || 0} kg reps
-                    </span>
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-[color:var(--text-muted)]">
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {Math.round((last.durationSeconds || 0) / 60)} min
-                  </div>
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {last.branch || "N/A"}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-blue-600 inline-flex items-center gap-1"
-                  onClick={() => go("historial")}
-                >
-                  Ver historial &gt;
-                </button>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-                Aun no registras entrenamientos.
-              </p>
-            )}
-          </motion.section>
-        </div>
-
-        <div className="space-y-4">
-          <motion.section className="card" variants={presets.card}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[color:var(--text)]">
-                  Ritmo semanal
-                </h3>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Indicadores clave de los ultimos 7 dias
-                </p>
-              </div>
-              <div className="h-9 w-9 rounded-full bg-emerald-50 border border-emerald-200 grid place-items-center dark:bg-emerald-500/10 dark:border-emerald-400/30">
-                <Activity className="h-4 w-4 text-emerald-600" />
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-[color:var(--text-muted)]">
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
-                  Dias activos
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                  {weekInsights.trainedDays}/7
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
-                  Sesiones
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                  {weekInsights.totalSessions}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
-                  Tiempo total
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                  {weekInsights.totalMinutes} min
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold">
-                  Promedio
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                  {weekInsights.avgMinutes} min
-                </p>
-              </div>
-            </div>
-          </motion.section>
-
-          <motion.section className="card" variants={presets.card}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-[color:var(--text)]">
-                  Rutina foco
-                </h3>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  La rutina mas repetida de la semana
-                </p>
-              </div>
-              <div className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                {weekInsights.topRoutineCount}x
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
-              <p className="text-base font-semibold text-[color:var(--text)]">
-                {weekInsights.topRoutine}
-              </p>
-              <p className="text-xs text-[color:var(--text-muted)] mt-1">
-                Volumen semanal:{" "}
-                <span className="font-semibold text-[color:var(--text)]">
-                  {weekInsights.totalVolume.toLocaleString()} kg reps
-                </span>
-              </p>
-            </div>
-
-            <div className="mt-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                Sedes activas
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {weekInsights.branches.length ? (
-                  weekInsights.branches.map(([branch, count]) => (
-                    <span
-                      key={branch}
-                      className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]"
-                    >
-                      {branch} · {count}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-[color:var(--text-muted)]">
-                    Sin registros
-                  </span>
-                )}
-              </div>
-            </div>
-          </motion.section>
-        </div>
+          </div>
+        </motion.section>
       </div>
     </motion.div>
   );
 }
 
 export default Dashboard;
-
-
-
