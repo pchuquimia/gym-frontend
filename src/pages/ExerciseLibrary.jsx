@@ -51,18 +51,18 @@ function ExerciseLibrary({ onNavigate }) {
     };
 
     return exercises.filter(
-      (exercise) => byName(exercise) && byMuscle(exercise) && byBranch(exercise)
+      (exercise) =>
+        byName(exercise) && byMuscle(exercise) && byBranch(exercise),
     );
   }, [exercises, search, filter, branchFilter]);
 
   const stats = useMemo(() => {
     const total = exercises.length;
     const filtered = filteredExercises.length;
-    const muscles = new Set(
-      exercises.map((ex) => ex.muscle).filter(Boolean)
-    ).size;
+    const muscles = new Set(exercises.map((ex) => ex.muscle).filter(Boolean))
+      .size;
     const withImages = exercises.filter(
-      (ex) => ex.imagePublicId || ex.thumb || ex.image
+      (ex) => ex.imagePublicId || ex.thumb || ex.image,
     ).length;
     return { total, filtered, muscles, withImages };
   }, [exercises, filteredExercises]);
@@ -80,12 +80,11 @@ function ExerciseLibrary({ onNavigate }) {
 
   const popularIds = useMemo(
     () => new Set(popularExercises.map((exercise) => exercise.id)),
-    [popularExercises]
+    [popularExercises],
   );
   const remainingExercises = useMemo(
-    () =>
-      filteredExercises.filter((exercise) => !popularIds.has(exercise.id)),
-    [filteredExercises, popularIds]
+    () => filteredExercises.filter((exercise) => !popularIds.has(exercise.id)),
+    [filteredExercises, popularIds],
   );
 
   const handleAdd = () => {
@@ -145,7 +144,7 @@ function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-3 sm:px-4 md:px-6 pb-24 space-y-4 lg:space-y-6">
+      <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl  sm:px-4 md:px-6 pb-24 space-y-4 lg:space-y-6">
         <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:p-6 shadow-sm">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
@@ -261,7 +260,7 @@ function ExerciseLibrary({ onNavigate }) {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {loading
               ? Array.from({ length: 6 }).map((_, idx) => (
-                <Skeleton key={idx} className="h-20 w-full md:h-64" />
+                  <Skeleton key={idx} className="h-20 w-full md:h-64" />
                 ))
               : popularExercises.map((exercise) => (
                   <ExerciseCard

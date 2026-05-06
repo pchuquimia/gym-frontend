@@ -1,11 +1,8 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useMemo } from "react";
 import { ResponsiveBar } from "@nivo/bar";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
 import { Flame, Activity } from "lucide-react";
-import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
-import { api } from "../services/api";
 import { presets } from "../utils/motion";
 import { useTrainingData } from "../context/TrainingContext";
 
@@ -82,8 +79,6 @@ const isBetter = (next, current) => {
 function Dashboard({ onNavigate }) {
   const { trainings } = useTrainingData();
   const range = "7";
-  const [summarySupported, setSummarySupported] = useState(true);
-
   const go = (key) => {
     if (!key) return;
     const routeKey = key === "historial" ? "admin_sesiones" : key;
@@ -98,98 +93,6 @@ function Dashboard({ onNavigate }) {
     const path = paths[key];
     if (path) window.location.href = path;
   };
-
-  const summaryQuery = useQuery({
-    queryKey: ["dashboardSummary", range, summarySupported],
-    queryFn: async () => {
-      const days = Number(range);
-      const today = new Date();
-      const to = today.toISOString().slice(0, 10);
-      const fromDate = new Date(today);
-      fromDate.setDate(fromDate.getDate() - (days - 1));
-      const from = fromDate.toISOString().slice(0, 10);
-
-      let data = null;
-      if (summarySupported) {
-        try {
-          data = await api.getTrainingsSummary({ from, to });
-        } catch (err) {
-          console.warn("Resumen no disponible, usando fallback", err?.message);
-          setSummarySupported(false);
-        }
-      }
-
-      if (!data) {
-        const list = await api.getTrainings({
-          page: 1,
-          limit: 200,
-          fields: "date,totalVolume,routineName,branch,durationSeconds",
-          from,
-          to,
-          meta: false,
-        });
-
-        const byWeek = new Map();
-        let totalVolume = 0;
-
-        (list || []).forEach((t) => {
-          const date = t.date || t.createdAt;
-          if (!date) return;
-          const vol = Number(t.totalVolume || 0);
-          totalVolume += vol;
-
-          const d = new Date(`${date}T00:00:00Z`);
-          const dayNum = d.getUTCDay() || 7;
-          d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const wk = `${d.getUTCFullYear()}-W${String(
-            Math.ceil(((d - yearStart) / 86400000 + 1) / 7),
-          ).padStart(2, "0")}`;
-
-          byWeek.set(wk, (byWeek.get(wk) || 0) + vol);
-        });
-
-        data = {
-          chart: Array.from(byWeek.entries())
-            .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-            .map(([x, y]) => ({ x, y })),
-          totalVolume,
-          sessionsCount: (list || []).length,
-          prs: 0,
-          recentSessions: (list || []).slice(0, 5),
-          objectives: [],
-        };
-      }
-
-      return {
-        chart: Array.isArray(data.chart) ? data.chart : [],
-        totalVolume: Number(data.totalVolume) || 0,
-        sessionsCount: Number(data.sessionsCount) || 0,
-        prs: Number(data.prs) || 0,
-        recentSessions: Array.isArray(data.recentSessions)
-          ? data.recentSessions
-          : [],
-        objectives: Array.isArray(data.objectives) ? data.objectives : [],
-      };
-    },
-    staleTime: 60 * 1000,
-  });
-
-  const summary = summaryQuery.data || {
-    chart: [],
-    totalVolume: 0,
-    sessionsCount: 0,
-    prs: 0,
-    recentSessions: [],
-    objectives: [],
-  };
-  const loading = summaryQuery.isLoading;
-
-  const last = summary.recentSessions?.[0] || null;
-
-  const avg = summary.sessionsCount
-    ? Math.round(summary.totalVolume / summary.sessionsCount)
-    : 0;
 
   const prStats = useMemo(() => {
     const days = Number(range) || 7;
@@ -316,9 +219,15 @@ function Dashboard({ onNavigate }) {
 
   const monthActivity = useMemo(() => {
     const byDate = new Map();
+    const routineCounts = new Map();
     (trainings || []).forEach((tr) => {
       const key = getISODateKey(tr.date || tr.createdAt);
       if (!key) return;
+      const date = toValidDate(key);
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - 29);
+      if (!date || date < cutoff) return;
       const current = byDate.get(key) || {
         sessions: 0,
         routines: new Set(),
@@ -329,8 +238,9 @@ function Dashboard({ onNavigate }) {
       current.sessions += 1;
       current.volume += Number(tr.totalVolume || 0);
       current.minutes += Math.round((tr.durationSeconds || 0) / 60);
-      const routineName = tr.routineName || tr.routineId;
-      if (routineName) current.routines.add(routineName);
+      const routineName = tr.routineName || tr.routineId || "Sin rutina";
+      current.routines.add(routineName);
+      routineCounts.set(routineName, (routineCounts.get(routineName) || 0) + 1);
       (tr.exercises || []).forEach((ex) => {
         const name = ex.exerciseName || ex.name;
         if (name && current.exercises.size < 4) current.exercises.add(name);
@@ -382,6 +292,13 @@ function Dashboard({ onNavigate }) {
         detail: day.detail,
         minutes: day.minutes,
       })),
+      routines: Array.from(routineCounts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name, count]) => ({
+          name,
+          count,
+          label: `${count} ${count === 1 ? "vez" : "veces"} ${name}`,
+        })),
     };
   }, [trainings]);
 
@@ -479,7 +396,7 @@ function Dashboard({ onNavigate }) {
       initial="hidden"
       animate="show"
       exit="exit"
-      className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl px-3 sm:px-4 md:px-6 pb-10 space-y-4 lg:space-y-6"
+      className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl xl:max-w-7xl sm:px-4 md:px-6 pb-10 space-y-4 lg:space-y-6"
     >
       <section className="relative overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-5 sm:p-6 shadow-sm">
         <div className="absolute inset-0 pointer-events-none">
@@ -724,6 +641,46 @@ function Dashboard({ onNavigate }) {
                 )}
               </div>
             ))}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[color:var(--text)]">
+                  Rutinas entrenadas este mes
+                </p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Cuantas veces se entreno cada rutina en los ultimos 30 dias
+                </p>
+              </div>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                {monthActivity.routines.length} rutinas
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {monthActivity.routines.length ? (
+                monthActivity.routines.map((item) => (
+                  <div
+                    key={item.name}
+                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3"
+                  >
+                    <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                      {item.name}
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">
+                      {item.count}
+                    </p>
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      {item.count === 1 ? "vez entrenada" : "veces entrenada"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <span className="text-xs text-[color:var(--text-muted)]">
+                  Sin entrenamientos en este periodo.
+                </span>
+              )}
+            </div>
           </div>
         </motion.section>
 
