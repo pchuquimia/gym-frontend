@@ -2745,57 +2745,88 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         ))}
                       </div>
                     ) : (
-                      exercises.map((ex) => {
-                      const movementConfig = getRoutineMovementConfig(
-                        selectedRoutine?.raw?.exercises || [],
-                        ex,
-                      );
-                      return (
-                        <ExerciseCard
-                          key={ex.id}
-                          exercise={{
-                            ...ex,
-                            supportsUnilateral:
-                              movementConfig.supportsUnilateral,
-                            movementMode: movementConfig.movementMode,
-                          }}
-                          onAddSet={() => handleAddSet(ex.id)}
-                          onUpdateEntry={(setId, entryId, field, value) =>
-                            handleUpdateEntry(
-                              ex.id,
-                              setId,
-                              entryId,
-                              field,
-                              value,
-                            )
-                          }
-                          onToggleEntry={(setId, entryId) =>
-                            handleToggleEntry(ex.id, setId, entryId)
-                          }
-                          onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
-                          onRemoveExercise={() => handleRemoveExercise(ex.id)}
-                          onSeriesTypeChange={(value) =>
-                            handleSeriesTypeChange(ex.id, value)
-                          }
-                          onMovementModeChange={(value) =>
-                            handleMovementModeChange(ex.id, value)
-                          }
-                          onSwapVariant={(direction) =>
-                            handleSwapVariant(ex.id, direction)
-                          }
-                          onViewTracking={() => {
-                            setTrackingExerciseId(ex.id);
-                            setShowTracking(true);
-                          }}
-                          onViewHistory={() => {
-                            if (typeof localStorage !== "undefined")
-                              localStorage.setItem("last_exercise_id", ex.id);
-                            if (typeof onNavigate === "function")
-                              onNavigate("ejercicio_analitica");
-                          }}
-                        />
-                      );
-                      })
+                      groupedExercises.map(([muscle, items]) => (
+                        <div key={muscle} className="space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                            <div>
+                              <p className="text-xl font-semibold text-[color:var(--text)]">
+                                {muscle}
+                              </p>
+                              <p className="text-xs text-[color:var(--text-muted)]">
+                                {selectorRoutine?.name || "Rutina sin nombre"}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="text-[11px]">
+                              {items.length} ejercicios
+                            </Badge>
+                          </div>
+                          <AnimatePresence>
+                            {items.map((ex) => {
+                              const movementConfig = getRoutineMovementConfig(
+                                selectedRoutine?.raw?.exercises || [],
+                                ex,
+                              );
+                              return (
+                                <ExerciseCard
+                                  key={ex.id}
+                                  exercise={{
+                                    ...ex,
+                                    supportsUnilateral:
+                                      movementConfig.supportsUnilateral,
+                                    movementMode: movementConfig.movementMode,
+                                  }}
+                                  onAddSet={() => handleAddSet(ex.id)}
+                                  onUpdateEntry={(
+                                    setId,
+                                    entryId,
+                                    field,
+                                    value,
+                                  ) =>
+                                    handleUpdateEntry(
+                                      ex.id,
+                                      setId,
+                                      entryId,
+                                      field,
+                                      value,
+                                    )
+                                  }
+                                  onToggleEntry={(setId, entryId) =>
+                                    handleToggleEntry(ex.id, setId, entryId)
+                                  }
+                                  onRemoveSet={(setId) =>
+                                    handleRemoveSet(ex.id, setId)
+                                  }
+                                  onRemoveExercise={() =>
+                                    handleRemoveExercise(ex.id)
+                                  }
+                                  onSeriesTypeChange={(value) =>
+                                    handleSeriesTypeChange(ex.id, value)
+                                  }
+                                  onMovementModeChange={(value) =>
+                                    handleMovementModeChange(ex.id, value)
+                                  }
+                                  onSwapVariant={(direction) =>
+                                    handleSwapVariant(ex.id, direction)
+                                  }
+                                  onViewTracking={() => {
+                                    setTrackingExerciseId(ex.id);
+                                    setShowTracking(true);
+                                  }}
+                                  onViewHistory={() => {
+                                    if (typeof localStorage !== "undefined")
+                                      localStorage.setItem(
+                                        "last_exercise_id",
+                                        ex.id,
+                                      );
+                                    if (typeof onNavigate === "function")
+                                      onNavigate("ejercicio_analitica");
+                                  }}
+                                />
+                              );
+                            })}
+                          </AnimatePresence>
+                        </div>
+                      ))
                     )}
                   </div>
 
