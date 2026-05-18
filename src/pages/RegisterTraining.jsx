@@ -2701,45 +2701,78 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 <div className="space-y-4">
                   <div className="md:hidden space-y-3">
                     {isOrderingExercises ? (
-                      <div className="space-y-2">
-                        {exercises.map((ex, idx) => (
-                          <div
-                            key={ex.id}
-                            className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
-                          >
-                            <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
-                              {idx + 1}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-[color:var(--text)]">
-                                {ex.name}
-                              </p>
-                              <p className="truncate text-xs text-[color:var(--text-muted)]">
-                                {ex.muscle || "Sin grupo"} •{" "}
-                                {ex.sets?.length || 0} sets
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-9 w-9 rounded-full"
-                                disabled={idx === 0}
-                                onClick={() => handleMoveExercise(ex.id, -1)}
-                                aria-label={`Subir ${ex.name}`}
+                      <div className="space-y-4">
+                        {groupedExercises.map(([muscle, items]) => (
+                          <div key={muscle} className="space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                              <div>
+                                <p className="text-lg font-semibold text-[color:var(--text)]">
+                                  {muscle}
+                                </p>
+                                <p className="text-xs text-[color:var(--text-muted)]">
+                                  {selectorRoutine?.name || "Rutina sin nombre"}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="secondary"
+                                className="text-[11px]"
                               >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-9 w-9 rounded-full"
-                                disabled={idx === exercises.length - 1}
-                                onClick={() => handleMoveExercise(ex.id, 1)}
-                                aria-label={`Bajar ${ex.name}`}
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
+                                {items.length} ejercicios
+                              </Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                              {items.map((ex) => {
+                                const orderIndex = exercises.findIndex(
+                                  (item) => item.id === ex.id,
+                                );
+                                return (
+                                  <div
+                                    key={ex.id}
+                                    className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
+                                  >
+                                    <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
+                                      {orderIndex + 1}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                                        {ex.name}
+                                      </p>
+                                      <p className="truncate text-xs text-[color:var(--text-muted)]">
+                                        {ex.sets?.length || 0} sets
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-9 w-9 rounded-full"
+                                        disabled={orderIndex <= 0}
+                                        onClick={() =>
+                                          handleMoveExercise(ex.id, -1)
+                                        }
+                                        aria-label={`Subir ${ex.name}`}
+                                      >
+                                        <ArrowUp className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-9 w-9 rounded-full"
+                                        disabled={
+                                          orderIndex >= exercises.length - 1
+                                        }
+                                        onClick={() =>
+                                          handleMoveExercise(ex.id, 1)
+                                        }
+                                        aria-label={`Bajar ${ex.name}`}
+                                      >
+                                        <ArrowDown className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ))}
