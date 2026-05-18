@@ -2752,24 +2752,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 return (
                                   <div
                                     key={ex.id}
-                                    className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
+                                    className="grid w-full max-w-full grid-cols-[36px_minmax(0,1fr)_76px] items-center gap-2 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
                                   >
-                                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
+                                    <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
                                       {groupIndex + 1}
                                     </div>
-                                    <div className="min-w-0 flex-1 overflow-hidden">
-                                      <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                                    <div className="min-w-0 max-w-full overflow-hidden">
+                                      <p className="block max-w-full truncate whitespace-nowrap text-sm font-semibold text-[color:var(--text)]">
                                         {ex.name}
                                       </p>
-                                      <p className="truncate text-xs text-[color:var(--text-muted)]">
+                                      <p className="block max-w-full truncate whitespace-nowrap text-xs text-[color:var(--text-muted)]">
                                         {ex.sets?.length || 0} sets
                                       </p>
                                     </div>
-                                    <div className="flex shrink-0 items-center gap-1">
+                                    <div className="flex w-[76px] items-center justify-end gap-1">
                                       <Button
                                         size="icon"
                                         variant="outline"
-                                        className="h-9 w-9 shrink-0 rounded-full"
+                                        className="h-9 w-9 min-w-9 rounded-full p-0"
                                         disabled={!canMoveUp}
                                         onClick={() =>
                                           handleMoveExercise(ex.id, -1)
@@ -2781,7 +2781,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                       <Button
                                         size="icon"
                                         variant="outline"
-                                        className="h-9 w-9 shrink-0 rounded-full"
+                                        className="h-9 w-9 min-w-9 rounded-full p-0"
                                         disabled={!canMoveDown}
                                         onClick={() =>
                                           handleMoveExercise(ex.id, 1)
