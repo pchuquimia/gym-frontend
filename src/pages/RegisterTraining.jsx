@@ -1145,17 +1145,37 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const handleMoveExercise = (exerciseId, direction) => {
     setExercises((prev) => {
-      const currentIndex = prev.findIndex((ex) => ex.id === exerciseId);
-      if (currentIndex < 0) return prev;
+      const groups = [];
+      const groupIndexByName = new Map();
+      prev.forEach((ex) => {
+        const groupName = ex.muscle || "Sin grupo";
+        if (!groupIndexByName.has(groupName)) {
+          groupIndexByName.set(groupName, groups.length);
+          groups.push({ name: groupName, items: [] });
+        }
+        groups[groupIndexByName.get(groupName)].items.push(ex);
+      });
+
+      const group = groups.find((entry) =>
+        entry.items.some((ex) => ex.id === exerciseId),
+      );
+      if (!group) return prev;
+
+      const currentIndex = group.items.findIndex((ex) => ex.id === exerciseId);
       const nextIndex = currentIndex + direction;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const currentGroup = prev[currentIndex]?.muscle || "Sin grupo";
-      const nextGroup = prev[nextIndex]?.muscle || "Sin grupo";
-      if (currentGroup !== nextGroup) return prev;
-      const next = [...prev];
-      const [item] = next.splice(currentIndex, 1);
-      next.splice(nextIndex, 0, item);
-      return applyExerciseOrder(next);
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= group.items.length) {
+        return prev;
+      }
+
+      const nextGroups = groups.map((entry) => ({
+        ...entry,
+        items: [...entry.items],
+      }));
+      const editableGroup = nextGroups.find((entry) => entry.name === group.name);
+      const [item] = editableGroup.items.splice(currentIndex, 1);
+      editableGroup.items.splice(nextIndex, 0, item);
+
+      return applyExerciseOrder(nextGroups.flatMap((entry) => entry.items));
     });
   };
 
@@ -2725,28 +2745,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             </div>
 
                             <div className="space-y-2">
-                              {items.map((ex) => {
-                                const orderIndex = exercises.findIndex(
-                                  (item) => item.id === ex.id,
-                                );
-                                const prevExercise = exercises[orderIndex - 1];
-                                const nextExercise = exercises[orderIndex + 1];
-                                const groupKey = ex.muscle || "Sin grupo";
-                                const canMoveUp =
-                                  Boolean(prevExercise) &&
-                                  (prevExercise.muscle || "Sin grupo") ===
-                                    groupKey;
+                              {items.map((ex, groupIndex) => {
+                                const canMoveUp = groupIndex > 0;
                                 const canMoveDown =
-                                  Boolean(nextExercise) &&
-                                  (nextExercise.muscle || "Sin grupo") ===
-                                    groupKey;
+                                  groupIndex < items.length - 1;
                                 return (
                                   <div
                                     key={ex.id}
                                     className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
                                   >
                                     <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
-                                      {orderIndex + 1}
+                                      {groupIndex + 1}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p className="truncate text-sm font-semibold text-[color:var(--text)]">
