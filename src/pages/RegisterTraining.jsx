@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, Reorder, motion } from "framer-motion";
-import { Flag, MoreVertical } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowDown, ArrowUp, Check, Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
@@ -563,6 +563,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("");
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
+  const [isOrderingExercises, setIsOrderingExercises] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO);
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
@@ -1133,16 +1134,26 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       };
     });
 
-  const handleReorderExercises = (nextOrder) => {
-    setExercises(
-      applyHistoryToExercises(
-        (nextOrder || []).map((ex, idx) => ({
-          ...ex,
-          order: idx + 1,
-          reloadMovementHistory: !exerciseHasInput(ex),
-        })),
-      ),
+  const applyExerciseOrder = (nextOrder) =>
+    applyHistoryToExercises(
+      (nextOrder || []).map((ex, idx) => ({
+        ...ex,
+        order: idx + 1,
+        reloadMovementHistory: !exerciseHasInput(ex),
+      })),
     );
+
+  const handleMoveExercise = (exerciseId, direction) => {
+    setExercises((prev) => {
+      const currentIndex = prev.findIndex((ex) => ex.id === exerciseId);
+      if (currentIndex < 0) return prev;
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(currentIndex, 1);
+      next.splice(nextIndex, 0, item);
+      return applyExerciseOrder(next);
+    });
   };
 
   const loadTrainingForDate = async (
@@ -2661,6 +2672,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {exercises.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant={isOrderingExercises ? "default" : "outline"}
+                        className="md:hidden rounded-full"
+                        onClick={() => setIsOrderingExercises((value) => !value)}
+                      >
+                        {isOrderingExercises ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            <span>Listo</span>
+                          </>
+                        ) : (
+                          "Ordenar"
+                        )}
+                      </Button>
+                    )}
                     <Badge variant="secondary" className="text-[11px]">
                       Total sets: {totalSets}
                     </Badge>
@@ -2671,75 +2699,105 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </div>
 
                 <div className="space-y-4">
-                  <Reorder.Group
-                    axis="y"
-                    values={exercises}
-                    onReorder={handleReorderExercises}
-                    className="md:hidden space-y-3"
-                  >
-                    {exercises.map((ex) => {
+                  <div className="md:hidden space-y-3">
+                    {isOrderingExercises ? (
+                      <div className="space-y-2">
+                        {exercises.map((ex, idx) => (
+                          <div
+                            key={ex.id}
+                            className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 p-3 shadow-sm"
+                          >
+                            <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
+                              {idx + 1}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                                {ex.name}
+                              </p>
+                              <p className="truncate text-xs text-[color:var(--text-muted)]">
+                                {ex.muscle || "Sin grupo"} •{" "}
+                                {ex.sets?.length || 0} sets
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-full"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveExercise(ex.id, -1)}
+                                aria-label={`Subir ${ex.name}`}
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-9 w-9 rounded-full"
+                                disabled={idx === exercises.length - 1}
+                                onClick={() => handleMoveExercise(ex.id, 1)}
+                                aria-label={`Bajar ${ex.name}`}
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      exercises.map((ex) => {
                       const movementConfig = getRoutineMovementConfig(
                         selectedRoutine?.raw?.exercises || [],
                         ex,
                       );
                       return (
-                        <Reorder.Item
+                        <ExerciseCard
                           key={ex.id}
-                          value={ex}
-                          className="list-none"
-                          whileDrag={{ scale: 1.02, zIndex: 20 }}
-                        >
-                          <ExerciseCard
-                            exercise={{
-                              ...ex,
-                              supportsUnilateral:
-                                movementConfig.supportsUnilateral,
-                              movementMode: movementConfig.movementMode,
-                            }}
-                            onAddSet={() => handleAddSet(ex.id)}
-                            onUpdateEntry={(setId, entryId, field, value) =>
-                              handleUpdateEntry(
-                                ex.id,
-                                setId,
-                                entryId,
-                                field,
-                                value,
-                              )
-                            }
-                            onToggleEntry={(setId, entryId) =>
-                              handleToggleEntry(ex.id, setId, entryId)
-                            }
-                            onRemoveSet={(setId) =>
-                              handleRemoveSet(ex.id, setId)
-                            }
-                            onRemoveExercise={() => handleRemoveExercise(ex.id)}
-                            onSeriesTypeChange={(value) =>
-                              handleSeriesTypeChange(ex.id, value)
-                            }
-                            onMovementModeChange={(value) =>
-                              handleMovementModeChange(ex.id, value)
-                            }
-                            onSwapVariant={(direction) =>
-                              handleSwapVariant(ex.id, direction)
-                            }
-                            onViewTracking={() => {
-                              setTrackingExerciseId(ex.id);
-                              setShowTracking(true);
-                            }}
-                            onViewHistory={() => {
-                              if (typeof localStorage !== "undefined")
-                                localStorage.setItem(
-                                  "last_exercise_id",
-                                  ex.id,
-                                );
-                              if (typeof onNavigate === "function")
-                                onNavigate("ejercicio_analitica");
-                            }}
-                          />
-                        </Reorder.Item>
+                          exercise={{
+                            ...ex,
+                            supportsUnilateral:
+                              movementConfig.supportsUnilateral,
+                            movementMode: movementConfig.movementMode,
+                          }}
+                          onAddSet={() => handleAddSet(ex.id)}
+                          onUpdateEntry={(setId, entryId, field, value) =>
+                            handleUpdateEntry(
+                              ex.id,
+                              setId,
+                              entryId,
+                              field,
+                              value,
+                            )
+                          }
+                          onToggleEntry={(setId, entryId) =>
+                            handleToggleEntry(ex.id, setId, entryId)
+                          }
+                          onRemoveSet={(setId) => handleRemoveSet(ex.id, setId)}
+                          onRemoveExercise={() => handleRemoveExercise(ex.id)}
+                          onSeriesTypeChange={(value) =>
+                            handleSeriesTypeChange(ex.id, value)
+                          }
+                          onMovementModeChange={(value) =>
+                            handleMovementModeChange(ex.id, value)
+                          }
+                          onSwapVariant={(direction) =>
+                            handleSwapVariant(ex.id, direction)
+                          }
+                          onViewTracking={() => {
+                            setTrackingExerciseId(ex.id);
+                            setShowTracking(true);
+                          }}
+                          onViewHistory={() => {
+                            if (typeof localStorage !== "undefined")
+                              localStorage.setItem("last_exercise_id", ex.id);
+                            if (typeof onNavigate === "function")
+                              onNavigate("ejercicio_analitica");
+                          }}
+                        />
                       );
-                    })}
-                  </Reorder.Group>
+                      })
+                    )}
+                  </div>
 
                   <div className="hidden md:block space-y-4">
                     {groupedExercises.map(([muscle, items]) => (
