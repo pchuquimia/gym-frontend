@@ -34,8 +34,13 @@ function MainLayout({ children, activePage, onNavigate }) {
         elapsed += Math.max(0, (Date.now() - snap.lastUpdate) / 1000);
       }
       const total = Math.max(0, Math.floor(elapsed));
-      const hasElapsed = total > 0 || snap?.isRunning;
-      return hasElapsed ? { ...snap, elapsed: total } : null;
+      const hasSnapshot =
+        snap?.selectedRoutineId &&
+        (total > 0 ||
+          snap?.isRunning ||
+          snap?.hasStarted ||
+          (Array.isArray(snap?.exercises) && snap.exercises.length > 0));
+      return hasSnapshot ? { ...snap, elapsed: total } : null;
     } catch {
       return null;
     }
@@ -51,10 +56,6 @@ function MainLayout({ children, activePage, onNavigate }) {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    setActiveTraining(readSnapshot());
-  }, [activePage]);
 
   const handleReturnTraining = () => {
     if (typeof onNavigate === "function") onNavigate("registrar");

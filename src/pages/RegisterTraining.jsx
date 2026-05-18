@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
@@ -581,12 +581,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     return map;
   }, [trainings]);
 
-  const routineOptions = useMemo(() => {
-    const filtered =
-      (routines || []).filter((r) =>
-        selectedBranch ? normalizeBranch(r.branch) === selectedBranch : true,
-      ) || [];
-    return filtered.map((r) => ({
+  const toRoutineOption = useCallback(
+    (r) => ({
       id: r.id,
       name: r.name,
       location: normalizeBranch(r.branch),
@@ -596,8 +592,22 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt,
         ) || "--",
       raw: r,
-    }));
-  }, [routines, selectedBranch, latestRoutineDates]);
+    }),
+    [latestRoutineDates],
+  );
+
+  const allRoutineOptions = useMemo(
+    () => (routines || []).map((r) => toRoutineOption(r)),
+    [routines, toRoutineOption],
+  );
+
+  const routineOptions = useMemo(() => {
+    const filtered =
+      (routines || []).filter((r) =>
+        selectedBranch ? normalizeBranch(r.branch) === selectedBranch : true,
+      ) || [];
+    return filtered.map((r) => toRoutineOption(r));
+  }, [routines, selectedBranch, toRoutineOption]);
 
   const currentBranch =
     selectedBranch || selectedRoutine?.location || DEFAULT_BRANCH;
@@ -1226,7 +1236,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   useEffect(() => {
-    if (!routineOptions.length) return;
+    if (!allRoutineOptions.length) return;
     if (initializedTrainingScreen.current) return;
     initializedTrainingScreen.current = true;
     const editId =
@@ -1254,7 +1264,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setDurationSeconds(0);
       setIsRunning(false);
     }
-  }, [routineOptions]);
+  }, [allRoutineOptions]);
 
   useEffect(() => {
     historyLoadAttempted.current = false;
@@ -1300,7 +1310,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   // Restaurar entrenamiento activo desde snapshot local
   useEffect(() => {
-    if (!routineOptions.length) return;
+    if (!allRoutineOptions.length) return;
     if (isEditing) return;
     if (selectedRoutineId) return;
     if (typeof localStorage === "undefined") return;
@@ -1309,7 +1319,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     try {
       const snap = JSON.parse(raw);
       if (!snap?.selectedRoutineId) return;
-      const routine = routineOptions.find(
+      const routine = allRoutineOptions.find(
         (r) => r.id === snap.selectedRoutineId,
       );
       if (!routine) return;
@@ -1384,7 +1394,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } catch (e) {
       console.warn("No se pudo restaurar el entrenamiento activo", e);
     }
-  }, [routineOptions, isEditing, selectedRoutineId]);
+  }, [allRoutineOptions, isEditing, selectedRoutineId]);
 
   useEffect(() => {
     if (!selectedRoutineId || !sessionDate) return;

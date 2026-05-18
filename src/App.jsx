@@ -32,9 +32,34 @@ const PAGES = {
   objetivos: { label: "Objetivos", component: Goals },
 };
 
+const SNAPSHOT_KEY = "active_training_snapshot";
+const LEGACY_TRAINING_KEY = "active_training";
+
+const hasActiveTrainingSnapshot = () => {
+  if (typeof localStorage === "undefined") return false;
+  const raw =
+    localStorage.getItem(SNAPSHOT_KEY) ||
+    localStorage.getItem(LEGACY_TRAINING_KEY);
+  if (!raw) return false;
+  try {
+    const snap = JSON.parse(raw);
+    const elapsed = Number(snap?.elapsed ?? snap?.durationSeconds ?? 0) || 0;
+    return Boolean(
+      snap?.selectedRoutineId &&
+        (snap?.hasStarted ||
+          snap?.isRunning ||
+          elapsed > 0 ||
+          (Array.isArray(snap?.exercises) && snap.exercises.length > 0)),
+    );
+  } catch {
+    return false;
+  }
+};
+
 function App() {
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "dashboard";
+    if (hasActiveTrainingSnapshot()) return "registrar";
     const stored = localStorage.getItem("active_page");
     return stored || "dashboard";
   });
