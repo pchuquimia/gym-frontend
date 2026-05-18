@@ -1149,6 +1149,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (currentIndex < 0) return prev;
       const nextIndex = currentIndex + direction;
       if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const currentGroup = prev[currentIndex]?.muscle || "Sin grupo";
+      const nextGroup = prev[nextIndex]?.muscle || "Sin grupo";
+      if (currentGroup !== nextGroup) return prev;
       const next = [...prev];
       const [item] = next.splice(currentIndex, 1);
       next.splice(nextIndex, 0, item);
@@ -2726,6 +2729,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 const orderIndex = exercises.findIndex(
                                   (item) => item.id === ex.id,
                                 );
+                                const prevExercise = exercises[orderIndex - 1];
+                                const nextExercise = exercises[orderIndex + 1];
+                                const groupKey = ex.muscle || "Sin grupo";
+                                const canMoveUp =
+                                  Boolean(prevExercise) &&
+                                  (prevExercise.muscle || "Sin grupo") ===
+                                    groupKey;
+                                const canMoveDown =
+                                  Boolean(nextExercise) &&
+                                  (nextExercise.muscle || "Sin grupo") ===
+                                    groupKey;
                                 return (
                                   <div
                                     key={ex.id}
@@ -2747,7 +2761,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                         size="icon"
                                         variant="outline"
                                         className="h-9 w-9 rounded-full"
-                                        disabled={orderIndex <= 0}
+                                        disabled={!canMoveUp}
                                         onClick={() =>
                                           handleMoveExercise(ex.id, -1)
                                         }
@@ -2759,9 +2773,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                         size="icon"
                                         variant="outline"
                                         className="h-9 w-9 rounded-full"
-                                        disabled={
-                                          orderIndex >= exercises.length - 1
-                                        }
+                                        disabled={!canMoveDown}
                                         onClick={() =>
                                           handleMoveExercise(ex.id, 1)
                                         }
