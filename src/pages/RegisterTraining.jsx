@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, Reorder, motion } from "framer-motion";
 import { Flag, MoreVertical } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
@@ -117,11 +117,30 @@ const normalizeMovementMode = (value) =>
 const getMovementHistoryKey = (key, movementMode = "bilateral") =>
   `${key}::${normalizeMovementMode(movementMode)}`;
 
+const getPositionHistoryKey = (key, movementMode = "bilateral", order = null) =>
+  order ? `${getMovementHistoryKey(key, movementMode)}::order-${order}` : null;
+
+const getExerciseOrder = (exercise = {}, fallbackIndex = null) => {
+  const rawOrder = exercise.order ?? exercise.exerciseOrder;
+  const parsed = Number(rawOrder);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallbackIndex != null ? fallbackIndex + 1 : null;
+};
+
 const getMovementHistoryKeys = (exercise = {}) => {
   const mode = normalizeMovementMode(exercise.movementMode);
   return getExerciseKeys(exercise).map((key) =>
     getMovementHistoryKey(key, mode),
   );
+};
+
+const getPositionHistoryKeys = (exercise = {}, fallbackIndex = null) => {
+  const mode = normalizeMovementMode(exercise.movementMode);
+  const order = getExerciseOrder(exercise, fallbackIndex);
+  if (!order) return [];
+  return getExerciseKeys(exercise)
+    .map((key) => getPositionHistoryKey(key, mode, order))
+    .filter(Boolean);
 };
 
 const getSeriesCount = (seriesType) => {
@@ -381,14 +400,15 @@ const computeLatestSeriesTypeFromHistory = (
   trainings.forEach((tr) => {
     if (routineId && tr?.routineId && tr.routineId !== routineId) return;
     const ts = getDateTimestamp(tr?.date || tr?.createdAt);
-    (tr?.exercises || []).forEach((ex) => {
+    (tr?.exercises || []).forEach((ex, exIdx) => {
       const rawType =
         ex?.seriesType ||
         ex?.sets?.[0]?.seriesType ||
         inferSeriesTypeFromSets(ex?.sets);
       if (!rawType) return;
       const type = normalizeSeriesType(rawType);
-      const keys = getMovementHistoryKeys(ex);
+      const positionKeys = getPositionHistoryKeys(ex, exIdx);
+      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       keys.forEach((key) => {
         const current = map.get(key);
@@ -406,8 +426,9 @@ const computeBestFromHistory = (trainings = []) => {
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
-    (tr.exercises || []).forEach((ex) => {
-      const keys = getMovementHistoryKeys(ex);
+    (tr.exercises || []).forEach((ex, exIdx) => {
+      const positionKeys = getPositionHistoryKeys(ex, exIdx);
+      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
@@ -441,32 +462,34 @@ const computeBestBySetFromHistory = (trainings = []) => {
   trainings.forEach((tr) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
-    (tr.exercises || []).forEach((ex) => {
-      const keys = getMovementHistoryKeys(ex);
+    (tr.exercises || []).forEach((ex, exIdx) => {
+      const positionKeys = getPositionHistoryKeys(ex, exIdx);
+      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
       if (!keys.length) return;
-      const sets = ex.sets || [];
-      const existingKey = keys.find((key) => map.has(key));
-      const arr = existingKey ? map.get(existingKey) : [];
-      sets.forEach((s, idx) => {
-        const entries =
-          Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
-        entries.forEach((entry) => {
-          const w = Number(entry.weightKg ?? entry.weight ?? entry.kg ?? 0);
-          const r = Number(entry.reps ?? 0);
-          const current = arr[idx];
-          const isBetter =
-            !current ||
-            w > current.weight ||
-            (w === current.weight && r > (current.reps ?? 0)) ||
-            (w === current.weight &&
-              r === (current.reps ?? 0) &&
-              ts < current.ts);
-          if (isBetter) {
-            arr[idx] = { weight: w, reps: r, date, ts };
-          }
+      keys.forEach((key) => {
+        const arr = map.get(key) || [];
+        const sets = ex.sets || [];
+        sets.forEach((s, idx) => {
+          const entries =
+            Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
+          entries.forEach((entry) => {
+            const w = Number(entry.weightKg ?? entry.weight ?? entry.kg ?? 0);
+            const r = Number(entry.reps ?? 0);
+            const current = arr[idx];
+            const isBetter =
+              !current ||
+              w > current.weight ||
+              (w === current.weight && r > (current.reps ?? 0)) ||
+              (w === current.weight &&
+                r === (current.reps ?? 0) &&
+                ts < current.ts);
+            if (isBetter) {
+              arr[idx] = { weight: w, reps: r, date, ts };
+            }
+          });
         });
+        map.set(key, arr);
       });
-      keys.forEach((key) => map.set(key, arr));
     });
   });
   return map;
@@ -479,36 +502,39 @@ const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date);
     if (cutoffTs && ts > cutoffTs) return;
-    (tr.exercises || []).forEach((ex) => {
-      const keys = getMovementHistoryKeys(ex);
+    (tr.exercises || []).forEach((ex, exIdx) => {
+      const positionKeys = getPositionHistoryKeys(ex, exIdx);
+      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
       if (!keys.length) return;
-      const sets = ex.sets || [];
-      const existingKey = keys.find((key) => map.has(key));
-      const arr = existingKey ? map.get(existingKey) : [];
-      sets.forEach((s, sIdx) => {
-        const entries =
-          Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
-        if (!arr[sIdx]) arr[sIdx] = [];
-        entries.forEach((entry, entryIdx) => {
-          const weightRaw = entry.weightKg ?? entry.weight ?? entry.kg ?? null;
-          const repsRaw = entry.reps ?? null;
-          const weight = parseDecimal(weightRaw);
-          const reps = parseDecimal(repsRaw);
-          const record = { weight, reps, date, ts };
-          const slot = arr[sIdx][entryIdx] || {
-            latest: null,
-            previous: null,
-          };
-          if (!slot.latest || ts > slot.latest.ts) {
-            slot.previous = slot.latest;
-            slot.latest = record;
-          } else if (!slot.previous || ts > slot.previous.ts) {
-            slot.previous = record;
-          }
-          arr[sIdx][entryIdx] = slot;
+      keys.forEach((key) => {
+        const arr = map.get(key) || [];
+        const sets = ex.sets || [];
+        sets.forEach((s, sIdx) => {
+          const entries =
+            Array.isArray(s.entries) && s.entries.length ? s.entries : [s];
+          if (!arr[sIdx]) arr[sIdx] = [];
+          entries.forEach((entry, entryIdx) => {
+            const weightRaw =
+              entry.weightKg ?? entry.weight ?? entry.kg ?? null;
+            const repsRaw = entry.reps ?? null;
+            const weight = parseDecimal(weightRaw);
+            const reps = parseDecimal(repsRaw);
+            const record = { weight, reps, date, ts };
+            const slot = arr[sIdx][entryIdx] || {
+              latest: null,
+              previous: null,
+            };
+            if (!slot.latest || ts > slot.latest.ts) {
+              slot.previous = slot.latest;
+              slot.latest = record;
+            } else if (!slot.previous || ts > slot.previous.ts) {
+              slot.previous = record;
+            }
+            arr[sIdx][entryIdx] = slot;
+          });
         });
+        map.set(key, arr);
       });
-      keys.forEach((key) => map.set(key, arr));
     });
   });
   return map;
@@ -708,6 +734,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         exerciseId: ex.exerciseId,
         name: ex.exerciseName,
         muscle: ex.muscleGroup,
+        order: ex.order,
         sets: ex.sets?.length || 3,
         movementMode: normalizeMovementMode(ex.movementMode),
       }));
@@ -717,6 +744,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           exerciseId: ex.exerciseId,
           name: ex.exerciseName,
           muscle: ex.muscleGroup,
+          order: ex.order,
           sets: ex.sets?.length || 3,
           movementMode: normalizeMovementMode(ex.movementMode),
         }));
@@ -726,7 +754,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ? routineList
         : routineList.filter((ex) => !ex.isExtra);
     const trainingById = new Map();
-    (training?.exercises || []).forEach((ex) => {
+    const trainingByPosition = new Map();
+    (training?.exercises || []).forEach((ex, exIdx) => {
+      getPositionHistoryKeys(ex, exIdx).forEach((key) => {
+        trainingByPosition.set(key, ex);
+      });
       getExerciseKeys(ex).forEach((key) => {
         trainingById.set(key, ex);
       });
@@ -774,8 +806,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           "",
       );
       const setsCount = Number(ex.sets) || 3;
+      const currentOrder = getExerciseOrder(ex, idx);
+      const trainingPositionKeys = [id, nameKey]
+        .filter(Boolean)
+        .map((key) =>
+          getPositionHistoryKey(
+            key,
+            normalizeMovementMode(ex.movementMode || routineSlot?.movementMode),
+            currentOrder,
+          ),
+        )
+        .filter(Boolean);
       const trainingEx =
-        trainingById.get(id) || (nameKey ? trainingById.get(nameKey) : null);
+        trainingPositionKeys
+          .map((key) => trainingByPosition.get(key))
+          .find(Boolean) ||
+        trainingById.get(id) ||
+        (nameKey ? trainingById.get(nameKey) : null);
       const supportsUnilateral = Boolean(
         routineSlot?.supportsUnilateral ||
         ex.supportsUnilateral ||
@@ -789,12 +836,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               routineSlot?.movementMode,
           )
         : "bilateral";
-      const historyKeys = [id, nameKey]
+      const baseHistoryKeys = [id, nameKey]
         .filter(Boolean)
         .map((key) => getMovementHistoryKey(key, movementMode));
+      const positionHistoryKeys = [id, nameKey]
+        .filter(Boolean)
+        .map((key) => getPositionHistoryKey(key, movementMode, currentOrder))
+        .filter(Boolean);
+      const historyKeys = [...positionHistoryKeys, ...baseHistoryKeys];
       const historySeriesType =
         safeSeriesTypeMap.get(historyKeys[0]) ||
-        (historyKeys[1] ? safeSeriesTypeMap.get(historyKeys[1]) : null);
+        historyKeys.map((key) => safeSeriesTypeMap.get(key)).find(Boolean);
       const inferredSeriesType = trainingEx
         ? inferSeriesTypeFromSets(trainingEx.sets)
         : null;
@@ -809,16 +861,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           ex.seriesType,
       );
       const best =
-        bestMap.get(historyKeys[0]) ||
-        (historyKeys[1] ? bestMap.get(historyKeys[1]) : null);
+        historyKeys.map((key) => bestMap.get(key)).find(Boolean) || null;
       const bestBySet =
-        bestBySetMap.get(historyKeys[0]) ||
-        (historyKeys[1] ? bestBySetMap.get(historyKeys[1]) : null) ||
-        [];
+        historyKeys.map((key) => bestBySetMap.get(key)).find(Boolean) || [];
       const recentBySet =
-        recentBySetMap.get(historyKeys[0]) ||
-        (historyKeys[1] ? recentBySetMap.get(historyKeys[1]) : null) ||
-        [];
+        historyKeys.map((key) => recentBySetMap.get(key)).find(Boolean) || [];
       const prSummary = best
         ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : "";
@@ -929,6 +976,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return {
         id,
         name: activeVariant?.name || ex.name || meta.name || "Ejercicio",
+        order: currentOrder,
         prText: headerText,
         image: activeVariant?.image || ex.image || meta.image || "",
         imagePublicId:
@@ -971,9 +1019,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         exerciseId: ex.exerciseId || ex.id,
       });
       const movementMode = normalizeMovementMode(ex.movementMode);
-      const historyKeys = keys.map((key) =>
+      const currentOrder = getExerciseOrder(ex, idx);
+      const positionHistoryKeys = keys
+        .map((key) => getPositionHistoryKey(key, movementMode, currentOrder))
+        .filter(Boolean);
+      const baseHistoryKeys = keys.map((key) =>
         getMovementHistoryKey(key, movementMode),
       );
+      const historyKeys = [...positionHistoryKeys, ...baseHistoryKeys];
       const findKey = (map) =>
         historyKeys.find((key) => map.has(key)) ||
         getMovementHistoryKey(id, movementMode);
@@ -1069,6 +1122,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return {
         ...ex,
         id,
+        order: currentOrder,
         reloadMovementHistory: undefined,
         movementMode,
         seriesType,
@@ -1078,6 +1132,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         sets,
       };
     });
+
+  const handleReorderExercises = (nextOrder) => {
+    setExercises(
+      applyHistoryToExercises(
+        (nextOrder || []).map((ex, idx) => ({
+          ...ex,
+          order: idx + 1,
+          reloadMovementHistory: !exerciseHasInput(ex),
+        })),
+      ),
+    );
+  };
 
   const loadTrainingForDate = async (
     date,
@@ -1207,7 +1273,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         resp = await api.getTrainings({
           limit: 200,
           fields:
-            "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+            "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.order,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
           meta: false,
         });
       } catch (projectionError) {
@@ -2605,7 +2671,78 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </div>
 
                 <div className="space-y-4">
-                  {groupedExercises.map(([muscle, items]) => (
+                  <Reorder.Group
+                    axis="y"
+                    values={exercises}
+                    onReorder={handleReorderExercises}
+                    className="md:hidden space-y-3"
+                  >
+                    {exercises.map((ex) => {
+                      const movementConfig = getRoutineMovementConfig(
+                        selectedRoutine?.raw?.exercises || [],
+                        ex,
+                      );
+                      return (
+                        <Reorder.Item
+                          key={ex.id}
+                          value={ex}
+                          className="list-none"
+                          whileDrag={{ scale: 1.02, zIndex: 20 }}
+                        >
+                          <ExerciseCard
+                            exercise={{
+                              ...ex,
+                              supportsUnilateral:
+                                movementConfig.supportsUnilateral,
+                              movementMode: movementConfig.movementMode,
+                            }}
+                            onAddSet={() => handleAddSet(ex.id)}
+                            onUpdateEntry={(setId, entryId, field, value) =>
+                              handleUpdateEntry(
+                                ex.id,
+                                setId,
+                                entryId,
+                                field,
+                                value,
+                              )
+                            }
+                            onToggleEntry={(setId, entryId) =>
+                              handleToggleEntry(ex.id, setId, entryId)
+                            }
+                            onRemoveSet={(setId) =>
+                              handleRemoveSet(ex.id, setId)
+                            }
+                            onRemoveExercise={() => handleRemoveExercise(ex.id)}
+                            onSeriesTypeChange={(value) =>
+                              handleSeriesTypeChange(ex.id, value)
+                            }
+                            onMovementModeChange={(value) =>
+                              handleMovementModeChange(ex.id, value)
+                            }
+                            onSwapVariant={(direction) =>
+                              handleSwapVariant(ex.id, direction)
+                            }
+                            onViewTracking={() => {
+                              setTrackingExerciseId(ex.id);
+                              setShowTracking(true);
+                            }}
+                            onViewHistory={() => {
+                              if (typeof localStorage !== "undefined")
+                                localStorage.setItem(
+                                  "last_exercise_id",
+                                  ex.id,
+                                );
+                              if (typeof onNavigate === "function")
+                                onNavigate("ejercicio_analitica");
+                            }}
+                          />
+                        </Reorder.Item>
+                      );
+                    })}
+                  </Reorder.Group>
+
+                  <div className="hidden md:block space-y-4">
+                    {groupedExercises.map(([muscle, items]) => (
                     <div key={muscle} className="space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                         <div>
@@ -2681,7 +2818,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         })}
                       </AnimatePresence>
                     </div>
-                  ))}
+                    ))}
+                  </div>
 
                   {extraExerciseOptions.length > 0 && (
                     <Card className="p-4 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-sm space-y-3">
