@@ -7,6 +7,7 @@ import {
   Dumbbell,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   Trash2,
 } from "lucide-react";
@@ -20,6 +21,8 @@ import Badge from "../components/ui/badge";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
+const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
@@ -83,6 +86,23 @@ const exerciseMatchesBranch = (exercise, branch) => {
   return branches.includes(branch) || branches.includes("general");
 };
 
+const readRoutineLibraryDraft = () => {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(ROUTINE_LIBRARY_DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    const draft = JSON.parse(raw);
+    return draft?.routine ? draft : null;
+  } catch {
+    return null;
+  }
+};
+
+const hasTrainingReturn = () => {
+  if (typeof localStorage === "undefined") return false;
+  return Boolean(localStorage.getItem(TRAINING_ROUTINES_RETURN_KEY));
+};
+
 const resolveExerciseFromLibrary = (availableExercises, entry = {}) => {
   const meta = availableExercises.find(
     (item) =>
@@ -93,11 +113,11 @@ const resolveExerciseFromLibrary = (availableExercises, entry = {}) => {
   return {
     exerciseId:
       entry.exerciseId || entry.id || meta?.id || slugify(entry.name || ""),
-    name: entry.name || meta?.name || "Ejercicio",
-    muscle: entry.muscle || meta?.muscle || "Sin grupo",
+    name: meta?.name || entry.name || "Ejercicio",
+    muscle: meta?.muscle || entry.muscle || "Sin grupo",
     sets: Number(entry.sets) || 3,
-    image: entry.image || meta?.image || "",
-    imagePublicId: entry.imagePublicId || meta?.imagePublicId || "",
+    image: meta?.image || entry.image || "",
+    imagePublicId: meta?.imagePublicId || entry.imagePublicId || "",
     supportsUnilateral: Boolean(
       entry.supportsUnilateral || meta?.supportsUnilateral,
     ),
@@ -110,11 +130,43 @@ const resolveExerciseFromLibrary = (availableExercises, entry = {}) => {
   };
 };
 
+const movementModeFrom = (value) =>
+  value === "unilateral" ? "unilateral" : "bilateral";
+
+const movementOptions = [
+  { id: "solo", label: "Solo bilateral" },
+  { id: "bilateral", label: "Bilateral" },
+  { id: "unilateral", label: "Unilateral" },
+];
+
+const movementOptionFrom = (exercise = {}) => {
+  if (!exercise.supportsUnilateral && exercise.movementMode !== "unilateral") {
+    return "solo";
+  }
+  return movementModeFrom(exercise.movementMode);
+};
+
+const applyMovementOption = (option) => ({
+  supportsUnilateral: option !== "solo",
+  movementMode: option === "unilateral" ? "unilateral" : "bilateral",
+});
+
+const serializeMovement = (exercise = {}) => {
+  const movementMode = movementModeFrom(exercise.movementMode);
+  return {
+    supportsUnilateral: Boolean(
+      exercise.supportsUnilateral || movementMode === "unilateral",
+    ),
+    movementMode,
+  };
+};
+
 function RoutineModal({
   mode = "create",
   initialData,
   onSave,
   onClose,
+  onOpenLibrary,
   availableExercises,
 }) {
   const [name, setName] = useState(initialData?.name || "");
@@ -216,6 +268,21 @@ function RoutineModal({
     );
   };
 
+  const updateAlternative = (idx, alternativeId, patch) => {
+    setExercises((prev) =>
+      prev.map((ex, i) =>
+        i === idx
+          ? {
+              ...ex,
+              alternatives: (ex.alternatives || []).map((alt) =>
+                alt.exerciseId === alternativeId ? { ...alt, ...patch } : alt,
+              ),
+            }
+          : ex,
+      ),
+    );
+  };
+
   const removeAlternative = (idx, alternativeId) => {
     setExercises((prev) =>
       prev.map((ex, i) =>
@@ -251,11 +318,7 @@ function RoutineModal({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
         sets: Number(ex.sets) || 1,
-        supportsUnilateral: Boolean(ex.supportsUnilateral),
-        movementMode:
-          ex.supportsUnilateral && ex.movementMode === "unilateral"
-            ? "unilateral"
-            : "bilateral",
+        ...serializeMovement(ex),
         isExtra: Boolean(ex.isExtra),
         alternatives: (ex.alternatives || []).map((alt) => ({
           exerciseId: alt.exerciseId || slugify(alt.name),
@@ -263,9 +326,50 @@ function RoutineModal({
           muscle: alt.muscle,
           image: alt.image || "",
           imagePublicId: alt.imagePublicId || "",
+          ...serializeMovement(alt),
         })),
       })),
     });
+  };
+
+  const buildDraftRoutine = () => ({
+    ...initialData,
+    id: initialData?.id || slugify(name),
+    name: name.trim() || initialData?.name || "Rutina sin nombre",
+    description: `${exercises.length} ejercicios.`,
+    branch: normalizeBranch(branch),
+    exercises: exercises.map((ex) => ({
+      ...ex,
+      exerciseId: ex.exerciseId || slugify(ex.name),
+      sets: Number(ex.sets) || 1,
+      ...serializeMovement(ex),
+      isExtra: Boolean(ex.isExtra),
+      alternatives: (ex.alternatives || []).map((alt) => ({
+        exerciseId: alt.exerciseId || slugify(alt.name),
+        name: alt.name,
+        muscle: alt.muscle,
+        image: alt.image || "",
+        imagePublicId: alt.imagePublicId || "",
+        ...serializeMovement(alt),
+      })),
+    })),
+  });
+
+  const handleOpenLibrary = () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(
+        ROUTINE_LIBRARY_DRAFT_KEY,
+        JSON.stringify({
+          mode,
+          sourceRoutineId: initialData?.id || slugify(name),
+          sourceRoutineName:
+            name.trim() || initialData?.name || "Rutina sin nombre",
+          routine: buildDraftRoutine(),
+          savedAt: Date.now(),
+        }),
+      );
+    }
+    onOpenLibrary?.();
   };
 
   return (
@@ -279,6 +383,9 @@ function RoutineModal({
             {exercises.length} ejercicios
           </span>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={handleOpenLibrary}>
+              Biblioteca
+            </Button>
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
@@ -420,24 +527,31 @@ function RoutineModal({
                               >
                                 {ex.isExtra ? "Extra" : "Principal"}
                               </button>
-                              {ex.supportsUnilateral && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateExercise(ex.idx, {
-                                      movementMode:
-                                        ex.movementMode === "unilateral"
-                                          ? "bilateral"
-                                          : "unilateral",
-                                    })
-                                  }
-                                  className="rounded-full border border-[color:var(--border)] px-2 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]"
-                                >
-                                  {ex.movementMode === "unilateral"
-                                    ? "Unilateral"
-                                    : "Bilateral"}
-                                </button>
-                              )}
+                              <div className="inline-grid grid-cols-3 overflow-hidden rounded-full border border-[color:var(--border)] text-[11px] font-semibold">
+                                {movementOptions.map((option) => {
+                                  const active =
+                                    movementOptionFrom(ex) === option.id;
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() =>
+                                        updateExercise(
+                                          ex.idx,
+                                          applyMovementOption(option.id),
+                                        )
+                                      }
+                                      className={`px-2 py-1 transition ${
+                                        active
+                                          ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                                          : "text-[color:var(--text-muted)]"
+                                      }`}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
@@ -471,19 +585,59 @@ function RoutineModal({
                         </div>
 
                         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr,180px]">
-                          <div className="flex min-w-0 flex-wrap gap-1">
+                          <div className="min-w-0 space-y-2">
                             {(ex.alternatives || []).length ? (
                               ex.alternatives.map((alt) => (
-                                <button
+                                <div
                                   key={alt.exerciseId}
-                                  type="button"
-                                  onClick={() =>
-                                    removeAlternative(ex.idx, alt.exerciseId)
-                                  }
-                                  className="max-w-full truncate rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1 text-[11px] text-[color:var(--text-muted)]"
+                                  className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-2"
                                 >
-                                  {alt.name} x
-                                </button>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="min-w-0 truncate text-[11px] font-semibold text-[color:var(--text)]">
+                                      {alt.name}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      className="shrink-0 text-[11px] text-red-500"
+                                      onClick={() =>
+                                        removeAlternative(
+                                          ex.idx,
+                                          alt.exerciseId,
+                                        )
+                                      }
+                                    >
+                                      Quitar
+                                    </button>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    <div className="inline-grid grid-cols-3 overflow-hidden rounded-full border border-[color:var(--border)] text-[10px] font-semibold">
+                                      {movementOptions.map((option) => {
+                                        const active =
+                                          movementOptionFrom(alt) === option.id;
+                                        return (
+                                          <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() =>
+                                              updateAlternative(
+                                                ex.idx,
+                                                alt.exerciseId,
+                                                applyMovementOption(option.id),
+                                              )
+                                            }
+                                            className={`px-2 py-1 transition ${
+                                              active
+                                                ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                                                : "text-[color:var(--text-muted)]"
+                                            }`}
+                                          >
+                                            {option.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
                               ))
                             ) : (
                               <span className="text-[11px] text-[color:var(--text-muted)]">
@@ -609,7 +763,7 @@ function RoutineModal({
   );
 }
 
-function Routines() {
+function Routines({ onNavigate }) {
   const {
     routines,
     addRoutine,
@@ -619,10 +773,17 @@ function Routines() {
   } = useRoutines();
   const { exercises: libraryExercises, trainings } = useTrainingData();
 
-  const [modalMode, setModalMode] = useState(null);
-  const [selectedRoutine, setSelectedRoutine] = useState(null);
+  const [libraryDraft] = useState(readRoutineLibraryDraft);
+  const [modalMode, setModalMode] = useState(() =>
+    libraryDraft ? (libraryDraft.mode === "create" ? "create" : "edit") : null,
+  );
+  const [selectedRoutine, setSelectedRoutine] = useState(
+    () => libraryDraft?.routine || null,
+  );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [canReturnToTraining, setCanReturnToTraining] =
+    useState(hasTrainingReturn);
 
   const availableExercises = useMemo(() => {
     const seen = new Set();
@@ -786,12 +947,23 @@ function Routines() {
   const closeModal = () => {
     setSelectedRoutine(null);
     setModalMode(null);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(ROUTINE_LIBRARY_DRAFT_KEY);
+    }
   };
 
   const handleSave = (routine) => {
     if (modalMode === "create") addRoutine(routine);
     if (modalMode === "edit") updateRoutine(routine.id, routine);
     closeModal();
+  };
+
+  const handleReturnToTraining = () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
+    }
+    setCanReturnToTraining(false);
+    onNavigate?.("registrar");
   };
 
   return (
@@ -809,10 +981,22 @@ function Routines() {
               Crea rutinas simples y manten el orden real de entrenamiento.
             </p>
           </div>
-          <Button onClick={openCreate} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
-            <span>Nueva rutina</span>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {canReturnToTraining && (
+              <Button
+                variant="outline"
+                onClick={handleReturnToTraining}
+                className="w-full sm:w-auto"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Volver al entrenamiento</span>
+              </Button>
+            )}
+            <Button onClick={openCreate} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4" />
+              <span>Nueva rutina</span>
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -1001,6 +1185,11 @@ function Routines() {
           availableExercises={availableExercises}
           onSave={handleSave}
           onClose={closeModal}
+          onOpenLibrary={() => {
+            setSelectedRoutine(null);
+            setModalMode(null);
+            onNavigate?.("library");
+          }}
         />
       )}
     </>

@@ -18,6 +18,27 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
+
+const readRoutineDraftMeta = () => {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(ROUTINE_LIBRARY_DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    return draft?.routine
+      ? {
+          name:
+            draft.sourceRoutineName ||
+            draft.routine.name ||
+            "rutina en edicion",
+        }
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 function ExerciseLibrary({ onNavigate }) {
   const {
     exercises,
@@ -32,6 +53,8 @@ function ExerciseLibrary({ onNavigate }) {
   const [branchFilter, setBranchFilter] = useState("todos");
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
+  const [routineDraftMeta] = useState(readRoutineDraftMeta);
+  const hasRoutineDraft = Boolean(routineDraftMeta);
 
   const filteredExercises = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -92,6 +115,10 @@ function ExerciseLibrary({ onNavigate }) {
     setActiveModal("add");
   };
 
+  const handleReturnToRoutine = () => {
+    onNavigate?.("rutinas");
+  };
+
   const handleEdit = (exercise) => {
     setSelectedExercise(exercise);
     setActiveModal("edit");
@@ -107,7 +134,7 @@ function ExerciseLibrary({ onNavigate }) {
     setActiveModal("delete");
   };
 
-  const handleSaveExercise = (exercise) => {
+  const handleSaveExercise = async (exercise) => {
     const payload = {
       id: exercise.id || slugify(exercise.name),
       name: exercise.name,
@@ -121,9 +148,9 @@ function ExerciseLibrary({ onNavigate }) {
     };
 
     if (exercise.id) {
-      updateExerciseMeta(exercise.id, payload);
+      await updateExerciseMeta(exercise.id, payload);
     } else {
-      addExercise(payload);
+      await addExercise(payload);
     }
 
     setActiveModal(null);
@@ -171,9 +198,11 @@ function ExerciseLibrary({ onNavigate }) {
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto"
-                    onClick={() => onNavigate("rutinas")}
+                    onClick={handleReturnToRoutine}
                   >
-                    Ir a rutinas
+                    {hasRoutineDraft
+                      ? `Volver a ${routineDraftMeta.name}`
+                      : "Ir a rutinas"}
                   </Button>
                 )}
               </div>

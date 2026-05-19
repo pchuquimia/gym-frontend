@@ -1,6 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDown, ArrowUp, Check, Flag, MoreVertical } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ClipboardList,
+  Flag,
+  MoreVertical,
+} from "lucide-react";
 import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
@@ -22,6 +29,7 @@ const getLocalISODate = (value) => {
 };
 const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
+const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -117,7 +125,11 @@ const normalizeMovementMode = (value) =>
 const getMovementHistoryKey = (key, movementMode = "bilateral") =>
   `${key}::${normalizeMovementMode(movementMode)}`;
 
-const getPositionHistoryKey = (key, movementMode = "bilateral", order = null) =>
+const getPositionHistoryKey = (
+  key,
+  movementMode = "bilateral",
+  order = null,
+) =>
   order ? `${getMovementHistoryKey(key, movementMode)}::order-${order}` : null;
 
 const getExerciseOrder = (exercise = {}, fallbackIndex = null) => {
@@ -297,7 +309,12 @@ const buildVariantList = (baseExercise, library = []) => {
       image: entry.image || meta.image || "",
       imagePublicId: entry.imagePublicId || meta.imagePublicId || "",
       supportsUnilateral: Boolean(
-        entry.supportsUnilateral || meta.supportsUnilateral,
+        entry.supportsUnilateral ||
+        entry.movementMode === "unilateral" ||
+        meta.supportsUnilateral,
+      ),
+      movementMode: normalizeMovementMode(
+        entry.movementMode || meta.movementMode,
       ),
     });
   };
@@ -318,21 +335,39 @@ const findRoutineSlot = (routineExercises = [], exercise = {}) => {
   );
 };
 
+const findRoutineMovementSource = (routineExercises = [], exercise = {}) => {
+  if (!Array.isArray(routineExercises) || !routineExercises.length) return null;
+  const keys = getExerciseKeys(exercise);
+  if (!keys.length) return null;
+  const keySet = new Set(keys);
+  for (const item of routineExercises) {
+    if (getExerciseKeys(item).some((key) => keySet.has(key))) return item;
+    const alternative = (item.alternatives || []).find((alt) =>
+      getExerciseKeys(alt).some((key) => keySet.has(key)),
+    );
+    if (alternative) return alternative;
+  }
+  return null;
+};
+
 const getRoutineMovementConfig = (routineExercises = [], exercise = {}) => {
-  const slot = findRoutineSlot(routineExercises, exercise);
-  if (!slot) {
+  const source = findRoutineMovementSource(routineExercises, exercise);
+  if (!source) {
     return {
       supportsUnilateral: Boolean(exercise.supportsUnilateral),
       movementMode: normalizeMovementMode(exercise.movementMode),
     };
   }
   const supportsUnilateral = Boolean(
-    slot.supportsUnilateral || exercise.supportsUnilateral,
+    source.supportsUnilateral ||
+    source.movementMode === "unilateral" ||
+    exercise.supportsUnilateral ||
+    exercise.movementMode === "unilateral",
   );
   return {
     supportsUnilateral,
     movementMode: supportsUnilateral
-      ? normalizeMovementMode(exercise.movementMode || slot.movementMode)
+      ? normalizeMovementMode(source.movementMode || exercise.movementMode)
       : "bilateral",
   };
 };
@@ -408,7 +443,9 @@ const computeLatestSeriesTypeFromHistory = (
       if (!rawType) return;
       const type = normalizeSeriesType(rawType);
       const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
+      const keys = positionKeys.length
+        ? positionKeys
+        : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       keys.forEach((key) => {
         const current = map.get(key);
@@ -428,7 +465,9 @@ const computeBestFromHistory = (trainings = []) => {
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex, exIdx) => {
       const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
+      const keys = positionKeys.length
+        ? positionKeys
+        : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
@@ -464,7 +503,9 @@ const computeBestBySetFromHistory = (trainings = []) => {
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex, exIdx) => {
       const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
+      const keys = positionKeys.length
+        ? positionKeys
+        : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -504,7 +545,9 @@ const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
     if (cutoffTs && ts > cutoffTs) return;
     (tr.exercises || []).forEach((ex, exIdx) => {
       const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length ? positionKeys : getMovementHistoryKeys(ex);
+      const keys = positionKeys.length
+        ? positionKeys
+        : getMovementHistoryKeys(ex);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -826,15 +869,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         (nameKey ? trainingById.get(nameKey) : null);
       const supportsUnilateral = Boolean(
         routineSlot?.supportsUnilateral ||
+        routineSlot?.movementMode === "unilateral" ||
         ex.supportsUnilateral ||
+        ex.movementMode === "unilateral" ||
         activeVariant?.supportsUnilateral ||
         meta.supportsUnilateral,
       );
       const movementMode = supportsUnilateral
         ? normalizeMovementMode(
-            trainingEx?.movementMode ||
-              ex.movementMode ||
-              routineSlot?.movementMode,
+            routineSlot?.movementMode ||
+              trainingEx?.movementMode ||
+              ex.movementMode,
           )
         : "bilateral";
       const baseHistoryKeys = [id, nameKey]
@@ -1163,7 +1208,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
       const currentIndex = group.items.findIndex((ex) => ex.id === exerciseId);
       const nextIndex = currentIndex + direction;
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= group.items.length) {
+      if (
+        currentIndex < 0 ||
+        nextIndex < 0 ||
+        nextIndex >= group.items.length
+      ) {
         return prev;
       }
 
@@ -1171,7 +1220,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ...entry,
         items: [...entry.items],
       }));
-      const editableGroup = nextGroups.find((entry) => entry.name === group.name);
+      const editableGroup = nextGroups.find(
+        (entry) => entry.name === group.name,
+      );
       const [item] = editableGroup.items.splice(currentIndex, 1);
       editableGroup.items.splice(nextIndex, 0, item);
 
@@ -1540,8 +1591,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranch]);
 
-  // Guardar snapshot local del entrenamiento en curso
-  useEffect(() => {
+  const persistTrainingSnapshot = useCallback(() => {
     if (typeof localStorage === "undefined") return;
     if (!selectedRoutineId) return;
     try {
@@ -1571,6 +1621,26 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     hasStarted,
     exercises,
   ]);
+
+  // Guardar snapshot local del entrenamiento en curso
+  useEffect(() => {
+    persistTrainingSnapshot();
+  }, [persistTrainingSnapshot]);
+
+  const handleOpenRoutinesFromTraining = useCallback(() => {
+    persistTrainingSnapshot();
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(
+        TRAINING_ROUTINES_RETURN_KEY,
+        JSON.stringify({
+          from: "registrar",
+          selectedRoutineId,
+          savedAt: Date.now(),
+        }),
+      );
+    }
+    onNavigate?.("rutinas");
+  }, [selectedRoutineId, persistTrainingSnapshot, onNavigate]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -1646,6 +1716,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchLocked(false);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
+      localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
     }
@@ -1680,6 +1751,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     branchChangeReason.current = "user";
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
+      localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
     }
     setSelectedBranch(normalizeBranch(value));
   };
@@ -1689,6 +1761,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
       localStorage.removeItem(SNAPSHOT_KEY);
+      localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
     }
     if (timerRef.current) clearInterval(timerRef.current);
     setEditingId("");
@@ -2527,6 +2600,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </div>
               </div>
               <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={handleOpenRoutinesFromTraining}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  <span>Rutinas</span>
+                </Button>
                 {showFinishButton && (
                   <Button
                     className="rounded-full"
@@ -2577,6 +2658,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 />
               </button>
               <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full px-3 md:hidden"
+                  onClick={handleOpenRoutinesFromTraining}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  <span>Rutinas</span>
+                </Button>
                 <Button
                   size="sm"
                   className="rounded-full px-4"
@@ -2700,7 +2790,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         size="sm"
                         variant={isOrderingExercises ? "default" : "outline"}
                         className="md:hidden rounded-full"
-                        onClick={() => setIsOrderingExercises((value) => !value)}
+                        onClick={() =>
+                          setIsOrderingExercises((value) => !value)
+                        }
                       >
                         {isOrderingExercises ? (
                           <>
@@ -2886,81 +2978,81 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
                   <div className="hidden md:block space-y-4">
                     {groupedExercises.map(([muscle, items]) => (
-                    <div key={muscle} className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                        <div>
-                          <p className="text-xl font-semibold text-[color:var(--text)]">
-                            {muscle}
-                          </p>
-                          <p className="text-xs text-[color:var(--text-muted)]">
-                            {selectorRoutine?.name || "Rutina sin nombre"}
-                          </p>
+                      <div key={muscle} className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                          <div>
+                            <p className="text-xl font-semibold text-[color:var(--text)]">
+                              {muscle}
+                            </p>
+                            <p className="text-xs text-[color:var(--text-muted)]">
+                              {selectorRoutine?.name || "Rutina sin nombre"}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="text-[11px]">
+                            {items.length} ejercicios
+                          </Badge>
                         </div>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {items.length} ejercicios
-                        </Badge>
-                      </div>
-                      <AnimatePresence>
-                        {items.map((ex) => {
-                          const movementConfig = getRoutineMovementConfig(
-                            selectedRoutine?.raw?.exercises || [],
-                            ex,
-                          );
-                          return (
-                            <ExerciseCard
-                              key={ex.id}
-                              exercise={{
-                                ...ex,
-                                supportsUnilateral:
-                                  movementConfig.supportsUnilateral,
-                                movementMode: movementConfig.movementMode,
-                              }}
-                              onAddSet={() => handleAddSet(ex.id)}
-                              onUpdateEntry={(setId, entryId, field, value) =>
-                                handleUpdateEntry(
-                                  ex.id,
-                                  setId,
-                                  entryId,
-                                  field,
-                                  value,
-                                )
-                              }
-                              onToggleEntry={(setId, entryId) =>
-                                handleToggleEntry(ex.id, setId, entryId)
-                              }
-                              onRemoveSet={(setId) =>
-                                handleRemoveSet(ex.id, setId)
-                              }
-                              onRemoveExercise={() =>
-                                handleRemoveExercise(ex.id)
-                              }
-                              onSeriesTypeChange={(value) =>
-                                handleSeriesTypeChange(ex.id, value)
-                              }
-                              onMovementModeChange={(value) =>
-                                handleMovementModeChange(ex.id, value)
-                              }
-                              onSwapVariant={(direction) =>
-                                handleSwapVariant(ex.id, direction)
-                              }
-                              onViewTracking={() => {
-                                setTrackingExerciseId(ex.id);
-                                setShowTracking(true);
-                              }}
-                              onViewHistory={() => {
-                                if (typeof localStorage !== "undefined")
-                                  localStorage.setItem(
-                                    "last_exercise_id",
+                        <AnimatePresence>
+                          {items.map((ex) => {
+                            const movementConfig = getRoutineMovementConfig(
+                              selectedRoutine?.raw?.exercises || [],
+                              ex,
+                            );
+                            return (
+                              <ExerciseCard
+                                key={ex.id}
+                                exercise={{
+                                  ...ex,
+                                  supportsUnilateral:
+                                    movementConfig.supportsUnilateral,
+                                  movementMode: movementConfig.movementMode,
+                                }}
+                                onAddSet={() => handleAddSet(ex.id)}
+                                onUpdateEntry={(setId, entryId, field, value) =>
+                                  handleUpdateEntry(
                                     ex.id,
-                                  );
-                                if (typeof onNavigate === "function")
-                                  onNavigate("ejercicio_analitica");
-                              }}
-                            />
-                          );
-                        })}
-                      </AnimatePresence>
-                    </div>
+                                    setId,
+                                    entryId,
+                                    field,
+                                    value,
+                                  )
+                                }
+                                onToggleEntry={(setId, entryId) =>
+                                  handleToggleEntry(ex.id, setId, entryId)
+                                }
+                                onRemoveSet={(setId) =>
+                                  handleRemoveSet(ex.id, setId)
+                                }
+                                onRemoveExercise={() =>
+                                  handleRemoveExercise(ex.id)
+                                }
+                                onSeriesTypeChange={(value) =>
+                                  handleSeriesTypeChange(ex.id, value)
+                                }
+                                onMovementModeChange={(value) =>
+                                  handleMovementModeChange(ex.id, value)
+                                }
+                                onSwapVariant={(direction) =>
+                                  handleSwapVariant(ex.id, direction)
+                                }
+                                onViewTracking={() => {
+                                  setTrackingExerciseId(ex.id);
+                                  setShowTracking(true);
+                                }}
+                                onViewHistory={() => {
+                                  if (typeof localStorage !== "undefined")
+                                    localStorage.setItem(
+                                      "last_exercise_id",
+                                      ex.id,
+                                    );
+                                  if (typeof onNavigate === "function")
+                                    onNavigate("ejercicio_analitica");
+                                }}
+                              />
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
                     ))}
                   </div>
 
