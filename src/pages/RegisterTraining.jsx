@@ -420,6 +420,82 @@ const pickMapKey = (map, keys = []) => {
   return keys.find((key) => key && map.has(key)) || null;
 };
 
+const getHistoryLookupKeys = (exercise = {}, fallbackIndex = null) =>
+  Array.from(
+    new Set([
+      ...getPositionHistoryKeys(exercise, fallbackIndex),
+      ...getMovementHistoryKeys(exercise),
+    ]),
+  );
+
+const seedEntriesFromHistory = ({
+  setId,
+  seriesType,
+  sourceEntries = [],
+  sourceDate = null,
+  previousByIndex = [],
+  perSet = null,
+  best = null,
+  fallbackPrev = "Sin referencia",
+}) => {
+  const count = getSeriesCount(seriesType);
+  return Array.from({ length: count }).map((_, idx) => {
+    const previous = previousByIndex[idx] || null;
+    const sourceEntry = sourceEntries[idx] || null;
+    const sourceWeight = parseDecimal(
+      sourceEntry?.weightKg ?? sourceEntry?.weight ?? sourceEntry?.kg,
+    );
+    const sourceReps = parseDecimal(sourceEntry?.reps);
+    const hasSource = sourceWeight !== null || sourceReps !== null;
+    const sourceMeta = hasSource
+      ? { weight: sourceWeight, reps: sourceReps, date: sourceDate }
+      : null;
+    const weight =
+      sourceWeight ??
+      previous?.weight ??
+      (idx === 0 ? (perSet?.weight ?? best?.weight) : "");
+    const reps =
+      sourceReps ??
+      previous?.reps ??
+      (idx === 0 ? (perSet?.reps ?? best?.reps) : "");
+    return {
+      id: `${setId}-entry-${idx}`,
+      previousText:
+        sourceEntry?.previousText ||
+        buildPrevText(sourceMeta || previous, fallbackPrev),
+      kg: weight ?? "",
+      reps: reps ?? "",
+      done: false,
+    };
+  });
+};
+
+const findLatestHistoryExerciseSnapshot = (
+  trainings = [],
+  historyKeys = [],
+  movementMode = "bilateral",
+) => {
+  const targetKeys = new Set(historyKeys.filter(Boolean));
+  if (!targetKeys.size) return null;
+  const targetMode = normalizeMovementMode(movementMode);
+  let latest = null;
+  trainings.forEach((tr) => {
+    const date = tr.date || tr.createdAt;
+    const ts = getDateTimestamp(date);
+    (tr.exercises || []).forEach((ex, exIdx) => {
+      if (normalizeMovementMode(ex?.movementMode) !== targetMode) return;
+      const matches = getHistoryLookupKeys(ex, exIdx).some((key) =>
+        targetKeys.has(key),
+      );
+      if (!matches) return;
+      if (!latest || ts > latest.ts) {
+        latest = { exercise: ex, date, ts };
+      }
+    });
+  });
+  return latest;
+};
+
 const getDateTimestamp = (value) => {
   if (!value) return 0;
   const normalized = value.length <= 10 ? `${value}T00:00:00` : value;
@@ -442,10 +518,7 @@ const computeLatestSeriesTypeFromHistory = (
         inferSeriesTypeFromSets(ex?.sets);
       if (!rawType) return;
       const type = normalizeSeriesType(rawType);
-      const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length
-        ? positionKeys
-        : getMovementHistoryKeys(ex);
+      const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
       keys.forEach((key) => {
         const current = map.get(key);
@@ -464,10 +537,7 @@ const computeBestFromHistory = (trainings = []) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length
-        ? positionKeys
-        : getMovementHistoryKeys(ex);
+      const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
@@ -502,10 +572,7 @@ const computeBestBySetFromHistory = (trainings = []) => {
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length
-        ? positionKeys
-        : getMovementHistoryKeys(ex);
+      const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -544,10 +611,7 @@ const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
     const ts = getDateTimestamp(date);
     if (cutoffTs && ts > cutoffTs) return;
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const positionKeys = getPositionHistoryKeys(ex, exIdx);
-      const keys = positionKeys.length
-        ? positionKeys
-        : getMovementHistoryKeys(ex);
+      const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -877,9 +941,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
       const movementMode = supportsUnilateral
         ? normalizeMovementMode(
-            routineSlot?.movementMode ||
-              trainingEx?.movementMode ||
-              ex.movementMode,
+            trainingEx?.movementMode ||
+              ex.movementMode ||
+              routineSlot?.movementMode,
           )
         : "bilateral";
       const baseHistoryKeys = [id, nameKey]
@@ -1087,13 +1151,31 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         .find(Boolean);
       const historySeriesType = seriesTypeEntry?.type || null;
       const inferredSeriesType = inferSeriesTypeFromSets(ex.sets);
+      const shouldReloadInputs = Boolean(ex.reloadMovementHistory);
+      const latestHistory = shouldReloadInputs
+        ? findLatestHistoryExerciseSnapshot(
+            historyTrainings,
+            historyKeys,
+            movementMode,
+          )
+        : null;
+      const latestExercise = latestHistory?.exercise || null;
+      const latestSeriesType =
+        latestExercise?.seriesType ||
+        latestExercise?.sets?.[0]?.seriesType ||
+        inferSeriesTypeFromSets(latestExercise?.sets);
       const seriesType = normalizeSeriesType(
-        ex.seriesType ||
-          (inferredSeriesType && inferredSeriesType !== "serie"
-            ? inferredSeriesType
-            : null) ||
-          historySeriesType ||
-          inferredSeriesType,
+        shouldReloadInputs
+          ? latestSeriesType ||
+              historySeriesType ||
+              ex.seriesType ||
+              inferredSeriesType
+          : ex.seriesType ||
+              (inferredSeriesType && inferredSeriesType !== "serie"
+                ? inferredSeriesType
+                : null) ||
+              historySeriesType ||
+              inferredSeriesType,
       );
       const prSummary = best
         ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
@@ -1101,13 +1183,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const prText = best
         ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : ex.prText || "Sin referencia";
-      const sets = (ex.sets || []).map((set, sIdx) => {
-        const setId = set.id || `${id}-set-${sIdx}`;
+      const sourceSets =
+        shouldReloadInputs && latestExercise?.sets?.length
+          ? latestExercise.sets
+          : ex.sets || [];
+      const sets = sourceSets.map((set, sIdx) => {
+        const setId = `${id}-${movementMode}-set-${sIdx}`;
         const perSet = bestBySet[sIdx];
         const perSetSummary = perSet
           ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
           : set.prSummary || "";
-        const recentEntries = recentBySet[sIdx] || [];
+        const recentEntries =
+          shouldReloadInputs && !latestExercise ? [] : recentBySet[sIdx] || [];
         const previousByIndex = recentEntries.map((slot) => slot?.latest);
         const compareByIndex = recentEntries.map((slot) => slot?.previous);
         const fallbackPrev = perSet
@@ -1115,31 +1202,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : best
             ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
             : "Sin referencia";
-        const shouldReloadInputs = Boolean(ex.reloadMovementHistory);
+        const sourceEntries = Array.isArray(set.entries)
+          ? set.entries
+          : set.entries && typeof set.entries === "object"
+            ? [set.entries]
+            : set.weightKg != null || set.reps != null
+              ? [set]
+              : [];
         const seedEntries = shouldReloadInputs
-          ? [
-              {
-                id: set.entries?.[0]?.id || `${setId}-entry-0`,
-                previousText: buildPrevText(previousByIndex[0], fallbackPrev),
-                kg:
-                  seriesType === "serie"
-                    ? perSet
-                      ? perSet.weight
-                      : best
-                        ? best.weight
-                        : ""
-                    : "",
-                reps:
-                  seriesType === "serie"
-                    ? perSet
-                      ? perSet.reps
-                      : best
-                        ? best.reps
-                        : ""
-                    : "",
-                done: false,
-              },
-            ]
+          ? seedEntriesFromHistory({
+              setId,
+              seriesType,
+              sourceEntries,
+              sourceDate: latestHistory?.date,
+              previousByIndex,
+              perSet: latestExercise ? perSet : null,
+              best: latestExercise ? best : null,
+              fallbackPrev,
+            })
           : Array.isArray(set.entries) && set.entries.length
             ? set.entries
             : [
@@ -1154,6 +1234,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         return {
           ...set,
           id: setId,
+          done: false,
           prSummary: perSetSummary,
           entries: normalizeEntries({
             entries: seedEntries,
@@ -1256,7 +1337,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
         meta: false,
         routineId: routine.id,
       });
@@ -1447,7 +1528,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           ...ex,
           supportsUnilateral: config.supportsUnilateral,
           movementMode: config.supportsUnilateral
-            ? config.movementMode
+            ? normalizeMovementMode(ex.movementMode || config.movementMode)
             : "bilateral",
         };
       }),
@@ -1840,12 +1921,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ...ex,
               movementMode: nextMode,
               reloadMovementHistory: true,
-              seriesType: "serie",
               sets: ex.sets.map((set) => ({
                 ...set,
                 entries: normalizeEntries({
                   entries: Array.isArray(set.entries) ? set.entries : [],
-                  seriesType: "serie",
+                  seriesType: ex.seriesType,
                   setId: set.id,
                   fallbackPrev:
                     set.entries?.[0]?.previousText ||
@@ -1866,8 +1946,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             }
           : ex,
       );
+      const exerciseWithClearedRows = nextList.map((ex) =>
+        ex.id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets.map((set) => ({
+                ...set,
+                entries: [],
+              })),
+            }
+          : ex,
+      );
       return applyHistoryToExercises(
-        nextList,
+        exerciseWithClearedRows,
         historyBest,
         historyBestBySet,
         historyRecentBySet,
@@ -2919,7 +3010,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                     ...ex,
                                     supportsUnilateral:
                                       movementConfig.supportsUnilateral,
-                                    movementMode: movementConfig.movementMode,
+                                    movementMode:
+                                      ex.movementMode ||
+                                      movementConfig.movementMode,
                                   }}
                                   onAddSet={() => handleAddSet(ex.id)}
                                   onUpdateEntry={(
@@ -3005,7 +3098,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                   ...ex,
                                   supportsUnilateral:
                                     movementConfig.supportsUnilateral,
-                                  movementMode: movementConfig.movementMode,
+                                  movementMode:
+                                    ex.movementMode ||
+                                    movementConfig.movementMode,
                                 }}
                                 onAddSet={() => handleAddSet(ex.id)}
                                 onUpdateEntry={(setId, entryId, field, value) =>

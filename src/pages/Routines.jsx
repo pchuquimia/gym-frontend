@@ -5,6 +5,9 @@ import {
   CalendarDays,
   Copy,
   Dumbbell,
+  Filter,
+  Layers3,
+  MapPin,
   Pencil,
   Plus,
   RotateCcw,
@@ -375,12 +378,13 @@ function RoutineModal({
   return (
     <Modal
       title={mode === "create" ? "Nueva rutina" : "Editar rutina"}
-      subtitle="Arma el orden real de entrenamiento y agrega solo lo necesario."
+      subtitle="Define la sede, ordena ejercicios y guarda alternativas por movimiento."
       onClose={onClose}
+      size="wide"
       footer={
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-center text-xs text-[color:var(--text-muted)] sm:text-left">
-            {exercises.length} ejercicios
+            {exercises.length} ejercicios en {branchLabel(branch)}
           </span>
           <div className="grid grid-cols-3 gap-2 sm:flex">
             <Button
@@ -388,6 +392,7 @@ function RoutineModal({
               className="px-2 text-xs sm:px-4 sm:text-sm"
               onClick={handleOpenLibrary}
             >
+              <Dumbbell className="h-4 w-4" />
               Biblioteca
             </Button>
             <Button
@@ -408,42 +413,59 @@ function RoutineModal({
       }
     >
       <div className="max-h-[72vh] overflow-y-auto pb-3 pr-1 text-[color:var(--text)] sm:max-h-[76vh]">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
-          <div className="space-y-2">
-            <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-2 sm:grid-cols-[minmax(0,1fr)_220px]">
-              <input
-                className="h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="Nombre de rutina"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <div className="grid grid-cols-2 gap-1">
-                {BRANCH_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setBranch(option)}
-                    className={`h-10 rounded-lg border px-2 text-xs font-semibold transition ${
-                      branch === option
-                        ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
-                        : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    {branchLabel(option)}
-                  </button>
-                ))}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+          <div className="space-y-3">
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
+                <label className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Nombre
+                  </span>
+                  <input
+                    className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Nombre de rutina"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </label>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Sede
+                  </span>
+                  <div className="grid grid-cols-2 gap-1">
+                    {BRANCH_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setBranch(option)}
+                        className={`h-11 rounded-lg border px-2 text-xs font-semibold transition ${
+                          branch === option
+                            ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
+                            : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {branchLabel(option)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               {error && (
-                <p className="text-xs text-red-500 sm:col-span-2">{error}</p>
+                <p className="mt-2 text-xs text-red-500">{error}</p>
               )}
             </div>
 
             <div className="flex items-center justify-between px-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                Ejercicios
-              </p>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Orden de la rutina
+                </p>
+                <p className="text-[11px] text-[color:var(--text-muted)]">
+                  {exercises.length} ejercicios seleccionados
+                </p>
+              </div>
               <Badge variant="secondary" className="text-[10px]">
-                {exercises.length}
+                {exercises.reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} series
               </Badge>
             </div>
 
@@ -451,9 +473,9 @@ function RoutineModal({
               {groupedSelected.map(([muscle, list]) => (
                 <div
                   key={muscle}
-                  className="overflow-hidden rounded-lg border border-[color:var(--border)]"
+                  className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]"
                 >
-                  <div className="flex items-center justify-between bg-[color:var(--card)] px-3 py-1.5">
+                  <div className="flex items-center justify-between bg-[color:var(--card)] px-3 py-2">
                     <p className="text-xs font-semibold">{muscle}</p>
                     <span className="text-[11px] text-[color:var(--text-muted)]">
                       {list.length}
@@ -479,10 +501,10 @@ function RoutineModal({
                       return (
                         <div
                           key={`${ex.exerciseId}-${ex.idx}`}
-                          className="bg-[color:var(--bg)] px-2 py-2"
+                          className="bg-[color:var(--bg)] px-3 py-3"
                         >
-                          <div className="grid grid-cols-[34px_minmax(0,1fr)_44px_auto] items-center gap-2">
-                            <div className="h-8 w-8 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
+                          <div className="grid grid-cols-[40px_minmax(0,1fr)_56px] items-center gap-2 sm:grid-cols-[40px_minmax(0,1fr)_56px_auto]">
+                            <div className="h-10 w-10 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
                               {thumb ? (
                                 <img
                                   src={thumb}
@@ -498,9 +520,14 @@ function RoutineModal({
                             </div>
 
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold leading-tight">
+                              <div className="flex items-center gap-2">
+                                <span className="shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-1.5 py-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                                  {ex.idx + 1}
+                                </span>
+                                <p className="truncate text-sm font-semibold leading-tight">
                                 {ex.name}
-                              </p>
+                                </p>
+                              </div>
                               {(ex.alternatives || []).length > 0 && (
                                 <p className="truncate text-[10px] text-[color:var(--text-muted)]">
                                   {(ex.alternatives || [])
@@ -510,26 +537,32 @@ function RoutineModal({
                               )}
                             </div>
 
-                            <input
-                              type="number"
-                              min="1"
-                              aria-label="Series"
-                              className="h-8 w-11 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-1 text-center text-xs text-[color:var(--text)]"
-                              value={ex.sets}
-                              onChange={(event) =>
-                                updateExercise(ex.idx, {
-                                  sets: event.target.value,
-                                })
-                              }
-                            />
+                            <label className="space-y-0.5">
+                              <span className="block text-center text-[9px] font-semibold uppercase text-[color:var(--text-muted)]">
+                                Sets
+                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                aria-label="Series"
+                                className="h-8 w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-1 text-center text-xs text-[color:var(--text)]"
+                                value={ex.sets}
+                                onChange={(event) =>
+                                  updateExercise(ex.idx, {
+                                    sets: event.target.value,
+                                  })
+                                }
+                              />
+                            </label>
 
-                            <div className="flex items-center gap-0.5">
+                            <div className="col-span-3 flex items-center justify-end gap-0.5 sm:col-span-1">
                               <Button
                                 size="icon"
                                 variant="ghost"
                                 className="h-8 w-8"
                                 disabled={ex.idx === 0}
                                 onClick={() => moveExercise(ex.idx, -1)}
+                                aria-label="Subir ejercicio"
                               >
                                 <ArrowUp className="h-3.5 w-3.5" />
                               </Button>
@@ -539,6 +572,7 @@ function RoutineModal({
                                 className="h-8 w-8"
                                 disabled={ex.idx === exercises.length - 1}
                                 onClick={() => moveExercise(ex.idx, 1)}
+                                aria-label="Bajar ejercicio"
                               >
                                 <ArrowDown className="h-3.5 w-3.5" />
                               </Button>
@@ -547,13 +581,14 @@ function RoutineModal({
                                 variant="ghost"
                                 className="h-8 w-8 text-red-600"
                                 onClick={() => removeExercise(ex.idx)}
+                                aria-label="Quitar ejercicio"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </div>
 
-                          <div className="mt-1.5 grid gap-1.5 sm:grid-cols-[96px_minmax(0,1fr)_150px]">
+                          <div className="mt-3 grid gap-2 md:grid-cols-[104px_minmax(0,1fr)_180px]">
                             <button
                               type="button"
                               onClick={() =>
@@ -561,7 +596,7 @@ function RoutineModal({
                                   isExtra: !ex.isExtra,
                                 })
                               }
-                              className={`h-8 rounded-md border px-2 text-[11px] font-semibold ${
+                              className={`h-9 rounded-md border px-2 text-[11px] font-semibold ${
                                 ex.isExtra
                                   ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                                   : "border-[color:var(--border)] text-[color:var(--text-muted)]"
@@ -570,7 +605,7 @@ function RoutineModal({
                               {ex.isExtra ? "Extra" : "Principal"}
                             </button>
 
-                            <div className="grid grid-cols-3 overflow-hidden rounded-md border border-[color:var(--border)] text-[10px] font-semibold">
+                            <div className="grid grid-cols-3 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)] text-[10px] font-semibold">
                               {movementOptions.map((option) => {
                                 const active =
                                   movementOptionFrom(ex) === option.id;
@@ -584,7 +619,7 @@ function RoutineModal({
                                         applyMovementOption(option.id),
                                       )
                                     }
-                                    className={`min-w-0 px-1 py-1.5 transition ${
+                                    className={`min-w-0 px-1 py-2 transition ${
                                       active
                                         ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
                                         : "text-[color:var(--text-muted)]"
@@ -596,30 +631,33 @@ function RoutineModal({
                               })}
                             </div>
 
-                            <select
-                              defaultValue=""
-                              className="h-8 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 text-[11px] text-[color:var(--text)]"
-                              onChange={(event) => {
-                                if (!event.target.value) return;
-                                addAlternative(ex.idx, event.target.value);
-                                event.target.value = "";
-                              }}
-                            >
-                              <option value="">Alternativa</option>
-                              {alternativeOptions.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.name}
-                                </option>
-                              ))}
-                            </select>
+                            <label className="relative">
+                              <span className="sr-only">Alternativa</span>
+                              <select
+                                defaultValue=""
+                                className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 pr-7 text-[11px] text-[color:var(--text)]"
+                                onChange={(event) => {
+                                  if (!event.target.value) return;
+                                  addAlternative(ex.idx, event.target.value);
+                                  event.target.value = "";
+                                }}
+                              >
+                                <option value="">Alternativa</option>
+                                {alternativeOptions.map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                           </div>
 
                           {(ex.alternatives || []).length > 0 && (
-                            <div className="mt-1.5 grid gap-1">
+                            <div className="mt-2 grid gap-1.5">
                               {ex.alternatives.map((alt) => (
                                 <div
                                   key={alt.exerciseId}
-                                  className="grid grid-cols-[minmax(0,1fr)_140px_auto] items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1"
+                                  className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(130px,170px)_auto] sm:items-center"
                                 >
                                   <span className="truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
                                     {alt.name}
@@ -639,7 +677,7 @@ function RoutineModal({
                                               applyMovementOption(option.id),
                                             )
                                           }
-                                          className={`px-1 py-0.5 ${
+                                          className={`px-1 py-1 ${
                                             active
                                               ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
                                               : "text-[color:var(--text-muted)]"
@@ -652,13 +690,13 @@ function RoutineModal({
                                   </div>
                                   <button
                                     type="button"
-                                    className="px-1 text-[10px] text-red-500"
+                                    className="grid h-7 w-7 place-items-center rounded-md text-xs text-red-500 hover:bg-red-500/10"
                                     onClick={() =>
                                       removeAlternative(ex.idx, alt.exerciseId)
                                     }
                                     aria-label={`Quitar ${alt.name}`}
                                   >
-                                    x
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               ))}
@@ -679,11 +717,11 @@ function RoutineModal({
             </div>
           </div>
 
-          <div className="space-y-2 lg:sticky lg:top-4 lg:self-start">
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2">
+          <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Agregar
+                  Agregar ejercicio
                 </p>
                 <Button
                   variant="outline"
@@ -691,20 +729,21 @@ function RoutineModal({
                   className="h-8 px-2 text-xs"
                   onClick={handleOpenLibrary}
                 >
+                  <Dumbbell className="h-3.5 w-3.5" />
                   Biblioteca
                 </Button>
               </div>
 
-              <div className="mt-2 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+              <div className="mt-3 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
                 {muscleOptions.map((muscle) => (
                   <button
                     key={muscle}
                     type="button"
                     onClick={() => setSelectedMuscle(muscle)}
-                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
                       selectedMuscle === muscle
                         ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
-                        : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                     }`}
                   >
                     {muscle}
@@ -712,7 +751,7 @@ function RoutineModal({
                 ))}
               </div>
 
-              <div className="relative mt-2">
+              <div className="relative mt-3">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-muted)]" />
                 <input
                   value={search}
@@ -722,7 +761,7 @@ function RoutineModal({
                 />
               </div>
 
-              <div className="mt-2 grid gap-1.5 sm:max-h-[430px] sm:overflow-y-auto sm:pr-1">
+              <div className="mt-3 grid gap-2 sm:max-h-[430px] sm:overflow-y-auto sm:pr-1">
                 {filteredExercises.map((exercise) => {
                   const thumb = getExerciseImageUrl(exercise, {
                     width: 100,
@@ -733,9 +772,9 @@ function RoutineModal({
                       key={exercise.id}
                       type="button"
                       onClick={() => addExercise(exercise)}
-                      className="grid w-full grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-1.5 text-left transition hover:border-blue-300"
+                      className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-2 text-left transition hover:border-blue-300"
                     >
-                      <div className="h-8 w-8 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
+                      <div className="h-9 w-9 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
                         {thumb ? (
                           <img
                             src={thumb}
@@ -757,7 +796,9 @@ function RoutineModal({
                           {exercise.muscle}
                         </p>
                       </div>
-                      <Plus className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="grid h-7 w-7 place-items-center rounded-md border border-blue-400/30 bg-blue-500/10">
+                        <Plus className="h-3.5 w-3.5 text-blue-500" />
+                      </span>
                     </button>
                   );
                 })}
@@ -980,81 +1021,78 @@ function Routines({ onNavigate }) {
 
   return (
     <>
-      <section className="space-y-3 sm:space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--text-muted)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
               Planificacion
             </p>
             <h1 className="mt-1 text-2xl font-semibold leading-tight text-[color:var(--text)] sm:text-3xl">
               Rutinas
             </h1>
-            <p className="mt-1 max-w-xl text-sm text-[color:var(--text-muted)]">
-              Crea rutinas simples y manten el orden real de entrenamiento.
+            <p className="mt-1 max-w-2xl text-sm text-[color:var(--text-muted)]">
+              Organiza rutinas por sede, orden real de ejercicios y grupos musculares.
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             {canReturnToTraining && (
               <Button
                 variant="outline"
                 onClick={handleReturnToTraining}
-                className="w-full sm:w-auto"
+                className="col-span-2 sm:col-span-1"
               >
                 <RotateCcw className="h-4 w-4" />
-                <span>Volver al entrenamiento</span>
+                <span>Volver</span>
               </Button>
             )}
-            <Button
-              onClick={openCreate}
-              className="hidden w-full sm:inline-flex sm:w-auto"
-            >
+            <Button onClick={openCreate} className="col-span-2 sm:col-span-1">
               <Plus className="h-4 w-4" />
               <span>Nueva rutina</span>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <Card className="p-3 sm:p-4">
-            <p className="text-[11px] text-[color:var(--text-muted)] sm:text-xs">
-              Rutinas
-            </p>
-            <p className="mt-1 text-xl font-semibold sm:text-2xl">
-              {totals.routines}
-            </p>
-          </Card>
-          <Card className="p-3 sm:p-4">
-            <p className="text-[11px] text-[color:var(--text-muted)] sm:text-xs">
-              Ejercicios
-            </p>
-            <p className="mt-1 text-xl font-semibold sm:text-2xl">
-              {totals.exercises}
-            </p>
-          </Card>
-          <Card className="p-3 sm:p-4">
-            <p className="text-[11px] text-[color:var(--text-muted)] sm:text-xs">
-              Semana activa
-            </p>
-            <div className="mt-3 grid grid-cols-7 gap-0.5 sm:gap-1">
-              {weekSummary.map((day) => (
-                <div key={day.key} className="text-center">
-                  <div className="text-[9px] text-[color:var(--text-muted)] sm:text-[10px]">
-                    {day.label}
-                  </div>
-                  <div
-                    className={`mx-auto mt-1 h-2 w-2 rounded-full ${
-                      day.active ? "bg-blue-500" : "bg-[color:var(--border)]"
-                    }`}
-                  />
-                </div>
-              ))}
+        <Card className="p-3 sm:p-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Rutinas
+              </p>
+              <p className="mt-1 text-xl font-semibold">{totals.routines}</p>
             </div>
-          </Card>
-        </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Ejercicios
+              </p>
+              <p className="mt-1 text-xl font-semibold">{totals.exercises}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Sesiones
+              </p>
+              <p className="mt-1 text-xl font-semibold">{totals.sessions}</p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-7 gap-1">
+            {weekSummary.map((day) => (
+              <div key={day.key} className="text-center">
+                <div className="text-[10px] text-[color:var(--text-muted)]">
+                  {day.label}
+                </div>
+                <div
+                  className={`mx-auto mt-1 h-2 w-2 rounded-full ${
+                    day.active ? "bg-blue-500" : "bg-[color:var(--border)]"
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
 
         <Card className="sticky top-2 z-10 p-3 shadow-sm backdrop-blur sm:static sm:p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr,260px] lg:items-center">
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+              <Filter className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
               {[
                 { id: "all", label: "Todas", count: branchCounts.all },
                 {
@@ -1072,13 +1110,13 @@ function Routines({ onNavigate }) {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveBranch(item.id)}
-                  className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                  className={`h-9 shrink-0 rounded-lg border px-3 text-xs font-semibold transition ${
                     activeBranch === item.id
                       ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
-                      : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-blue-300"
                   }`}
                 >
-                  {item.label} · {item.count}
+                  {item.label} <span className="opacity-70">{item.count}</span>
                 </button>
               ))}
             </div>
@@ -1087,34 +1125,34 @@ function Routines({ onNavigate }) {
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar rutina..."
-                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] py-2 pl-9 pr-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                placeholder="Buscar rutina"
+                className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
           </div>
         </Card>
       </section>
 
-      <section className="mt-4 space-y-3 pb-24 sm:mt-5 sm:pb-0">
+      <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
         {routineCards.map((routine) => (
           <Card key={routine.id} className="overflow-hidden p-0">
-            <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div className="min-w-0">
+            <div className="flex h-full flex-col">
+              <div className="min-w-0 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="min-w-0 flex-1 break-words text-base font-semibold leading-snug sm:text-lg">
                     {routine.name}
                   </h2>
-                  <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
+                    <MapPin className="h-3 w-3" />
                     {branchLabel(routine.branch)}
                   </Badge>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-[color:var(--text-muted)] sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+                <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-2 text-center text-xs text-[color:var(--text-muted)]">
                   <span className="inline-flex items-center gap-1">
                     <Dumbbell className="h-3.5 w-3.5" />
-                    {routine.exerciseCount} ejercicios
+                    {routine.exerciseCount}
                   </span>
                   <span className="truncate">{routine.totalSets} series</span>
-                  {routine.extras > 0 && <span>{routine.extras} extras</span>}
                   <span className="inline-flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {formatShortDate(routine.lastDate)}
@@ -1126,13 +1164,18 @@ function Routines({ onNavigate }) {
                       {muscle}
                     </Badge>
                   ))}
+                  {routine.extras > 0 && (
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      {routine.extras} extras
+                    </Badge>
+                  )}
                   {!routine.muscles.length && (
                     <Badge className="text-[10px]">Sin grupos</Badge>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3 lg:justify-end lg:border-t-0 lg:pt-0">
+              <div className="mt-auto flex items-center justify-between gap-3 border-t border-[color:var(--border)] bg-[color:var(--bg)]/60 p-2">
                 <div className="-space-x-2 flex">
                   {routine.preview.map((item, idx) => (
                     <div
@@ -1154,11 +1197,11 @@ function Routines({ onNavigate }) {
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-1 items-center justify-end gap-1 sm:flex-none">
+                <div className="flex flex-1 items-center justify-end gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 sm:flex-none"
+                    className="flex-1"
                     onClick={() => openEdit(routine)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -1188,7 +1231,10 @@ function Routines({ onNavigate }) {
         ))}
 
         {!routineCards.length && (
-          <Card className="p-8 text-center">
+          <Card className="p-8 text-center md:col-span-2 xl:col-span-3">
+            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)]">
+              <Layers3 className="h-5 w-5 text-[color:var(--text-muted)]" />
+            </div>
             <p className="text-sm font-semibold text-[color:var(--text)]">
               No hay rutinas para mostrar.
             </p>
@@ -1201,14 +1247,6 @@ function Routines({ onNavigate }) {
           </Card>
         )}
       </section>
-
-      <Button
-        onClick={openCreate}
-        className="fixed bottom-24 right-4 z-20 h-12 w-12 rounded-full p-0 shadow-lg sm:hidden"
-        aria-label="Nueva rutina"
-      >
-        <Plus className="h-5 w-5" />
-      </Button>
 
       {modalMode && (
         <RoutineModal
