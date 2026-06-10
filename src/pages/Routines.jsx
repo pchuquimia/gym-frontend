@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -26,6 +26,9 @@ const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
+const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
+const ROUTINE_UPDATED_DURING_TRAINING_KEY =
+  "routine_updated_during_training";
 
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
@@ -104,6 +107,18 @@ const readRoutineLibraryDraft = () => {
 const hasTrainingReturn = () => {
   if (typeof localStorage === "undefined") return false;
   return Boolean(localStorage.getItem(TRAINING_ROUTINES_RETURN_KEY));
+};
+
+const readTrainingRoutineEditTarget = () => {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.routineId || null;
+  } catch {
+    return null;
+  }
 };
 
 const resolveExerciseFromLibrary = (availableExercises, entry = {}) => {
@@ -837,6 +852,9 @@ function Routines({ onNavigate }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [canReturnToTraining, setCanReturnToTraining] =
     useState(hasTrainingReturn);
+  const [editTargetRoutineId, setEditTargetRoutineId] = useState(
+    readTrainingRoutineEditTarget,
+  );
 
   const availableExercises = useMemo(() => {
     const seen = new Set();
@@ -997,23 +1015,57 @@ function Routines({ onNavigate }) {
     setModalMode("edit");
   };
 
+  useEffect(() => {
+    if (!editTargetRoutineId) return;
+    const target = routines.find(
+      (routine) =>
+        routine.id === editTargetRoutineId ||
+        routine._id === editTargetRoutineId,
+    );
+    if (!target) return;
+    // This effect bridges a navigation intent stored before the page mounted.
+    // It runs once per target and immediately clears the marker.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedRoutine(target);
+    setModalMode("edit");
+    setEditTargetRoutineId(null);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
+    }
+  }, [editTargetRoutineId, routines]);
+
   const closeModal = () => {
     setSelectedRoutine(null);
     setModalMode(null);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(ROUTINE_LIBRARY_DRAFT_KEY);
+      localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
     }
   };
 
-  const handleSave = (routine) => {
-    if (modalMode === "create") addRoutine(routine);
-    if (modalMode === "edit") updateRoutine(routine.id, routine);
+  const handleSave = async (routine) => {
+    if (modalMode === "create") await addRoutine(routine);
+    if (modalMode === "edit") await updateRoutine(routine.id, routine);
+    if (
+      typeof localStorage !== "undefined" &&
+      hasTrainingReturn() &&
+      routine?.id
+    ) {
+      localStorage.setItem(
+        ROUTINE_UPDATED_DURING_TRAINING_KEY,
+        JSON.stringify({
+          routineId: routine.id,
+          savedAt: Date.now(),
+        }),
+      );
+    }
     closeModal();
   };
 
   const handleReturnToTraining = () => {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
+      localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
     }
     setCanReturnToTraining(false);
     onNavigate?.("registrar");

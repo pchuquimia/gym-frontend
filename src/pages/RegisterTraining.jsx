@@ -6,7 +6,12 @@ import {
   Check,
   ClipboardList,
   Flag,
+  Minimize2,
   MoreVertical,
+  Pause,
+  Play,
+  Timer,
+  X,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import Card from "../components/ui/card";
@@ -30,6 +35,9 @@ const getLocalISODate = (value) => {
 const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
+const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
+const ROUTINE_UPDATED_DURING_TRAINING_KEY =
+  "routine_updated_during_training";
 const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -94,6 +102,91 @@ const formatDuration = (sec) => {
     .join(":");
 };
 
+const createTimeEvent = (type, exerciseId = null, atMs = Date.now()) => ({
+  type,
+  exerciseId,
+  at: new Date(atMs).toISOString(),
+});
+
+const getEventTime = (event) => {
+  const ts = Date.parse(event?.at);
+  return Number.isNaN(ts) ? null : ts;
+};
+
+const normalizeTimeEvents = (events = []) =>
+  (Array.isArray(events) ? events : [])
+    .filter((event) => event?.type && event?.at && getEventTime(event) != null)
+    .map((event) => ({
+      type: event.type,
+      at: new Date(getEventTime(event)).toISOString(),
+      exerciseId: event.exerciseId || null,
+    }))
+    .sort((a, b) => getEventTime(a) - getEventTime(b));
+
+const calculateTimingSummary = (events = [], nowMs = Date.now()) => {
+  let running = false;
+  let activeExerciseId = null;
+  let lastAt = null;
+  let durationSeconds = 0;
+  const exerciseDurations = new Map();
+
+  const accrue = (nextAt) => {
+    if (!running || lastAt == null || nextAt <= lastAt) return;
+    const delta = Math.floor((nextAt - lastAt) / 1000);
+    if (delta <= 0) return;
+    durationSeconds += delta;
+    if (activeExerciseId) {
+      exerciseDurations.set(
+        activeExerciseId,
+        (exerciseDurations.get(activeExerciseId) || 0) + delta,
+      );
+    }
+  };
+
+  normalizeTimeEvents(events).forEach((event) => {
+    const at = getEventTime(event);
+    accrue(at);
+    if (event.type === "session_start" || event.type === "session_resume") {
+      running = true;
+      lastAt = at;
+      return;
+    }
+    if (event.type === "session_pause" || event.type === "session_end") {
+      running = false;
+      lastAt = at;
+      return;
+    }
+    if (event.type === "exercise_start") {
+      if (!running) running = true;
+      activeExerciseId = event.exerciseId || null;
+      lastAt = at;
+    }
+  });
+
+  accrue(nowMs);
+
+  return {
+    durationSeconds,
+    activeExerciseId: running ? activeExerciseId : "",
+    exerciseDurations,
+    exerciseDurationsPayload: Array.from(exerciseDurations.entries()).map(
+      ([exerciseId, seconds]) => ({
+        exerciseId,
+        durationSeconds: seconds,
+      }),
+    ),
+  };
+};
+
+const buildFallbackTimeEvents = (durationSeconds = 0, endMs = Date.now()) => {
+  const seconds = Number(durationSeconds) || 0;
+  if (seconds <= 0) return [];
+  return [
+    createTimeEvent("session_start", null, endMs - seconds * 1000),
+    createTimeEvent("session_pause", null, endMs),
+  ];
+};
+
 const formatCounter = (value) => String(value || 0).padStart(2, "0");
 
 const formatEntryValue = (entry = {}) => {
@@ -133,10 +226,31 @@ const getPositionHistoryKey = (
   order ? `${getMovementHistoryKey(key, movementMode)}::order-${order}` : null;
 
 const getExerciseOrder = (exercise = {}, fallbackIndex = null) => {
-  const rawOrder = exercise.order ?? exercise.exerciseOrder;
+  const rawOrder =
+    exercise.startedOrder ??
+    exercise.actualOrder ??
+    exercise.order ??
+    exercise.exerciseOrder;
   const parsed = Number(rawOrder);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return fallbackIndex != null ? fallbackIndex + 1 : null;
+};
+
+const getPlannedExerciseOrder = (exercise = {}, fallbackIndex = null) => {
+  const rawOrder =
+    exercise.plannedOrder ?? exercise.programmedOrder ?? exercise.routineOrder;
+  const parsed = Number(rawOrder);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return fallbackIndex != null ? fallbackIndex + 1 : null;
+};
+
+const getOrderContext = (plannedOrder, actualOrder, isExtra = false) => {
+  if (isExtra) return "extra";
+  if (!plannedOrder || !actualOrder) return "normal";
+  if (actualOrder === 1) return plannedOrder === 1 ? "first" : "early";
+  if (actualOrder === plannedOrder) return "normal";
+  if (actualOrder < plannedOrder) return "early";
+  return "fatigued";
 };
 
 const getMovementHistoryKeys = (exercise = {}) => {
@@ -415,6 +529,46 @@ const exerciseHasInput = (exercise) =>
         set?.done,
   );
 
+const setHasInput = (set) =>
+  (set?.entries || []).length
+    ? (set?.entries || []).some(
+        (entry) =>
+          hasEntryValue(entry?.kg) ||
+          hasEntryValue(entry?.weightKg) ||
+          hasEntryValue(entry?.weight) ||
+          hasEntryValue(entry?.reps) ||
+          entry?.done,
+      )
+    : hasEntryValue(set?.kg) ||
+      hasEntryValue(set?.weightKg) ||
+      hasEntryValue(set?.weight) ||
+      hasEntryValue(set?.reps) ||
+      set?.done;
+
+const mergeSetsToRoutineCount = (currentSets = [], templateSets = []) => {
+  if (!Array.isArray(templateSets) || !templateSets.length) {
+    return currentSets;
+  }
+  const resized = templateSets.map((templateSet, idx) => {
+    const currentSet = currentSets[idx];
+    if (!currentSet) return templateSet;
+    return {
+      ...templateSet,
+      ...currentSet,
+      id: currentSet.id || templateSet.id,
+      prSummary: templateSet.prSummary || currentSet.prSummary,
+      entries: currentSet.entries?.length
+        ? currentSet.entries
+        : templateSet.entries,
+    };
+  });
+  const extraWithData = currentSets
+    .slice(templateSets.length)
+    .filter(setHasInput)
+    .map((set) => ({ ...set, keptFromPreviousRoutine: true }));
+  return [...resized, ...extraWithData];
+};
+
 const pickMapKey = (map, keys = []) => {
   if (!map) return null;
   return keys.find((key) => key && map.has(key)) || null;
@@ -474,12 +628,14 @@ const findLatestHistoryExerciseSnapshot = (
   trainings = [],
   historyKeys = [],
   movementMode = "bilateral",
+  branchFilter = null,
 ) => {
   const targetKeys = new Set(historyKeys.filter(Boolean));
   if (!targetKeys.size) return null;
   const targetMode = normalizeMovementMode(movementMode);
   let latest = null;
   trainings.forEach((tr) => {
+    if (!shouldIncludeBranch(tr, branchFilter)) return;
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date);
     (tr.exercises || []).forEach((ex, exIdx) => {
@@ -506,10 +662,12 @@ const getDateTimestamp = (value) => {
 const computeLatestSeriesTypeFromHistory = (
   trainings = [],
   routineId = null,
+  branchFilter = null,
 ) => {
   const map = new Map();
   trainings.forEach((tr) => {
     if (routineId && tr?.routineId && tr.routineId !== routineId) return;
+    if (!shouldIncludeBranch(tr, branchFilter)) return;
     const ts = getDateTimestamp(tr?.date || tr?.createdAt);
     (tr?.exercises || []).forEach((ex, exIdx) => {
       const rawType =
@@ -531,11 +689,24 @@ const computeLatestSeriesTypeFromHistory = (
   return map;
 };
 
-const computeBestFromHistory = (trainings = []) => {
+const shouldIncludeBranch = (training, branchFilter = null) =>
+  !branchFilter ||
+  (training?.branch &&
+    normalizeBranch(training.branch) === normalizeBranch(branchFilter));
+
+const formatBranchLabel = (branch) => {
+  if (!branch) return "Sin sucursal";
+  const value = normalizeBranch(branch);
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const computeBestFromHistory = (trainings = [], branchFilter = null) => {
   const map = new Map();
   trainings.forEach((tr) => {
+    if (!shouldIncludeBranch(tr, branchFilter)) return;
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
+    const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     (tr.exercises || []).forEach((ex, exIdx) => {
       const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
@@ -556,7 +727,7 @@ const computeBestFromHistory = (trainings = []) => {
                 r === (current.reps ?? 0) &&
                 ts < current.ts);
             if (isBetter) {
-              map.set(key, { weight: w, reps: r, date, ts });
+              map.set(key, { weight: w, reps: r, date, ts, branch });
             }
           });
         });
@@ -566,11 +737,13 @@ const computeBestFromHistory = (trainings = []) => {
   return map;
 };
 
-const computeBestBySetFromHistory = (trainings = []) => {
+const computeBestBySetFromHistory = (trainings = [], branchFilter = null) => {
   const map = new Map();
   trainings.forEach((tr) => {
+    if (!shouldIncludeBranch(tr, branchFilter)) return;
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
+    const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     (tr.exercises || []).forEach((ex, exIdx) => {
       const keys = getHistoryLookupKeys(ex, exIdx);
       if (!keys.length) return;
@@ -592,7 +765,7 @@ const computeBestBySetFromHistory = (trainings = []) => {
                 r === (current.reps ?? 0) &&
                 ts < current.ts);
             if (isBetter) {
-              arr[idx] = { weight: w, reps: r, date, ts };
+              arr[idx] = { weight: w, reps: r, date, ts, branch };
             }
           });
         });
@@ -603,12 +776,18 @@ const computeBestBySetFromHistory = (trainings = []) => {
   return map;
 };
 
-const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
+const computeRecentBySetFromHistory = (
+  trainings = [],
+  cutoffDate = null,
+  branchFilter = null,
+) => {
   const map = new Map();
   const cutoffTs = cutoffDate ? getDateTimestamp(cutoffDate) : null;
   trainings.forEach((tr) => {
+    if (!shouldIncludeBranch(tr, branchFilter)) return;
     const date = tr.date || tr.createdAt;
     const ts = getDateTimestamp(date);
+    const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     if (cutoffTs && ts > cutoffTs) return;
     (tr.exercises || []).forEach((ex, exIdx) => {
       const keys = getHistoryLookupKeys(ex, exIdx);
@@ -626,7 +805,7 @@ const computeRecentBySetFromHistory = (trainings = [], cutoffDate = null) => {
             const repsRaw = entry.reps ?? null;
             const weight = parseDecimal(weightRaw);
             const reps = parseDecimal(repsRaw);
-            const record = { weight, reps, date, ts };
+            const record = { weight, reps, date, ts, branch };
             const slot = arr[sIdx][entryIdx] || {
               latest: null,
               previous: null,
@@ -662,6 +841,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [timeEvents, setTimeEvents] = useState([]);
+  const [activeExerciseId, setActiveExerciseId] = useState("");
+  const [nowMs, setNowMs] = useState(Date.now());
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [exercises, setExercises] = useState([]);
@@ -690,6 +872,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
+  const restTimerRef = useRef(null);
+  const [restTimerOpen, setRestTimerOpen] = useState(false);
+  const [restTimerMinimized, setRestTimerMinimized] = useState(true);
+  const [restMinutesInput, setRestMinutesInput] = useState(2);
+  const [restDurationSeconds, setRestDurationSeconds] = useState(120);
+  const [restRemainingSeconds, setRestRemainingSeconds] = useState(120);
+  const [restTimerRunning, setRestTimerRunning] = useState(false);
+  const [restTimerStarted, setRestTimerStarted] = useState(false);
 
   const branchOptions = useMemo(() => {
     const set = new Set(BRANCH_OPTIONS);
@@ -785,22 +975,39 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [libraryExerciseOptions, exerciseSearch, selectedMuscleGroup]);
 
   const historyBest = useMemo(
+    () => computeBestFromHistory(historyTrainings, selectedBranch),
+    [historyTrainings, selectedBranch],
+  );
+  const historyGlobalBest = useMemo(
     () => computeBestFromHistory(historyTrainings),
     [historyTrainings],
   );
   const historyBestBySet = useMemo(
-    () => computeBestBySetFromHistory(historyTrainings),
-    [historyTrainings],
+    () => computeBestBySetFromHistory(historyTrainings, selectedBranch),
+    [historyTrainings, selectedBranch],
   );
   const historyRecentBySet = useMemo(
-    () => computeRecentBySetFromHistory(historyTrainings),
-    [historyTrainings],
+    () => computeRecentBySetFromHistory(historyTrainings, null, selectedBranch),
+    [historyTrainings, selectedBranch],
   );
   const historySeriesTypeMap = useMemo(
     () =>
-      computeLatestSeriesTypeFromHistory(historyTrainings, selectedRoutineId),
-    [historyTrainings, selectedRoutineId],
+      computeLatestSeriesTypeFromHistory(
+        historyTrainings,
+        selectedRoutineId,
+        selectedBranch,
+      ),
+    [historyTrainings, selectedRoutineId, selectedBranch],
   );
+  const timingSummary = useMemo(
+    () => calculateTimingSummary(timeEvents, nowMs),
+    [timeEvents, nowMs],
+  );
+
+  useEffect(() => {
+    setDurationSeconds(timingSummary.durationSeconds);
+    setActiveExerciseId(timingSummary.activeExerciseId);
+  }, [timingSummary]);
 
   useEffect(() => {
     if (!showExercisePicker) return;
@@ -843,6 +1050,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         name: ex.exerciseName,
         muscle: ex.muscleGroup,
         order: ex.order,
+        plannedOrder: ex.plannedOrder,
+        actualOrder: ex.actualOrder ?? ex.order,
+        orderContext: ex.orderContext,
         sets: ex.sets?.length || 3,
         movementMode: normalizeMovementMode(ex.movementMode),
       }));
@@ -853,6 +1063,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           name: ex.exerciseName,
           muscle: ex.muscleGroup,
           order: ex.order,
+          plannedOrder: ex.plannedOrder,
+          actualOrder: ex.actualOrder ?? ex.order,
+          orderContext: ex.orderContext,
           sets: ex.sets?.length || 3,
           movementMode: normalizeMovementMode(ex.movementMode),
         }));
@@ -915,6 +1128,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
       const setsCount = Number(ex.sets) || 3;
       const currentOrder = getExerciseOrder(ex, idx);
+      const plannedOrder = getPlannedExerciseOrder(
+        ex.plannedOrder ? ex : routineSlot,
+        idx,
+      );
       const trainingPositionKeys = [id, nameKey]
         .filter(Boolean)
         .map((key) =>
@@ -972,6 +1189,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
       const best =
         historyKeys.map((key) => bestMap.get(key)).find(Boolean) || null;
+      const globalBest =
+        historyKeys.map((key) => historyGlobalBest.get(key)).find(Boolean) ||
+        null;
       const bestBySet =
         historyKeys.map((key) => bestBySetMap.get(key)).find(Boolean) || [];
       const recentBySet =
@@ -1081,13 +1301,32 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               };
             });
       const headerText = best
-        ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-        : "Sin referencia";
+        ? `Aquí: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : "Sin referencia aquí";
+      const globalPrText =
+        globalBest &&
+        (!best ||
+          globalBest.weight > best.weight ||
+          (globalBest.weight === best.weight &&
+            globalBest.reps > (best.reps ?? 0)) ||
+          normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
+          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
+              globalBest.branch,
+            )}`
+          : "";
       return {
         id,
         name: activeVariant?.name || ex.name || meta.name || "Ejercicio",
         order: currentOrder,
+        plannedOrder,
+        actualOrder: currentOrder,
+        orderContext: getOrderContext(
+          plannedOrder,
+          currentOrder,
+          Boolean(ex.isExtra ?? routineSlot?.isExtra),
+        ),
         prText: headerText,
+        globalPrText,
         image: activeVariant?.image || ex.image || meta.image || "",
         imagePublicId:
           activeVariant?.imagePublicId ||
@@ -1141,9 +1380,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         historyKeys.find((key) => map.has(key)) ||
         getMovementHistoryKey(id, movementMode);
       const bestKey = findKey(bestMap);
+      const globalBestKey = findKey(historyGlobalBest);
       const bestBySetKey = findKey(bestBySetMap);
       const recentBySetKey = findKey(recentBySetMap);
       const best = bestMap.get(bestKey);
+      const globalBest = historyGlobalBest.get(globalBestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
       const recentBySet = recentBySetMap.get(recentBySetKey) || [];
       const seriesTypeEntry = historyKeys
@@ -1157,6 +1398,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             historyTrainings,
             historyKeys,
             movementMode,
+            selectedBranch,
           )
         : null;
       const latestExercise = latestHistory?.exercise || null;
@@ -1181,8 +1423,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : ex.prSummary || "";
       const prText = best
-        ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-        : ex.prText || "Sin referencia";
+        ? `Aquí: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+        : ex.prText?.startsWith("Aquí:")
+          ? ex.prText
+          : "Sin referencia aquí";
+      const globalPrText =
+        globalBest &&
+        (!best ||
+          globalBest.weight > best.weight ||
+          (globalBest.weight === best.weight &&
+            globalBest.reps > (best.reps ?? 0)) ||
+          normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
+          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
+              globalBest.branch,
+            )}`
+          : ex.globalPrText || "";
       const sourceSets =
         shouldReloadInputs && latestExercise?.sets?.length
           ? latestExercise.sets
@@ -1250,12 +1505,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ...ex,
         id,
         order: currentOrder,
+        actualOrder: ex.startedOrder || currentOrder,
+        plannedOrder: getPlannedExerciseOrder(ex, idx),
+        orderContext: getOrderContext(
+          getPlannedExerciseOrder(ex, idx),
+          ex.startedOrder || currentOrder,
+          Boolean(ex.isExtra),
+        ),
         reloadMovementHistory: undefined,
         movementMode,
         seriesType,
         prSummary,
         prWeight: best?.weight ?? ex.prWeight ?? null,
         prText,
+        globalPrText,
         sets,
       };
     });
@@ -1265,9 +1528,134 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       (nextOrder || []).map((ex, idx) => ({
         ...ex,
         order: idx + 1,
+        actualOrder: idx + 1,
+        plannedOrder: getPlannedExerciseOrder(ex, idx),
+        orderContext: getOrderContext(
+          getPlannedExerciseOrder(ex, idx),
+          idx + 1,
+          Boolean(ex.isExtra),
+        ),
         reloadMovementHistory: !exerciseHasInput(ex),
       })),
     );
+
+  const mergeRoutineIntoActiveExercises = (currentList = [], routine) => {
+    const routineTemplate = buildExercisesForRoutine(
+      routine,
+      null,
+      historyBest,
+      historyBestBySet,
+      historyRecentBySet,
+      historySeriesTypeMap,
+    );
+    if (!routineTemplate.length) {
+      return {
+        exercises: currentList,
+        added: 0,
+        removed: 0,
+        keptRemoved: 0,
+        resized: 0,
+        reordered: 0,
+      };
+    }
+
+    const currentByKey = new Map();
+    currentList.forEach((ex) => {
+      getExerciseKeys(ex).forEach((key) => {
+        if (key && !currentByKey.has(key)) currentByKey.set(key, ex);
+      });
+    });
+
+    const used = new Set();
+    let added = 0;
+    let resized = 0;
+    let reordered = 0;
+    const merged = routineTemplate.map((template, idx) => {
+      const match =
+        getExerciseKeys(template)
+          .map((key) => currentByKey.get(key))
+          .find(Boolean) || null;
+      if (!match) {
+        added += 1;
+        return template;
+      }
+      used.add(match.id);
+      const movementConfig = getRoutineMovementConfig(
+        routine?.exercises || [],
+        template,
+      );
+      const mergedSets = mergeSetsToRoutineCount(
+        match.sets || [],
+        template.sets || [],
+      );
+      if ((match.sets || []).length !== mergedSets.length) resized += 1;
+      const nextPlannedOrder = template.plannedOrder || idx + 1;
+      if (getPlannedExerciseOrder(match) !== nextPlannedOrder) reordered += 1;
+      return {
+        ...template,
+        ...match,
+        name: template.name,
+        muscle: template.muscle,
+        image: template.image,
+        imagePublicId: template.imagePublicId,
+        variants: template.variants,
+        variantIndex: template.variantIndex,
+        supportsUnilateral: movementConfig.supportsUnilateral,
+        movementMode: movementConfig.supportsUnilateral
+          ? normalizeMovementMode(match.movementMode || template.movementMode)
+          : "bilateral",
+        isExtra: Boolean(template.isExtra),
+        removedFromRoutine: false,
+        plannedOrder: nextPlannedOrder,
+        order: template.order || idx + 1,
+        actualOrder: match.startedOrder || match.actualOrder || nextPlannedOrder,
+        prText: template.prText,
+        globalPrText: template.globalPrText,
+        prSummary: template.prSummary,
+        prWeight: template.prWeight,
+        sets: mergedSets,
+      };
+    });
+
+    let removed = 0;
+    let keptRemoved = 0;
+    const orphaned = currentList
+      .filter((ex) => !used.has(ex.id))
+      .map((ex) => {
+        const shouldKeep =
+          exerciseHasInput(ex) ||
+          ex.startedOrder ||
+          activeExerciseId === ex.id ||
+          timingSummary.exerciseDurations.has(ex.id);
+        if (!shouldKeep) {
+          removed += 1;
+          return null;
+        }
+        keptRemoved += 1;
+        return {
+          ...ex,
+          isExtra: true,
+          removedFromRoutine: true,
+          orderContext: "extra",
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      exercises: applyHistoryToExercises(
+        [...merged, ...orphaned],
+        historyBest,
+        historyBestBySet,
+        historyRecentBySet,
+        historySeriesTypeMap,
+      ),
+      added,
+      removed,
+      keptRemoved,
+      resized,
+      reordered,
+    };
+  };
 
   const handleMoveExercise = (exerciseId, direction) => {
     setExercises((prev) => {
@@ -1311,6 +1699,56 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     });
   };
 
+  const handleStartExerciseNow = (exerciseId, { silent = false } = {}) => {
+    const now = Date.now();
+    if (activeExerciseId === exerciseId && isRunning) {
+      if (!silent) toast.message("Este ejercicio ya esta en curso.");
+      return;
+    }
+    setExercises((prev) => {
+      const current = prev.find((ex) => ex.id === exerciseId);
+      if (!current) return prev;
+      const nextStartedOrder =
+        current.startedOrder ||
+        prev.reduce(
+          (max, ex) => Math.max(max, Number(ex.startedOrder) || 0),
+          0,
+        ) + 1;
+      return applyHistoryToExercises(
+        prev.map((ex) =>
+          ex.id === exerciseId
+            ? {
+                ...ex,
+                startedOrder: nextStartedOrder,
+                actualOrder: nextStartedOrder,
+                orderContext: getOrderContext(
+                  getPlannedExerciseOrder(ex),
+                  nextStartedOrder,
+                  Boolean(ex.isExtra),
+                ),
+              }
+            : ex,
+        ),
+        historyBest,
+        historyBestBySet,
+        historyRecentBySet,
+        historySeriesTypeMap,
+      );
+    });
+    setTimeEvents((prev) => [
+      ...prev,
+      ...(!isRunning
+        ? [createTimeEvent(prev.length ? "session_resume" : "session_start", null, now)]
+        : []),
+      createTimeEvent("exercise_start", exerciseId, now),
+    ]);
+    lastUpdateRef.current = now;
+    setNowMs(now);
+    setIsRunning(true);
+    setHasStarted(true);
+    if (!silent) toast.message("Ejercicio iniciado.");
+  };
+
   const loadTrainingForDate = async (
     date,
     routineId,
@@ -1337,7 +1775,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+          "date,routineId,routineName,branch,durationSeconds,timeEvents,exerciseDurations,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
         meta: false,
         routineId: routine.id,
       });
@@ -1364,6 +1802,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
       if (trainingMatch?.durationSeconds)
         setDurationSeconds(trainingMatch.durationSeconds);
+      const loadedEvents = normalizeTimeEvents(trainingMatch?.timeEvents);
+      setTimeEvents(
+        loadedEvents.length
+          ? loadedEvents
+          : buildFallbackTimeEvents(trainingMatch?.durationSeconds),
+      );
     } catch (e) {
       console.warn("No se pudo cargar entrenamiento previo", e);
       setExercises(
@@ -1397,12 +1841,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedRoutine(routine);
       setIsEditing(true);
       const hist = await loadHistoryForRoutine(routine.id);
-      const bestMap = computeBestFromHistory(hist);
-      const bestBySetMap = computeBestBySetFromHistory(hist);
-      const recentBySetMap = computeRecentBySetFromHistory(hist);
+      const bestMap = computeBestFromHistory(hist, branch);
+      const bestBySetMap = computeBestBySetFromHistory(hist, branch);
+      const recentBySetMap = computeRecentBySetFromHistory(hist, null, branch);
       const seriesTypeMap = computeLatestSeriesTypeFromHistory(
         hist,
         routine.id,
+        branch,
       );
       setExercises(
         buildExercisesForRoutine(
@@ -1416,6 +1861,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       );
       if (training.durationSeconds)
         setDurationSeconds(training.durationSeconds);
+      const loadedEvents = normalizeTimeEvents(training.timeEvents);
+      setTimeEvents(
+        loadedEvents.length
+          ? loadedEvents
+          : buildFallbackTimeEvents(training.durationSeconds),
+      );
     } catch (e) {
       console.warn("No se pudo cargar el entrenamiento a editar", e);
       if (typeof localStorage !== "undefined")
@@ -1439,7 +1890,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         resp = await api.getTrainings({
           limit: 200,
           fields:
-            "date,routineId,exercises.exerciseId,exercises.exerciseName,exercises.order,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+            "date,routineId,branch,exercises.exerciseId,exercises.exerciseName,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
           meta: false,
         });
       } catch (projectionError) {
@@ -1449,7 +1900,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         );
         resp = await api.getTrainings({
           limit: 200,
-          fields: "date,routineId,exercises",
+          fields: "date,routineId,branch,exercises",
           meta: false,
         });
       }
@@ -1516,24 +1967,52 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       (r) => r.id === selectedRoutineId,
     );
     if (!latestRoutine) return;
+    const previousRaw = selectedRoutine?.raw;
     setSelectedRoutine((current) =>
       current?.raw === latestRoutine.raw ? current : latestRoutine,
     );
     const routineExercises = latestRoutine.raw?.exercises || [];
     if (!routineExercises.length) return;
-    setExercises((prev) =>
-      prev.map((ex) => {
-        const config = getRoutineMovementConfig(routineExercises, ex);
-        return {
-          ...ex,
-          supportsUnilateral: config.supportsUnilateral,
-          movementMode: config.supportsUnilateral
-            ? normalizeMovementMode(ex.movementMode || config.movementMode)
-            : "bilateral",
-        };
-      }),
-    );
-  }, [selectedRoutineId, routineOptions]);
+    if (!exercises.length) return;
+    if (previousRaw === latestRoutine.raw) return;
+
+    let shouldNotify = false;
+    if (typeof localStorage !== "undefined") {
+      try {
+        const rawMarker = localStorage.getItem(
+          ROUTINE_UPDATED_DURING_TRAINING_KEY,
+        );
+        const marker = rawMarker ? JSON.parse(rawMarker) : null;
+        shouldNotify = marker?.routineId === selectedRoutineId;
+        if (shouldNotify) {
+          localStorage.removeItem(ROUTINE_UPDATED_DURING_TRAINING_KEY);
+        }
+      } catch {
+        localStorage.removeItem(ROUTINE_UPDATED_DURING_TRAINING_KEY);
+      }
+    }
+
+    setExercises((prev) => {
+      const result = mergeRoutineIntoActiveExercises(prev, latestRoutine.raw);
+      if (shouldNotify) {
+        const details = [];
+        if (result.added) details.push(`${result.added} agregados`);
+        if (result.resized)
+          details.push(`${result.resized} con series ajustadas`);
+        if (result.reordered)
+          details.push(`${result.reordered} reordenados`);
+        if (result.removed) details.push(`${result.removed} quitados`);
+        if (result.keptRemoved)
+          details.push(`${result.keptRemoved} mantenidos por tener datos`);
+        toast.success(
+          details.length
+            ? `Rutina actualizada: ${details.join(", ")}.`
+            : "Rutina actualizada. Tus registros se mantuvieron.",
+        );
+      }
+      return result.exercises;
+    });
+  }, [selectedRoutineId, routineOptions, exercises.length, selectedRoutine]);
 
   useEffect(() => {
     if (historyTrainings.length) return;
@@ -1563,6 +2042,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           ? Math.max(0, Math.floor((now - snap.lastUpdate) / 1000))
           : 0;
       const totalSeconds = baseSeconds + extraSeconds;
+      const restoredEvents = normalizeTimeEvents(snap.timeEvents);
+      const fallbackEvents =
+        restoredEvents.length || !totalSeconds
+          ? restoredEvents
+          : [
+              createTimeEvent("session_start", null, now - totalSeconds * 1000),
+              ...(snap.isRunning
+                ? []
+                : [createTimeEvent("session_pause", null, now)]),
+            ];
       restoredFromSnapshot.current = true;
       branchChangeReason.current = "routine";
       setSelectedBranch(
@@ -1573,6 +2062,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSessionDate(snap.sessionDate || todayISO);
       lastUpdateRef.current = now;
       setDurationSeconds(totalSeconds);
+      setTimeEvents(fallbackEvents);
       setIsRunning(Boolean(snap.isRunning));
       setHasStarted(
         Boolean(snap.hasStarted) || Boolean(snap.isRunning) || totalSeconds > 0,
@@ -1652,9 +2142,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [
     historyTrainings,
     historyBest,
+    historyGlobalBest,
     historyBestBySet,
     historyRecentBySet,
     historySeriesTypeMap,
+    selectedBranch,
     exercises.length,
   ]);
 
@@ -1667,6 +2159,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedRoutine(null);
       setExercises([]);
       setHistoryTrainings([]);
+      setIsRunning(false);
+      setHasStarted(false);
+      setTimeEvents([]);
+      setActiveExerciseId("");
+      setNowMs(Date.now());
     }
     if (typeof setBranch === "function") setBranch(selectedBranch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1686,6 +2183,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         isRunning,
         hasStarted,
         lastUpdate: lastUpdateRef.current,
+        timeEvents,
         exercises,
       };
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
@@ -1700,6 +2198,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     durationSeconds,
     isRunning,
     hasStarted,
+    timeEvents,
     exercises,
   ]);
 
@@ -1708,7 +2207,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     persistTrainingSnapshot();
   }, [persistTrainingSnapshot]);
 
-  const handleOpenRoutinesFromTraining = useCallback(() => {
+  const handleEditRoutineFromTraining = useCallback(() => {
+    if (!selectedRoutineId) {
+      toast.message("Selecciona una rutina para editarla.");
+      return;
+    }
     persistTrainingSnapshot();
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(
@@ -1716,6 +2219,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         JSON.stringify({
           from: "registrar",
           selectedRoutineId,
+          savedAt: Date.now(),
+        }),
+      );
+      localStorage.setItem(
+        TRAINING_ROUTINE_EDIT_TARGET_KEY,
+        JSON.stringify({
+          routineId: selectedRoutineId,
           savedAt: Date.now(),
         }),
       );
@@ -1730,11 +2240,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     timerRef.current = setInterval(() => {
       const now = Date.now();
-      const delta = Math.floor((now - lastUpdateRef.current) / 1000);
-      if (delta > 0) {
-        setDurationSeconds((sec) => sec + delta);
-        lastUpdateRef.current = now;
-      }
+      setNowMs(now);
+      lastUpdateRef.current = now;
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [isRunning]);
@@ -1743,39 +2250,116 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const handleVisibility = () => {
       if (!isRunning) return;
       const now = Date.now();
-      const delta = Math.floor((now - lastUpdateRef.current) / 1000);
-      if (delta > 0) {
-        setDurationSeconds((sec) => sec + delta);
-        lastUpdateRef.current = now;
-      }
+      setNowMs(now);
+      lastUpdateRef.current = now;
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning]);
 
+  useEffect(() => {
+    if (!restTimerRunning) {
+      if (restTimerRef.current) clearInterval(restTimerRef.current);
+      return undefined;
+    }
+    restTimerRef.current = setInterval(() => {
+      setRestRemainingSeconds((current) => {
+        if (current <= 1) {
+          clearInterval(restTimerRef.current);
+          setRestTimerRunning(false);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+    return () => clearInterval(restTimerRef.current);
+  }, [restTimerRunning]);
+
+  const handleOpenRestTimer = () => {
+    setRestTimerOpen(true);
+    setRestTimerMinimized(false);
+  };
+
+  const handleStartRestTimer = (minutes = restMinutesInput) => {
+    const parsedMinutes = Math.max(1, Number(minutes) || 1);
+    const seconds = parsedMinutes * 60;
+    setRestMinutesInput(parsedMinutes);
+    setRestDurationSeconds(seconds);
+    setRestRemainingSeconds(seconds);
+    setRestTimerStarted(true);
+    setRestTimerRunning(true);
+    setRestTimerOpen(true);
+    setRestTimerMinimized(false);
+  };
+
+  const handleToggleRestTimer = () => {
+    if (!restTimerStarted) {
+      handleStartRestTimer();
+      return;
+    }
+    if (restRemainingSeconds <= 0) {
+      handleStartRestTimer(restMinutesInput);
+      return;
+    }
+    setRestTimerRunning((value) => !value);
+  };
+
+  const handleResetRestTimer = () => {
+    const seconds = Math.max(1, Number(restMinutesInput) || 1) * 60;
+    setRestDurationSeconds(seconds);
+    setRestRemainingSeconds(seconds);
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+  };
+
+  const handleCloseRestTimer = () => {
+    setRestTimerOpen(false);
+    setRestTimerMinimized(true);
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+    setRestRemainingSeconds(restDurationSeconds);
+  };
+
   const handleStart = () => {
-    lastUpdateRef.current = Date.now();
+    const now = Date.now();
+    lastUpdateRef.current = now;
+    setNowMs(now);
+    setTimeEvents((prev) => [
+      ...prev,
+      createTimeEvent(prev.length ? "session_resume" : "session_start", null, now),
+    ]);
     setIsRunning(true);
     setHasStarted(true);
     toast.success("Entrenamiento iniciado");
   };
 
   const handlePause = () => {
-    lastUpdateRef.current = Date.now();
+    const now = Date.now();
+    lastUpdateRef.current = now;
+    setNowMs(now);
+    if (isRunning) {
+      setTimeEvents((prev) => [...prev, createTimeEvent("session_pause", null, now)]);
+    }
     setIsRunning(false);
   };
 
   const handleReset = () => {
-    lastUpdateRef.current = Date.now();
+    const now = Date.now();
+    lastUpdateRef.current = now;
+    setNowMs(now);
     setIsRunning(false);
-    setDurationSeconds(0);
+    setTimeEvents([]);
+    setActiveExerciseId("");
     setHasStarted(false);
   };
 
   const resetState = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
+    setTimeEvents([]);
+    setActiveExerciseId("");
+    setNowMs(Date.now());
     setDurationSeconds(0);
     setHasStarted(false);
     setSelectedBranch(DEFAULT_BRANCH);
@@ -1811,12 +2395,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSelectedBranch(branch);
     setSelectedRoutineId(id);
     setSelectedRoutine(found || null);
+    setIsRunning(false);
+    setHasStarted(false);
+    setTimeEvents([]);
+    setActiveExerciseId("");
+    setNowMs(Date.now());
     (async () => {
       const hist = await loadHistoryForRoutine(id);
-      const bestMap = computeBestFromHistory(hist);
-      const bestBySetMap = computeBestBySetFromHistory(hist);
-      const recentBySetMap = computeRecentBySetFromHistory(hist);
-      const seriesTypeMap = computeLatestSeriesTypeFromHistory(hist, id);
+      const bestMap = computeBestFromHistory(hist, branch);
+      const bestBySetMap = computeBestBySetFromHistory(hist, branch);
+      const recentBySetMap = computeRecentBySetFromHistory(hist, null, branch);
+      const seriesTypeMap = computeLatestSeriesTypeFromHistory(hist, id, branch);
       await loadTrainingForDate(
         sessionDate,
         id,
@@ -1863,6 +2452,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setHistoryTrainings([]);
     setDurationSeconds(0);
     setIsRunning(false);
+    setTimeEvents([]);
+    setActiveExerciseId("");
+    setNowMs(Date.now());
   };
 
   const handleSeriesTypeChange = (exerciseId, value) => {
@@ -2146,6 +2738,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleToggleEntry = (exerciseId, setId, entryId) => {
+    const targetExercise = exercises.find((ex) => ex.id === exerciseId);
+    const targetSet = targetExercise?.sets?.find((set) => set.id === setId);
+    const targetEntry = targetSet?.entries?.find(
+      (entry) => entry.id === entryId,
+    );
+    if (targetEntry && !targetEntry.done) {
+      handleStartExerciseNow(exerciseId, { silent: true });
+    }
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
@@ -2180,7 +2780,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleRemoveExercise = (exerciseId) => {
-    setExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
+    setExercises((prev) =>
+      applyExerciseOrder(prev.filter((ex) => ex.id !== exerciseId)),
+    );
     toast("Ejercicio eliminado solo para hoy");
     if (trackingExerciseId === exerciseId) {
       setShowTracking(false);
@@ -2195,16 +2797,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return;
     }
     const clone = JSON.parse(JSON.stringify(exercise));
-    setExercises((prev) => [...prev, { ...clone, isExtra: true }]);
+    setExercises((prev) =>
+      applyExerciseOrder([...prev, { ...clone, isExtra: true }]),
+    );
     toast.success("Ejercicio extra agregado.");
   };
 
   const addCustomExercise = () => {
     const newExerciseId = `extra-${Date.now()}`;
     const newSetId = `${newExerciseId}-set-1`;
-    setExercises((prev) => [
-      ...prev,
-      {
+    setExercises((prev) =>
+      applyExerciseOrder([
+        ...prev,
+        {
         id: newExerciseId,
         name: "Nuevo ejercicio",
         prText: "Sin referencia previa",
@@ -2230,8 +2835,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             }),
           },
         ],
-      },
-    ]);
+        },
+      ]),
+    );
   };
 
   const handleAddExerciseFromLibrary = (exercise) => {
@@ -2249,10 +2855,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       .filter(Boolean)
       .map((key) => getMovementHistoryKey(key, movementMode));
     const bestKey = pickMapKey(historyBest, keys);
+    const globalBestKey = pickMapKey(historyGlobalBest, keys);
     const bestBySetKey = pickMapKey(historyBestBySet, keys);
     const recentBySetKey = pickMapKey(historyRecentBySet, keys);
     const seriesKey = pickMapKey(historySeriesTypeMap, keys);
     const best = bestKey ? historyBest.get(bestKey) : null;
+    const globalBest = globalBestKey ? historyGlobalBest.get(globalBestKey) : null;
     const bestBySet = bestBySetKey
       ? historyBestBySet.get(bestBySetKey) || []
       : [];
@@ -2266,8 +2874,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       seriesFromHistory || exercise.seriesType || "serie",
     );
     const prText = best
-      ? `PR: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-      : "Sin referencia";
+      ? `Aquí: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+      : "Sin referencia aquí";
+    const globalPrText =
+      globalBest &&
+      (!best ||
+        globalBest.weight > best.weight ||
+        (globalBest.weight === best.weight &&
+          globalBest.reps > (best.reps ?? 0)) ||
+        normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
+        ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
+            globalBest.branch,
+          )}`
+        : "";
     const prSummary = best
       ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
       : "";
@@ -2283,12 +2902,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       : prSummary || "Sin referencia";
     const newSetId = `${exerciseId}-set-${Date.now()}`;
 
-    setExercises((prev) => [
-      ...prev,
-      {
+    setExercises((prev) =>
+      applyExerciseOrder([
+        ...prev,
+        {
         id: exerciseId,
         name: exercise.name || "Ejercicio",
         prText,
+        globalPrText,
         prSummary,
         prWeight: best?.weight ?? null,
         image: exercise.image || "",
@@ -2318,12 +2939,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             }),
           },
         ],
-      },
-    ]);
+        },
+      ]),
+    );
     toast.success("Ejercicio agregado a la sesion.");
   };
 
   const handleAddExercise = () => {
+    setShowExercisePicker(true);
+  };
+
+  const handleAddExerciseForMuscle = (muscle) => {
+    setSelectedMuscleGroup(muscle || "");
+    setExerciseSearch("");
     setShowExercisePicker(true);
   };
 
@@ -2346,7 +2974,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleFinish = async () => {
+    const finishAt = Date.now();
+    const finalTimeEvents = normalizeTimeEvents([
+      ...timeEvents,
+      ...(timeEvents.length
+        ? [createTimeEvent("session_end", null, finishAt)]
+        : []),
+    ]);
+    const finalTimingSummary = calculateTimingSummary(
+      finalTimeEvents,
+      finishAt,
+    );
     setIsRunning(false);
+    setTimeEvents(finalTimeEvents);
+    setNowMs(finishAt);
     if (timerRef.current) clearInterval(timerRef.current);
     try {
       if (!selectedRoutineId || !selectedRoutine) {
@@ -2359,7 +3000,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         routineId: selectedRoutine?.id,
         routineName: selectedRoutine?.name,
         branch: normalizeBranch(selectedBranch || selectedRoutine?.location),
-        durationSeconds,
+        durationSeconds: finalTimingSummary.durationSeconds || durationSeconds,
+        timeEvents: finalTimeEvents,
+        exerciseDurations: finalTimingSummary.exerciseDurationsPayload,
         exercises: exercises
           .map((ex, exIdx) => {
             const seriesType = normalizeSeriesType(ex.seriesType);
@@ -2408,7 +3051,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               exerciseId: ex.id,
               exerciseName: ex.name,
               muscleGroup: ex.muscle,
-              order: exIdx + 1,
+              order: ex.startedOrder || ex.actualOrder || exIdx + 1,
+              plannedOrder: getPlannedExerciseOrder(ex, exIdx),
+              actualOrder: ex.startedOrder || ex.actualOrder || exIdx + 1,
+              orderContext: getOrderContext(
+                getPlannedExerciseOrder(ex, exIdx),
+                ex.startedOrder || ex.actualOrder || exIdx + 1,
+                Boolean(ex.isExtra),
+              ),
               movementMode: normalizeMovementMode(ex.movementMode),
               seriesType,
               sets,
@@ -2537,6 +3187,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     () => exercises.find((ex) => ex.id === trackingExerciseId) || null,
     [exercises, trackingExerciseId],
   );
+  const activeExercise = useMemo(
+    () => exercises.find((ex) => ex.id === activeExerciseId) || null,
+    [exercises, activeExerciseId],
+  );
+  const activeExerciseDuration = activeExerciseId
+    ? timingSummary.exerciseDurations.get(activeExerciseId) || 0
+    : 0;
 
   const extraExerciseOptions = useMemo(() => {
     const routineExtras = selectedRoutine?.raw?.exercises || [];
@@ -2554,9 +3211,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [
     selectedRoutine,
     historyBest,
+    historyGlobalBest,
     historyBestBySet,
     historyRecentBySet,
     historySeriesTypeMap,
+    selectedBranch,
   ]);
 
   const trackingRows = useMemo(() => {
@@ -2581,6 +3240,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         date: date ? String(date).slice(0, 10) : "",
         ts: getDateTimestamp(date),
         routineName: tr.routineName || "",
+        branch: tr.branch || "",
         sets,
       });
     });
@@ -2593,6 +3253,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (!trackingRows.length) return 0;
     return trackingRows.reduce((acc, row) => Math.max(acc, row.sets.length), 0);
   }, [trackingRows]);
+  const restProgressPct = restDurationSeconds
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            ((restDurationSeconds - restRemainingSeconds) /
+              restDurationSeconds) *
+              100,
+          ),
+        ),
+      )
+    : 0;
+  const restTimerDone = restTimerStarted && restRemainingSeconds <= 0;
+  const restTimerLabel = restTimerDone
+    ? "Listo"
+    : formatDuration(restRemainingSeconds);
 
   return (
     <main className="relative min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -2624,6 +3301,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     Live
                   </span>
                 </div>
+                {activeExercise && (
+                  <p className="max-w-[160px] truncate text-[11px] text-[color:var(--text-muted)]">
+                    {activeExercise.name} · {formatDuration(activeExerciseDuration)}
+                  </p>
+                )}
                 <div className="flex items-center gap-2">
                   {showFinishButton && (
                     <Button
@@ -2689,15 +3371,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     Live
                   </span>
                 </div>
+                {activeExercise && (
+                  <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                    Actual: {activeExercise.name} ·{" "}
+                    {formatDuration(activeExerciseDuration)}
+                  </p>
+                )}
               </div>
               <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
                 <Button
                   variant="outline"
                   className="rounded-full"
-                  onClick={handleOpenRoutinesFromTraining}
+                  onClick={handleEditRoutineFromTraining}
                 >
                   <ClipboardList className="h-4 w-4" />
-                  <span>Rutinas</span>
+                  <span>Editar rutina</span>
                 </Button>
                 {showFinishButton && (
                   <Button
@@ -2753,10 +3441,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   size="sm"
                   variant="outline"
                   className="rounded-full px-3 md:hidden"
-                  onClick={handleOpenRoutinesFromTraining}
+                  onClick={handleEditRoutineFromTraining}
                 >
                   <ClipboardList className="h-4 w-4" />
-                  <span>Rutinas</span>
+                  <span>Editar</span>
                 </Button>
                 <Button
                   size="sm"
@@ -2993,9 +3681,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 {selectorRoutine?.name || "Rutina sin nombre"}
                               </p>
                             </div>
-                            <Badge variant="secondary" className="text-[11px]">
-                              {items.length} ejercicios
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-[11px]"
+                              >
+                                {items.length} ejercicios
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-full px-3"
+                                onClick={() =>
+                                  handleAddExerciseForMuscle(muscle)
+                                }
+                              >
+                                Agregar
+                              </Button>
+                            </div>
                           </div>
                           <AnimatePresence>
                             {items.map((ex) => {
@@ -3008,6 +3711,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                   key={ex.id}
                                   exercise={{
                                     ...ex,
+                                    durationSeconds:
+                                      timingSummary.exerciseDurations.get(
+                                        ex.id,
+                                      ) || 0,
+                                    isActive: activeExerciseId === ex.id,
                                     supportsUnilateral:
                                       movementConfig.supportsUnilateral,
                                     movementMode:
@@ -3047,6 +3755,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                   onSwapVariant={(direction) =>
                                     handleSwapVariant(ex.id, direction)
                                   }
+                                  onStartNow={() =>
+                                    handleStartExerciseNow(ex.id)
+                                  }
                                   onViewTracking={() => {
                                     setTrackingExerciseId(ex.id);
                                     setShowTracking(true);
@@ -3081,9 +3792,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               {selectorRoutine?.name || "Rutina sin nombre"}
                             </p>
                           </div>
-                          <Badge variant="secondary" className="text-[11px]">
-                            {items.length} ejercicios
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-[11px]">
+                              {items.length} ejercicios
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full px-3"
+                              onClick={() => handleAddExerciseForMuscle(muscle)}
+                            >
+                              Agregar
+                            </Button>
+                          </div>
                         </div>
                         <AnimatePresence>
                           {items.map((ex) => {
@@ -3096,6 +3817,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 key={ex.id}
                                 exercise={{
                                   ...ex,
+                                  durationSeconds:
+                                    timingSummary.exerciseDurations.get(
+                                      ex.id,
+                                    ) || 0,
+                                  isActive: activeExerciseId === ex.id,
                                   supportsUnilateral:
                                     movementConfig.supportsUnilateral,
                                   movementMode:
@@ -3129,6 +3855,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 }
                                 onSwapVariant={(direction) =>
                                   handleSwapVariant(ex.id, direction)
+                                }
+                                onStartNow={() =>
+                                  handleStartExerciseNow(ex.id)
                                 }
                                 onViewTracking={() => {
                                   setTrackingExerciseId(ex.id);
@@ -3572,6 +4301,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           <div className="font-semibold text-[color:var(--text)]">
                             {row.date ? formatShort(row.date) : "--"}
                           </div>
+                          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
+                            {row.branch
+                              ? formatBranchLabel(row.branch)
+                              : "Sin sucursal"}
+                          </div>
                         </td>
                         {Array.from({ length: trackingSetCount || 0 }).map(
                           (_, idx) => {
@@ -3625,6 +4359,162 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         </Modal>
       )}
+
+      <button
+        type="button"
+        onClick={handleOpenRestTimer}
+        className={`fixed bottom-24 right-4 z-40 md:hidden grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] shadow-2xl transition ${
+          restTimerRunning
+            ? "bg-emerald-600 text-white"
+            : restTimerDone
+              ? "bg-blue-600 text-white"
+              : "bg-[color:var(--card)] text-[color:var(--text)]"
+        }`}
+        aria-label="Abrir temporizador de descanso"
+      >
+        <Timer className="h-6 w-6" />
+        {restTimerStarted && (
+          <span className="absolute -top-2 -left-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-0.5 font-mono text-[10px] text-[color:var(--text)] shadow">
+            {restTimerLabel}
+          </span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {restTimerOpen && !restTimerMinimized && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            className="fixed inset-0 z-50 md:hidden bg-[color:var(--bg)] text-[color:var(--text)]"
+          >
+            <div className="flex min-h-screen flex-col px-5 pb-8 pt-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+                    Descanso
+                  </p>
+                  <p className="text-lg font-semibold">
+                    {restTimerDone
+                      ? "Tiempo completado"
+                      : restTimerRunning
+                        ? "Temporizador activo"
+                        : "Temporizador listo"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setRestTimerMinimized(true)}
+                    aria-label="Minimizar temporizador"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="rounded-full"
+                    onClick={handleCloseRestTimer}
+                    aria-label="Cerrar temporizador"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col items-center justify-center gap-8">
+                <div
+                  className="grid h-72 w-72 place-items-center rounded-full p-4 shadow-2xl"
+                  style={{
+                    background: `conic-gradient(rgb(16 185 129) ${restProgressPct}%, rgba(148,163,184,0.22) ${restProgressPct}% 100%)`,
+                  }}
+                >
+                  <div className="grid h-full w-full place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-center">
+                    <div>
+                      <p className="font-mono text-6xl font-bold tracking-normal">
+                        {restTimerLabel}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+                        {restTimerDone
+                          ? "Descanso terminado"
+                          : `${restProgressPct}%`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full max-w-sm space-y-4">
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 5].map((minutes) => (
+                      <Button
+                        key={minutes}
+                        variant={
+                          restMinutesInput === minutes ? "default" : "outline"
+                        }
+                        className="rounded-full"
+                        onClick={() => handleStartRestTimer(minutes)}
+                      >
+                        {minutes}m
+                      </Button>
+                    ))}
+                  </div>
+
+                  <label className="block space-y-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                      Minutos
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={restMinutesInput}
+                      onChange={(event) =>
+                        setRestMinutesInput(
+                          Math.max(1, Number(event.target.value) || 1),
+                        )
+                      }
+                      className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      className={`h-12 rounded-full ${
+                        restTimerRunning
+                          ? "bg-amber-500 text-white hover:bg-amber-600"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700"
+                      }`}
+                      onClick={handleToggleRestTimer}
+                    >
+                      {restTimerRunning ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      <span>
+                        {restTimerRunning
+                          ? "Pausar"
+                          : restTimerStarted
+                            ? "Continuar"
+                            : "Iniciar"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-12 rounded-full"
+                      onClick={handleResetRestTimer}
+                    >
+                      Reiniciar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

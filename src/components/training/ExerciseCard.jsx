@@ -1,13 +1,23 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Play, Trash2 } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
 import Badge from "../ui/badge";
 import SetRow from "./SetRow";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
+
+const formatDuration = (sec = 0) => {
+  const total = Math.max(0, Math.floor(sec));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return [hours, minutes, seconds]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
+};
 
 export default function ExerciseCard({
   exercise,
@@ -19,8 +29,9 @@ export default function ExerciseCard({
   onSeriesTypeChange = () => {},
   onMovementModeChange = () => {},
   onViewTracking = null,
-  onViewHistory = null,
+  onViewHistory: _onViewHistory = null,
   onSwapVariant = null,
+  onStartNow = null,
 }) {
   const [open, setOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState(() => {
@@ -55,6 +66,35 @@ export default function ExerciseCard({
   const variantLabel = hasVariants
     ? `Alternativa ${variantIndex + 1}/${exercise.variants.length}`
     : "";
+  const referenceText = exercise.prText?.startsWith("PR:")
+    ? exercise.prText.replace("PR:", "Referencia:")
+    : exercise.prText || "Sin referencia aquí";
+  const isMoved =
+    exercise.orderContext === "early" || exercise.orderContext === "fatigued";
+  const isExtra = exercise.orderContext === "extra" || exercise.isExtra;
+  const isComplete =
+    Array.isArray(exercise.sets) &&
+    exercise.sets.length > 0 &&
+    exercise.sets.every((set) =>
+      Array.isArray(set.entries) && set.entries.length
+        ? set.entries.every((entry) => entry.done)
+        : Boolean(set.done),
+    );
+  const durationLabel = exercise.durationSeconds
+    ? formatDuration(exercise.durationSeconds)
+    : "";
+  const statusLabel = exercise.isActive && !isComplete
+    ? `En curso${durationLabel ? ` · ${durationLabel}` : ""}`
+    : durationLabel;
+  const _displayStatusLabel =
+    statusLabel ||
+    (isComplete
+      ? `Completado${durationLabel ? ` · ${durationLabel}` : ""}`
+      : "");
+  const actionLabel = exercise.isActive ? "En curso" : "Empezar";
+  const actionClass = exercise.isActive
+    ? "border-emerald-500 bg-emerald-600 text-white hover:bg-emerald-700"
+    : "";
 
   const handleDragEnd = (_, info) => {
     if (!onSwapVariant || !hasVariants) return;
@@ -78,7 +118,7 @@ export default function ExerciseCard({
             localStorage.setItem(key, nextImg);
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // ignore image errors
       }
     })();
@@ -99,53 +139,119 @@ export default function ExerciseCard({
       }
     >
       <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center gap-3 p-4 text-left hover:bg-[color:var(--bg)]/40 transition-colors"
-        >
-          {imageSrc ? (
-            <div className="h-12 w-12 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
-              <img
-                src={imageSrc}
-                alt={exercise.name}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="h-12 w-12 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
-          )}
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-[color:var(--text)]">
-              {exercise.name}
-            </p>
-            <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)] flex-wrap">
-              <Badge
-                variant="secondary"
-                className="uppercase tracking-wide text-[10px]"
-              >
-                {seriesLabel}
-              </Badge>
-              {variantLabel && (
-                <Badge className="text-[10px]">{variantLabel}</Badge>
-              )}
-              {supportsUnilateral && (
-                <Badge className="text-[10px]">
-                  {movementMode === "unilateral" ? "Unilateral" : "Bilateral"}
-                </Badge>
-              )}
-              <Badge>{exercise.prText || "Sin referencia"}</Badge>
-            </div>
-            {hasVariants && (
-              <p className="text-[10px] text-[color:var(--text-muted)] mt-1">
-                Desliza para cambiar ejercicio
-              </p>
+        <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          >
+            {imageSrc ? (
+              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
+                <img
+                  src={imageSrc}
+                  alt={exercise.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-12 w-12 shrink-0 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
             )}
-          </div>
-          <ChevronDown
-            className={`h-5 w-5 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                  {exercise.name}
+                </p>
+                {exercise.isActive && !isComplete && (
+                  <Badge className="shrink-0 bg-emerald-600 text-white text-[10px]">
+                    En curso
+                  </Badge>
+                )}
+                {isComplete && (
+                  <Badge className="shrink-0 bg-blue-600 text-white text-[10px]">
+                    Completado
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">
+                {exercise.muscle || "Sin grupo"} · {referenceText}
+                {statusLabel ? ` · ${statusLabel}` : ""}
+              </p>
+              {exercise.globalPrText && (
+                <p className="mt-0.5 truncate text-[11px] text-[color:var(--text-muted)]">
+                  {exercise.globalPrText}
+                </p>
+              )}
+              <div className="mt-2 flex items-center gap-2 text-xs text-[color:var(--text-muted)] flex-wrap">
+                <Badge
+                  variant="secondary"
+                  className="uppercase tracking-wide text-[10px]"
+                >
+                  {seriesLabel}
+                </Badge>
+                {variantLabel && (
+                  <Badge className="text-[10px]">{variantLabel}</Badge>
+                )}
+                {supportsUnilateral && (
+                  <Badge className="text-[10px]">
+                    {movementMode === "unilateral" ? "Unilateral" : "Bilateral"}
+                  </Badge>
+                )}
+                {isMoved && <Badge className="text-[10px]">Movido</Badge>}
+                {isExtra && <Badge className="text-[10px]">Extra</Badge>}
+              </div>
+              {hasVariants && (
+                <p className="text-[10px] text-[color:var(--text-muted)] mt-1">
+                  Desliza para cambiar ejercicio
+                </p>
+              )}
+            </div>
+            <ChevronDown
+              className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+          {onStartNow && !isComplete && (
+            <Button
+              size="sm"
+              variant={isMoved ? "default" : "outline"}
+              className={`hidden shrink-0 rounded-full px-3 sm:inline-flex ${actionClass}`}
+              onClick={onStartNow}
+              aria-label="Empezar este ejercicio ahora"
+            >
+              <Play className="h-4 w-4" />
+              <span>{actionLabel}</span>
+            </Button>
+          )}
+          {onStartNow && !isComplete && (
+            <Button
+              size="icon"
+              variant={isMoved ? "default" : "outline"}
+              className={`h-9 w-9 shrink-0 rounded-full p-0 sm:hidden ${actionClass}`}
+              onClick={onStartNow}
+              aria-label="Empezar este ejercicio ahora"
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+          )}
+          {onStartNow && isComplete && (
+            <Button
+              size="sm"
+              className="hidden shrink-0 rounded-full bg-blue-600 px-3 text-white hover:bg-blue-700 sm:inline-flex"
+              disabled
+            >
+              Completado
+            </Button>
+          )}
+          {onStartNow && isComplete && (
+            <Button
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-full bg-blue-600 p-0 text-white hover:bg-blue-700 sm:hidden"
+              disabled
+              aria-label="Ejercicio completado"
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
 
         <AnimatePresence initial={false}>
           {open && (
@@ -199,15 +305,30 @@ export default function ExerciseCard({
                   </motion.div>
                   <motion.div whileTap={{ scale: 0.97 }}></motion.div>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-red-600"
-                  onClick={onRemoveExercise}
-                  aria-label="Eliminar ejercicio de la sesion"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {onStartNow && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`rounded-full px-3 ${actionClass}`}
+                      onClick={onStartNow}
+                      aria-label="Empezar este ejercicio ahora"
+                      disabled={isComplete}
+                    >
+                      <Play className="h-4 w-4" />
+                      <span>{isComplete ? "Completado" : actionLabel}</span>
+                    </Button>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-red-600"
+                    onClick={onRemoveExercise}
+                    aria-label="Eliminar ejercicio de la sesion"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
 
               <div className="px-3 pb-3 space-y-2">
@@ -276,6 +397,14 @@ ExerciseCard.propTypes = {
     supportsUnilateral: PropTypes.bool,
     movementMode: PropTypes.oneOf(["bilateral", "unilateral"]),
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
+    plannedOrder: PropTypes.number,
+    actualOrder: PropTypes.number,
+    order: PropTypes.number,
+    orderContext: PropTypes.string,
+    orderContextLabel: PropTypes.string,
+    globalPrText: PropTypes.string,
+    durationSeconds: PropTypes.number,
+    isActive: PropTypes.bool,
     variantIndex: PropTypes.number,
     variants: PropTypes.arrayOf(
       PropTypes.shape({
@@ -312,4 +441,5 @@ ExerciseCard.propTypes = {
   onViewTracking: PropTypes.func,
   onViewHistory: PropTypes.func,
   onSwapVariant: PropTypes.func,
+  onStartNow: PropTypes.func,
 };

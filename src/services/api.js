@@ -48,7 +48,7 @@ export const api = {
       limit: params.limit ?? 120,
       fields:
         params.fields ??
-        'date,routineId,routineName,durationSeconds,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.movementMode,exercises.sets',
+        'date,routineId,routineName,branch,durationSeconds,timeEvents,exerciseDurations,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets',
       from: params.from ?? '',
       to: params.to ?? '',
       routineId: params.routineId ?? '',
