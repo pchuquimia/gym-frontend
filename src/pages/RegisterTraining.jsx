@@ -3295,14 +3295,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     : formatDuration(restRemainingSeconds);
 
   return (
-    <main className="relative min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
+    <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
       />
       <Toaster position="top-center" richColors />
       <div
-        className={`relative mx-auto max-w-md md:max-w-4xl lg:max-w-6xl sm:px-4 pb-28 space-y-4 ${
+        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden pb-28 md:max-w-4xl md:px-4 lg:max-w-6xl space-y-4 ${
           showMobileTrainingBar ? "pt-24 md:pt-4" : "pt-4"
         }`}
       >
@@ -3525,8 +3525,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </Card>
         )}
 
-        <div className="grid gap-4 md:grid-cols-[360px,1fr]">
-          <div className="space-y-4">
+        <div className="grid min-w-0 max-w-full gap-4 md:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="min-w-0 max-w-full space-y-4">
             <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
               <div className="space-y-2">
                 <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
@@ -3575,7 +3575,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             </Card>
           </div>
 
-          <section className="space-y-3">
+          <section className="min-w-0 max-w-full space-y-3">
             {selectedRoutineId ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3616,8 +3616,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="md:hidden space-y-3">
+                <div className="min-w-0 max-w-full space-y-4">
+                  <div className="min-w-0 max-w-full space-y-3 md:hidden">
                     {isOrderingExercises ? (
                       <div className="space-y-4">
                         {groupedExercises.map(([muscle, items]) => (
@@ -3695,7 +3695,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       </div>
                     ) : (
                       groupedExercises.map(([muscle, items]) => (
-                        <div key={muscle} className="space-y-3">
+                        <div key={muscle} className="min-w-0 max-w-full space-y-3">
                           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                             <div>
                               <p className="text-xl font-semibold text-[color:var(--text)]">
@@ -3804,7 +3804,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     )}
                   </div>
 
-                  <div className="hidden md:block space-y-4">
+                  <div className="hidden min-w-0 max-w-full space-y-4 md:block">
                     {groupedExercises.map(([muscle, items]) => (
                       <div key={muscle} className="space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2 px-1">

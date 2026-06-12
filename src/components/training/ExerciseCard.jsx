@@ -126,6 +126,7 @@ export default function ExerciseCard({
 
   return (
     <motion.div
+      className="w-full max-w-full overflow-hidden"
       layout
       whileHover={{ y: -2 }}
       drag={onSwapVariant && hasVariants ? "x" : false}
