@@ -21,7 +21,7 @@ export default function SetRow({
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
   const baseClasses =
-    "rounded-2xl border border-[color:var(--border)] px-2 py-2 space-y-2";
+    "max-w-full overflow-hidden rounded-2xl border border-[color:var(--border)] px-2 py-2 space-y-2";
   const stateClasses = setDone
     ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
     : "bg-[color:var(--card)]";
@@ -61,20 +61,20 @@ export default function SetRow({
       exit={{ opacity: 0, y: -6 }}
       className={`${baseClasses} ${stateClasses}`}
     >
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex min-w-0 items-center justify-between gap-2 px-1 sm:px-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <span
-            className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
               setDone ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
             }`}
           >
             {index}
           </span>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)] sm:tracking-[0.2em]">
             Set de {seriesLabel}
           </span>
           {prSummary ? (
-            <span className="text-[11px] text-[color:var(--text-muted)]">
+            <span className="min-w-0 truncate text-[11px] text-[color:var(--text-muted)]">
               PR {prSummary}
             </span>
           ) : null}
@@ -135,7 +135,7 @@ export default function SetRow({
           return (
             <div
               key={entry.id || `${index}-${entryIdx}`}
-              className={`grid grid-cols-[48px,1fr,1fr,60px,40px] items-center gap-2 px-2 py-2 rounded-xl border border-[color:var(--border)] ${
+              className={`grid max-w-full grid-cols-[28px_minmax(0,1fr)_52px_52px_32px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_60px_40px] sm:gap-2 sm:px-2 ${
                 entryDone
                   ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
                   : "bg-[color:var(--card)]"
@@ -144,12 +144,16 @@ export default function SetRow({
               <div className="text-xs font-semibold text-[color:var(--text-muted)]">
                 {entryLabel}
               </div>
-              <div className={`text-[12px] ${trendClass} flex items-center gap-1`}>
-                <span>{entry.previousText || "Sin referencia"}</span>
+              <div
+                className={`flex min-w-0 items-center gap-1 text-[11px] sm:text-[12px] ${trendClass}`}
+              >
+                <span className="min-w-0 truncate">
+                  {entry.previousText || "Sin referencia"}
+                </span>
                 {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
               </div>
               <input
-                className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-sm text-center focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                className="min-w-0 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-1 text-center text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:px-2"
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9]*[.,]?[0-9]*"
@@ -164,7 +168,7 @@ export default function SetRow({
                 placeholder="Kg"
               />
               <input
-                className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-sm text-center focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                className="min-w-0 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-1 text-center text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:px-2"
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9]*[.,]?[0-9]*"
@@ -178,12 +182,12 @@ export default function SetRow({
                 }
                 placeholder="Reps"
               />
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex min-w-0 items-center justify-end">
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   type="button"
                   onClick={() => onToggleEntry?.(entry.id)}
-                  className={`h-7 w-7 rounded-full border flex items-center justify-center ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                     entryDone
                       ? "bg-blue-600 border-blue-600 text-white"
                       : "border-[color:var(--border)] text-[color:var(--text-muted)]"

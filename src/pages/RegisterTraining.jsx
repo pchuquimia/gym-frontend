@@ -36,8 +36,7 @@ const todayISO = getLocalISODate();
 const SNAPSHOT_KEY = "active_training_snapshot";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
-const ROUTINE_UPDATED_DURING_TRAINING_KEY =
-  "routine_updated_during_training";
+const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
 const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -1309,7 +1308,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           globalBest.weight > best.weight ||
           (globalBest.weight === best.weight &&
             globalBest.reps > (best.reps ?? 0)) ||
-          normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
+          normalizeBranch(globalBest.branch) !==
+            normalizeBranch(selectedBranch))
           ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
               globalBest.branch,
             )}`
@@ -1433,7 +1433,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           globalBest.weight > best.weight ||
           (globalBest.weight === best.weight &&
             globalBest.reps > (best.reps ?? 0)) ||
-          normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
+          normalizeBranch(globalBest.branch) !==
+            normalizeBranch(selectedBranch))
           ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
               globalBest.branch,
             )}`
@@ -1608,7 +1609,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         removedFromRoutine: false,
         plannedOrder: nextPlannedOrder,
         order: template.order || idx + 1,
-        actualOrder: match.startedOrder || match.actualOrder || nextPlannedOrder,
+        actualOrder:
+          match.startedOrder || match.actualOrder || nextPlannedOrder,
         prText: template.prText,
         globalPrText: template.globalPrText,
         prSummary: template.prSummary,
@@ -1738,7 +1740,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setTimeEvents((prev) => [
       ...prev,
       ...(!isRunning
-        ? [createTimeEvent(prev.length ? "session_resume" : "session_start", null, now)]
+        ? [
+            createTimeEvent(
+              prev.length ? "session_resume" : "session_start",
+              null,
+              now,
+            ),
+          ]
         : []),
       createTimeEvent("exercise_start", exerciseId, now),
     ]);
@@ -1999,8 +2007,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         if (result.added) details.push(`${result.added} agregados`);
         if (result.resized)
           details.push(`${result.resized} con series ajustadas`);
-        if (result.reordered)
-          details.push(`${result.reordered} reordenados`);
+        if (result.reordered) details.push(`${result.reordered} reordenados`);
         if (result.removed) details.push(`${result.removed} quitados`);
         if (result.keptRemoved)
           details.push(`${result.keptRemoved} mantenidos por tener datos`);
@@ -2327,7 +2334,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setNowMs(now);
     setTimeEvents((prev) => [
       ...prev,
-      createTimeEvent(prev.length ? "session_resume" : "session_start", null, now),
+      createTimeEvent(
+        prev.length ? "session_resume" : "session_start",
+        null,
+        now,
+      ),
     ]);
     setIsRunning(true);
     setHasStarted(true);
@@ -2339,7 +2350,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     lastUpdateRef.current = now;
     setNowMs(now);
     if (isRunning) {
-      setTimeEvents((prev) => [...prev, createTimeEvent("session_pause", null, now)]);
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("session_pause", null, now),
+      ]);
     }
     setIsRunning(false);
   };
@@ -2405,7 +2419,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const bestMap = computeBestFromHistory(hist, branch);
       const bestBySetMap = computeBestBySetFromHistory(hist, branch);
       const recentBySetMap = computeRecentBySetFromHistory(hist, null, branch);
-      const seriesTypeMap = computeLatestSeriesTypeFromHistory(hist, id, branch);
+      const seriesTypeMap = computeLatestSeriesTypeFromHistory(
+        hist,
+        id,
+        branch,
+      );
       await loadTrainingForDate(
         sessionDate,
         id,
@@ -2810,31 +2828,31 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       applyExerciseOrder([
         ...prev,
         {
-        id: newExerciseId,
-        name: "Nuevo ejercicio",
-        prText: "Sin referencia previa",
-        muscle: "Sin grupo",
-        supportsUnilateral: false,
-        movementMode: "bilateral",
-        seriesType: "serie",
-        sets: [
-          {
-            id: newSetId,
-            entries: normalizeEntries({
-              entries: [
-                {
-                  previousText: "Sin referencia",
-                  kg: "",
-                  reps: "",
-                  done: false,
-                },
-              ],
-              seriesType: "serie",
-              setId: newSetId,
-              fallbackPrev: "Sin referencia",
-            }),
-          },
-        ],
+          id: newExerciseId,
+          name: "Nuevo ejercicio",
+          prText: "Sin referencia previa",
+          muscle: "Sin grupo",
+          supportsUnilateral: false,
+          movementMode: "bilateral",
+          seriesType: "serie",
+          sets: [
+            {
+              id: newSetId,
+              entries: normalizeEntries({
+                entries: [
+                  {
+                    previousText: "Sin referencia",
+                    kg: "",
+                    reps: "",
+                    done: false,
+                  },
+                ],
+                seriesType: "serie",
+                setId: newSetId,
+                fallbackPrev: "Sin referencia",
+              }),
+            },
+          ],
         },
       ]),
     );
@@ -2860,7 +2878,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const recentBySetKey = pickMapKey(historyRecentBySet, keys);
     const seriesKey = pickMapKey(historySeriesTypeMap, keys);
     const best = bestKey ? historyBest.get(bestKey) : null;
-    const globalBest = globalBestKey ? historyGlobalBest.get(globalBestKey) : null;
+    const globalBest = globalBestKey
+      ? historyGlobalBest.get(globalBestKey)
+      : null;
     const bestBySet = bestBySetKey
       ? historyBestBySet.get(bestBySetKey) || []
       : [];
@@ -2906,39 +2926,42 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       applyExerciseOrder([
         ...prev,
         {
-        id: exerciseId,
-        name: exercise.name || "Ejercicio",
-        prText,
-        globalPrText,
-        prSummary,
-        prWeight: best?.weight ?? null,
-        image: exercise.image || "",
-        imagePublicId: exercise.imagePublicId || "",
-        muscle: exercise.muscle || exercise.muscleGroup || "Sin grupo",
-        supportsUnilateral,
-        movementMode,
-        seriesType,
-        sets: [
-          {
-            id: newSetId,
-            prSummary: perSetSummary,
-            entries: normalizeEntries({
-              entries: [
-                {
-                  previousText: buildPrevText(previousByIndex[0], fallbackPrev),
-                  kg: "",
-                  reps: "",
-                  done: false,
-                },
-              ],
-              seriesType,
-              setId: newSetId,
-              fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
-              previousByIndex,
-              compareByIndex,
-            }),
-          },
-        ],
+          id: exerciseId,
+          name: exercise.name || "Ejercicio",
+          prText,
+          globalPrText,
+          prSummary,
+          prWeight: best?.weight ?? null,
+          image: exercise.image || "",
+          imagePublicId: exercise.imagePublicId || "",
+          muscle: exercise.muscle || exercise.muscleGroup || "Sin grupo",
+          supportsUnilateral,
+          movementMode,
+          seriesType,
+          sets: [
+            {
+              id: newSetId,
+              prSummary: perSetSummary,
+              entries: normalizeEntries({
+                entries: [
+                  {
+                    previousText: buildPrevText(
+                      previousByIndex[0],
+                      fallbackPrev,
+                    ),
+                    kg: "",
+                    reps: "",
+                    done: false,
+                  },
+                ],
+                seriesType,
+                setId: newSetId,
+                fallbackPrev: buildPrevText(previousByIndex[0], fallbackPrev),
+                previousByIndex,
+                compareByIndex,
+              }),
+            },
+          ],
         },
       ]),
     );
@@ -3286,8 +3309,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         {showMobileTrainingBar && (
           <div className="fixed top-14 left-0 right-0 z-30 md:hidden px-3 sm:px-4">
             <div className="pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
-              <div className="flex items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
-                <div className="flex items-baseline gap-2">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
+                <div className="flex shrink-0 items-baseline gap-2">
                   <span className="font-mono text-lg text-[color:var(--text)]">
                     {formatDuration(durationSeconds)}
                   </span>
@@ -3302,15 +3325,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   </span>
                 </div>
                 {activeExercise && (
-                  <p className="max-w-[160px] truncate text-[11px] text-[color:var(--text-muted)]">
-                    {activeExercise.name} · {formatDuration(activeExerciseDuration)}
+                  <p className="min-w-0 flex-1 truncate text-[11px] text-[color:var(--text-muted)]">
+                    {activeExercise.name} ·{" "}
+                    {formatDuration(activeExerciseDuration)}
                   </p>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   {showFinishButton && (
                     <Button
                       size="sm"
-                      className="rounded-full px-3"
+                      className="rounded-full px-2.5"
                       onClick={handleFinish}
                       disabled={!exercises.length}
                     >
@@ -3321,7 +3345,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="rounded-full px-3"
+                      className="rounded-full px-2.5"
                       onClick={handleCancel}
                     >
                       Cancelar
@@ -3856,9 +3880,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 onSwapVariant={(direction) =>
                                   handleSwapVariant(ex.id, direction)
                                 }
-                                onStartNow={() =>
-                                  handleStartExerciseNow(ex.id)
-                                }
+                                onStartNow={() => handleStartExerciseNow(ex.id)}
                                 onViewTracking={() => {
                                   setTrackingExerciseId(ex.id);
                                   setShowTracking(true);
@@ -4278,7 +4300,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
             {trackingRows.length ? (
               <div className="overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
-                <table className="min-w-[360px] w-full text-xs sm:text-sm">
+                <table className="min-w-full w-full text-xs sm:text-sm">
                   <thead className="bg-[color:var(--bg)]">
                     <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                       <th className="px-3 py-2">Fecha</th>

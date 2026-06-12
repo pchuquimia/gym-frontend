@@ -331,7 +331,7 @@ export default function ExerciseCard({
                 </div>
               </div>
 
-              <div className="px-3 pb-3 space-y-2">
+              <div className="space-y-2 px-2 pb-3 sm:px-3">
                 <div className="flex items-center justify-between px-2">
                   <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                     Set de {seriesLabelLower}
@@ -340,7 +340,7 @@ export default function ExerciseCard({
                     {exercise.sets.length} sets
                   </span>
                 </div>
-                <div className="grid grid-cols-[48px,1fr,1fr,60px,40px] text-[11px] text-[color:var(--text-muted)] px-2">
+                <div className="grid grid-cols-[28px_minmax(0,1fr)_52px_52px_32px] px-1.5 text-[10px] text-[color:var(--text-muted)] sm:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_60px_40px] sm:px-2 sm:text-[11px]">
                   <span>#</span>
                   <span>Previo</span>
                   <span>Kg</span>
