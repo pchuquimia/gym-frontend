@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAuthToken } from "./tokenStorage";
 
 const FALLBACK_API_URL = "https://gym-backend-1fod.onrender.com";
 
@@ -57,6 +58,14 @@ export const axiosClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+axiosClient.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 axiosClient.interceptors.response.use(

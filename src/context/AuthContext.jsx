@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
+import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
 
 const AuthContext = createContext(null);
 
@@ -28,6 +29,7 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       return nextUser;
     } catch (_err) {
+      clearAuthToken();
       setUser(null);
       return null;
     } finally {
@@ -42,6 +44,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (payload) => {
     setError("");
     const data = await api.login(payload);
+    if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     setUser(nextUser);
     return nextUser;
@@ -50,6 +53,7 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     setError("");
     const data = await api.register(payload);
+    if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     setUser(nextUser);
     return nextUser;
@@ -60,6 +64,7 @@ export function AuthProvider({ children }) {
       await api.logout();
     } finally {
       setUser(null);
+      clearAuthToken();
       queryClient.clear();
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem("active_page");
