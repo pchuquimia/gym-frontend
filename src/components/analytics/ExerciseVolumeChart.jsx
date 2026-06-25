@@ -12,27 +12,6 @@ const EmptyState = () => (
   </div>
 )
 
-const KPI = ({ label, value }) => (
-  <div className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2">
-    <p className="text-xs text-[color:var(--text-muted)]">{label}</p>
-    <p className="text-lg font-semibold">{value}</p>
-  </div>
-)
-
-const calcKPIs = (weeks) => {
-  if (!weeks.length) return { last: '—', avg: '—', delta: '—' }
-  const last = weeks[weeks.length - 1]?.volume || 0
-  const avg4 = weeks.slice(-4).reduce((a, b) => a + b.volume, 0) / Math.max(weeks.slice(-4).length, 1)
-  const prev4Arr = weeks.slice(-8, -4)
-  const prev4 = prev4Arr.length ? prev4Arr.reduce((a, b) => a + b.volume, 0) / prev4Arr.length : null
-  let delta = '—'
-  if (prev4 && prev4 !== 0) {
-    const pct = ((avg4 - prev4) / prev4) * 100
-    delta = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
-  }
-  return { last: `${last} kg·reps`, avg: `${Math.round(avg4)} kg·reps`, delta }
-}
-
 const buildData = ({ workouts = [], exerciseId, rangeWeeks = 12, groupBy = 'week' }) => {
   const sets = workouts
     .filter((w) => w.exerciseId === exerciseId)
@@ -92,18 +71,10 @@ const ExerciseVolumeChart = ({
     () => buildData({ workouts, exerciseId, rangeWeeks, groupBy }),
     [workouts, exerciseId, rangeWeeks, groupBy],
   )
-  const kpis = calcKPIs(points)
-
   const hasData = points.length >= 1
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap">
-        <KPI label="Volumen última semana" value={kpis.last} />
-        <KPI label="Promedio 4 semanas" value={kpis.avg} />
-        <KPI label="Delta vs previas" value={kpis.delta} />
-      </div>
-
       <div className="flex items-center gap-2 text-xs">
         <button
           className={`px-3 py-1 rounded-full border ${view === 'volume' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}

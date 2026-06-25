@@ -10,29 +10,6 @@ const EmptyState = ({ title, description }) => (
   </div>
 )
 
-const KPI = ({ label, value }) => (
-  <div className="flex-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2">
-    <p className="text-xs text-[color:var(--text-muted)]">{label}</p>
-    <p className="text-lg font-semibold">{value}</p>
-  </div>
-)
-
-const calcKPIs = (weeks, fullWeeks) => {
-  if (!weeks.length) return { pr: '—', delta: '—' }
-  const pr = Math.max(...fullWeeks.map((w) => w.oneRM))
-  const last4 = weeks.slice(-4).map((w) => w.oneRM)
-  const prev4 = weeks.slice(-8, -4).map((w) => w.oneRM)
-  const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null)
-  const avgLast4 = avg(last4)
-  const avgPrev4 = avg(prev4)
-  let delta = '—'
-  if (avgLast4 && avgPrev4) {
-    const pct = ((avgLast4 - avgPrev4) / avgPrev4) * 100
-    delta = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
-  }
-  return { pr: `${pr.toFixed(1)} kg`, delta }
-}
-
 const buildData = ({ workouts = [], exerciseId, rangeWeeks = 12, groupBy = 'week' }) => {
   const sets = workouts
     .filter((w) => w.exerciseId === exerciseId)
@@ -90,18 +67,13 @@ const buildData = ({ workouts = [], exerciseId, rangeWeeks = 12, groupBy = 'week
 }
 
 const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dark', groupBy = 'week' }) => {
-  const { series, points, full } = buildData({ workouts, exerciseId, rangeWeeks, groupBy })
-  const kpis = calcKPIs(points, full)
+  const { series, points } = buildData({ workouts, exerciseId, rangeWeeks, groupBy })
 
   const hasData = points.length >= 1
   const hasTrend = points.length >= 2
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2 flex-wrap">
-        <KPI label="PR histórico (1RM)" value={kpis.pr} />
-        <KPI label="Cambio vs 4 semanas previas" value={kpis.delta} />
-      </div>
       <div className="h-80">
         {hasData ? (
           <ResponsiveLine

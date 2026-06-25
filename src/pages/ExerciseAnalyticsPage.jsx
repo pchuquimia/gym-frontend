@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import TopBar from "../components/layout/TopBar";
+import {
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  Dumbbell,
+  TimerReset,
+  TrendingUp,
+} from "lucide-react";
 import ExerciseAnalytics from "../components/analytics/ExerciseAnalytics";
-import Card from "../components/ui/card";
 import Badge from "../components/ui/badge";
 import { useTrainingData } from "../context/TrainingContext";
 import { getExerciseImageUrl } from "../utils/cloudinary";
+import { estimate1RM } from "../utils/trainingMetrics";
 
 const slugify = (text) =>
   text
@@ -33,15 +40,30 @@ const toValidDate = (value) => {
   return null;
 };
 
-const formatShort = (value) => {
-  const d = toValidDate(value);
-  if (!d) return "--";
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
-};
-
 const getDateTimestamp = (value) => {
   const d = toValidDate(value);
   return d ? d.getTime() : 0;
+};
+
+const formatCompactNumber = (value) => {
+  const number = Number(value) || 0;
+  if (!number) return "--";
+  if (Math.abs(number) >= 1000) {
+    return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}k`;
+  }
+  return `${Math.round(number)}`;
+};
+
+const formatPercent = (value) => {
+  if (!Number.isFinite(value)) return "--";
+  return `${value >= 0 ? "+" : ""}${Math.round(value)}%`;
+};
+
+const formatSeconds = (seconds) => {
+  const value = Number(seconds) || 0;
+  if (!value) return "--";
+  if (value >= 60) return `${Math.round(value / 60)} min`;
+  return `${Math.round(value)} seg`;
 };
 
 const flattenSets = (sets = []) =>
@@ -62,6 +84,50 @@ const flattenSets = (sets = []) =>
     }));
   });
 
+function MetricCard({ label, value, suffix = "", icon: Icon, tone = "blue" }) {
+  const toneClass =
+    tone === "emerald"
+      ? "text-emerald-400"
+      : "text-blue-700 dark:text-blue-200";
+
+  return (
+    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          {label}
+        </p>
+        <Icon className="h-4 w-4 text-[color:var(--text-muted)]" />
+      </div>
+      <p className={`mt-3 text-2xl font-black leading-none ${toneClass}`}>
+        {value}
+        {suffix ? (
+          <span className="ml-1 text-sm font-semibold text-[color:var(--text)]">
+            {suffix}
+          </span>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+function RecoveryCard({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-blue-500/10 text-emerald-400">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+          {label}
+        </p>
+        <p className="mt-1 text-2xl font-black leading-none text-[color:var(--text)]">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ExerciseAnalyticsPage() {
   const { sessions = [], trainings = [], exercises = [] } = useTrainingData();
   const getThemeMode = () => {
@@ -71,7 +137,6 @@ function ExerciseAnalyticsPage() {
       : "light";
   };
   const [themeMode, setThemeMode] = useState(getThemeMode);
-
   const [selectedExerciseId, setSelectedExerciseId] = useState(() => {
     if (typeof localStorage !== "undefined") {
       const last = localStorage.getItem("last_exercise_id");
@@ -80,6 +145,7 @@ function ExerciseAnalyticsPage() {
     return exercises[0]?.id || "";
   });
   const [selectedMuscle, setSelectedMuscle] = useState("");
+  const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -93,22 +159,21 @@ function ExerciseAnalyticsPage() {
 
   const workouts = useMemo(
     () => [
-      // sesiones simples
       ...sessions
-        .filter((s) => s.exerciseId)
-        .map((s) => ({
-          exerciseId: s.exerciseId || slugify(s.exerciseName || ""),
-          date: s.date,
-          sets: flattenSets(s.sets || []),
+        .filter((session) => session.exerciseId)
+        .map((session) => ({
+          exerciseId: session.exerciseId || slugify(session.exerciseName || ""),
+          date: session.date,
+          sets: flattenSets(session.sets || []),
         })),
-      // entrenamientos completos
-      ...trainings.flatMap((t) =>
-        (t.exercises || [])
-          .filter((ex) => ex.exerciseId || ex.exerciseName)
-          .map((ex) => ({
-            exerciseId: ex.exerciseId || slugify(ex.exerciseName || ""),
-            date: t.date,
-            sets: flattenSets(ex.sets || []),
+      ...trainings.flatMap((training) =>
+        (training.exercises || [])
+          .filter((exercise) => exercise.exerciseId || exercise.exerciseName)
+          .map((exercise) => ({
+            exerciseId:
+              exercise.exerciseId || slugify(exercise.exerciseName || ""),
+            date: training.date,
+            sets: flattenSets(exercise.sets || []),
           })),
       ),
     ],
@@ -117,80 +182,90 @@ function ExerciseAnalyticsPage() {
 
   const muscleOptions = useMemo(() => {
     const set = new Set();
-    exercises.forEach((ex) => {
-      const group = ex.muscle || ex.muscleGroup || "Sin grupo";
-      set.add(group);
+    exercises.forEach((exercise) => {
+      set.add(exercise.muscle || exercise.muscleGroup || "Sin grupo");
     });
     return Array.from(set);
   }, [exercises]);
 
-  const filteredExercises = useMemo(() => {
-    if (!selectedMuscle) return exercises;
-    return exercises.filter(
-      (ex) => (ex.muscle || ex.muscleGroup || "Sin grupo") === selectedMuscle,
-    );
-  }, [exercises, selectedMuscle]);
-
-  useEffect(() => {
-    if (!selectedExerciseId && exercises.length) {
-      setSelectedExerciseId(exercises[0].id);
-    }
-  }, [exercises, selectedExerciseId]);
-
-  useEffect(() => {
-    if (!muscleOptions.length) return;
-    if (!selectedMuscle) {
-      const currentExercise = exercises.find(
-        (ex) => ex.id === selectedExerciseId,
-      );
-      const group = currentExercise?.muscle || currentExercise?.muscleGroup;
-      setSelectedMuscle(group || muscleOptions[0]);
-      return;
-    }
-    if (!muscleOptions.includes(selectedMuscle)) {
-      setSelectedMuscle(muscleOptions[0]);
-    }
-  }, [muscleOptions, selectedMuscle, exercises, selectedExerciseId]);
-
-  useEffect(() => {
-    if (!filteredExercises.length) return;
-    if (!filteredExercises.find((ex) => ex.id === selectedExerciseId)) {
-      setSelectedExerciseId(filteredExercises[0].id);
-    }
-  }, [filteredExercises, selectedExerciseId]);
-
-  useEffect(() => {
-    if (typeof localStorage === "undefined") return;
-    if (!selectedExerciseId) return;
-    localStorage.setItem("last_exercise_id", selectedExerciseId);
-  }, [selectedExerciseId]);
-
-  const selectedExercise = useMemo(
-    () => exercises.find((ex) => ex.id === selectedExerciseId) || null,
+  const selectedExerciseFromState = useMemo(
+    () =>
+      exercises.find((exercise) => exercise.id === selectedExerciseId) || null,
     [exercises, selectedExerciseId],
   );
+  const effectiveSelectedMuscle =
+    selectedMuscle ||
+    selectedExerciseFromState?.muscle ||
+    selectedExerciseFromState?.muscleGroup ||
+    muscleOptions[0] ||
+    "";
+
+  const filteredExercises = useMemo(() => {
+    if (!effectiveSelectedMuscle) return exercises;
+    return exercises.filter(
+      (exercise) =>
+        (exercise.muscle || exercise.muscleGroup || "Sin grupo") ===
+        effectiveSelectedMuscle,
+    );
+  }, [effectiveSelectedMuscle, exercises]);
+
+  const effectiveSelectedExerciseId = useMemo(() => {
+    if (
+      selectedExerciseId &&
+      filteredExercises.some((exercise) => exercise.id === selectedExerciseId)
+    ) {
+      return selectedExerciseId;
+    }
+    return filteredExercises[0]?.id || exercises[0]?.id || "";
+  }, [exercises, filteredExercises, selectedExerciseId]);
+
+  useEffect(() => {
+    if (typeof localStorage === "undefined" || !effectiveSelectedExerciseId) {
+      return;
+    }
+    localStorage.setItem("last_exercise_id", effectiveSelectedExerciseId);
+  }, [effectiveSelectedExerciseId]);
+
+  const selectedExercise = useMemo(
+    () =>
+      exercises.find((exercise) => exercise.id === effectiveSelectedExerciseId) ||
+      null,
+    [effectiveSelectedExerciseId, exercises],
+  );
   const selectedWorkouts = useMemo(
-    () => workouts.filter((w) => w.exerciseId === selectedExerciseId),
-    [workouts, selectedExerciseId],
+    () =>
+      workouts.filter(
+        (workout) => workout.exerciseId === effectiveSelectedExerciseId,
+      ),
+    [effectiveSelectedExerciseId, workouts],
   );
 
   const stats = useMemo(() => {
     let best = null;
+    let bestOneRM = null;
     let lastDate = null;
     let lastTs = 0;
     let totalVolume = 0;
+    const sessionSummaries = [];
+
     selectedWorkouts.forEach((workout) => {
       const ts = getDateTimestamp(workout.date);
       if (ts > lastTs) {
         lastTs = ts;
         lastDate = workout.date;
       }
+      let workoutVolume = 0;
+      let workoutBestOneRM = 0;
+
       workout.sets.forEach((set) => {
         const weight = Number(set.weight ?? set.weightKg ?? 0) || 0;
         const reps = Number(set.reps ?? 0) || 0;
         const volume = weight * reps;
+        const oneRM = estimate1RM(weight, reps);
         totalVolume += volume;
+        workoutVolume += volume;
         if (weight <= 0 && reps <= 0) return;
+        workoutBestOneRM = Math.max(workoutBestOneRM, oneRM);
         if (
           !best ||
           weight > best.weight ||
@@ -199,219 +274,271 @@ function ExerciseAnalyticsPage() {
         ) {
           best = { weight, reps, date: workout.date, ts };
         }
+        if (
+          oneRM > 0 &&
+          (!bestOneRM || oneRM > bestOneRM.value || ts < bestOneRM.ts)
+        ) {
+          bestOneRM = { value: oneRM, date: workout.date, ts };
+        }
       });
+
+      if (workoutBestOneRM > 0 || workoutVolume > 0) {
+        sessionSummaries.push({
+          date: workout.date,
+          ts,
+          oneRM: workoutBestOneRM,
+          volume: workoutVolume,
+        });
+      }
     });
+
     const totalSessions = selectedWorkouts.length;
     const avgVolume = totalSessions
       ? Math.round(totalVolume / totalSessions)
       : 0;
+    const chronological = sessionSummaries.sort((a, b) => a.ts - b.ts);
+    const firstOneRM = chronological.find((item) => item.oneRM > 0)?.oneRM || 0;
+    const lastOneRM =
+      [...chronological].reverse().find((item) => item.oneRM > 0)?.oneRM || 0;
+    const previousOneRM =
+      chronological.length > 1
+        ? chronological[chronological.length - 2].oneRM
+        : 0;
+    const progress =
+      firstOneRM && lastOneRM
+        ? ((lastOneRM - firstOneRM) / firstOneRM) * 100
+        : null;
+    const vsPrevious =
+      previousOneRM && lastOneRM
+        ? ((lastOneRM - previousOneRM) / previousOneRM) * 100
+        : null;
+    const frequency =
+      chronological.length >= 2
+        ? chronological.length /
+          Math.max(
+            1,
+            (chronological[chronological.length - 1].ts - chronological[0].ts) /
+              (7 * 24 * 60 * 60 * 1000),
+          )
+        : totalSessions;
+
     return {
       totalSessions,
       lastDate,
       best,
+      bestOneRM,
       avgVolume,
+      progress,
+      vsPrevious,
+      frequency,
     };
   }, [selectedWorkouts]);
 
+  const recovery = useMemo(() => {
+    const durations = trainings
+      .flatMap((training) => training.exerciseDurations || [])
+      .filter((item) => item.exerciseId === effectiveSelectedExerciseId)
+      .map((item) => Number(item.durationSeconds) || 0)
+      .filter(Boolean);
+    const avgDuration = durations.length
+      ? durations.reduce((sum, value) => sum + value, 0) / durations.length
+      : 0;
+    return {
+      avgDuration,
+      frequency: stats.frequency,
+    };
+  }, [effectiveSelectedExerciseId, stats.frequency, trainings]);
+
   const exerciseName =
-    exercises.find((ex) => ex.id === selectedExerciseId)?.name ||
-    sessions.find((s) => s.exerciseId === selectedExerciseId)?.exerciseName ||
+    exercises.find((exercise) => exercise.id === effectiveSelectedExerciseId)?.name ||
+    sessions.find((session) => session.exerciseId === effectiveSelectedExerciseId)
+      ?.exerciseName ||
     "Ejercicio";
+  const selectedImage = selectedExercise
+    ? getExerciseImageUrl(selectedExercise, { width: 240, height: 240 })
+    : "";
+  const selectedMuscleLabel =
+    selectedExercise?.muscle || selectedExercise?.muscleGroup || "Sin grupo";
+  const statusLabel = stats.totalSessions
+    ? `${stats.totalSessions} sesiones`
+    : "Sin sesiones recientes";
 
   return (
-    <>
-      <TopBar
-        title="Gráficas y análisis"
-        subtitle="Analiza fuerza, volumen e intensidad por ejercicio"
-      />
-      <div className="space-y-4">
-        <div className="grid gap-4 lg:grid-cols-[320px,1fr]">
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 rounded-2xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
-                {selectedExercise &&
-                getExerciseImageUrl(selectedExercise, {
-                  width: 240,
-                  height: 240,
-                }) ? (
-                  <img
-                    src={getExerciseImageUrl(selectedExercise, {
-                      width: 240,
-                      height: 240,
-                    })}
-                    alt={exerciseName}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
-                    Sin imagen
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Ejercicio
-                </p>
-                <p className="text-base font-semibold text-[color:var(--text)] truncate">
-                  {exerciseName}
-                </p>
-                <div className="mt-1 flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary" className="text-[11px]">
-                    {selectedExercise?.muscle ||
-                      selectedExercise?.muscleGroup ||
-                      "Sin grupo"}
-                  </Badge>
-                  <span className="text-xs text-[color:var(--text-muted)]">
-                    {stats.totalSessions
-                      ? `${stats.totalSessions} sesiones`
-                      : "Sin sesiones"}
-                  </span>
-                </div>
-              </div>
-            </div>
+    <div className="mx-auto w-full max-w-5xl space-y-4 pb-24">
+      <header className="space-y-1">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+          Analiza fuerza, volumen e intensidad
+        </p>
+        <h1 className="text-2xl font-bold leading-tight text-[color:var(--text)]">
+          Gráficas y análisis
+        </h1>
+      </header>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                Grupo muscular
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {muscleOptions.map((group) => (
-                  <button
-                    key={group}
-                    type="button"
-                    onClick={() => setSelectedMuscle(group)}
-                    className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${
-                      selectedMuscle === group
-                        ? "border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
-                        : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]"
-                    }`}
-                  >
-                    {group}
-                  </button>
-                ))}
-                {!muscleOptions.length && (
-                  <span className="text-xs text-[color:var(--text-muted)]">
-                    Sin grupos disponibles
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                  Ejercicios
-                </p>
-                <span className="text-[11px] text-[color:var(--text-muted)]">
-                  {filteredExercises.length} disponibles
-                </span>
-              </div>
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {filteredExercises.map((ex) => {
-                  const thumb = getExerciseImageUrl(ex, {
-                    width: 120,
-                    height: 120,
-                  });
-                  const isActive = ex.id === selectedExerciseId;
-                  return (
-                    <button
-                      key={ex.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ex.id)}
-                      className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
-                        isActive
-                          ? "border-blue-500/40 bg-blue-50 dark:bg-blue-500/10"
-                          : "border-[color:var(--border)] hover:bg-[color:var(--bg)]"
-                      }`}
-                    >
-                      <div className="h-10 w-10 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt={ex.name}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="h-full w-full grid place-items-center text-[11px] text-[color:var(--text-muted)]">
-                            {(ex.name || "?").charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-[color:var(--text)] truncate">
-                          {ex.name}
-                        </p>
-                        <p className="text-[11px] text-[color:var(--text-muted)]">
-                          {ex.muscle || ex.muscleGroup || "Sin grupo"}
-                        </p>
-                      </div>
-                      {isActive && (
-                        <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-300">
-                          Activo
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-                {!filteredExercises.length && (
-                  <div className="rounded-xl border border-dashed border-[color:var(--border)] p-3 text-xs text-[color:var(--text-muted)]">
-                    No hay ejercicios para este grupo muscular.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Mejor set
-                </p>
-                <p className="text-sm font-semibold text-[color:var(--text)]">
-                  {stats.best
-                    ? `${stats.best.weight}kg x ${stats.best.reps}`
-                    : "--"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Primera fecha PR
-                </p>
-                <p className="text-sm font-semibold text-[color:var(--text)]">
-                  {stats.best?.date ? formatShort(stats.best.date) : "--"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Ultima sesion
-                </p>
-                <p className="text-sm font-semibold text-[color:var(--text)]">
-                  {stats.lastDate ? formatShort(stats.lastDate) : "--"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Volumen prom.
-                </p>
-                <p className="text-sm font-semibold text-[color:var(--text)]">
-                  {stats.avgVolume ? `${stats.avgVolume} kg` : "--"}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <div className="space-y-4">
-            <ExerciseAnalytics
-              exerciseId={selectedExerciseId || exercises[0]?.id || ""}
-              exerciseName={exerciseName}
-              workouts={workouts}
-              mode={themeMode}
-            />
-          </div>
-        </div>
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {muscleOptions.map((group) => (
+          <button
+            key={group}
+            type="button"
+            onClick={() => {
+              setSelectedMuscle(group);
+              setExercisePickerOpen(false);
+            }}
+            className={`h-10 shrink-0 rounded-full px-4 text-xs font-bold transition ${
+              effectiveSelectedMuscle === group
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                : "bg-[color:var(--card)] text-[color:var(--text)]"
+            }`}
+          >
+            {group}
+          </button>
+        ))}
       </div>
-    </>
+
+      <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 text-left"
+          onClick={() => setExercisePickerOpen((value) => !value)}
+        >
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
+            {selectedImage ? (
+              <img
+                src={selectedImage}
+                alt={exerciseName}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="grid h-full w-full place-items-center text-[11px] text-[color:var(--text-muted)]">
+                Sin imagen
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="line-clamp-2 text-lg font-bold leading-5 text-[color:var(--text)]">
+              {exerciseName}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="text-[10px] uppercase">
+                {selectedMuscleLabel}
+              </Badge>
+              <span className="text-[11px] text-[color:var(--text-muted)]">
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition ${
+              exercisePickerOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {exercisePickerOpen ? (
+          <div className="mt-3 max-h-64 space-y-2 overflow-y-auto border-t border-[color:var(--border)] pt-3">
+            {filteredExercises.map((exercise) => {
+              const thumb = getExerciseImageUrl(exercise, {
+                width: 120,
+                height: 120,
+              });
+              const isActive = exercise.id === effectiveSelectedExerciseId;
+              return (
+                <button
+                  key={exercise.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedExerciseId(exercise.id);
+                    setExercisePickerOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                    isActive
+                      ? "border-blue-500/40 bg-blue-500/10"
+                      : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                  }`}
+                >
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[color:var(--card)]">
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={exercise.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center text-xs text-[color:var(--text-muted)]">
+                        {(exercise.name || "?").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)]">
+                    {exercise.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="grid grid-cols-2 gap-3">
+        <MetricCard
+          label="Mejor set"
+          value={stats.best ? `${stats.best.weight}` : "--"}
+          suffix={stats.best ? "kg" : ""}
+          icon={Dumbbell}
+          tone="emerald"
+        />
+        <MetricCard
+          label="Primer PR"
+          value={stats.bestOneRM ? stats.bestOneRM.value.toFixed(0) : "--"}
+          suffix={stats.bestOneRM ? "kg" : ""}
+          icon={CalendarDays}
+        />
+        <MetricCard
+          label="Progreso"
+          value={formatPercent(stats.progress)}
+          icon={TrendingUp}
+          tone="emerald"
+        />
+        <MetricCard
+          label="Volumen prom."
+          value={formatCompactNumber(stats.avgVolume)}
+          suffix={stats.avgVolume ? "kg" : ""}
+          icon={Dumbbell}
+        />
+      </section>
+
+      <ExerciseAnalytics
+        exerciseId={effectiveSelectedExerciseId || exercises[0]?.id || ""}
+        exerciseName={exerciseName}
+        workouts={workouts}
+        mode={themeMode}
+        summary={{
+          pr: stats.bestOneRM ? `${stats.bestOneRM.value.toFixed(1)} kg` : "--",
+          vsPrevious: formatPercent(stats.vsPrevious),
+        }}
+      />
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-[color:var(--text)]">
+          Insights de Recuperación
+        </h2>
+        <RecoveryCard
+          icon={TimerReset}
+          label="Tiempo de trabajo promedio"
+          value={formatSeconds(recovery.avgDuration)}
+        />
+        <RecoveryCard
+          icon={Clock3}
+          label="Frecuencia de entrenamiento semanal"
+          value={
+            recovery.frequency
+              ? `${Number(recovery.frequency).toFixed(1)} veces/sem`
+              : "--"
+          }
+        />
+      </section>
+    </div>
   );
 }
 

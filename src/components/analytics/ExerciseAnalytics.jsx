@@ -13,7 +13,12 @@ const tabs = [
 
 const ranges = [4, 8, 12, 24]
 
-const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench Press', workouts = [], mode = 'dark' }) => {
+const ExerciseAnalytics = ({
+  exerciseId = 'bench_press',
+  workouts = [],
+  mode = 'dark',
+  summary = {},
+}) => {
   const [tab, setTab] = useState('fuerza')
   const [range, setRange] = useState(12)
   const [groupBy, setGroupBy] = useState('week') // week | session
@@ -21,35 +26,46 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
   const hasRealData = workouts.length > 0
 
   const pillGroup =
-    'inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1'
+    'inline-flex items-center gap-1 rounded-full bg-[color:var(--bg)] p-1'
   const pillButton = (active) =>
-    `px-3 py-1 rounded-full text-xs font-semibold transition ${
+    `px-3 py-1.5 rounded-full text-xs font-bold transition ${
       active
-        ? 'bg-[color:var(--card)] text-[color:var(--text)] shadow-sm'
+        ? 'bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-950'
         : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
     }`
 
   return (
-    <div className="card p-4 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+      <div className="space-y-4 p-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-            Evolucion del ejercicio
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+            Evolución del ejercicio
           </p>
-          <h3 className="text-lg font-semibold text-[color:var(--text)]">{exerciseName}</h3>
+          <h3 className="line-clamp-2 text-lg font-bold leading-5 text-[color:var(--text)]">
+            {tab === 'fuerza'
+              ? 'Fuerza Máxima'
+              : tab === 'volumen'
+                ? 'Volumen Total'
+                : 'Intensidad'}
+          </h3>
           {!hasRealData && (
             <p className="text-xs text-[color:var(--text-muted)]">Mostrando datos de ejemplo.</p>
           )}
         </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-xs text-[color:var(--text-muted)]">Rango</span>
-          <div className={pillGroup}>
+        <div className="flex items-center gap-2">
+          <select
+            className="h-8 rounded-lg border border-transparent bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+            value={range}
+            onChange={(event) => setRange(Number(event.target.value))}
+            aria-label="Rango"
+          >
             {ranges.map((r) => (
-              <button key={r} className={pillButton(range === r)} onClick={() => setRange(r)} type="button">
+              <option key={r} value={r}>
                 {r} sem
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
       </div>
 
@@ -61,8 +77,8 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 text-xs">
-          <span className="text-[color:var(--text-muted)]">Agrupar por</span>
+        <div className="ml-auto hidden items-center gap-2 text-xs sm:flex">
+          <span className="text-[color:var(--text-muted)]">Agrupar</span>
           <div className={pillGroup}>
             <button type="button" className={pillButton(groupBy === 'week')} onClick={() => setGroupBy('week')}>
               Semana
@@ -73,8 +89,9 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
           </div>
         </div>
       </div>
+      </div>
 
-      <div className="border border-[color:var(--border)] rounded-2xl bg-[color:var(--bg)] p-3">
+      <div className="bg-[color:var(--bg)] px-1 py-3 md:px-3">
         {tab === 'fuerza' && (
           <ExerciseOneRMChart workouts={data} exerciseId={exerciseId} rangeWeeks={range} mode={mode} groupBy={groupBy} />
         )}
@@ -85,15 +102,37 @@ const ExerciseAnalytics = ({ exerciseId = 'bench_press', exerciseName = 'Bench P
           <ExerciseIntensityChart workouts={data} exerciseId={exerciseId} rangeWeeks={range} mode={mode} groupBy={groupBy} />
         )}
       </div>
-    </div>
+
+      <div className="grid grid-cols-2 border-t border-[color:var(--border)]">
+        <div className="p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+            PR histórico (1RM)
+          </p>
+          <p className="mt-1 text-lg font-black text-[color:var(--text)]">
+            {summary.pr || '--'}
+          </p>
+        </div>
+        <div className="border-l border-[color:var(--border)] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+            vs mes anterior
+          </p>
+          <p className="mt-1 text-lg font-black text-emerald-400">
+            {summary.vsPrevious || '--'}
+          </p>
+        </div>
+      </div>
+    </section>
   )
 }
 
 ExerciseAnalytics.propTypes = {
   exerciseId: PropTypes.string,
-  exerciseName: PropTypes.string,
   workouts: PropTypes.arrayOf(PropTypes.object),
   mode: PropTypes.oneOf(['light', 'dark']),
+  summary: PropTypes.shape({
+    pr: PropTypes.string,
+    vsPrevious: PropTypes.string,
+  }),
 }
 
 export default ExerciseAnalytics
