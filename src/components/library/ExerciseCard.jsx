@@ -52,11 +52,11 @@ function ExerciseCard({ exercise, onView, onEdit }) {
   return (
     <article
       ref={cardRef}
-      className="grid grid-cols-[92px_minmax(0,1fr)] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm transition hover:border-blue-300/50 hover:shadow-md md:grid-cols-1"
+      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm transition hover:border-blue-300/50 hover:shadow-md"
     >
       <button
         type="button"
-        className="relative aspect-square h-full min-h-[116px] overflow-hidden bg-[color:var(--bg)] md:aspect-[4/3] md:min-h-0"
+        className="relative aspect-[1.02/1] w-full overflow-hidden bg-[color:var(--bg)] md:aspect-[4/3]"
         onClick={() => onView(exercise)}
         aria-label={`Ver ${exercise.name}`}
       >
@@ -72,34 +72,37 @@ function ExerciseCard({ exercise, onView, onEdit }) {
             <ImageIcon className="h-6 w-6" />
           </div>
         )}
+        <span className="absolute left-2 top-2 rounded-md bg-slate-950/70 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-blue-200 ring-1 ring-white/10 md:hidden">
+          {exercise.primaryMuscle || exercise.muscle || "Sin grupo"}
+        </span>
         <span
-          className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${typeClass}`}
+          className={`absolute right-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold md:left-2 md:right-auto ${typeClass}`}
         >
           {typeLabel}
         </span>
       </button>
 
-      <div className="flex min-w-0 flex-col p-3">
+      <div className="flex min-w-0 flex-col p-2.5 md:p-3">
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+              <p className="hidden text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)] md:block">
                 {exercise.primaryMuscle || exercise.muscle || "Sin grupo"}
               </p>
-              <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[color:var(--text)] md:text-base">
+              <h3 className="line-clamp-2 min-h-[34px] text-[13px] font-semibold leading-[17px] text-[color:var(--text)] md:mt-0.5 md:min-h-0 md:text-base md:leading-snug">
                 {exercise.name}
               </h3>
             </div>
           </div>
 
           {exercise.equipment ? (
-            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+            <p className="mt-1 hidden truncate text-xs text-[color:var(--text-muted)] md:block">
               {exercise.equipment}
             </p>
           ) : null}
         </div>
 
-        <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[color:var(--text-muted)]">
+        <div className="mt-2 hidden min-w-0 items-center gap-1.5 text-[11px] text-[color:var(--text-muted)] md:flex">
           <MapPin className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
             {branches.map(branchLabel).join(" / ")}
@@ -119,23 +122,24 @@ function ExerciseCard({ exercise, onView, onEdit }) {
           </div>
         ) : null}
 
-        <div className="mt-auto flex items-center gap-2 pt-3">
+        <div className="mt-auto flex items-center gap-2 pt-2.5 md:pt-3">
           <button
             type="button"
-            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:border-blue-300"
+            className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-[10px] font-black uppercase tracking-wide text-[color:var(--text)] transition hover:border-blue-300 md:h-9 md:gap-2 md:px-3 md:text-xs md:normal-case md:tracking-normal"
             onClick={() => onView(exercise)}
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="hidden h-4 w-4 md:block" />
             Ver
           </button>
           {canEdit ? (
             <button
               type="button"
-              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition hover:bg-blue-700 md:h-9 md:w-auto md:flex-1 md:gap-2 md:px-3 md:text-xs md:font-semibold"
               onClick={() => onEdit(exercise)}
+              aria-label={`Editar ${exercise.name}`}
             >
               <Edit3 className="h-4 w-4" />
-              Editar
+              <span className="hidden md:inline">Editar</span>
             </button>
           ) : null}
         </div>

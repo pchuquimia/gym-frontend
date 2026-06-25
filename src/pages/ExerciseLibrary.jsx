@@ -184,7 +184,7 @@ function ExerciseLibrary({ onNavigate }) {
   const renderGrid = (items) => {
     if (loading) {
       return (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
             <Skeleton key={idx} className="h-32 w-full md:h-72" />
           ))}
@@ -192,7 +192,7 @@ function ExerciseLibrary({ onNavigate }) {
       );
     }
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         {items.map((exercise) => (
           <ExerciseCard
             key={exercise.id}
@@ -218,29 +218,28 @@ function ExerciseLibrary({ onNavigate }) {
   return (
     <>
       <div className="mx-auto w-full max-w-7xl space-y-4 pb-24 sm:px-2 lg:space-y-5">
-        <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm md:p-5">
+        <section className="px-1 pt-1 md:rounded-xl md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-5 md:shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="hidden flex-wrap items-center gap-2 md:flex">
                 <Badge variant="secondary" className="text-[11px]">
                   Biblioteca
                 </Badge>
                 <Badge className="text-[11px]">{user?.role || "Cliente"}</Badge>
               </div>
-              <h1 className="mt-3 text-2xl font-semibold tracking-normal text-[color:var(--text)] md:text-3xl">
-                Ejercicios
+              <h1 className="text-2xl font-semibold tracking-normal text-[color:var(--text)] md:mt-3 md:text-3xl">
+                Biblioteca de Ejercicios
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-[color:var(--text-muted)]">
-                Gestiona el catalogo global y tus ejercicios personalizados con
-                imagenes optimizadas en Cloudinary.
+              <p className="mt-1 max-w-2xl text-sm leading-5 text-[color:var(--text-muted)]">
+                Explora y gestiona tu catalogo personalizado de entrenamientos.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex gap-2 sm:flex-row">
               {typeof onNavigate === "function" ? (
                 <Button
                   variant="outline"
-                  className="w-full gap-2 sm:w-auto"
+                  className="h-10 flex-1 gap-2 sm:flex-none"
                   onClick={() => onNavigate("rutinas")}
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -249,14 +248,17 @@ function ExerciseLibrary({ onNavigate }) {
                     : "Rutinas"}
                 </Button>
               ) : null}
-              <Button className="w-full gap-2 sm:w-auto" onClick={handleAdd}>
+              <Button
+                className="hidden w-full gap-2 sm:w-auto md:inline-flex"
+                onClick={handleAdd}
+              >
                 <Plus className="h-4 w-4" />
                 Nuevo ejercicio
               </Button>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 hidden gap-2 md:grid sm:grid-cols-2 lg:grid-cols-4">
             <Stat icon={Dumbbell} label="Total" value={stats.total} />
             <Stat
               icon={Shapes}
@@ -314,7 +316,7 @@ function ExerciseLibrary({ onNavigate }) {
                     <h2 className="text-sm font-semibold text-[color:var(--text)]">
                       Catalogo global
                     </h2>
-                    <p className="text-xs text-[color:var(--text-muted)]">
+                    <p className="hidden text-xs text-[color:var(--text-muted)] md:block">
                       Disponible para todos los usuarios.
                     </p>
                   </div>
@@ -334,7 +336,7 @@ function ExerciseLibrary({ onNavigate }) {
                       <h2 className="text-sm font-semibold text-[color:var(--text)]">
                         Personalizados
                       </h2>
-                      <p className="text-xs text-[color:var(--text-muted)]">
+                      <p className="hidden text-xs text-[color:var(--text-muted)] md:block">
                         Creados para necesidades especificas.
                       </p>
                     </div>
@@ -352,7 +354,7 @@ function ExerciseLibrary({ onNavigate }) {
       <button
         type="button"
         onClick={handleAdd}
-        className="fixed bottom-5 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/25 md:hidden"
+        className="fixed bottom-5 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-300 focus:outline-none focus:ring-4 focus:ring-emerald-400/25 md:hidden"
         aria-label="Agregar ejercicio"
       >
         <Plus className="h-6 w-6" />
