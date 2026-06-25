@@ -83,9 +83,10 @@ export default function ExerciseCard({
   const durationLabel = exercise.durationSeconds
     ? formatDuration(exercise.durationSeconds)
     : "";
-  const statusLabel = exercise.isActive && !isComplete
-    ? `En curso${durationLabel ? ` · ${durationLabel}` : ""}`
-    : durationLabel;
+  const statusLabel =
+    exercise.isActive && !isComplete
+      ? `En curso${durationLabel ? ` · ${durationLabel}` : ""}`
+      : durationLabel;
   const _displayStatusLabel =
     statusLabel ||
     (isComplete
@@ -357,6 +358,7 @@ export default function ExerciseCard({
                         seriesType={seriesValue}
                         entries={set.entries}
                         prSummary={set.prSummary}
+                        prBranchLabel={set.prBranchLabel}
                         onChangeEntry={(entryId, field, value) =>
                           onUpdateEntry(set.id, entryId, field, value)
                         }
@@ -420,6 +422,7 @@ ExerciseCard.propTypes = {
       PropTypes.shape({
         id: PropTypes.string.isRequired,
         prSummary: PropTypes.string,
+        prBranchLabel: PropTypes.string,
         entries: PropTypes.arrayOf(
           PropTypes.shape({
             id: PropTypes.string.isRequired,

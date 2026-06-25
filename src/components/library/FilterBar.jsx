@@ -1,3 +1,5 @@
+import { Filter, Search, X } from "lucide-react";
+
 const muscles = [
   "Todos",
   "Pecho",
@@ -15,6 +17,13 @@ const muscles = [
   "Full Body",
 ];
 
+const branches = [
+  { value: "todos", label: "Todas" },
+  { value: "general", label: "General" },
+  { value: "sopocachi", label: "Sopocachi" },
+  { value: "miraflores", label: "Miraflores" },
+];
+
 function FilterBar({
   search,
   onSearch,
@@ -22,99 +31,65 @@ function FilterBar({
   onFilter,
   branch,
   onBranch,
+  type = "todos",
+  onType = () => {},
 }) {
+  const hasFilters =
+    search ||
+    activeFilter !== "Todos" ||
+    branch !== "todos" ||
+    type !== "todos";
+
   return (
     <div className="space-y-3">
-      {/* Search + Filters icon */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--text-muted)]">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-              <path
-                d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-              <path
-                d="M16.2 16.2 21 21"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_150px]">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
           <input
-            type="text"
-            className="
-              w-full h-11 sm:h-10 rounded-2xl
-              border border-[color:var(--border)]
-              bg-[color:var(--card)]
-              pl-10 pr-3 text-sm
-              text-[color:var(--text)]
-              placeholder:text-[color:var(--text-muted)]
-              outline-none focus:ring-2 focus:ring-emerald-500/25
-            "
-            placeholder="Buscar ejercicio..."
+            type="search"
+            className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-9 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            placeholder="Buscar por nombre, grupo o tag"
             value={search}
-            onChange={(e) => onSearch(e.target.value)}
+            onChange={(event) => onSearch(event.target.value)}
           />
-        </div>
+          {search ? (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--card)]"
+              onClick={() => onSearch("")}
+              aria-label="Limpiar busqueda"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </label>
 
-        {/* Filters button (abre/cambia branch en un futuro, por ahora mantiene tu select) */}
-        <button
-          type="button"
-          className="
-            h-11 w-11 sm:h-10 sm:w-10 rounded-2xl
-            border border-[color:var(--border)]
-            bg-[color:var(--card)]
-            grid place-items-center
-            text-[color:var(--text-muted)]
-            hover:bg-[color:var(--bg)]
-            focus:outline-none focus:ring-2 focus:ring-emerald-500/25
-          "
-          aria-label="Filtros"
-          title="Filtros"
-          onClick={() => {
-            // Si luego quieres: abrir un modal con branch + otras opciones.
-          }}
+        <label className="relative block">
+          <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+          <select
+            className="h-11 w-full appearance-none rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            value={branch}
+            onChange={(event) => onBranch(event.target.value)}
+          >
+            {branches.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <select
+          className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+          value={type}
+          onChange={(event) => onType(event.target.value)}
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-            <path
-              d="M4 7h10M18 7h2M4 17h2M10 17h10"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path
-              d="M14 7a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM6 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-          </svg>
-        </button>
+          <option value="todos">Todos</option>
+          <option value="system">Catalogo</option>
+          <option value="custom">Personal</option>
+        </select>
       </div>
 
-      {/* Branch select compacto (si quieres ocultarlo como la imagen, lo pasamos a modal) */}
-      <select
-        className="
-          w-full h-11 sm:h-10 rounded-2xl
-          border border-[color:var(--border)]
-          bg-[color:var(--card)]
-          px-3 text-sm
-          text-[color:var(--text)]
-          outline-none focus:ring-2 focus:ring-emerald-500/25
-        "
-        value={branch}
-        onChange={(e) => onBranch(e.target.value)}
-      >
-        <option value="todos">Todas las sedes</option>
-        <option value="sopocachi">Sopocachi</option>
-        <option value="miraflores">Miraflores</option>
-        <option value="general">General</option>
-      </select>
-
-      {/* Chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {muscles.map((muscle) => {
           const active = activeFilter === muscle;
@@ -122,36 +97,33 @@ function FilterBar({
             <button
               key={muscle}
               type="button"
-            className={[
-                "shrink-0 h-7 sm:h-8 px-3 sm:px-4 rounded-full border text-[10px] sm:text-xs font-semibold whitespace-nowrap transition",
+              className={[
+                "h-9 shrink-0 rounded-full border px-3 text-xs font-semibold transition",
                 active
-                  ? "bg-emerald-500 text-white border-emerald-500"
-                  : "bg-[color:var(--card)] text-[color:var(--text)] border-[color:var(--border)] hover:bg-[color:var(--bg)]",
+                  ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                  : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
               ].join(" ")}
-            onClick={() => onFilter(muscle)}
-          >
-            {muscle}
-          </button>
-        );
-      })}
+              onClick={() => onFilter(muscle)}
+            >
+              {muscle}
+            </button>
+          );
+        })}
 
-        {/* Clear */}
-        <button
-          type="button"
-          className="
-            shrink-0 h-7 sm:h-8 px-3 sm:px-4 rounded-full border text-[10px] sm:text-xs font-semibold whitespace-nowrap
-            bg-[color:var(--card)] text-[color:var(--text-muted)] border-[color:var(--border)]
-            hover:bg-[color:var(--bg)] hover:text-[color:var(--text)]
-            transition
-          "
-          onClick={() => {
-            onFilter("Todos");
-            onBranch("todos");
-            onSearch("");
-          }}
-        >
-          Limpiar
-        </button>
+        {hasFilters ? (
+          <button
+            type="button"
+            className="h-9 shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:border-rose-300 hover:text-rose-600"
+            onClick={() => {
+              onFilter("Todos");
+              onBranch("todos");
+              onSearch("");
+              onType("todos");
+            }}
+          >
+            Limpiar
+          </button>
+        ) : null}
       </div>
     </div>
   );

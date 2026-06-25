@@ -92,6 +92,8 @@ const buildPrevText = (meta, fallback) => {
   return fallback || "Sin referencia";
 };
 
+const formatHistoryLift = (meta) => buildPrevText(meta, "");
+
 const formatDuration = (sec) => {
   const hours = Math.floor(sec / 3600);
   const minutes = Math.floor((sec % 3600) / 60);
@@ -699,6 +701,13 @@ const formatBranchLabel = (branch) => {
   return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
+const getRemoteBranchLabel = (branch, selectedBranch) => {
+  if (!branch || !selectedBranch) return "";
+  return normalizeBranch(branch) !== normalizeBranch(selectedBranch)
+    ? formatBranchLabel(branch)
+    : "";
+};
+
 const computeBestFromHistory = (trainings = [], branchFilter = null) => {
   const map = new Map();
   trainings.forEach((tr) => {
@@ -982,12 +991,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     [historyTrainings],
   );
   const historyBestBySet = useMemo(
-    () => computeBestBySetFromHistory(historyTrainings, selectedBranch),
-    [historyTrainings, selectedBranch],
+    () => computeBestBySetFromHistory(historyTrainings),
+    [historyTrainings],
   );
   const historyRecentBySet = useMemo(
-    () => computeRecentBySetFromHistory(historyTrainings, null, selectedBranch),
-    [historyTrainings, selectedBranch],
+    () => computeRecentBySetFromHistory(historyTrainings),
+    [historyTrainings],
   );
   const historySeriesTypeMap = useMemo(
     () =>
@@ -1192,21 +1201,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         historyKeys.map((key) => historyGlobalBest.get(key)).find(Boolean) ||
         null;
       const bestBySet =
-        historyKeys.map((key) => bestBySetMap.get(key)).find(Boolean) || [];
+        baseHistoryKeys.map((key) => bestBySetMap.get(key)).find(Boolean) || [];
       const recentBySet =
-        historyKeys.map((key) => recentBySetMap.get(key)).find(Boolean) || [];
-      const prSummary = best
-        ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-        : "";
+        baseHistoryKeys.map((key) => recentBySetMap.get(key)).find(Boolean) ||
+        [];
+      const prSummary = best ? formatHistoryLift(best) : "";
       const sets =
         (trainingEx?.sets || []).length > 0
           ? (trainingEx.sets || []).map((s, sIdx) => {
               const setId = s.id || `${id}-set-${sIdx}`;
               const perSet = bestBySet[sIdx];
               const perSetSummary = perSet
-                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
-                    perSet.date,
-                  )}`
+                ? formatHistoryLift(perSet)
                 : s.prSummary || "";
               const fallbackPrev = `${s.weightKg ?? "--"}kg x ${
                 s.reps ?? "--"
@@ -1230,6 +1236,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               return {
                 id: setId,
                 prSummary: perSetSummary,
+                prBranchLabel: perSet
+                  ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                  : s.prBranchLabel || "",
                 entries: normalizeEntries({
                   entries: seedEntries,
                   seriesType,
@@ -1243,22 +1252,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : Array.from({ length: setsCount }).map((_, sIdx) => {
               const setId = `${id}-set-${sIdx}`;
               const perSet = bestBySet[sIdx];
-              const perSetSummary = perSet
-                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
-                    perSet.date,
-                  )}`
-                : "";
+              const perSetSummary = perSet ? formatHistoryLift(perSet) : "";
               const recentEntries = recentBySet[sIdx] || [];
               const previousByIndex = recentEntries.map((slot) => slot?.latest);
               const compareByIndex = recentEntries.map(
                 (slot) => slot?.previous,
               );
               const fallbackPrev = perSet
-                ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
-                    perSet.date,
-                  )}`
+                ? formatHistoryLift(perSet)
                 : best
-                  ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+                  ? formatHistoryLift(best)
                   : "Sin referencia";
               const defaultKg =
                 seriesType === "serie"
@@ -1279,6 +1282,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               return {
                 id: setId,
                 prSummary: perSetSummary,
+                prBranchLabel: perSet
+                  ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                  : "",
                 entries: normalizeEntries({
                   entries: [
                     {
@@ -1379,10 +1385,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const findKey = (map) =>
         historyKeys.find((key) => map.has(key)) ||
         getMovementHistoryKey(id, movementMode);
+      const findBaseKey = (map) =>
+        baseHistoryKeys.find((key) => map.has(key)) ||
+        getMovementHistoryKey(id, movementMode);
       const bestKey = findKey(bestMap);
       const globalBestKey = findKey(historyGlobalBest);
-      const bestBySetKey = findKey(bestBySetMap);
-      const recentBySetKey = findKey(recentBySetMap);
+      const bestBySetKey = findBaseKey(bestBySetMap);
+      const recentBySetKey = findBaseKey(recentBySetMap);
       const best = bestMap.get(bestKey);
       const globalBest = historyGlobalBest.get(globalBestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
@@ -1419,9 +1428,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               historySeriesType ||
               inferredSeriesType,
       );
-      const prSummary = best
-        ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-        : ex.prSummary || "";
+      const prSummary = best ? formatHistoryLift(best) : ex.prSummary || "";
       const prText = best
         ? `Aquí: ${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
         : ex.prText?.startsWith("Aquí:")
@@ -1447,16 +1454,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         const setId = `${id}-${movementMode}-set-${sIdx}`;
         const perSet = bestBySet[sIdx];
         const perSetSummary = perSet
-          ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+          ? formatHistoryLift(perSet)
           : set.prSummary || "";
         const recentEntries =
           shouldReloadInputs && !latestExercise ? [] : recentBySet[sIdx] || [];
         const previousByIndex = recentEntries.map((slot) => slot?.latest);
         const compareByIndex = recentEntries.map((slot) => slot?.previous);
         const fallbackPrev = perSet
-          ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+          ? formatHistoryLift(perSet)
           : best
-            ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
+            ? formatHistoryLift(best)
             : "Sin referencia";
         const sourceEntries = Array.isArray(set.entries)
           ? set.entries
@@ -1492,6 +1499,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           id: setId,
           done: false,
           prSummary: perSetSummary,
+          prBranchLabel: perSet
+            ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+            : set.prBranchLabel || "",
           entries: normalizeEntries({
             entries: seedEntries,
             seriesType,
@@ -1850,8 +1860,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setIsEditing(true);
       const hist = await loadHistoryForRoutine(routine.id);
       const bestMap = computeBestFromHistory(hist, branch);
-      const bestBySetMap = computeBestBySetFromHistory(hist, branch);
-      const recentBySetMap = computeRecentBySetFromHistory(hist, null, branch);
+      const bestBySetMap = computeBestBySetFromHistory(hist);
+      const recentBySetMap = computeRecentBySetFromHistory(hist);
       const seriesTypeMap = computeLatestSeriesTypeFromHistory(
         hist,
         routine.id,
@@ -2417,8 +2427,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     (async () => {
       const hist = await loadHistoryForRoutine(id);
       const bestMap = computeBestFromHistory(hist, branch);
-      const bestBySetMap = computeBestBySetFromHistory(hist, branch);
-      const recentBySetMap = computeRecentBySetFromHistory(hist, null, branch);
+      const bestBySetMap = computeBestBySetFromHistory(hist);
+      const recentBySetMap = computeRecentBySetFromHistory(hist);
       const seriesTypeMap = computeLatestSeriesTypeFromHistory(
         hist,
         id,
@@ -2683,49 +2693,65 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
-          ? {
-              ...ex,
-              sets: [
-                ...ex.sets,
-                {
-                  id: newSetId,
-                  prSummary: (() => {
-                    const keys = getExerciseKeys({
-                      ...ex,
-                      id: ex.id || exerciseId,
-                      exerciseId: ex.exerciseId || ex.id || exerciseId,
-                    }).map((key) =>
-                      getMovementHistoryKey(key, ex.movementMode),
-                    );
-                    const bestKey = keys.find((key) =>
-                      historyBestBySet.has(key),
-                    );
-                    const bestBySet = bestKey
-                      ? historyBestBySet.get(bestKey) || []
-                      : [];
-                    const perSet = bestBySet[ex.sets.length];
-                    return perSet
-                      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(
-                          perSet.date,
-                        )}`
-                      : "";
-                  })(),
-                  entries: normalizeEntries({
-                    entries: [
-                      {
-                        previousText: "Sin referencia",
-                        kg: "",
-                        reps: "",
-                        done: false,
-                      },
-                    ],
-                    seriesType: normalizeSeriesType(ex.seriesType),
-                    setId: newSetId,
-                    fallbackPrev: "Sin referencia",
-                  }),
-                },
-              ],
-            }
+          ? (() => {
+              const keys = getExerciseKeys({
+                ...ex,
+                id: ex.id || exerciseId,
+                exerciseId: ex.exerciseId || ex.id || exerciseId,
+              }).map((key) => getMovementHistoryKey(key, ex.movementMode));
+              const setIndex = ex.sets.length;
+              const bestKey = keys.find((key) => historyBestBySet.has(key));
+              const bestBySet = bestKey
+                ? historyBestBySet.get(bestKey) || []
+                : [];
+              const recentKey = keys.find((key) => historyRecentBySet.has(key));
+              const recentBySet = recentKey
+                ? historyRecentBySet.get(recentKey) || []
+                : [];
+              const perSet = bestBySet[setIndex];
+              const recentEntries = recentBySet[setIndex] || [];
+              const previousByIndex = recentEntries.map((slot) => slot?.latest);
+              const compareByIndex = recentEntries.map(
+                (slot) => slot?.previous,
+              );
+              const fallbackPrev = perSet
+                ? formatHistoryLift(perSet)
+                : "Sin referencia";
+              return {
+                ...ex,
+                sets: [
+                  ...ex.sets,
+                  {
+                    id: newSetId,
+                    prSummary: perSet ? formatHistoryLift(perSet) : "",
+                    prBranchLabel: perSet
+                      ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                      : "",
+                    entries: normalizeEntries({
+                      entries: [
+                        {
+                          previousText: buildPrevText(
+                            previousByIndex[0],
+                            fallbackPrev,
+                          ),
+                          kg: "",
+                          reps: "",
+                          done: false,
+                        },
+                      ],
+                      seriesType: normalizeSeriesType(ex.seriesType),
+                      setId: newSetId,
+                      fallbackPrev: buildPrevText(
+                        previousByIndex[0],
+                        fallbackPrev,
+                      ),
+                      previousByIndex,
+                      compareByIndex,
+                    }),
+                  },
+                ],
+              };
+            })()
           : ex,
       ),
     );
@@ -2907,18 +2933,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             globalBest.branch,
           )}`
         : "";
-    const prSummary = best
-      ? `${best.weight}kg x ${best.reps} | ${formatShort(best.date)}`
-      : "";
+    const prSummary = best ? formatHistoryLift(best) : "";
     const perSet = bestBySet[0];
-    const perSetSummary = perSet
-      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
-      : "";
+    const perSetSummary = perSet ? formatHistoryLift(perSet) : "";
     const recentEntries = recentBySet[0] || [];
     const previousByIndex = recentEntries.map((slot) => slot?.latest);
     const compareByIndex = recentEntries.map((slot) => slot?.previous);
     const fallbackPrev = perSet
-      ? `${perSet.weight}kg x ${perSet.reps} | ${formatShort(perSet.date)}`
+      ? formatHistoryLift(perSet)
       : prSummary || "Sin referencia";
     const newSetId = `${exerciseId}-set-${Date.now()}`;
 
@@ -2942,6 +2964,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             {
               id: newSetId,
               prSummary: perSetSummary,
+              prBranchLabel: perSet
+                ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                : "",
               entries: normalizeEntries({
                 entries: [
                   {
@@ -3695,7 +3720,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       </div>
                     ) : (
                       groupedExercises.map(([muscle, items]) => (
-                        <div key={muscle} className="min-w-0 max-w-full space-y-3">
+                        <div
+                          key={muscle}
+                          className="min-w-0 max-w-full space-y-3"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                             <div>
                               <p className="text-xl font-semibold text-[color:var(--text)]">

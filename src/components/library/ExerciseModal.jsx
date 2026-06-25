@@ -1,42 +1,122 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Camera, Dumbbell, Info, MapPin, Tags } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import Modal from "../shared/Modal";
 
 const defaultForm = {
   name: "",
   muscle: "Pecho",
+  primaryMuscle: "Pecho",
+  secondaryMuscles: "",
   branches: ["general"],
   description: "",
   equipment: "",
+  tags: "",
+  movementMode: "bilateral",
+  supportsUnilateral: false,
   image: "",
+  type: "custom",
 };
 
+const muscleOptions = [
+  "Pecho",
+  "Espalda",
+  "Piernas",
+  "Triceps",
+  "Biceps",
+  "Femoral",
+  "Cuadricep",
+  "Pantorrillas",
+  "Gluteo",
+  "Abdominales",
+  "Hombros",
+  "Core",
+  "Full Body",
+];
+
+function Field({ label, children, className = "" }) {
+  return (
+    <label className={`block space-y-1.5 ${className}`}>
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Section({ icon: Icon, title, children }) {
+  return (
+    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 md:p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-300">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h4 className="text-sm font-semibold text-[color:var(--text)]">
+          {title}
+        </h4>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Admin";
   const [form, setForm] = useState(defaultForm);
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (initialData) {
+      const primaryMuscle =
+        initialData.primaryMuscle || initialData.muscle || "Pecho";
       setForm({
         name: initialData.name || "",
-        muscle: initialData.muscle || "Pecho",
+        muscle: initialData.muscle || primaryMuscle,
+        primaryMuscle,
+        secondaryMuscles: (initialData.secondaryMuscles || []).join(", "),
         branches: initialData.branches?.length
           ? initialData.branches
           : ["general"],
         description: initialData.description || "",
         equipment: initialData.equipment || "",
-        image: initialData.image || "",
+        tags: (initialData.tags || []).join(", "),
+        movementMode: initialData.movementMode || "bilateral",
+        supportsUnilateral: Boolean(initialData.supportsUnilateral),
+        image: initialData.media?.image?.url || initialData.image || "",
+        type: isAdmin ? initialData.type || "custom" : "custom",
       });
+      setPreview(initialData.media?.image?.url || initialData.image || "");
     } else {
-      setForm(defaultForm);
+      setForm({ ...defaultForm, type: isAdmin ? "system" : "custom" });
+      setPreview("");
     }
-  }, [initialData]);
+    setImageFile(null);
+  }, [initialData, isAdmin]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  const helperText = useMemo(() => {
+    if (isAdmin && form.type === "system") {
+      return "Disponible para todos. Solo Admin puede editarlo.";
+    }
+    return "Visible segun permisos del usuario y entrenadores asignados.";
+  }, [form.type, isAdmin]);
+
+  const inputClass =
+    "h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "primaryMuscle" ? { muscle: value } : {}),
+    }));
   };
 
   const toggleBranch = (value) => {
-    // Comportamiento exclusivo: General excluye otras; cada sede excluye las demás.
     if (value === "general") {
       setForm((prev) => ({ ...prev, branches: ["general"] }));
       return;
@@ -44,162 +124,248 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
     setForm((prev) => ({ ...prev, branches: [value] }));
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((prev) => ({ ...prev, image: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    setImageFile(file);
+    setPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!form.name.trim()) return;
-    onSave({ ...initialData, ...form, type: initialData?.type || "custom" });
+    setSaving(true);
+    try {
+      await onSave({
+        ...initialData,
+        ...form,
+        muscle: form.primaryMuscle || form.muscle,
+        primaryMuscle: form.primaryMuscle || form.muscle,
+        type: isAdmin ? form.type : "custom",
+        imageFile,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const footer = (
     <>
-      <button type="button" className="ghost-btn" onClick={onClose}>
+      <button
+        type="button"
+        className="h-10 rounded-xl border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
+        onClick={onClose}
+      >
         Cancelar
       </button>
-      <button type="submit" className="primary-btn" form="exercise-form">
-        {mode === "edit" ? "Guardar Cambios" : "Guardar Ejercicio"}
+      <button
+        type="submit"
+        className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-70"
+        form="exercise-form"
+        disabled={saving}
+      >
+        {saving ? "Guardando..." : mode === "edit" ? "Guardar" : "Crear"}
       </button>
     </>
   );
 
   return (
     <Modal
-      title={mode === "edit" ? "Editar ejercicio" : "Añadir nuevo ejercicio"}
-      subtitle="Gestiona tu catálogo de ejercicios"
+      title={mode === "edit" ? "Editar ejercicio" : "Nuevo ejercicio"}
+      subtitle={helperText}
       onClose={onClose}
       footer={footer}
+      size="wide"
     >
       <form
         id="exercise-form"
-        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]"
         onSubmit={handleSubmit}
       >
-        <label className="flex flex-col gap-1">
-          <span className="font-semibold">Nombre del Ejercicio *</span>
-          <input
-            className="rounded-lg border border-border-soft bg-white/5 px-3 py-2 text-white"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-semibold">Grupo Muscular Principal</span>
-          <select
-            className="rounded-lg border border-border-soft bg-white/5 px-3 py-2 text-white"
-            name="muscle"
-            value={form.muscle}
-            onChange={handleChange}
-          >
-            <option>Pecho</option>
-            <option>Espalda</option>
-            <option>Piernas</option>
-            <option>Triceps</option>
-            <option>Biceps</option>
-            <option>Femoral</option>
-            <option>Cuadricep</option>
-            <option>Pantorrillas</option>
-            <option>Gluteo</option>
-            <option>Abdominales</option>
-            <option>Hombros</option>
-            <option>Core</option>
-            <option>Full Body</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-semibold">Disponible en Sede(s)</span>
-          <div className="flex gap-2 flex-wrap">
-            {["general", "sopocachi", "miraflores"].map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => toggleBranch(b)}
-                className={`px-3 py-2 rounded-full border text-sm transition ${
-                  form.branches?.includes(b)
-                    ? "border-accent bg-accent/20 text-white shadow-[0_0_10px_rgba(79,163,255,0.3)]"
-                    : "border-border-soft text-muted hover:border-accent/40"
-                }`}
-              >
-                {b === "general"
-                  ? "Todas"
-                  : b.charAt(0).toUpperCase() + b.slice(1)}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-muted">
-            Selecciona una o varias sedes donde se puede realizar este
-            ejercicio.
-          </span>
-        </label>
-        <label className="flex flex-col gap-1 md:col-span-2">
-          <span className="font-semibold">Breve Descripción de la Técnica</span>
-          <textarea
-            className="rounded-lg border border-border-soft bg-white/5 px-3 py-2 text-white"
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            rows={3}
-            placeholder="Notas para la ejecución correcta..."
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-semibold">Equipo Requerido</span>
-          <input
-            className="rounded-lg border border-border-soft bg-white/5 px-3 py-2 text-white"
-            name="equipment"
-            value={form.equipment}
-            onChange={handleChange}
-            placeholder="Barra, mancuernas, máquina..."
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-semibold">
-            Imagen / Ilustración (URL o archivo)
-          </span>
-          <input
-            className="rounded-lg border border-border-soft bg-white/5 px-3 py-2 text-white"
-            name="image"
-            value={form.image}
-            onChange={handleChange}
-            placeholder="https://... o sube un archivo"
-          />
-          <div className="flex items-center gap-2 mt-2">
-            <label className="ghost-btn text-sm cursor-pointer">
-              Subir archivo
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-            </label>
-            <span className="text-xs text-muted">
-              Se guardará en base64 para desarrollo.
-            </span>
-          </div>
-        </label>
-        {form.image && (
-          <div className="md:col-span-2 flex flex-col gap-2">
-            <p className="label">Vista previa</p>
-            <div className="rounded-xl border border-border-soft overflow-hidden">
-              <img
-                src={form.image}
-                alt="Vista previa"
-                className="w-full h-52 object-cover"
-              />
+        <div className="space-y-3">
+          <Section icon={Info} title="Identidad">
+            <div className="grid gap-3 md:grid-cols-2">
+              {isAdmin && (
+                <Field label="Tipo" className="md:col-span-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      ["system", "Catalogo global"],
+                      ["custom", "Personalizado"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setForm((prev) => ({ ...prev, type: value }))
+                        }
+                        className={`h-11 rounded-xl border px-3 text-sm font-semibold transition ${
+                          form.type === value
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              )}
+
+              <Field label="Nombre" className="md:col-span-2">
+                <input
+                  className={inputClass}
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="Press banca con barra"
+                />
+              </Field>
+
+              <Field label="Musculo principal">
+                <select
+                  className={inputClass}
+                  name="primaryMuscle"
+                  value={form.primaryMuscle}
+                  onChange={handleChange}
+                >
+                  {muscleOptions.map((muscle) => (
+                    <option key={muscle}>{muscle}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Musculos secundarios">
+                <input
+                  className={inputClass}
+                  name="secondaryMuscles"
+                  value={form.secondaryMuscles}
+                  onChange={handleChange}
+                  placeholder="Triceps, Hombros"
+                />
+              </Field>
             </div>
-          </div>
-        )}
+          </Section>
+
+          <Section icon={Dumbbell} title="Entrenamiento">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="Equipo">
+                <input
+                  className={inputClass}
+                  name="equipment"
+                  value={form.equipment}
+                  onChange={handleChange}
+                  placeholder="Barra, mancuernas, maquina"
+                />
+              </Field>
+
+              <Field label="Modo">
+                <select
+                  className={inputClass}
+                  name="movementMode"
+                  value={form.movementMode}
+                  onChange={handleChange}
+                >
+                  <option value="bilateral">Bilateral</option>
+                  <option value="unilateral">Unilateral</option>
+                </select>
+              </Field>
+
+              <label className="flex min-h-11 items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] md:col-span-2">
+                <input
+                  type="checkbox"
+                  name="supportsUnilateral"
+                  checked={form.supportsUnilateral}
+                  onChange={handleChange}
+                  className="h-4 w-4"
+                />
+                Permite alternar a unilateral
+              </label>
+            </div>
+          </Section>
+
+          <Section icon={MapPin} title="Disponibilidad">
+            <div className="grid grid-cols-3 gap-2">
+              {["general", "sopocachi", "miraflores"].map((branch) => (
+                <button
+                  key={branch}
+                  type="button"
+                  onClick={() => toggleBranch(branch)}
+                  className={`h-11 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${
+                    form.branches?.includes(branch)
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                  }`}
+                >
+                  {branch === "general"
+                    ? "Todas"
+                    : branch.charAt(0).toUpperCase() + branch.slice(1)}
+                </button>
+              ))}
+            </div>
+          </Section>
+
+          <Section icon={Tags} title="Contenido">
+            <div className="grid gap-3">
+              <Field label="Tags">
+                <input
+                  className={inputClass}
+                  name="tags"
+                  value={form.tags}
+                  onChange={handleChange}
+                  placeholder="pecho, empuje, barra"
+                />
+              </Field>
+              <Field label="Descripcion tecnica">
+                <textarea
+                  className="min-h-28 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="Indicaciones de ejecucion, rango de movimiento y ajustes."
+                />
+              </Field>
+            </div>
+          </Section>
+        </div>
+
+        <aside className="space-y-3 lg:sticky lg:top-0 lg:self-start">
+          <Section icon={Camera} title="Imagen">
+            <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+              {preview || form.image ? (
+                <img
+                  src={preview || form.image}
+                  alt="Vista previa"
+                  className="aspect-[4/3] w-full object-cover"
+                />
+              ) : (
+                <div className="grid aspect-[4/3] w-full place-items-center text-center text-sm text-[color:var(--text-muted)]">
+                  Sin imagen
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 space-y-3">
+              <Field label="Subir archivo">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+                  onChange={handleFileUpload}
+                />
+              </Field>
+              <Field label="URL externa">
+                <input
+                  className={inputClass}
+                  name="image"
+                  value={form.image}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                />
+              </Field>
+            </div>
+          </Section>
+        </aside>
       </form>
     </Modal>
   );

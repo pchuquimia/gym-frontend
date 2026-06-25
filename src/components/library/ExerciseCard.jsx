@@ -1,160 +1,143 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Plus } from "lucide-react";
+import { Edit3, Eye, ImageIcon, MapPin } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 
-function ExerciseCard({ exercise, onView, onEdit, onDelete }) {
-  const [imageSrc, setImageSrc] = useState(() => {
-    const key = `exercise_thumb_${exercise.id || exercise._id}`;
-    if (typeof localStorage !== "undefined") {
-      const cached = localStorage.getItem(key);
-      if (cached) return cached;
-    }
-    return getExerciseImageUrl(exercise, { width: 400, height: 400 });
-  });
+const branchLabel = (branch) =>
+  branch === "general"
+    ? "Todas"
+    : branch.charAt(0).toUpperCase() + branch.slice(1);
 
+function ExerciseCard({ exercise, onView, onEdit }) {
+  const { user } = useAuth();
+  const canEdit = exercise.type !== "system" || user?.role === "Admin";
+  const [imageSrc, setImageSrc] = useState(() =>
+    getExerciseImageUrl(exercise, { width: 520, height: 360 }),
+  );
   const cardRef = useRef(null);
   const loadedRef = useRef(false);
 
   useEffect(() => {
     if (imageSrc || loadedRef.current) return;
-
     const observer = new IntersectionObserver(
       async (entries) => {
-        const entry = entries[0];
-        if (!entry.isIntersecting) return;
-
+        if (!entries[0]?.isIntersecting) return;
         loadedRef.current = true;
         try {
           const full = await api.getExercise(exercise.id || exercise._id);
-          const nextImg = getExerciseImageUrl(full, { width: 400, height: 400 });
-          if (nextImg) {
-            setImageSrc(nextImg);
-            if (typeof localStorage !== "undefined") {
-              const key = `exercise_thumb_${exercise.id || exercise._id}`;
-              localStorage.setItem(key, nextImg);
-            }
-          }
+          const nextImg = getExerciseImageUrl(full, {
+            width: 520,
+            height: 360,
+          });
+          if (nextImg) setImageSrc(nextImg);
         } catch {
-          // ignore
+          // ignore lazy image errors
         }
         observer.disconnect();
       },
-      { rootMargin: "200px" }
+      { rootMargin: "200px" },
     );
-
     if (cardRef.current) observer.observe(cardRef.current);
     return () => observer.disconnect();
   }, [exercise.id, exercise._id, imageSrc]);
 
   const branches = exercise.branches?.length ? exercise.branches : ["general"];
-  const branchLabels = branches
-    .map((b) => b.charAt(0).toUpperCase() + b.slice(1))
-    .join(" / ");
-
-  const imgFallback = "https://via.placeholder.com/120x120?text=Ejercicio";
+  const typeLabel = exercise.type === "system" ? "Catalogo" : "Personal";
+  const typeClass =
+    exercise.type === "system"
+      ? "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+      : "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
 
   return (
     <article
       ref={cardRef}
-      className="
-        rounded-2xl border border-[color:var(--border)]
-        bg-[color:var(--card)]
-        flex items-center gap-3
-        px-3 py-3
-        md:flex-col md:items-stretch md:gap-0 md:p-0
-      "
+      className="grid grid-cols-[92px_minmax(0,1fr)] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm transition hover:border-blue-300/50 hover:shadow-md md:grid-cols-1"
     >
       <button
         type="button"
-        className="h-14 w-14 rounded-2xl overflow-hidden bg-slate-100 shrink-0 md:h-40 md:w-full md:rounded-t-2xl md:rounded-b-none"
+        className="relative aspect-square h-full min-h-[116px] overflow-hidden bg-[color:var(--bg)] md:aspect-[4/3] md:min-h-0"
         onClick={() => onView(exercise)}
-        aria-label="Ver ejercicio"
-        title="Ver ejercicio"
+        aria-label={`Ver ${exercise.name}`}
       >
-        <img
-          src={imageSrc || imgFallback}
-          alt={exercise.name}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={exercise.name}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="grid h-full w-full place-items-center text-[color:var(--text-muted)]">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+        )}
+        <span
+          className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${typeClass}`}
+        >
+          {typeLabel}
+        </span>
       </button>
 
-      <div className="min-w-0 flex-1 md:p-4">
+      <div className="flex min-w-0 flex-col p-3">
         <div className="min-w-0">
-          <p className="text-xs text-[color:var(--text-muted)]">
-            {exercise.muscle || "Sin grupo"}
-          </p>
-          <p className="text-sm font-semibold text-[color:var(--text)] truncate md:text-base md:line-clamp-2">
-            {exercise.name}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                {exercise.primaryMuscle || exercise.muscle || "Sin grupo"}
+              </p>
+              <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[color:var(--text)] md:text-base">
+                {exercise.name}
+              </h3>
+            </div>
+          </div>
+
+          {exercise.equipment ? (
+            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+              {exercise.equipment}
+            </p>
+          ) : null}
         </div>
 
-        {exercise.equipment ? (
-          <p className="mt-1 text-xs text-[color:var(--text-muted)] truncate">
-            {exercise.equipment}
-          </p>
+        <div className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-[color:var(--text-muted)]">
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">
+            {branches.map(branchLabel).join(" / ")}
+          </span>
+        </div>
+
+        {exercise.tags?.length ? (
+          <div className="mt-2 hidden flex-wrap gap-1 md:flex">
+            {exercise.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-0.5 text-[10px] text-[color:var(--text-muted)]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
         ) : null}
 
-        <div className="mt-2 hidden md:flex flex-wrap gap-2">
-          {branches.map((branch) => (
-            <span
-              key={branch}
-              className="inline-flex items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--text-muted)]"
-            >
-              {branch.charAt(0).toUpperCase() + branch.slice(1)}
-            </span>
-          ))}
-        </div>
-
-        <p className="mt-1 text-[10px] text-[color:var(--text-muted)] truncate md:hidden">
-          {branchLabels}
-        </p>
-
-        <div className="mt-3 flex items-center gap-2 md:mt-4">
+        <div className="mt-auto flex items-center gap-2 pt-3">
           <button
             type="button"
-            className="
-              h-9 w-9 rounded-full
-              border border-[color:var(--border)]
-              bg-[color:var(--bg)]
-              inline-flex items-center justify-center gap-2
-              text-[color:var(--text-muted)]
-              hover:bg-[color:var(--card)]
-              focus:outline-none focus:ring-2 focus:ring-emerald-500/25
-              transition
-              md:w-auto md:px-3 md:rounded-lg
-            "
+            className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:border-blue-300"
             onClick={() => onView(exercise)}
-            aria-label="Ver"
-            title="Ver"
           >
-            <Eye className="h-4 w-4 shrink-0" />
-            <span className="hidden md:inline text-xs font-semibold text-[color:var(--text)]">
-              Ver
-            </span>
+            <Eye className="h-4 w-4" />
+            Ver
           </button>
-
-          <button
-            type="button"
-            className="
-              h-9 w-9 rounded-full
-              bg-emerald-500 text-white
-              inline-flex items-center justify-center gap-2
-              hover:bg-emerald-600 active:bg-emerald-700
-              focus:outline-none focus:ring-2 focus:ring-emerald-500/25
-              transition
-              md:w-auto md:px-3 md:rounded-lg
-            "
-            onClick={() => onEdit(exercise)}
-            aria-label="Editar"
-            title="Editar"
-          >
-            <Plus className="h-4 w-4 shrink-0" />
-            <span className="hidden md:inline text-xs font-semibold text-white">
+          {canEdit ? (
+            <button
+              type="button"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
+              onClick={() => onEdit(exercise)}
+            >
+              <Edit3 className="h-4 w-4" />
               Editar
-            </span>
-          </button>
+            </button>
+          ) : null}
         </div>
       </div>
     </article>

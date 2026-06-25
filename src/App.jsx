@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import "./App.css";
 import Dashboard from "./pages/Dashboard";
@@ -12,6 +12,10 @@ import ProfileSettings from "./pages/ProfileSettings";
 import PhotosLibrary from "./pages/PhotosLibrary";
 import TrainingAdmin from "./pages/TrainingAdmin";
 import Goals from "./pages/Goals";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import RoleBasedRoute from "./components/auth/RoleBasedRoute";
+import { useAuth } from "./context/AuthContext";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
 import { UserProvider } from "./context/UserContext";
@@ -21,19 +25,30 @@ const PAGES = {
   library: { label: "Biblioteca de Ejercicios", component: ExerciseLibrary },
   registrar: { label: "Registrar Entrenamiento", component: RegisterTraining },
   ejercicio_analitica: {
-    label: "Exercise Analytics",
+    label: "Analitica por ejercicio",
     component: ExerciseAnalyticsPage,
   },
-  resumen_sesion: { label: "Resumen de Sesión", component: SessionSummaryPage },
-  rutinas: { label: "Rutinas y Planificación", component: Routines },
+  resumen_sesion: { label: "Resumen de Sesion", component: SessionSummaryPage },
+  rutinas: { label: "Rutinas y Planificacion", component: Routines },
+  trainer: { label: "Panel Entrenador", component: Routines },
   admin_sesiones: { label: "Administrar sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
   objetivos: { label: "Objetivos", component: Goals },
 };
 
+const PAGE_ROLES = {
+  admin_sesiones: ["Admin", "Entrenador"],
+};
+
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_TRAINING_KEY = "active_training";
+
+const roleHome = (role) => {
+  if (role === "Admin") return "dashboard";
+  if (role === "Entrenador") return "trainer";
+  return "perfil";
+};
 
 const hasActiveTrainingSnapshot = () => {
   if (typeof localStorage === "undefined") return false;
@@ -46,10 +61,10 @@ const hasActiveTrainingSnapshot = () => {
     const elapsed = Number(snap?.elapsed ?? snap?.durationSeconds ?? 0) || 0;
     return Boolean(
       snap?.selectedRoutineId &&
-        (snap?.hasStarted ||
-          snap?.isRunning ||
-          elapsed > 0 ||
-          (Array.isArray(snap?.exercises) && snap.exercises.length > 0)),
+      (snap?.hasStarted ||
+        snap?.isRunning ||
+        elapsed > 0 ||
+        (Array.isArray(snap?.exercises) && snap.exercises.length > 0)),
     );
   } catch {
     return false;
@@ -57,11 +72,12 @@ const hasActiveTrainingSnapshot = () => {
 };
 
 function App() {
+  const { user, isAuthenticated, loading } = useAuth();
   const [activePage, setActivePage] = useState(() => {
-    if (typeof localStorage === "undefined") return "dashboard";
+    if (typeof localStorage === "undefined") return "login";
     if (hasActiveTrainingSnapshot()) return "registrar";
     const stored = localStorage.getItem("active_page");
-    return stored || "dashboard";
+    return stored || "login";
   });
 
   const handleNavigate = (page) => {
@@ -71,11 +87,40 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      (activePage === "login" || activePage === "register")
+    ) {
+      handleNavigate(roleHome(user?.role));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.role]);
+
   const pageEntry = useMemo(
     () => PAGES[activePage] || PAGES.dashboard,
-    [activePage]
+    [activePage],
   );
   const PageComponent = pageEntry.component;
+  const allowedRoles = PAGE_ROLES[activePage] || [];
+
+  if (loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[color:var(--bg)] text-[color:var(--text)]">
+        <div className="text-sm text-[color:var(--text-muted)]">
+          Cargando sesion...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return activePage === "register" ? (
+      <Register onNavigate={handleNavigate} />
+    ) : (
+      <Login onNavigate={handleNavigate} />
+    );
+  }
 
   return (
     <TrainingProvider>
@@ -95,10 +140,12 @@ function App() {
                 }}
                 className="h-full"
               >
-                <PageComponent
-                  pageKey={pageEntry.label}
-                  onNavigate={handleNavigate}
-                />
+                <RoleBasedRoute roles={allowedRoles}>
+                  <PageComponent
+                    pageKey={pageEntry.label}
+                    onNavigate={handleNavigate}
+                  />
+                </RoleBasedRoute>
               </motion.div>
             </AnimatePresence>
           </MainLayout>

@@ -1,8 +1,16 @@
 const CLOUDINARY_CLOUD_NAME =
-  (import.meta?.env && import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) || "dsonnxkhz";
+  (import.meta?.env && import.meta.env.VITE_CLOUDINARY_CLOUD_NAME) ||
+  "dsonnxkhz";
 const CLOUDINARY_BASE = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
-const buildTransform = ({ width, height, crop = "fill", gravity = "auto", quality = "auto", format = "auto" }) => {
+const buildTransform = ({
+  width,
+  height,
+  crop = "fill",
+  gravity = "auto",
+  quality = "auto",
+  format = "auto",
+}) => {
   const parts = [];
   if (crop) parts.push(`c_${crop}`);
   if (gravity) parts.push(`g_${gravity}`);
@@ -38,16 +46,19 @@ const extractPublicId = (url) => {
 export const buildCloudinaryUrl = (publicId, opts = {}) => {
   if (!publicId) return "";
   const transform = buildTransform(opts);
-  return transform ? `${CLOUDINARY_BASE}/${transform}/${publicId}` : `${CLOUDINARY_BASE}/${publicId}`;
+  return transform
+    ? `${CLOUDINARY_BASE}/${transform}/${publicId}`
+    : `${CLOUDINARY_BASE}/${publicId}`;
 };
 
 export const getExerciseImageUrl = (exercise, opts = {}) => {
   if (!exercise) return "";
   const publicId =
+    exercise.media?.image?.publicId ||
     exercise.imagePublicId ||
     exercise.publicId ||
     exercise.cloudinaryPublicId ||
-    extractPublicId(exercise.image);
+    extractPublicId(exercise.media?.image?.url || exercise.image);
   if (publicId) return buildCloudinaryUrl(publicId, opts);
-  return "";
+  return exercise.media?.image?.url || exercise.image || "";
 };

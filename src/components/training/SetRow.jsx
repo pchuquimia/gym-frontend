@@ -7,6 +7,7 @@ export default function SetRow({
   seriesType = "serie",
   entries = [],
   prSummary = "",
+  prBranchLabel = "",
   onChangeEntry,
   onToggleEntry,
   onRemove,
@@ -16,8 +17,8 @@ export default function SetRow({
     seriesType === "triserie"
       ? "triserie"
       : seriesType === "biserie"
-      ? "biserie"
-      : "serie";
+        ? "biserie"
+        : "serie";
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
   const baseClasses =
@@ -74,9 +75,19 @@ export default function SetRow({
             Set de {seriesLabel}
           </span>
           {prSummary ? (
-            <span className="min-w-0 truncate text-[11px] text-[color:var(--text-muted)]">
-              PR {prSummary}
-            </span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 truncate text-[11px] text-[color:var(--text-muted)]">
+                PR {prSummary}
+              </span>
+              {prBranchLabel ? (
+                <span
+                  className="shrink-0 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300"
+                  title={`PR registrado en ${prBranchLabel}`}
+                >
+                  {prBranchLabel}
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {!isMobile && onRemove && (
@@ -108,10 +119,7 @@ export default function SetRow({
             if (previousWeightValue != null && compareWeightValue != null) {
               if (previousWeightValue > compareWeightValue) trend = "up";
               else if (previousWeightValue < compareWeightValue) trend = "down";
-              else if (
-                previousRepsValue != null &&
-                compareRepsValue != null
-              ) {
+              else if (previousRepsValue != null && compareRepsValue != null) {
                 if (previousRepsValue > compareRepsValue) trend = "up";
                 else if (previousRepsValue < compareRepsValue) trend = "down";
                 else trend = "same";
@@ -128,10 +136,14 @@ export default function SetRow({
             trend === "up"
               ? "text-emerald-500"
               : trend === "down"
-              ? "text-rose-500"
-              : "text-[color:var(--text-muted)]";
+                ? "text-rose-500"
+                : "text-[color:var(--text-muted)]";
           const TrendIcon =
-            trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : null;
+            trend === "up"
+              ? ArrowUpRight
+              : trend === "down"
+                ? ArrowDownRight
+                : null;
           return (
             <div
               key={entry.id || `${index}-${entryIdx}`}
@@ -162,7 +174,7 @@ export default function SetRow({
                   onChangeEntry?.(
                     entry.id,
                     "kg",
-                    normalizeDecimal(e.target.value)
+                    normalizeDecimal(e.target.value),
                   )
                 }
                 placeholder="Kg"
@@ -177,7 +189,7 @@ export default function SetRow({
                   onChangeEntry?.(
                     entry.id,
                     "reps",
-                    normalizeDecimal(e.target.value)
+                    normalizeDecimal(e.target.value),
                   )
                 }
                 placeholder="Reps"
@@ -229,9 +241,10 @@ SetRow.propTypes = {
       kg: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       reps: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
       done: PropTypes.bool.isRequired,
-    })
+    }),
   ),
   prSummary: PropTypes.string,
+  prBranchLabel: PropTypes.string,
   onChangeEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,
