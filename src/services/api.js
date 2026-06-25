@@ -25,6 +25,24 @@ export const api = {
     }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),
+  getProfile: () => request("/api/auth/profile"),
+  updateProfile: (payload) =>
+    request("/api/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  updateSecurity: (payload) =>
+    request("/api/auth/security", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  changePassword: (payload) =>
+    request("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getAuthSessions: () => request("/api/auth/sessions"),
+  logoutAllSessions: () => request("/api/auth/logout-all", { method: "POST" }),
 
   getUsers: () => request("/api/users"),
   updateUser: (id, payload) =>

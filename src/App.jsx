@@ -11,7 +11,6 @@ import Routines from "./pages/Routines";
 import ProfileSettings from "./pages/ProfileSettings";
 import PhotosLibrary from "./pages/PhotosLibrary";
 import TrainingAdmin from "./pages/TrainingAdmin";
-import Goals from "./pages/Goals";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
@@ -34,7 +33,6 @@ const PAGES = {
   admin_sesiones: { label: "Administrar sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
-  objetivos: { label: "Objetivos", component: Goals },
 };
 
 const PAGE_ROLES = {
@@ -61,10 +59,7 @@ const hasActiveTrainingSnapshot = () => {
     const elapsed = Number(snap?.elapsed ?? snap?.durationSeconds ?? 0) || 0;
     return Boolean(
       snap?.selectedRoutineId &&
-      (snap?.hasStarted ||
-        snap?.isRunning ||
-        elapsed > 0 ||
-        (Array.isArray(snap?.exercises) && snap.exercises.length > 0)),
+      (snap?.hasStarted || snap?.isRunning || elapsed > 0),
     );
   } catch {
     return false;

@@ -88,7 +88,6 @@ function Dashboard({ onNavigate }) {
       historial: "/admin-sesiones",
       ejercicio_analitica: "/analitica-ejercicio",
       rutinas: "/rutinas",
-      objetivos: "/objetivos",
     };
     const path = paths[key];
     if (path) window.location.href = path;

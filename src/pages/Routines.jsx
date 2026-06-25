@@ -1074,165 +1074,224 @@ function Routines({ onNavigate }) {
   return (
     <>
       <section className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
-              Planificacion
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+              Planificación
             </p>
-            <h1 className="mt-1 text-2xl font-semibold leading-tight text-[color:var(--text)] sm:text-3xl">
+            <h1 className="mt-1 text-3xl font-black leading-none text-[color:var(--text)]">
               Rutinas
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-[color:var(--text-muted)]">
-              Organiza rutinas por sede, orden real de ejercicios y grupos musculares.
+            <p className="mt-2 max-w-2xl text-sm leading-5 text-[color:var(--text-muted)]">
+              Organiza rutinas por sede, orden real de ejercicios y grupos
+              musculares.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <div className="grid shrink-0 gap-2">
             {canReturnToTraining && (
               <Button
                 variant="outline"
                 onClick={handleReturnToTraining}
-                className="col-span-2 sm:col-span-1"
+                className="h-12 gap-2 rounded-xl px-3"
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>Volver</span>
               </Button>
             )}
-            <Button onClick={openCreate} className="col-span-2 sm:col-span-1">
+            <Button
+              onClick={openCreate}
+              className="h-14 gap-2 rounded-xl px-4 text-sm"
+            >
               <Plus className="h-4 w-4" />
-              <span>Nueva rutina</span>
+              <span className="hidden sm:inline">Nueva rutina</span>
+              <span className="sm:hidden">Nueva</span>
             </Button>
           </div>
         </div>
 
-        <Card className="p-3 sm:p-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                 Rutinas
               </p>
-              <p className="mt-1 text-xl font-semibold">{totals.routines}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+              <p className="mt-2 text-3xl font-black text-blue-700 dark:text-blue-100">
+                {totals.routines}
+              </p>
+          </div>
+          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                 Ejercicios
               </p>
-              <p className="mt-1 text-xl font-semibold">{totals.exercises}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+              <p className="mt-2 text-3xl font-black text-blue-700 dark:text-blue-100">
+                {totals.exercises}
+              </p>
+          </div>
+          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                 Sesiones
               </p>
-              <p className="mt-1 text-xl font-semibold">{totals.sessions}</p>
-            </div>
+              <p className="mt-2 text-3xl font-black text-blue-700 dark:text-blue-100">
+                {totals.sessions}
+              </p>
           </div>
-          <div className="mt-3 grid grid-cols-7 gap-1">
+        </div>
+
+        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+          <div className="grid grid-cols-7 gap-1">
             {weekSummary.map((day) => (
               <div key={day.key} className="text-center">
-                <div className="text-[10px] text-[color:var(--text-muted)]">
+                <div className="text-[10px] font-black text-[color:var(--text-muted)]">
                   {day.label}
                 </div>
                 <div
-                  className={`mx-auto mt-1 h-2 w-2 rounded-full ${
-                    day.active ? "bg-blue-500" : "bg-[color:var(--border)]"
+                  className={`mx-auto mt-2 h-2.5 w-2.5 rounded-full shadow-sm ${
+                    day.active
+                      ? "bg-blue-400 shadow-blue-400/40"
+                      : "bg-[color:var(--border)]"
                   }`}
                 />
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        <Card className="sticky top-2 z-10 p-3 shadow-sm backdrop-blur sm:static sm:p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-              <Filter className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-              {[
-                { id: "all", label: "Todas", count: branchCounts.all },
-                {
-                  id: "sopocachi",
-                  label: "Sopocachi",
-                  count: branchCounts.sopocachi,
-                },
-                {
-                  id: "miraflores",
-                  label: "Miraflores",
-                  count: branchCounts.miraflores,
-                },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveBranch(item.id)}
-                  className={`h-9 shrink-0 rounded-lg border px-3 text-xs font-semibold transition ${
-                    activeBranch === item.id
-                      ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
-                      : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-blue-300"
-                  }`}
-                >
-                  {item.label} <span className="opacity-70">{item.count}</span>
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar rutina"
-                className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
+        <div className="sticky top-2 z-10 space-y-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]/95 p-3 shadow-sm backdrop-blur sm:static">
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[
+              { id: "all", label: "Todas", count: branchCounts.all },
+              {
+                id: "sopocachi",
+                label: "Sopocachi",
+                count: branchCounts.sopocachi,
+              },
+              {
+                id: "miraflores",
+                label: "Miraflores",
+                count: branchCounts.miraflores,
+              },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveBranch(item.id)}
+                className={`h-9 shrink-0 rounded-full px-4 text-xs font-black transition ${
+                  activeBranch === item.id
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                    : "bg-[color:var(--card)] text-[color:var(--text)]"
+                }`}
+              >
+                {item.label} {item.count}
+              </button>
+            ))}
           </div>
-        </Card>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar rutina"
+              className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+        </div>
       </section>
 
       <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
         {routineCards.map((routine) => (
-          <Card key={routine.id} className="overflow-hidden p-0">
-            <div className="flex h-full flex-col">
-              <div className="min-w-0 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <h2 className="min-w-0 flex-1 break-words text-base font-semibold leading-snug sm:text-lg">
+          <article
+            key={routine.id}
+            className={`relative overflow-hidden rounded-xl border bg-[color:var(--card)] p-4 shadow-sm ${
+              normalizeBranch(routine.branch) === "sopocachi"
+                ? "border-emerald-400/70"
+                : "border-blue-400/70"
+            }`}
+          >
+            <span
+              className={`absolute bottom-0 left-0 top-0 w-1 ${
+                normalizeBranch(routine.branch) === "sopocachi"
+                  ? "bg-emerald-400"
+                  : "bg-blue-400"
+              }`}
+            />
+
+            <div className="flex items-start gap-3 pl-1">
+              <div className="min-w-0 flex-1 pr-1">
+                <h2 className="break-words text-xl font-black leading-tight text-[color:var(--text)]">
                     {routine.name}
-                  </h2>
-                  <Badge variant="secondary" className="shrink-0 gap-1 text-[10px]">
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  <span className="inline-flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
                     {branchLabel(routine.branch)}
-                  </Badge>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-2 text-center text-xs text-[color:var(--text-muted)]">
-                  <span className="inline-flex items-center gap-1">
-                    <Dumbbell className="h-3.5 w-3.5" />
-                    {routine.exerciseCount}
                   </span>
-                  <span className="truncate">{routine.totalSets} series</span>
                   <span className="inline-flex items-center gap-1">
-                    <CalendarDays className="h-3.5 w-3.5" />
+                    <CalendarDays className="h-3 w-3" />
                     {formatShortDate(routine.lastDate)}
                   </span>
                 </div>
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                  {routine.muscles.slice(0, 5).map((muscle) => (
-                    <Badge key={muscle} className="shrink-0 text-[10px]">
-                      {muscle}
-                    </Badge>
-                  ))}
-                  {routine.extras > 0 && (
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">
-                      {routine.extras} extras
-                    </Badge>
-                  )}
-                  {!routine.muscles.length && (
-                    <Badge className="text-[10px]">Sin grupos</Badge>
-                  )}
+              </div>
+
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(routine)}
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--bg)] text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                  aria-label="Editar rutina"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteRoutine(routine.id)}
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--bg)] text-[color:var(--text-muted)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                  aria-label="Eliminar rutina"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 pl-1">
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                    Ejercicios
+                  </p>
+                  <p
+                    className={`mt-1 inline-flex items-center gap-1 text-xl font-black ${
+                      normalizeBranch(routine.branch) === "sopocachi"
+                        ? "text-emerald-400"
+                        : "text-blue-300"
+                    }`}
+                  >
+                    <Dumbbell className="h-3.5 w-3.5" />
+                    {routine.exerciseCount}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                    Series
+                  </p>
+                  <p
+                    className={`mt-1 inline-flex items-center gap-1 text-xl font-black ${
+                      normalizeBranch(routine.branch) === "sopocachi"
+                        ? "text-emerald-400"
+                        : "text-blue-300"
+                    }`}
+                  >
+                    <Layers3 className="h-3.5 w-3.5" />
+                    {routine.totalSets}
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-auto flex items-center justify-between gap-3 border-t border-[color:var(--border)] bg-[color:var(--bg)]/60 p-2">
-                <div className="-space-x-2 flex">
+              <div className="flex items-center">
+                <div className="-space-x-2 flex rounded-full bg-[color:var(--bg)] px-2 py-1">
                   {routine.preview.map((item, idx) => (
                     <div
                       key={`${routine.id}-${idx}`}
-                      className="h-9 w-9 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-10 sm:w-10"
+                      className="h-8 w-8 overflow-hidden rounded-full border-2 border-[color:var(--card)] bg-[color:var(--bg)]"
                     >
                       {item.url ? (
                         <img
@@ -1248,38 +1307,40 @@ function Routines({ onNavigate }) {
                       )}
                     </div>
                   ))}
-                </div>
-                <div className="flex flex-1 items-center justify-end gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => openEdit(routine)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    <span>Editar</span>
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => duplicateRoutine(routine.id)}
-                    aria-label="Duplicar rutina"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="text-red-600"
-                    onClick={() => deleteRoutine(routine.id)}
-                    aria-label="Eliminar rutina"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {routine.exerciseCount > routine.preview.length ? (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(routine)}
+                      className="grid h-8 min-w-8 place-items-center rounded-full border-2 border-[color:var(--card)] bg-[color:var(--bg)] px-2 text-[10px] font-black text-blue-700 dark:text-blue-300"
+                      aria-label="Ver ejercicios restantes"
+                    >
+                      +{routine.exerciseCount - routine.preview.length}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
-          </Card>
+
+            <div className="mt-5 flex items-center justify-between gap-2 pl-1">
+              <div className="flex min-w-0 gap-1.5 overflow-hidden">
+                {routine.muscles.slice(0, 3).map((muscle) => (
+                  <span
+                    key={muscle}
+                    className="truncate rounded-full bg-[color:var(--bg)] px-2 py-1 text-[9px] font-black text-[color:var(--text-muted)]"
+                  >
+                    {muscle}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => duplicateRoutine(routine.id)}
+                className="shrink-0 rounded-lg bg-[color:var(--bg)] px-3 py-2 text-[11px] font-black text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+          </article>
         ))}
 
         {!routineCards.length && (

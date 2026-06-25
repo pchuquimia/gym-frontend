@@ -2078,6 +2078,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedRoutine(routine);
       setSessionDate(snap.sessionDate || todayISO);
       lastUpdateRef.current = now;
+      setNowMs(now);
       setDurationSeconds(totalSeconds);
       setTimeEvents(fallbackEvents);
       setIsRunning(Boolean(snap.isRunning));
@@ -2190,19 +2191,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (typeof localStorage === "undefined") return;
     if (!selectedRoutineId) return;
     try {
+      const now = Date.now();
+      const liveTimingSummary = calculateTimingSummary(timeEvents, now);
+      const liveDurationSeconds = liveTimingSummary.durationSeconds;
       const snapshot = {
         selectedRoutineId,
         selectedRoutine,
         selectedBranch,
         sessionDate,
-        durationSeconds,
-        elapsed: durationSeconds,
+        durationSeconds: liveDurationSeconds,
+        elapsed: liveDurationSeconds,
         isRunning,
         hasStarted,
-        lastUpdate: lastUpdateRef.current,
+        lastUpdate: now,
         timeEvents,
         exercises,
       };
+      lastUpdateRef.current = now;
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
     } catch (e) {
       console.warn("No se pudo guardar el estado del entrenamiento", e);
@@ -2212,7 +2217,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     selectedRoutine,
     selectedBranch,
     sessionDate,
-    durationSeconds,
     isRunning,
     hasStarted,
     timeEvents,

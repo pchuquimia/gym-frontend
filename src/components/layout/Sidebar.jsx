@@ -1,60 +1,7 @@
-import {
-  ClipboardList,
-  Dumbbell,
-  Images,
-  Layers,
-  LayoutDashboard,
-  LogOut,
-  Shield,
-  Target,
-  User,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/button";
-
-const sections = [
-  {
-    heading: "Principal",
-    items: [
-      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { id: "library", label: "Biblioteca de Ejercicios", icon: Dumbbell },
-      {
-        id: "registrar",
-        label: "Registrar Entrenamiento",
-        icon: ClipboardList,
-      },
-    ],
-  },
-  {
-    heading: "Analitica",
-    items: [
-      { id: "ejercicio_analitica", label: "Por ejercicio", icon: Layers },
-      { id: "resumen_sesion", label: "Resumen de sesion", icon: Layers },
-    ],
-  },
-  {
-    heading: "Gestion",
-    items: [
-      { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
-      {
-        id: "admin_sesiones",
-        label: "Administrar sesiones",
-        icon: Shield,
-        roles: ["Admin", "Entrenador"],
-      },
-      { id: "fotos", label: "Biblioteca de Fotos", icon: Images },
-    ],
-  },
-  {
-    heading: "Perfil",
-    items: [
-      { id: "objetivos", label: "Objetivos", icon: Target },
-      { id: "perfil", label: "Perfil y Ajustes", icon: User },
-    ],
-  },
-];
-
-export const navLinks = sections.flatMap((section) => section.items);
+import { sections } from "./navConfig";
 
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
 

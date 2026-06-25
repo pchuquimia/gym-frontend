@@ -1,6 +1,6 @@
 ﻿import { useMemo, useState } from "react";
 import PropTypes from "prop-types";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   compareExercise,
   compareMuscle,
@@ -8,6 +8,7 @@ import {
 } from "../utils/sessionAnalytics";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 
 const formatDateLong = (iso) =>
   iso
@@ -63,6 +64,38 @@ const flattenSets = (sets = []) =>
       reps: Number(entry?.reps ?? 0) || 0,
     }));
   });
+
+function SectionTitle({ children }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+      <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+        {children}
+      </h2>
+    </div>
+  );
+}
+
+function MetricTile({ label, value, suffix = "", refValue }) {
+  return (
+    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-black leading-none text-[color:var(--text)]">
+        {value}
+        {suffix ? (
+          <span className="ml-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+            {suffix}
+          </span>
+        ) : null}
+      </p>
+      <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+        {refValue}
+      </p>
+    </div>
+  );
+}
 
 function SessionSummaryPage({
   sessions: propSessions = [],
@@ -158,15 +191,7 @@ function SessionSummaryPage({
   }, [currentSummary, historySummaries]);
 
   const highlightMuscles = useMemo(() => {
-    if (!muscleComparisons.length) return [];
-    const withDelta = muscleComparisons.filter((m) =>
-      Number.isFinite(m?.delta)
-    );
-    const sorted = (withDelta.length ? withDelta : muscleComparisons).slice();
-    sorted.sort(
-      (a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0)
-    );
-    return sorted.slice(0, 2);
+    return muscleComparisons;
   }, [muscleComparisons]);
 
   const exerciseComparisons = useMemo(() => {
@@ -185,10 +210,27 @@ function SessionSummaryPage({
       .filter(Boolean);
   }, [currentSummary, historySummaries]);
 
-  const sortedExerciseComparisons = useMemo(() => {
-    const list = [...exerciseComparisons];
-    list.sort((a, b) => (b.today?.volume || 0) - (a.today?.volume || 0));
-    return list;
+  const exerciseGroupsBySessionOrder = useMemo(() => {
+    const groups = [];
+    const indexByMuscle = new Map();
+
+    exerciseComparisons.forEach((entry, index) => {
+      const muscleKey = entry.today?.muscleGroup || "Sin grupo";
+      if (!indexByMuscle.has(muscleKey)) {
+        indexByMuscle.set(muscleKey, groups.length);
+        groups.push({
+          key: muscleKey,
+          label: formatMuscleLabel(muscleKey),
+          items: [],
+        });
+      }
+      groups[indexByMuscle.get(muscleKey)].items.push({
+        ...entry,
+        sessionOrder: index + 1,
+      });
+    });
+
+    return groups;
   }, [exerciseComparisons]);
 
   const handleViewProgress = (exerciseId) => {
@@ -216,49 +258,38 @@ function SessionSummaryPage({
     normalizedCtxSessions.find((s) => s.id === currentId)?.routineName ||
     "Seleccionar sesión";
 
-  const selectedRoutineSessions = useMemo(() => {
-    const found = groupedSessions.find(
-      ([routine]) => routine === selectedRoutineName
-    );
-    return found ? found[1] || [] : [];
-  }, [groupedSessions, selectedRoutineName]);
-
-  const routineCount =
-    selectedRoutineSessions.length || normalizedCtxSessions.length;
   return (
-  <div className="space-y-6">
-    <header className="space-y-2">
-      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[color:var(--text-muted)]">
-        <span>{formatDateLong(currentDate || "")}</span>
-        <span className="inline-flex items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-          Ref: Últimas 7 sesiones
+  <div className="mx-auto w-full max-w-5xl space-y-4 pb-24">
+    <header className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+          {formatDateLong(currentDate || "")}
+        </p>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
+          Últimas 7 sesiones
         </span>
       </div>
-      <h1 className="text-2xl font-bold text-[color:var(--text)]">
-        Resumen de sesión
-      </h1>
-    </header>
 
-    {normalizedCtxSessions.length > 0 && (
-      <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
-            Sesiones recientes
-          </p>
-        </div>
-
-        <div className="relative">
+      {normalizedCtxSessions.length > 0 && (
+        <section className="relative rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
           <button
             type="button"
-            onClick={() => setShowList((v) => !v)}
-            className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-left transition hover:bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-blue-500/25"
+            onClick={() => setShowList((value) => !value)}
+            className="flex w-full items-center justify-between gap-3 text-left"
           >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-base font-semibold text-[color:var(--text)] truncate">
-                {selectedRoutineName} ({routineCount} guardadas)
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Sesión reciente
               </p>
-              <ChevronDown className="h-5 w-5 text-[color:var(--text-muted)]" />
+              <p className="mt-1 truncate text-base font-bold text-[color:var(--text)]">
+                {selectedRoutineName}
+              </p>
             </div>
+            <ChevronDown
+              className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition ${
+                showList ? "rotate-180" : ""
+              }`}
+            />
           </button>
 
           {showList && (
@@ -389,61 +420,48 @@ function SessionSummaryPage({
               </div>
             </>
           )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {highlightMuscles.length ? (
-            highlightMuscles.map((muscle) => (
-              <span
-                key={muscle.muscleKey}
-                className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${deltaBadgeClass(
-                  muscle.delta
-                )}`}
-              >
-                {muscle.label}: {muscle.status} {formatDelta(muscle.delta)}
-              </span>
-            ))
-          ) : (
-            <span className="text-xs text-[color:var(--text-muted)]">
-              Sin comparativos recientes.
-            </span>
-          )}
-          <button
-            type="button"
-            className="ml-auto h-9 w-9 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] grid place-items-center text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-blue-500/25"
-            onClick={() => setShowList(true)}
-            aria-label="Abrir selector"
-          >
-            <CalendarDays className="h-4 w-4" />
-          </button>
-        </div>
-      </section>
-    )}
+        </section>
+      )}
+    </header>
 
     <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-blue-500" />
-        <h2 className="text-lg font-bold text-[color:var(--text)]">
-          Por grupo muscular
-        </h2>
+      <SectionTitle>Por grupo muscular</SectionTitle>
+
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {highlightMuscles.length ? (
+          highlightMuscles.map((muscle) => (
+            <span
+              key={muscle.muscleKey}
+              className={`inline-flex h-9 shrink-0 items-center rounded-lg border px-3 text-[11px] font-black ${deltaBadgeClass(
+                muscle.delta
+              )}`}
+            >
+              {muscle.label} {formatDelta(muscle.delta)}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-[color:var(--text-muted)]">
+            Sin comparativos recientes.
+          </span>
+        )}
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {muscleComparisons.length ? (
           muscleComparisons.map((muscle) => {
             const today = muscle.today || {};
             const ref = muscle.ref || {};
             return (
-              <div
+              <article
                 key={muscle.muscleKey}
-                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm"
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-base font-semibold text-[color:var(--text)]">
+                    <p className="text-lg font-bold text-[color:var(--text)]">
                       {muscle.label}
                     </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
+                    <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
                       Ref: {muscle.refCount || 0} entrenamientos
                     </p>
                   </div>
@@ -457,56 +475,16 @@ function SessionSummaryPage({
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Índice fuerza
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {formatNumber(today.strengthIndex, 1)}
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      Avg 7: {formatNumber(ref.strengthIndex, 1)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Volumen
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {formatNumber(today.volume, 0)} kg·reps
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      Avg 7: {formatNumber(ref.volume, 0)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Sets
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {formatNumber(today.setsCount, 0)}
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      Avg 7: {formatNumber(ref.setsCount, 1)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Mejor 1RM
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {formatNumber(today.bestOneRM, 1)} kg
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      Avg 7: {formatNumber(ref.bestOneRM, 1)} kg
-                    </p>
-                  </div>
+                  <MetricTile label="Índice fuerza" value={formatNumber(today.strengthIndex, 1)} refValue={`Avg 7: ${formatNumber(ref.strengthIndex, 1)}`} />
+                  <MetricTile label="Volumen" value={`${formatNumber(today.volume, 0)}`} suffix="kg·reps" refValue={`Avg 7: ${formatNumber(ref.volume, 0)}`} />
+                  <MetricTile label="Sets" value={formatNumber(today.setsCount, 0)} refValue={`Avg 7: ${formatNumber(ref.setsCount, 1)}`} />
+                  <MetricTile label="Mejor 1RM" value={formatNumber(today.bestOneRM, 1)} suffix="kg" refValue={`Avg 7: ${formatNumber(ref.bestOneRM, 1)} kg`} />
                 </div>
-              </div>
+              </article>
             );
           })
         ) : (
-          <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
+          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
             Aún no hay datos por grupo muscular.
           </div>
         )}
@@ -514,94 +492,133 @@ function SessionSummaryPage({
     </section>
 
     <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-blue-500" />
-        <h2 className="text-lg font-bold text-[color:var(--text)]">
-          Ejercicios de la sesión
-        </h2>
-      </div>
+      <SectionTitle>Ejercicios de la sesión</SectionTitle>
 
-      <div className="grid gap-3">
-        {sortedExerciseComparisons.length ? (
-          sortedExerciseComparisons.map((entry) => {
-            const ex = entry.today || {};
-            const topSet = ex.topSet || {};
-            return (
-              <div
-                key={ex.exerciseId}
-                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[color:var(--text)] truncate">
-                      {ex.exerciseName}
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      {ex.muscleGroup || "Sin grupo"}
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${deltaBadgeClass(
-                      entry.delta
-                    )}`}
-                  >
-                    {formatDelta(entry.delta)}
-                  </span>
-                </div>
-
-                <div className="mt-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-muted)] uppercase tracking-[0.2em]">
-                    <span className="h-2 w-2 rounded-full bg-blue-500" />
-                    Hoy
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[11px] text-[color:var(--text-muted)]">
-                        Top set
-                      </p>
-                      <p className="text-base font-semibold text-[color:var(--text)]">
-                        {formatNumber(topSet.weightKg, 1)} kg x {topSet.reps ?? "--"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] text-[color:var(--text-muted)]">
-                        1RM estimado
-                      </p>
-                      <p className="text-base font-semibold text-[color:var(--text)]">
-                        {formatNumber(ex.oneRMTop, 1)} kg
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[color:var(--border)] pt-3 text-[11px] text-[color:var(--text-muted)]">
-                    <div>
-                      <p className="uppercase tracking-[0.2em]">Volumen</p>
-                      <p className="text-sm font-semibold text-[color:var(--text)]">
-                        {formatNumber(ex.volume, 0)} kg·reps
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="uppercase tracking-[0.2em]">Sets / reps</p>
-                      <p className="text-sm font-semibold text-[color:var(--text)]">
-                        {ex.setsCount || 0} sets · {ex.repsTotal || 0} reps
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleViewProgress(ex.exerciseId)}
-                  className="mt-3 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10"
-                >
-                  Ver progreso detallado
-                </button>
+      <div className="space-y-4">
+        {exerciseGroupsBySessionOrder.length ? (
+          exerciseGroupsBySessionOrder.map((group) => (
+            <div key={group.key} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-[color:var(--text)]">
+                  {group.label}
+                </h3>
+                <span className="rounded-full bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                  {group.items.length} ejercicios
+                </span>
               </div>
-            );
-          })
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {group.items.map((entry) => {
+                  const ex = entry.today || {};
+                  const topSet = ex.topSet || {};
+                  const meta = exerciseMeta.find(
+                    (item) => item.id === ex.exerciseId,
+                  );
+                  const imageUrl = meta
+                    ? getExerciseImageUrl(meta, { width: 160, height: 160 })
+                    : "";
+                  return (
+                    <article
+                      key={`${group.key}-${ex.exerciseId}-${entry.sessionOrder}`}
+                      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]"
+                    >
+                      <div className="flex items-start gap-3 p-4">
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={ex.exerciseName}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center text-[11px] text-[color:var(--text-muted)]">
+                              Sin imagen
+                            </div>
+                          )}
+                          <span className="absolute left-1 top-1 grid h-5 min-w-5 place-items-center rounded bg-slate-950/75 px-1 text-[10px] font-black text-white">
+                            {entry.sessionOrder}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-[color:var(--text)]">
+                            {ex.exerciseName}
+                          </p>
+                          <p className="text-xs text-[color:var(--text-muted)]">
+                            Orden realizado #{entry.sessionOrder}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${deltaBadgeClass(
+                            entry.delta,
+                          )}`}
+                        >
+                          {formatDelta(entry.delta)}
+                        </span>
+                      </div>
+
+                      <div className="mx-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                          <span className="h-2 w-2 rounded-full bg-blue-500" />
+                          Hoy
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-[11px] text-[color:var(--text-muted)]">
+                              Top set
+                            </p>
+                            <p className="text-base font-semibold text-[color:var(--text)]">
+                              {formatNumber(topSet.weightKg, 1)} kg x{" "}
+                              {topSet.reps ?? "--"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[11px] text-[color:var(--text-muted)]">
+                              1RM estimado
+                            </p>
+                            <p className="text-base font-semibold text-[color:var(--text)]">
+                              {formatNumber(ex.oneRMTop, 1)} kg
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[color:var(--border)] pt-3 text-[11px] text-[color:var(--text-muted)]">
+                          <div>
+                            <p className="uppercase tracking-[0.2em]">
+                              Volumen
+                            </p>
+                            <p className="text-sm font-semibold text-[color:var(--text)]">
+                              {formatNumber(ex.volume, 0)} kg·reps
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="uppercase tracking-[0.2em]">
+                              Sets / reps
+                            </p>
+                            <p className="text-sm font-semibold text-[color:var(--text)]">
+                              {ex.setsCount || 0} sets · {ex.repsTotal || 0}{" "}
+                              reps
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleViewProgress(ex.exerciseId)}
+                        className="mt-4 w-full bg-[color:var(--bg)] px-3 py-3 text-xs font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                      >
+                        Ver progreso detallado
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         ) : (
-          <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
+          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
             Aún no hay ejercicios registrados en esta sesión.
           </div>
         )}
@@ -609,7 +626,7 @@ function SessionSummaryPage({
     </section>
 
     {!normalizedCtxSessions.length && (
-      <div className="rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
+      <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
         Aún no hay sesiones guardadas para mostrar el resumen.
       </div>
     )}

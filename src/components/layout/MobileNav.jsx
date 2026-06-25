@@ -1,4 +1,4 @@
-import { navLinks } from "./Sidebar";
+import { navLinks } from "./navConfig";
 import { useAuth } from "../../context/AuthContext";
 
 function MobileNav({ activePage, onNavigate }) {

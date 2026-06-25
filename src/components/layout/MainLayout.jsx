@@ -36,10 +36,7 @@ function MainLayout({ children, activePage, onNavigate }) {
       const total = Math.max(0, Math.floor(elapsed));
       const hasSnapshot =
         snap?.selectedRoutineId &&
-        (total > 0 ||
-          snap?.isRunning ||
-          snap?.hasStarted ||
-          (Array.isArray(snap?.exercises) && snap.exercises.length > 0));
+        (total > 0 || snap?.isRunning || snap?.hasStarted);
       return hasSnapshot ? { ...snap, elapsed: total } : null;
     } catch {
       return null;
