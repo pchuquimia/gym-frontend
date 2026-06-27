@@ -4,8 +4,12 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  Circle,
+  CircleDot,
   ClipboardList,
   Flag,
+  MapPin,
+  Menu,
   Minimize2,
   MoreVertical,
   Pause,
@@ -189,6 +193,141 @@ const buildFallbackTimeEvents = (durationSeconds = 0, endMs = Date.now()) => {
 };
 
 const formatCounter = (value) => String(value || 0).padStart(2, "0");
+
+const branchMeta = {
+  sopocachi: {
+    title: "Sopocachi",
+    subtitle: "Av. 20 de Octubre",
+  },
+  miraflores: {
+    title: "Miraflores",
+    subtitle: "Av. Busch",
+  },
+  general: {
+    title: "General",
+    subtitle: "Disponible en todas las sucursales",
+  },
+};
+
+const getBranchTitle = (branch) =>
+  branchMeta[normalizeBranch(branch)]?.title || branch || "Sucursal";
+
+const getRoutineLevel = (routine) => {
+  const count = Number(routine?.exerciseCount || 0);
+  if (count >= 8) return "Avanzado";
+  if (count >= 6) return "Intermedio";
+  return "Inicial";
+};
+
+const getRoutineFocus = (routine) => {
+  const name = (routine?.name || "").toLowerCase();
+  if (name.includes("pierna") || name.includes("femoral")) return "Fuerza";
+  if (name.includes("espalda") || name.includes("triceps")) return "Potencia";
+  return "Hipertrofia";
+};
+
+function SetupStep({ number, title, subtitle, active = false, done = false }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black ${
+          done
+            ? "bg-emerald-400 text-emerald-950"
+            : active
+              ? "bg-blue-300 text-blue-950"
+              : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
+        }`}
+      >
+        {number}
+      </span>
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold leading-tight text-[color:var(--text)]">
+          {title}
+        </h2>
+        <p className="mt-0.5 text-sm font-medium text-[color:var(--text-muted)]">
+          {subtitle}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BranchCard({ branch, selected, compact = false, onClick }) {
+  const meta = branchMeta[normalizeBranch(branch)] || {
+    title: branch,
+    subtitle: "Sucursal disponible",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+        selected
+          ? "border-blue-300 bg-blue-500/10"
+          : "border-transparent bg-[color:var(--card)]"
+      } ${compact ? "py-2.5" : "py-3.5"}`}
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)] text-blue-200">
+        <MapPin className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base font-black text-[color:var(--text)]">
+          {meta.title}
+        </span>
+        {!compact ? (
+          <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+            {meta.subtitle}
+          </span>
+        ) : null}
+      </span>
+      {selected ? (
+        <CircleDot className="h-5 w-5 shrink-0 text-blue-300" />
+      ) : (
+        <Circle className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+      )}
+    </button>
+  );
+}
+
+function RoutineSetupCard({ routine, selected, recommended, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-xl border p-4 text-left transition ${
+        selected
+          ? "border-emerald-400/60 bg-emerald-500/10"
+          : "border-transparent bg-[color:var(--card)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-lg font-black text-[color:var(--text)]">
+            {routine.name}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+            {routine.exerciseCount} ejercicios · ~
+            {Math.max(45, routine.exerciseCount * 10)} min
+          </p>
+        </div>
+        {recommended ? (
+          <span className="shrink-0 rounded-md bg-emerald-400/15 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">
+            Recomendado
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
+          {getRoutineFocus(routine)}
+        </span>
+        <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
+          {getRoutineLevel(routine)}
+        </span>
+      </div>
+    </button>
+  );
+}
 
 const formatEntryValue = (entry = {}) => {
   const weightRaw = entry.weightKg ?? entry.weight ?? entry.kg ?? null;
@@ -570,11 +709,6 @@ const mergeSetsToRoutineCount = (currentSets = [], templateSets = []) => {
   return [...resized, ...extraWithData];
 };
 
-const pickMapKey = (map, keys = []) => {
-  if (!map) return null;
-  return keys.find((key) => key && map.has(key)) || null;
-};
-
 const getHistoryLookupKeys = (exercise = {}, fallbackIndex = null) =>
   Array.from(
     new Set([
@@ -582,6 +716,11 @@ const getHistoryLookupKeys = (exercise = {}, fallbackIndex = null) =>
       ...getMovementHistoryKeys(exercise),
     ]),
   );
+
+const pickMapKey = (map, keys = []) => {
+  if (!map) return null;
+  return keys.find((key) => key && map.has(key)) || null;
+};
 
 const seedEntriesFromHistory = ({
   setId,
@@ -860,7 +999,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("");
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
-  const [isOrderingExercises, setIsOrderingExercises] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO);
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
@@ -872,6 +1010,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedBranch, setSelectedBranch] = useState(() =>
     normalizeBranch(userBranch),
   );
+  const [branchConfirmed, setBranchConfirmed] = useState(false);
+  const [setupStarted, setSetupStarted] = useState(false);
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const branchChangeReason = useRef("user"); // "user" | "routine"
   const restoredFromSnapshot = useRef(false);
   const historyLoadAttempted = useRef(false);
@@ -2074,6 +2215,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedBranch(
         normalizeBranch(snap.selectedBranch || routine.location),
       );
+      setBranchConfirmed(true);
       setSelectedRoutineId(snap.selectedRoutineId);
       setSelectedRoutine(routine);
       setSessionDate(snap.sessionDate || todayISO);
@@ -2085,6 +2227,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setHasStarted(
         Boolean(snap.hasStarted) || Boolean(snap.isRunning) || totalSeconds > 0,
       );
+      if (snap.hasStarted || snap.isRunning || totalSeconds > 0) {
+        setSetupStarted(true);
+      }
       if (Array.isArray(snap.exercises))
         setExercises(
           snap.exercises.map((ex) => {
@@ -2359,6 +2504,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     toast.success("Entrenamiento iniciado");
   };
 
+  const handleStartSetupSession = () => {
+    if (!branchConfirmed) {
+      toast.message("Selecciona una sucursal para continuar.");
+      return;
+    }
+    if (!selectedRoutineId) {
+      toast.message("Selecciona una rutina para iniciar.");
+      return;
+    }
+    setSetupStarted(true);
+    if (!hasStarted && !isRunning && durationSeconds <= 0) {
+      handleStart();
+    }
+  };
+
   const handlePause = () => {
     const now = Date.now();
     lastUpdateRef.current = now;
@@ -2380,6 +2540,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setTimeEvents([]);
     setActiveExerciseId("");
     setHasStarted(false);
+    setSetupStarted(false);
+    setBranchConfirmed(false);
+    setSessionMenuOpen(false);
   };
 
   const resetState = () => {
@@ -2390,6 +2553,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setNowMs(Date.now());
     setDurationSeconds(0);
     setHasStarted(false);
+    setSetupStarted(false);
+    setBranchConfirmed(false);
     setSelectedBranch(DEFAULT_BRANCH);
     setSelectedRoutineId("");
     setSelectedRoutine(null);
@@ -2407,6 +2572,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsEditing(false);
     setHasStarted(false);
     setBranchLocked(false);
+    setSessionMenuOpen(false);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
@@ -2421,10 +2587,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const branch = normalizeBranch(found?.location);
     branchChangeReason.current = "routine";
     setSelectedBranch(branch);
+    setBranchConfirmed(true);
     setSelectedRoutineId(id);
     setSelectedRoutine(found || null);
     setIsRunning(false);
     setHasStarted(false);
+    setSetupStarted(false);
     setTimeEvents([]);
     setActiveExerciseId("");
     setNowMs(Date.now());
@@ -2456,6 +2624,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
     }
     setSelectedBranch(normalizeBranch(value));
+    setBranchConfirmed(true);
+    setSelectedRoutineId(null);
+    setSelectedRoutine(null);
+    setExercises([]);
+    setSetupStarted(false);
   };
 
   const handleExitEdit = async () => {
@@ -2470,6 +2643,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsEditing(false);
     setHasStarted(false);
     setBranchLocked(false);
+    setBranchConfirmed(false);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
     setExercises([]);
@@ -3001,12 +3175,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setShowExercisePicker(true);
   };
 
-  const handleAddExerciseForMuscle = (muscle) => {
-    setSelectedMuscleGroup(muscle || "");
-    setExerciseSearch("");
-    setShowExercisePicker(true);
-  };
-
   const handleTrainingPhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3182,6 +3350,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleCancel = () => {
+    setSessionMenuOpen(false);
     if (isEditing) {
       handleExitEdit();
       toast.message("Edicion cancelada");
@@ -3221,6 +3390,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const showCancelButton = hasStarted || isRunning || durationSeconds > 0;
   const showResetButton = hasStarted || durationSeconds > 0;
   const showMobileTrainingBar = hasStarted || isRunning || durationSeconds > 0;
+  const isOrderingExercises = false;
   const progressPct = totalSets
     ? Math.min(100, Math.round((doneSets / totalSets) * 100))
     : 0;
@@ -3263,11 +3433,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [
     selectedRoutine,
     historyBest,
-    historyGlobalBest,
     historyBestBySet,
     historyRecentBySet,
     historySeriesTypeMap,
-    selectedBranch,
   ]);
 
   const trackingRows = useMemo(() => {
@@ -3332,59 +3500,105 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       <Toaster position="top-center" richColors />
       <div
         className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden pb-28 md:max-w-4xl md:px-4 lg:max-w-6xl space-y-4 ${
-          showMobileTrainingBar ? "pt-24 md:pt-4" : "pt-4"
+          showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"
         }`}
       >
         {showMobileTrainingBar && (
-          <div className="fixed top-14 left-0 right-0 z-30 md:hidden px-3 sm:px-4">
-            <div className="pt-3 pb-2 bg-[color:var(--bg)]/92 backdrop-blur">
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 px-3 py-2 shadow-lg">
-                <div className="flex shrink-0 items-baseline gap-2">
-                  <span className="font-mono text-lg text-[color:var(--text)]">
-                    {formatDuration(durationSeconds)}
-                  </span>
-                  <span
-                    className={`text-[10px] font-semibold uppercase ${
-                      isRunning
-                        ? "text-red-400"
-                        : "text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    Live
-                  </span>
-                </div>
-                {activeExercise && (
-                  <p className="min-w-0 flex-1 truncate text-[11px] text-[color:var(--text-muted)]">
-                    {activeExercise.name} ·{" "}
-                    {formatDuration(activeExerciseDuration)}
-                  </p>
-                )}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {showFinishButton && (
-                    <Button
-                      size="sm"
-                      className="rounded-full px-2.5"
-                      onClick={handleFinish}
-                      disabled={!exercises.length}
-                    >
-                      Finalizar
-                    </Button>
-                  )}
-                  {showCancelButton && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full px-2.5"
-                      onClick={handleCancel}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-              </div>
+          <div className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden">
+            <div className="mx-auto flex max-w-md items-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+                className="grid h-10 w-8 shrink-0 place-items-center text-blue-200"
+                aria-label="Abrir menu principal"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSessionMenuOpen(true)}
+                className="grid h-10 w-8 shrink-0 place-items-center text-blue-200"
+                aria-label="Opciones del entrenamiento"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </button>
+              <div className="min-w-0 flex-1" />
+              <button
+                type="button"
+                onClick={isRunning ? handlePause : handleStart}
+                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl bg-[color:var(--card)] px-3 font-mono text-sm font-black text-[color:var(--text)]"
+              >
+                <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
+                {formatDuration(durationSeconds)}
+              </button>
+              {showFinishButton ? (
+                <button
+                  type="button"
+                  onClick={handleFinish}
+                  disabled={!exercises.length}
+                  className="h-9 shrink-0 rounded-xl bg-blue-300 px-4 text-xs font-black uppercase tracking-wide text-blue-950 disabled:opacity-60"
+                >
+                  Finish
+                </button>
+              ) : null}
             </div>
           </div>
         )}
+
+        {sessionMenuOpen && showMobileTrainingBar ? (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/50"
+              aria-label="Cerrar menu"
+              onClick={() => setSessionMenuOpen(false)}
+            />
+            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl">
+              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)]" />
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
+                  onClick={() => {
+                    setSessionMenuOpen(false);
+                    if (isRunning) handlePause();
+                    else handleStart();
+                  }}
+                >
+                  <span>{isRunning ? "Pausar cronometro" : "Reanudar entrenamiento"}</span>
+                  {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
+                  onClick={() => {
+                    setSessionMenuOpen(false);
+                    handleEditRoutineFromTraining();
+                  }}
+                >
+                  <span>Cambiar o editar rutina</span>
+                  <ClipboardList className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-red-500/25 bg-red-500/10 px-4 text-sm font-bold text-red-300"
+                  onClick={handleCancel}
+                >
+                  <span>Cancelar entrenamiento</span>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
+                onClick={() => setSessionMenuOpen(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="hidden md:flex items-center justify-between">
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           <div className="flex items-center gap-2">
@@ -3403,7 +3617,122 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         </div>
 
-        <div className="md:sticky md:top-2 z-20">
+        {!setupStarted && !isEditing ? (
+          <section className="mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-md flex-col pb-24 md:min-h-0">
+            <header className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)]"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="min-w-0 flex-1 px-2">
+                <h1 className="truncate text-lg font-black text-[color:var(--text)]">
+                  Nueva sesión
+                </h1>
+              </div>
+              <span className="text-[11px] font-black text-[color:var(--text-muted)]">
+                Paso 1/2
+              </span>
+            </header>
+
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <SetupStep
+                  number={1}
+                  title="Seleccionar sucursal"
+                  subtitle="¿Dónde vas a entrenar hoy?"
+                  active={!branchConfirmed}
+                  done={branchConfirmed}
+                />
+
+                <div className="space-y-3">
+                  {branchConfirmed ? (
+                    <BranchCard
+                      branch={selectedBranch}
+                      selected
+                      compact
+                      onClick={() => {
+                        if (!hasStarted && !isRunning) setBranchConfirmed(false);
+                      }}
+                    />
+                  ) : (
+                    branchOptions.map((branch) => (
+                      <BranchCard
+                        key={branch}
+                        branch={branch}
+                        selected={normalizeBranch(branch) === selectedBranch}
+                        onClick={() => handleBranchChange(branch)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {branchConfirmed ? (
+                <div className="space-y-4">
+                  <SetupStep
+                    number={2}
+                    title="Escoger rutina"
+                    subtitle="Selecciona tu plan para esta sesión"
+                    active
+                    done={Boolean(selectedRoutineId)}
+                  />
+
+                  <div className="space-y-3">
+                    {routineOptions.length ? (
+                      routineOptions.map((routine, index) => (
+                        <RoutineSetupCard
+                          key={routine.id}
+                          routine={routine}
+                          selected={routine.id === selectedRoutineId}
+                          recommended={index === 0}
+                          onClick={() => handleSelectRoutine(routine.id)}
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                        No hay rutinas disponibles para {getBranchTitle(selectedBranch)}.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 backdrop-blur">
+              <div className="mx-auto max-w-md">
+                <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <Check className="h-4 w-4 shrink-0 text-blue-300" />
+                    <span className="truncate">
+                      {branchConfirmed
+                        ? `${getBranchTitle(selectedBranch)} seleccionado`
+                        : "Selecciona sucursal"}
+                    </span>
+                  </span>
+                  <span>Paso 2: Rutina</span>
+                </div>
+                <Button
+                  className="h-12 w-full rounded-2xl bg-blue-300 text-sm font-black uppercase tracking-[0.18em] text-blue-950 hover:bg-blue-200"
+                  disabled={!branchConfirmed || !selectedRoutineId || loadingTraining}
+                  onClick={handleStartSetupSession}
+                >
+                  <Play className="h-4 w-4" />
+                  Iniciar entrenamiento
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <div
+          className={`hidden md:sticky md:top-2 md:z-20 md:block ${
+            !setupStarted && !isEditing ? "hidden" : ""
+          }`}
+        >
           <Card className="p-3 md:p-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-lg space-y-3">
             <div className="hidden md:flex flex-wrap items-center gap-3">
               <div className="flex-1 min-w-[160px]">
@@ -3521,41 +3850,74 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </Card>
         </div>
 
-        {selectedRoutineId && (
-          <Card className="p-4 md:p-5 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-lg space-y-3">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-              Resumen rapido
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm text-[color:var(--text-muted)]">
-                  Ejercicios realizados:
+        {(setupStarted || isEditing) && selectedRoutineId && (
+          <section className="space-y-3 md:hidden">
+            <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 shadow-lg">
+              <ClipboardList className="pointer-events-none absolute -right-8 -top-4 h-32 w-32 rotate-[-8deg] text-blue-200/10" />
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                Rutina activa
+              </p>
+              <h2 className="mt-2 truncate text-2xl font-black leading-none text-blue-700 dark:text-blue-100">
+                {selectorRoutine?.name || "Rutina seleccionada"}
+              </h2>
+              <p className="mt-1.5 truncate text-sm font-semibold text-[color:var(--text-muted)]">
+                {getBranchTitle(selectedBranch)} · {exercises.length} ejercicios total
+              </p>
+            </article>
+
+            <div className="grid grid-cols-2 gap-3">
+              <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                  Completado
                 </p>
-                <p className="text-sm text-[color:var(--text-muted)]">
-                  Sets totales:
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-3xl font-black leading-none text-emerald-400">
+                    {formatCounter(completedExercises)}/
+                    {formatCounter(exercises.length)}
+                  </p>
+                  <div
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-1 text-[11px] font-black text-blue-700 dark:text-blue-100"
+                    style={{
+                      background: `conic-gradient(rgb(52 211 153) ${progressPct}%, var(--border) 0)`,
+                    }}
+                  >
+                    <span className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
+                      {progressPct}%
+                    </span>
+                  </div>
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                  Total sets
                 </p>
-              </div>
-              <div className="text-right space-y-1">
-                <p className="text-lg font-semibold text-[color:var(--text)]">
-                  {formatCounter(completedExercises)} /{" "}
-                  {formatCounter(exercises.length)}
-                </p>
-                <p className="text-lg font-semibold text-[color:var(--text)]">
+                <p className="mt-3 text-3xl font-black leading-none text-[color:var(--text)]">
                   {totalSets}
                 </p>
-              </div>
+                <div className="mt-4 grid grid-cols-5 gap-1.5">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className={`h-1.5 rounded-full ${
+                        index < Math.max(1, Math.ceil(progressPct / 20))
+                          ? "bg-emerald-400"
+                          : "bg-[color:var(--border)]"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </article>
             </div>
-            <div className="h-2 rounded-full bg-[color:var(--border)]/60 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </Card>
+          </section>
         )}
 
-        <div className="grid min-w-0 max-w-full gap-4 md:grid-cols-[360px_minmax(0,1fr)]">
-          <div className="min-w-0 max-w-full space-y-4">
+        <div
+          className={`min-w-0 max-w-full gap-4 md:grid-cols-[360px_minmax(0,1fr)] ${
+            setupStarted || isEditing ? "grid" : "hidden"
+          }`}
+        >
+          <div className="hidden min-w-0 max-w-full space-y-4 md:block">
             <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
               <div className="space-y-2">
                 <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
@@ -3615,33 +3977,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     <p className="text-xs text-[color:var(--text-muted)]">
                       {loadingTraining ? "Cargando..." : "En progreso"}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {exercises.length > 1 && (
-                      <Button
-                        size="sm"
-                        variant={isOrderingExercises ? "default" : "outline"}
-                        className="md:hidden rounded-full"
-                        onClick={() =>
-                          setIsOrderingExercises((value) => !value)
-                        }
-                      >
-                        {isOrderingExercises ? (
-                          <>
-                            <Check className="h-4 w-4" />
-                            <span>Listo</span>
-                          </>
-                        ) : (
-                          "Ordenar"
-                        )}
-                      </Button>
-                    )}
-                    <Badge variant="secondary" className="text-[11px]">
-                      Total sets: {totalSets}
-                    </Badge>
-                    <Badge className="text-[11px]">
-                      {progressPct}% completado
-                    </Badge>
                   </div>
                 </div>
 
@@ -3737,24 +4072,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 {selectorRoutine?.name || "Rutina sin nombre"}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="secondary"
-                                className="text-[11px]"
-                              >
-                                {items.length} ejercicios
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-full px-3"
-                                onClick={() =>
-                                  handleAddExerciseForMuscle(muscle)
-                                }
-                              >
-                                Agregar
-                              </Button>
-                            </div>
+                            <Badge variant="secondary" className="text-[11px]">
+                              {items.length} ejercicios
+                            </Badge>
                           </div>
                           <AnimatePresence>
                             {items.map((ex) => {
@@ -3848,19 +4168,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               {selectorRoutine?.name || "Rutina sin nombre"}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-[11px]">
-                              {items.length} ejercicios
-                            </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-full px-3"
-                              onClick={() => handleAddExerciseForMuscle(muscle)}
-                            >
-                              Agregar
-                            </Button>
-                          </div>
+                          <Badge variant="secondary" className="text-[11px]">
+                            {items.length} ejercicios
+                          </Badge>
                         </div>
                         <AnimatePresence>
                           {items.map((ex) => {
@@ -4010,6 +4320,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       + Agregar Ejercicio
                     </Button>
                   </motion.div>
+
                 </div>
               </>
             ) : (

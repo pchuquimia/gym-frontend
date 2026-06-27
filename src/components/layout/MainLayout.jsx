@@ -54,6 +54,12 @@ function MainLayout({ children, activePage, onNavigate }) {
     };
   }, []);
 
+  useEffect(() => {
+    const openMainMenu = () => setShowDrawer(true);
+    window.addEventListener("open-main-menu", openMainMenu);
+    return () => window.removeEventListener("open-main-menu", openMainMenu);
+  }, []);
+
   const handleReturnTraining = () => {
     if (typeof onNavigate === "function") onNavigate("registrar");
   };
