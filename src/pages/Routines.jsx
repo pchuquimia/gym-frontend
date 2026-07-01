@@ -1,11 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   CalendarDays,
+  ChevronDown,
   Copy,
   Dumbbell,
-  Filter,
+  GripVertical,
+  Settings2,
   Layers3,
   MapPin,
   Pencil,
@@ -151,22 +165,12 @@ const resolveExerciseFromLibrary = (availableExercises, entry = {}) => {
 const movementModeFrom = (value) =>
   value === "unilateral" ? "unilateral" : "bilateral";
 
-const movementOptions = [
-  { id: "solo", label: "Solo" },
-  { id: "bilateral", label: "Bilateral" },
-  { id: "unilateral", label: "Unilateral" },
-];
+const isUnilateralMovement = (exercise = {}) =>
+  movementModeFrom(exercise.movementMode) === "unilateral";
 
-const movementOptionFrom = (exercise = {}) => {
-  if (!exercise.supportsUnilateral && exercise.movementMode !== "unilateral") {
-    return "solo";
-  }
-  return movementModeFrom(exercise.movementMode);
-};
-
-const applyMovementOption = (option) => ({
-  supportsUnilateral: option !== "solo",
-  movementMode: option === "unilateral" ? "unilateral" : "bilateral",
+const applyUnilateralMode = (enabled) => ({
+  supportsUnilateral: Boolean(enabled),
+  movementMode: enabled ? "unilateral" : "bilateral",
 });
 
 const serializeMovement = (exercise = {}) => {
@@ -178,6 +182,30 @@ const serializeMovement = (exercise = {}) => {
     movementMode,
   };
 };
+
+function SortableExerciseShell({ id, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  return children({
+    attributes,
+    listeners,
+    setNodeRef,
+    style: {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      zIndex: isDragging ? 20 : undefined,
+      opacity: isDragging ? 0.72 : 1,
+    },
+    isDragging,
+  });
+}
 
 function RoutineModal({
   mode = "create",
@@ -201,6 +229,20 @@ function RoutineModal({
       resolveExerciseFromLibrary(availableExercises, ex),
     ),
   );
+  const [collapsedMuscles, setCollapsedMuscles] = useState(() => new Set());
+  const [selectedExtraByMuscle, setSelectedExtraByMuscle] = useState(() => ({}));
+  const [extraPickerMuscle, setExtraPickerMuscle] = useState(null);
+  const [alternativePickerExercise, setAlternativePickerExercise] = useState(null);
+  const [selectedAlternativeIds, setSelectedAlternativeIds] = useState([]);
+  const [optionsExerciseId, setOptionsExerciseId] = useState(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 6 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 120, tolerance: 8 },
+    }),
+  );
 
   const muscleOptions = useMemo(() => {
     const set = new Set();
@@ -221,7 +263,16 @@ function RoutineModal({
 
   const groupedSelected = useMemo(() => groupByMuscle(exercises), [exercises]);
 
-  const addExercise = (exercise) => {
+  const toggleMuscleGroup = (muscle) => {
+    setCollapsedMuscles((prev) => {
+      const next = new Set(prev);
+      if (next.has(muscle)) next.delete(muscle);
+      else next.add(muscle);
+      return next;
+    });
+  };
+
+  const addExercise = (exercise, options = {}) => {
     if (!exercise || !exerciseMatchesBranch(exercise, branch)) {
       setError("Este ejercicio no esta disponible en la sede seleccionada.");
       return;
@@ -238,11 +289,85 @@ function RoutineModal({
         imagePublicId: exercise.imagePublicId || "",
         supportsUnilateral: Boolean(exercise.supportsUnilateral),
         movementMode: "bilateral",
-        isExtra: false,
+        isExtra: Boolean(options.isExtra),
         alternatives: [],
       },
     ]);
   };
+
+  const toggleExtraSelection = (muscle, exerciseId) => {
+    setSelectedExtraByMuscle((prev) => {
+      const current = new Set(prev[muscle] || []);
+      if (current.has(exerciseId)) current.delete(exerciseId);
+      else current.add(exerciseId);
+      return { ...prev, [muscle]: Array.from(current) };
+    });
+  };
+
+  const openExtraPicker = (muscle) => {
+    const selected = exercises
+      .filter((exercise) => exercise.muscle === muscle && exercise.isExtra)
+      .map((exercise) => exercise.exerciseId);
+    setSelectedExtraByMuscle((prev) => ({ ...prev, [muscle]: selected }));
+    setExtraPickerMuscle(muscle);
+  };
+
+  const confirmExtraSelection = (muscle) => {
+    const selected = selectedExtraByMuscle[muscle] || [];
+    setExercises((prev) => {
+      const currentIds = new Set(prev.map((exercise) => exercise.exerciseId));
+      const updated = prev.map((exercise) =>
+        exercise.muscle === muscle
+          ? { ...exercise, isExtra: selected.includes(exercise.exerciseId) }
+          : exercise,
+      );
+
+      const additions = selected
+        .filter((exerciseId) => !currentIds.has(exerciseId))
+        .map((exerciseId) => availableExercises.find((item) => item.id === exerciseId))
+        .filter(Boolean)
+        .map((exercise) => ({
+          name: exercise.name,
+          exerciseId: exercise.id,
+          sets: 3,
+          muscle: exercise.muscle,
+          image: exercise.image || "",
+          imagePublicId: exercise.imagePublicId || "",
+          supportsUnilateral: Boolean(exercise.supportsUnilateral),
+          movementMode: "bilateral",
+          isExtra: true,
+          alternatives: [],
+        }));
+
+      return [...updated, ...additions];
+    });
+    setExtraPickerMuscle(null);
+  };
+
+  const extraPickerOptions = useMemo(() => {
+    if (!extraPickerMuscle) return [];
+    return availableExercises.filter(
+      (option) =>
+        exerciseMatchesBranch(option, branch) &&
+        option.muscle === extraPickerMuscle &&
+        !exercises.some((item) => item.exerciseId === option.id),
+    );
+  }, [availableExercises, branch, exercises, extraPickerMuscle]);
+
+  const alternativePickerOptions = useMemo(() => {
+    if (!alternativePickerExercise) return [];
+    const current = exercises.find(
+      (exercise) => exercise.exerciseId === alternativePickerExercise.exerciseId,
+    );
+    const existing = new Set((current?.alternatives || []).map((alt) => alt.exerciseId));
+    return availableExercises.filter(
+      (option) =>
+        exerciseMatchesBranch(option, branch) &&
+        option.muscle === alternativePickerExercise.muscle &&
+        option.id !== alternativePickerExercise.exerciseId &&
+        !existing.has(option.id),
+    );
+  }, [alternativePickerExercise, availableExercises, branch, exercises]);
 
   const updateExercise = (idx, patch) => {
     setExercises((prev) =>
@@ -254,36 +379,75 @@ function RoutineModal({
     setExercises((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const moveExercise = (idx, direction) => {
+  const moveExerciseWithinGroup = (fromIdx, toIdx) => {
     setExercises((prev) => {
-      const nextIndex = idx + direction;
-      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return prev;
+      if (fromIdx >= prev.length || toIdx >= prev.length) return prev;
+      const muscle = prev[fromIdx]?.muscle;
+      if (!muscle || prev[toIdx]?.muscle !== muscle) return prev;
+      const groupPositions = prev
+        .map((exercise, index) => (exercise.muscle === muscle ? index : -1))
+        .filter((index) => index >= 0);
+      const fromPosition = groupPositions.indexOf(fromIdx);
+      const toPosition = groupPositions.indexOf(toIdx);
+      if (fromPosition < 0 || toPosition < 0) return prev;
+
       const next = [...prev];
-      const [item] = next.splice(idx, 1);
-      next.splice(nextIndex, 0, item);
+      const groupItems = groupPositions.map((index) => next[index]);
+      const [item] = groupItems.splice(fromPosition, 1);
+      groupItems.splice(toPosition, 0, item);
+      groupPositions.forEach((index, position) => {
+        next[index] = groupItems[position];
+      });
       return next;
     });
   };
 
-  const addAlternative = (idx, optionId) => {
-    const option = availableExercises.find((ex) => ex.id === optionId);
-    if (!option) return;
+  const handleExerciseDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const fromIdx = Number(String(active.id).replace("exercise-", ""));
+    const toIdx = Number(String(over.id).replace("exercise-", ""));
+    if (Number.isNaN(fromIdx) || Number.isNaN(toIdx)) return;
+    moveExerciseWithinGroup(fromIdx, toIdx);
+  };
+
+  const openAlternativePicker = (exercise) => {
+    setOptionsExerciseId(null);
+    setAlternativePickerExercise({
+      exerciseId: exercise.exerciseId,
+      name: exercise.name,
+      muscle: exercise.muscle,
+    });
+    setSelectedAlternativeIds([]);
+  };
+
+  const toggleAlternativeSelection = (exerciseId) => {
+    setSelectedAlternativeIds((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : [...prev, exerciseId],
+    );
+  };
+
+  const confirmAlternativeSelection = () => {
+    if (!alternativePickerExercise || !selectedAlternativeIds.length) return;
     setExercises((prev) =>
-      prev.map((ex, i) => {
-        if (i !== idx) return ex;
-        const exists = (ex.alternatives || []).some(
-          (alt) => alt.exerciseId === option.id,
-        );
-        if (exists || ex.exerciseId === option.id) return ex;
+      prev.map((ex) => {
+        if (ex.exerciseId !== alternativePickerExercise.exerciseId) return ex;
+        const existing = new Set((ex.alternatives || []).map((alt) => alt.exerciseId));
+        const additions = selectedAlternativeIds
+          .filter((exerciseId) => exerciseId !== ex.exerciseId && !existing.has(exerciseId))
+          .map((exerciseId) => availableExercises.find((option) => option.id === exerciseId))
+          .filter(Boolean)
+          .map((option) => resolveExerciseFromLibrary(availableExercises, option));
         return {
           ...ex,
-          alternatives: [
-            ...(ex.alternatives || []),
-            resolveExerciseFromLibrary(availableExercises, option),
-          ],
+          alternatives: [...(ex.alternatives || []), ...additions],
         };
       }),
     );
+    setSelectedAlternativeIds([]);
+    setAlternativePickerExercise(null);
   };
 
   const updateAlternative = (idx, alternativeId, patch) => {
@@ -390,35 +554,42 @@ function RoutineModal({
     onOpenLibrary?.();
   };
 
+  const pickerSelectedExtraIds = extraPickerMuscle
+    ? selectedExtraByMuscle[extraPickerMuscle] || []
+    : [];
+
   return (
     <Modal
-      title={mode === "create" ? "Nueva rutina" : "Editar rutina"}
-      subtitle="Define la sede, ordena ejercicios y guarda alternativas por movimiento."
+      title={null}
+      subtitle={null}
       onClose={onClose}
       size="wide"
+      floatingAction={
+        <button
+          type="button"
+          onClick={handleOpenLibrary}
+          className="grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/25"
+          aria-label="Agregar ejercicios"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      }
       footer={
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-center text-xs text-[color:var(--text-muted)] sm:text-left">
-            {exercises.length} ejercicios en {branchLabel(branch)}
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-center text-xs font-semibold text-[color:var(--text-muted)] sm:text-left">
+            {error || `${exercises.length} ejercicios listos para guardar`}
           </span>
-          <div className="grid grid-cols-3 gap-2 sm:flex">
+          <div className="grid grid-cols-1 gap-2 sm:flex">
             <Button
               variant="outline"
-              className="px-2 text-xs sm:px-4 sm:text-sm"
+              className="hidden h-11 px-2 text-xs sm:inline-flex sm:px-4 sm:text-sm"
               onClick={handleOpenLibrary}
             >
               <Dumbbell className="h-4 w-4" />
               Biblioteca
             </Button>
             <Button
-              variant="outline"
-              className="px-2 text-xs sm:px-4 sm:text-sm"
-              onClick={onClose}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="px-2 text-xs sm:px-4 sm:text-sm"
+              className="h-12 px-2 text-sm sm:px-4"
               onClick={handleSubmit}
             >
               {mode === "create" ? "Crear rutina" : "Guardar"}
@@ -427,36 +598,36 @@ function RoutineModal({
         </div>
       }
     >
-      <div className="max-h-[72vh] overflow-y-auto pb-3 pr-1 text-[color:var(--text)] sm:max-h-[76vh]">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
+      <div className="pb-3 text-[color:var(--text)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <div className="space-y-3">
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
                 <label className="space-y-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                     Nombre
                   </span>
                   <input
-                    className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="Nombre de rutina"
+                    className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Ej. Pecho - Biceps"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
                 </label>
                 <div className="space-y-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                     Sede
                   </span>
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="grid grid-cols-2 gap-2">
                     {BRANCH_OPTIONS.map((option) => (
                       <button
                         key={option}
                         type="button"
                         onClick={() => setBranch(option)}
-                        className={`h-11 rounded-lg border px-2 text-xs font-semibold transition ${
+                        className={`h-12 rounded-xl border px-2 text-xs font-black transition ${
                           branch === option
-                            ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
-                            : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                            ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                         }`}
                       >
                         {branchLabel(option)}
@@ -465,40 +636,75 @@ function RoutineModal({
                   </div>
                 </div>
               </div>
-              {error && (
-                <p className="mt-2 text-xs text-red-500">{error}</p>
-              )}
+              {error && <p className="mt-3 text-xs font-semibold text-red-500">{error}</p>}
             </div>
 
-            <div className="flex items-center justify-between px-1">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Orden de la rutina
-                </p>
-                <p className="text-[11px] text-[color:var(--text-muted)]">
-                  {exercises.length} ejercicios seleccionados
-                </p>
-              </div>
-              <Badge variant="secondary" className="text-[10px]">
+            <div className="flex items-center justify-between px-1 pt-1">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Ejercicios
+              </p>
+              <Badge variant="secondary" className="shrink-0 text-[10px]">
                 {exercises.reduce((sum, ex) => sum + (Number(ex.sets) || 0), 0)} series
               </Badge>
             </div>
 
             <div className="space-y-2">
-              {groupedSelected.map(([muscle, list]) => (
+              {groupedSelected.map(([muscle, list]) => {
+                const extraOptions = availableExercises.filter(
+                  (option) =>
+                    exerciseMatchesBranch(option, branch) &&
+                    option.muscle === muscle,
+                );
+                const selectedExtraIds = selectedExtraByMuscle[muscle] || [];
+
+                return (
                 <div
                   key={muscle}
-                  className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]"
+                  className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
                 >
-                  <div className="flex items-center justify-between bg-[color:var(--card)] px-3 py-2">
-                    <p className="text-xs font-semibold">{muscle}</p>
-                    <span className="text-[11px] text-[color:var(--text-muted)]">
-                      {list.length}
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleMuscleGroup(muscle)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[color:var(--bg)]"
+                    aria-expanded={!collapsedMuscles.has(muscle)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-sm font-black leading-tight text-[color:var(--text)]">
+                          {muscle}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="uppercase tracking-wide text-[10px]"
+                        >
+                          {list.length} ejercicios
+                        </Badge>
+                        <Badge className="text-[10px]">
+                          {list.reduce((sum, item) => sum + (Number(item.sets) || 0), 0)} series
+                        </Badge>
+                      </div>
+                    </div>
+                    <ChevronDown
+                      className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${
+                        collapsedMuscles.has(muscle) ? "" : "rotate-180"
+                      }`}
+                    />
+                  </button>
 
-                  <div className="divide-y divide-[color:var(--border)]">
-                    {list.map((ex) => {
+                  {!collapsedMuscles.has(muscle) && (
+                    <div className="grid gap-3 border-t border-[color:var(--border)] bg-[color:var(--bg)]/70 p-3">
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleExerciseDragEnd}
+                      >
+                        <SortableContext
+                          items={list.map((ex) => `exercise-${ex.idx}`)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                      {list.map((ex) => {
                       const thumb = getExerciseImageUrl(ex, {
                         width: 96,
                         height: 96,
@@ -513,13 +719,27 @@ function RoutineModal({
                           ),
                       );
 
-                      return (
-                        <div
+                        return (
+                        <SortableExerciseShell
                           key={`${ex.exerciseId}-${ex.idx}`}
-                          className="bg-[color:var(--bg)] px-3 py-3"
+                          id={`exercise-${ex.idx}`}
                         >
-                          <div className="grid grid-cols-[40px_minmax(0,1fr)_56px] items-center gap-2 sm:grid-cols-[40px_minmax(0,1fr)_56px_auto]">
-                            <div className="h-10 w-10 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
+                          {({
+                            attributes,
+                            listeners,
+                            setNodeRef,
+                            style,
+                            isDragging,
+                          }) => (
+                        <div
+                          ref={setNodeRef}
+                          style={style}
+                          className={`rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm ${
+                            isDragging ? "shadow-xl ring-2 ring-blue-500/30" : ""
+                          }`}
+                        >
+                          <div className="grid grid-cols-[36px_minmax(0,1fr)_42px_62px] items-center gap-2 sm:grid-cols-[48px_minmax(0,1fr)_60px_auto] sm:gap-3">
+                            <div className="h-9 w-9 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-12 sm:w-12 sm:rounded-xl">
                               {thumb ? (
                                 <img
                                   src={thumb}
@@ -536,15 +756,20 @@ function RoutineModal({
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-1.5 py-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                                <span className="shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-0.5 text-[9px] font-black text-[color:var(--text-muted)] sm:rounded-lg sm:px-2 sm:py-1 sm:text-[10px]">
                                   {ex.idx + 1}
                                 </span>
-                                <p className="truncate text-sm font-semibold leading-tight">
-                                {ex.name}
+                                <p className="min-w-0 truncate text-xs font-black leading-tight sm:text-sm">
+                                  {ex.name}
                                 </p>
+                                {ex.isExtra && (
+                                  <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-700 dark:text-emerald-300">
+                                    Extra
+                                  </span>
+                                )}
                               </div>
                               {(ex.alternatives || []).length > 0 && (
-                                <p className="truncate text-[10px] text-[color:var(--text-muted)]">
+                                <p className="hidden truncate text-[10px] text-[color:var(--text-muted)] sm:block">
                                   {(ex.alternatives || [])
                                     .map((alt) => alt.name)
                                     .join(", ")}
@@ -553,14 +778,14 @@ function RoutineModal({
                             </div>
 
                             <label className="space-y-0.5">
-                              <span className="block text-center text-[9px] font-semibold uppercase text-[color:var(--text-muted)]">
+                              <span className="hidden text-center text-[9px] font-black uppercase text-[color:var(--text-muted)] sm:block">
                                 Sets
                               </span>
                               <input
                                 type="number"
                                 min="1"
                                 aria-label="Series"
-                                className="h-8 w-12 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-1 text-center text-xs text-[color:var(--text)]"
+                                className="h-9 w-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-xs font-black text-[color:var(--text)] sm:w-14 sm:rounded-xl sm:text-sm"
                                 value={ex.sets}
                                 onChange={(event) =>
                                   updateExercise(ex.idx, {
@@ -570,142 +795,122 @@ function RoutineModal({
                               />
                             </label>
 
-                            <div className="col-span-3 flex items-center justify-end gap-0.5 sm:col-span-1">
+                            <div className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:justify-end sm:gap-1">
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8"
-                                disabled={ex.idx === 0}
-                                onClick={() => moveExercise(ex.idx, -1)}
-                                aria-label="Subir ejercicio"
+                                className="h-9 w-7 rounded-lg p-0 text-blue-700 dark:text-blue-300 sm:h-10 sm:w-10 sm:rounded-xl"
+                                onClick={() => setOptionsExerciseId(ex.exerciseId)}
+                                aria-label="Opciones del ejercicio"
                               >
-                                <ArrowUp className="h-3.5 w-3.5" />
+                                <Settings2 className="h-3.5 w-3.5" />
                               </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8"
-                                disabled={ex.idx === exercises.length - 1}
-                                onClick={() => moveExercise(ex.idx, 1)}
-                                aria-label="Bajar ejercicio"
+                              <button
+                                type="button"
+                                className="grid h-9 w-7 touch-none place-items-center rounded-lg p-0 text-[color:var(--text-muted)] hover:bg-[color:var(--bg)] sm:h-10 sm:w-10 sm:rounded-xl"
+                                aria-label="Arrastrar para ordenar"
+                                {...attributes}
+                                {...listeners}
                               >
-                                <ArrowDown className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-red-600"
-                                onClick={() => removeExercise(ex.idx)}
-                                aria-label="Quitar ejercicio"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </button>
                             </div>
                           </div>
 
-                          <div className="mt-3 grid gap-2 md:grid-cols-[104px_minmax(0,1fr)_180px]">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateExercise(ex.idx, {
-                                  isExtra: !ex.isExtra,
-                                })
-                              }
-                              className={`h-9 rounded-md border px-2 text-[11px] font-semibold ${
-                                ex.isExtra
-                                  ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                  : "border-[color:var(--border)] text-[color:var(--text-muted)]"
-                              }`}
-                            >
-                              {ex.isExtra ? "Extra" : "Principal"}
-                            </button>
-
-                            <div className="grid grid-cols-3 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)] text-[10px] font-semibold">
-                              {movementOptions.map((option) => {
-                                const active =
-                                  movementOptionFrom(ex) === option.id;
-                                return (
+                          <details className="hidden mt-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5">
+                              <span className="min-w-0">
+                                <span className="block text-[11px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                                  Opciones
+                                </span>
+                                <span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+                                  {isUnilateralMovement(ex) ? "Unilateral" : "Normal"}
+                                  {(ex.alternatives || []).length ? ` · ${(ex.alternatives || []).length} alt.` : ""}
+                                </span>
+                              </span>
+                              <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                            </summary>
+                            <div className="grid gap-3 border-t border-[color:var(--border)] p-3">
+                              <div className="grid gap-2">
+                                <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                                      Unilateral
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                                      Activar si se trabaja un lado a la vez.
+                                    </p>
+                                  </div>
                                   <button
-                                    key={option.id}
                                     type="button"
                                     onClick={() =>
                                       updateExercise(
                                         ex.idx,
-                                        applyMovementOption(option.id),
+                                        applyUnilateralMode(!isUnilateralMovement(ex)),
                                       )
                                     }
-                                    className={`min-w-0 px-1 py-2 transition ${
-                                      active
-                                        ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                                        : "text-[color:var(--text-muted)]"
+                                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                                      isUnilateralMovement(ex) ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
                                     }`}
+                                    aria-pressed={isUnilateralMovement(ex)}
                                   >
-                                    {option.label}
+                                    <span
+                                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                                        isUnilateralMovement(ex) ? "left-6" : "left-1"
+                                      }`}
+                                    />
                                   </button>
-                                );
-                              })}
+                                </div>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                                  Alternativas
+                                </p>
+                                <button
+                                  type="button"
+                                  disabled={!alternativeOptions.length}
+                                  onClick={() => openAlternativePicker(ex)}
+                                  className="flex h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/40 bg-blue-500/5 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:text-[color:var(--text-muted)] disabled:opacity-60 dark:text-blue-200"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  {alternativeOptions.length ? "Agregar alternativas" : "Sin alternativas disponibles"}
+                                </button>
+                              </div>
                             </div>
 
-                            <label className="relative">
-                              <span className="sr-only">Alternativa</span>
-                              <select
-                                defaultValue=""
-                                className="h-9 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 pr-7 text-[11px] text-[color:var(--text)]"
-                                onChange={(event) => {
-                                  if (!event.target.value) return;
-                                  addAlternative(ex.idx, event.target.value);
-                                  event.target.value = "";
-                                }}
-                              >
-                                <option value="">Alternativa</option>
-                                {alternativeOptions.map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {option.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-
-                          {(ex.alternatives || []).length > 0 && (
-                            <div className="mt-2 grid gap-1.5">
+                            {(ex.alternatives || []).length > 0 && (
+                              <div className="grid gap-1.5 border-t border-[color:var(--border)] p-3">
                               {ex.alternatives.map((alt) => (
                                 <div
                                   key={alt.exerciseId}
-                                  className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1.5 sm:grid-cols-[minmax(0,1fr)_minmax(130px,170px)_auto] sm:items-center"
+                                  className="grid grid-cols-[minmax(0,1fr)_74px_34px] items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-2"
                                 >
-                                  <span className="truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
-                                    {alt.name}
-                                  </span>
-                                  <div className="grid grid-cols-3 overflow-hidden rounded border border-[color:var(--border)] text-[9px] font-semibold">
-                                    {movementOptions.map((option) => {
-                                      const active =
-                                        movementOptionFrom(alt) === option.id;
-                                      return (
-                                        <button
-                                          key={option.id}
-                                          type="button"
-                                          onClick={() =>
-                                            updateAlternative(
-                                              ex.idx,
-                                              alt.exerciseId,
-                                              applyMovementOption(option.id),
-                                            )
-                                          }
-                                          className={`px-1 py-1 ${
-                                            active
-                                              ? "bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                                              : "text-[color:var(--text-muted)]"
-                                          }`}
-                                        >
-                                          {option.label}
-                                        </button>
-                                      );
-                                    })}
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-black leading-tight text-[color:var(--text)]">
+                                      {alt.name}
+                                    </p>
                                   </div>
                                   <button
                                     type="button"
-                                    className="grid h-7 w-7 place-items-center rounded-md text-xs text-red-500 hover:bg-red-500/10"
+                                    onClick={() =>
+                                      updateAlternative(
+                                        ex.idx,
+                                        alt.exerciseId,
+                                        applyUnilateralMode(!isUnilateralMovement(alt)),
+                                      )
+                                    }
+                                    className={`h-8 rounded-lg border px-1.5 text-[9px] font-black transition ${
+                                      isUnilateralMovement(alt)
+                                        ? "border-blue-400 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                                        : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                                    }`}
+                                  >
+                                    {isUnilateralMovement(alt) ? "Unilateral" : "Normal"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="grid h-8 w-8 place-items-center rounded-lg text-xs text-red-500 hover:bg-red-500/10"
                                     onClick={() =>
                                       removeAlternative(ex.idx, alt.exerciseId)
                                     }
@@ -715,14 +920,102 @@ function RoutineModal({
                                   </button>
                                 </div>
                               ))}
-                            </div>
-                          )}
+                              </div>
+                            )}
+                          </details>
                         </div>
-                      );
-                    })}
-                  </div>
+                          )}
+                        </SortableExerciseShell>
+                        );
+                      })}
+                        </SortableContext>
+                      </DndContext>
+                      <button
+                        type="button"
+                        onClick={() => openExtraPicker(muscle)}
+                        disabled={!extraOptions.length}
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:text-[color:var(--text-muted)] disabled:opacity-60 dark:text-blue-200"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {extraOptions.length ? "Agregar extras" : "Sin extras disponibles"}
+                      </button>
+                      <div className="hidden rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 p-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                          Agregar ejercicio extra
+                        </p>
+                        <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                          Todo ejercicio agregado aqui se guardara como extra.
+                        </p>
+                        {extraOptions.length ? (
+                          <>
+                            <div className="mt-3 grid max-h-44 gap-2 overflow-y-auto pr-1">
+                              {extraOptions.map((option) => {
+                                const selected = selectedExtraIds.includes(option.id);
+                                const thumb = getExerciseImageUrl(option, {
+                                  width: 80,
+                                  height: 80,
+                                });
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => toggleExtraSelection(muscle, option.id)}
+                                    className={`grid grid-cols-[34px_minmax(0,1fr)_22px] items-center gap-2 rounded-xl border p-2 text-left transition ${
+                                      selected
+                                        ? "border-blue-400 bg-blue-500/10"
+                                        : "border-[color:var(--border)] bg-[color:var(--card)]"
+                                    }`}
+                                  >
+                                    <div className="h-8 w-8 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
+                                      {thumb ? (
+                                        <img
+                                          src={thumb}
+                                          alt={option.name}
+                                          className="h-full w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <div className="grid h-full w-full place-items-center text-[10px] font-black text-[color:var(--text-muted)]">
+                                          {(option.name || "?").charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <span className="truncate text-xs font-black text-[color:var(--text)]">
+                                      {option.name}
+                                    </span>
+                                    <span
+                                      className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] font-black ${
+                                        selected
+                                          ? "border-blue-500 bg-blue-600 text-white"
+                                          : "border-[color:var(--border)] text-transparent"
+                                      }`}
+                                    >
+                                      ✓
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <Button
+                              className="mt-3 h-11 w-full rounded-xl text-sm"
+                              disabled={!selectedExtraIds.length}
+                              onClick={() => confirmExtraSelection(muscle)}
+                            >
+                              Agregar seleccionados
+                              {selectedExtraIds.length ? ` (${selectedExtraIds.length})` : ""}
+                            </Button>
+                          </>
+                        ) : (
+                          <div className="mt-3 rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                            No hay ejercicios disponibles para agregar como extra en este grupo.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
 
               {!exercises.length && (
                 <div className="rounded-lg border border-dashed border-[color:var(--border)] p-4 text-center text-sm text-[color:var(--text-muted)]">
@@ -732,16 +1025,21 @@ function RoutineModal({
             </div>
           </div>
 
-          <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+          <div className="hidden space-y-3 lg:sticky lg:top-4 lg:block lg:self-start">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Agregar ejercicio
-                </p>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Agregar ejercicio
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Filtra por grupo o abre la biblioteca.
+                  </p>
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 px-2 text-xs"
+                  className="h-9 shrink-0 rounded-xl px-3 text-xs"
                   onClick={handleOpenLibrary}
                 >
                   <Dumbbell className="h-3.5 w-3.5" />
@@ -749,15 +1047,15 @@ function RoutineModal({
                 </Button>
               </div>
 
-              <div className="mt-3 -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+              <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {muscleOptions.map((muscle) => (
                   <button
                     key={muscle}
                     type="button"
                     onClick={() => setSelectedMuscle(muscle)}
-                    className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                    className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-black transition ${
                       selectedMuscle === muscle
-                        ? "border-blue-400 bg-blue-500/10 text-[color:var(--text)]"
+                        ? "border-blue-400 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
                         : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                     }`}
                   >
@@ -772,7 +1070,7 @@ function RoutineModal({
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar ejercicio"
-                  className="h-9 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-8 pr-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 
@@ -787,9 +1085,9 @@ function RoutineModal({
                       key={exercise.id}
                       type="button"
                       onClick={() => addExercise(exercise)}
-                      className="grid w-full grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-2 text-left transition hover:border-blue-300"
+                      className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-2.5 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                     >
-                      <div className="h-9 w-9 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--card)]">
+                      <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
                         {thumb ? (
                           <img
                             src={thumb}
@@ -804,21 +1102,21 @@ function RoutineModal({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold">
+                        <p className="truncate text-sm font-black">
                           {exercise.name}
                         </p>
-                        <p className="truncate text-[10px] text-[color:var(--text-muted)]">
+                        <p className="truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
                           {exercise.muscle}
                         </p>
                       </div>
-                      <span className="grid h-7 w-7 place-items-center rounded-md border border-blue-400/30 bg-blue-500/10">
+                      <span className="grid h-9 w-9 place-items-center rounded-xl border border-blue-400/30 bg-blue-500/10">
                         <Plus className="h-3.5 w-3.5 text-blue-500" />
                       </span>
                     </button>
                   );
                 })}
                 {!filteredExercises.length && (
-                  <div className="rounded-lg border border-dashed border-[color:var(--border)] p-3 text-xs text-[color:var(--text-muted)]">
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
                     No hay ejercicios disponibles con este filtro.
                   </div>
                 )}
@@ -826,6 +1124,336 @@ function RoutineModal({
             </div>
           </div>
         </div>
+        {extraPickerMuscle && (
+          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+                    Extras
+                  </p>
+                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                    {extraPickerMuscle}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    Marca cuales ejercicios de este grupo seran extras.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExtraPickerMuscle(null)}
+                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <div className="grid max-h-[52vh] gap-2 overflow-y-auto p-4">
+                {extraPickerOptions.length ? (
+                  extraPickerOptions.map((option) => {
+                    const selected = pickerSelectedExtraIds.includes(option.id);
+                    const thumb = getExerciseImageUrl(option, {
+                      width: 96,
+                      height: 96,
+                    });
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => toggleExtraSelection(extraPickerMuscle, option.id)}
+                        className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                          selected
+                            ? "border-blue-400 bg-blue-500/10"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                        }`}
+                      >
+                        <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={option.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
+                              {(option.name || "?").charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {option.name}
+                          </p>
+                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            Se agregara como extra
+                          </p>
+                        </div>
+                        <span
+                          className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
+                            selected
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-[color:var(--border)] text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                    No hay ejercicios disponibles para este grupo.
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[color:var(--border)] p-4">
+                <Button
+                  className="h-12 w-full rounded-2xl text-sm"
+                  disabled={!pickerSelectedExtraIds.length}
+                  onClick={() => confirmExtraSelection(extraPickerMuscle)}
+                >
+                  Guardar extras
+                  {pickerSelectedExtraIds.length ? ` (${pickerSelectedExtraIds.length})` : ""}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        {alternativePickerExercise && (
+          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+                    Alternativas
+                  </p>
+                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                    {alternativePickerExercise.name}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    Selecciona ejercicios del mismo grupo para usarlos como reemplazo.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlternativePickerExercise(null);
+                    setSelectedAlternativeIds([]);
+                  }}
+                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <div className="grid max-h-[52vh] gap-2 overflow-y-auto p-4">
+                {alternativePickerOptions.length ? (
+                  alternativePickerOptions.map((option) => {
+                    const selected = selectedAlternativeIds.includes(option.id);
+                    const thumb = getExerciseImageUrl(option, {
+                      width: 96,
+                      height: 96,
+                    });
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => toggleAlternativeSelection(option.id)}
+                        className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                          selected
+                            ? "border-blue-400 bg-blue-500/10"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                        }`}
+                      >
+                        <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={option.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
+                              {(option.name || "?").charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {option.name}
+                          </p>
+                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            Se agregara como alternativa
+                          </p>
+                        </div>
+                        <span
+                          className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
+                            selected
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-[color:var(--border)] text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                    No hay alternativas disponibles para este ejercicio.
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[color:var(--border)] p-4">
+                <Button
+                  className="h-12 w-full rounded-2xl text-sm"
+                  disabled={!selectedAlternativeIds.length}
+                  onClick={confirmAlternativeSelection}
+                >
+                  Agregar alternativas
+                  {selectedAlternativeIds.length ? ` (${selectedAlternativeIds.length})` : ""}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        {optionsExerciseId && (() => {
+          const current = exercises.find((exercise) => exercise.exerciseId === optionsExerciseId);
+          if (!current) return null;
+          const currentIndex = exercises.findIndex((exercise) => exercise.exerciseId === optionsExerciseId);
+          const alternativeOptions = availableExercises.filter(
+            (option) =>
+              exerciseMatchesBranch(option, branch) &&
+              option.muscle === current.muscle &&
+              option.id !== current.exerciseId &&
+              !(current.alternatives || []).some((alt) => alt.exerciseId === option.id),
+          );
+
+          return (
+            <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
+              <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+                <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+                      Opciones
+                    </p>
+                    <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                      {current.name}
+                    </h3>
+                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                      Movimiento y alternativas del ejercicio.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOptionsExerciseId(null)}
+                    className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                <div className="grid gap-3 overflow-y-auto p-4">
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                        Unilateral
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                        Activar si se trabaja un lado a la vez.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateExercise(
+                          currentIndex,
+                          applyUnilateralMode(!isUnilateralMovement(current)),
+                        )
+                      }
+                      className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                        isUnilateralMovement(current) ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
+                      }`}
+                      aria-pressed={isUnilateralMovement(current)}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                          isUnilateralMovement(current) ? "left-6" : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!alternativeOptions.length}
+                    onClick={() => openAlternativePicker(current)}
+                    className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:text-[color:var(--text-muted)] disabled:opacity-60 dark:text-blue-200"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    {alternativeOptions.length ? "Agregar alternativas" : "Sin alternativas disponibles"}
+                  </button>
+
+                  {(current.alternatives || []).length > 0 && (
+                    <div className="grid gap-1.5">
+                      {(current.alternatives || []).map((alt) => (
+                        <div
+                          key={alt.exerciseId}
+                          className="grid grid-cols-[minmax(0,1fr)_74px_34px] items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2.5 py-2"
+                        >
+                          <p className="truncate text-xs font-black leading-tight text-[color:var(--text)]">
+                            {alt.name}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateAlternative(
+                                currentIndex,
+                                alt.exerciseId,
+                                applyUnilateralMode(!isUnilateralMovement(alt)),
+                              )
+                            }
+                            className={`h-8 rounded-lg border px-1.5 text-[9px] font-black transition ${
+                              isUnilateralMovement(alt)
+                                ? "border-blue-400 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                                : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                            }`}
+                          >
+                            {isUnilateralMovement(alt) ? "Unilateral" : "Normal"}
+                          </button>
+                          <button
+                            type="button"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-xs text-red-500 hover:bg-red-500/10"
+                            onClick={() => removeAlternative(currentIndex, alt.exerciseId)}
+                            aria-label={`Quitar ${alt.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeExercise(currentIndex);
+                      setOptionsExerciseId(null);
+                    }}
+                    className="mt-1 flex h-11 items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 text-sm font-black text-red-600 transition hover:bg-red-500/15"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar ejercicio
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </Modal>
   );
@@ -1082,7 +1710,7 @@ function Routines({ onNavigate }) {
             <h1 className="mt-1 text-3xl font-black leading-none text-[color:var(--text)]">
               Rutinas
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-5 text-[color:var(--text-muted)]">
+            <p className="mt-2 hidden max-w-2xl text-sm leading-5 text-[color:var(--text-muted)] sm:block">
               Organiza rutinas por sede, orden real de ejercicios y grupos
               musculares.
             </p>
@@ -1109,7 +1737,7 @@ function Routines({ onNavigate }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="hidden grid-cols-3 gap-3 sm:grid">
           <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-center">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                 Rutinas
@@ -1136,7 +1764,7 @@ function Routines({ onNavigate }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+        <div className="hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 sm:block">
           <div className="grid grid-cols-7 gap-1">
             {weekSummary.map((day) => (
               <div key={day.key} className="text-center">
@@ -1155,7 +1783,7 @@ function Routines({ onNavigate }) {
           </div>
         </div>
 
-        <div className="sticky top-2 z-10 space-y-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]/95 p-3 shadow-sm backdrop-blur sm:static">
+        <div className="sticky top-2 z-10 space-y-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]/95 p-3 shadow-sm backdrop-blur sm:static">
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { id: "all", label: "Todas", count: branchCounts.all },
@@ -1177,7 +1805,7 @@ function Routines({ onNavigate }) {
                 className={`h-9 shrink-0 rounded-full px-4 text-xs font-black transition ${
                   activeBranch === item.id
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                    : "bg-[color:var(--card)] text-[color:var(--text)]"
+                    : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
                 }`}
               >
                 {item.label} {item.count}
@@ -1201,14 +1829,19 @@ function Routines({ onNavigate }) {
         {routineCards.map((routine) => (
           <article
             key={routine.id}
-            className={`relative overflow-hidden rounded-xl border bg-[color:var(--card)] p-4 shadow-sm ${
-              normalizeBranch(routine.branch) === "sopocachi"
-                ? "border-emerald-400/70"
-                : "border-blue-400/70"
-            }`}
+            role="button"
+            tabIndex={0}
+            onClick={() => openEdit(routine)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openEdit(routine);
+              }
+            }}
+            className="relative cursor-pointer overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <span
-              className={`absolute bottom-0 left-0 top-0 w-1 ${
+              className={`absolute left-0 top-0 h-full w-1 ${
                 normalizeBranch(routine.branch) === "sopocachi"
                   ? "bg-emerald-400"
                   : "bg-blue-400"
@@ -1217,7 +1850,7 @@ function Routines({ onNavigate }) {
 
             <div className="flex items-start gap-3 pl-1">
               <div className="min-w-0 flex-1 pr-1">
-                <h2 className="break-words text-xl font-black leading-tight text-[color:var(--text)]">
+                <h2 className="break-words text-lg font-black leading-tight text-[color:var(--text)] sm:text-xl">
                     {routine.name}
                 </h2>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -1232,19 +1865,25 @@ function Routines({ onNavigate }) {
                 </div>
               </div>
 
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 gap-1.5">
                 <button
                   type="button"
-                  onClick={() => openEdit(routine)}
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--bg)] text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openEdit(routine);
+                  }}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--bg)] text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
                   aria-label="Editar rutina"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteRoutine(routine.id)}
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--bg)] text-[color:var(--text-muted)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    deleteRoutine(routine.id);
+                  }}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--bg)] text-[color:var(--text-muted)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                   aria-label="Eliminar rutina"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -1252,14 +1891,14 @@ function Routines({ onNavigate }) {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 pl-1">
-              <div className="grid grid-cols-2 gap-5">
-                <div>
+            <div className="mt-5 grid grid-cols-2 gap-2 pl-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-4">
+              <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:gap-5">
+                <div className="rounded-xl bg-[color:var(--bg)] p-3 sm:bg-transparent sm:p-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
                     Ejercicios
                   </p>
                   <p
-                    className={`mt-1 inline-flex items-center gap-1 text-xl font-black ${
+                    className={`mt-1 inline-flex items-center gap-1 text-lg font-black ${
                       normalizeBranch(routine.branch) === "sopocachi"
                         ? "text-emerald-400"
                         : "text-blue-300"
@@ -1269,12 +1908,12 @@ function Routines({ onNavigate }) {
                     {routine.exerciseCount}
                   </p>
                 </div>
-                <div>
+                <div className="rounded-xl bg-[color:var(--bg)] p-3 sm:bg-transparent sm:p-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
                     Series
                   </p>
                   <p
-                    className={`mt-1 inline-flex items-center gap-1 text-xl font-black ${
+                    className={`mt-1 inline-flex items-center gap-1 text-lg font-black ${
                       normalizeBranch(routine.branch) === "sopocachi"
                         ? "text-emerald-400"
                         : "text-blue-300"
@@ -1286,7 +1925,7 @@ function Routines({ onNavigate }) {
                 </div>
               </div>
 
-              <div className="flex items-center">
+              <div className="hidden items-center sm:flex">
                 <div className="-space-x-2 flex rounded-full bg-[color:var(--bg)] px-2 py-1">
                   {routine.preview.map((item, idx) => (
                     <div
@@ -1310,7 +1949,10 @@ function Routines({ onNavigate }) {
                   {routine.exerciseCount > routine.preview.length ? (
                     <button
                       type="button"
-                      onClick={() => openEdit(routine)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEdit(routine);
+                      }}
                       className="grid h-8 min-w-8 place-items-center rounded-full border-2 border-[color:var(--card)] bg-[color:var(--bg)] px-2 text-[10px] font-black text-blue-700 dark:text-blue-300"
                       aria-label="Ver ejercicios restantes"
                     >
@@ -1321,7 +1963,7 @@ function Routines({ onNavigate }) {
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between gap-2 pl-1">
+            <div className="mt-4 hidden items-center justify-between gap-2 pl-1 sm:flex">
               <div className="flex min-w-0 gap-1.5 overflow-hidden">
                 {routine.muscles.slice(0, 3).map((muscle) => (
                   <span
@@ -1334,7 +1976,10 @@ function Routines({ onNavigate }) {
               </div>
               <button
                 type="button"
-                onClick={() => duplicateRoutine(routine.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  duplicateRoutine(routine.id);
+                }}
                 className="shrink-0 rounded-lg bg-[color:var(--bg)] px-3 py-2 text-[11px] font-black text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]"
               >
                 <Copy className="h-4 w-4" />
