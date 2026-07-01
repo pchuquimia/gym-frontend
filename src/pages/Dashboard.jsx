@@ -221,6 +221,11 @@ function WeekStrip({ days }) {
 
 function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
   const isDark = mode === "dark";
+  const xTickLabels = data
+    .filter((_, index) => index === 0 || index === data.length - 1 || (index + 1) % 7 === 0)
+    .map((item) => item.label);
+  const startLabel = data[0]?.label || "";
+  const endLabel = data[data.length - 1]?.label || "";
 
   return (
     <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
@@ -253,7 +258,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             tickSize: 0,
             tickPadding: 8,
             tickRotation: 0,
-            tickValues: 5,
+            tickValues: xTickLabels,
           }}
           enableGridY={false}
           theme={{
@@ -271,6 +276,14 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             </div>
           )}
         />
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+        <span>{startLabel}</span>
+        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-700 dark:text-blue-200">
+          30 dias
+        </span>
+        <span>Hoy · {endLabel}</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
