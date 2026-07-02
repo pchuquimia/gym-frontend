@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useEffect } from "react";
 import { ChevronLeft, Zap } from "lucide-react";
 
 const images = {
@@ -24,10 +25,38 @@ function PremiumAuthLayout({
   const image = images[variant] || images.login;
   const lockMobileViewport = variant === "login" || variant === "recover";
 
+  useEffect(() => {
+    if (!lockMobileViewport) return undefined;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    const previousBodyPosition = body.style.position;
+    const previousBodyWidth = body.style.width;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.width = "100%";
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      body.style.position = previousBodyPosition;
+      body.style.width = previousBodyWidth;
+    };
+  }, [lockMobileViewport]);
+
   return (
     <main
       className={`bg-[#060b16] text-white sm:min-h-screen sm:px-4 sm:py-4 ${
-        lockMobileViewport ? "h-dvh overflow-hidden" : "min-h-dvh"
+        lockMobileViewport
+          ? "h-dvh touch-none overflow-hidden overscroll-none"
+          : "min-h-dvh"
       }`}
     >
       <div
@@ -46,7 +75,7 @@ function PremiumAuthLayout({
       >
         <section
           className={`relative w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 sm:min-h-[680px] sm:rounded-2xl sm:border sm:border-white/15 lg:min-h-[720px] ${
-            lockMobileViewport ? "h-dvh" : "min-h-dvh"
+            lockMobileViewport ? "h-dvh overscroll-none" : "min-h-dvh"
           }`}
         >
           <img
