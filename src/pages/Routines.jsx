@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -30,6 +30,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Modal from "../components/shared/Modal";
+import SlideToConfirm from "../components/shared/SlideToConfirm";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
@@ -209,40 +210,7 @@ function SortableExerciseShell({ id, children }) {
 }
 
 function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
-  const trackRef = useRef(null);
-  const [dragValue, setDragValue] = useState(0);
-  const [dragging, setDragging] = useState(false);
-
   if (!routine) return null;
-
-  const updateDragValue = (event) => {
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const next = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-    setDragValue(Math.round(next));
-  };
-
-  const handlePointerDown = (event) => {
-    setDragging(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    updateDragValue(event);
-  };
-
-  const handlePointerMove = (event) => {
-    if (!dragging) return;
-    updateDragValue(event);
-  };
-
-  const handlePointerEnd = () => {
-    if (!dragging) return;
-    setDragging(false);
-    if (dragValue >= 88) {
-      setDragValue(100);
-      onConfirm?.();
-      return;
-    }
-    setDragValue(0);
-  };
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end bg-black/55 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
@@ -264,34 +232,11 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
         </div>
 
         <div className="mt-5">
-          <div
-            ref={trackRef}
-            role="slider"
-            aria-label="Deslizar para confirmar eliminacion"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={dragValue}
-            tabIndex={0}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerEnd}
-            onPointerCancel={handlePointerEnd}
-            className="relative h-14 touch-none overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/10"
-          >
-            <div
-              className="absolute inset-y-0 left-0 bg-red-600/20 transition-[width]"
-              style={{ width: `${dragValue}%` }}
-            />
-            <div className="absolute inset-0 grid place-items-center px-14 text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-300">
-              Desliza para eliminar
-            </div>
-            <div
-              className="absolute top-1 grid h-12 w-12 place-items-center rounded-xl bg-red-600 text-white shadow-lg transition-[left]"
-              style={{ left: `calc(${dragValue}% - ${(dragValue / 100) * 48}px)` }}
-            >
-              <Trash2 className="h-5 w-5" />
-            </div>
-          </div>
+          <SlideToConfirm
+            label="Desliza para eliminar"
+            ariaLabel="Deslizar para confirmar eliminacion"
+            onConfirm={onConfirm}
+          />
         </div>
 
         <button
