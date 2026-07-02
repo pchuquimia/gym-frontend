@@ -8,7 +8,7 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="md:hidden bg-bg-darker border-t border-border-soft px-4 py-2">
+    <nav className="md:hidden border-t border-border-soft bg-bg-darker px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
       <div
         className="grid text-xs text-muted"
         style={{

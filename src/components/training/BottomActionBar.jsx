@@ -10,7 +10,7 @@ const formatDuration = (sec) => {
 
 export default function BottomActionBar({ onFinish, onCancel, disabled = false, durationSeconds }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-[color:var(--border)] bg-[color:var(--card)]/95 backdrop-blur shadow-lg px-4 py-3">
+    <div className="fixed bottom-0 left-0 right-0 border-t border-[color:var(--border)] bg-[color:var(--card)]/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lg backdrop-blur">
       <div className="max-w-md mx-auto flex items-center gap-3">
         <div className="flex-1 flex gap-2">
           {onCancel && (

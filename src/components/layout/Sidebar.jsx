@@ -24,7 +24,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
     <aside
       className={`${
         forceVisible ? "flex" : "hidden md:flex"
-      } bg-[color:var(--card)] border-r border-[color:var(--border)] min-h-screen w-[280px] px-3 py-4 flex-col gap-4`}
+      } bg-[color:var(--card)] border-r border-[color:var(--border)] min-h-dvh w-[280px] px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex-col gap-4`}
     >
       <button
         type="button"
@@ -44,7 +44,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         </div>
       </button>
 
-      <div className="h-[calc(100vh-170px)] overflow-y-auto pr-1">
+      <div className="h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain">
         <nav className="flex flex-col gap-3">
           {sections.map((section, idx) => {
             const items = section.items.filter((item) =>

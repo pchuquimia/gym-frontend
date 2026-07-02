@@ -67,7 +67,7 @@ function MainLayout({ children, activePage, onNavigate }) {
   const showReturnTraining = activePage !== "registrar" && activeTraining;
 
   return (
-    <div className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
+    <div className="min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
       {showReturnTraining && (
         <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm hidden md:block">
           <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
@@ -91,7 +91,7 @@ function MainLayout({ children, activePage, onNavigate }) {
           <Sidebar activePage={activePage} onNavigate={onNavigate} />
         </div>
         <div
-          className={`px-3 pb-4 sm:px-4 md:px-8 md:py-8 ${
+          className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 md:px-8 md:py-8 ${
             showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
           }`}
         >
@@ -144,7 +144,7 @@ function MainLayout({ children, activePage, onNavigate }) {
             onClick={() => setShowDrawer(false)}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 left-0 w-[280px] bg-[color:var(--card)] border-r border-[color:var(--border)] shadow-2xl">
+          <div className="absolute inset-y-0 left-0 h-dvh w-[280px] bg-[color:var(--card)] border-r border-[color:var(--border)] shadow-2xl">
             <Sidebar
               forceVisible
               activePage={activePage}

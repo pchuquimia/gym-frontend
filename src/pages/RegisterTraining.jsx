@@ -3798,7 +3798,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 backdrop-blur">
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
               <div className="mx-auto max-w-md">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
                   <span className="inline-flex min-w-0 items-center gap-2">
@@ -4816,7 +4816,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       <button
         type="button"
         onClick={handleOpenRestTimer}
-        className={`fixed bottom-24 right-4 z-40 md:hidden grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] shadow-2xl transition ${
+        className={`fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] shadow-2xl transition ${
           restTimerRunning
             ? "bg-emerald-600 text-white"
             : restTimerDone
@@ -4841,7 +4841,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             exit={{ opacity: 0, y: 24 }}
             className="fixed inset-0 z-50 md:hidden bg-[color:var(--bg)] text-[color:var(--text)]"
           >
-            <div className="flex min-h-screen flex-col px-5 pb-8 pt-5">
+            <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
