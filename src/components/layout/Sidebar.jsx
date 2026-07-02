@@ -20,18 +20,41 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
     onNavigate?.("login");
   };
 
+  const navWrapperClass = forceVisible
+    ? "min-h-0 flex-1 overflow-hidden pr-0"
+    : "h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain";
+  const navClass = forceVisible ? "flex flex-col gap-1.5" : "flex flex-col gap-3";
+  const sectionClass = forceVisible ? "flex flex-col gap-1" : "flex flex-col gap-2";
+  const headingClass = forceVisible
+    ? "px-3 text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]"
+    : "mt-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]";
+  const itemClass = forceVisible
+    ? "relative flex h-9 items-center gap-2.5 rounded-xl px-3 text-[13px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    : "relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+  const dividerClass = forceVisible
+    ? "my-1 h-px bg-[color:var(--border)]/50"
+    : "my-2 h-px bg-[color:var(--border)]/60";
+
   return (
     <aside
       className={`${
         forceVisible ? "flex" : "hidden md:flex"
-      } bg-[color:var(--card)] border-r border-[color:var(--border)] min-h-dvh w-[280px] px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex-col gap-4`}
+      } bg-[color:var(--card)] border-r border-[color:var(--border)] h-dvh w-[280px] px-3 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex-col ${
+        forceVisible ? "gap-3" : "gap-4"
+      }`}
     >
       <button
         type="button"
-        className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
+        className={`flex items-center gap-3 rounded-xl px-3 text-left transition-colors hover:bg-accent/40 ${
+          forceVisible ? "py-1.5" : "py-2"
+        }`}
         onClick={() => onNavigate?.("perfil")}
       >
-        <div className="grid h-10 w-10 place-items-center rounded-full bg-blue-600 font-bold text-white">
+        <div
+          className={`grid place-items-center rounded-full bg-blue-600 font-bold text-white ${
+            forceVisible ? "h-9 w-9 text-sm" : "h-10 w-10"
+          }`}
+        >
           {initials}
         </div>
         <div className="min-w-0 flex flex-col">
@@ -44,16 +67,16 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         </div>
       </button>
 
-      <div className="h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain">
-        <nav className="flex flex-col gap-3">
+      <div className={navWrapperClass}>
+        <nav className={navClass}>
           {sections.map((section, idx) => {
             const items = section.items.filter((item) =>
               canSeeItem(item, user?.role),
             );
             if (!items.length) return null;
             return (
-              <div key={section.heading} className="flex flex-col gap-2">
-                <p className="mt-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
+              <div key={section.heading} className={sectionClass}>
+                <p className={headingClass}>
                   {section.heading}
                 </p>
                 <div className="flex flex-col gap-1">
@@ -66,7 +89,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                         type="button"
                         variant="ghost"
                         onClick={() => onNavigate?.(item.id)}
-                        className={`relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        className={`${itemClass} ${
                           isActive
                             ? "bg-primary/15 text-[color:var(--text)] border border-primary/30 shadow-sm font-semibold"
                             : "text-[color:var(--text-muted)] hover:text-[color:var(--text)] hover:bg-accent/50"
@@ -87,13 +110,15 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                           strokeWidth={2}
                           aria-hidden="true"
                         />
-                        <span className="text-sm">{item.label}</span>
+                        <span className="min-w-0 truncate text-sm">
+                          {item.label}
+                        </span>
                       </Button>
                     );
                   })}
                 </div>
                 {idx < sections.length - 1 && (
-                  <div className="my-2 h-px bg-[color:var(--border)]/60" />
+                  <div className={dividerClass} />
                 )}
               </div>
             );
@@ -104,7 +129,9 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
       <Button
         type="button"
         variant="outline"
-        className="mt-auto justify-start gap-2 rounded-xl"
+        className={`mt-auto justify-start gap-2 rounded-xl ${
+          forceVisible ? "h-10 text-sm" : ""
+        }`}
         onClick={handleLogout}
       >
         <LogOut className="h-4 w-4" />
