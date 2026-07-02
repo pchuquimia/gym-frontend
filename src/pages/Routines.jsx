@@ -268,6 +268,7 @@ function RoutineModal({
   );
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [setupComplete, setSetupComplete] = useState(mode !== "create");
   const [exercises, setExercises] = useState(() =>
     (initialData?.exercises || []).map((ex) =>
       resolveExerciseFromLibrary(availableExercises, ex),
@@ -593,6 +594,15 @@ function RoutineModal({
     });
   };
 
+  const handleContinueSetup = () => {
+    if (!name.trim()) {
+      setError("Ponle un nombre a la rutina.");
+      return;
+    }
+    setError("");
+    setSetupComplete(true);
+  };
+
   const buildDraftRoutine = () => ({
     ...initialData,
     id: initialData?.id || slugify(name),
@@ -636,6 +646,7 @@ function RoutineModal({
   const pickerSelectedExtraIds = extraPickerMuscle
     ? selectedExtraByMuscle[extraPickerMuscle] || []
     : [];
+  const isSetupStep = mode === "create" && !setupComplete;
 
   return (
     <Modal
@@ -644,6 +655,7 @@ function RoutineModal({
       onClose={onClose}
       size="wide"
       floatingAction={
+        !isSetupStep ? (
         <button
           type="button"
           onClick={openExercisePicker}
@@ -652,34 +664,125 @@ function RoutineModal({
         >
           <Plus className="h-6 w-6" />
         </button>
+        ) : null
       }
       footer={
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-center text-xs font-semibold text-[color:var(--text-muted)] sm:text-left">
-            {error || `${exercises.length} ejercicios listos para guardar`}
+            {error ||
+              (isSetupStep
+                ? "Define la base de la rutina para continuar"
+                : `${exercises.length} ejercicios listos para guardar`)}
           </span>
           <div className="grid grid-cols-1 gap-2 sm:flex">
-            <Button
-              variant="outline"
-              className="hidden h-11 px-2 text-xs sm:inline-flex sm:px-4 sm:text-sm"
-              onClick={handleOpenLibrary}
-            >
-              <Dumbbell className="h-4 w-4" />
-              Biblioteca
-            </Button>
+            {!isSetupStep ? (
+              <Button
+                variant="outline"
+                className="hidden h-11 px-2 text-xs sm:inline-flex sm:px-4 sm:text-sm"
+                onClick={handleOpenLibrary}
+              >
+                <Dumbbell className="h-4 w-4" />
+                Biblioteca
+              </Button>
+            ) : null}
             <Button
               className="h-12 px-2 text-sm sm:px-4"
-              onClick={handleSubmit}
+              onClick={isSetupStep ? handleContinueSetup : handleSubmit}
             >
-              {mode === "create" ? "Crear rutina" : "Guardar"}
+              {isSetupStep
+                ? "Continuar"
+                : mode === "create"
+                  ? "Crear rutina"
+                  : "Guardar"}
             </Button>
           </div>
         </div>
       }
     >
       <div className="pb-3 text-[color:var(--text)]">
+        {isSetupStep ? (
+          <div className="mx-auto max-w-xl space-y-4">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm sm:p-5">
+              <div className="mb-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  Nueva rutina
+                </p>
+                <h2 className="mt-1 text-2xl font-black leading-tight text-[color:var(--text)]">
+                  Configura la base
+                </h2>
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Nombre de la rutina
+                </span>
+                <input
+                  className="h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Ej. Pecho - Biceps"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                />
+              </label>
+
+              <div className="mt-5 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Sucursal
+                </span>
+                <div className="grid gap-3">
+                  {BRANCH_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setBranch(option)}
+                      className={`flex h-14 items-center justify-between rounded-xl border px-4 text-left transition ${
+                        branch === option
+                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <span className="font-black">{branchLabel(option)}</span>
+                      <span
+                        className={`h-5 w-5 rounded-full border ${
+                          branch === option
+                            ? "border-blue-500 bg-blue-500 shadow-[inset_0_0_0_4px_var(--card)]"
+                            : "border-[color:var(--border)]"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <div className="space-y-3">
+            {mode === "create" ? (
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                      Rutina
+                    </p>
+                    <h2 className="mt-1 truncate text-lg font-black text-[color:var(--text)]">
+                      {name.trim()}
+                    </h2>
+                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                      {branchLabel(branch)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 rounded-xl"
+                    onClick={() => setSetupComplete(false)}
+                  >
+                    Editar
+                  </Button>
+                </div>
+              </div>
+            ) : (
             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
                 <label className="space-y-1">
@@ -717,6 +820,7 @@ function RoutineModal({
               </div>
               {error && <p className="mt-3 text-xs font-semibold text-red-500">{error}</p>}
             </div>
+            )}
 
             <div className="flex items-center justify-between px-1 pt-1">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -1203,6 +1307,7 @@ function RoutineModal({
             </div>
           </div>
         </div>
+        )}
         {extraPickerMuscle && (
           <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
             <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
@@ -2118,7 +2223,7 @@ function Routines({ onNavigate }) {
                     event.stopPropagation();
                     requestDeleteRoutine(routine);
                   }}
-                  className="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--bg)] text-[color:var(--text-muted)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
                   aria-label="Eliminar rutina"
                 >
                   <Trash2 className="h-4 w-4" />

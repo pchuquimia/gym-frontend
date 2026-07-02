@@ -290,7 +290,7 @@ function BranchCard({ branch, selected, compact = false, onClick }) {
   );
 }
 
-function RoutineSetupCard({ routine, selected, recommended, onClick }) {
+function RoutineSetupCard({ routine, selected, onClick }) {
   return (
     <button
       type="button"
@@ -311,11 +311,6 @@ function RoutineSetupCard({ routine, selected, recommended, onClick }) {
             {Math.max(45, routine.exerciseCount * 10)} min
           </p>
         </div>
-        {recommended ? (
-          <span className="shrink-0 rounded-md bg-emerald-400/15 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-300">
-            Recomendado
-          </span>
-        ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
@@ -1030,6 +1025,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [restRemainingSeconds, setRestRemainingSeconds] = useState(120);
   const [restTimerRunning, setRestTimerRunning] = useState(false);
   const [restTimerStarted, setRestTimerStarted] = useState(false);
+  const [restDeadlineMs, setRestDeadlineMs] = useState(null);
+  const restVibratedRef = useRef(false);
+  const restAudioContextRef = useRef(null);
 
   const branchOptions = useMemo(() => {
     const set = new Set(BRANCH_OPTIONS);
@@ -2425,23 +2423,102 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning]);
 
+  const ensureRestAudioContext = async () => {
+    if (typeof window === "undefined") return null;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!restAudioContextRef.current) {
+      restAudioContextRef.current = new AudioContextClass();
+    }
+    if (restAudioContextRef.current.state === "suspended") {
+      try {
+        await restAudioContextRef.current.resume();
+      } catch {
+        return restAudioContextRef.current;
+      }
+    }
+    return restAudioContextRef.current;
+  };
+
+  const playRestCompleteSound = async () => {
+    const audioContext = await ensureRestAudioContext();
+    if (!audioContext) return;
+
+    const now = audioContext.currentTime;
+    const notes = [
+      { at: 0, freq: 880 },
+      { at: 0.18, freq: 1174.66 },
+      { at: 0.36, freq: 1567.98 },
+    ];
+
+    notes.forEach(({ at, freq }) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(freq, now + at);
+      gain.gain.setValueAtTime(0.0001, now + at);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + at + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.14);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now + at);
+      oscillator.stop(now + at + 0.16);
+    });
+  };
+
+  const notifyRestComplete = () => {
+    if (restVibratedRef.current) return;
+    restVibratedRef.current = true;
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([220, 120, 220, 120, 320]);
+    }
+    playRestCompleteSound();
+  };
+
   useEffect(() => {
-    if (!restTimerRunning) {
+    if (!restTimerRunning || !restDeadlineMs) {
       if (restTimerRef.current) clearInterval(restTimerRef.current);
       return undefined;
     }
-    restTimerRef.current = setInterval(() => {
-      setRestRemainingSeconds((current) => {
-        if (current <= 1) {
-          clearInterval(restTimerRef.current);
-          setRestTimerRunning(false);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
+
+    const syncRemaining = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((restDeadlineMs - Date.now()) / 1000),
+      );
+      setRestRemainingSeconds(remaining);
+      if (remaining <= 0) {
+        clearInterval(restTimerRef.current);
+        setRestTimerRunning(false);
+        notifyRestComplete();
+      }
+    };
+
+    syncRemaining();
+    restTimerRef.current = setInterval(syncRemaining, 500);
     return () => clearInterval(restTimerRef.current);
-  }, [restTimerRunning]);
+  }, [restDeadlineMs, restTimerRunning]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!restTimerStarted || !restDeadlineMs) return;
+      const remaining = Math.max(
+        0,
+        Math.ceil((restDeadlineMs - Date.now()) / 1000),
+      );
+      setRestRemainingSeconds(remaining);
+      if (remaining <= 0) {
+        setRestTimerRunning(false);
+        notifyRestComplete();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+    };
+  }, [restDeadlineMs, restTimerStarted]);
 
   const handleOpenRestTimer = () => {
     setRestTimerOpen(true);
@@ -2451,9 +2528,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleStartRestTimer = (minutes = restMinutesInput) => {
     const parsedMinutes = Math.max(1, Number(minutes) || 1);
     const seconds = parsedMinutes * 60;
+    restVibratedRef.current = false;
+    ensureRestAudioContext();
     setRestMinutesInput(parsedMinutes);
     setRestDurationSeconds(seconds);
     setRestRemainingSeconds(seconds);
+    setRestDeadlineMs(Date.now() + seconds * 1000);
     setRestTimerStarted(true);
     setRestTimerRunning(true);
     setRestTimerOpen(true);
@@ -2469,7 +2549,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       handleStartRestTimer(restMinutesInput);
       return;
     }
-    setRestTimerRunning((value) => !value);
+    if (restTimerRunning) {
+      setRestTimerRunning(false);
+      setRestDeadlineMs(null);
+      return;
+    }
+    ensureRestAudioContext();
+    setRestDeadlineMs(Date.now() + restRemainingSeconds * 1000);
+    setRestTimerRunning(true);
   };
 
   const handleResetRestTimer = () => {
@@ -2478,6 +2565,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setRestRemainingSeconds(seconds);
     setRestTimerRunning(false);
     setRestTimerStarted(false);
+    setRestDeadlineMs(null);
+    restVibratedRef.current = false;
   };
 
   const handleCloseRestTimer = () => {
@@ -2486,6 +2575,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setRestTimerRunning(false);
     setRestTimerStarted(false);
     setRestRemainingSeconds(restDurationSeconds);
+    setRestDeadlineMs(null);
+    restVibratedRef.current = false;
   };
 
   const handleStart = () => {
@@ -3689,12 +3780,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
                   <div className="space-y-3">
                     {routineOptions.length ? (
-                      routineOptions.map((routine, index) => (
+                      routineOptions.map((routine) => (
                         <RoutineSetupCard
                           key={routine.id}
                           routine={routine}
                           selected={routine.id === selectedRoutineId}
-                          recommended={index === 0}
                           onClick={() => handleSelectRoutine(routine.id)}
                         />
                       ))
