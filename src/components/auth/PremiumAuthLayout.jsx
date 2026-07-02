@@ -19,11 +19,17 @@ function PremiumAuthLayout({
   footer,
   onBack,
   heroCompact = false,
+  hideHeroOnMobile = false,
 }) {
   const image = images[variant] || images.login;
+  const lockMobileViewport = variant === "login" || variant === "recover";
 
   return (
-    <main className="min-h-dvh overflow-hidden bg-[#060b16] text-white sm:min-h-screen sm:px-4 sm:py-4">
+    <main
+      className={`bg-[#060b16] text-white sm:min-h-screen sm:px-4 sm:py-4 ${
+        lockMobileViewport ? "h-dvh overflow-hidden" : "min-h-dvh"
+      }`}
+    >
       <div
         className="fixed inset-0 opacity-40"
         style={{
@@ -33,8 +39,16 @@ function PremiumAuthLayout({
         }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto flex min-h-dvh w-full items-stretch justify-center sm:min-h-[calc(100vh-2rem)] sm:max-w-sm sm:items-center">
-        <section className="relative min-h-dvh w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 sm:min-h-[680px] sm:rounded-2xl sm:border sm:border-white/15">
+      <div
+        className={`relative mx-auto flex w-full items-stretch justify-center sm:min-h-[calc(100vh-2rem)] sm:max-w-sm sm:items-center lg:max-w-5xl ${
+          lockMobileViewport ? "h-dvh" : "min-h-dvh"
+        }`}
+      >
+        <section
+          className={`relative w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 sm:min-h-[680px] sm:rounded-2xl sm:border sm:border-white/15 lg:min-h-[720px] ${
+            lockMobileViewport ? "h-dvh" : "min-h-dvh"
+          }`}
+        >
           <img
             src={image}
             alt=""
@@ -44,8 +58,12 @@ function PremiumAuthLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/72 to-slate-950" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.22),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,70,229,0.25),transparent_45%)]" />
 
-          <div className="relative flex min-h-dvh flex-col px-5 py-5 sm:min-h-[680px] sm:px-4">
-            <div className="flex min-h-10 items-center justify-between">
+          <div
+            className={`relative flex flex-col px-5 sm:min-h-[680px] sm:px-4 lg:grid lg:min-h-[720px] lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-[auto_1fr_auto] lg:px-0 lg:py-0 ${
+              lockMobileViewport ? "h-dvh py-4" : "min-h-dvh py-5"
+            }`}
+          >
+            <div className="flex min-h-10 items-center justify-between lg:px-8 lg:pt-8">
               {onBack ? (
                 <button
                   type="button"
@@ -64,31 +82,51 @@ function PremiumAuthLayout({
             </div>
 
             <div
-              className={`text-center ${
-                heroCompact ? "mt-10" : "mt-16"
+              className={`lg:contents ${
+                lockMobileViewport
+                  ? "mx-auto flex min-h-0 w-full max-w-sm flex-1 flex-col justify-center gap-4 pb-3"
+                  : ""
               }`}
             >
-              {eyebrow ? (
-                <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-blue-200 text-blue-950 shadow-lg shadow-blue-500/20">
-                  <Zap className="h-7 w-7 fill-blue-600 text-blue-600" />
-                </div>
-              ) : null}
-              {!eyebrow && variant === "register" ? (
-                <Zap className="mx-auto mb-4 h-7 w-7 fill-blue-300 text-blue-300" />
-              ) : null}
-              <h1 className="text-3xl font-black leading-tight tracking-tight text-white drop-shadow">
-                {title}
-              </h1>
-              <p className="mx-auto mt-2 max-w-[280px] text-sm font-semibold leading-6 text-blue-50/85">
-                {subtitle}
-              </p>
+              <div
+                className={`text-center lg:flex lg:flex-col lg:justify-center lg:px-10 lg:pb-20 lg:text-left ${
+                  hideHeroOnMobile ? "hidden lg:flex" : ""
+                } ${
+                  lockMobileViewport
+                    ? ""
+                    : heroCompact
+                      ? "mt-8 lg:mt-0"
+                      : "mt-10 lg:mt-0"
+                }`}
+              >
+                {eyebrow ? (
+                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-blue-200 text-blue-950 shadow-lg shadow-blue-500/20 lg:mx-0">
+                    <Zap className="h-7 w-7 fill-blue-600 text-blue-600" />
+                  </div>
+                ) : null}
+                {!eyebrow && variant === "register" ? (
+                  <Zap className="mx-auto mb-4 h-7 w-7 fill-blue-300 text-blue-300 lg:mx-0" />
+                ) : null}
+                <h1 className="text-3xl font-black leading-tight tracking-tight text-white drop-shadow max-[700px]:text-2xl lg:max-w-md lg:text-5xl">
+                  {title}
+                </h1>
+                <p className="mx-auto mt-2 max-w-[280px] text-sm font-semibold leading-6 text-blue-50/85 max-[700px]:leading-5 lg:mx-0 lg:mt-4 lg:max-w-sm lg:text-base lg:leading-7">
+                  {subtitle}
+                </p>
+              </div>
+
+              <div
+                className={`w-full rounded-2xl border border-white/10 bg-slate-900/55 p-4 shadow-xl shadow-black/25 backdrop-blur-md max-[700px]:p-3 lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-8 lg:mt-0 lg:self-center lg:p-6 ${
+                  lockMobileViewport ? "" : "mt-4"
+                }`}
+              >
+                {children}
+              </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/55 p-4 shadow-xl shadow-black/25 backdrop-blur-md">
-              {children}
+            <div className="mx-auto w-full max-w-sm pt-4 max-[700px]:pt-3 lg:col-start-2 lg:mx-8 lg:max-w-none lg:pb-8">
+              {footer}
             </div>
-
-            <div className="mt-auto pt-5">{footer}</div>
           </div>
         </section>
       </div>
@@ -105,6 +143,7 @@ PremiumAuthLayout.propTypes = {
   footer: PropTypes.node,
   onBack: PropTypes.func,
   heroCompact: PropTypes.bool,
+  hideHeroOnMobile: PropTypes.bool,
 };
 
 export default PremiumAuthLayout;

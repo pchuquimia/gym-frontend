@@ -16,14 +16,14 @@ function SocialButtons() {
     <div className="grid grid-cols-2 gap-3">
       <button
         type="button"
-        className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10"
+        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
       >
         <span className="text-lg leading-none">G</span>
         Google
       </button>
       <button
         type="button"
-        className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10"
+        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
       >
         <span className="text-lg leading-none"></span>
         Apple
@@ -56,7 +56,7 @@ export default function Login({ onNavigate = () => {} }) {
   const [submitting, setSubmitting] = useState(false);
 
   const inputClass =
-    "h-12 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20";
+    "h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -141,6 +141,7 @@ export default function Login({ onNavigate = () => {} }) {
       variant="login"
       title="Push Your Limits"
       subtitle="Inicia sesión para seguir tus métricas y preparar tu próxima sesión."
+      hideHeroOnMobile
       footer={
         <div className="border-t border-white/10 pt-5 text-center">
           <p className="text-sm font-semibold text-blue-50/80">
@@ -156,7 +157,16 @@ export default function Login({ onNavigate = () => {} }) {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <div className="pb-2 text-center lg:hidden">
+          <h1 className="text-2xl font-black tracking-tight text-white">
+            Iniciar sesión
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-blue-50/70">
+            Accede a tu cuenta de entrenamiento.
+          </p>
+        </div>
+
         <Field icon={Mail} label="Email address">
           <input
             type="email"
@@ -204,14 +214,14 @@ export default function Login({ onNavigate = () => {} }) {
 
         <Button
           type="submit"
-          className="h-12 w-full rounded-xl bg-blue-500 text-base font-black text-blue-950 hover:bg-blue-400"
+          className="h-11 w-full rounded-xl bg-blue-500 text-base font-black text-blue-950 hover:bg-blue-400 sm:h-12"
           disabled={submitting}
         >
           {submitting ? "Ingresando..." : "Log In"}
           <ArrowRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-3 py-2">
+        <div className="flex items-center gap-3 py-1 sm:py-2">
           <span className="h-px flex-1 bg-white/10" />
           <span className="text-[10px] font-black uppercase tracking-wide text-blue-100/55">
             O continúa con
