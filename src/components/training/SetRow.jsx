@@ -13,12 +13,6 @@ export default function SetRow({
   onRemove,
 }) {
   const safeEntries = Array.isArray(entries) ? entries : [];
-  const seriesLabel =
-    seriesType === "triserie"
-      ? "triserie"
-      : seriesType === "biserie"
-        ? "biserie"
-        : "serie";
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
   const baseClasses =
@@ -70,9 +64,6 @@ export default function SetRow({
             }`}
           >
             {index}
-          </span>
-          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)] sm:tracking-[0.2em]">
-            Set de {seriesLabel}
           </span>
           {prSummary ? (
             <div className="flex min-w-0 items-center gap-1.5">
@@ -147,7 +138,7 @@ export default function SetRow({
           return (
             <div
               key={entry.id || `${index}-${entryIdx}`}
-              className={`grid max-w-full grid-cols-[28px_minmax(0,1fr)_52px_52px_32px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_60px_40px] sm:gap-2 sm:px-2 ${
+              className={`grid max-w-full grid-cols-[28px_minmax(0,1fr)_74px_68px_32px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_88px_80px_40px] sm:gap-2 sm:px-2 ${
                 entryDone
                   ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
                   : "bg-[color:var(--card)]"
@@ -164,36 +155,48 @@ export default function SetRow({
                 </span>
                 {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
               </div>
-              <input
-                className="min-w-0 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-1 text-center text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:px-2"
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9]*[.,]?[0-9]*"
-                value={entry.kg ?? ""}
-                onChange={(e) =>
-                  onChangeEntry?.(
-                    entry.id,
-                    "kg",
-                    normalizeDecimal(e.target.value),
-                  )
-                }
-                placeholder="Kg"
-              />
-              <input
-                className="min-w-0 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-1 text-center text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 sm:px-2"
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9]*[.,]?[0-9]*"
-                value={entry.reps ?? ""}
-                onChange={(e) =>
-                  onChangeEntry?.(
-                    entry.id,
-                    "reps",
-                    normalizeDecimal(e.target.value),
-                  )
-                }
-                placeholder="Reps"
-              />
+              <label className="flex h-9 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
+                  value={entry.kg ?? ""}
+                  onChange={(e) =>
+                    onChangeEntry?.(
+                      entry.id,
+                      "kg",
+                      normalizeDecimal(e.target.value),
+                    )
+                  }
+                  placeholder="0"
+                  aria-label="Peso en kilogramos"
+                />
+                <span className="ml-1 w-4 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                  kg
+                </span>
+              </label>
+              <label className="flex h-9 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
+                  value={entry.reps ?? ""}
+                  onChange={(e) =>
+                    onChangeEntry?.(
+                      entry.id,
+                      "reps",
+                      normalizeDecimal(e.target.value),
+                    )
+                  }
+                  placeholder="0"
+                  aria-label="Repeticiones"
+                />
+                <span className="ml-1 w-5 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                  rep
+                </span>
+              </label>
               <div className="flex min-w-0 items-center justify-end">
                 <motion.button
                   whileTap={{ scale: 0.9 }}

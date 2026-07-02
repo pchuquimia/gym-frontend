@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Camera, Dumbbell, Info, MapPin, Tags } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Camera } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../shared/Modal";
 
@@ -45,22 +45,6 @@ function Field({ label, children, className = "" }) {
   );
 }
 
-function Section({ icon: Icon, title, children }) {
-  return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 md:p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-300">
-          <Icon className="h-4 w-4" />
-        </span>
-        <h4 className="text-sm font-semibold text-[color:var(--text)]">
-          {title}
-        </h4>
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
@@ -97,15 +81,8 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
     setImageFile(null);
   }, [initialData, isAdmin]);
 
-  const helperText = useMemo(() => {
-    if (isAdmin && form.type === "system") {
-      return "Disponible para todos. Solo Admin puede editarlo.";
-    }
-    return "Visible segun permisos del usuario y entrenadores asignados.";
-  }, [form.type, isAdmin]);
-
   const inputClass =
-    "h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
+    "h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -171,201 +148,158 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
 
   return (
     <Modal
-      title={mode === "edit" ? "Editar ejercicio" : "Nuevo ejercicio"}
-      subtitle={helperText}
+      title={null}
+      subtitle={null}
       onClose={onClose}
       footer={footer}
-      size="wide"
+      size="default"
     >
       <form
         id="exercise-form"
-        className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]"
+        className="space-y-4"
         onSubmit={handleSubmit}
       >
-        <div className="space-y-3">
-          <Section icon={Info} title="Identidad">
-            <div className="grid gap-3 md:grid-cols-2">
-              {isAdmin && (
-                <Field label="Tipo" className="md:col-span-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      ["system", "Catalogo global"],
-                      ["custom", "Personalizado"],
-                    ].map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() =>
-                          setForm((prev) => ({ ...prev, type: value }))
-                        }
-                        className={`h-11 rounded-xl border px-3 text-sm font-semibold transition ${
-                          form.type === value
-                            ? "border-blue-600 bg-blue-600 text-white"
-                            : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-              )}
-
-              <Field label="Nombre" className="md:col-span-2">
-                <input
-                  className={inputClass}
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  required
-                  placeholder="Press banca con barra"
-                />
-              </Field>
-
-              <Field label="Musculo principal">
-                <select
-                  className={inputClass}
-                  name="primaryMuscle"
-                  value={form.primaryMuscle}
-                  onChange={handleChange}
-                >
-                  {muscleOptions.map((muscle) => (
-                    <option key={muscle}>{muscle}</option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Musculos secundarios">
-                <input
-                  className={inputClass}
-                  name="secondaryMuscles"
-                  value={form.secondaryMuscles}
-                  onChange={handleChange}
-                  placeholder="Triceps, Hombros"
-                />
-              </Field>
-            </div>
-          </Section>
-
-          <Section icon={Dumbbell} title="Entrenamiento">
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Equipo">
-                <input
-                  className={inputClass}
-                  name="equipment"
-                  value={form.equipment}
-                  onChange={handleChange}
-                  placeholder="Barra, mancuernas, maquina"
-                />
-              </Field>
-
-              <Field label="Modo">
-                <select
-                  className={inputClass}
-                  name="movementMode"
-                  value={form.movementMode}
-                  onChange={handleChange}
-                >
-                  <option value="bilateral">Bilateral</option>
-                  <option value="unilateral">Unilateral</option>
-                </select>
-              </Field>
-
-              <label className="flex min-h-11 items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] md:col-span-2">
-                <input
-                  type="checkbox"
-                  name="supportsUnilateral"
-                  checked={form.supportsUnilateral}
-                  onChange={handleChange}
-                  className="h-4 w-4"
-                />
-                Permite alternar a unilateral
-              </label>
-            </div>
-          </Section>
-
-          <Section icon={MapPin} title="Disponibilidad">
-            <div className="grid grid-cols-3 gap-2">
-              {["general", "sopocachi", "miraflores"].map((branch) => (
-                <button
-                  key={branch}
-                  type="button"
-                  onClick={() => toggleBranch(branch)}
-                  className={`h-11 rounded-xl border px-2 text-xs font-semibold transition sm:text-sm ${
-                    form.branches?.includes(branch)
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
-                  }`}
-                >
-                  {branch === "general"
-                    ? "Todas"
-                    : branch.charAt(0).toUpperCase() + branch.slice(1)}
-                </button>
-              ))}
-            </div>
-          </Section>
-
-          <Section icon={Tags} title="Contenido">
-            <div className="grid gap-3">
-              <Field label="Tags">
-                <input
-                  className={inputClass}
-                  name="tags"
-                  value={form.tags}
-                  onChange={handleChange}
-                  placeholder="pecho, empuje, barra"
-                />
-              </Field>
-              <Field label="Descripcion tecnica">
-                <textarea
-                  className="min-h-28 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  placeholder="Indicaciones de ejecucion, rango de movimiento y ajustes."
-                />
-              </Field>
-            </div>
-          </Section>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+            {mode === "edit" ? "Editar ejercicio" : "Nuevo ejercicio"}
+          </p>
+          <h3 className="mt-1 text-2xl font-black text-[color:var(--text)]">
+            {form.name || "Ejercicio"}
+          </h3>
         </div>
 
-        <aside className="space-y-3 lg:sticky lg:top-0 lg:self-start">
-          <Section icon={Camera} title="Imagen">
-            <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-              {preview || form.image ? (
-                <img
-                  src={preview || form.image}
-                  alt="Vista previa"
-                  className="aspect-[4/3] w-full object-cover"
-                />
-              ) : (
-                <div className="grid aspect-[4/3] w-full place-items-center text-center text-sm text-[color:var(--text-muted)]">
-                  Sin imagen
-                </div>
-              )}
-            </div>
+        <label className="block overflow-hidden rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)]">
+          <div className="relative">
+            {preview || form.image ? (
+              <img
+                src={preview || form.image}
+                alt="Vista previa"
+                className="aspect-[16/10] w-full object-cover"
+              />
+            ) : (
+              <div className="grid aspect-[16/10] w-full place-items-center text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                <span className="grid gap-2 place-items-center">
+                  <Camera className="h-7 w-7" />
+                  Agregar imagen
+                </span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleFileUpload}
+            />
+          </div>
+        </label>
 
-            <div className="mt-3 space-y-3">
-              <Field label="Subir archivo">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="block w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-sm text-[color:var(--text)] file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
-                  onChange={handleFileUpload}
-                />
-              </Field>
-              <Field label="URL externa">
-                <input
-                  className={inputClass}
-                  name="image"
-                  value={form.image}
-                  onChange={handleChange}
-                  placeholder="https://..."
-                />
-              </Field>
-            </div>
-          </Section>
-        </aside>
+        {isAdmin && (
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ["system", "Catalogo"],
+              ["custom", "Personal"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, type: value }))}
+                className={`h-11 rounded-xl border px-3 text-sm font-black transition ${
+                  form.type === value
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <Field label="Nombre">
+          <input
+            className={inputClass}
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            required
+            placeholder="Press banca con barra"
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Musculo">
+            <select
+              className={inputClass}
+              name="primaryMuscle"
+              value={form.primaryMuscle}
+              onChange={handleChange}
+            >
+              {muscleOptions.map((muscle) => (
+                <option key={muscle}>{muscle}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Equipo">
+            <input
+              className={inputClass}
+              name="equipment"
+              value={form.equipment}
+              onChange={handleChange}
+              placeholder="Barra"
+            />
+          </Field>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+              Unilateral
+            </p>
+            <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+              Si puede hacerse lado por lado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setForm((prev) => ({
+                ...prev,
+                supportsUnilateral: !prev.supportsUnilateral,
+                movementMode: !prev.supportsUnilateral ? "unilateral" : "bilateral",
+              }))
+            }
+            className={`relative h-7 w-12 rounded-full transition ${
+              form.supportsUnilateral ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
+            }`}
+            aria-pressed={form.supportsUnilateral}
+          >
+            <span
+              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                form.supportsUnilateral ? "left-6" : "left-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {["general", "sopocachi", "miraflores"].map((branch) => (
+            <button
+              key={branch}
+              type="button"
+              onClick={() => toggleBranch(branch)}
+              className={`h-11 rounded-xl border px-2 text-xs font-black transition ${
+                form.branches?.includes(branch)
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+              }`}
+            >
+              {branch === "general"
+                ? "Todas"
+                : branch.charAt(0).toUpperCase() + branch.slice(1)}
+            </button>
+          ))}
+        </div>
       </form>
     </Modal>
   );

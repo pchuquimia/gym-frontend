@@ -1,7 +1,14 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Play, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Play,
+  Repeat2,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
 import Badge from "../ui/badge";
@@ -9,18 +16,151 @@ import SetRow from "./SetRow";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 
-const formatDuration = (sec = 0) => {
-  const total = Math.max(0, Math.floor(sec));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  return [hours, minutes, seconds]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":");
+const formatShortDate = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+
+const getReferenceDateLabel = (exercise = {}) => {
+  const dates = (exercise.sets || [])
+    .flatMap((set) => set.entries || [])
+    .map((entry) => entry.previousDate)
+    .filter(Boolean)
+    .map((date) => ({ raw: date, time: new Date(date).getTime() }))
+    .filter((date) => !Number.isNaN(date.time))
+    .sort((a, b) => b.time - a.time);
+
+  if (dates[0]) return formatShortDate(dates[0].raw);
+
+  return (
+    (exercise.sets || [])
+      .flatMap((set) => set.entries || [])
+      .map((entry) => entry.previousText)
+      .find((text) => typeof text === "string" && text.includes("|"))
+      ?.split("|")
+      .pop()
+      ?.trim() || ""
+  );
+};
+
+function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
+  const trackRef = useRef(null);
+  const [dragValue, setDragValue] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const updateDragValue = (event) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const next = Math.max(
+      0,
+      Math.min(100, ((event.clientX - rect.left) / rect.width) * 100),
+    );
+    setDragValue(Math.round(next));
+  };
+
+  const handlePointerDown = (event) => {
+    setDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateDragValue(event);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragging) return;
+    updateDragValue(event);
+  };
+
+  const handlePointerEnd = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragValue >= 88) {
+      setDragValue(100);
+      onConfirm?.();
+      return;
+    }
+    setDragValue(0);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+      <div className="w-full rounded-t-3xl border border-red-500/20 bg-[color:var(--card)] p-4 text-[color:var(--text)] shadow-2xl sm:max-w-md sm:rounded-3xl">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
+        <div className="flex items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
+            <Trash2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
+              Eliminar ejercicio
+            </p>
+            <h3 className="mt-1 truncate text-lg font-black">
+              {exerciseName}
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+              Esta accion no se puede deshacer en la sesion actual.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div
+            ref={trackRef}
+            role="slider"
+            aria-label="Deslizar para confirmar eliminacion"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={dragValue}
+            tabIndex={0}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+            className="relative h-14 touch-none overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/10"
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-red-600/20 transition-[width]"
+              style={{ width: `${dragValue}%` }}
+            />
+            <div className="absolute inset-0 grid place-items-center px-14 text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-300">
+              Desliza para eliminar
+            </div>
+            <div
+              className="absolute top-1 grid h-12 w-12 place-items-center rounded-xl bg-red-600 text-white shadow-lg transition-[left]"
+              style={{
+                left: `calc(${dragValue}% - ${(dragValue / 100) * 48}px)`,
+              }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] text-sm font-black text-[color:var(--text)]"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+DeleteExerciseSheet.propTypes = {
+  exerciseName: PropTypes.string.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default function ExerciseCard({
   exercise,
+  open = false,
+  onToggleOpen,
   onAddSet,
   onUpdateEntry,
   onToggleEntry,
@@ -33,7 +173,8 @@ export default function ExerciseCard({
   onSwapVariant = null,
   onStartNow = null,
 }) {
-  const [open, setOpen] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState(() => {
     const key = `exercise_thumb_${exercise.id}`;
     if (typeof localStorage !== "undefined") {
@@ -49,29 +190,20 @@ export default function ExerciseCard({
       : exercise.seriesType === "biserie"
         ? "biserie"
         : "serie";
-  const seriesLabel =
-    seriesValue === "triserie"
-      ? "Triserie"
-      : seriesValue === "biserie"
-        ? "Biserie"
-        : "Serie";
-  const seriesLabelLower = seriesLabel.toLowerCase();
   const supportsUnilateral = Boolean(exercise.supportsUnilateral);
   const movementMode =
     exercise.movementMode === "unilateral" ? "unilateral" : "bilateral";
   const hasVariants =
     Array.isArray(exercise.variants) && exercise.variants.length > 1;
-  const variantIndex =
-    typeof exercise.variantIndex === "number" ? exercise.variantIndex : 0;
-  const variantLabel = hasVariants
-    ? `Alternativa ${variantIndex + 1}/${exercise.variants.length}`
-    : "";
-  const referenceText = exercise.prText?.startsWith("PR:")
-    ? exercise.prText.replace("PR:", "Referencia:")
-    : exercise.prText || "Sin referencia aquí";
+  const variantTotal = hasVariants ? exercise.variants.length : 0;
+  const variantPosition = hasVariants
+    ? ((typeof exercise.variantIndex === "number" ? exercise.variantIndex : 0) %
+        variantTotal) +
+      1
+    : 0;
+  const referenceDateLabel = getReferenceDateLabel(exercise);
   const isMoved =
     exercise.orderContext === "early" || exercise.orderContext === "fatigued";
-  const isExtra = exercise.orderContext === "extra" || exercise.isExtra;
   const isComplete =
     Array.isArray(exercise.sets) &&
     exercise.sets.length > 0 &&
@@ -80,18 +212,6 @@ export default function ExerciseCard({
         ? set.entries.every((entry) => entry.done)
         : Boolean(set.done),
     );
-  const durationLabel = exercise.durationSeconds
-    ? formatDuration(exercise.durationSeconds)
-    : "";
-  const statusLabel =
-    exercise.isActive && !isComplete
-      ? `En curso${durationLabel ? ` · ${durationLabel}` : ""}`
-      : durationLabel;
-  const _displayStatusLabel =
-    statusLabel ||
-    (isComplete
-      ? `Completado${durationLabel ? ` · ${durationLabel}` : ""}`
-      : "");
   const actionLabel = exercise.isActive ? "En curso" : "Empezar";
   const actionClass = exercise.isActive
     ? "border-emerald-500 bg-emerald-600 text-white hover:bg-emerald-700"
@@ -103,6 +223,11 @@ export default function ExerciseCard({
     const velocityX = info.velocity?.x ?? 0;
     if (offsetX > 70 || velocityX > 700) onSwapVariant(1);
     if (offsetX < -70 || velocityX < -700) onSwapVariant(-1);
+  };
+
+  const handleToggleOpen = () => {
+    if (open) setShowOptions(false);
+    onToggleOpen?.();
   };
 
   useEffect(() => {
@@ -144,11 +269,11 @@ export default function ExerciseCard({
         <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
+            onClick={handleToggleOpen}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
             {imageSrc ? (
-              <div className="h-12 w-12 shrink-0 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
+              <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
                 <img
                   src={imageSrc}
                   alt={exercise.name}
@@ -156,7 +281,7 @@ export default function ExerciseCard({
                 />
               </div>
             ) : (
-              <div className="h-12 w-12 shrink-0 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
+              <div className="h-14 w-14 shrink-0 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
             )}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
@@ -173,39 +298,21 @@ export default function ExerciseCard({
                     Completado
                   </Badge>
                 )}
+                {hasVariants && (
+                  <span
+                    className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 text-[10px] font-black text-blue-700 dark:text-blue-300"
+                    title="Desliza lateralmente para cambiar de ejercicio. Al llegar al final vuelve al inicio."
+                  >
+                    <Repeat2 className="h-3.5 w-3.5" />
+                    {variantPosition}/{variantTotal}
+                  </span>
+                )}
               </div>
-              <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">
-                {exercise.muscle || "Sin grupo"} · {referenceText}
-                {statusLabel ? ` · ${statusLabel}` : ""}
+              <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
+                {referenceDateLabel
+                  ? `Ultima vez: ${referenceDateLabel}`
+                  : "Sin fecha previa"}
               </p>
-              {exercise.globalPrText && (
-                <p className="mt-0.5 truncate text-[11px] text-[color:var(--text-muted)]">
-                  {exercise.globalPrText}
-                </p>
-              )}
-              <div className="mt-2 flex items-center gap-2 text-xs text-[color:var(--text-muted)] flex-wrap">
-                <Badge
-                  variant="secondary"
-                  className="uppercase tracking-wide text-[10px]"
-                >
-                  {seriesLabel}
-                </Badge>
-                {variantLabel && (
-                  <Badge className="text-[10px]">{variantLabel}</Badge>
-                )}
-                {supportsUnilateral && (
-                  <Badge className="text-[10px]">
-                    {movementMode === "unilateral" ? "Unilateral" : "Bilateral"}
-                  </Badge>
-                )}
-                {isMoved && <Badge className="text-[10px]">Movido</Badge>}
-                {isExtra && <Badge className="text-[10px]">Extra</Badge>}
-              </div>
-              {hasVariants && (
-                <p className="text-[10px] text-[color:var(--text-muted)] mt-1">
-                  Desliza para cambiar ejercicio
-                </p>
-              )}
             </div>
             <ChevronDown
               className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
@@ -263,37 +370,6 @@ export default function ExerciseCard({
               exit={{ opacity: 0, height: 0 }}
               className="border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
-              <div className="flex flex-wrap items-center gap-5 px-4 pt-4">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                    Tipo de serie
-                  </p>
-                  <select
-                    value={seriesValue}
-                    onChange={(e) => onSeriesTypeChange(e.target.value)}
-                    className="mt-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  >
-                    <option value="serie">Serie</option>
-                    <option value="biserie">Biserie</option>
-                    <option value="triserie">Triserie</option>
-                  </select>
-                </div>
-                {supportsUnilateral && (
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold text-align-left">
-                      Modo
-                    </p>
-                    <select
-                      value={movementMode}
-                      onChange={(e) => onMovementModeChange(e.target.value)}
-                      className="mt-1 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                    >
-                      <option value="bilateral">Bilateral</option>
-                      <option value="unilateral">Unilateral</option>
-                    </select>
-                  </div>
-                )}
-              </div>
               <div className="flex items-center justify-between px-4 py-3 gap-2">
                 <div className="flex gap-2 flex-wrap">
                   <motion.div whileTap={{ scale: 0.97 }}>
@@ -305,27 +381,26 @@ export default function ExerciseCard({
                       Seguimiento
                     </Button>
                   </motion.div>
-                  <motion.div whileTap={{ scale: 0.97 }}></motion.div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {onStartNow && (
+                  <motion.div whileTap={{ scale: 0.97 }}>
                     <Button
                       size="sm"
                       variant="outline"
-                      className={`rounded-full px-3 ${actionClass}`}
-                      onClick={onStartNow}
-                      aria-label="Empezar este ejercicio ahora"
-                      disabled={isComplete}
+                      className={`rounded-full px-3 ${
+                        showOptions ? "border-blue-500 text-blue-600" : ""
+                      }`}
+                      onClick={() => setShowOptions((value) => !value)}
                     >
-                      <Play className="h-4 w-4" />
-                      <span>{isComplete ? "Completado" : actionLabel}</span>
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Opciones
                     </Button>
-                  )}
+                  </motion.div>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     size="icon"
                     variant="ghost"
                     className="text-red-600"
-                    onClick={onRemoveExercise}
+                    onClick={() => setDeleteSheetOpen(true)}
                     aria-label="Eliminar ejercicio de la sesion"
                   >
                     <Trash2 className="h-5 w-5" />
@@ -333,22 +408,72 @@ export default function ExerciseCard({
                 </div>
               </div>
 
+              <AnimatePresence initial={false}>
+                {showOptions && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mx-4 mb-3 space-y-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                          Serie
+                        </span>
+                        <div className="grid min-w-0 flex-1 grid-cols-3 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
+                          {[
+                            ["serie", "Normal"],
+                            ["biserie", "Bi"],
+                            ["triserie", "Tri"],
+                          ].map(([value, label]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => onSeriesTypeChange(value)}
+                              className={`h-8 rounded-full text-xs font-black transition ${
+                                seriesValue === value
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "text-[color:var(--text-muted)]"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {supportsUnilateral && (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                            Modo
+                          </span>
+                          <div className="grid min-w-0 flex-1 grid-cols-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
+                            {[
+                              ["bilateral", "Bilateral"],
+                              ["unilateral", "Unilateral"],
+                            ].map(([value, label]) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => onMovementModeChange(value)}
+                                className={`h-8 rounded-full text-xs font-black transition ${
+                                  movementMode === value
+                                    ? "bg-emerald-500 text-slate-950 shadow-sm"
+                                    : "text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="space-y-2 px-2 pb-3 sm:px-3">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                    Set de {seriesLabelLower}
-                  </span>
-                  <span className="text-[11px] text-[color:var(--text-muted)]">
-                    {exercise.sets.length} sets
-                  </span>
-                </div>
-                <div className="grid grid-cols-[28px_minmax(0,1fr)_52px_52px_32px] px-1.5 text-[10px] text-[color:var(--text-muted)] sm:grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_60px_40px] sm:px-2 sm:text-[11px]">
-                  <span>#</span>
-                  <span>Previo</span>
-                  <span>Kg</span>
-                  <span className="text-center">Reps</span>
-                  <span className="text-right">Done</span>
-                </div>
                 <div className="space-y-2">
                   <AnimatePresence>
                     {exercise.sets.map((set, idx) => (
@@ -376,7 +501,7 @@ export default function ExerciseCard({
                     className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
                     onClick={onAddSet}
                   >
-                    + Anadir set a la {seriesLabelLower}
+                    + Agregar set
                   </Button>
                 </motion.div>
               </div>
@@ -384,6 +509,16 @@ export default function ExerciseCard({
           )}
         </AnimatePresence>
       </Card>
+      {deleteSheetOpen && (
+        <DeleteExerciseSheet
+          exerciseName={exercise.name}
+          onClose={() => setDeleteSheetOpen(false)}
+          onConfirm={() => {
+            setDeleteSheetOpen(false);
+            onRemoveExercise?.();
+          }}
+        />
+      )}
     </motion.div>
   );
 }
@@ -435,6 +570,8 @@ ExerciseCard.propTypes = {
       }),
     ).isRequired,
   }).isRequired,
+  open: PropTypes.bool,
+  onToggleOpen: PropTypes.func,
   onAddSet: PropTypes.func.isRequired,
   onUpdateEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,

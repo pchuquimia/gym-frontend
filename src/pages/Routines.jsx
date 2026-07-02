@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -13,6 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Toaster, toast } from "sonner";
 import {
   CalendarDays,
   ChevronDown,
@@ -207,6 +208,104 @@ function SortableExerciseShell({ id, children }) {
   });
 }
 
+function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
+  const trackRef = useRef(null);
+  const [dragValue, setDragValue] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  if (!routine) return null;
+
+  const updateDragValue = (event) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const next = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    setDragValue(Math.round(next));
+  };
+
+  const handlePointerDown = (event) => {
+    setDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateDragValue(event);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragging) return;
+    updateDragValue(event);
+  };
+
+  const handlePointerEnd = () => {
+    if (!dragging) return;
+    setDragging(false);
+    if (dragValue >= 88) {
+      setDragValue(100);
+      onConfirm?.();
+      return;
+    }
+    setDragValue(0);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end bg-black/55 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+      <div className="w-full rounded-t-3xl border border-red-500/20 bg-[color:var(--card)] p-4 text-[color:var(--text)] shadow-2xl sm:max-w-md sm:rounded-3xl">
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
+        <div className="flex items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
+            <Trash2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
+              Eliminar rutina
+            </p>
+            <h3 className="mt-1 truncate text-lg font-black">{routine.name}</h3>
+            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+              Esta accion no se puede deshacer. Desliza hasta el final para confirmar.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div
+            ref={trackRef}
+            role="slider"
+            aria-label="Deslizar para confirmar eliminacion"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={dragValue}
+            tabIndex={0}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+            className="relative h-14 touch-none overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/10"
+          >
+            <div
+              className="absolute inset-y-0 left-0 bg-red-600/20 transition-[width]"
+              style={{ width: `${dragValue}%` }}
+            />
+            <div className="absolute inset-0 grid place-items-center px-14 text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-300">
+              Desliza para eliminar
+            </div>
+            <div
+              className="absolute top-1 grid h-12 w-12 place-items-center rounded-xl bg-red-600 text-white shadow-lg transition-[left]"
+              style={{ left: `calc(${dragValue}% - ${(dragValue / 100) * 48}px)` }}
+            >
+              <Trash2 className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] text-sm font-black text-[color:var(--text)]"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RoutineModal({
   mode = "create",
   initialData,
@@ -235,6 +334,8 @@ function RoutineModal({
   const [alternativePickerExercise, setAlternativePickerExercise] = useState(null);
   const [selectedAlternativeIds, setSelectedAlternativeIds] = useState([]);
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
+  const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState([]);
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
@@ -260,6 +361,17 @@ function RoutineModal({
       .filter((ex) => !query || ex.name.toLowerCase().includes(query))
       .slice(0, 24);
   }, [availableExercises, branch, selectedMuscle, search]);
+
+  const exercisePickerOptions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const currentIds = new Set(exercises.map((exercise) => exercise.exerciseId));
+    return availableExercises
+      .filter((ex) => exerciseMatchesBranch(ex, branch))
+      .filter((ex) => !selectedMuscle || ex.muscle === selectedMuscle)
+      .filter((ex) => !currentIds.has(ex.id))
+      .filter((ex) => !query || ex.name.toLowerCase().includes(query))
+      .slice(0, 80);
+  }, [availableExercises, branch, exercises, selectedMuscle, search]);
 
   const groupedSelected = useMemo(() => groupByMuscle(exercises), [exercises]);
 
@@ -293,6 +405,28 @@ function RoutineModal({
         alternatives: [],
       },
     ]);
+  };
+
+  const openExercisePicker = () => {
+    setSelectedExerciseIds([]);
+    setExercisePickerOpen(true);
+  };
+
+  const toggleExerciseSelection = (exerciseId) => {
+    setSelectedExerciseIds((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : [...prev, exerciseId],
+    );
+  };
+
+  const addSelectedExercises = () => {
+    selectedExerciseIds
+      .map((exerciseId) => availableExercises.find((exercise) => exercise.id === exerciseId))
+      .filter(Boolean)
+      .forEach((exercise) => addExercise(exercise));
+    setSelectedExerciseIds([]);
+    setExercisePickerOpen(false);
   };
 
   const toggleExtraSelection = (muscle, exerciseId) => {
@@ -567,8 +701,8 @@ function RoutineModal({
       floatingAction={
         <button
           type="button"
-          onClick={handleOpenLibrary}
-          className="grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/25"
+          onClick={openExercisePicker}
+          className="grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/25 sm:hidden"
           aria-label="Agregar ejercicios"
         >
           <Plus className="h-6 w-6" />
@@ -1221,6 +1355,134 @@ function RoutineModal({
             </div>
           </div>
         )}
+        {exercisePickerOpen && (
+          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[88vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+                    Agregar ejercicios
+                  </p>
+                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                    Selector
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    Selecciona los ejercicios que quieres agregar a la rutina.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExercisePickerOpen(false);
+                    setSelectedExerciseIds([]);
+                  }}
+                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <div className="border-b border-[color:var(--border)] p-4">
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {muscleOptions.map((muscle) => (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() => setSelectedMuscle(muscle)}
+                      className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-black transition ${
+                        selectedMuscle === muscle
+                          ? "border-blue-400 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                      }`}
+                    >
+                      {muscle}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar ejercicio"
+                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid max-h-[46vh] gap-2 overflow-y-auto p-4">
+                {exercisePickerOptions.length ? (
+                  exercisePickerOptions.map((option) => {
+                    const selected = selectedExerciseIds.includes(option.id);
+                    const thumb = getExerciseImageUrl(option, {
+                      width: 96,
+                      height: 96,
+                    });
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => toggleExerciseSelection(option.id)}
+                        className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                          selected
+                            ? "border-blue-400 bg-blue-500/10"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                        }`}
+                      >
+                        <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              alt={option.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
+                              {(option.name || "?").charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {option.name}
+                          </p>
+                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            {option.muscle}
+                          </p>
+                        </div>
+                        <span
+                          className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
+                            selected
+                              ? "border-blue-600 bg-blue-600 text-white"
+                              : "border-[color:var(--border)] text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                    No hay ejercicios disponibles con este filtro.
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[color:var(--border)] p-4">
+                <Button
+                  className="h-12 w-full rounded-2xl text-sm"
+                  disabled={!selectedExerciseIds.length}
+                  onClick={addSelectedExercises}
+                >
+                  Agregar ejercicios
+                  {selectedExerciseIds.length ? ` (${selectedExerciseIds.length})` : ""}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {alternativePickerExercise && (
           <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
             <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
@@ -1483,6 +1745,7 @@ function Routines({ onNavigate }) {
   const [editTargetRoutineId, setEditTargetRoutineId] = useState(
     readTrainingRoutineEditTarget,
   );
+  const [routineToDelete, setRoutineToDelete] = useState(null);
 
   const availableExercises = useMemo(() => {
     const seen = new Set();
@@ -1672,8 +1935,14 @@ function Routines({ onNavigate }) {
   };
 
   const handleSave = async (routine) => {
-    if (modalMode === "create") await addRoutine(routine);
-    if (modalMode === "edit") await updateRoutine(routine.id, routine);
+    if (modalMode === "create") {
+      await addRoutine(routine);
+      toast.success("Rutina creada");
+    }
+    if (modalMode === "edit") {
+      await updateRoutine(routine.id, routine);
+      toast.success("Rutina actualizada");
+    }
     if (
       typeof localStorage !== "undefined" &&
       hasTrainingReturn() &&
@@ -1690,6 +1959,26 @@ function Routines({ onNavigate }) {
     closeModal();
   };
 
+  const requestDeleteRoutine = (routine) => {
+    setRoutineToDelete(routine);
+  };
+
+  const closeDeleteRoutine = () => {
+    setRoutineToDelete(null);
+  };
+
+  const confirmDeleteRoutine = async () => {
+    if (!routineToDelete) return;
+    const target = routineToDelete;
+    closeDeleteRoutine();
+    try {
+      await deleteRoutine(target.id);
+      toast.success("Rutina eliminada");
+    } catch {
+      toast.error("No se pudo eliminar la rutina");
+    }
+  };
+
   const handleReturnToTraining = () => {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
@@ -1701,6 +1990,7 @@ function Routines({ onNavigate }) {
 
   return (
     <>
+      <Toaster position="top-center" richColors />
       <section className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -1881,7 +2171,7 @@ function Routines({ onNavigate }) {
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    deleteRoutine(routine.id);
+                    requestDeleteRoutine(routine);
                   }}
                   className="grid h-9 w-9 place-items-center rounded-xl bg-[color:var(--bg)] text-[color:var(--text-muted)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                   aria-label="Eliminar rutina"
@@ -2020,6 +2310,11 @@ function Routines({ onNavigate }) {
           }}
         />
       )}
+      <DeleteRoutineSheet
+        routine={routineToDelete}
+        onConfirm={confirmDeleteRoutine}
+        onClose={closeDeleteRoutine}
+      />
     </>
   );
 }

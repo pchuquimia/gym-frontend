@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, Dumbbell, ImageIcon, Plus, Shapes } from "lucide-react";
+import { ArrowLeft, Dumbbell, Plus, Search } from "lucide-react";
 import ConfirmModal from "../components/library/ConfirmModal";
 import DetailModal from "../components/library/DetailModal";
 import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
-import FilterBar from "../components/library/FilterBar";
 import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
-import Badge from "../components/ui/badge";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 
@@ -50,33 +48,6 @@ const splitList = (value) => {
     .filter(Boolean);
 };
 
-function Stat({ icon: Icon, label, value, tone = "blue" }) {
-  const tones = {
-    blue: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
-    emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-    amber: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  };
-  return (
-    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-      <div className="flex items-center gap-2">
-        <span
-          className={`grid h-8 w-8 place-items-center rounded-lg ${tones[tone]}`}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
-            {label}
-          </p>
-          <p className="text-lg font-semibold text-[color:var(--text)]">
-            {value}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ExerciseLibrary({ onNavigate }) {
   const { user } = useAuth();
   const {
@@ -89,8 +60,8 @@ function ExerciseLibrary({ onNavigate }) {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
-  const [branchFilter, setBranchFilter] = useState("todos");
-  const [typeFilter, setTypeFilter] = useState("todos");
+  const branchFilter = "todos";
+  const [visibleCount, setVisibleCount] = useState(6);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [routineDraftMeta] = useState(readRoutineDraftMeta);
@@ -119,28 +90,37 @@ function ExerciseLibrary({ onNavigate }) {
           exercise.primaryMuscle === filter) &&
         (branchFilter === "todos" ||
           branches.includes(branchFilter) ||
-          branches.includes("general")) &&
-        (typeFilter === "todos" || exercise.type === typeFilter)
+          branches.includes("general"))
       );
     });
-  }, [exercises, search, filter, branchFilter, typeFilter]);
+  }, [exercises, search, filter, branchFilter]);
 
-  const stats = useMemo(() => {
-    const total = exercises.length;
-    const system = exercises.filter((ex) => ex.type === "system").length;
-    const custom = exercises.filter((ex) => ex.type === "custom").length;
-    const withImages = exercises.filter(
-      (ex) => ex.media?.image?.publicId || ex.imagePublicId || ex.image,
-    ).length;
-    return { total, system, custom, withImages };
+  const muscleOptions = useMemo(() => {
+    const preferred = ["Pecho", "Espalda", "Piernas", "Biceps", "Triceps", "Hombros"];
+    const available = new Set(
+      exercises
+        .map((exercise) => exercise.primaryMuscle || exercise.muscle)
+        .filter(Boolean),
+    );
+    return ["Todos", ...preferred.filter((muscle) => available.has(muscle))];
   }, [exercises]);
 
-  const systemExercises = filteredExercises.filter(
-    (ex) => ex.type === "system",
-  );
-  const customExercises = filteredExercises.filter(
-    (ex) => ex.type === "custom",
-  );
+  const visibleExercises = filteredExercises.slice(0, visibleCount);
+  const hasMore = filteredExercises.length > visibleExercises.length;
+
+  const resetVisibleCount = () => {
+    setVisibleCount(6);
+  };
+
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    resetVisibleCount();
+  };
+
+  const handleFilterChange = (value) => {
+    setFilter(value);
+    resetVisibleCount();
+  };
 
   const handleAdd = () => {
     setSelectedExercise(null);
@@ -184,15 +164,15 @@ function ExerciseLibrary({ onNavigate }) {
   const renderGrid = (items) => {
     if (loading) {
       return (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
-            <Skeleton key={idx} className="h-32 w-full md:h-72" />
+            <Skeleton key={idx} className="h-[88px] w-full rounded-xl" />
           ))}
         </div>
       );
     }
     return (
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:grid-cols-3">
         {items.map((exercise) => (
           <ExerciseCard
             key={exercise.id}
@@ -200,14 +180,6 @@ function ExerciseLibrary({ onNavigate }) {
             onView={(item) => {
               setSelectedExercise(item);
               setActiveModal("detail");
-            }}
-            onEdit={(item) => {
-              setSelectedExercise(item);
-              setActiveModal("edit");
-            }}
-            onDelete={(item) => {
-              setSelectedExercise(item);
-              setActiveModal("delete");
             }}
           />
         ))}
@@ -217,80 +189,47 @@ function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-7xl space-y-4 pb-24 sm:px-2 lg:space-y-5">
-        <section className="px-1 pt-1 md:rounded-xl md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-5 md:shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="hidden flex-wrap items-center gap-2 md:flex">
-                <Badge variant="secondary" className="text-[11px]">
-                  Biblioteca
-                </Badge>
-                <Badge className="text-[11px]">{user?.role || "Cliente"}</Badge>
-              </div>
-              <h1 className="text-2xl font-semibold tracking-normal text-[color:var(--text)] md:mt-3 md:text-3xl">
-                Biblioteca de Ejercicios
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm leading-5 text-[color:var(--text-muted)]">
-                Explora y gestiona tu catalogo personalizado de entrenamientos.
-              </p>
-            </div>
+      <div className="mx-auto w-full max-w-5xl space-y-5 pb-24">
+        <section className="space-y-4 px-1 pt-1">
+          {typeof onNavigate === "function" && hasRoutineDraft ? (
+            <button
+              type="button"
+              onClick={() => onNavigate("rutinas")}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black text-[color:var(--text)] md:hidden"
+              aria-label={`Volver a ${routineDraftMeta.name}`}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Rutina
+            </button>
+          ) : null}
 
-            <div className="flex gap-2 sm:flex-row">
-              {typeof onNavigate === "function" ? (
-                <Button
-                  variant="outline"
-                  className="h-10 flex-1 gap-2 sm:flex-none"
-                  onClick={() => onNavigate("rutinas")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {hasRoutineDraft
-                    ? `Volver a ${routineDraftMeta.name}`
-                    : "Rutinas"}
-                </Button>
-              ) : null}
-              <Button
-                className="hidden w-full gap-2 sm:w-auto md:inline-flex"
-                onClick={handleAdd}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              value={search}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              type="search"
+              placeholder="Buscar ejercicio..."
+              className="h-14 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {muscleOptions.map((muscle) => (
+              <button
+                key={muscle}
+                type="button"
+                onClick={() => handleFilterChange(muscle)}
+                className={`h-9 shrink-0 rounded-full px-4 text-xs font-black transition ${
+                  filter === muscle
+                    ? "bg-emerald-500 text-slate-950"
+                    : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                }`}
               >
-                <Plus className="h-4 w-4" />
-                Nuevo ejercicio
-              </Button>
-            </div>
+                {muscle}
+              </button>
+            ))}
           </div>
-
-          <div className="mt-4 hidden gap-2 md:grid sm:grid-cols-2 lg:grid-cols-4">
-            <Stat icon={Dumbbell} label="Total" value={stats.total} />
-            <Stat
-              icon={Shapes}
-              label="Catalogo"
-              value={stats.system}
-              tone="emerald"
-            />
-            <Stat
-              icon={Plus}
-              label="Personal"
-              value={stats.custom}
-              tone="amber"
-            />
-            <Stat
-              icon={ImageIcon}
-              label="Con imagen"
-              value={stats.withImages}
-            />
-          </div>
-        </section>
-
-        <section className="sticky top-0 z-20 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]/95 p-3 shadow-sm backdrop-blur md:top-4">
-          <FilterBar
-            search={search}
-            onSearch={setSearch}
-            activeFilter={filter}
-            onFilter={setFilter}
-            branch={branchFilter}
-            onBranch={setBranchFilter}
-            type={typeFilter}
-            onType={setTypeFilter}
-          />
         </section>
 
         {!loading && filteredExercises.length === 0 ? (
@@ -308,53 +247,38 @@ function ExerciseLibrary({ onNavigate }) {
             </Button>
           </section>
         ) : (
-          <div className="space-y-5">
-            {(typeFilter === "todos" || typeFilter === "system") && (
-              <section className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-[color:var(--text)]">
-                      Catalogo global
-                    </h2>
-                    <p className="hidden text-xs text-[color:var(--text-muted)] md:block">
-                      Disponible para todos los usuarios.
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {systemExercises.length}
-                  </Badge>
-                </div>
-                {renderGrid(systemExercises)}
-              </section>
-            )}
-
-            {(typeFilter === "todos" || typeFilter === "custom") &&
-              customExercises.length > 0 && (
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-semibold text-[color:var(--text)]">
-                        Personalizados
-                      </h2>
-                      <p className="hidden text-xs text-[color:var(--text-muted)] md:block">
-                        Creados para necesidades especificas.
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="text-[11px]">
-                      {customExercises.length}
-                    </Badge>
-                  </div>
-                  {renderGrid(customExercises)}
-                </section>
-              )}
-          </div>
+          <section className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                Ejercicios
+              </h2>
+              <span className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text)]">
+                {filteredExercises.length} total
+              </span>
+            </div>
+            {renderGrid(visibleExercises)}
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                Mostrando {visibleExercises.length} de {filteredExercises.length} ejercicios
+              </p>
+              {hasMore ? (
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl px-8 text-xs font-black uppercase"
+                  onClick={() => setVisibleCount((count) => count + 6)}
+                >
+                  Cargar mas
+                </Button>
+              ) : null}
+            </div>
+          </section>
         )}
       </div>
 
       <button
         type="button"
         onClick={handleAdd}
-        className="fixed bottom-5 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-300 focus:outline-none focus:ring-4 focus:ring-emerald-400/25 md:hidden"
+        className="fixed bottom-5 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-300 focus:outline-none focus:ring-4 focus:ring-emerald-400/25"
         aria-label="Agregar ejercicio"
       >
         <Plus className="h-6 w-6" />

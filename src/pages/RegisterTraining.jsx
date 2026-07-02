@@ -997,6 +997,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("");
+  const [expandedExerciseId, setExpandedExerciseId] = useState("");
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
   const [sessionDate, setSessionDate] = useState(todayISO);
@@ -2539,6 +2540,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
     setTimeEvents([]);
     setActiveExerciseId("");
+    setExpandedExerciseId("");
     setHasStarted(false);
     setSetupStarted(false);
     setBranchConfirmed(false);
@@ -2550,6 +2552,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
     setTimeEvents([]);
     setActiveExerciseId("");
+    setExpandedExerciseId("");
     setNowMs(Date.now());
     setDurationSeconds(0);
     setHasStarted(false);
@@ -2595,6 +2598,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSetupStarted(false);
     setTimeEvents([]);
     setActiveExerciseId("");
+    setExpandedExerciseId("");
     setNowMs(Date.now());
     (async () => {
       const hist = await loadHistoryForRoutine(id);
@@ -2628,6 +2632,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
     setExercises([]);
+    setExpandedExerciseId("");
     setSetupStarted(false);
   };
 
@@ -2660,6 +2665,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsRunning(false);
     setTimeEvents([]);
     setActiveExerciseId("");
+    setExpandedExerciseId("");
     setNowMs(Date.now());
   };
 
@@ -3969,17 +3975,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           <section className="min-w-0 max-w-full space-y-3">
             {selectedRoutineId ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                      EJERCICIOS ({exercises.length})
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      {loadingTraining ? "Cargando..." : "En progreso"}
-                    </p>
-                  </div>
-                </div>
-
                 <div className="min-w-0 max-w-full space-y-4">
                   <div className="min-w-0 max-w-full space-y-3 md:hidden">
                     {isOrderingExercises ? (
@@ -3990,9 +3985,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               <div>
                                 <p className="text-lg font-semibold text-[color:var(--text)]">
                                   {muscle}
-                                </p>
-                                <p className="text-xs text-[color:var(--text-muted)]">
-                                  {selectorRoutine?.name || "Rutina sin nombre"}
                                 </p>
                               </div>
                               <Badge
@@ -4068,9 +4060,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               <p className="text-xl font-semibold text-[color:var(--text)]">
                                 {muscle}
                               </p>
-                              <p className="text-xs text-[color:var(--text-muted)]">
-                                {selectorRoutine?.name || "Rutina sin nombre"}
-                              </p>
                             </div>
                             <Badge variant="secondary" className="text-[11px]">
                               {items.length} ejercicios
@@ -4085,6 +4074,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               return (
                                 <ExerciseCard
                                   key={ex.id}
+                                  open={expandedExerciseId === ex.id}
+                                  onToggleOpen={() =>
+                                    setExpandedExerciseId((current) =>
+                                      current === ex.id ? "" : ex.id,
+                                    )
+                                  }
                                   exercise={{
                                     ...ex,
                                     durationSeconds:
@@ -4164,9 +4159,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             <p className="text-xl font-semibold text-[color:var(--text)]">
                               {muscle}
                             </p>
-                            <p className="text-xs text-[color:var(--text-muted)]">
-                              {selectorRoutine?.name || "Rutina sin nombre"}
-                            </p>
                           </div>
                           <Badge variant="secondary" className="text-[11px]">
                             {items.length} ejercicios
@@ -4181,6 +4173,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             return (
                               <ExerciseCard
                                 key={ex.id}
+                                open={expandedExerciseId === ex.id}
+                                onToggleOpen={() =>
+                                  setExpandedExerciseId((current) =>
+                                    current === ex.id ? "" : ex.id,
+                                  )
+                                }
                                 exercise={{
                                   ...ex,
                                   durationSeconds:
