@@ -34,7 +34,7 @@ function SocialButtons() {
 
 function Field({ icon: Icon, label, children }) {
   return (
-    <label className="block space-y-2">
+    <label className="block space-y-1.5 sm:space-y-2">
       <span className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-100/70">
         {label}
       </span>
@@ -56,7 +56,7 @@ export default function Login({ onNavigate = () => {} }) {
   const [submitting, setSubmitting] = useState(false);
 
   const inputClass =
-    "h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
+    "h-10 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -157,8 +157,8 @@ export default function Login({ onNavigate = () => {} }) {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-        <div className="pb-2 text-center lg:hidden">
+      <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-4">
+        <div className="pb-1 text-center lg:hidden">
           <h1 className="text-2xl font-black tracking-tight text-white">
             Iniciar sesión
           </h1>
@@ -214,7 +214,7 @@ export default function Login({ onNavigate = () => {} }) {
 
         <Button
           type="submit"
-          className="h-11 w-full rounded-xl bg-blue-500 text-base font-black text-blue-950 hover:bg-blue-400 sm:h-12"
+          className="h-10 w-full rounded-xl bg-blue-500 text-base font-black text-blue-950 hover:bg-blue-400 sm:h-12"
           disabled={submitting}
         >
           {submitting ? "Ingresando..." : "Log In"}
