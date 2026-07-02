@@ -23,7 +23,8 @@ function PremiumAuthLayout({
   hideHeroOnMobile = false,
 }) {
   const image = images[variant] || images.login;
-  const lockMobileViewport = variant === "login" || variant === "recover";
+  const lockMobileViewport =
+    variant === "login" || variant === "recover" || variant === "register";
 
   useEffect(() => {
     if (!lockMobileViewport) return undefined;
@@ -55,7 +56,7 @@ function PremiumAuthLayout({
     <main
       className={`bg-[#060b16] text-white sm:min-h-screen sm:px-4 sm:py-4 ${
         lockMobileViewport
-          ? "h-dvh touch-none overflow-hidden overscroll-none"
+          ? "box-border h-dvh touch-none overflow-hidden overscroll-none"
           : "min-h-dvh"
       }`}
     >
@@ -70,12 +71,14 @@ function PremiumAuthLayout({
       />
       <div
         className={`relative mx-auto flex w-full items-stretch justify-center sm:min-h-[calc(100vh-2rem)] sm:max-w-sm sm:items-center lg:max-w-5xl ${
-          lockMobileViewport ? "h-dvh" : "min-h-dvh"
+          lockMobileViewport ? "box-border h-dvh" : "min-h-dvh"
         }`}
       >
         <section
           className={`relative w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 sm:min-h-[680px] sm:rounded-2xl sm:border sm:border-white/15 lg:min-h-[720px] ${
-            lockMobileViewport ? "h-dvh overscroll-none" : "min-h-dvh"
+            lockMobileViewport
+              ? "box-border h-dvh overscroll-none"
+              : "min-h-dvh"
           }`}
         >
           <img
@@ -89,7 +92,7 @@ function PremiumAuthLayout({
 
           <div
             className={`relative flex flex-col px-5 sm:min-h-[680px] sm:px-4 lg:grid lg:min-h-[720px] lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-[auto_1fr_auto] lg:px-0 lg:py-0 ${
-              lockMobileViewport ? "h-dvh py-4" : "min-h-dvh py-5"
+              lockMobileViewport ? "box-border h-dvh py-3" : "min-h-dvh py-5"
             }`}
           >
             <div className="flex min-h-10 items-center justify-between lg:px-8 lg:pt-8">

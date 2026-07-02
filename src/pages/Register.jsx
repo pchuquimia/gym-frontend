@@ -10,7 +10,7 @@ const passwordHint =
 
 function Field({ icon: Icon, label, children }) {
   return (
-    <label className="block space-y-2">
+    <label className="block space-y-1.5 sm:space-y-2">
       <span className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-100/70">
         {label}
       </span>
@@ -27,14 +27,14 @@ function SocialButtons() {
     <div className="grid grid-cols-2 gap-3">
       <button
         type="button"
-        className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10"
+        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
       >
         <span className="text-lg leading-none">G</span>
         Google
       </button>
       <button
         type="button"
-        className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10"
+        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
       >
         <Apple className="h-4 w-4" />
         Apple
@@ -55,7 +55,7 @@ export default function Register({ onNavigate = () => {} }) {
   const [submitting, setSubmitting] = useState(false);
 
   const inputClass =
-    "h-12 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20";
+    "h-10 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -81,6 +81,7 @@ export default function Register({ onNavigate = () => {} }) {
       title="Únete a la Élite"
       subtitle="Crea tu cuenta para transformar tu rendimiento desde hoy."
       heroCompact
+      hideHeroOnMobile
       footer={
         <div className="pt-1 text-center">
           <button
@@ -96,7 +97,16 @@ export default function Register({ onNavigate = () => {} }) {
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-4">
+        <div className="pb-1 text-center lg:hidden">
+          <h1 className="text-2xl font-black tracking-tight text-white">
+            Crear cuenta
+          </h1>
+          <p className="mt-1 text-xs font-semibold leading-5 text-blue-50/70">
+            Registra tus datos para iniciar tu progreso.
+          </p>
+        </div>
+
         <Field icon={User} label="Nombre completo">
           <input
             required
@@ -146,7 +156,7 @@ export default function Register({ onNavigate = () => {} }) {
           />
         </Field>
 
-        <p className="text-[11px] font-semibold leading-5 text-blue-100/60">
+        <p className="text-[10px] font-semibold leading-4 text-blue-100/60 sm:text-[11px] sm:leading-5">
           {passwordHint}
         </p>
 
@@ -158,14 +168,14 @@ export default function Register({ onNavigate = () => {} }) {
 
         <Button
           type="submit"
-          className="h-12 w-full rounded-xl bg-blue-500 text-base font-black text-white shadow-lg shadow-blue-500/20 hover:bg-blue-400"
+          className="h-11 w-full rounded-xl bg-blue-500 text-base font-black text-white shadow-lg shadow-blue-500/20 hover:bg-blue-400 sm:h-12"
           disabled={submitting}
         >
           {submitting ? "Creando..." : "Crear cuenta"}
           <ArrowRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-3 py-1">
+        <div className="flex items-center gap-3 py-0.5 sm:py-1">
           <span className="h-px flex-1 bg-white/10" />
           <span className="text-[10px] font-black uppercase tracking-wide text-blue-100/55">
             O continúa con
