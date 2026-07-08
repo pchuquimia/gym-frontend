@@ -40,6 +40,57 @@ import Badge from "../components/ui/badge";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const ROUTINE_TYPES = [
+  {
+    id: "push",
+    label: "Push",
+    description: "Pecho, hombro y triceps",
+    muscles: ["Pecho", "Hombros", "Triceps"],
+    suggestedName: "Pecho · Hombro · Triceps",
+  },
+  {
+    id: "pull",
+    label: "Pull",
+    description: "Espalda y biceps",
+    muscles: ["Espalda", "Biceps"],
+    suggestedName: "Espalda · Biceps",
+  },
+  {
+    id: "legs",
+    label: "Piernas",
+    description: "Cuadriceps, femoral y gluteos",
+    muscles: ["Cuadriceps", "Femoral", "Gluteos"],
+    suggestedName: "Pierna completa",
+  },
+  {
+    id: "upper",
+    label: "Tren superior",
+    description: "Torso completo",
+    muscles: ["Pecho", "Espalda", "Hombros", "Biceps", "Triceps"],
+    suggestedName: "Tren superior",
+  },
+  {
+    id: "lower",
+    label: "Tren inferior",
+    description: "Pierna completa",
+    muscles: ["Cuadriceps", "Femoral", "Gluteos", "Pantorrillas"],
+    suggestedName: "Tren inferior",
+  },
+  {
+    id: "full_body",
+    label: "Full body",
+    description: "Cuerpo completo",
+    muscles: ["Pecho", "Espalda", "Cuadriceps", "Femoral", "Hombros"],
+    suggestedName: "Full body",
+  },
+  {
+    id: "custom",
+    label: "Personalizada",
+    description: "Elige los grupos",
+    muscles: [],
+    suggestedName: "Rutina personalizada",
+  },
+];
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
@@ -57,6 +108,19 @@ const slugify = (text) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+
+const normalizeTextKey = (text = "") =>
+  text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/s$/, "");
+
+const resolveMuscleOption = (target, options = []) => {
+  const key = normalizeTextKey(target);
+  return options.find((option) => normalizeTextKey(option) === key) || null;
+};
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -263,6 +327,9 @@ function RoutineModal({
   const [branch, setBranch] = useState(() =>
     normalizeBranch(initialData?.branch),
   );
+  const [routineType, setRoutineType] = useState("push");
+  const [selectedSetupMuscles, setSelectedSetupMuscles] = useState(() => new Set());
+  const [nameEdited, setNameEdited] = useState(Boolean(initialData?.name));
   const [selectedMuscle, setSelectedMuscle] = useState(
     availableExercises?.[0]?.muscle || "Pecho",
   );
@@ -299,6 +366,57 @@ function RoutineModal({
     return Array.from(set);
   }, [availableExercises]);
 
+  const setupMuscleOptions = useMemo(() => {
+    const preferredOrder = [
+      "Pecho",
+      "Espalda",
+      "Hombros",
+      "Biceps",
+      "Triceps",
+      "Cuadriceps",
+      "Femoral",
+      "Gluteos",
+      "Pantorrillas",
+      "Core",
+    ];
+    return [
+      ...preferredOrder.filter((muscle) => muscleOptions.includes(muscle)),
+      ...muscleOptions.filter((muscle) => !preferredOrder.includes(muscle)),
+    ];
+  }, [muscleOptions]);
+
+  const selectedRoutineType = useMemo(
+    () => ROUTINE_TYPES.find((item) => item.id === routineType) || ROUTINE_TYPES[0],
+    [routineType],
+  );
+
+  const defaultSetupMuscles = useMemo(
+    () =>
+      selectedRoutineType.muscles
+      .map((muscle) => resolveMuscleOption(muscle, setupMuscleOptions))
+        .filter(Boolean),
+    [selectedRoutineType, setupMuscleOptions],
+  );
+
+  const effectiveSetupMuscles = useMemo(
+    () =>
+      selectedSetupMuscles.size
+        ? selectedSetupMuscles
+        : new Set(defaultSetupMuscles),
+    [defaultSetupMuscles, selectedSetupMuscles],
+  );
+
+  const suggestedRoutineName = useMemo(() => {
+    const selected = Array.from(effectiveSetupMuscles);
+    return selected.length
+      ? selected.slice(0, 3).join(" · ")
+      : selectedRoutineType.suggestedName;
+  }, [effectiveSetupMuscles, selectedRoutineType.suggestedName]);
+
+  const effectiveRoutineName = nameEdited || name.trim()
+    ? name
+    : suggestedRoutineName;
+
   const filteredExercises = useMemo(() => {
     const query = search.trim().toLowerCase();
     return availableExercises
@@ -324,6 +442,26 @@ function RoutineModal({
   const toggleMuscleGroup = (muscle) => {
     setCollapsedMuscles((prev) => {
       const next = new Set(prev);
+      if (next.has(muscle)) next.delete(muscle);
+      else next.add(muscle);
+      return next;
+    });
+  };
+
+  const handleRoutineTypeSelect = (typeId) => {
+    const type = ROUTINE_TYPES.find((item) => item.id === typeId) || ROUTINE_TYPES[0];
+    const defaults = type.muscles
+      .map((muscle) => resolveMuscleOption(muscle, setupMuscleOptions))
+      .filter(Boolean);
+    setRoutineType(typeId);
+    setSelectedSetupMuscles(new Set(defaults));
+    setNameEdited(false);
+    setName("");
+  };
+
+  const toggleSetupMuscle = (muscle) => {
+    setSelectedSetupMuscles((prev) => {
+      const next = new Set(prev.size ? prev : effectiveSetupMuscles);
       if (next.has(muscle)) next.delete(muscle);
       else next.add(muscle);
       return next;
@@ -561,7 +699,8 @@ function RoutineModal({
   };
 
   const handleSubmit = () => {
-    if (!name.trim()) {
+    const routineName = effectiveRoutineName.trim();
+    if (!routineName) {
       setError("Ponle un nombre a la rutina.");
       return;
     }
@@ -572,8 +711,8 @@ function RoutineModal({
     setError("");
     onSave({
       ...initialData,
-      id: initialData?.id || slugify(name),
-      name: name.trim(),
+      id: initialData?.id || slugify(routineName),
+      name: routineName,
       description: `${exercises.length} ejercicios.`,
       branch: normalizeBranch(branch),
       exercises: exercises.map((ex) => ({
@@ -595,18 +734,29 @@ function RoutineModal({
   };
 
   const handleContinueSetup = () => {
-    if (!name.trim()) {
+    const routineName = effectiveRoutineName.trim();
+    if (!routineName) {
       setError("Ponle un nombre a la rutina.");
       return;
     }
+    if (!effectiveSetupMuscles.size) {
+      setError("Selecciona al menos un grupo muscular.");
+      return;
+    }
     setError("");
+    setName(routineName);
+    setNameEdited(true);
+    const firstMuscle = Array.from(effectiveSetupMuscles)[0];
+    if (firstMuscle) setSelectedMuscle(firstMuscle);
     setSetupComplete(true);
   };
 
+  const draftName = effectiveRoutineName.trim() || initialData?.name || "Rutina sin nombre";
+
   const buildDraftRoutine = () => ({
     ...initialData,
-    id: initialData?.id || slugify(name),
-    name: name.trim() || initialData?.name || "Rutina sin nombre",
+    id: initialData?.id || slugify(draftName),
+    name: draftName,
     description: `${exercises.length} ejercicios.`,
     branch: normalizeBranch(branch),
     exercises: exercises.map((ex) => ({
@@ -632,9 +782,9 @@ function RoutineModal({
         ROUTINE_LIBRARY_DRAFT_KEY,
         JSON.stringify({
           mode,
-          sourceRoutineId: initialData?.id || slugify(name),
+          sourceRoutineId: initialData?.id || slugify(draftName),
           sourceRoutineName:
-            name.trim() || initialData?.name || "Rutina sin nombre",
+            draftName,
           routine: buildDraftRoutine(),
           savedAt: Date.now(),
         }),
@@ -714,16 +864,53 @@ function RoutineModal({
 
               <label className="block space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Nombre de la rutina
+                  Tipo de rutina
                 </span>
-                <input
-                  className="h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                  placeholder="Ej. Pecho - Biceps"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  {ROUTINE_TYPES.map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => handleRoutineTypeSelect(type.id)}
+                      className={`rounded-2xl border p-3 text-left transition ${
+                        routineType === type.id
+                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <p className="text-sm font-black">{type.label}</p>
+                      <p className="mt-1 min-h-[28px] text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                        {type.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </label>
+
+              <div className="mt-5 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Grupos musculares
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {setupMuscleOptions.map((muscle) => {
+                    const active = effectiveSetupMuscles.has(muscle);
+                    return (
+                      <button
+                        key={muscle}
+                        type="button"
+                        onClick={() => toggleSetupMuscle(muscle)}
+                        className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                          active
+                            ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {muscle}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div className="mt-5 space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -753,6 +940,22 @@ function RoutineModal({
                   ))}
                 </div>
               </div>
+
+              <label className="mt-5 block space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Nombre sugerido
+                </span>
+                <input
+                  className="h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Ej. Pecho · Biceps"
+                  value={effectiveRoutineName}
+                  onChange={(e) => {
+                    setNameEdited(true);
+                    setName(e.target.value);
+                  }}
+                  autoFocus
+                />
+              </label>
             </div>
           </div>
         ) : (

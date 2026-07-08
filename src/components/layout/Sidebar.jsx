@@ -1,22 +1,52 @@
-import { LogOut } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/button";
 import { sections } from "./navConfig";
 
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
 const allItems = sections.flatMap((section) => section.items);
-const mobilePrimaryIds = ["dashboard", "registrar", "rutinas", "library"];
+
+const mobileNavOrder = [
+  "dashboard",
+  "registrar",
+  "rutinas",
+  "library",
+  "ejercicio_analitica",
+  "resumen_sesion",
+  "admin_sesiones",
+  "fotos",
+  "perfil",
+];
+
 const mobileLabels = {
   dashboard: "Inicio",
   registrar: "Entrenar",
   rutinas: "Rutinas",
   library: "Ejercicios",
-  ejercicio_analitica: "Analítica",
-  resumen_sesion: "Resumen",
-  admin_sesiones: "Sesiones",
+  ejercicio_analitica: "Analitica",
+  resumen_sesion: "Resumen Diario",
+  admin_sesiones: "Sesiones Pasadas",
   fotos: "Fotos",
   perfil: "Perfil",
 };
+
+const mobileGroups = [
+  {
+    title: "Entrenamiento",
+    detail: "Accesos diarios",
+    ids: ["dashboard", "registrar", "rutinas", "library"],
+  },
+  {
+    title: "Rendimiento",
+    detail: "Analisis y resumen",
+    ids: ["ejercicio_analitica", "resumen_sesion"],
+  },
+  {
+    title: "Gestion",
+    detail: "Historial y cuenta",
+    ids: ["admin_sesiones", "fotos", "perfil"],
+  },
+];
 
 function Sidebar({ activePage, onNavigate, forceVisible = false }) {
   const { user, logout } = useAuth();
@@ -33,138 +63,119 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
     onNavigate?.("login");
   };
 
-  const mobileItems = allItems.filter((item) =>
-    canSeeItem(item, user?.role),
-  );
-  const primaryItems = mobilePrimaryIds
-    .map((id) => mobileItems.find((item) => item.id === id))
-    .filter(Boolean);
-  const secondaryItems = mobileItems.filter(
-    (item) => !mobilePrimaryIds.includes(item.id),
-  );
-
   if (forceVisible) {
+    const availableItems = mobileNavOrder
+      .map((id) => allItems.find((item) => item.id === id))
+      .filter((item) => item && canSeeItem(item, user?.role));
+    const getMobileItem = (id) => availableItems.find((item) => item.id === id);
+
     return (
-      <aside className="flex h-dvh w-[280px] flex-col border-r border-[color:var(--border)] bg-[color:var(--card)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)]">
+      <aside className="flex h-dvh w-[276px] flex-col overflow-hidden border-r border-slate-200 bg-white px-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-5 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#292d55] dark:text-slate-100">
         <button
           type="button"
-          className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]/45 px-3 py-2 text-left shadow-sm"
+          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left shadow-sm max-[700px]:py-2.5 dark:border-white/10 dark:bg-white/[0.055] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           onClick={() => onNavigate?.("perfil")}
         >
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-blue-600 text-sm font-black text-white shadow-lg shadow-blue-600/20">
-            {initials}
+          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-blue-200 bg-slate-100 shadow-md shadow-slate-200/70 dark:border-cyan-300/30 dark:bg-slate-900 dark:shadow-lg dark:shadow-black/20">
+            <img
+              src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=160&q=70"
+              alt=""
+              className="h-full w-full object-cover"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-white bg-emerald-500 text-white dark:border-[#292d55] dark:bg-emerald-400 dark:text-emerald-950">
+              <Check className="h-2.5 w-2.5 stroke-[4]" />
+            </span>
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-black leading-tight">
-              {user?.name || "Usuario"}
+            <p className="truncate text-lg font-black leading-tight text-slate-950 dark:text-slate-100">
+              {user?.role === "Admin"
+                ? "Administrador"
+                : user?.name || "Usuario"}
             </p>
-            <p className="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
-              {user?.role || "Cliente"}
+            <p className="truncate text-lg font-black leading-tight text-slate-950 dark:text-slate-100">
+              Gym
+            </p>
+            <p className="mt-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-300">
+              Atleta Pro
             </p>
           </div>
         </button>
 
-        <div className="mt-4">
-          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-            Accesos
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {primaryItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activePage === item.id;
+        <nav className="mt-8 min-h-0 flex-1 overflow-hidden max-[700px]:mt-6">
+          <div className="mt-6 space-y-6 max-[700px]:mt-4 max-[700px]:space-y-4">
+            {mobileGroups.map((group) => {
+              const groupItems = group.ids.map(getMobileItem).filter(Boolean);
+              if (!groupItems.length) return null;
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onNavigate?.(item.id)}
-                  className={`min-h-[74px] rounded-2xl border px-3 py-3 text-left transition ${
-                    isActive
-                      ? "border-primary/50 bg-primary/15 text-[color:var(--text)] shadow-sm"
-                      : "border-[color:var(--border)] bg-[color:var(--bg)]/40 text-[color:var(--text-muted)]"
-                  }`}
-                >
-                  <Icon
-                    className={`h-5 w-5 ${
-                      isActive ? "text-primary" : "text-[color:var(--text-muted)]"
-                    }`}
-                    strokeWidth={2.2}
-                  />
-                  <span className="mt-2 block truncate text-sm font-black text-[color:var(--text)]">
-                    {mobileLabels[item.id] || item.label}
-                  </span>
-                </button>
+                <div key={group.title}>
+                  <div className="mb-3 flex items-end justify-between gap-3 px-3 max-[700px]:mb-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300/55">
+                      {group.title}
+                    </p>
+                    <p className="truncate text-[10px] font-bold text-slate-400 dark:text-slate-400/45">
+                      {group.detail}
+                    </p>
+                  </div>
+                  <div className="space-y-2 max-[700px]:space-y-1.5">
+                    {groupItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activePage === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onNavigate?.(item.id)}
+                          className={`group flex h-[clamp(46px,6.1svh,54px)] w-full items-center gap-4 rounded-xl px-3 text-left transition max-[700px]:h-[clamp(42px,6svh,46px)] ${
+                            isActive
+                              ? "bg-emerald-50 text-slate-950 shadow-[inset_3px_0_0_rgba(16,185,129,0.9)] dark:bg-white/[0.065] dark:text-white dark:shadow-[inset_3px_0_0_rgba(110,231,183,0.9)]"
+                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300/72 dark:hover:bg-white/[0.045] dark:hover:text-white"
+                          }`}
+                        >
+                          <Icon
+                            className={`h-5 w-5 shrink-0 ${
+                              isActive
+                                ? "text-emerald-600 dark:text-emerald-300"
+                                : "text-slate-400 dark:text-slate-300/72"
+                            }`}
+                            strokeWidth={2.2}
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[15px] font-black">
+                            {mobileLabels[item.id] || item.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </div>
-        </div>
-
-        <div className="mt-4 min-h-0 flex-1">
-          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-            Más
-          </p>
-          <div className="mt-2 space-y-1">
-            {secondaryItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activePage === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onNavigate?.(item.id)}
-                  className={`flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left transition ${
-                    isActive
-                      ? "border border-primary/35 bg-primary/12 text-[color:var(--text)]"
-                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]/45 hover:text-[color:var(--text)]"
-                  }`}
-                >
-                  <Icon
-                    className={`h-[18px] w-[18px] shrink-0 ${
-                      isActive ? "text-primary" : "text-[color:var(--text-muted)]"
-                    }`}
-                    strokeWidth={2.2}
-                  />
-                  <span className="min-w-0 truncate text-sm font-bold">
-                    {mobileLabels[item.id] || item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        </nav>
 
         <Button
           type="button"
           variant="outline"
-          className="mt-3 h-11 justify-center gap-2 rounded-2xl border-red-500/30 bg-red-500/8 text-sm font-black text-red-300 hover:bg-red-500/12"
+          className="mt-5 h-12 justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-[12px] font-black uppercase tracking-[0.08em] text-red-600 hover:bg-red-100 max-[700px]:mt-4 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
-          <span>Cerrar sesión</span>
+          <span>Cerrar sesion</span>
         </Button>
+        <p className="mt-4 text-center text-[10px] font-black uppercase tracking-tight text-slate-400/70 dark:text-slate-400/25">
+          Apex Performance v2.4.0
+        </p>
       </aside>
     );
   }
 
   return (
-    <aside
-      className={`${
-        forceVisible ? "flex" : "hidden md:flex"
-      } bg-[color:var(--card)] border-r border-[color:var(--border)] h-dvh w-[280px] px-3 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] flex-col ${
-        forceVisible ? "gap-3" : "gap-4"
-      }`}
-    >
+    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--card)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:flex">
       <button
         type="button"
-        className={`flex items-center gap-3 rounded-xl px-3 text-left transition-colors hover:bg-accent/40 ${
-          forceVisible ? "py-1.5" : "py-2"
-        }`}
+        className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
         onClick={() => onNavigate?.("perfil")}
       >
-        <div
-          className={`grid place-items-center rounded-full bg-blue-600 font-bold text-white ${
-            forceVisible ? "h-9 w-9 text-sm" : "h-10 w-10"
-          }`}
-        >
+        <div className="grid h-10 w-10 place-items-center rounded-full bg-blue-600 font-bold text-white">
           {initials}
         </div>
         <div className="min-w-0 flex flex-col">
@@ -201,8 +212,8 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                         onClick={() => onNavigate?.(item.id)}
                         className={`relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                           isActive
-                            ? "bg-primary/15 text-[color:var(--text)] border border-primary/30 shadow-sm font-semibold"
-                            : "text-[color:var(--text-muted)] hover:text-[color:var(--text)] hover:bg-accent/50"
+                            ? "border border-primary/30 bg-primary/15 font-semibold text-[color:var(--text)] shadow-sm"
+                            : "text-[color:var(--text-muted)] hover:bg-accent/50 hover:text-[color:var(--text)]"
                         }`}
                       >
                         {isActive && (
@@ -239,9 +250,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
       <Button
         type="button"
         variant="outline"
-        className={`mt-auto justify-start gap-2 rounded-xl ${
-          forceVisible ? "h-10 text-sm" : ""
-        }`}
+        className="mt-auto justify-start gap-2 rounded-xl"
         onClick={handleLogout}
       >
         <LogOut className="h-4 w-4" />

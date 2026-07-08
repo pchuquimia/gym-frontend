@@ -478,6 +478,7 @@ const normalizeEntries = ({
         kg: entry.kg ?? entry.weightKg ?? entry.weight ?? "",
         reps: entry.reps ?? "",
         done: Boolean(entry.done),
+        completedAt: entry.completedAt || null,
       };
     });
   while (normalized.length < count) {
@@ -498,6 +499,7 @@ const normalizeEntries = ({
       kg: "",
       reps: "",
       done: false,
+      completedAt: null,
     });
   }
   return normalized.slice(0, count);
@@ -999,6 +1001,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
+  const [finishWarningOpen, setFinishWarningOpen] = useState(false);
+  const [finishWarningExercises, setFinishWarningExercises] = useState([]);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
   const [editingId, setEditingId] = useState("");
@@ -1933,7 +1937,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         to: date,
         limit: 1,
         fields:
-          "date,routineId,routineName,branch,durationSeconds,timeEvents,exerciseDurations,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+          "date,routineId,routineName,branch,durationSeconds,timeEvents,exerciseDurations,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.done,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.completedAt,exercises.sets.entries.previousText",
         meta: false,
         routineId: routine.id,
       });
@@ -2048,7 +2052,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         resp = await api.getTrainings({
           limit: 200,
           fields:
-            "date,routineId,branch,exercises.exerciseId,exercises.exerciseName,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.previousText",
+            "date,routineId,branch,exercises.exerciseId,exercises.exerciseName,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.completedAt,exercises.sets.entries.previousText",
           meta: false,
         });
       } catch (projectionError) {
@@ -3065,6 +3069,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (targetEntry && !targetEntry.done) {
       handleStartExerciseNow(exerciseId, { silent: true });
     }
+    const completedAt = new Date().toISOString();
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
@@ -3074,9 +3079,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 s.id === setId
                   ? {
                       ...s,
-                      entries: (s.entries || []).map((entry) =>
-                        entry.id === entryId
-                          ? { ...entry, done: !entry.done }
+                    entries: (s.entries || []).map((entry) =>
+                      entry.id === entryId
+                          ? {
+                              ...entry,
+                              done: !entry.done,
+                              completedAt: entry.done ? null : completedAt,
+                            }
                           : entry,
                       ),
                     }
@@ -3290,21 +3299,49 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setTrainingPhotoError("");
   };
 
-  const handleFinish = async () => {
+  const getLastCompletedEntryTime = () => {
+    const timestamps = exercises.flatMap((ex) =>
+      (ex.sets || []).flatMap((set) =>
+        (set.entries || [])
+          .filter((entry) => entry.done && entry.completedAt)
+          .map((entry) => Date.parse(entry.completedAt))
+          .filter((time) => Number.isFinite(time)),
+      ),
+    );
+    return timestamps.length ? Math.max(...timestamps) : null;
+  };
+
+  const getIncompleteExercisesForFinish = () =>
+    exercises.filter((ex) => {
+      const sets = Array.isArray(ex.sets) ? ex.sets : [];
+      if (!sets.length) return false;
+      return !sets.every((set) => isSetDone(set));
+    });
+
+  const confirmFinishTraining = async () => {
+    setFinishWarningOpen(false);
+    setFinishWarningExercises([]);
     const finishAt = Date.now();
+    const lastCompletedAt = getLastCompletedEntryTime();
+    const effectiveFinishAt =
+      lastCompletedAt && lastCompletedAt <= finishAt ? lastCompletedAt : finishAt;
+    const effectiveEvents = timeEvents.filter((event) => {
+      const eventTime = getEventTime(event);
+      return eventTime != null && eventTime <= effectiveFinishAt;
+    });
     const finalTimeEvents = normalizeTimeEvents([
-      ...timeEvents,
+      ...effectiveEvents,
       ...(timeEvents.length
-        ? [createTimeEvent("session_end", null, finishAt)]
+        ? [createTimeEvent("session_end", null, effectiveFinishAt)]
         : []),
     ]);
     const finalTimingSummary = calculateTimingSummary(
       finalTimeEvents,
-      finishAt,
+      effectiveFinishAt,
     );
     setIsRunning(false);
     setTimeEvents(finalTimeEvents);
-    setNowMs(finishAt);
+    setNowMs(effectiveFinishAt);
     if (timerRef.current) clearInterval(timerRef.current);
     try {
       if (!selectedRoutineId || !selectedRoutine) {
@@ -3342,6 +3379,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   done: Boolean(entry.done),
                   order: entryIdx + 1,
                   previousText: entry.previousText,
+                  completedAt: entry.completedAt || null,
                 }));
                 const hasValues = entriesPayload.some(
                   (entry) =>
@@ -3444,6 +3482,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         "No se pudo guardar el entrenamiento. Revisa tu conexiÃ³n o intenta de nuevo.",
       );
     }
+  };
+
+  const handleFinish = async () => {
+    const incompleteExercises = getIncompleteExercisesForFinish();
+    if (incompleteExercises.length) {
+      setFinishWarningExercises(incompleteExercises);
+      setFinishWarningOpen(true);
+      return;
+    }
+    await confirmFinishTraining();
   };
 
   const handleCancel = () => {
@@ -4812,6 +4860,105 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         </Modal>
       )}
+
+      <AnimatePresence>
+        {finishWarningOpen ? (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end bg-black/55 px-0 backdrop-blur-sm md:items-center md:justify-center md:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ y: 28, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 28, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              className="w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl md:max-w-md md:rounded-3xl md:pb-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600 dark:text-amber-300">
+                    Revision pendiente
+                  </p>
+                  <h2 className="mt-1 text-xl font-black leading-tight">
+                    Hay series sin marcar
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
+                    Puedes volver y completar las marcas, o finalizar guardando
+                    solo lo registrado.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFinishWarningOpen(false)}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                  aria-label="Cerrar advertencia"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-500/10 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-amber-800 dark:text-amber-200">
+                    {finishWarningExercises.length} ejercicio(s) pendientes
+                  </p>
+                  <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase text-amber-700 dark:text-amber-200">
+                    Atencion
+                  </span>
+                </div>
+                <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {finishWarningExercises.map((exercise) => {
+                    const sets = Array.isArray(exercise.sets)
+                      ? exercise.sets
+                      : [];
+                    const pendingSets = sets.filter(
+                      (set) => !isSetDone(set),
+                    ).length;
+                    return (
+                      <div
+                        key={exercise.id}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black">
+                            {exercise.name}
+                          </p>
+                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            {exercise.muscle || "Sin grupo"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-red-500/10 px-2 py-1 text-[10px] font-black text-red-600 dark:text-red-300">
+                          {pendingSets} pendiente(s)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                <Button
+                  type="button"
+                  className="h-12 rounded-2xl bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={() => setFinishWarningOpen(false)}
+                >
+                  Volver a completar
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 rounded-2xl border-amber-400/40 text-amber-700 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-500/10"
+                  onClick={confirmFinishTraining}
+                >
+                  Finalizar de todos modos
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <button
         type="button"
