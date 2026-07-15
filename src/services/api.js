@@ -1,5 +1,8 @@
 import { API_URL, axiosClient } from "./axiosConfig";
 
+const EXERCISE_FIELDS =
+  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt";
+
 async function request(path, options = {}) {
   const { method = "GET", body, headers, ...config } = options;
   const response = await axiosClient.request({
@@ -23,6 +26,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  devAdminLogin: () => request("/api/auth/dev-admin", { method: "POST" }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),
   getProfile: () => request("/api/auth/profile"),
@@ -54,15 +58,27 @@ export const api = {
 
   getExercises: (params = {}) => {
     const query = new URLSearchParams({
-      limit: params.limit ?? 100,
-      fields:
-        params.fields ??
-        "name,slug,muscle,primaryMuscle,secondaryMuscles,equipment,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt",
+      limit: params.limit ?? 1000,
+      fields: params.fields ?? EXERCISE_FIELDS,
       page: params.page ?? 1,
       meta: params.meta ?? false,
       q: params.q ?? "",
       branch: params.branch ?? "",
       muscle: params.muscle ?? "",
+      category: params.category ?? "",
+      bodyRegion: params.bodyRegion ?? "",
+      navigationRegion: params.navigationRegion ?? "",
+      primaryMuscleGroup: params.primaryMuscleGroup ?? "",
+      movementPattern: params.movementPattern ?? "",
+      equipment: params.equipment ?? "",
+      exerciseType: params.exerciseType ?? "",
+      laterality: params.laterality ?? "",
+      kineticChain: params.kineticChain ?? "",
+      executionType: params.executionType ?? "",
+      stability: params.stability ?? "",
+      position: params.position ?? "",
+      difficulty: params.difficulty ?? "",
+      goal: params.goal ?? "",
       type: params.type ?? "",
     }).toString();
     return request(`/api/exercises?${query}`);

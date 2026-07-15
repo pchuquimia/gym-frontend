@@ -26,7 +26,11 @@ const resolveApiUrl = () => {
   const isConfiguredLocalhost =
     configured?.includes("localhost") || configured?.includes("127.0.0.1");
 
-  // Si estoy trabajando en localhost, puedo usar localhost
+  // En desarrollo local, priorizar el backend local aunque .env apunte a Render.
+  if (isBrowserOnLocalhost && import.meta.env.DEV && !isConfiguredLocalhost) {
+    return "http://localhost:4000";
+  }
+
   if (configured && isBrowserOnLocalhost) {
     return configured;
   }

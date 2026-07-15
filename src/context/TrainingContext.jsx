@@ -1,6 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
+import {
+  getExerciseBodyRegion,
+  getExerciseCategories,
+  getExerciseEquipment,
+  getExerciseGoals,
+  getExerciseLaterality,
+  getExerciseMovementPatterns,
+  getExerciseNavigationRegion,
+  getExerciseType,
+  getPrimaryMuscleGroup,
+} from "../constants/exerciseTaxonomy";
 
 const TrainingContext = createContext(null);
 
@@ -18,16 +29,41 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-const normalizeExercise = (exercise) => ({
-  ...exercise,
-  id: exercise._id || exercise.id,
-  muscle: exercise.muscle || exercise.primaryMuscle || "",
-  primaryMuscle: exercise.primaryMuscle || exercise.muscle || "",
-  image: exercise.media?.image?.url || exercise.image || "",
-  imagePublicId:
-    exercise.media?.image?.publicId || exercise.imagePublicId || "",
-  branches: exercise.branches?.length ? exercise.branches : ["general"],
-});
+const EXERCISE_FIELDS =
+  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt";
+
+const normalizeExercise = (exercise) => {
+  const primaryMuscleGroup = getPrimaryMuscleGroup(exercise);
+  const normalized = {
+    ...exercise,
+    primaryMuscleGroup,
+  };
+  const categories = getExerciseCategories(normalized);
+  const movementPatterns = getExerciseMovementPatterns(normalized);
+  const equipment = getExerciseEquipment(normalized);
+  const goals = getExerciseGoals(normalized);
+
+  return {
+    ...normalized,
+    id: exercise._id || exercise.id,
+    category: exercise.category || categories[0] || "",
+    categories,
+    bodyRegion: getExerciseBodyRegion(normalized),
+    navigationRegion: getExerciseNavigationRegion(normalized),
+    muscle: primaryMuscleGroup,
+    primaryMuscle: primaryMuscleGroup,
+    movementPattern: exercise.movementPattern || movementPatterns[0] || "",
+    movementPatterns,
+    equipment,
+    exerciseType: getExerciseType(normalized),
+    laterality: getExerciseLaterality(normalized),
+    goals,
+    image: exercise.media?.image?.url || exercise.image || "",
+    imagePublicId:
+      exercise.media?.image?.publicId || exercise.imagePublicId || "",
+    branches: exercise.branches?.length ? exercise.branches : ["general"],
+  };
+};
 
 const normalizeSession = (session) => ({
   ...session,
@@ -44,7 +80,7 @@ const normalizeTraining = (training) => ({
   id: training._id || training.id,
 });
 
-const EXERCISES_KEY = ["exercises"];
+const EXERCISES_KEY = ["exercises", "taxonomy-v3", 1000];
 const SESSIONS_KEY = ["sessions"];
 const PHOTOS_KEY = ["photos"];
 const TRAININGS_KEY = ["trainings", 120];
@@ -59,9 +95,8 @@ export function TrainingProvider({ children }) {
     queryKey: EXERCISES_KEY,
     queryFn: async () => {
       const exsResponse = await api.getExercises({
-        fields:
-          "name,slug,muscle,primaryMuscle,secondaryMuscles,equipment,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt",
-        limit: 200,
+        fields: EXERCISE_FIELDS,
+        limit: 1000,
       });
       const list = Array.isArray(exsResponse)
         ? exsResponse
@@ -69,6 +104,7 @@ export function TrainingProvider({ children }) {
       return list.map(normalizeExercise);
     },
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: "always",
   });
 
   const sessionsQuery = useQuery({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { ArrowRight, Eye, Lock, Mail, Send } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, Send } from "lucide-react";
 import Button from "../components/ui/button";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import { useAuth } from "../context/AuthContext";
@@ -11,31 +11,10 @@ const roleHome = (role) => {
   return "perfil";
 };
 
-function SocialButtons() {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <button
-        type="button"
-        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
-      >
-        <span className="text-lg leading-none">G</span>
-        Google
-      </button>
-      <button
-        type="button"
-        className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/35 text-xs font-black text-blue-50/90 transition hover:bg-white/10 sm:h-11"
-      >
-        <span className="text-lg leading-none"></span>
-        Apple
-      </button>
-    </div>
-  );
-}
-
 function Field({ icon: Icon, label, children }) {
   return (
     <label className="block space-y-1.5 sm:space-y-2">
-      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-100/70">
+      <span className="text-[11px] font-black uppercase text-blue-100/75">
         {label}
       </span>
       <div className="relative">
@@ -54,9 +33,10 @@ export default function Login({ onNavigate = () => {} }) {
   const [recoverSent, setRecoverSent] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const inputClass =
-    "h-10 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
+    "h-12 w-full rounded-xl border border-white/10 bg-slate-950/45 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20";
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -66,7 +46,7 @@ export default function Login({ onNavigate = () => {} }) {
       const user = await login(form);
       onNavigate(roleHome(user?.role));
     } catch (_err) {
-      setError("Credenciales inválidas");
+      setError("Credenciales invalidas");
     } finally {
       setSubmitting(false);
     }
@@ -81,8 +61,8 @@ export default function Login({ onNavigate = () => {} }) {
     return (
       <PremiumAuthLayout
         variant="recover"
-        title="Recuperar Acceso"
-        subtitle="Introduce tu correo y te enviaremos las instrucciones para restablecer tu contraseña."
+        title="Recuperar acceso"
+        subtitle="Introduce tu correo y te enviaremos instrucciones para restablecer tu contrasena."
         eyebrow
         heroCompact
         onBack={() => setMode("login")}
@@ -91,21 +71,19 @@ export default function Login({ onNavigate = () => {} }) {
             <button
               type="button"
               onClick={() => setMode("login")}
-              className="text-sm font-semibold text-blue-100/80"
+              className="text-sm font-semibold text-blue-100/80 transition hover:text-blue-100"
             >
-              ¿Recordaste tu contraseña?{" "}
-              <span className="font-black text-blue-200">
-                Inicia sesión aquí
-              </span>
+              Recorde mi contrasena{" "}
+              <span className="font-black text-blue-200">Iniciar sesion</span>
             </button>
-            <p className="mt-10 text-[10px] font-black uppercase tracking-tight text-blue-100/20">
-              Apex Performance Systems © 2026
+            <p className="mt-10 text-[10px] font-black uppercase text-blue-100/20">
+              Apex Performance Systems 2026
             </p>
           </div>
         }
       >
         <form onSubmit={handleRecover} className="space-y-4">
-          <Field icon={Mail} label="Correo electrónico">
+          <Field icon={Mail} label="Correo electronico">
             <input
               type="email"
               required
@@ -115,13 +93,13 @@ export default function Login({ onNavigate = () => {} }) {
                 setRecoverSent(false);
                 setRecoverEmail(event.target.value);
               }}
-              placeholder="atleta@apex.com"
+              placeholder="nombre@correo.com"
               className={inputClass}
             />
           </Field>
           {recoverSent ? (
             <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
-              Si el correo existe, recibirás instrucciones en unos minutos.
+              Si el correo existe, recibiras instrucciones en unos minutos.
             </p>
           ) : null}
           <Button
@@ -139,35 +117,33 @@ export default function Login({ onNavigate = () => {} }) {
   return (
     <PremiumAuthLayout
       variant="login"
-      title="Push Your Limits"
-      subtitle="Inicia sesión para seguir tus métricas y preparar tu próxima sesión."
+      title="Entrena con control"
+      subtitle="Accede a tus rutinas, metricas y sesiones desde un solo lugar."
       hideHeroOnMobile
       footer={
         <div className="border-t border-white/10 pt-5 text-center">
           <p className="text-sm font-semibold text-blue-50/80">
-            ¿No tienes cuenta?
+            No tienes cuenta?
           </p>
           <button
             type="button"
             onClick={() => onNavigate("register")}
-            className="mt-1 text-base font-black text-emerald-300"
+            className="mt-1 text-base font-black text-emerald-300 transition hover:text-emerald-200"
           >
-            Regístrate gratis
+            Registrate gratis
           </button>
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-4">
-        <div className="pb-1 text-center lg:hidden">
-          <h1 className="text-2xl font-black tracking-tight text-white">
-            Iniciar sesión
-          </h1>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="text-center lg:hidden">
+          <h1 className="text-2xl font-black text-white">Iniciar sesion</h1>
           <p className="mt-1 text-sm font-semibold text-blue-50/70">
             Accede a tu cuenta de entrenamiento.
           </p>
         </div>
 
-        <Field icon={Mail} label="Email address">
+        <Field icon={Mail} label="Correo electronico">
           <input
             type="email"
             autoComplete="email"
@@ -176,33 +152,46 @@ export default function Login({ onNavigate = () => {} }) {
             onChange={(event) =>
               setForm((prev) => ({ ...prev, email: event.target.value }))
             }
-            placeholder="name@example.com"
+            placeholder="nombre@correo.com"
             className={inputClass}
           />
         </Field>
 
-        <Field icon={Lock} label="Password">
+        <Field icon={Lock} label="Contrasena">
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             required
             value={form.password}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, password: event.target.value }))
             }
-            placeholder="••••••••"
+            placeholder="Ingresa tu contrasena"
             className={`${inputClass} pr-12`}
           />
-          <Eye className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-100/45" />
+          <button
+            type="button"
+            onClick={() => setShowPassword((value) => !value)}
+            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-blue-100/55 transition hover:bg-white/10 hover:text-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-300/30"
+            aria-label={
+              showPassword ? "Ocultar contrasena" : "Mostrar contrasena"
+            }
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
         </Field>
 
-        <div className="-mt-2 flex justify-end">
+        <div className="-mt-1 flex justify-end">
           <button
             type="button"
             onClick={() => setMode("recover")}
-            className="text-[11px] font-black uppercase tracking-wide text-blue-200"
+            className="text-xs font-black text-blue-200 transition hover:text-blue-100"
           >
-            ¿Olvidaste?
+            Olvidaste tu contrasena?
           </button>
         </div>
 
@@ -214,22 +203,12 @@ export default function Login({ onNavigate = () => {} }) {
 
         <Button
           type="submit"
-          className="h-10 w-full rounded-xl bg-blue-500 text-base font-black text-blue-950 hover:bg-blue-400 sm:h-12"
+          className="h-12 w-full rounded-xl bg-blue-200 text-base font-black text-blue-950 hover:bg-blue-100"
           disabled={submitting}
         >
-          {submitting ? "Ingresando..." : "Log In"}
+          {submitting ? "Ingresando..." : "Ingresar"}
           <ArrowRight className="h-4 w-4" />
         </Button>
-
-        <div className="flex items-center gap-3 py-1 sm:py-2">
-          <span className="h-px flex-1 bg-white/10" />
-          <span className="text-[10px] font-black uppercase tracking-wide text-blue-100/55">
-            O continúa con
-          </span>
-          <span className="h-px flex-1 bg-white/10" />
-        </div>
-
-        <SocialButtons />
       </form>
     </PremiumAuthLayout>
   );

@@ -1,38 +1,74 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Camera } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../shared/Modal";
+import {
+  BODY_REGIONS,
+  DIFFICULTY_OPTIONS,
+  EQUIPMENT_OPTIONS,
+  EXECUTION_TYPE_OPTIONS,
+  EXERCISE_CATEGORIES,
+  EXERCISE_TYPE_OPTIONS,
+  GOAL_OPTIONS,
+  KINETIC_CHAIN_OPTIONS,
+  LATERALITY_OPTIONS,
+  POSITION_OPTIONS,
+  STABILITY_OPTIONS,
+  canonicalizeMuscleGroup,
+  getBodyRegionForGroup,
+  getDefaultMovementPatternForGroup,
+  getExerciseBodyRegion,
+  getExerciseCategories,
+  getExerciseEquipment,
+  getExerciseGoals,
+  getExerciseLaterality,
+  getExerciseMovementPatterns,
+  getExerciseNavigationRegion,
+  getExerciseType,
+  getMovementPatternsForBodyRegion,
+  getMuscleGroupsForBodyRegion,
+  getNavigationRegionForGroup,
+  getPrimaryMuscleGroup,
+  makeDefaultExerciseTaxonomy,
+  optionMatches,
+  toArray,
+} from "../../constants/exerciseTaxonomy";
+
+const defaultTaxonomy = makeDefaultExerciseTaxonomy("Pecho");
 
 const defaultForm = {
   name: "",
-  muscle: "Pecho",
-  primaryMuscle: "Pecho",
+  aliases: "",
+  categories: defaultTaxonomy.categories,
+  category: defaultTaxonomy.category,
+  bodyRegion: defaultTaxonomy.bodyRegion,
+  navigationRegion: defaultTaxonomy.navigationRegion,
+  muscle: defaultTaxonomy.primaryMuscleGroup,
+  primaryMuscle: defaultTaxonomy.primaryMuscleGroup,
+  primaryMuscleGroup: defaultTaxonomy.primaryMuscleGroup,
+  primaryMuscles: "",
   secondaryMuscles: "",
+  stabilizerMuscles: "",
+  movementPatterns: defaultTaxonomy.movementPatterns,
+  movementPattern: defaultTaxonomy.movementPattern,
+  equipment: [],
+  exerciseType: defaultTaxonomy.exerciseType,
+  laterality: defaultTaxonomy.laterality,
+  kineticChain: defaultTaxonomy.kineticChain,
+  executionType: defaultTaxonomy.executionType,
+  stability: defaultTaxonomy.stability,
+  position: defaultTaxonomy.position,
+  difficulty: defaultTaxonomy.difficulty,
+  goals: defaultTaxonomy.goals,
+  precautions: "",
   branches: ["general"],
   description: "",
-  equipment: "",
   tags: "",
   movementMode: "bilateral",
   supportsUnilateral: false,
   image: "",
   type: "custom",
 };
-
-const muscleOptions = [
-  "Pecho",
-  "Espalda",
-  "Piernas",
-  "Triceps",
-  "Biceps",
-  "Femoral",
-  "Cuadricep",
-  "Pantorrillas",
-  "Gluteo",
-  "Abdominales",
-  "Hombros",
-  "Core",
-  "Full Body",
-];
 
 function Field({ label, children, className = "" }) {
   return (
@@ -45,6 +81,52 @@ function Field({ label, children, className = "" }) {
   );
 }
 
+function ChipPicker({ label, options, selected, onToggle }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = selected.some((item) => optionMatches(item, option));
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onToggle(option)}
+              className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                active
+                  ? "border-blue-500 bg-blue-600 text-white"
+                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }) {
+  return (
+    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+      {children}
+    </p>
+  );
+}
+
+const slugify = (text = "") =>
+  text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
 function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
@@ -55,19 +137,50 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
 
   useEffect(() => {
     if (initialData) {
-      const primaryMuscle =
-        initialData.primaryMuscle || initialData.muscle || "Pecho";
+      const primaryMuscleGroup =
+        getPrimaryMuscleGroup(initialData) || defaultForm.primaryMuscleGroup;
+      const fallback = makeDefaultExerciseTaxonomy(primaryMuscleGroup);
+      const categories = getExerciseCategories(initialData);
+      const movementPatterns = getExerciseMovementPatterns(initialData);
+      const equipment = getExerciseEquipment(initialData);
+      const goals = getExerciseGoals(initialData);
+
       setForm({
         name: initialData.name || "",
-        muscle: initialData.muscle || primaryMuscle,
-        primaryMuscle,
-        secondaryMuscles: (initialData.secondaryMuscles || []).join(", "),
+        aliases: toArray(initialData.aliases).join(", "),
+        categories: categories.length ? categories : fallback.categories,
+        category: initialData.category || categories[0] || fallback.category,
+        bodyRegion: getExerciseBodyRegion(initialData) || fallback.bodyRegion,
+        navigationRegion:
+          getExerciseNavigationRegion(initialData) || fallback.navigationRegion,
+        muscle: primaryMuscleGroup,
+        primaryMuscle: primaryMuscleGroup,
+        primaryMuscleGroup,
+        primaryMuscles: toArray(initialData.primaryMuscles).join(", "),
+        secondaryMuscles: toArray(initialData.secondaryMuscles).join(", "),
+        stabilizerMuscles: toArray(initialData.stabilizerMuscles).join(", "),
+        movementPatterns: movementPatterns.length
+          ? movementPatterns
+          : fallback.movementPatterns,
+        movementPattern:
+          initialData.movementPattern ||
+          movementPatterns[0] ||
+          fallback.movementPattern,
+        equipment,
+        exerciseType: getExerciseType(initialData) || fallback.exerciseType,
+        laterality: getExerciseLaterality(initialData) || fallback.laterality,
+        kineticChain: initialData.kineticChain || fallback.kineticChain,
+        executionType: initialData.executionType || fallback.executionType,
+        stability: initialData.stability || fallback.stability,
+        position: initialData.position || fallback.position,
+        difficulty: initialData.difficulty || fallback.difficulty,
+        goals: goals.length ? goals : fallback.goals,
+        precautions: toArray(initialData.precautions).join(", "),
         branches: initialData.branches?.length
           ? initialData.branches
           : ["general"],
         description: initialData.description || "",
-        equipment: initialData.equipment || "",
-        tags: (initialData.tags || []).join(", "),
+        tags: toArray(initialData.tags).join(", "),
         movementMode: initialData.movementMode || "bilateral",
         supportsUnilateral: Boolean(initialData.supportsUnilateral),
         image: initialData.media?.image?.url || initialData.image || "",
@@ -81,16 +194,120 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
     setImageFile(null);
   }, [initialData, isAdmin]);
 
+  const movementOptions = useMemo(
+    () => getMovementPatternsForBodyRegion(form.bodyRegion),
+    [form.bodyRegion],
+  );
+
+  const muscleOptions = useMemo(
+    () => getMuscleGroupsForBodyRegion(form.bodyRegion),
+    [form.bodyRegion],
+  );
+
+  const cloudinaryPreview = useMemo(() => {
+    const scope = isAdmin && form.type === "system" ? "system" : "custom";
+    const base = [
+      "gym/exercises",
+      scope,
+      ...(scope === "custom" ? ["tu-usuario"] : []),
+      slugify(form.category || form.categories[0]) || "sin-categoria",
+      slugify(form.bodyRegion) || "sin-region",
+      slugify(form.primaryMuscleGroup) || "sin-grupo",
+      slugify(form.movementPattern || form.movementPatterns[0]) || "sin-patron",
+      slugify(form.name) || "sin-nombre",
+      "main",
+    ];
+    return base.join("/");
+  }, [
+    form.bodyRegion,
+    form.categories,
+    form.category,
+    form.movementPattern,
+    form.movementPatterns,
+    form.name,
+    form.primaryMuscleGroup,
+    form.type,
+    isAdmin,
+  ]);
+
   const inputClass =
     "h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
 
+  const textareaClass =
+    "min-h-24 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
+
+  const updatePrimaryGroup = (group) => {
+    const primaryMuscleGroup = canonicalizeMuscleGroup(group);
+    const bodyRegion = getBodyRegionForGroup(primaryMuscleGroup);
+    const movementPattern =
+      getDefaultMovementPatternForGroup(primaryMuscleGroup);
+    setForm((prev) => ({
+      ...prev,
+      bodyRegion: bodyRegion || prev.bodyRegion,
+      navigationRegion: getNavigationRegionForGroup(primaryMuscleGroup),
+      muscle: primaryMuscleGroup,
+      primaryMuscle: primaryMuscleGroup,
+      primaryMuscleGroup,
+      movementPatterns: [movementPattern],
+      movementPattern,
+    }));
+  };
+
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
+    if (name === "bodyRegion") {
+      const firstGroup = getMuscleGroupsForBodyRegion(value)[0] || "Pecho";
+      const movementPattern = getDefaultMovementPatternForGroup(firstGroup);
+      setForm((prev) => ({
+        ...prev,
+        bodyRegion: value,
+        navigationRegion: getNavigationRegionForGroup(firstGroup),
+        muscle: firstGroup,
+        primaryMuscle: firstGroup,
+        primaryMuscleGroup: firstGroup,
+        movementPatterns: [movementPattern],
+        movementPattern,
+      }));
+      return;
+    }
+    if (name === "primaryMuscleGroup") {
+      updatePrimaryGroup(value);
+      return;
+    }
+    if (name === "laterality") {
+      setForm((prev) => ({
+        ...prev,
+        laterality: value,
+        supportsUnilateral:
+          optionMatches(value, "Unilateral") || prev.supportsUnilateral,
+        movementMode: optionMatches(value, "Unilateral")
+          ? "unilateral"
+          : "bilateral",
+      }));
+      return;
+    }
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
-      ...(name === "primaryMuscle" ? { muscle: value } : {}),
     }));
+  };
+
+  const toggleListValue = (field, value) => {
+    setForm((prev) => {
+      const current = toArray(prev[field]);
+      const exists = current.some((item) => optionMatches(item, value));
+      const next = exists
+        ? current.filter((item) => !optionMatches(item, value))
+        : [...current, value];
+      return {
+        ...prev,
+        [field]: next,
+        ...(field === "categories" ? { category: next[0] || "" } : {}),
+        ...(field === "movementPatterns"
+          ? { movementPattern: next[0] || "" }
+          : {}),
+      };
+    });
   };
 
   const toggleBranch = (value) => {
@@ -116,8 +333,10 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       await onSave({
         ...initialData,
         ...form,
-        muscle: form.primaryMuscle || form.muscle,
-        primaryMuscle: form.primaryMuscle || form.muscle,
+        category: form.categories[0] || form.category,
+        muscle: form.primaryMuscleGroup,
+        primaryMuscle: form.primaryMuscleGroup,
+        movementPattern: form.movementPatterns[0] || form.movementPattern,
         type: isAdmin ? form.type : "custom",
         imageFile,
       });
@@ -152,17 +371,13 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       subtitle={null}
       onClose={onClose}
       footer={footer}
-      size="default"
+      size="wide"
     >
-      <form
-        id="exercise-form"
-        className="space-y-4"
-        onSubmit={handleSubmit}
-      >
+      <form id="exercise-form" className="space-y-5" onSubmit={handleSubmit}>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+          <SectionTitle>
             {mode === "edit" ? "Editar ejercicio" : "Nuevo ejercicio"}
-          </p>
+          </SectionTitle>
           <h3 className="mt-1 text-2xl font-black text-[color:var(--text)]">
             {form.name || "Ejercicio"}
           </h3>
@@ -174,11 +389,11 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
               <img
                 src={preview || form.image}
                 alt="Vista previa"
-                className="aspect-[16/10] w-full object-cover"
+                className="aspect-[16/8] w-full object-cover"
               />
             ) : (
-              <div className="grid aspect-[16/10] w-full place-items-center text-center text-sm font-semibold text-[color:var(--text-muted)]">
-                <span className="grid gap-2 place-items-center">
+              <div className="grid aspect-[16/8] w-full place-items-center text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                <span className="grid place-items-center gap-2">
                   <Camera className="h-7 w-7" />
                   Agregar imagen
                 </span>
@@ -192,6 +407,17 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
             />
           </div>
         </label>
+
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+          <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+            {isAdmin
+              ? "Como administrador puedes cargar imágenes del catálogo global. El nombre en Cloudinary se genera automáticamente con la taxonomía del ejercicio."
+              : "Tu cuenta puede crear rutinas y ejercicios personales. El catálogo global y sus imágenes solo los modifica un administrador."}
+          </p>
+          <p className="mt-2 break-all rounded-xl bg-[color:var(--card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+            {cloudinaryPreview}
+          </p>
+        </div>
 
         {isAdmin && (
           <div className="grid grid-cols-2 gap-2">
@@ -215,91 +441,276 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
           </div>
         )}
 
-        <Field label="Nombre">
-          <input
-            className={inputClass}
-            name="name"
-            value={form.name}
+        <section className="space-y-3">
+          <SectionTitle>Identidad</SectionTitle>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Nombre">
+              <input
+                className={inputClass}
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+                placeholder="Press banca con barra"
+              />
+            </Field>
+            <Field label="Alias">
+              <input
+                className={inputClass}
+                name="aliases"
+                value={form.aliases}
+                onChange={handleChange}
+                placeholder="Press banca, Bench press"
+              />
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <SectionTitle>Taxonomía principal</SectionTitle>
+          <ChipPicker
+            label="Categorías"
+            options={EXERCISE_CATEGORIES}
+            selected={form.categories}
+            onToggle={(value) => toggleListValue("categories", value)}
+          />
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="Región corporal">
+              <select
+                className={inputClass}
+                name="bodyRegion"
+                value={form.bodyRegion}
+                onChange={handleChange}
+              >
+                {BODY_REGIONS.map((region) => (
+                  <option key={region}>{region}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Grupo principal">
+              <select
+                className={inputClass}
+                name="primaryMuscleGroup"
+                value={form.primaryMuscleGroup}
+                onChange={handleChange}
+              >
+                {muscleOptions.map((muscle) => (
+                  <option key={muscle}>{muscle}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Navegación visual">
+              <input
+                className={inputClass}
+                name="navigationRegion"
+                value={form.navigationRegion}
+                onChange={handleChange}
+                placeholder="Pecho"
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="Músculos principales">
+              <input
+                className={inputClass}
+                name="primaryMuscles"
+                value={form.primaryMuscles}
+                onChange={handleChange}
+                placeholder="Pectoral mayor"
+              />
+            </Field>
+            <Field label="Secundarios">
+              <input
+                className={inputClass}
+                name="secondaryMuscles"
+                value={form.secondaryMuscles}
+                onChange={handleChange}
+                placeholder="Tríceps braquial"
+              />
+            </Field>
+            <Field label="Estabilizadores">
+              <input
+                className={inputClass}
+                name="stabilizerMuscles"
+                value={form.stabilizerMuscles}
+                onChange={handleChange}
+                placeholder="Manguito rotador"
+              />
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <SectionTitle>Movimiento</SectionTitle>
+          <ChipPicker
+            label="Patrones"
+            options={movementOptions}
+            selected={form.movementPatterns}
+            onToggle={(value) => toggleListValue("movementPatterns", value)}
+          />
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="Tipo">
+              <select
+                className={inputClass}
+                name="exerciseType"
+                value={form.exerciseType}
+                onChange={handleChange}
+              >
+                {EXERCISE_TYPE_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Lateralidad">
+              <select
+                className={inputClass}
+                name="laterality"
+                value={form.laterality}
+                onChange={handleChange}
+              >
+                {LATERALITY_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Cadena cinética">
+              <select
+                className={inputClass}
+                name="kineticChain"
+                value={form.kineticChain}
+                onChange={handleChange}
+              >
+                {KINETIC_CHAIN_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <Field label="Ejecución">
+              <select
+                className={inputClass}
+                name="executionType"
+                value={form.executionType}
+                onChange={handleChange}
+              >
+                {EXECUTION_TYPE_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Estabilidad">
+              <select
+                className={inputClass}
+                name="stability"
+                value={form.stability}
+                onChange={handleChange}
+              >
+                {STABILITY_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Posición">
+              <select
+                className={inputClass}
+                name="position"
+                value={form.position}
+                onChange={handleChange}
+              >
+                {POSITION_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nivel">
+              <select
+                className={inputClass}
+                name="difficulty"
+                value={form.difficulty}
+                onChange={handleChange}
+              >
+                {DIFFICULTY_OPTIONS.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <SectionTitle>Filtros independientes</SectionTitle>
+          <ChipPicker
+            label="Equipamiento"
+            options={EQUIPMENT_OPTIONS}
+            selected={form.equipment}
+            onToggle={(value) => toggleListValue("equipment", value)}
+          />
+          <ChipPicker
+            label="Objetivos"
+            options={GOAL_OPTIONS}
+            selected={form.goals}
+            onToggle={(value) => toggleListValue("goals", value)}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Precauciones">
+              <input
+                className={inputClass}
+                name="precautions"
+                value={form.precautions}
+                onChange={handleChange}
+                placeholder="Alta demanda de hombro"
+              />
+            </Field>
+            <Field label="Tags">
+              <input
+                className={inputClass}
+                name="tags"
+                value={form.tags}
+                onChange={handleChange}
+                placeholder="fuerza, press"
+              />
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <SectionTitle>Disponibilidad</SectionTitle>
+          <div className="grid grid-cols-3 gap-2">
+            {["general", "sopocachi", "miraflores"].map((branch) => (
+              <button
+                key={branch}
+                type="button"
+                onClick={() => toggleBranch(branch)}
+                className={`h-11 rounded-xl border px-2 text-xs font-black transition ${
+                  form.branches?.includes(branch)
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                }`}
+              >
+                {branch === "general"
+                  ? "Todas"
+                  : branch.charAt(0).toUpperCase() + branch.slice(1)}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <Field label="Descripción técnica">
+          <textarea
+            className={textareaClass}
+            name="description"
+            value={form.description}
             onChange={handleChange}
-            required
-            placeholder="Press banca con barra"
+            placeholder="Indicaciones clave, rango de movimiento y control técnico."
           />
         </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Musculo">
-            <select
-              className={inputClass}
-              name="primaryMuscle"
-              value={form.primaryMuscle}
-              onChange={handleChange}
-            >
-              {muscleOptions.map((muscle) => (
-                <option key={muscle}>{muscle}</option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="Equipo">
-            <input
-              className={inputClass}
-              name="equipment"
-              value={form.equipment}
-              onChange={handleChange}
-              placeholder="Barra"
-            />
-          </Field>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-              Unilateral
-            </p>
-            <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-              Si puede hacerse lado por lado.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              setForm((prev) => ({
-                ...prev,
-                supportsUnilateral: !prev.supportsUnilateral,
-                movementMode: !prev.supportsUnilateral ? "unilateral" : "bilateral",
-              }))
-            }
-            className={`relative h-7 w-12 rounded-full transition ${
-              form.supportsUnilateral ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700"
-            }`}
-            aria-pressed={form.supportsUnilateral}
-          >
-            <span
-              className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                form.supportsUnilateral ? "left-6" : "left-1"
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {["general", "sopocachi", "miraflores"].map((branch) => (
-            <button
-              key={branch}
-              type="button"
-              onClick={() => toggleBranch(branch)}
-              className={`h-11 rounded-xl border px-2 text-xs font-black transition ${
-                form.branches?.includes(branch)
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-              }`}
-            >
-              {branch === "general"
-                ? "Todas"
-                : branch.charAt(0).toUpperCase() + branch.slice(1)}
-            </button>
-          ))}
-        </div>
       </form>
     </Modal>
   );

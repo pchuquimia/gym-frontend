@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight, ImageIcon } from "lucide-react";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
+import {
+  formatList,
+  getExerciseCategories,
+  getExerciseEquipment,
+  getExerciseMovementPatterns,
+  getPrimaryMuscleGroup,
+} from "../../constants/exerciseTaxonomy";
 
 function ExerciseCard({ exercise, onView }) {
   const [imageSrc, setImageSrc] = useState(() =>
@@ -34,8 +41,11 @@ function ExerciseCard({ exercise, onView }) {
     return () => observer.disconnect();
   }, [exercise.id, exercise._id, imageSrc]);
 
-  const typeLabel = exercise.type === "system" ? "Catalogo" : "Personal";
-  const muscle = exercise.primaryMuscle || exercise.muscle || "Sin grupo";
+  const sourceLabel = exercise.type === "system" ? "Catalogo" : "Personal";
+  const muscle = getPrimaryMuscleGroup(exercise) || "Sin grupo";
+  const category = getExerciseCategories(exercise)[0] || sourceLabel;
+  const pattern = getExerciseMovementPatterns(exercise)[0] || "Sin patrón";
+  const equipment = formatList(getExerciseEquipment(exercise), "Sin equipo");
 
   return (
     <button
@@ -59,18 +69,21 @@ function ExerciseCard({ exercise, onView }) {
         )}
       </div>
 
-      <div className="min-w-0">
+      <div className="min-w-0 space-y-1.5">
         <h3 className="truncate text-base font-black leading-tight text-[color:var(--text)]">
           {exercise.name}
         </h3>
-        <div className="mt-2 flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">
             {muscle}
           </span>
           <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
-            {typeLabel}
+            {category}
           </span>
         </div>
+        <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
+          {pattern} / {equipment}
+        </p>
       </div>
 
       <ChevronRight className="h-5 w-5 text-blue-300" />

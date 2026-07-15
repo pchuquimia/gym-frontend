@@ -14,6 +14,11 @@ const AuthContext = createContext(null);
 
 const normalizeUser = (payload) => payload?.user || payload || null;
 
+const shouldUseDevAdminLogin = () => {
+  if (!import.meta.env.DEV || typeof window === "undefined") return false;
+  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+};
+
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
@@ -29,6 +34,17 @@ export function AuthProvider({ children }) {
       setUser(nextUser);
       return nextUser;
     } catch (_err) {
+      if (shouldUseDevAdminLogin()) {
+        try {
+          const data = await api.devAdminLogin();
+          if (data?.token) setAuthToken(data.token);
+          const nextUser = normalizeUser(data);
+          setUser(nextUser);
+          return nextUser;
+        } catch {
+          // Fall through to normal unauthenticated state.
+        }
+      }
       clearAuthToken();
       setUser(null);
       return null;
