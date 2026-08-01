@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Check, X } from "lucide-react";
 
 export default function SetRow({
   index,
+  exerciseName,
   seriesType = "serie",
   entries = [],
   prSummary = "",
@@ -38,7 +39,7 @@ export default function SetRow({
   const handleDragEnd = (_, info) => {
     if (!isMobile) return;
     if (info.offset.x < -60) {
-      const ok = window.confirm("Eliminar este set?");
+      const ok = window.confirm("¿Eliminar esta serie?");
       if (ok && onRemove) onRemove();
     }
     x.set(0);
@@ -170,7 +171,7 @@ export default function SetRow({
                     )
                   }
                   placeholder="0"
-                  aria-label="Peso en kilogramos"
+                  aria-label={`Peso en kilogramos, ${exerciseName}, serie ${index}`}
                 />
                 <span className="ml-1 w-4 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
                   kg
@@ -191,7 +192,7 @@ export default function SetRow({
                     )
                   }
                   placeholder="0"
-                  aria-label="Repeticiones"
+                  aria-label={`Repeticiones, ${exerciseName}, serie ${index}`}
                 />
                 <span className="ml-1 w-5 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
                   rep
@@ -209,8 +210,8 @@ export default function SetRow({
                   }`}
                   aria-label={
                     entryDone
-                      ? "Marcar como pendiente"
-                      : "Marcar como completado"
+                      ? `Marcar ${exerciseName}, serie ${index} como pendiente`
+                      : `Completar ${exerciseName}, serie ${index}`
                   }
                 >
                   {entryDone ? <Check className="h-4 w-4" /> : null}
@@ -226,6 +227,7 @@ export default function SetRow({
 
 SetRow.propTypes = {
   index: PropTypes.number.isRequired,
+  exerciseName: PropTypes.string.isRequired,
   seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
   entries: PropTypes.arrayOf(
     PropTypes.shape({

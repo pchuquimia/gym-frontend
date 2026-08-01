@@ -1,8 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
   Circle,
   CircleDot,
@@ -24,6 +22,7 @@ import Badge from "../components/ui/badge";
 import Modal from "../components/shared/Modal";
 import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
+import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
@@ -307,8 +306,11 @@ function RoutineSetupCard({ routine, selected, onClick }) {
             {routine.name}
           </p>
           <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-            {routine.exerciseCount} ejercicios · ~
-            {Math.max(45, routine.exerciseCount * 10)} min
+            {routine.exerciseCount} principales
+            {routine.optionalExerciseCount
+              ? ` + ${routine.optionalExerciseCount} opcional`
+              : ""}{" "}
+            · ~{Math.max(45, routine.exerciseCount * 10)} min
           </p>
         </div>
       </div>
@@ -1043,6 +1045,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
   const [externalHistoryTrainings, setExternalHistoryTrainings] = useState([]);
@@ -1073,6 +1076,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [restTimerStarted, setRestTimerStarted] = useState(false);
   const [restDeadlineMs, setRestDeadlineMs] = useState(null);
   const restVibratedRef = useRef(false);
+  const loadTrainingByIdRef = useRef(null);
+  const loadHistoryForRoutineRef = useRef(null);
+  const mergeRoutineIntoActiveExercisesRef = useRef(null);
+  const loadTrainingForDateRef = useRef(null);
+  const applyHistoryToExercisesRef = useRef(null);
+  const buildExercisesForRoutineRef = useRef(null);
+  const notifyRestCompleteRef = useRef(null);
   const restAudioContextRef = useRef(null);
 
   const branchOptions = useMemo(() => {
@@ -1100,20 +1110,29 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [trainings]);
 
   const toRoutineOption = useCallback(
-    (r) => ({
-      id: r.id,
-      name: r.name,
-      location: normalizeBranch(r.branch),
-      progressScopeId: r.progressScopeId || "",
-      progressMode: r.progressMode || "fresh",
-      sourceRoutineId: r.sourceRoutineId || null,
-      exerciseCount: (r.exercises || []).length,
-      lastDate:
-        formatShort(
-          latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt,
-        ) || "--",
-      raw: r,
-    }),
+    (r) => {
+      const primaryExercises = (r.exercises || []).filter(
+        (exercise) => !exercise.isExtra,
+      );
+      const optionalExercises = (r.exercises || []).filter(
+        (exercise) => exercise.isExtra,
+      );
+      return {
+        id: r.id,
+        name: r.name,
+        location: normalizeBranch(r.branch),
+        progressScopeId: r.progressScopeId || "",
+        progressMode: r.progressMode || "fresh",
+        sourceRoutineId: r.sourceRoutineId || null,
+        exerciseCount: primaryExercises.length,
+        optionalExerciseCount: optionalExercises.length,
+        lastDate:
+          formatShort(
+            latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt,
+          ) || "--",
+        raw: r,
+      };
+    },
     [latestRoutineDates],
   );
 
@@ -1174,6 +1193,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         (!search || ex.name.toLowerCase().includes(search)),
     );
   }, [libraryExerciseOptions, exerciseSearch, selectedMuscleGroup]);
+  const sessionLocked =
+    hasStarted ||
+    isRunning ||
+    durationSeconds > 0 ||
+    exercises.some(exerciseHasUserInput);
 
   const activeOrderSignature = useMemo(
     () =>
@@ -2010,7 +2034,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setNowMs(now);
     setIsRunning(true);
     setHasStarted(true);
-    if (!silent) toast.message("Ejercicio iniciado.");
+    setExpandedExerciseId(exerciseId);
+    if (!silent && typeof document !== "undefined") {
+      window.setTimeout(() => {
+        const target = Array.from(
+          document.querySelectorAll("[data-exercise-id]"),
+        ).find((element) => element.dataset.exerciseId === exerciseId);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
   };
 
   const loadTrainingForDate = async (
@@ -2199,6 +2231,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
   };
 
+  loadTrainingByIdRef.current = loadTrainingById;
+  loadHistoryForRoutineRef.current = loadHistoryForRoutine;
+  mergeRoutineIntoActiveExercisesRef.current = mergeRoutineIntoActiveExercises;
+  loadTrainingForDateRef.current = loadTrainingForDate;
+  applyHistoryToExercisesRef.current = applyHistoryToExercises;
+  buildExercisesForRoutineRef.current = buildExercisesForRoutine;
+
   useEffect(() => {
     if (!allRoutineOptions.length) return;
     if (initializedTrainingScreen.current) return;
@@ -2214,7 +2253,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (editId) {
       setEditingId(editId);
       (async () => {
-        await loadTrainingById(editId);
+        await loadTrainingByIdRef.current?.(editId);
         if (editDate) setSessionDate(editDate);
       })();
     } else {
@@ -2239,7 +2278,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (historyTrainings.length) return;
     if (historyLoadAttempted.current) return;
     historyLoadAttempted.current = true;
-    loadHistoryForRoutine(selectedRoutineId);
+    loadHistoryForRoutineRef.current?.(selectedRoutineId);
   }, [selectedRoutineId, historyTrainings.length]);
 
   useEffect(() => {
@@ -2274,7 +2313,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
 
     setExercises((prev) => {
-      const result = mergeRoutineIntoActiveExercises(prev, latestRoutine.raw);
+      const result = mergeRoutineIntoActiveExercisesRef.current(
+        prev,
+        latestRoutine.raw,
+      );
       if (shouldNotify) {
         const details = [];
         if (result.added) details.push(`${result.added} agregados`);
@@ -2424,14 +2466,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       restoredFromSnapshot.current = false;
       return;
     }
-    loadTrainingForDate(sessionDate, selectedRoutineId);
-  }, [sessionDate, isEditing]);
+    loadTrainingForDateRef.current?.(sessionDate, selectedRoutineId);
+  }, [sessionDate, isEditing, selectedRoutineId]);
 
   useEffect(() => {
     if (!historyTrainings.length) return;
     if (!exercises.length) return;
     setExercises((prev) =>
-      applyHistoryToExercises(
+      applyHistoryToExercisesRef.current(
         prev,
         historyBest,
         historyBestBySet,
@@ -2506,7 +2548,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   // Guardar snapshot local del entrenamiento en curso
   useEffect(() => {
-    persistTrainingSnapshot();
+    const timeoutId = window.setTimeout(persistTrainingSnapshot, 250);
+    return () => window.clearTimeout(timeoutId);
   }, [persistTrainingSnapshot]);
 
   const handleEditRoutineFromTraining = useCallback(() => {
@@ -2611,6 +2654,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     playRestCompleteSound();
   };
+  notifyRestCompleteRef.current = notifyRestComplete;
 
   useEffect(() => {
     if (!restTimerRunning || !restDeadlineMs) {
@@ -2627,7 +2671,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (remaining <= 0) {
         clearInterval(restTimerRef.current);
         setRestTimerRunning(false);
-        notifyRestComplete();
+        notifyRestCompleteRef.current?.();
       }
     };
 
@@ -2646,7 +2690,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setRestRemainingSeconds(remaining);
       if (remaining <= 0) {
         setRestTimerRunning(false);
-        notifyRestComplete();
+        notifyRestCompleteRef.current?.();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -2730,7 +2774,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     ]);
     setIsRunning(true);
     setHasStarted(true);
-    toast.success("Entrenamiento iniciado");
   };
 
   const handleStartSetupSession = () => {
@@ -2740,6 +2783,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     if (!selectedRoutineId) {
       toast.message("Selecciona una rutina para iniciar.");
+      return;
+    }
+    if (loadingTraining) {
+      toast.message("Espera mientras cargamos la rutina.");
+      return;
+    }
+    if (!exercises.length) {
+      toast.error("La rutina todavía no tiene ejercicios disponibles.");
       return;
     }
     setSetupStarted(true);
@@ -2766,13 +2817,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     lastUpdateRef.current = now;
     setNowMs(now);
     setIsRunning(false);
+    setDurationSeconds(0);
     setTimeEvents([]);
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setHasStarted(false);
-    setSetupStarted(false);
-    setBranchConfirmed(false);
     setSessionMenuOpen(false);
+    toast.message("Cronómetro reiniciado. Tus series se conservaron.");
   };
 
   const resetState = () => {
@@ -2815,6 +2866,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const handleSelectRoutine = (id) => {
     if (!id || id === "sin-rutina") return;
+    if (sessionLocked) {
+      toast.message("Finaliza o cancela la sesión antes de cambiar de rutina.");
+      return;
+    }
     const found = routineOptions.find((r) => r.id === id);
     const branch = normalizeBranch(found?.location);
     branchChangeReason.current = "routine";
@@ -2822,6 +2877,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchConfirmed(true);
     setSelectedRoutineId(id);
     setSelectedRoutine(found || null);
+    setLoadingTraining(true);
     setIsRunning(false);
     setHasStarted(false);
     setSetupStarted(false);
@@ -2852,10 +2908,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         recentBySetMap,
         seriesTypeMap,
       );
-    })();
+    })().catch((error) => {
+      console.error("No se pudo preparar la rutina", error);
+      setLoadingTraining(false);
+      toast.error("No se pudo cargar la rutina seleccionada.");
+    });
   };
 
   const handleBranchChange = (value) => {
+    if (sessionLocked) {
+      toast.message("Finaliza o cancela la sesión antes de cambiar de sede.");
+      return;
+    }
     branchChangeReason.current = "user";
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
@@ -3518,14 +3582,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           previousText: set.previousText,
                         },
                       ];
-                const entriesPayload = entries.map((entry, entryIdx) => ({
-                  weightKg: parseDecimal(entry.kg),
-                  reps: parseDecimal(entry.reps),
-                  done: Boolean(entry.done),
-                  order: entryIdx + 1,
-                  previousText: entry.previousText,
-                  completedAt: entry.completedAt || null,
-                }));
+                const entriesPayload = entries.map((entry, entryIdx) => {
+                  const shouldPersist = Boolean(
+                    entry.done || entry.userEdited || entry.completedAt,
+                  );
+                  return {
+                    weightKg: shouldPersist ? parseDecimal(entry.kg) : null,
+                    reps: shouldPersist ? parseDecimal(entry.reps) : null,
+                    done: Boolean(entry.done),
+                    order: entryIdx + 1,
+                    previousText: entry.previousText,
+                    completedAt: entry.completedAt || null,
+                  };
+                });
                 const hasValues = entriesPayload.some(
                   (entry) =>
                     entry.weightKg !== null ||
@@ -3567,6 +3636,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           .filter((ex) => ex.sets.length > 0),
       };
       // verificar duplicados en misma fecha + rutina
+      let duplicateTrainingId = "";
       if (selectedRoutine?.id) {
         const existing = await api.getTrainings({
           from: dateStr,
@@ -3581,9 +3651,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         );
         if (dup) {
           const proceed = window.confirm(
-            "Ya existe un entrenamiento para esta rutina en esa fecha. Â¿Deseas sobrescribirlo?",
+            "Ya existe un entrenamiento para esta rutina en esa fecha. ¿Deseas reemplazarlo?",
           );
           if (!proceed) return;
+          duplicateTrainingId = dup._id || dup.id;
         }
       }
 
@@ -3592,6 +3663,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         savedTraining = await updateTraining(editingId, payload);
         setEditingId("");
         setIsEditing(false);
+      } else if (duplicateTrainingId) {
+        savedTraining = await updateTraining(duplicateTrainingId, payload);
       } else {
         savedTraining = await addTraining(payload);
       }
@@ -3624,7 +3697,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
       toast.error(
-        "No se pudo guardar el entrenamiento. Revisa tu conexiÃ³n o intenta de nuevo.",
+        "No se pudo guardar el entrenamiento. Revisa tu conexión o intenta de nuevo.",
       );
     }
   };
@@ -3639,15 +3712,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     await confirmFinishTraining();
   };
 
-  const handleCancel = () => {
+  const performCancel = () => {
     setSessionMenuOpen(false);
+    setCancelConfirmOpen(false);
     if (isEditing) {
       handleExitEdit();
-      toast.message("Edicion cancelada");
+      toast.message("Edición cancelada");
       return;
     }
     resetState();
     toast.message("Entrenamiento cancelado");
+  };
+
+  const handleCancel = () => {
+    setSessionMenuOpen(false);
+    if (sessionLocked) {
+      setCancelConfirmOpen(true);
+      return;
+    }
+    performCancel();
   };
 
   const totalSets = useMemo(
@@ -3745,7 +3828,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const routineExtras = selectedRoutine?.raw?.exercises || [];
     const extras = routineExtras.filter((ex) => ex.isExtra);
     if (!extras.length) return [];
-    return buildExercisesForRoutine(
+    return buildExercisesForRoutineRef.current(
       { exercises: extras },
       null,
       historyBest,
@@ -3797,13 +3880,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   return (
     <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-70 dark:opacity-100 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(59,130,246,0.18),transparent_55%),radial-gradient(80%_60%_at_85%_0%,rgba(14,165,233,0.16),transparent_60%)]"
+      <Toaster
+        position="top-center"
+        richColors
+        offset={16}
+        mobileOffset={{ top: "4.5rem", left: "0.75rem", right: "0.75rem" }}
       />
-      <Toaster position="top-center" richColors />
       <div
-        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden pb-28 md:max-w-4xl md:px-4 lg:max-w-6xl space-y-4 ${
+        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden pb-28 md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
           showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"
         }`}
       >
@@ -3837,6 +3921,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
                 {formatDuration(durationSeconds)}
               </button>
+              <button
+                type="button"
+                onClick={handleOpenRestTimer}
+                className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
+                  restTimerRunning
+                    ? "bg-emerald-600 text-white"
+                    : "bg-[color:var(--card)] text-[color:var(--text)]"
+                }`}
+                aria-label="Abrir temporizador de descanso"
+              >
+                <Timer className="h-4 w-4" />
+                {restTimerStarted ? (
+                  <span className="absolute -right-1.5 -top-1.5 rounded-full bg-blue-600 px-1 text-[8px] font-black text-white">
+                    {restTimerLabel}
+                  </span>
+                ) : null}
+              </button>
               {showFinishButton ? (
                 <button
                   type="button"
@@ -3844,7 +3945,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   disabled={!exercises.length}
                   className="h-9 shrink-0 rounded-xl bg-blue-300 px-4 text-xs font-black uppercase tracking-wide text-blue-950 disabled:opacity-60"
                 >
-                  Finish
+                  Finalizar
                 </button>
               ) : null}
             </div>
@@ -3913,20 +4014,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
         <div className="hidden md:flex items-center justify-between">
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
-          <div className="flex items-center gap-2">
-            {isEditing && (
-              <Button variant="outline" size="sm" onClick={handleExitEdit}>
-                Salir de edicion
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-10 w-10 text-[color:var(--text-muted)]"
-            >
-              <MoreVertical className="h-5 w-5" />
+          {isEditing ? (
+            <Button variant="outline" size="sm" onClick={handleExitEdit}>
+              Salir de edición
             </Button>
-          </div>
+          ) : null}
         </div>
 
         {!setupStarted && !isEditing ? (
@@ -4065,7 +4157,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         : "text-[color:var(--text-muted)]"
                     }`}
                   >
-                    Live
+                    En curso
                   </span>
                 </div>
                 {activeExercise && (
@@ -4109,6 +4201,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <button
                 type="button"
                 onClick={() => {
+                  if (sessionLocked) return;
                   if (datePickerRef.current?.showPicker) {
                     datePickerRef.current.showPicker();
                   } else if (datePickerRef.current) {
@@ -4116,13 +4209,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     datePickerRef.current.click();
                   }
                 }}
-                className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)]"
+                disabled={sessionLocked}
+                className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Fecha: {formatLongDate(sessionDate)}
                 <input
                   ref={datePickerRef}
                   type="date"
                   value={sessionDate}
+                  disabled={sessionLocked}
                   onChange={(e) => {
                     const nextDate = e.target.value
                       ? e.target.value.slice(0, 10)
@@ -4206,7 +4301,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
               <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Total sets
+                  Total series
                 </p>
                 <p className="mt-3 text-3xl font-black leading-none text-[color:var(--text)]">
                   {totalSets}
@@ -4216,7 +4311,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     <span
                       key={index}
                       className={`h-1.5 rounded-full ${
-                        index < Math.max(1, Math.ceil(progressPct / 20))
+                        progressPct > 0 && index < Math.ceil(progressPct / 20)
                           ? "bg-emerald-400"
                           : "bg-[color:var(--border)]"
                       }`}
@@ -4242,7 +4337,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 <select
                   value={selectedBranch}
                   onChange={(e) => handleBranchChange(e.target.value)}
-                  className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  disabled={sessionLocked}
+                  className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {branchOptions.map((b) => (
                     <option
@@ -4250,7 +4346,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       value={b}
                       className="bg-[color:var(--card)] text-[color:var(--text)]"
                     >
-                      {b}
+                      {getBranchTitle(b)}
                     </option>
                   ))}
                 </select>
@@ -4277,6 +4373,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   }
                   routines={routineOptions}
                   onSelect={handleSelectRoutine}
+                  disabled={sessionLocked}
                 />
               </div>
             </Card>
@@ -4286,180 +4383,115 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             {selectedRoutineId ? (
               <>
                 <div className="min-w-0 max-w-full space-y-4">
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[color:var(--text)]">
-                        Orden de ejecución
-                      </p>
-                      <p className="truncate text-[11px] text-[color:var(--text-muted)]">
-                        {orderMatchedHistoryTrainings.length
-                          ? `${orderMatchedHistoryTrainings.length} sesiones con este orden`
-                          : "Sin antecedentes con este orden"}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant={isOrderingExercises ? "default" : "outline"}
-                      size="sm"
-                      className="shrink-0 rounded-xl"
-                      onClick={() =>
-                        setIsOrderingExercises((current) => !current)
-                      }
-                    >
-                      {isOrderingExercises ? "Listo" : "Ordenar"}
-                    </Button>
-                  </div>
+                  <ExerciseOrderPanel
+                    exercises={exercises}
+                    historyCount={orderMatchedHistoryTrainings.length}
+                    active={isOrderingExercises}
+                    onToggle={() =>
+                      setIsOrderingExercises((current) => !current)
+                    }
+                    onReorder={(nextOrder) =>
+                      setExercises(applyExerciseOrder(nextOrder))
+                    }
+                    onMove={handleMoveExercise}
+                  />
 
                   <div
                     className={`min-w-0 max-w-full space-y-3 ${
-                      isOrderingExercises ? "" : "md:hidden"
+                      isOrderingExercises ? "hidden" : "md:hidden"
                     }`}
                   >
-                    {isOrderingExercises ? (
-                      <div className="space-y-2">
-                        {exercises.map((ex, exerciseIndex) => (
-                          <div
-                            key={ex.id}
-                            className="grid w-full max-w-full grid-cols-[36px_minmax(0,1fr)_76px] items-center gap-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm"
-                          >
-                            <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-sm font-semibold text-[color:var(--text)]">
-                              {exerciseIndex + 1}
-                            </div>
-                            <div className="min-w-0 overflow-hidden">
-                              <p className="truncate text-sm font-semibold text-[color:var(--text)]">
-                                {ex.name}
-                              </p>
-                              <p className="truncate text-xs text-[color:var(--text-muted)]">
-                                {ex.muscle} · {ex.sets?.length || 0} sets
-                              </p>
-                            </div>
-                            <div className="flex w-[76px] items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-9 w-9 min-w-9 rounded-full p-0"
-                                disabled={exerciseIndex === 0}
-                                onClick={() => handleMoveExercise(ex.id, -1)}
-                                aria-label={`Subir ${ex.name}`}
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-9 w-9 min-w-9 rounded-full p-0"
-                                disabled={
-                                  exerciseIndex === exercises.length - 1
+                    {groupedExercises.map(([muscle, items]) => (
+                      <div
+                        key={muscle}
+                        className="min-w-0 max-w-full space-y-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                          <div>
+                            <p className="text-xl font-semibold text-[color:var(--text)]">
+                              {muscle}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="text-[11px]">
+                            {items.length} ejercicios
+                          </Badge>
+                        </div>
+                        <AnimatePresence>
+                          {items.map((ex) => {
+                            const movementConfig = getRoutineMovementConfig(
+                              selectedRoutine?.raw?.exercises || [],
+                              ex,
+                            );
+                            return (
+                              <ExerciseCard
+                                key={ex.id}
+                                open={expandedExerciseId === ex.id}
+                                onToggleOpen={() =>
+                                  setExpandedExerciseId((current) =>
+                                    current === ex.id ? "" : ex.id,
+                                  )
                                 }
-                                onClick={() => handleMoveExercise(ex.id, 1)}
-                                aria-label={`Bajar ${ex.name}`}
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      groupedExercises.map(([muscle, items]) => (
-                        <div
-                          key={muscle}
-                          className="min-w-0 max-w-full space-y-3"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                            <div>
-                              <p className="text-xl font-semibold text-[color:var(--text)]">
-                                {muscle}
-                              </p>
-                            </div>
-                            <Badge variant="secondary" className="text-[11px]">
-                              {items.length} ejercicios
-                            </Badge>
-                          </div>
-                          <AnimatePresence>
-                            {items.map((ex) => {
-                              const movementConfig = getRoutineMovementConfig(
-                                selectedRoutine?.raw?.exercises || [],
-                                ex,
-                              );
-                              return (
-                                <ExerciseCard
-                                  key={ex.id}
-                                  open={expandedExerciseId === ex.id}
-                                  onToggleOpen={() =>
-                                    setExpandedExerciseId((current) =>
-                                      current === ex.id ? "" : ex.id,
-                                    )
-                                  }
-                                  exercise={{
-                                    ...ex,
-                                    durationSeconds:
-                                      timingSummary.exerciseDurations.get(
-                                        ex.id,
-                                      ) || 0,
-                                    isActive: activeExerciseId === ex.id,
-                                    supportsUnilateral:
-                                      movementConfig.supportsUnilateral,
-                                    movementMode:
-                                      ex.movementMode ||
-                                      movementConfig.movementMode,
-                                  }}
-                                  onAddSet={() => handleAddSet(ex.id)}
-                                  onUpdateEntry={(
+                                exercise={{
+                                  ...ex,
+                                  durationSeconds:
+                                    timingSummary.exerciseDurations.get(
+                                      ex.id,
+                                    ) || 0,
+                                  isActive: activeExerciseId === ex.id,
+                                  supportsUnilateral:
+                                    movementConfig.supportsUnilateral,
+                                  movementMode:
+                                    ex.movementMode ||
+                                    movementConfig.movementMode,
+                                }}
+                                onAddSet={() => handleAddSet(ex.id)}
+                                onUpdateEntry={(setId, entryId, field, value) =>
+                                  handleUpdateEntry(
+                                    ex.id,
                                     setId,
                                     entryId,
                                     field,
                                     value,
-                                  ) =>
-                                    handleUpdateEntry(
+                                  )
+                                }
+                                onToggleEntry={(setId, entryId) =>
+                                  handleToggleEntry(ex.id, setId, entryId)
+                                }
+                                onRemoveSet={(setId) =>
+                                  handleRemoveSet(ex.id, setId)
+                                }
+                                onRemoveExercise={() =>
+                                  handleRemoveExercise(ex.id)
+                                }
+                                onSeriesTypeChange={(value) =>
+                                  handleSeriesTypeChange(ex.id, value)
+                                }
+                                onMovementModeChange={(value) =>
+                                  handleMovementModeChange(ex.id, value)
+                                }
+                                onSwapVariant={(direction) =>
+                                  handleSwapVariant(ex.id, direction)
+                                }
+                                onStartNow={() => handleStartExerciseNow(ex.id)}
+                                onViewTracking={() => {
+                                  setTrackingExerciseId(ex.id);
+                                  setShowTracking(true);
+                                }}
+                                onViewHistory={() => {
+                                  if (typeof localStorage !== "undefined")
+                                    localStorage.setItem(
+                                      "last_exercise_id",
                                       ex.id,
-                                      setId,
-                                      entryId,
-                                      field,
-                                      value,
-                                    )
-                                  }
-                                  onToggleEntry={(setId, entryId) =>
-                                    handleToggleEntry(ex.id, setId, entryId)
-                                  }
-                                  onRemoveSet={(setId) =>
-                                    handleRemoveSet(ex.id, setId)
-                                  }
-                                  onRemoveExercise={() =>
-                                    handleRemoveExercise(ex.id)
-                                  }
-                                  onSeriesTypeChange={(value) =>
-                                    handleSeriesTypeChange(ex.id, value)
-                                  }
-                                  onMovementModeChange={(value) =>
-                                    handleMovementModeChange(ex.id, value)
-                                  }
-                                  onSwapVariant={(direction) =>
-                                    handleSwapVariant(ex.id, direction)
-                                  }
-                                  onStartNow={() =>
-                                    handleStartExerciseNow(ex.id)
-                                  }
-                                  onViewTracking={() => {
-                                    setTrackingExerciseId(ex.id);
-                                    setShowTracking(true);
-                                  }}
-                                  onViewHistory={() => {
-                                    if (typeof localStorage !== "undefined")
-                                      localStorage.setItem(
-                                        "last_exercise_id",
-                                        ex.id,
-                                      );
-                                    if (typeof onNavigate === "function")
-                                      onNavigate("ejercicio_analitica");
-                                  }}
-                                />
-                              );
-                            })}
-                          </AnimatePresence>
-                        </div>
-                      ))
-                    )}
+                                    );
+                                  if (typeof onNavigate === "function")
+                                    onNavigate("ejercicio_analitica");
+                                }}
+                              />
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    ))}
                   </div>
 
                   <div
@@ -4606,7 +4638,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 </p>
                                 <p className="text-xs text-[color:var(--text-muted)]">
                                   {ex.muscle || "Sin grupo"} •{" "}
-                                  {ex.sets?.length || 0} sets
+                                  {ex.sets?.length || 0} series
                                 </p>
                               </div>
                               <Button
@@ -5194,25 +5226,51 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         ) : null}
       </AnimatePresence>
 
-      <button
-        type="button"
-        onClick={handleOpenRestTimer}
-        className={`fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] shadow-2xl transition ${
-          restTimerRunning
-            ? "bg-emerald-600 text-white"
-            : restTimerDone
-              ? "bg-blue-600 text-white"
-              : "bg-[color:var(--card)] text-[color:var(--text)]"
-        }`}
-        aria-label="Abrir temporizador de descanso"
-      >
-        <Timer className="h-6 w-6" />
-        {restTimerStarted && (
-          <span className="absolute -top-2 -left-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-0.5 font-mono text-[10px] text-[color:var(--text)] shadow">
-            {restTimerLabel}
-          </span>
-        )}
-      </button>
+      <AnimatePresence>
+        {cancelConfirmOpen ? (
+          <motion.div
+            className="fixed inset-0 z-[85] flex items-end bg-black/55 backdrop-blur-sm md:items-center md:justify-center md:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              className="w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl md:max-w-md md:rounded-3xl md:pb-4"
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
+                Descartar sesión
+              </p>
+              <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
+                ¿Cancelar este entrenamiento?
+              </h2>
+              <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+                Se perderán los pesos, series y cambios que todavía no hayas
+                guardado.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 rounded-xl"
+                  onClick={() => setCancelConfirmOpen(false)}
+                >
+                  Continuar entrenando
+                </Button>
+                <Button
+                  type="button"
+                  className="h-12 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                  onClick={performCancel}
+                >
+                  Descartar sesión
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {restTimerOpen && !restTimerMinimized && (
@@ -5340,7 +5398,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       className="h-12 rounded-full"
                       onClick={handleResetRestTimer}
                     >
-                      Reiniciar
+                      Reiniciar cronómetro
                     </Button>
                   </div>
                 </div>

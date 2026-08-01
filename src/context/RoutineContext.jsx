@@ -46,6 +46,7 @@ export function RoutineProvider({ children }) {
       exercises: payload.exercises || saved.exercises,
     };
     setRoutines((prev) => [merged, ...prev]);
+    return merged;
   };
 
   const updateRoutine = async (id, payload) => {
@@ -84,7 +85,7 @@ export function RoutineProvider({ children }) {
       progressMode: "fresh",
       sourceRoutineId,
     };
-    await addRoutine(copy);
+    return addRoutine(copy);
   };
 
   const value = useMemo(

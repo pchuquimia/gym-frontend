@@ -2,7 +2,12 @@ import PropTypes from "prop-types";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-export default function RoutineSelector({ routine, routines, onSelect }) {
+export default function RoutineSelector({
+  routine,
+  routines,
+  onSelect,
+  disabled = false,
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -10,14 +15,23 @@ export default function RoutineSelector({ routine, routines, onSelect }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm p-4 text-left hover:border-blue-200 dark:hover:border-blue-500/40 transition-colors"
+        disabled={disabled}
+        className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm p-4 text-left hover:border-blue-200 dark:hover:border-blue-500/40 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{routine.location}</p>
-            <p className="text-base font-semibold text-[color:var(--text)]">{routine.name}</p>
+            <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+              {routine.location}
+            </p>
+            <p className="text-base font-semibold text-[color:var(--text)]">
+              {routine.name}
+            </p>
             <p className="text-xs text-[color:var(--text-muted)]">
-              {routine.exerciseCount} ejercicios | Ultimo: {routine.lastDate}
+              {routine.exerciseCount} principales
+              {routine.optionalExerciseCount
+                ? ` + ${routine.optionalExerciseCount} opcional`
+                : ""}{" "}
+              | Último: {routine.lastDate}
             </p>
           </div>
           <span className="text-[color:var(--text-muted)] text-lg">v</span>
@@ -32,7 +46,9 @@ export default function RoutineSelector({ routine, routines, onSelect }) {
             exit={{ opacity: 0, y: -4 }}
             className="absolute z-20 mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-lg p-2"
           >
-            <p className="text-[11px] uppercase text-[color:var(--text-muted)] px-2 pb-1">Cambiar rutina</p>
+            <p className="text-[11px] uppercase text-[color:var(--text-muted)] px-2 pb-1">
+              Cambiar rutina
+            </p>
             <div className="space-y-1 max-h-60 overflow-y-auto">
               {routines.map((r) => (
                 <button
@@ -50,14 +66,24 @@ export default function RoutineSelector({ routine, routines, onSelect }) {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{r.location}</p>
-                      <p className="text-sm font-semibold text-[color:var(--text)]">{r.name}</p>
+                      <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+                        {r.location}
+                      </p>
+                      <p className="text-sm font-semibold text-[color:var(--text)]">
+                        {r.name}
+                      </p>
                       <p className="text-[12px] text-[color:var(--text-muted)]">
-                        {r.exerciseCount} ejercicios | Ultimo: {r.lastDate}
+                        {r.exerciseCount} principales
+                        {r.optionalExerciseCount
+                          ? ` + ${r.optionalExerciseCount} opcional`
+                          : ""}{" "}
+                        | Último: {r.lastDate}
                       </p>
                     </div>
                     {r.id === routine.id && (
-                      <span className="text-blue-600 dark:text-blue-300 text-sm font-semibold">Elegido</span>
+                      <span className="text-blue-600 dark:text-blue-300 text-sm font-semibold">
+                        Elegido
+                      </span>
                     )}
                   </div>
                 </button>
@@ -76,6 +102,7 @@ RoutineSelector.propTypes = {
     name: PropTypes.string.isRequired,
     location: PropTypes.string.isRequired,
     exerciseCount: PropTypes.number.isRequired,
+    optionalExerciseCount: PropTypes.number,
     lastDate: PropTypes.string.isRequired,
   }).isRequired,
   routines: PropTypes.arrayOf(
@@ -84,8 +111,10 @@ RoutineSelector.propTypes = {
       name: PropTypes.string.isRequired,
       location: PropTypes.string.isRequired,
       exerciseCount: PropTypes.number.isRequired,
+      optionalExerciseCount: PropTypes.number,
       lastDate: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
   onSelect: PropTypes.func.isRequired,
+  disabled: PropTypes.bool,
 };

@@ -62,9 +62,7 @@ function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
               Eliminar ejercicio
             </p>
-            <h3 className="mt-1 truncate text-lg font-black">
-              {exerciseName}
-            </h3>
+            <h3 className="mt-1 truncate text-lg font-black">{exerciseName}</h3>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
               Esta accion no se puede deshacer en la sesion actual.
             </p>
@@ -192,6 +190,7 @@ export default function ExerciseCard({
 
   return (
     <motion.div
+      data-exercise-id={exercise.id}
       className="w-full max-w-full overflow-hidden"
       layout
       whileHover={{ y: -2 }}
@@ -250,7 +249,7 @@ export default function ExerciseCard({
               </div>
               <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
                 {referenceDateLabel
-                  ? `Ultima vez: ${referenceDateLabel}`
+                  ? `Última vez: ${referenceDateLabel}`
                   : "Sin fecha previa"}
               </p>
             </div>
@@ -264,7 +263,7 @@ export default function ExerciseCard({
               variant={isMoved ? "default" : "outline"}
               className={`hidden shrink-0 rounded-full px-3 sm:inline-flex ${actionClass}`}
               onClick={onStartNow}
-              aria-label="Empezar este ejercicio ahora"
+              aria-label={`Empezar ${exercise.name}`}
             >
               <Play className="h-4 w-4" />
               <span>{actionLabel}</span>
@@ -276,7 +275,7 @@ export default function ExerciseCard({
               variant={isMoved ? "default" : "outline"}
               className={`h-9 w-9 shrink-0 rounded-full p-0 sm:hidden ${actionClass}`}
               onClick={onStartNow}
-              aria-label="Empezar este ejercicio ahora"
+              aria-label={`Empezar ${exercise.name}`}
             >
               <Play className="h-4 w-4" />
             </Button>
@@ -420,6 +419,7 @@ export default function ExerciseCard({
                       <SetRow
                         key={set.id}
                         index={idx + 1}
+                        exerciseName={exercise.name}
                         seriesType={seriesValue}
                         entries={set.entries}
                         prSummary={set.prSummary}
@@ -441,7 +441,7 @@ export default function ExerciseCard({
                     className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
                     onClick={onAddSet}
                   >
-                    + Agregar set
+                    + Agregar serie
                   </Button>
                 </motion.div>
               </div>
