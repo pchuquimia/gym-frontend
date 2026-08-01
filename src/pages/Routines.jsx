@@ -322,6 +322,7 @@ function RoutineModal({
   onClose,
   onOpenLibrary,
   availableExercises,
+  existingRoutines = [],
 }) {
   const [name, setName] = useState(initialData?.name || "");
   const [branch, setBranch] = useState(() =>
@@ -338,6 +339,12 @@ function RoutineModal({
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [setupComplete, setSetupComplete] = useState(mode !== "create");
+  const [progressMode, setProgressMode] = useState(
+    initialData?.progressMode === "inherit" ? "inherit" : "fresh",
+  );
+  const [sourceRoutineId, setSourceRoutineId] = useState(
+    initialData?.sourceRoutineId || "",
+  );
   const [exercises, setExercises] = useState(() =>
     (initialData?.exercises || []).map((ex) =>
       resolveExerciseFromLibrary(availableExercises, ex),
@@ -436,6 +443,16 @@ function RoutineModal({
   }, [availableExercises, branch, exercises, selectedMuscle, search]);
 
   const groupedSelected = useMemo(() => groupByMuscle(exercises), [exercises]);
+
+  const progressSourceOptions = useMemo(
+    () =>
+      existingRoutines.filter(
+        (routine) =>
+          routine?.progressScopeId &&
+          (routine._id || routine.id) !== (initialData?._id || initialData?.id),
+      ),
+    [existingRoutines, initialData?._id, initialData?.id],
+  );
 
   const toggleMuscleGroup = (muscle) => {
     setCollapsedMuscles((prev) => {
@@ -730,6 +747,9 @@ function RoutineModal({
       name: routineName,
       description: `${exercises.length} ejercicios.`,
       branch: normalizeBranch(branch),
+      progressScopeId: initialData?.progressScopeId || undefined,
+      progressMode,
+      sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
       exercises: exercises.map((ex) => ({
         ...ex,
         exerciseId: ex.exerciseId || slugify(ex.name),
@@ -758,6 +778,10 @@ function RoutineModal({
       setError("Selecciona al menos un grupo muscular.");
       return;
     }
+    if (progressMode === "inherit" && !sourceRoutineId) {
+      setError("Selecciona la rutina cuyas marcas quieres continuar.");
+      return;
+    }
     setError("");
     setName(routineName);
     setNameEdited(true);
@@ -783,6 +807,9 @@ function RoutineModal({
     name: draftName,
     description: `${exercises.length} ejercicios.`,
     branch: normalizeBranch(branch),
+    progressScopeId: initialData?.progressScopeId || undefined,
+    progressMode,
+    sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
     exercises: exercises.map((ex) => ({
       ...ex,
       exerciseId: ex.exerciseId || slugify(ex.name),
@@ -994,6 +1021,88 @@ function RoutineModal({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Historial de pesos
+                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProgressMode("fresh");
+                      setError("");
+                    }}
+                    className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
+                      progressMode === "fresh"
+                        ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <RotateCcw className="mt-0.5 h-5 w-5 shrink-0" />
+                    <span>
+                      <span className="block text-sm font-black">
+                        Empezar desde cero
+                      </span>
+                      <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                        Nuevas marcas y PR para esta rutina.
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!progressSourceOptions.length}
+                    onClick={() => {
+                      setProgressMode("inherit");
+                      setSourceRoutineId(
+                        sourceRoutineId ||
+                          progressSourceOptions[0]?._id ||
+                          progressSourceOptions[0]?.id ||
+                          "",
+                      );
+                      setError("");
+                    }}
+                    className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                      progressMode === "inherit"
+                        ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 shadow-sm dark:text-emerald-200"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <Layers3 className="mt-0.5 h-5 w-5 shrink-0" />
+                    <span>
+                      <span className="block text-sm font-black">
+                        Continuar marcas
+                      </span>
+                      <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                        Usa el historial de otra rutina.
+                      </span>
+                    </span>
+                  </button>
+                </div>
+
+                {progressMode === "inherit" ? (
+                  <label className="block pt-1">
+                    <span className="sr-only">Rutina de origen</span>
+                    <select
+                      value={sourceRoutineId}
+                      onChange={(event) =>
+                        setSourceRoutineId(event.target.value)
+                      }
+                      className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      <option value="">Selecciona una rutina anterior</option>
+                      {progressSourceOptions.map((routine) => (
+                        <option
+                          key={routine._id || routine.id}
+                          value={routine._id || routine.id}
+                        >
+                          {routine.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
               </div>
 
               <label className="mt-5 block space-y-2">
@@ -2703,6 +2812,7 @@ function Routines({ onNavigate }) {
           mode={modalMode}
           initialData={selectedRoutine}
           availableExercises={availableExercises}
+          existingRoutines={routines}
           onSave={handleSave}
           onClose={closeModal}
           onOpenLibrary={() => {

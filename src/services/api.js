@@ -134,10 +134,12 @@ export const api = {
       limit: params.limit ?? 120,
       fields:
         params.fields ??
-        "date,routineId,routineName,branch,durationSeconds,timeEvents,exerciseDurations,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
+        "date,routineId,routineName,progressScopeId,orderSignature,branch,durationSeconds,timeEvents,exerciseDurations,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
       from: params.from ?? "",
       to: params.to ?? "",
       routineId: params.routineId ?? "",
+      progressScopeId: params.progressScopeId ?? "",
+      excludeProgressScopeId: params.excludeProgressScopeId ?? "",
       meta: params.meta ?? false,
     }).toString();
     return request(`/api/trainings?${query}`);

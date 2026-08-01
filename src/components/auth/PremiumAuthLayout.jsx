@@ -24,7 +24,7 @@ function PremiumAuthLayout({
   const image = images[variant] || images.login;
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[#060b16] px-4 py-5 text-white sm:min-h-screen sm:px-5 sm:py-6">
+    <main className="min-h-dvh overflow-x-hidden bg-[#060b16] text-white sm:min-h-screen lg:px-6 lg:py-6">
       <div
         className="fixed inset-0 pointer-events-none opacity-35"
         style={{
@@ -34,8 +34,8 @@ function PremiumAuthLayout({
         }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto flex min-h-[calc(100dvh-2.5rem)] w-full items-center justify-center sm:min-h-[calc(100vh-3rem)] sm:max-w-sm lg:max-w-5xl">
-        <section className="relative w-full overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[720px]">
+      <div className="relative mx-auto flex min-h-dvh w-full items-stretch justify-center lg:min-h-[calc(100vh-3rem)] lg:max-w-6xl lg:items-center 2xl:max-w-7xl">
+        <section className="relative min-h-dvh w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[720px] lg:rounded-2xl lg:border lg:border-white/15 2xl:min-h-[760px]">
           <img
             src={image}
             alt=""
@@ -45,8 +45,8 @@ function PremiumAuthLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/72 to-slate-950" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.22),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,70,229,0.25),transparent_45%)]" />
 
-          <div className="relative flex min-h-[calc(100dvh-2.5rem)] flex-col px-5 py-5 sm:min-h-[680px] sm:px-5 lg:grid lg:min-h-[720px] lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-[auto_1fr_auto] lg:px-0 lg:py-0">
-            <div className="flex min-h-10 items-center justify-between lg:px-8 lg:pt-8">
+          <div className="relative flex min-h-dvh flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[720px] lg:grid-cols-[minmax(0,1.12fr)_minmax(390px,0.88fr)] lg:grid-rows-[auto_1fr_auto] lg:px-0 lg:py-0 2xl:min-h-[760px] 2xl:grid-cols-[minmax(0,1.18fr)_minmax(430px,0.82fr)]">
+            <div className="flex min-h-10 items-center justify-between lg:px-10 lg:pt-10 2xl:px-12">
               {onBack ? (
                 <button
                   type="button"
@@ -64,9 +64,9 @@ function PremiumAuthLayout({
               )}
             </div>
 
-            <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 pb-1 lg:contents">
+            <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 pb-1 sm:max-w-md lg:contents">
               <div
-                className={`text-center lg:flex lg:flex-col lg:justify-center lg:px-10 lg:pb-20 lg:text-left ${
+                className={`text-center lg:flex lg:flex-col lg:justify-center lg:px-12 lg:pb-20 lg:text-left 2xl:px-16 ${
                   hideHeroOnMobile ? "hidden lg:flex" : ""
                 } ${heroCompact ? "mt-8 lg:mt-0" : "mt-10 lg:mt-0"}`}
               >
@@ -78,20 +78,20 @@ function PremiumAuthLayout({
                 {!eyebrow && variant === "register" ? (
                   <Zap className="mx-auto mb-4 h-7 w-7 fill-blue-300 text-blue-300 lg:mx-0" />
                 ) : null}
-                <h1 className="text-3xl font-black leading-tight tracking-tight text-white drop-shadow max-[700px]:text-2xl lg:max-w-md lg:text-5xl">
+                <h1 className="text-3xl font-black leading-tight text-white drop-shadow max-[700px]:text-2xl lg:max-w-xl lg:text-5xl 2xl:text-6xl">
                   {title}
                 </h1>
-                <p className="mx-auto mt-2 max-w-[280px] text-sm font-semibold leading-6 text-blue-50/85 max-[700px]:leading-5 lg:mx-0 lg:mt-4 lg:max-w-sm lg:text-base lg:leading-7">
+                <p className="mx-auto mt-2 max-w-[280px] text-sm font-semibold leading-6 text-blue-50/85 max-[700px]:leading-5 lg:mx-0 lg:mt-4 lg:max-w-md lg:text-base lg:leading-7 2xl:text-lg">
                   {subtitle}
                 </p>
               </div>
 
-              <div className="w-full rounded-2xl border border-white/10 bg-slate-900/65 p-4 shadow-xl shadow-black/25 backdrop-blur-md lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-8 lg:mt-0 lg:self-center lg:p-6">
+              <div className="w-full rounded-2xl border border-white/10 bg-slate-900/65 p-4 shadow-xl shadow-black/25 backdrop-blur-md lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-auto lg:mt-0 lg:w-[min(420px,calc(100%-4rem))] lg:self-center lg:p-6 2xl:w-[440px]">
                 {children}
               </div>
             </div>
 
-            <div className="mx-auto w-full max-w-sm pt-4 max-[700px]:pt-3 lg:col-start-2 lg:mx-8 lg:max-w-none lg:pb-8">
+            <div className="mx-auto w-full max-w-sm pt-4 max-[700px]:pt-3 sm:max-w-md lg:col-start-2 lg:mx-auto lg:w-[min(420px,calc(100%-4rem))] lg:max-w-none lg:pb-8 2xl:w-[440px]">
               {footer}
             </div>
           </div>
