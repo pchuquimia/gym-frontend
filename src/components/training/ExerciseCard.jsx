@@ -109,7 +109,6 @@ export default function ExerciseCard({
   onMovementModeChange = () => {},
   onSetupNoteChange = () => {},
   onViewTracking = null,
-  onViewHistory: _onViewHistory = null,
   onSwapVariant = null,
   onStartNow = null,
 }) {
@@ -554,7 +553,6 @@ ExerciseCard.propTypes = {
   onMovementModeChange: PropTypes.func,
   onSetupNoteChange: PropTypes.func,
   onViewTracking: PropTypes.func,
-  onViewHistory: PropTypes.func,
   onSwapVariant: PropTypes.func,
   onStartNow: PropTypes.func,
 };

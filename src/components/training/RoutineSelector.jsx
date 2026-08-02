@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 
 export default function RoutineSelector({
   routine,
@@ -9,13 +10,32 @@ export default function RoutineSelector({
   disabled = false,
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = (event) => {
+      if (!containerRef.current?.contains(event.target)) setOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
+        aria-expanded={open && !disabled}
+        aria-haspopup="listbox"
         className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm p-4 text-left hover:border-blue-200 dark:hover:border-blue-500/40 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
         <div className="flex items-center justify-between">
@@ -34,12 +54,14 @@ export default function RoutineSelector({
               | Último: {routine.lastDate}
             </p>
           </div>
-          <span className="text-[color:var(--text-muted)] text-lg">v</span>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open && !disabled ? "rotate-180" : ""}`}
+          />
         </div>
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && !disabled && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -49,11 +71,17 @@ export default function RoutineSelector({
             <p className="text-[11px] uppercase text-[color:var(--text-muted)] px-2 pb-1">
               Cambiar rutina
             </p>
-            <div className="space-y-1 max-h-60 overflow-y-auto">
+            <div
+              className="space-y-1 max-h-60 overflow-y-auto"
+              role="listbox"
+              aria-label="Rutinas disponibles"
+            >
               {routines.map((r) => (
                 <button
                   key={r.id}
                   type="button"
+                  role="option"
+                  aria-selected={r.id === routine.id}
                   onClick={() => {
                     onSelect(r.id);
                     setOpen(false);

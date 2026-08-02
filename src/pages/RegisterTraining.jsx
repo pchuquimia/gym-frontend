@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowLeft,
   Check,
   Circle,
   CircleDot,
@@ -26,6 +27,7 @@ import ExerciseCard from "../components/training/ExerciseCard";
 import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 
@@ -46,6 +48,12 @@ const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
+
+const getExitPageForRole = (role) => {
+  if (role === "Admin") return "dashboard";
+  if (role === "Entrenador") return "trainer";
+  return "perfil";
+};
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -1098,6 +1106,7 @@ const computeRecentBySetFromHistory = (
 };
 
 export default function RegisterTraining({ onNavigate = () => {} }) {
+  const { user } = useAuth();
   const { routines, loading: routinesLoading } = useRoutines();
   const {
     exercises: libraryExercises,
@@ -4019,6 +4028,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     performCancel();
   };
 
+  const handleLeaveSetup = () => {
+    resetState();
+    onNavigate?.(getExitPageForRole(user?.role));
+  };
+
   const totalSets = useMemo(
     () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0),
     [exercises],
@@ -4165,7 +4179,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     : formatDuration(restRemainingSeconds);
 
   return (
-    <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
+    <main className="relative min-h-0 w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
       <Toaster
         position="top-center"
         richColors
@@ -4173,9 +4187,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         mobileOffset={{ top: "4.5rem", left: "0.75rem", right: "0.75rem" }}
       />
       <div
-        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden pb-28 md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
+        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
           showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"
-        }`}
+        } ${!setupStarted && !isEditing ? "pb-0" : "pb-28"}`}
       >
         {showMobileTrainingBar && (
           <div className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden">
@@ -4275,7 +4289,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     handleEditRoutineFromTraining();
                   }}
                 >
-                  <span>Cambiar o editar rutina</span>
+                  <span>Editar rutina activa</span>
                   <ClipboardList className="h-4 w-4" />
                 </button>
                 <button
@@ -4298,7 +4312,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </div>
         ) : null}
 
-        <div className="hidden md:flex items-center justify-between">
+        <div
+          className={`hidden items-center justify-between md:flex ${
+            !setupStarted && !isEditing
+              ? "md:mx-auto md:w-full md:max-w-md"
+              : ""
+          }`}
+        >
           <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
           {isEditing ? (
             <Button variant="outline" size="sm" onClick={handleExitEdit}>
@@ -4308,15 +4328,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         </div>
 
         {!setupStarted && !isEditing ? (
-          <section className="mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-md flex-col pb-24 md:min-h-0">
+          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col md:min-h-0">
             <header className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden">
               <button
                 type="button"
-                onClick={handleCancel}
+                onClick={handleLeaveSetup}
                 className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)]"
-                aria-label="Cerrar"
+                aria-label="Volver al inicio"
               >
-                <X className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1 px-2">
                 <h1 className="truncate text-lg font-black text-[color:var(--text)]">
@@ -4426,7 +4446,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
+            <div className="sticky bottom-0 z-40 mt-auto border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:static md:mt-6 md:rounded-xl md:border">
               <div className="mx-auto max-w-md">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
                   <span className="inline-flex min-w-0 items-center gap-2">
@@ -4471,130 +4491,128 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           </section>
         ) : null}
 
-        <div
-          className={`hidden md:sticky md:top-2 md:z-20 md:block ${
-            !setupStarted && !isEditing ? "hidden" : ""
-          }`}
-        >
-          <Card className="p-3 md:p-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-lg space-y-3">
-            <div className="hidden md:flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[160px]">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                  Duracion
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-xl md:text-2xl text-[color:var(--text)]">
-                    {formatDuration(durationSeconds)}
-                  </span>
-                  <span
-                    className={`text-[11px] font-semibold uppercase ${
-                      isRunning
-                        ? "text-red-400"
-                        : "text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    En curso
-                  </span>
-                </div>
-                {activeExercise && (
-                  <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
-                    Actual: {activeExercise.name} ·{" "}
-                    {formatDuration(activeExerciseDuration)}
+        {setupStarted || isEditing ? (
+          <div className="hidden md:sticky md:top-2 md:z-20 md:block">
+            <Card className="p-3 md:p-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-lg space-y-3">
+              <div className="hidden md:flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[160px]">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                    Duracion
                   </p>
-                )}
-              </div>
-              <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
-                <Button
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={handleEditRoutineFromTraining}
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  <span>Editar rutina</span>
-                </Button>
-                {showFinishButton && (
-                  <Button
-                    className="rounded-full"
-                    onClick={handleFinish}
-                    disabled={!exercises.length}
-                  >
-                    <Flag className="h-4 w-4" />
-                    <span>Finalizar</span>
-                  </Button>
-                )}
-                {showCancelButton && (
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-xl md:text-2xl text-[color:var(--text)]">
+                      {formatDuration(durationSeconds)}
+                    </span>
+                    <span
+                      className={`text-[11px] font-semibold uppercase ${
+                        isRunning
+                          ? "text-red-400"
+                          : "text-[color:var(--text-muted)]"
+                      }`}
+                    >
+                      En curso
+                    </span>
+                  </div>
+                  {activeExercise && (
+                    <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                      Actual: {activeExercise.name} ·{" "}
+                      {formatDuration(activeExerciseDuration)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
                   <Button
                     variant="outline"
                     className="rounded-full"
-                    onClick={handleCancel}
+                    onClick={handleEditRoutineFromTraining}
                   >
-                    Cancelar
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Editar rutina</span>
                   </Button>
-                )}
+                  {showFinishButton && (
+                    <Button
+                      className="rounded-full"
+                      onClick={handleFinish}
+                      disabled={!exercises.length}
+                    >
+                      <Flag className="h-4 w-4" />
+                      <span>Finalizar</span>
+                    </Button>
+                  )}
+                  {showCancelButton && (
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={handleCancel}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--text-muted)]">
-              <button
-                type="button"
-                onClick={() => {
-                  if (sessionLocked) return;
-                  if (datePickerRef.current?.showPicker) {
-                    datePickerRef.current.showPicker();
-                  } else if (datePickerRef.current) {
-                    datePickerRef.current.focus();
-                    datePickerRef.current.click();
-                  }
-                }}
-                disabled={sessionLocked}
-                className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Fecha: {formatLongDate(sessionDate)}
-                <input
-                  ref={datePickerRef}
-                  type="date"
-                  value={sessionDate}
-                  disabled={sessionLocked}
-                  onChange={(e) => {
-                    const nextDate = e.target.value
-                      ? e.target.value.slice(0, 10)
-                      : getLocalISODate();
-                    setSessionDate(nextDate);
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--text-muted)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sessionLocked) return;
+                    if (datePickerRef.current?.showPicker) {
+                      datePickerRef.current.showPicker();
+                    } else if (datePickerRef.current) {
+                      datePickerRef.current.focus();
+                      datePickerRef.current.click();
+                    }
                   }}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  aria-label="Seleccionar fecha"
-                />
-              </button>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full px-3 md:hidden"
-                  onClick={handleEditRoutineFromTraining}
+                  disabled={sessionLocked}
+                  className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <ClipboardList className="h-4 w-4" />
-                  <span>Editar</span>
-                </Button>
-                <Button
-                  size="sm"
-                  className="rounded-full px-4"
-                  onClick={isRunning ? handlePause : handleStart}
-                >
-                  {isRunning ? "Pausar" : "Iniciar"}
-                </Button>
-                {showResetButton && (
+                  Fecha: {formatLongDate(sessionDate)}
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    value={sessionDate}
+                    disabled={sessionLocked}
+                    onChange={(e) => {
+                      const nextDate = e.target.value
+                        ? e.target.value.slice(0, 10)
+                        : getLocalISODate();
+                      setSessionDate(nextDate);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    aria-label="Seleccionar fecha"
+                  />
+                </button>
+                <div className="flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="rounded-full px-3"
-                    onClick={handleReset}
+                    className="rounded-full px-3 md:hidden"
+                    onClick={handleEditRoutineFromTraining}
                   >
-                    Reiniciar
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Editar</span>
                   </Button>
-                )}
+                  <Button
+                    size="sm"
+                    className="rounded-full px-4"
+                    onClick={isRunning ? handlePause : handleStart}
+                  >
+                    {isRunning ? "Pausar" : "Iniciar"}
+                  </Button>
+                  {showResetButton && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full px-3"
+                      onClick={handleReset}
+                    >
+                      Reiniciar
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        ) : null}
 
         {(setupStarted || isEditing) && selectedRoutineId && (
           <section className="space-y-3 md:hidden">
@@ -4816,15 +4834,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                   setTrackingExerciseId(ex.id);
                                   setShowTracking(true);
                                 }}
-                                onViewHistory={() => {
-                                  if (typeof localStorage !== "undefined")
-                                    localStorage.setItem(
-                                      "last_exercise_id",
-                                      ex.id,
-                                    );
-                                  if (typeof onNavigate === "function")
-                                    onNavigate("ejercicio_analitica");
-                                }}
                               />
                             );
                           })}
@@ -4913,15 +4922,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                                 onViewTracking={() => {
                                   setTrackingExerciseId(ex.id);
                                   setShowTracking(true);
-                                }}
-                                onViewHistory={() => {
-                                  if (typeof localStorage !== "undefined")
-                                    localStorage.setItem(
-                                      "last_exercise_id",
-                                      ex.id,
-                                    );
-                                  if (typeof onNavigate === "function")
-                                    onNavigate("ejercicio_analitica");
                                 }}
                               />
                             );
