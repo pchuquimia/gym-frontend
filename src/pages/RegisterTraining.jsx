@@ -4275,7 +4275,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       <BranchCard
                         key={branch}
                         branch={branch}
-                        selected={normalizeBranch(branch) === selectedBranch}
+                        selected={
+                          branchConfirmed &&
+                          normalizeBranch(branch) === selectedBranch
+                        }
                         onClick={() => handleBranchChange(branch)}
                       />
                     ))
