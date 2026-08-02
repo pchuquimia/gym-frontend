@@ -20,8 +20,8 @@ export default function ExerciseOrderPanel({
           </p>
           <p className="truncate text-[11px] text-[color:var(--text-muted)]">
             {historyCount
-              ? `${historyCount} sesiones con este orden`
-              : "Sin antecedentes con este orden"}
+              ? `${historyCount} ${historyCount === 1 ? "sesión" : "sesiones"} con secuencias musculares compatibles`
+              : "Sin referencias para estas secuencias musculares"}
           </p>
         </div>
         <Button

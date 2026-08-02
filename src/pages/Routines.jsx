@@ -139,6 +139,12 @@ const createRoutineId = (name = "rutina") => {
   return `${slugify(name) || "rutina"}-${uniquePart}`;
 };
 
+const normalizeRoutineSetInput = (value) =>
+  value.replace(/\D/g, "").slice(0, 2);
+
+const clampRoutineSetCount = (value) =>
+  Math.min(30, Math.max(1, Number.parseInt(value, 10) || 1));
+
 const normalizeTextKey = (text = "") =>
   text
     .toString()
@@ -1615,8 +1621,8 @@ function RoutineModal({
                                             : ""
                                         }`}
                                       >
-                                        <div className="grid grid-cols-[36px_minmax(0,1fr)_42px_62px] items-center gap-2 sm:grid-cols-[48px_minmax(0,1fr)_60px_auto] sm:gap-3">
-                                          <div className="h-9 w-9 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-12 sm:w-12 sm:rounded-xl">
+                                        <div className="grid grid-cols-[40px_minmax(0,1fr)_44px_84px] items-center gap-1.5 sm:grid-cols-[48px_minmax(0,1fr)_60px_auto] sm:gap-3">
+                                          <div className="h-10 w-10 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-12 sm:w-12 sm:rounded-xl">
                                             {thumb ? (
                                               <img
                                                 src={thumb}
@@ -1661,18 +1667,29 @@ function RoutineModal({
                                           </div>
 
                                           <label className="space-y-0.5">
-                                            <span className="hidden text-center text-[9px] font-black uppercase text-[color:var(--text-muted)] sm:block">
+                                            <span className="block text-center text-[8px] font-black uppercase text-[color:var(--text-muted)] sm:text-[9px]">
                                               Series
                                             </span>
                                             <input
-                                              type="number"
-                                              min="1"
+                                              type="text"
+                                              inputMode="numeric"
+                                              pattern="[0-9]*"
+                                              enterKeyHint="done"
                                               aria-label={`Series de ${ex.name}`}
-                                              className="h-9 w-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-xs font-black text-[color:var(--text)] sm:w-14 sm:rounded-xl sm:text-sm"
+                                              className="h-11 w-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-sm font-black tabular-nums text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:h-10 sm:w-14 sm:rounded-xl"
                                               value={ex.sets}
                                               onChange={(event) =>
                                                 updateExercise(ex.idx, {
-                                                  sets: event.target.value,
+                                                  sets: normalizeRoutineSetInput(
+                                                    event.target.value,
+                                                  ),
+                                                })
+                                              }
+                                              onBlur={(event) =>
+                                                updateExercise(ex.idx, {
+                                                  sets: clampRoutineSetCount(
+                                                    event.target.value,
+                                                  ),
                                                 })
                                               }
                                             />
@@ -1682,7 +1699,7 @@ function RoutineModal({
                                             <Button
                                               size="icon"
                                               variant="ghost"
-                                              className="h-9 w-7 rounded-lg p-0 text-blue-700 dark:text-blue-300 sm:h-10 sm:w-10 sm:rounded-xl"
+                                              className="h-11 w-10 rounded-lg p-0 text-blue-700 dark:text-blue-300 sm:h-10 sm:w-10 sm:rounded-xl"
                                               onClick={() =>
                                                 setOptionsExerciseId(
                                                   ex.exerciseId,
@@ -1694,7 +1711,7 @@ function RoutineModal({
                                             </Button>
                                             <button
                                               type="button"
-                                              className="grid h-9 w-7 touch-none place-items-center rounded-lg p-0 text-[color:var(--text-muted)] hover:bg-[color:var(--bg)] sm:h-10 sm:w-10 sm:rounded-xl"
+                                              className="grid h-11 w-10 touch-none place-items-center rounded-lg p-0 text-[color:var(--text-muted)] hover:bg-[color:var(--bg)] sm:h-10 sm:w-10 sm:rounded-xl"
                                               aria-label={`Ordenar ${ex.name}`}
                                               {...attributes}
                                               {...listeners}

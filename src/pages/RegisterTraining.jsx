@@ -398,6 +398,22 @@ const getExerciseOrderSignature = (exercises = []) =>
     .map((entry) => entry.id)
     .join("|");
 
+const getRoutineDefinitionSignature = (routine = {}) =>
+  JSON.stringify({
+    name: routine.name || "",
+    branch: normalizeBranch(routine.branch),
+    exercises: (routine.exercises || []).map((exercise) => ({
+      exerciseId: exercise.exerciseId || exercise.id || "",
+      name: exercise.name || "",
+      sets: Number(exercise.sets) || 1,
+      movementMode: normalizeMovementMode(exercise.movementMode),
+      isExtra: Boolean(exercise.isExtra),
+      alternatives: (exercise.alternatives || []).map(
+        (alternative) => alternative.exerciseId || alternative.id || "",
+      ),
+    })),
+  });
+
 const getTrainingOrderSignature = (training = {}) =>
   training.orderSignature ||
   getExerciseOrderSignature(training.exercises || []);
@@ -432,6 +448,67 @@ const getPositionHistoryKeys = (exercise = {}, fallbackIndex = null) => {
   return getExerciseKeys(exercise)
     .map((key) => getPositionHistoryKey(key, mode, order))
     .filter(Boolean);
+};
+
+const getMuscleGroupKey = (exercise = {}) =>
+  slugify(
+    exercise.muscleGroup ||
+      exercise.muscle ||
+      exercise.primaryMuscleGroup ||
+      "sin-grupo",
+  );
+
+const getMuscleSequenceContext = (exercises = [], muscleGroupKey = "") => {
+  if (!muscleGroupKey) return "";
+  const signature = (exercises || [])
+    .map((exercise, index) => ({
+      exercise,
+      index,
+      order: getExerciseOrder(exercise, index),
+    }))
+    .filter(({ exercise }) => getMuscleGroupKey(exercise) === muscleGroupKey)
+    .sort((a, b) => a.order - b.order || a.index - b.index)
+    .map(({ exercise }) => getExerciseSignatureId(exercise))
+    .filter(Boolean)
+    .join("|");
+  return signature ? `muscle-${muscleGroupKey}::sequence-${signature}` : "";
+};
+
+const getMuscleSequenceHistoryKeys = (exercise = {}, exercises = []) => {
+  const context = getMuscleSequenceContext(
+    exercises,
+    getMuscleGroupKey(exercise),
+  );
+  if (!context) return [];
+  const mode = normalizeMovementMode(exercise.movementMode);
+  return getExerciseKeys(exercise).map(
+    (key) => `${getMovementHistoryKey(key, mode)}::${context}`,
+  );
+};
+
+const getMuscleSequenceContexts = (exercises = []) =>
+  new Set(
+    (exercises || [])
+      .map((exercise) =>
+        getMuscleSequenceContext(exercises, getMuscleGroupKey(exercise)),
+      )
+      .filter(Boolean),
+  );
+
+const filterHistoryByMuscleSequences = (
+  trainings = [],
+  currentExercises = [],
+) => {
+  const currentContexts = getMuscleSequenceContexts(currentExercises);
+  if (!currentContexts.size) return [];
+  return (trainings || []).filter((training) => {
+    const trainingContexts = getMuscleSequenceContexts(
+      training.exercises || [],
+    );
+    return [...trainingContexts].some((context) =>
+      currentContexts.has(context),
+    );
+  });
 };
 
 const getSeriesCount = (seriesType) => {
@@ -747,9 +824,14 @@ const mergeSetsToRoutineCount = (currentSets = [], templateSets = []) => {
   return [...resized, ...extraWithData];
 };
 
-const getHistoryLookupKeys = (exercise = {}, fallbackIndex = null) =>
+const getHistoryLookupKeys = (
+  exercise = {},
+  fallbackIndex = null,
+  exercises = [],
+) =>
   Array.from(
     new Set([
+      ...getMuscleSequenceHistoryKeys(exercise, exercises),
       ...getPositionHistoryKeys(exercise, fallbackIndex),
       ...getMovementHistoryKeys(exercise),
     ]),
@@ -818,8 +900,8 @@ const findLatestHistoryExerciseSnapshot = (
     const ts = getDateTimestamp(date);
     (tr.exercises || []).forEach((ex, exIdx) => {
       if (normalizeMovementMode(ex?.movementMode) !== targetMode) return;
-      const matches = getHistoryLookupKeys(ex, exIdx).some((key) =>
-        targetKeys.has(key),
+      const matches = getHistoryLookupKeys(ex, exIdx, tr.exercises || []).some(
+        (key) => targetKeys.has(key),
       );
       if (!matches) return;
       if (!latest || ts > latest.ts) {
@@ -854,7 +936,7 @@ const computeLatestSeriesTypeFromHistory = (
         inferSeriesTypeFromSets(ex?.sets);
       if (!rawType) return;
       const type = normalizeSeriesType(rawType);
-      const keys = getHistoryLookupKeys(ex, exIdx);
+      const keys = getHistoryLookupKeys(ex, exIdx, tr.exercises || []);
       if (!keys.length) return;
       keys.forEach((key) => {
         const current = map.get(key);
@@ -893,7 +975,7 @@ const computeBestFromHistory = (trainings = [], branchFilter = null) => {
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const keys = getHistoryLookupKeys(ex, exIdx);
+      const keys = getHistoryLookupKeys(ex, exIdx, tr.exercises || []);
       if (!keys.length) return;
       const sets = ex.sets || [];
       sets.forEach((s) => {
@@ -930,7 +1012,7 @@ const computeBestBySetFromHistory = (trainings = [], branchFilter = null) => {
     const ts = getDateTimestamp(date) || Number.POSITIVE_INFINITY;
     const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const keys = getHistoryLookupKeys(ex, exIdx);
+      const keys = getHistoryLookupKeys(ex, exIdx, tr.exercises || []);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -975,7 +1057,7 @@ const computeRecentBySetFromHistory = (
     const branch = tr.branch ? normalizeBranch(tr.branch) : "";
     if (cutoffTs && ts > cutoffTs) return;
     (tr.exercises || []).forEach((ex, exIdx) => {
-      const keys = getHistoryLookupKeys(ex, exIdx);
+      const keys = getHistoryLookupKeys(ex, exIdx, tr.exercises || []);
       if (!keys.length) return;
       keys.forEach((key) => {
         const arr = map.get(key) || [];
@@ -1199,18 +1281,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     durationSeconds > 0 ||
     exercises.some(exerciseHasUserInput);
 
-  const activeOrderSignature = useMemo(
+  const activeOrderExercises = useMemo(
     () =>
-      getExerciseOrderSignature(
-        exercises.length
-          ? exercises
-          : selectedRoutine?.raw?.exercises || selectedRoutine?.exercises || [],
-      ),
+      exercises.length
+        ? exercises
+        : (
+            selectedRoutine?.raw?.exercises ||
+            selectedRoutine?.exercises ||
+            []
+          ).filter((exercise) => !exercise.isExtra),
     [exercises, selectedRoutine],
   );
   const orderMatchedHistoryTrainings = useMemo(
-    () => filterHistoryByOrderSignature(historyTrainings, activeOrderSignature),
-    [historyTrainings, activeOrderSignature],
+    () =>
+      filterHistoryByMuscleSequences(historyTrainings, activeOrderExercises),
+    [historyTrainings, activeOrderExercises],
   );
   const historyBest = useMemo(
     () => computeBestFromHistory(orderMatchedHistoryTrainings, selectedBranch),
@@ -1438,14 +1523,23 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const baseHistoryKeys = [id, nameKey]
         .filter(Boolean)
         .map((key) => getMovementHistoryKey(key, movementMode));
-      const positionHistoryKeys = [id, nameKey]
-        .filter(Boolean)
-        .map((key) => getPositionHistoryKey(key, movementMode, currentOrder))
-        .filter(Boolean);
-      const historyKeys = [...positionHistoryKeys, ...baseHistoryKeys];
+      const muscleSequenceHistoryKeys = getMuscleSequenceHistoryKeys(
+        {
+          ...ex,
+          exerciseId: id,
+          name: activeVariant?.name || ex.name,
+          muscleGroup:
+            ex.muscleGroup || ex.muscle || meta.muscle || "Sin grupo",
+          movementMode,
+        },
+        list,
+      );
+      const localHistoryKeys = muscleSequenceHistoryKeys.length
+        ? muscleSequenceHistoryKeys
+        : baseHistoryKeys;
       const historySeriesType =
-        safeSeriesTypeMap.get(historyKeys[0]) ||
-        historyKeys.map((key) => safeSeriesTypeMap.get(key)).find(Boolean);
+        safeSeriesTypeMap.get(localHistoryKeys[0]) ||
+        localHistoryKeys.map((key) => safeSeriesTypeMap.get(key)).find(Boolean);
       const inferredSeriesType = trainingEx
         ? inferSeriesTypeFromSets(trainingEx.sets)
         : null;
@@ -1460,14 +1554,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           ex.seriesType,
       );
       const best =
-        historyKeys.map((key) => bestMap.get(key)).find(Boolean) || null;
+        localHistoryKeys.map((key) => bestMap.get(key)).find(Boolean) || null;
       const globalBest =
-        historyKeys.map((key) => historyGlobalBest.get(key)).find(Boolean) ||
-        null;
+        baseHistoryKeys
+          .map((key) => historyGlobalBest.get(key))
+          .find(Boolean) || null;
       const bestBySet =
-        baseHistoryKeys.map((key) => bestBySetMap.get(key)).find(Boolean) || [];
+        localHistoryKeys.map((key) => bestBySetMap.get(key)).find(Boolean) ||
+        [];
       const recentBySet =
-        baseHistoryKeys.map((key) => recentBySetMap.get(key)).find(Boolean) ||
+        localHistoryKeys.map((key) => recentBySetMap.get(key)).find(Boolean) ||
         [];
       const prSummary = best ? formatHistoryLift(best) : "";
       const sets =
@@ -1640,28 +1736,29 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       });
       const movementMode = normalizeMovementMode(ex.movementMode);
       const currentOrder = getExerciseOrder(ex, idx);
-      const positionHistoryKeys = keys
-        .map((key) => getPositionHistoryKey(key, movementMode, currentOrder))
-        .filter(Boolean);
       const baseHistoryKeys = keys.map((key) =>
         getMovementHistoryKey(key, movementMode),
       );
-      const historyKeys = [...positionHistoryKeys, ...baseHistoryKeys];
-      const findKey = (map) =>
-        historyKeys.find((key) => map.has(key)) ||
-        getMovementHistoryKey(id, movementMode);
-      const findBaseKey = (map) =>
-        baseHistoryKeys.find((key) => map.has(key)) ||
-        getMovementHistoryKey(id, movementMode);
-      const bestKey = findKey(bestMap);
-      const globalBestKey = findKey(historyGlobalBest);
-      const bestBySetKey = findBaseKey(bestBySetMap);
-      const recentBySetKey = findBaseKey(recentBySetMap);
+      const muscleSequenceHistoryKeys = getMuscleSequenceHistoryKeys(
+        { ...ex, id, exerciseId: ex.exerciseId || ex.id, movementMode },
+        list,
+      );
+      const localHistoryKeys = muscleSequenceHistoryKeys.length
+        ? muscleSequenceHistoryKeys
+        : baseHistoryKeys;
+      const findLocalKey = (map) =>
+        localHistoryKeys.find((key) => map.has(key));
+      const findGlobalKey = (map) =>
+        baseHistoryKeys.find((key) => map.has(key));
+      const bestKey = findLocalKey(bestMap);
+      const globalBestKey = findGlobalKey(historyGlobalBest);
+      const bestBySetKey = findLocalKey(bestBySetMap);
+      const recentBySetKey = findLocalKey(recentBySetMap);
       const best = bestMap.get(bestKey);
       const globalBest = historyGlobalBest.get(globalBestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
       const recentBySet = recentBySetMap.get(recentBySetKey) || [];
-      const seriesTypeEntry = historyKeys
+      const seriesTypeEntry = localHistoryKeys
         .map((key) => seriesTypeMap?.get(key))
         .find(Boolean);
       const historySeriesType = seriesTypeEntry?.type || null;
@@ -1670,7 +1767,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const latestHistory = shouldReloadInputs
         ? findLatestHistoryExerciseSnapshot(
             sourceHistory,
-            historyKeys,
+            localHistoryKeys,
             movementMode,
             selectedBranch,
           )
@@ -1821,10 +1918,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       ),
       reloadMovementHistory: !exerciseHasUserInput(ex),
     }));
-    const signature = getExerciseOrderSignature(orderedExercises);
-    const matchingHistory = filterHistoryByOrderSignature(
+    const matchingHistory = filterHistoryByMuscleSequences(
       historyTrainings,
-      signature,
+      orderedExercises,
     );
     return applyHistoryToExercises(
       orderedExercises,
@@ -2408,52 +2504,104 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       if (snap.hasStarted || snap.isRunning || totalSeconds > 0) {
         setSetupStarted(true);
       }
-      if (Array.isArray(snap.exercises))
-        setExercises(
-          snap.exercises.map((ex) => {
-            const seriesType = normalizeSeriesType(ex.seriesType);
-            const sets = (ex.sets || []).map((set, idx) => {
-              const setId = set.id || `${ex.id}-set-${idx}`;
-              const fallbackPrev =
-                set.entries?.[0]?.previousText ||
-                set.previousText ||
-                "Sin referencia";
-              const seedEntries =
-                Array.isArray(set.entries) && set.entries.length
-                  ? set.entries
-                  : [
-                      {
-                        id: set.id,
-                        previousText: fallbackPrev,
-                        kg: set.kg ?? "",
-                        reps: set.reps ?? "",
-                        done: set.done ?? false,
-                      },
-                    ];
-              return {
-                ...set,
-                id: setId,
-                entries: normalizeEntries({
-                  entries: seedEntries,
-                  seriesType,
-                  setId,
-                  fallbackPrev,
-                  compareByIndex: (set.entries || []).map((entry) => ({
-                    weight: entry.previousCompareWeight ?? null,
-                    reps: entry.previousCompareReps ?? null,
-                    date: entry.previousCompareDate ?? null,
-                  })),
-                }),
-              };
-            });
+      if (Array.isArray(snap.exercises)) {
+        const restoredExercises = snap.exercises.map((ex) => {
+          const seriesType = normalizeSeriesType(ex.seriesType);
+          const sets = (ex.sets || []).map((set, idx) => {
+            const setId = set.id || `${ex.id}-set-${idx}`;
+            const fallbackPrev =
+              set.entries?.[0]?.previousText ||
+              set.previousText ||
+              "Sin referencia";
+            const seedEntries =
+              Array.isArray(set.entries) && set.entries.length
+                ? set.entries
+                : [
+                    {
+                      id: set.id,
+                      previousText: fallbackPrev,
+                      kg: set.kg ?? "",
+                      reps: set.reps ?? "",
+                      done: set.done ?? false,
+                    },
+                  ];
             return {
-              ...ex,
-              movementMode: normalizeMovementMode(ex.movementMode),
-              seriesType,
-              sets,
+              ...set,
+              id: setId,
+              entries: normalizeEntries({
+                entries: seedEntries,
+                seriesType,
+                setId,
+                fallbackPrev,
+                compareByIndex: (set.entries || []).map((entry) => ({
+                  weight: entry.previousCompareWeight ?? null,
+                  reps: entry.previousCompareReps ?? null,
+                  date: entry.previousCompareDate ?? null,
+                })),
+              }),
             };
-          }),
-        );
+          });
+          return {
+            ...ex,
+            movementMode: normalizeMovementMode(ex.movementMode),
+            seriesType,
+            sets,
+          };
+        });
+        let nextExercises = restoredExercises;
+        let mergeResult = null;
+        let routineWasUpdated = false;
+        try {
+          const rawMarker = localStorage.getItem(
+            ROUTINE_UPDATED_DURING_TRAINING_KEY,
+          );
+          const marker = rawMarker ? JSON.parse(rawMarker) : null;
+          routineWasUpdated = marker?.routineId === snap.selectedRoutineId;
+        } catch {
+          localStorage.removeItem(ROUTINE_UPDATED_DURING_TRAINING_KEY);
+        }
+        const snapshotRoutine = snap.selectedRoutine?.raw;
+        if (snapshotRoutine && routine.raw) {
+          routineWasUpdated =
+            routineWasUpdated ||
+            getRoutineDefinitionSignature(snapshotRoutine) !==
+              getRoutineDefinitionSignature(routine.raw);
+        }
+
+        if (
+          routineWasUpdated &&
+          routine.raw &&
+          mergeRoutineIntoActiveExercisesRef.current
+        ) {
+          mergeResult = mergeRoutineIntoActiveExercisesRef.current(
+            restoredExercises,
+            routine.raw,
+          );
+          nextExercises = mergeResult.exercises;
+          localStorage.removeItem(ROUTINE_UPDATED_DURING_TRAINING_KEY);
+        }
+        setExercises(nextExercises);
+
+        if (mergeResult) {
+          const details = [];
+          if (mergeResult.added) details.push(`${mergeResult.added} agregados`);
+          if (mergeResult.resized)
+            details.push(`${mergeResult.resized} con series ajustadas`);
+          if (mergeResult.reordered)
+            details.push(`${mergeResult.reordered} reordenados`);
+          if (mergeResult.removed)
+            details.push(`${mergeResult.removed} quitados`);
+          if (mergeResult.keptRemoved)
+            details.push(
+              `${mergeResult.keptRemoved} mantenidos por tener datos`,
+            );
+          toast.success(
+            details.length
+              ? `Rutina actualizada: ${details.join(", ")}.`
+              : "Rutina actualizada. Tus registros se mantuvieron.",
+          );
+        }
+      }
     } catch (e) {
       console.warn("No se pudo restaurar el entrenamiento activo", e);
     }
@@ -2888,9 +3036,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setNowMs(Date.now());
     (async () => {
       const hist = await loadHistoryForRoutine(id);
-      const matchingHist = filterHistoryByOrderSignature(
+      const primaryRoutineExercises = (found?.raw?.exercises || []).filter(
+        (exercise) => !exercise.isExtra,
+      );
+      const matchingHist = filterHistoryByMuscleSequences(
         hist,
-        getExerciseOrderSignature(found?.raw?.exercises || []),
+        primaryRoutineExercises,
       );
       const bestMap = computeBestFromHistory(matchingHist, branch);
       const bestBySetMap = computeBestBySetFromHistory(matchingHist);
