@@ -23,6 +23,7 @@ import { useUserProfile } from "../context/UserContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
 import { buildCloudinaryUrl } from "../utils/cloudinary";
+import { toast } from "sonner";
 import {
   passwordStatus,
   validateEmail,
@@ -547,12 +548,14 @@ export default function ProfileSettings({ onNavigate }) {
           : "Cambios guardados.",
         tone: "success",
       });
+      toast.success("Perfil actualizado");
     } catch (error) {
       setPersonalState({
         saving: false,
         message: error.message || "No se pudieron guardar los cambios.",
         tone: "error",
       });
+      toast.error(error.message || "No se pudieron guardar los cambios");
     }
   };
 
@@ -568,6 +571,7 @@ export default function ProfileSettings({ onNavigate }) {
         message: "Selecciona una imagen JPG, PNG o WebP.",
         tone: "error",
       });
+      toast.error("Selecciona una imagen JPG, PNG o WebP");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -576,6 +580,7 @@ export default function ProfileSettings({ onNavigate }) {
         message: "La imagen no puede superar 5 MB.",
         tone: "error",
       });
+      toast.error("La imagen no puede superar 5 MB");
       return;
     }
 
@@ -598,12 +603,14 @@ export default function ProfileSettings({ onNavigate }) {
         message: "Foto de perfil actualizada.",
         tone: "success",
       });
+      toast.success("Foto de perfil actualizada");
     } catch (error) {
       setPhotoUploadState({
         uploading: false,
         message: error.message || "No se pudo subir la imagen.",
         tone: "error",
       });
+      toast.error(error.message || "No se pudo subir la imagen");
     }
   };
 
@@ -632,12 +639,14 @@ export default function ProfileSettings({ onNavigate }) {
     try {
       await api.logoutAllSessions();
       await loadSessions();
+      toast.success("Otras sesiones cerradas");
     } catch (error) {
       setSessionsState({
         loading: false,
         closing: false,
         error: error.message || "No se pudieron cerrar las otras sesiones.",
       });
+      toast.error(error.message || "No se pudieron cerrar las otras sesiones");
     }
   };
 
@@ -669,6 +678,7 @@ export default function ProfileSettings({ onNavigate }) {
         message: "Contraseña actualizada.",
         tone: "success",
       });
+      toast.success("Contraseña actualizada");
       await loadSessions();
     } catch (error) {
       setPasswordState({
@@ -676,6 +686,7 @@ export default function ProfileSettings({ onNavigate }) {
         message: error.message || "No se pudo actualizar la contraseña.",
         tone: "error",
       });
+      toast.error(error.message || "No se pudo actualizar la contraseña");
     }
   };
 
@@ -688,12 +699,14 @@ export default function ProfileSettings({ onNavigate }) {
         message: "Configuración guardada.",
         tone: "success",
       });
+      toast.success("Configuración de sedes guardada");
     } catch (error) {
       setLocationState({
         saving: false,
         message: error.message || "No se pudo guardar la configuración.",
         tone: "error",
       });
+      toast.error(error.message || "No se pudo guardar la configuración");
     }
   };
 

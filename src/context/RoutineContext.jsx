@@ -10,7 +10,7 @@ const compactObject = (value) =>
     Object.entries(value).filter(([, item]) => item !== undefined),
   );
 
-export function RoutineProvider({ children }) {
+export function RoutineProvider({ children, ownerId = "" }) {
   const [routines, setRoutines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,7 +19,7 @@ export function RoutineProvider({ children }) {
     async function load() {
       try {
         setLoading(true);
-        const data = await api.getRoutines();
+        const data = await api.getRoutines({ athleteId: ownerId });
         setRoutines(data.map((r) => ({ ...r, id: r._id || r.id })));
         setError(null);
       } catch (e) {
@@ -29,11 +29,12 @@ export function RoutineProvider({ children }) {
       }
     }
     load();
-  }, []);
+  }, [ownerId]);
 
   const addRoutine = async (routine) => {
     const payload = compactObject({
       ...routine,
+      ownerId: ownerId || undefined,
       branch: normalizeBranch(routine.branch),
       _id: routine.id,
     });
@@ -41,6 +42,7 @@ export function RoutineProvider({ children }) {
     const merged = {
       ...saved,
       ...payload,
+      ownerId: ownerId || undefined,
       id: routine.id,
       branch: saved.branch || payload.branch,
       exercises: payload.exercises || saved.exercises,
@@ -98,7 +100,7 @@ export function RoutineProvider({ children }) {
       deleteRoutine,
       duplicateRoutine,
     }),
-    [routines, loading, error],
+    [routines, loading, error, ownerId],
   );
 
   return (

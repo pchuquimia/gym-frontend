@@ -7,7 +7,13 @@ import ThemeToggle from "../ThemeToggle";
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_KEY = "active_training";
 
-function MainLayout({ children, activePage, onNavigate }) {
+function MainLayout({
+  children,
+  activePage,
+  onNavigate,
+  coachAthlete = null,
+  onCoachContextExit,
+}) {
   const [activeTraining, setActiveTraining] = useState(null);
   const pollRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
@@ -132,6 +138,25 @@ function MainLayout({ children, activePage, onNavigate }) {
             )}
             <ThemeToggle />
           </div>
+          {coachAthlete ? (
+            <div className="mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-400/25 dark:bg-blue-500/10">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700 dark:text-blue-300">
+                  Sesión supervisada
+                </p>
+                <p className="truncate text-sm font-black text-[color:var(--text)]">
+                  Entrenando a {coachAthlete.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onCoachContextExit}
+                className="h-10 shrink-0 rounded-lg border border-blue-300 px-3 text-xs font-black text-blue-700 dark:border-blue-400/30 dark:text-blue-200"
+              >
+                Salir
+              </button>
+            </div>
+          ) : null}
           <main className="flex flex-col gap-6">{children}</main>
         </div>
       </div>

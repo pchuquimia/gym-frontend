@@ -1,12 +1,13 @@
 import { Check, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/button";
-import { sections } from "./navConfig";
+import { coachSections, managedClientSections, sections } from "./navConfig";
 
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
-const allItems = sections.flatMap((section) => section.items);
 
 const mobileNavOrder = [
+  "trainer",
+  "coach_admin",
   "dashboard",
   "registrar",
   "rutinas",
@@ -19,6 +20,8 @@ const mobileNavOrder = [
 ];
 
 const mobileLabels = {
+  trainer: "Atletas",
+  coach_admin: "Coaches",
   dashboard: "Inicio",
   registrar: "Entrenar",
   rutinas: "Rutinas",
@@ -32,6 +35,11 @@ const mobileLabels = {
 
 const mobileGroups = [
   {
+    title: "Coach",
+    detail: "Atletas asignados",
+    ids: ["trainer"],
+  },
+  {
     title: "Entrenamiento",
     detail: "Accesos diarios",
     ids: ["dashboard", "registrar", "rutinas", "library"],
@@ -44,12 +52,57 @@ const mobileGroups = [
   {
     title: "Gestion",
     detail: "Historial y cuenta",
-    ids: ["admin_sesiones", "fotos", "perfil"],
+    ids: ["coach_admin", "admin_sesiones", "fotos", "perfil"],
+  },
+];
+
+const coachMobileGroups = [
+  {
+    title: "Coach",
+    detail: "Gestión diaria",
+    ids: ["trainer"],
+  },
+  {
+    title: "Herramientas",
+    detail: "Planificación",
+    ids: ["rutinas", "library"],
+  },
+  {
+    title: "Cuenta",
+    detail: "Configuración",
+    ids: ["perfil"],
+  },
+];
+
+const managedClientMobileGroups = [
+  {
+    title: "Entrenamiento",
+    detail: "Plan de tu coach",
+    ids: ["dashboard", "registrar", "rutinas"],
+  },
+  {
+    title: "Cuenta",
+    detail: "Configuración",
+    ids: ["perfil"],
   },
 ];
 
 function Sidebar({ activePage, onNavigate, forceVisible = false }) {
   const { user, logout } = useAuth();
+  const isCoach = user?.role === "Entrenador";
+  const isManagedClient =
+    user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+  const visibleSections = isCoach
+    ? coachSections
+    : isManagedClient
+      ? managedClientSections
+      : sections;
+  const visibleItems = visibleSections.flatMap((section) => section.items);
+  const visibleMobileGroups = isCoach
+    ? coachMobileGroups
+    : isManagedClient
+      ? managedClientMobileGroups
+      : mobileGroups;
   const initials =
     user?.name
       ?.split(" ")
@@ -65,7 +118,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
 
   if (forceVisible) {
     const availableItems = mobileNavOrder
-      .map((id) => allItems.find((item) => item.id === id))
+      .map((id) => visibleItems.find((item) => item.id === id))
       .filter((item) => item && canSeeItem(item, user?.role));
     const getMobileItem = (id) => availableItems.find((item) => item.id === id);
 
@@ -96,14 +149,18 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
               Gym
             </p>
             <p className="mt-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-300">
-              Atleta Pro
+              {isCoach
+                ? "Modo coach"
+                : isManagedClient
+                  ? "Plan con coach"
+                  : "Atleta Pro"}
             </p>
           </div>
         </button>
 
         <nav className="mt-8 min-h-0 flex-1 overflow-hidden max-[700px]:mt-6">
           <div className="mt-6 space-y-6 max-[700px]:mt-4 max-[700px]:space-y-4">
-            {mobileGroups.map((group) => {
+            {visibleMobileGroups.map((group) => {
               const groupItems = group.ids.map(getMobileItem).filter(Boolean);
               if (!groupItems.length) return null;
               return (
@@ -190,7 +247,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
 
       <div className="h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain">
         <nav className="flex flex-col gap-3">
-          {sections.map((section, idx) => {
+          {visibleSections.map((section, idx) => {
             const items = section.items.filter((item) =>
               canSeeItem(item, user?.role),
             );
@@ -238,7 +295,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                     );
                   })}
                 </div>
-                {idx < sections.length - 1 && (
+                {idx < visibleSections.length - 1 && (
                   <div className="my-2 h-px bg-[color:var(--border)]/60" />
                 )}
               </div>

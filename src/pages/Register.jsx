@@ -12,6 +12,7 @@ import {
 import AuthField from "../components/auth/AuthField";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
+import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import {
   passwordStatus,
@@ -85,8 +86,14 @@ export default function Register({ onNavigate = () => {} }) {
       });
       if (result?.verificationRequired) {
         setVerificationEmail(result.email || form.email.trim());
+        toast.success("Usuario creado", {
+          description: "Revisa tu correo para activar la cuenta.",
+        });
         return;
       }
+      toast.success("Usuario creado", {
+        description: "La cuenta está lista para configurar.",
+      });
       onNavigate("perfil");
     } catch (error) {
       if (error.status === 409) {

@@ -11,6 +11,8 @@ import Routines from "./pages/Routines";
 import ProfileSettings from "./pages/ProfileSettings";
 import PhotosLibrary from "./pages/PhotosLibrary";
 import TrainingAdmin from "./pages/TrainingAdmin";
+import CoachDashboard from "./pages/CoachDashboard";
+import CoachManagement from "./pages/CoachManagement";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
@@ -29,7 +31,8 @@ const PAGES = {
   },
   resumen_sesion: { label: "Resumen de Sesion", component: SessionSummaryPage },
   rutinas: { label: "Rutinas y Planificacion", component: Routines },
-  trainer: { label: "Panel Entrenador", component: Routines },
+  trainer: { label: "Mis atletas", component: CoachDashboard },
+  coach_admin: { label: "Coaches y atletas", component: CoachManagement },
   admin_sesiones: { label: "Historial de sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
@@ -37,10 +40,35 @@ const PAGES = {
 
 const PAGE_ROLES = {
   admin_sesiones: ["Admin", "Entrenador"],
+  trainer: ["Entrenador"],
+  coach_admin: ["Admin"],
 };
 
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_TRAINING_KEY = "active_training";
+const COACH_ATHLETE_KEY = "coach_athlete_context";
+const COACH_ALLOWED_PAGES = new Set([
+  "trainer",
+  "rutinas",
+  "library",
+  "perfil",
+]);
+const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
+  "dashboard",
+  "registrar",
+  "rutinas",
+  "perfil",
+]);
+
+const readCoachAthlete = () => {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const value = JSON.parse(localStorage.getItem(COACH_ATHLETE_KEY));
+    return value?.id && value?.name ? value : null;
+  } catch {
+    return null;
+  }
+};
 
 const AUTH_PATHS = {
   login: "/",
@@ -92,8 +120,21 @@ function App() {
     const stored = localStorage.getItem("active_page");
     return stored || authPage || "login";
   });
+  const [coachAthlete, setCoachAthlete] = useState(readCoachAthlete);
+
+  const selectCoachAthlete = (athlete) => {
+    const next = athlete?.id ? athlete : null;
+    setCoachAthlete(next);
+    if (typeof localStorage !== "undefined") {
+      if (next) localStorage.setItem(COACH_ATHLETE_KEY, JSON.stringify(next));
+      else localStorage.removeItem(COACH_ATHLETE_KEY);
+    }
+  };
 
   const handleNavigate = (page) => {
+    if (page === "trainer" && coachAthlete && !hasActiveTrainingSnapshot()) {
+      selectCoachAthlete(null);
+    }
     setActivePage(page);
     if (typeof localStorage !== "undefined") {
       if (AUTH_PATHS[page]) {
@@ -126,6 +167,28 @@ function App() {
   }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
+    if (!isAuthenticated || user?.role !== "Entrenador") return;
+    const isSupervisedTraining = activePage === "registrar" && coachAthlete;
+    if (!COACH_ALLOWED_PAGES.has(activePage) && !isSupervisedTraining) {
+      handleNavigate("trainer");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage, coachAthlete, isAuthenticated, user?.role]);
+
+  useEffect(() => {
+    const isManagedClient =
+      user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+    if (
+      isAuthenticated &&
+      isManagedClient &&
+      !MANAGED_CLIENT_ALLOWED_PAGES.has(activePage)
+    ) {
+      handleNavigate("dashboard");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
+
+  useEffect(() => {
     if (
       isAuthenticated &&
       ["login", "register", "recover", "reset", "verify"].includes(activePage)
@@ -141,6 +204,10 @@ function App() {
   );
   const PageComponent = pageEntry.component;
   const allowedRoles = PAGE_ROLES[activePage] || [];
+  const supervisedOwnerId =
+    user?.role === "Entrenador" && activePage === "registrar"
+      ? coachAthlete?.id || ""
+      : "";
 
   if (loading) {
     return (
@@ -173,10 +240,22 @@ function App() {
   }
 
   return (
-    <TrainingProvider>
-      <RoutineProvider>
+    <TrainingProvider ownerId={supervisedOwnerId}>
+      <RoutineProvider ownerId={supervisedOwnerId}>
         <UserProvider>
-          <MainLayout activePage={activePage} onNavigate={handleNavigate}>
+          <MainLayout
+            activePage={activePage}
+            onNavigate={handleNavigate}
+            coachAthlete={supervisedOwnerId ? coachAthlete : null}
+            onCoachContextExit={() => {
+              if (hasActiveTrainingSnapshot()) {
+                handleNavigate("registrar");
+                return;
+              }
+              selectCoachAthlete(null);
+              handleNavigate("trainer");
+            }}
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={activePage}
@@ -194,6 +273,8 @@ function App() {
                   <PageComponent
                     pageKey={pageEntry.label}
                     onNavigate={handleNavigate}
+                    coachAthlete={coachAthlete}
+                    onSelectCoachAthlete={selectCoachAthlete}
                   />
                 </RoleBasedRoute>
               </motion.div>

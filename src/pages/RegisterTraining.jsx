@@ -17,7 +17,7 @@ import {
   Timer,
   X,
 } from "lucide-react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
@@ -1118,6 +1118,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     locationMode,
     allowedBranches,
     setBranch,
+    dataOwnerId,
   } = useTrainingData();
 
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -2222,6 +2223,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     try {
       const resp = await api.getTrainings({
+        athleteId: dataOwnerId,
         from: date,
         to: date,
         limit: 1,
@@ -2377,6 +2379,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       let resp;
       try {
         resp = await api.getTrainings({
+          athleteId: dataOwnerId,
           limit: 200,
           fields:
             "date,routineId,progressScopeId,orderSignature,branch,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.setupNote,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.completedAt,exercises.sets.entries.previousText",
@@ -2389,6 +2392,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           projectionError,
         );
         resp = await api.getTrainings({
+          athleteId: dataOwnerId,
           limit: 200,
           fields: "date,routineId,orderSignature,branch,exercises",
           progressScopeId,
@@ -3976,6 +3980,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       let duplicateTrainingId = "";
       if (selectedRoutine?.id) {
         const existing = await api.getTrainings({
+          athleteId: dataOwnerId,
           from: dateStr,
           to: dateStr,
           routineId: selectedRoutine.id,
@@ -4221,12 +4226,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   return (
     <main className="relative min-h-0 w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
-      <Toaster
-        position="top-center"
-        richColors
-        offset={16}
-        mobileOffset={{ top: "4.5rem", left: "0.75rem", right: "0.75rem" }}
-      />
       <div
         className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
           showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"

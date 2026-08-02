@@ -22,7 +22,7 @@ import {
 
 const roleHome = (role) => {
   if (role === "Admin") return "dashboard";
-  if (role === "Entrenador") return "rutinas";
+  if (role === "Entrenador") return "trainer";
   return "perfil";
 };
 

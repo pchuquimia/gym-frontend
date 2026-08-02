@@ -98,11 +98,14 @@ const normalizeTraining = (training) => ({
 const EXERCISES_KEY = ["exercises", "taxonomy-v3", 1000];
 const SESSIONS_KEY = ["sessions"];
 const PHOTOS_KEY = ["photos"];
-const TRAININGS_KEY = ["trainings", 120];
 const PREFS_KEY = ["preferences"];
 
-export function TrainingProvider({ children }) {
+export function TrainingProvider({ children, ownerId = "" }) {
   const queryClient = useQueryClient();
+  const trainingsKey = useMemo(
+    () => ["trainings", 120, ownerId || "self"],
+    [ownerId],
+  );
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
   const [locationMode, setLocationMode] = useState("single");
   const [allowedBranches, setAllowedBranches] = useState([DEFAULT_BRANCH]);
@@ -143,9 +146,12 @@ export function TrainingProvider({ children }) {
   });
 
   const trainingsQuery = useQuery({
-    queryKey: TRAININGS_KEY,
+    queryKey: trainingsKey,
     queryFn: async () => {
-      const trResp = await api.getTrainings({ limit: 120 });
+      const trResp = await api.getTrainings({
+        limit: 120,
+        athleteId: ownerId,
+      });
       const list = Array.isArray(trResp) ? trResp : trResp?.items || [];
       return list.map(normalizeTraining);
     },
@@ -228,10 +234,15 @@ export function TrainingProvider({ children }) {
   };
 
   const addTraining = async (training) => {
-    const payload = { ...training, id: undefined, _id: training.id };
+    const payload = {
+      ...training,
+      ownerId: ownerId || undefined,
+      id: undefined,
+      _id: training.id,
+    };
     const saved = await api.createTraining(payload);
     const normalized = normalizeTraining(saved);
-    queryClient.setQueryData(TRAININGS_KEY, (prev = []) => [
+    queryClient.setQueryData(trainingsKey, (prev = []) => [
       normalized,
       ...prev,
     ]);
@@ -242,7 +253,7 @@ export function TrainingProvider({ children }) {
     const payload = { ...training, id: undefined, _id: undefined };
     const saved = await api.updateTraining(id, payload);
     const normalized = normalizeTraining(saved);
-    queryClient.setQueryData(TRAININGS_KEY, (prev = []) =>
+    queryClient.setQueryData(trainingsKey, (prev = []) =>
       prev.map((t) =>
         t.id === normalized.id || t._id === normalized.id ? normalized : t,
       ),
@@ -393,7 +404,7 @@ export function TrainingProvider({ children }) {
   };
 
   const setTrainings = (updater) => {
-    queryClient.setQueryData(TRAININGS_KEY, (prev = []) =>
+    queryClient.setQueryData(trainingsKey, (prev = []) =>
       typeof updater === "function" ? updater(prev) : updater,
     );
   };
@@ -435,6 +446,7 @@ export function TrainingProvider({ children }) {
       branch,
       locationMode,
       allowedBranches,
+      dataOwnerId: ownerId,
       preferencesLoading: prefsQuery.isLoading,
       goals,
       addSession,
@@ -461,6 +473,7 @@ export function TrainingProvider({ children }) {
       branch,
       locationMode,
       allowedBranches,
+      ownerId,
       goals,
     ],
   );

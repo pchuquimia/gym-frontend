@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Dumbbell, ImageIcon, ImagePlus, Trash2, TrendingUp } from "lucide-react";
+import {
+  Camera,
+  Dumbbell,
+  ImageIcon,
+  ImagePlus,
+  Trash2,
+  TrendingUp,
+} from "lucide-react";
 import Button from "../components/ui/button";
 import Modal from "../components/shared/Modal";
+import { toast } from "sonner";
 import { useTrainingData } from "../context/TrainingContext";
 import { buildCloudinaryUrl } from "../utils/cloudinary";
 
@@ -104,7 +112,9 @@ function PhotosLibrary() {
   const groupedPhotos = useMemo(() => {
     const map = new Map();
     orderedPhotos.forEach((photo) => {
-      const key = formatDate(photo.date, { month: "long", year: "numeric" }) || "Sin fecha";
+      const key =
+        formatDate(photo.date, { month: "long", year: "numeric" }) ||
+        "Sin fecha";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(photo);
     });
@@ -140,9 +150,13 @@ function PhotosLibrary() {
         type: uploadType,
       });
       setUploadLabel("");
+      toast.success("Foto guardada", {
+        description: "La imagen se agregó a tu historial.",
+      });
     } catch (err) {
       console.error("No se pudo subir la foto", err);
       setFileError("No se pudo subir la foto");
+      toast.error("No se pudo subir la foto");
     } finally {
       setIsUploading(false);
       event.target.value = "";
@@ -153,8 +167,13 @@ function PhotosLibrary() {
     if (!photo) return;
     const confirmDelete = window.confirm("Eliminar esta foto?");
     if (!confirmDelete) return;
-    await deletePhoto(photo.id);
-    setActivePhoto(null);
+    try {
+      await deletePhoto(photo.id);
+      setActivePhoto(null);
+      toast.success("Foto eliminada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo eliminar la foto");
+    }
   };
 
   useEffect(() => {
@@ -188,7 +207,12 @@ function PhotosLibrary() {
             value={trainings?.length || 0}
             tone="amber"
           />
-          <StatCard icon={TrendingUp} label="Gym photos" value={stats.gymCount} tone="blue" />
+          <StatCard
+            icon={TrendingUp}
+            label="Gym photos"
+            value={stats.gymCount}
+            tone="blue"
+          />
           <StatCard icon={Camera} label="Home photos" value={stats.homeCount} />
         </section>
 
@@ -255,9 +279,13 @@ function PhotosLibrary() {
             className="hidden"
             onChange={handleUpload}
           />
-          {fileError ? <p className="mt-2 text-xs text-red-500">{fileError}</p> : null}
+          {fileError ? (
+            <p className="mt-2 text-xs text-red-500">{fileError}</p>
+          ) : null}
           {isUploading ? (
-            <p className="mt-2 text-xs font-semibold text-blue-500">Subiendo foto...</p>
+            <p className="mt-2 text-xs font-semibold text-blue-500">
+              Subiendo foto...
+            </p>
           ) : null}
         </section>
 
@@ -270,7 +298,9 @@ function PhotosLibrary() {
         {groupedPhotos.map(([month, photosByMonth]) => (
           <section key={month} className="space-y-4">
             <div className="flex items-end justify-between">
-              <h2 className="text-2xl font-black capitalize">{monthLabel(month)}</h2>
+              <h2 className="text-2xl font-black capitalize">
+                {monthLabel(month)}
+              </h2>
               <span className="text-[11px] font-black uppercase tracking-wide text-blue-700 dark:text-blue-200">
                 {photosByMonth.length} photos
               </span>
@@ -344,7 +374,11 @@ function PhotosLibrary() {
                 <Trash2 className="h-4 w-4" />
                 Eliminar
               </Button>
-              <Button size="sm" className="rounded-full" onClick={() => setActivePhoto(null)}>
+              <Button
+                size="sm"
+                className="rounded-full"
+                onClick={() => setActivePhoto(null)}
+              >
                 Cerrar
               </Button>
             </>
@@ -375,7 +409,9 @@ function PhotosLibrary() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                 <p className="text-xs text-[color:var(--text-muted)]">Rutina</p>
-                <p className="text-sm font-semibold">{resolveRoutineLabel(activePhoto)}</p>
+                <p className="text-sm font-semibold">
+                  {resolveRoutineLabel(activePhoto)}
+                </p>
               </div>
               <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                 <p className="text-xs text-[color:var(--text-muted)]">Tipo</p>
@@ -395,7 +431,9 @@ function PhotosLibrary() {
               </div>
             </div>
             {activePhoto.label && (
-              <p className="text-sm text-[color:var(--text-muted)]">{activePhoto.label}</p>
+              <p className="text-sm text-[color:var(--text-muted)]">
+                {activePhoto.label}
+              </p>
             )}
           </div>
         </Modal>

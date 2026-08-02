@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import {
   Check,
   ChevronDown,
@@ -36,6 +36,7 @@ import SlideToConfirm from "../components/shared/SlideToConfirm";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 
@@ -2635,6 +2636,9 @@ function RoutineModal({
 }
 
 function Routines({ onNavigate }) {
+  const { user } = useAuth();
+  const isManagedClient =
+    user?.role === "Cliente" && user?.trainingMode === "coach_managed";
   const {
     routines,
     addRoutine,
@@ -2652,7 +2656,9 @@ function Routines({ onNavigate }) {
     allowedBranches,
   } = useTrainingData();
 
-  const [libraryDraft] = useState(readRoutineLibraryDraft);
+  const [libraryDraft] = useState(() =>
+    isManagedClient ? null : readRoutineLibraryDraft(),
+  );
   const [modalMode, setModalMode] = useState(() =>
     libraryDraft ? (libraryDraft.mode === "create" ? "create" : "edit") : null,
   );
@@ -2814,17 +2820,19 @@ function Routines({ onNavigate }) {
   ]);
 
   const openCreate = () => {
+    if (isManagedClient) return;
     setSelectedRoutine(null);
     setModalMode("create");
   };
 
   const openEdit = (routine) => {
+    if (isManagedClient) return;
     setSelectedRoutine(routine);
     setModalMode("edit");
   };
 
   useEffect(() => {
-    if (!editTargetRoutineId) return;
+    if (!editTargetRoutineId || isManagedClient) return;
     const target = routines.find(
       (routine) =>
         routine.id === editTargetRoutineId ||
@@ -2839,7 +2847,7 @@ function Routines({ onNavigate }) {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
     }
-  }, [editTargetRoutineId, routines]);
+  }, [editTargetRoutineId, isManagedClient, routines]);
 
   const closeModal = () => {
     setSelectedRoutine(null);
@@ -2851,6 +2859,7 @@ function Routines({ onNavigate }) {
   };
 
   const handleSave = async (routine) => {
+    if (isManagedClient) return;
     if (modalMode === "create") {
       await addRoutine(routine);
       toast.success("Rutina creada");
@@ -2876,6 +2885,7 @@ function Routines({ onNavigate }) {
   };
 
   const requestDeleteRoutine = (routine) => {
+    if (isManagedClient) return;
     setRoutineToDelete(routine);
   };
 
@@ -2896,7 +2906,7 @@ function Routines({ onNavigate }) {
   };
 
   const handleDuplicateRoutine = async (routine) => {
-    if (!routine || duplicatingRoutineId) return;
+    if (!routine || duplicatingRoutineId || isManagedClient) return;
     setDuplicatingRoutineId(routine.id);
     try {
       await duplicateRoutine(routine.id);
@@ -2919,20 +2929,21 @@ function Routines({ onNavigate }) {
 
   return (
     <>
-      <Toaster position="top-center" richColors />
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-              Planificación
+              {isManagedClient ? "Plan de entrenamiento" : "Planificación"}
             </p>
             <h1 className="mt-1 text-3xl font-black leading-none text-[color:var(--text)]">
-              Rutinas
+              {isManagedClient ? "Mis rutinas" : "Rutinas"}
             </h1>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               {routines.length
-                ? `${routines.length} ${routines.length === 1 ? "rutina guardada" : "rutinas guardadas"}`
-                : "Aún no tienes rutinas."}
+                ? `${routines.length} ${routines.length === 1 ? (isManagedClient ? "rutina asignada" : "rutina guardada") : isManagedClient ? "rutinas asignadas" : "rutinas guardadas"}`
+                : isManagedClient
+                  ? "Tu coach aún no asignó rutinas."
+                  : "Aún no tienes rutinas."}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -2946,7 +2957,7 @@ function Routines({ onNavigate }) {
                 <RotateCcw className="h-4 w-4" />
               </button>
             ) : null}
-            {routines.length ? (
+            {routines.length && !isManagedClient ? (
               <button
                 type="button"
                 onClick={openCreate}
@@ -2965,15 +2976,21 @@ function Routines({ onNavigate }) {
               <Layers3 className="h-5 w-5" />
             </div>
             <h2 className="mt-4 text-lg font-black text-[color:var(--text)]">
-              Crea tu primera rutina
+              {isManagedClient
+                ? "Aún no tienes una rutina asignada"
+                : "Crea tu primera rutina"}
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
-              Empieza definiendo qué quieres entrenar.
+              {isManagedClient
+                ? "Tu coach preparará y asignará tu planificación desde su panel."
+                : "Empieza definiendo qué quieres entrenar."}
             </p>
-            <Button className="mt-5 h-11 gap-2" onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              Crear rutina
-            </Button>
+            {!isManagedClient ? (
+              <Button className="mt-5 h-11 gap-2" onClick={openCreate}>
+                <Plus className="h-4 w-4" />
+                Crear rutina
+              </Button>
+            ) : null}
           </div>
         ) : showSearch || showBranchFilter ? (
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
@@ -3123,53 +3140,61 @@ function Routines({ onNavigate }) {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(routine)}
-                      className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-200 dark:hover:bg-blue-500/10"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Editar
-                    </button>
-                    <details className="relative">
-                      <summary
-                        className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] [&::-webkit-details-marker]:hidden"
-                        aria-label="Opciones de rutina"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </summary>
-                      <div className="absolute bottom-12 right-0 z-20 w-44 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                    {isManagedClient ? (
+                      <span className="inline-flex h-11 items-center text-sm font-black text-blue-700 dark:text-blue-200">
+                        Asignada por tu coach
+                      </span>
+                    ) : (
+                      <>
                         <button
                           type="button"
-                          onClick={(event) => {
-                            event.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            handleDuplicateRoutine(routine);
-                          }}
-                          disabled={Boolean(duplicatingRoutineId)}
-                          className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
+                          onClick={() => openEdit(routine)}
+                          className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-200 dark:hover:bg-blue-500/10"
                         >
-                          <Copy className="h-4 w-4" />
-                          {duplicatingRoutineId === routine.id
-                            ? "Duplicando..."
-                            : "Duplicar"}
+                          <Pencil className="h-4 w-4" />
+                          Editar
                         </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            requestDeleteRoutine(routine);
-                          }}
-                          className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Eliminar
-                        </button>
-                      </div>
-                    </details>
+                        <details className="relative">
+                          <summary
+                            className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] [&::-webkit-details-marker]:hidden"
+                            aria-label="Opciones de rutina"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </summary>
+                          <div className="absolute bottom-12 right-0 z-20 w-44 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.removeAttribute("open");
+                                handleDuplicateRoutine(routine);
+                              }}
+                              disabled={Boolean(duplicatingRoutineId)}
+                              className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
+                            >
+                              <Copy className="h-4 w-4" />
+                              {duplicatingRoutineId === routine.id
+                                ? "Duplicando..."
+                                : "Duplicar"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.removeAttribute("open");
+                                requestDeleteRoutine(routine);
+                              }}
+                              className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Eliminar
+                            </button>
+                          </div>
+                        </details>
+                      </>
+                    )}
                   </div>
                 </div>
               </article>
@@ -3189,27 +3214,31 @@ function Routines({ onNavigate }) {
               <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                 {hasActiveRoutineFilters
                   ? "Prueba con otra búsqueda o sede."
-                  : "Puedes crear una nueva desde aquí."}
+                  : isManagedClient
+                    ? "Consulta con tu coach para ajustar la planificación."
+                    : "Puedes crear una nueva desde aquí."}
               </p>
-              <Button
-                className="mt-4"
-                onClick={() => {
-                  if (hasActiveRoutineFilters) {
-                    setSearchTerm("");
-                    setActiveBranch("all");
-                  } else {
-                    openCreate();
-                  }
-                }}
-              >
-                {hasActiveRoutineFilters ? "Limpiar filtros" : "Nueva rutina"}
-              </Button>
+              {hasActiveRoutineFilters || !isManagedClient ? (
+                <Button
+                  className="mt-4"
+                  onClick={() => {
+                    if (hasActiveRoutineFilters) {
+                      setSearchTerm("");
+                      setActiveBranch("all");
+                    } else {
+                      openCreate();
+                    }
+                  }}
+                >
+                  {hasActiveRoutineFilters ? "Limpiar filtros" : "Nueva rutina"}
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </section>
       ) : null}
 
-      {modalMode && (
+      {modalMode && !isManagedClient && (
         <RoutineModal
           mode={modalMode}
           initialData={selectedRoutine}
@@ -3230,11 +3259,13 @@ function Routines({ onNavigate }) {
           }}
         />
       )}
-      <DeleteRoutineSheet
-        routine={routineToDelete}
-        onConfirm={confirmDeleteRoutine}
-        onClose={closeDeleteRoutine}
-      />
+      {!isManagedClient ? (
+        <DeleteRoutineSheet
+          routine={routineToDelete}
+          onConfirm={confirmDeleteRoutine}
+          onClose={closeDeleteRoutine}
+        />
+      ) : null}
     </>
   );
 }

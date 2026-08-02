@@ -75,7 +75,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
+  getCoachAthletes: () => request("/api/coach/athletes"),
+  getCoachAthleteOverview: (athleteId) =>
+    request(`/api/coach/athletes/${athleteId}/overview`),
+  assignCoachRoutine: (athleteId, payload) =>
+    request(`/api/coach/athletes/${athleteId}/routines`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   getExercises: (params = {}) => {
     const query = new URLSearchParams({
@@ -127,7 +136,12 @@ export const api = {
     return response.data;
   },
 
-  getRoutines: () => request("/api/routines"),
+  getRoutines: (params = {}) => {
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+    }).toString();
+    return request(`/api/routines?${query}`);
+  },
   createRoutine: (payload) =>
     request("/api/routines", { method: "POST", body: JSON.stringify(payload) }),
   updateRoutine: (id, payload) =>
@@ -161,6 +175,7 @@ export const api = {
       routineId: params.routineId ?? "",
       progressScopeId: params.progressScopeId ?? "",
       excludeProgressScopeId: params.excludeProgressScopeId ?? "",
+      athleteId: params.athleteId ?? "",
       meta: params.meta ?? false,
     }).toString();
     return request(`/api/trainings?${query}`);
@@ -187,6 +202,7 @@ export const api = {
       from: params.from ?? "",
       to: params.to ?? "",
       routineId: params.routineId ?? "",
+      athleteId: params.athleteId ?? "",
     }).toString();
     return request(`/api/trainings/summary?${query}`);
   },

@@ -5,6 +5,7 @@ import {
   Layers,
   LayoutDashboard,
   Shield,
+  Users,
   User,
 } from "lucide-react";
 
@@ -29,9 +30,26 @@ export const sections = [
     ],
   },
   {
+    heading: "Coach",
+    items: [
+      {
+        id: "trainer",
+        label: "Mis atletas",
+        icon: Users,
+        roles: ["Entrenador"],
+      },
+    ],
+  },
+  {
     heading: "Gestion",
     items: [
       { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
+      {
+        id: "coach_admin",
+        label: "Coaches y atletas",
+        icon: Users,
+        roles: ["Admin"],
+      },
       {
         id: "admin_sesiones",
         label: "Historial de sesiones",
@@ -44,6 +62,39 @@ export const sections = [
   {
     heading: "Perfil",
     items: [{ id: "perfil", label: "Perfil y Ajustes", icon: User }],
+  },
+];
+
+export const coachSections = [
+  {
+    heading: "Coach",
+    items: [{ id: "trainer", label: "Mis atletas", icon: Users }],
+  },
+  {
+    heading: "Herramientas",
+    items: [
+      { id: "rutinas", label: "Plantillas de rutinas", icon: ClipboardList },
+      { id: "library", label: "Biblioteca de ejercicios", icon: Dumbbell },
+    ],
+  },
+  {
+    heading: "Cuenta",
+    items: [{ id: "perfil", label: "Perfil y ajustes", icon: User }],
+  },
+];
+
+export const managedClientSections = [
+  {
+    heading: "Entrenamiento",
+    items: [
+      { id: "dashboard", label: "Inicio", icon: LayoutDashboard },
+      { id: "registrar", label: "Entrenar", icon: Dumbbell },
+      { id: "rutinas", label: "Mis rutinas", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Cuenta",
+    items: [{ id: "perfil", label: "Perfil y ajustes", icon: User }],
   },
 ];
 

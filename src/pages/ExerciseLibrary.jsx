@@ -16,6 +16,7 @@ import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { toast } from "sonner";
 import {
   ALL_FILTER_VALUE,
   DIFFICULTY_OPTIONS,
@@ -394,10 +395,21 @@ function ExerciseLibrary({ onNavigate }) {
       type: user?.role === "Admin" ? exercise.type || "system" : "custom",
     };
 
-    if (exercise.id) {
-      await updateExerciseMeta(exercise.id, payload);
-    } else {
-      await addExercise(payload);
+    try {
+      if (exercise.id) {
+        await updateExerciseMeta(exercise.id, payload);
+      } else {
+        await addExercise(payload);
+      }
+      toast.success(
+        exercise.id ? "Ejercicio actualizado" : "Ejercicio creado",
+        {
+          description: exercise.name,
+        },
+      );
+    } catch (error) {
+      toast.error(error.message || "No se pudo guardar el ejercicio");
+      throw error;
     }
 
     setActiveModal(null);
@@ -731,8 +743,15 @@ function ExerciseLibrary({ onNavigate }) {
         <ConfirmModal
           name={selectedExercise.name}
           onConfirm={async () => {
-            await deleteExercise(selectedExercise.id);
-            closeModal();
+            try {
+              await deleteExercise(selectedExercise.id);
+              toast.success("Ejercicio eliminado", {
+                description: selectedExercise.name,
+              });
+              closeModal();
+            } catch (error) {
+              toast.error(error.message || "No se pudo eliminar el ejercicio");
+            }
           }}
           onClose={closeModal}
         />
