@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Play,
   Repeat2,
+  Settings2,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -106,6 +107,7 @@ export default function ExerciseCard({
   onRemoveExercise,
   onSeriesTypeChange = () => {},
   onMovementModeChange = () => {},
+  onSetupNoteChange = () => {},
   onViewTracking = null,
   onViewHistory: _onViewHistory = null,
   onSwapVariant = null,
@@ -328,9 +330,20 @@ export default function ExerciseCard({
                         showOptions ? "border-blue-500 text-blue-600" : ""
                       }`}
                       onClick={() => setShowOptions((value) => !value)}
+                      title={
+                        exercise.setupNote
+                          ? "Este ejercicio tiene una configuración guardada"
+                          : "Opciones del ejercicio"
+                      }
                     >
                       <SlidersHorizontal className="h-4 w-4" />
                       Opciones
+                      {exercise.setupNote && (
+                        <span
+                          className="h-2 w-2 rounded-full bg-amber-500"
+                          aria-label="Configuración guardada"
+                        />
+                      )}
                     </Button>
                   </motion.div>
                 </div>
@@ -407,6 +420,25 @@ export default function ExerciseCard({
                           </div>
                         </div>
                       )}
+                      <label className="block border-t border-[color:var(--border)] pt-3">
+                        <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                          <Settings2 className="h-3.5 w-3.5" />
+                          Ajuste / configuración
+                        </span>
+                        <input
+                          type="text"
+                          value={exercise.setupNote || ""}
+                          onChange={(event) =>
+                            onSetupNoteChange(event.target.value)
+                          }
+                          maxLength={240}
+                          enterKeyHint="done"
+                          autoComplete="off"
+                          placeholder="Ej. asiento 3 · respaldo 5 · altura 9"
+                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                          aria-label={`Ajuste de ${exercise.name}`}
+                        />
+                      </label>
                     </div>
                   </motion.div>
                 )}
@@ -474,6 +506,7 @@ ExerciseCard.propTypes = {
     imagePublicId: PropTypes.string,
     supportsUnilateral: PropTypes.bool,
     movementMode: PropTypes.oneOf(["bilateral", "unilateral"]),
+    setupNote: PropTypes.string,
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
     plannedOrder: PropTypes.number,
     actualOrder: PropTypes.number,
@@ -519,6 +552,7 @@ ExerciseCard.propTypes = {
   onRemoveExercise: PropTypes.func.isRequired,
   onSeriesTypeChange: PropTypes.func,
   onMovementModeChange: PropTypes.func,
+  onSetupNoteChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onViewHistory: PropTypes.func,
   onSwapVariant: PropTypes.func,
