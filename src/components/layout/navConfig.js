@@ -12,7 +12,7 @@ export const sections = [
   {
     heading: "Principal",
     items: [
-      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { id: "dashboard", label: "Inicio", icon: LayoutDashboard },
       { id: "library", label: "Biblioteca de Ejercicios", icon: Dumbbell },
       {
         id: "registrar",
