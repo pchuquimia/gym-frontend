@@ -12,6 +12,7 @@ import {
   MoreVertical,
   Pause,
   Play,
+  RotateCcw,
   Timer,
   X,
 } from "lucide-react";
@@ -211,20 +212,6 @@ const branchMeta = {
 const getBranchTitle = (branch) =>
   branchMeta[normalizeBranch(branch)]?.title || branch || "Sucursal";
 
-const getRoutineLevel = (routine) => {
-  const count = Number(routine?.exerciseCount || 0);
-  if (count >= 8) return "Avanzado";
-  if (count >= 6) return "Intermedio";
-  return "Inicial";
-};
-
-const getRoutineFocus = (routine) => {
-  const name = (routine?.name || "").toLowerCase();
-  if (name.includes("pierna") || name.includes("femoral")) return "Fuerza";
-  if (name.includes("espalda") || name.includes("triceps")) return "Potencia";
-  return "Hipertrofia";
-};
-
 function SetupStep({ number, title, subtitle, active = false, done = false }) {
   return (
     <div className="flex items-start gap-3">
@@ -309,19 +296,17 @@ function RoutineSetupCard({ routine, selected, onClick }) {
             {routine.exerciseCount} principales
             {routine.optionalExerciseCount
               ? ` + ${routine.optionalExerciseCount} opcional`
-              : ""}{" "}
-            · ~{Math.max(45, routine.exerciseCount * 10)} min
+              : ""}
           </p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
-          {getRoutineFocus(routine)}
-        </span>
-        <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
-          {getRoutineLevel(routine)}
-        </span>
-      </div>
+      {routine.lastDate ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
+            Último registro: {routine.lastDate}
+          </span>
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -1158,13 +1143,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   );
   const [branchConfirmed, setBranchConfirmed] = useState(false);
   const [setupStarted, setSetupStarted] = useState(false);
+  const [pendingSameDayTraining, setPendingSameDayTraining] = useState(null);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
-  const branchChangeReason = useRef("user"); // "user" | "routine"
-  const restoredFromSnapshot = useRef(false);
-  const historyLoadAttempted = useRef(false);
   const initializedTrainingScreen = useRef(false);
+  const routineLoadRequestRef = useRef(0);
+  const loadedHistoryRoutineRef = useRef("");
   const lastUpdateRef = useRef(Date.now());
-  const [branchLocked, setBranchLocked] = useState(false);
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
   const restTimerRef = useRef(null);
@@ -1180,7 +1164,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const loadTrainingByIdRef = useRef(null);
   const loadHistoryForRoutineRef = useRef(null);
   const mergeRoutineIntoActiveExercisesRef = useRef(null);
-  const loadTrainingForDateRef = useRef(null);
   const applyHistoryToExercisesRef = useRef(null);
   const buildExercisesForRoutineRef = useRef(null);
   const notifyRestCompleteRef = useRef(null);
@@ -1227,10 +1210,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         sourceRoutineId: r.sourceRoutineId || null,
         exerciseCount: primaryExercises.length,
         optionalExerciseCount: optionalExercises.length,
-        lastDate:
-          formatShort(
-            latestRoutineDates.get(r.id)?.date || r.updatedAt || r.createdAt,
-          ) || "--",
+        lastDate: latestRoutineDates.get(r.id)?.date
+          ? formatShort(latestRoutineDates.get(r.id).date)
+          : "",
         raw: r,
       };
     },
@@ -1295,10 +1277,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
   }, [libraryExerciseOptions, exerciseSearch, selectedMuscleGroup]);
   const sessionLocked =
-    hasStarted ||
-    isRunning ||
-    durationSeconds > 0 ||
-    exercises.some(exerciseHasUserInput);
+    setupStarted &&
+    (hasStarted ||
+      isRunning ||
+      durationSeconds > 0 ||
+      exercises.some(exerciseHasUserInput));
 
   const activeOrderExercises = useMemo(
     () =>
@@ -2189,19 +2172,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     bestBySetMap = historyBestBySet,
     recentBySetMap = historyRecentBySet,
     seriesTypeMap = historySeriesTypeMap,
+    options = {},
   ) => {
-    if (!routineOptions.length || !routineId) {
-      setExercises([]);
+    const { requestId = null, promptForExisting = false } = options;
+    const isCurrentRequest = () =>
+      requestId == null || routineLoadRequestRef.current === requestId;
+    if (!allRoutineOptions.length || !routineId) {
+      if (isCurrentRequest()) setExercises([]);
       return;
     }
-    const routine = routineOptions.find((r) => r.id === routineId);
+    const routine = allRoutineOptions.find((r) => r.id === routineId);
     if (!routine) {
-      setExercises([]);
+      if (isCurrentRequest()) setExercises([]);
       return;
     }
-    setSelectedRoutineId(routine.id);
-    setSelectedRoutine(routine);
-    setLoadingTraining(true);
     try {
       const resp = await api.getTrainings({
         from: date,
@@ -2219,10 +2203,31 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         if (routine.id && t.routineId) return t.routineId === routine.id;
         return true;
       });
-      if (trainingMatch?.branch && !branchLocked) {
-        branchChangeReason.current = "routine";
-        setSelectedBranch(normalizeBranch(trainingMatch.branch));
+      if (!isCurrentRequest()) return;
+      if (trainingMatch && promptForExisting) {
+        setPendingSameDayTraining({
+          training: trainingMatch,
+          routine,
+          bestMap,
+          bestBySetMap,
+          recentBySetMap,
+          seriesTypeMap,
+        });
+        setExercises(
+          buildExercisesForRoutine(
+            routine.raw,
+            null,
+            bestMap,
+            bestBySetMap,
+            recentBySetMap,
+            seriesTypeMap,
+          ),
+        );
+        setDurationSeconds(0);
+        setTimeEvents([]);
+        return;
       }
+      setPendingSameDayTraining(null);
       setExercises(
         buildExercisesForRoutine(
           routine.raw,
@@ -2233,8 +2238,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           seriesTypeMap,
         ),
       );
-      if (trainingMatch?.durationSeconds)
-        setDurationSeconds(trainingMatch.durationSeconds);
+      setDurationSeconds(Number(trainingMatch?.durationSeconds) || 0);
       const loadedEvents = normalizeTimeEvents(trainingMatch?.timeEvents);
       setTimeEvents(
         loadedEvents.length
@@ -2242,7 +2246,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : buildFallbackTimeEvents(trainingMatch?.durationSeconds),
       );
     } catch (e) {
+      if (!isCurrentRequest()) return;
       console.warn("No se pudo cargar entrenamiento previo", e);
+      setPendingSameDayTraining(null);
+      setDurationSeconds(0);
+      setTimeEvents([]);
       setExercises(
         buildExercisesForRoutine(
           routine.raw,
@@ -2253,8 +2261,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           seriesTypeMap,
         ),
       );
-    } finally {
-      setLoadingTraining(false);
     }
   };
 
@@ -2263,11 +2269,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setLoadingTraining(true);
     try {
       const training = await api.getTraining(id);
-      const routineId = training.routineId || routineOptions[0]?.id;
+      const routineId = training.routineId || allRoutineOptions[0]?.id;
       const routine =
-        routineOptions.find((r) => r.id === routineId) || routineOptions[0];
+        allRoutineOptions.find((r) => r.id === routineId) ||
+        allRoutineOptions[0];
+      if (!routine) throw new Error("No hay una rutina asociada al registro.");
       const branch = normalizeBranch(training.branch || routine.location);
-      branchChangeReason.current = "routine";
       setSelectedBranch(branch);
       setSessionDate(training.date);
       setSelectedRoutineId(routine.id);
@@ -2312,21 +2319,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setIsEditing(false);
       // fallback: cargar rutina inicial en la fecha actual
       const routine =
-        routineOptions.find((r) => r.id === selectedRoutineId) ||
-        routineOptions[0];
-      await loadHistoryForRoutine(routine.id);
-      await loadTrainingForDate(sessionDate, routine.id);
+        allRoutineOptions.find((r) => r.id === selectedRoutineId) ||
+        allRoutineOptions[0];
+      if (routine) {
+        await loadHistoryForRoutine(routine.id);
+        await loadTrainingForDate(sessionDate, routine.id);
+      }
     } finally {
       setLoadingTraining(false);
     }
   };
-  const loadHistoryForRoutine = async (_routineId) => {
+  const loadHistoryForRoutine = async (_routineId, options = {}) => {
+    const { commit = true } = options;
+    const routine =
+      allRoutineOptions.find((item) => item.id === _routineId) ||
+      routineOptions.find((item) => item.id === _routineId);
+    const progressScopeId =
+      routine?.progressScopeId || routine?.raw?.progressScopeId || "";
     try {
-      const routine =
-        allRoutineOptions.find((item) => item.id === _routineId) ||
-        routineOptions.find((item) => item.id === _routineId);
-      const progressScopeId =
-        routine?.progressScopeId || routine?.raw?.progressScopeId || "";
       let resp;
       try {
         resp = await api.getTrainings({
@@ -2349,21 +2359,29 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         });
       }
       const list = Array.isArray(resp) ? resp : resp?.items || [];
-      setHistoryTrainings(list);
+      if (commit) {
+        loadedHistoryRoutineRef.current = _routineId;
+        setHistoryTrainings(list);
+      }
       return list;
     } catch (e) {
       console.warn("No se pudo cargar historial general", e);
       if (Array.isArray(trainings) && trainings.length) {
-        const scopedTrainings = selectedProgressScopeId
+        const scopedTrainings = progressScopeId
           ? trainings.filter(
-              (training) =>
-                training.progressScopeId === selectedProgressScopeId,
+              (training) => training.progressScopeId === progressScopeId,
             )
           : trainings.filter((training) => training.routineId === _routineId);
-        setHistoryTrainings(scopedTrainings);
+        if (commit) {
+          loadedHistoryRoutineRef.current = _routineId;
+          setHistoryTrainings(scopedTrainings);
+        }
         return scopedTrainings;
       }
-      setHistoryTrainings([]);
+      if (commit) {
+        loadedHistoryRoutineRef.current = _routineId;
+        setHistoryTrainings([]);
+      }
       return [];
     }
   };
@@ -2371,7 +2389,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   loadTrainingByIdRef.current = loadTrainingById;
   loadHistoryForRoutineRef.current = loadHistoryForRoutine;
   mergeRoutineIntoActiveExercisesRef.current = mergeRoutineIntoActiveExercises;
-  loadTrainingForDateRef.current = loadTrainingForDate;
   applyHistoryToExercisesRef.current = applyHistoryToExercises;
   buildExercisesForRoutineRef.current = buildExercisesForRoutine;
 
@@ -2395,7 +2412,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       })();
     } else {
       setIsEditing(false);
-      setBranchLocked(false);
       // esperar a que el usuario seleccione rutina
       setSelectedRoutineId(null);
       setSelectedRoutine(null);
@@ -2407,16 +2423,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [allRoutineOptions]);
 
   useEffect(() => {
-    historyLoadAttempted.current = false;
-  }, [selectedRoutineId]);
-
-  useEffect(() => {
     if (!selectedRoutineId) return;
-    if (historyTrainings.length) return;
-    if (historyLoadAttempted.current) return;
-    historyLoadAttempted.current = true;
+    if (loadedHistoryRoutineRef.current === selectedRoutineId) return;
+    if (loadingTraining) return;
     loadHistoryForRoutineRef.current?.(selectedRoutineId);
-  }, [selectedRoutineId, historyTrainings.length]);
+  }, [selectedRoutineId, loadingTraining]);
 
   useEffect(() => {
     if (!selectedRoutineId || !routineOptions.length) return;
@@ -2503,6 +2514,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     try {
       const snap = JSON.parse(raw);
       if (!snap?.selectedRoutineId) return;
+      const snapshotElapsed = Number(snap.durationSeconds ?? snap.elapsed ?? 0);
+      if (!snap.hasStarted && !snap.isRunning && snapshotElapsed <= 0) {
+        localStorage.removeItem(SNAPSHOT_KEY);
+        return;
+      }
       const routine = allRoutineOptions.find(
         (r) => r.id === snap.selectedRoutineId,
       );
@@ -2525,8 +2541,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 ? []
                 : [createTimeEvent("session_pause", null, now)]),
             ];
-      restoredFromSnapshot.current = true;
-      branchChangeReason.current = "routine";
       setSelectedBranch(
         normalizeBranch(snap.selectedBranch || routine.location),
       );
@@ -2649,16 +2663,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   }, [allRoutineOptions, isEditing, selectedRoutineId]);
 
   useEffect(() => {
-    if (!selectedRoutineId || !sessionDate) return;
-    if (isEditing) return;
-    if (restoredFromSnapshot.current) {
-      restoredFromSnapshot.current = false;
-      return;
-    }
-    loadTrainingForDateRef.current?.(sessionDate, selectedRoutineId);
-  }, [sessionDate, isEditing, selectedRoutineId]);
-
-  useEffect(() => {
     if (!historyTrainings.length) return;
     if (!exercises.length) return;
     setExercises((prev) =>
@@ -2681,21 +2685,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     exercises.length,
   ]);
 
-  // Mantener rutinas al cambiar sucursal (solo limpiar cuando el cambio es iniciado por el usuario)
+  // Sincronizar la sucursal seleccionada con el contexto global.
   useEffect(() => {
-    if (branchChangeReason.current === "routine") {
-      branchChangeReason.current = "user";
-    } else {
-      setSelectedRoutineId(null);
-      setSelectedRoutine(null);
-      setExercises([]);
-      setHistoryTrainings([]);
-      setIsRunning(false);
-      setHasStarted(false);
-      setTimeEvents([]);
-      setActiveExerciseId("");
-      setNowMs(Date.now());
-    }
     if (typeof setBranch === "function") setBranch(selectedBranch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranch]);
@@ -2703,6 +2694,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const persistTrainingSnapshot = useCallback(() => {
     if (typeof localStorage === "undefined") return;
     if (!selectedRoutineId) return;
+    if (!setupStarted) {
+      localStorage.removeItem(SNAPSHOT_KEY);
+      return;
+    }
     try {
       const now = Date.now();
       const liveTimingSummary = calculateTimingSummary(timeEvents, now);
@@ -2730,6 +2725,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     selectedRoutine,
     selectedBranch,
     sessionDate,
+    setupStarted,
     isRunning,
     hasStarted,
     timeEvents,
@@ -2966,6 +2962,44 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setHasStarted(true);
   };
 
+  const handleSameDayTrainingChoice = (continueExisting) => {
+    const pending = pendingSameDayTraining;
+    if (!pending) return;
+    const {
+      training,
+      routine,
+      bestMap,
+      bestBySetMap,
+      recentBySetMap,
+      seriesTypeMap,
+    } = pending;
+    setExercises(
+      buildExercisesForRoutine(
+        routine.raw,
+        continueExisting ? training : null,
+        bestMap,
+        bestBySetMap,
+        recentBySetMap,
+        seriesTypeMap,
+      ),
+    );
+    if (continueExisting) {
+      const loadedEvents = normalizeTimeEvents(training.timeEvents);
+      setDurationSeconds(Number(training.durationSeconds) || 0);
+      setTimeEvents(
+        loadedEvents.length
+          ? loadedEvents
+          : buildFallbackTimeEvents(training.durationSeconds),
+      );
+      toast.message("Sesión de hoy cargada para continuar.");
+    } else {
+      setDurationSeconds(0);
+      setTimeEvents([]);
+      toast.message("Se reemplazará la sesión de hoy al guardar.");
+    }
+    setPendingSameDayTraining(null);
+  };
+
   const handleStartSetupSession = () => {
     if (!branchConfirmed) {
       toast.message("Selecciona una sucursal para continuar.");
@@ -2979,14 +3013,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       toast.message("Espera mientras cargamos la rutina.");
       return;
     }
+    if (pendingSameDayTraining) {
+      toast.message("Elige si deseas continuar o reiniciar la sesión de hoy.");
+      return;
+    }
     if (!exercises.length) {
       toast.error("La rutina todavía no tiene ejercicios disponibles.");
       return;
     }
     setSetupStarted(true);
-    if (!hasStarted && !isRunning && durationSeconds <= 0) {
-      handleStart();
-    }
+    if (!isRunning) handleStart();
   };
 
   const handlePause = () => {
@@ -3017,6 +3053,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const resetState = () => {
+    routineLoadRequestRef.current += 1;
+    loadedHistoryRoutineRef.current = "";
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setTimeEvents([]);
@@ -3026,6 +3064,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setDurationSeconds(0);
     setHasStarted(false);
     setSetupStarted(false);
+    setPendingSameDayTraining(null);
+    setLoadingTraining(false);
     setBranchConfirmed(false);
     setSelectedBranch(DEFAULT_BRANCH);
     setSelectedRoutineId("");
@@ -3044,7 +3084,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setEditingId("");
     setIsEditing(false);
     setHasStarted(false);
-    setBranchLocked(false);
     setSessionMenuOpen(false);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
@@ -3061,13 +3100,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       return;
     }
     const found = routineOptions.find((r) => r.id === id);
+    if (!found) {
+      toast.error("La rutina seleccionada ya no está disponible.");
+      return;
+    }
+    const requestId = routineLoadRequestRef.current + 1;
+    routineLoadRequestRef.current = requestId;
     const branch = normalizeBranch(found?.location);
-    branchChangeReason.current = "routine";
-    setSelectedBranch(branch);
     setBranchConfirmed(true);
     setSelectedRoutineId(id);
-    setSelectedRoutine(found || null);
+    setSelectedRoutine(found);
     setLoadingTraining(true);
+    setPendingSameDayTraining(null);
+    setHistoryTrainings([]);
+    setExercises([]);
+    setDurationSeconds(0);
     setIsRunning(false);
     setHasStarted(false);
     setSetupStarted(false);
@@ -3077,7 +3124,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setIsOrderingExercises(false);
     setNowMs(Date.now());
     (async () => {
-      const hist = await loadHistoryForRoutine(id);
+      const hist = await loadHistoryForRoutine(id, { commit: false });
+      if (routineLoadRequestRef.current !== requestId) return;
+      loadedHistoryRoutineRef.current = id;
+      setHistoryTrainings(hist);
       const primaryRoutineExercises = (found?.raw?.exercises || []).filter(
         (exercise) => !exercise.isExtra,
       );
@@ -3100,12 +3150,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         bestBySetMap,
         recentBySetMap,
         seriesTypeMap,
+        { requestId, promptForExisting: true },
       );
-    })().catch((error) => {
-      console.error("No se pudo preparar la rutina", error);
-      setLoadingTraining(false);
-      toast.error("No se pudo cargar la rutina seleccionada.");
-    });
+    })()
+      .catch((error) => {
+        if (routineLoadRequestRef.current !== requestId) return;
+        console.error("No se pudo preparar la rutina", error);
+        toast.error("No se pudo cargar la rutina seleccionada.");
+      })
+      .finally(() => {
+        if (routineLoadRequestRef.current === requestId) {
+          setLoadingTraining(false);
+        }
+      });
   };
 
   const handleBranchChange = (value) => {
@@ -3113,7 +3170,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       toast.message("Finaliza o cancela la sesión antes de cambiar de sede.");
       return;
     }
-    branchChangeReason.current = "user";
+    routineLoadRequestRef.current += 1;
+    loadedHistoryRoutineRef.current = "";
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(SNAPSHOT_KEY);
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
@@ -3122,13 +3180,35 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchConfirmed(true);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
+    setPendingSameDayTraining(null);
+    setHistoryTrainings([]);
+    setLoadingTraining(false);
+    setDurationSeconds(0);
+    setTimeEvents([]);
     setExercises([]);
     setIsOrderingExercises(false);
     setExpandedExerciseId("");
     setSetupStarted(false);
   };
 
+  const handleReopenBranchSelection = () => {
+    if (sessionLocked) return;
+    routineLoadRequestRef.current += 1;
+    loadedHistoryRoutineRef.current = "";
+    setBranchConfirmed(false);
+    setSelectedRoutineId(null);
+    setSelectedRoutine(null);
+    setPendingSameDayTraining(null);
+    setHistoryTrainings([]);
+    setExercises([]);
+    setLoadingTraining(false);
+    setDurationSeconds(0);
+    setTimeEvents([]);
+  };
+
   const handleExitEdit = async () => {
+    routineLoadRequestRef.current += 1;
+    loadedHistoryRoutineRef.current = "";
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
@@ -3139,10 +3219,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setEditingId("");
     setIsEditing(false);
     setHasStarted(false);
-    setBranchLocked(false);
     setBranchConfirmed(false);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
+    setPendingSameDayTraining(null);
     setExercises([]);
     setShowExercisePicker(false);
     setExerciseSearch("");
@@ -3899,7 +3979,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       }
       toast.success("Entrenamiento guardado correctamente.");
       resetState();
-      await loadTrainingForDate(todayISO, null);
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
@@ -4245,7 +4324,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </h1>
               </div>
               <span className="text-[11px] font-black text-[color:var(--text-muted)]">
-                Paso 1/2
+                Paso {branchConfirmed ? "2" : "1"}/2
               </span>
             </header>
 
@@ -4265,20 +4344,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       branch={selectedBranch}
                       selected
                       compact
-                      onClick={() => {
-                        if (!hasStarted && !isRunning)
-                          setBranchConfirmed(false);
-                      }}
+                      onClick={handleReopenBranchSelection}
                     />
                   ) : (
                     branchOptions.map((branch) => (
                       <BranchCard
                         key={branch}
                         branch={branch}
-                        selected={
-                          branchConfirmed &&
-                          normalizeBranch(branch) === selectedBranch
-                        }
+                        selected={false}
                         onClick={() => handleBranchChange(branch)}
                       />
                     ))
@@ -4292,7 +4365,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     number={2}
                     title="Escoger rutina"
                     subtitle="Selecciona tu plan para esta sesión"
-                    active
+                    active={!selectedRoutineId}
                     done={Boolean(selectedRoutineId)}
                   />
 
@@ -4312,6 +4385,42 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                         {getBranchTitle(selectedBranch)}.
                       </div>
                     )}
+                    {loadingTraining ? (
+                      <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm font-semibold text-blue-700 dark:text-blue-200">
+                        Preparando rutina e historial...
+                      </div>
+                    ) : null}
+                    {pendingSameDayTraining ? (
+                      <div className="space-y-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+                        <div>
+                          <p className="text-sm font-black text-[color:var(--text)]">
+                            Ya registraste esta rutina hoy
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                            Continúa donde quedaste o reinicia los datos de hoy.
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 rounded-xl"
+                            onClick={() => handleSameDayTrainingChoice(false)}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            Reiniciar
+                          </Button>
+                          <Button
+                            type="button"
+                            className="h-11 rounded-xl"
+                            onClick={() => handleSameDayTrainingChoice(true)}
+                          >
+                            <Play className="h-4 w-4" />
+                            Continuar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -4321,24 +4430,41 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <div className="mx-auto max-w-md">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
                   <span className="inline-flex min-w-0 items-center gap-2">
-                    <Check className="h-4 w-4 shrink-0 text-blue-300" />
+                    {branchConfirmed ? (
+                      <Check className="h-4 w-4 shrink-0 text-emerald-400" />
+                    ) : (
+                      <Circle className="h-4 w-4 shrink-0" />
+                    )}
                     <span className="truncate">
                       {branchConfirmed
                         ? `${getBranchTitle(selectedBranch)} seleccionado`
                         : "Selecciona sucursal"}
                     </span>
                   </span>
-                  <span>Paso 2: Rutina</span>
+                  <span>
+                    {!branchConfirmed
+                      ? "Paso 1: Sucursal"
+                      : selectedRoutineId
+                        ? "Selección lista"
+                        : "Paso 2: Rutina"}
+                  </span>
                 </div>
                 <Button
                   className="h-12 w-full rounded-2xl bg-blue-300 text-sm font-black uppercase tracking-[0.18em] text-blue-950 hover:bg-blue-200"
                   disabled={
-                    !branchConfirmed || !selectedRoutineId || loadingTraining
+                    !branchConfirmed ||
+                    !selectedRoutineId ||
+                    loadingTraining ||
+                    Boolean(pendingSameDayTraining)
                   }
                   onClick={handleStartSetupSession}
                 >
                   <Play className="h-4 w-4" />
-                  Iniciar entrenamiento
+                  {loadingTraining
+                    ? "Cargando rutina"
+                    : pendingSameDayTraining
+                      ? "Elige cómo continuar"
+                      : "Iniciar entrenamiento"}
                 </Button>
               </div>
             </div>

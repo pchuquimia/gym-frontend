@@ -150,6 +150,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  updateTrainingDuration: (id, durationSeconds) =>
+    request(`/api/trainings/${id}/duration`, {
+      method: "PATCH",
+      body: JSON.stringify({ durationSeconds }),
+    }),
   createTraining: (payload) =>
     request("/api/trainings", {
       method: "POST",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  Clock3,
   Eye,
   ListFilter,
   Pencil,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Button from "../components/ui/button";
+import Modal from "../components/shared/Modal";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
 const formatDate = (iso) =>
@@ -30,6 +33,15 @@ const formatVolume = (value) => {
   const num = Number(value);
   if (!Number.isFinite(num)) return "0";
   return num.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+};
+
+const getDurationParts = (seconds = 0) => {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  return {
+    hours: String(Math.floor(total / 3600)),
+    minutes: String(Math.floor((total % 3600) / 60)),
+    seconds: String(total % 60),
+  };
 };
 
 const branchLabel = (value) => {
@@ -77,6 +89,8 @@ function MetricBox({ label, value, suffix = "", tone = "white" }) {
 }
 
 export default function TrainingAdmin({ onNavigate = () => {} }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Admin";
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -86,6 +100,8 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
   const [routineFilter, setRoutineFilter] = useState("");
   const [expandedId, setExpandedId] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [durationEditor, setDurationEditor] = useState(null);
+  const [savingDuration, setSavingDuration] = useState(false);
   const limit = 5000;
 
   const loadTrainings = async () => {
@@ -156,7 +172,9 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
     try {
       await api.deleteTraining(id);
       toast.success("Entrenamiento eliminado");
-      setTrainings((prev) => prev.filter((item) => (item._id || item.id) !== id));
+      setTrainings((prev) =>
+        prev.filter((item) => (item._id || item.id) !== id),
+      );
       if (expandedId === id) setExpandedId("");
     } catch (_err) {
       toast.error("No se pudo eliminar el entrenamiento");
@@ -167,9 +185,61 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
     const id = training._id || training.id;
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("edit_training_id", id);
-      if (training.date) localStorage.setItem("edit_training_date", training.date);
+      if (training.date)
+        localStorage.setItem("edit_training_date", training.date);
     }
     onNavigate("registrar");
+  };
+
+  const openDurationEditor = (training) => {
+    if (!isAdmin) return;
+    setDurationEditor({
+      id: training._id || training.id,
+      routineName: training.routineName || "Sin nombre",
+      ...getDurationParts(training.durationSeconds),
+    });
+  };
+
+  const updateDurationPart = (field, value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    const max = field === "hours" ? 24 : 59;
+    const normalized =
+      digits === "" ? "" : String(Math.min(max, Number(digits)));
+    setDurationEditor((current) =>
+      current ? { ...current, [field]: normalized } : current,
+    );
+  };
+
+  const handleSaveDuration = async () => {
+    if (!isAdmin || !durationEditor?.id) return;
+    const durationSeconds =
+      (Number(durationEditor.hours) || 0) * 3600 +
+      (Number(durationEditor.minutes) || 0) * 60 +
+      (Number(durationEditor.seconds) || 0);
+    if (durationSeconds > 86400) {
+      toast.error("La duración máxima es de 24 horas.");
+      return;
+    }
+    try {
+      setSavingDuration(true);
+      const updated = await api.updateTrainingDuration(
+        durationEditor.id,
+        durationSeconds,
+      );
+      setTrainings((current) =>
+        current.map((training) =>
+          (training._id || training.id) === durationEditor.id
+            ? { ...training, durationSeconds: updated.durationSeconds }
+            : training,
+        ),
+      );
+      setDurationEditor(null);
+      toast.success("Duración actualizada.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar la duración.");
+    } finally {
+      setSavingDuration(false);
+    }
   };
 
   return (
@@ -253,7 +323,9 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                   onClick={() => setRoutineFilter("")}
                   className="inline-flex h-8 max-w-full items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-bold text-[color:var(--text-muted)]"
                 >
-                  <span className="max-w-[180px] truncate">{routineFilter}</span>
+                  <span className="max-w-[180px] truncate">
+                    {routineFilter}
+                  </span>
                   <X className="h-3.5 w-3.5 shrink-0" />
                 </button>
               ) : null}
@@ -353,7 +425,8 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                 (acc, exercise) => acc + (exercise.sets?.length || 0),
                 0,
               );
-              const branch = training.branch || training.routineBranch || "general";
+              const branch =
+                training.branch || training.routineBranch || "general";
               const totalVolume = training.totalVolume ?? 0;
 
               return (
@@ -393,6 +466,16 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                       tone="amber"
                     />
                   </div>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => openDurationEditor(training)}
+                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)] transition hover:border-blue-400/40 hover:text-blue-600 dark:hover:text-blue-300"
+                    >
+                      <Clock3 className="h-4 w-4" />
+                      Editar duración
+                    </button>
+                  ) : null}
 
                   <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] border-t border-[color:var(--border)] pt-3">
                     <button
@@ -474,6 +557,60 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
           </div>
         </section>
       </div>
+
+      {isAdmin && durationEditor ? (
+        <Modal
+          title="Editar duración"
+          subtitle={durationEditor.routineName}
+          onClose={() => {
+            if (!savingDuration) setDurationEditor(null);
+          }}
+          footer={
+            <Button
+              type="button"
+              className="h-11 min-w-32 rounded-xl"
+              disabled={savingDuration}
+              onClick={handleSaveDuration}
+            >
+              {savingDuration ? "Guardando..." : "Guardar duración"}
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-blue-400/20 bg-blue-500/10 p-3">
+              <Clock3 className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-300" />
+              <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                Este ajuste reemplaza la duración calculada por el cronómetro.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                ["hours", "Horas"],
+                ["minutes", "Minutos"],
+                ["seconds", "Segundos"],
+              ].map(([field, label]) => (
+                <label key={field} className="min-w-0 space-y-1.5">
+                  <span className="block truncate text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                    {label}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={durationEditor[field]}
+                    onChange={(event) =>
+                      updateDurationPart(field, event.target.value)
+                    }
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-center text-lg font-black tabular-nums outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    aria-label={label}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      ) : null}
 
       <button
         type="button"
