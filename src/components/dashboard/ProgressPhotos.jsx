@@ -1,5 +1,7 @@
 function ProgressPhotos({ photos }) {
-  const data = (photos || []).slice(0, 6)
+  const data = (photos || [])
+    .filter((photo) => photo.type !== 'profile')
+    .slice(0, 6)
   if (!data.length) {
     return (
       <section className="card" id="fotos">

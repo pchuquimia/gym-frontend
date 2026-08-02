@@ -12,6 +12,28 @@ import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
 
 const AuthContext = createContext(null);
 
+const USER_STORAGE_KEYS = [
+  "active_page",
+  "active_training",
+  "active_training_snapshot",
+  "routine_edit_library_draft",
+  "training_routines_return",
+  "training_routine_edit_target",
+  "routine_updated_during_training",
+  "edit_training_id",
+  "edit_training_date",
+  "last_training_id",
+  "last_exercise_id",
+];
+
+const clearUserScopedStorage = () => {
+  if (typeof window === "undefined") return;
+  USER_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+  Object.keys(window.localStorage)
+    .filter((key) => key.startsWith("exercise_thumb_"))
+    .forEach((key) => window.localStorage.removeItem(key));
+};
+
 const normalizeUser = (payload) => payload?.user || payload || null;
 
 const shouldUseDevAdminLogin = () => {
@@ -46,12 +68,14 @@ export function AuthProvider({ children }) {
         }
       }
       clearAuthToken();
+      clearUserScopedStorage();
+      queryClient.clear();
       setUser(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     refreshUser();
@@ -85,6 +109,13 @@ export function AuthProvider({ children }) {
     return nextUser;
   }, []);
 
+  const updateAccount = useCallback(async (payload) => {
+    const data = await api.updateAccount(payload);
+    const nextUser = normalizeUser(data);
+    setUser(nextUser);
+    return data;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -92,9 +123,7 @@ export function AuthProvider({ children }) {
       setUser(null);
       clearAuthToken();
       queryClient.clear();
-      if (typeof localStorage !== "undefined") {
-        localStorage.removeItem("active_page");
-      }
+      clearUserScopedStorage();
     }
   }, [queryClient]);
 
@@ -108,10 +137,21 @@ export function AuthProvider({ children }) {
       login,
       register,
       verifyEmail,
+      updateAccount,
       logout,
       refreshUser,
     }),
-    [user, loading, error, login, register, verifyEmail, logout, refreshUser],
+    [
+      user,
+      loading,
+      error,
+      login,
+      register,
+      verifyEmail,
+      updateAccount,
+      logout,
+      refreshUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

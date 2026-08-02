@@ -30,7 +30,7 @@ const PAGES = {
   resumen_sesion: { label: "Resumen de Sesion", component: SessionSummaryPage },
   rutinas: { label: "Rutinas y Planificacion", component: Routines },
   trainer: { label: "Panel Entrenador", component: Routines },
-  admin_sesiones: { label: "Administrar sesiones", component: TrainingAdmin },
+  admin_sesiones: { label: "Historial de sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
 };
@@ -114,11 +114,16 @@ function App() {
   useEffect(() => {
     const handlePopState = () => {
       const authPage = authPageFromPath();
-      setActivePage(authPage || localStorage.getItem("active_page") || "login");
+      const storedPage = localStorage.getItem("active_page");
+      if (isAuthenticated && authPage === "login") {
+        setActivePage(storedPage || roleHome(user?.role));
+        return;
+      }
+      setActivePage(authPage || storedPage || "login");
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
     if (

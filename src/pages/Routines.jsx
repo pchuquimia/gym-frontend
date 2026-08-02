@@ -15,7 +15,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Toaster, toast } from "sonner";
 import {
-  CalendarDays,
   Check,
   ChevronDown,
   Copy,
@@ -25,6 +24,7 @@ import {
   Layers3,
   Loader2,
   MapPin,
+  MoreVertical,
   Pencil,
   Plus,
   RotateCcw,
@@ -36,7 +36,6 @@ import SlideToConfirm from "../components/shared/SlideToConfirm";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
-import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 
@@ -68,14 +67,14 @@ const SETUP_MUSCLE_ORDER = [
 const ROUTINE_TYPES = [
   {
     id: "push",
-    label: "Push",
+    label: "Empuje",
     description: "Pecho, hombro y triceps",
     muscles: ["Pecho", "Hombros", "Triceps"],
     suggestedName: "Pecho · Hombro · Triceps",
   },
   {
     id: "pull",
-    label: "Pull",
+    label: "Tracción",
     description: "Espalda y biceps",
     muscles: ["Espalda", "Biceps"],
     suggestedName: "Espalda · Biceps",
@@ -177,24 +176,9 @@ const toValidDate = (value) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
-const formatShortDate = (value) => {
-  const d = toValidDate(value);
-  if (!d) return "Sin registros";
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
-};
-
 const getDateTimestamp = (value) => {
   const d = toValidDate(value);
   return d ? d.getTime() : 0;
-};
-
-const getISODateKey = (value) => {
-  if (!value) return null;
-  if (typeof value === "string") return value.slice(0, 10);
-  const d = toValidDate(value);
-  if (!d) return null;
-  const offset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - offset).toISOString().slice(0, 10);
 };
 
 const branchLabel = (value) => {
@@ -466,7 +450,7 @@ function RoutineModal({
     locationMode === "multiple" && allowedBranches.length
       ? allowedBranches
       : BRANCH_OPTIONS;
-  const [routineType, setRoutineType] = useState("push");
+  const [routineType, setRoutineType] = useState("");
   const [selectedSetupMuscles, setSelectedSetupMuscles] = useState(() => {
     const draftMuscles = (initialData?.exercises || [])
       .map((exercise) => exercise.muscle)
@@ -538,7 +522,10 @@ function RoutineModal({
 
   const selectedRoutineType = useMemo(
     () =>
-      ROUTINE_TYPES.find((item) => item.id === routineType) || ROUTINE_TYPES[0],
+      ROUTINE_TYPES.find((item) => item.id === routineType) || {
+        muscles: [],
+        suggestedName: "",
+      },
     [routineType],
   );
 
@@ -1179,7 +1166,7 @@ function RoutineModal({
           <span className="text-center text-xs font-semibold text-[color:var(--text-muted)] sm:text-left">
             {error ||
               (isSetupStep
-                ? "Define la base de la rutina para continuar"
+                ? "Después elegirás los ejercicios y su orden."
                 : `${exercises.length} ejercicios listos para guardar`)}
           </span>
           <div className="grid grid-cols-1 gap-2 sm:flex">
@@ -1218,25 +1205,25 @@ function RoutineModal({
               isSetupStep ? "bg-blue-600 text-white" : "bg-[color:var(--bg)]"
             }`}
           >
-            1. Base
+            1. Enfoque
           </span>
           <span
             className={`shrink-0 rounded-full px-3 py-1.5 ${
               !isSetupStep ? "bg-blue-600 text-white" : "bg-[color:var(--bg)]"
             }`}
           >
-            2. Ejercicios y orden
+            2. Ejercicios
           </span>
         </div>
         {isSetupStep ? (
           <div className="mx-auto max-w-xl space-y-4">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm sm:p-5">
+            <div className="px-1 sm:px-2">
               <div className="mb-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                   Nueva rutina
                 </p>
                 <h2 className="mt-1 text-2xl font-black leading-tight text-[color:var(--text)]">
-                  Configura la base
+                  ¿Qué quieres entrenar?
                 </h2>
               </div>
 
@@ -1265,54 +1252,56 @@ function RoutineModal({
                 </div>
               </div>
 
-              <div className="mt-5 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Grupos musculares
-                </span>
-                {libraryLoading ? (
-                  <div className="flex h-16 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)]">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Cargando grupos musculares
-                  </div>
-                ) : libraryError ? (
-                  <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3">
-                    <p className="text-xs font-bold text-red-600 dark:text-red-300">
-                      No se pudo cargar la biblioteca de ejercicios.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={onRetryLibrary}
-                      className="mt-2 text-xs font-black text-red-700 underline dark:text-red-200"
-                    >
-                      Reintentar
-                    </button>
-                  </div>
-                ) : setupMuscleOptions.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {setupMuscleOptions.map((muscle) => {
-                      const active = effectiveSetupMuscles.has(muscle);
-                      return (
-                        <button
-                          key={muscle}
-                          type="button"
-                          onClick={() => toggleSetupMuscle(muscle)}
-                          className={`rounded-full border px-3 py-2 text-xs font-black transition ${
-                            active
-                              ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                              : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                          }`}
-                        >
-                          {muscle}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
-                    No hay grupos musculares disponibles en la biblioteca.
-                  </div>
-                )}
-              </div>
+              {routineType === "custom" ? (
+                <div className="mt-5 space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Grupos musculares
+                  </span>
+                  {libraryLoading ? (
+                    <div className="flex h-16 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cargando grupos musculares
+                    </div>
+                  ) : libraryError ? (
+                    <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3">
+                      <p className="text-xs font-bold text-red-600 dark:text-red-300">
+                        No se pudo cargar la biblioteca de ejercicios.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={onRetryLibrary}
+                        className="mt-2 text-xs font-black text-red-700 underline dark:text-red-200"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : setupMuscleOptions.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {setupMuscleOptions.map((muscle) => {
+                        const active = effectiveSetupMuscles.has(muscle);
+                        return (
+                          <button
+                            key={muscle}
+                            type="button"
+                            onClick={() => toggleSetupMuscle(muscle)}
+                            className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                              active
+                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                            }`}
+                          >
+                            {muscle}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                      No hay grupos musculares disponibles en la biblioteca.
+                    </div>
+                  )}
+                </div>
+              ) : null}
 
               {locationMode === "multiple" ? (
                 <div className="mt-5 space-y-2">
@@ -1347,93 +1336,92 @@ function RoutineModal({
                 </div>
               ) : null}
 
-              <div className="mt-5 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Historial de pesos
-                </span>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProgressMode("fresh");
-                      setError("");
-                    }}
-                    className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
-                      progressMode === "fresh"
-                        ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                    }`}
-                  >
-                    <RotateCcw className="mt-0.5 h-5 w-5 shrink-0" />
-                    <span>
-                      <span className="block text-sm font-black">
-                        Empezar desde cero
-                      </span>
-                      <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                        Nuevas marcas y PR para esta rutina.
-                      </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!progressSourceOptions.length}
-                    onClick={() => {
-                      setProgressMode("inherit");
-                      setSourceRoutineId(
-                        sourceRoutineId ||
-                          progressSourceOptions[0]?._id ||
-                          progressSourceOptions[0]?.id ||
-                          "",
-                      );
-                      setError("");
-                    }}
-                    className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                      progressMode === "inherit"
-                        ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 shadow-sm dark:text-emerald-200"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                    }`}
-                  >
-                    <Layers3 className="mt-0.5 h-5 w-5 shrink-0" />
-                    <span>
-                      <span className="block text-sm font-black">
-                        Continuar marcas
-                      </span>
-                      <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                        {progressSourceOptions.length
-                          ? "Usa una rutina compatible de esta sede."
-                          : "No hay rutinas compatibles en esta sede."}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-
-                {progressMode === "inherit" ? (
-                  <label className="block pt-1">
-                    <span className="sr-only">Rutina de origen</span>
-                    <select
-                      value={sourceRoutineId}
-                      onChange={(event) =>
-                        setSourceRoutineId(event.target.value)
-                      }
-                      className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
+              {progressSourceOptions.length ? (
+                <div className="mt-5 space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Pesos anteriores
+                  </span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgressMode("fresh");
+                        setError("");
+                      }}
+                      className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
+                        progressMode === "fresh"
+                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                      }`}
                     >
-                      <option value="">Selecciona una rutina anterior</option>
-                      {progressSourceOptions.map((routine) => (
-                        <option
-                          key={routine._id || routine.id}
-                          value={routine._id || routine.id}
-                        >
-                          {routine.name}
-                          {locationMode === "multiple"
-                            ? ` · ${branchLabel(routine.branch)}`
-                            : ""}{" "}
-                          · {routine.compatibilityPercent}% compatible
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-              </div>
+                      <RotateCcw className="mt-0.5 h-5 w-5 shrink-0" />
+                      <span>
+                        <span className="block text-sm font-black">
+                          Empezar desde cero
+                        </span>
+                        <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                          Nuevas marcas y PR para esta rutina.
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProgressMode("inherit");
+                        setSourceRoutineId(
+                          sourceRoutineId ||
+                            progressSourceOptions[0]?._id ||
+                            progressSourceOptions[0]?.id ||
+                            "",
+                        );
+                        setError("");
+                      }}
+                      className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                        progressMode === "inherit"
+                          ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 shadow-sm dark:text-emerald-200"
+                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <Layers3 className="mt-0.5 h-5 w-5 shrink-0" />
+                      <span>
+                        <span className="block text-sm font-black">
+                          Continuar marcas
+                        </span>
+                        <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                          Usa una rutina anterior compatible.
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+
+                  {progressMode === "inherit" ? (
+                    <label className="block pt-1">
+                      <span className="sr-only">Rutina de origen</span>
+                      <select
+                        value={sourceRoutineId}
+                        onChange={(event) =>
+                          setSourceRoutineId(event.target.value)
+                        }
+                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
+                      >
+                        <option value="">Selecciona una rutina anterior</option>
+                        {progressSourceOptions.map((routine) => (
+                          <option
+                            key={routine._id || routine.id}
+                            value={routine._id || routine.id}
+                          >
+                            {routine.name}
+                            {locationMode === "multiple"
+                              ? ` · ${branchLabel(routine.branch)}`
+                              : ""}{" "}
+                            · {routine.compatibilityPercent}% compatible
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
 
               <label className="mt-5 block space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -1452,7 +1440,7 @@ function RoutineModal({
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+          <div className="mx-auto max-w-4xl">
             <div className="space-y-3">
               {mode === "create" ? (
                 <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
@@ -1980,7 +1968,10 @@ function RoutineModal({
                                               : "border-[color:var(--border)] text-transparent"
                                           }`}
                                         >
-                                          ✓
+                                          <Check
+                                            className="h-3.5 w-3.5"
+                                            aria-hidden="true"
+                                          />
                                         </span>
                                       </button>
                                     );
@@ -2026,27 +2017,6 @@ function RoutineModal({
                     </Button>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="hidden lg:sticky lg:top-4 lg:block lg:self-start">
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Siguiente paso
-                </p>
-                <h3 className="mt-2 text-lg font-black text-[color:var(--text)]">
-                  {exercises.length ? "Revisa y guarda" : "Agrega ejercicios"}
-                </h3>
-                <div className="mt-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-sm font-black text-[color:var(--text)]">
-                    {exercises.length} ejercicios
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    {exercises.length
-                      ? "Ordena, ajusta series y guarda."
-                      : "Empieza eligiendo uno o varios ejercicios."}
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -2125,7 +2095,7 @@ function RoutineModal({
                               : "border-[color:var(--border)] text-transparent"
                           }`}
                         >
-                          ✓
+                          <Check className="h-4 w-4" aria-hidden="true" />
                         </span>
                       </button>
                     );
@@ -2158,13 +2128,13 @@ function RoutineModal({
               <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                    Agregar ejercicios
+                    Paso 2
                   </p>
                   <h3 className="truncate text-lg font-black text-[color:var(--text)]">
-                    Selector
+                    Elige ejercicios
                   </h3>
                   <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    Selecciona los ejercicios que quieres agregar a la rutina.
+                    Marca los ejercicios que formarán parte de la rutina.
                   </p>
                 </div>
                 <button
@@ -2225,10 +2195,10 @@ function RoutineModal({
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-black text-[color:var(--text)]">
-                              Tu base mas utilizada
+                              Tu base más utilizada
                             </p>
                             <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                              Segun tus entrenamientos en esta sede
+                              Según tus entrenamientos en esta sede
                             </p>
                           </div>
                           <button
@@ -2309,7 +2279,7 @@ function RoutineModal({
                                   : "border-[color:var(--border)] text-transparent"
                               }`}
                             >
-                              ✓
+                              <Check className="h-4 w-4" aria-hidden="true" />
                             </span>
                           </button>
                         );
@@ -2326,21 +2296,12 @@ function RoutineModal({
               <div className="grid gap-2 border-t border-[color:var(--border)] p-4">
                 {exercisePickerOptions.length === 80 && !search.trim() ? (
                   <p className="text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Mostrando los primeros 80. Usa la busqueda para encontrar
-                    uno especifico.
+                    Mostrando los primeros 80. Usa la búsqueda para encontrar
+                    uno específico.
                   </p>
                 ) : null}
-                {canReturnToSetupFromPicker ? (
-                  <Button
-                    variant="outline"
-                    className="h-11 w-full rounded-2xl text-sm"
-                    onClick={handleBackToSetup}
-                  >
-                    Volver a configurar
-                  </Button>
-                ) : null}
                 <Button
-                  className="h-12 w-full rounded-2xl text-sm"
+                  className="h-12 w-full rounded-lg text-sm"
                   disabled={!selectedExerciseIds.length}
                   onClick={addSelectedExercises}
                 >
@@ -2431,7 +2392,7 @@ function RoutineModal({
                               : "border-[color:var(--border)] text-transparent"
                           }`}
                         >
-                          ✓
+                          <Check className="h-4 w-4" aria-hidden="true" />
                         </span>
                       </button>
                     );
@@ -2773,50 +2734,6 @@ function Routines({ onNavigate }) {
     return map;
   }, [availableExercises]);
 
-  const routineHistoryMap = useMemo(() => {
-    const map = new Map();
-    (trainings || []).forEach((training) => {
-      if (!training?.routineId) return;
-      const ts = getDateTimestamp(training.date || training.createdAt);
-      const current = map.get(training.routineId) || {
-        count: 0,
-        lastDate: null,
-        lastTs: 0,
-      };
-      const next = { ...current, count: current.count + 1 };
-      if (ts > next.lastTs) {
-        next.lastTs = ts;
-        next.lastDate = training.date || training.createdAt;
-      }
-      map.set(training.routineId, next);
-    });
-    return map;
-  }, [trainings]);
-
-  const weekSummary = useMemo(() => {
-    const activeDays = new Set();
-    (trainings || []).forEach((training) => {
-      const key = getISODateKey(training.date || training.createdAt);
-      if (key) activeDays.add(key);
-    });
-    const days = [];
-    const today = new Date();
-    for (let i = 6; i >= 0; i -= 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      const key = getISODateKey(date);
-      const label = date
-        .toLocaleDateString("es-ES", { weekday: "short" })
-        .replace(".", "");
-      days.push({
-        key,
-        label: label.charAt(0).toUpperCase() + label.slice(1, 3),
-        active: activeDays.has(key),
-      });
-    }
-    return days;
-  }, [trainings]);
-
   const branchCounts = useMemo(() => {
     const counts = { all: routines.length, sopocachi: 0, miraflores: 0 };
     routines.forEach((routine) => {
@@ -2825,6 +2742,13 @@ function Routines({ onNavigate }) {
     });
     return counts;
   }, [routines]);
+  const showSearch = routines.length >= 5;
+  const showBranchFilter =
+    locationMode === "multiple" &&
+    branchCounts.sopocachi > 0 &&
+    branchCounts.miraflores > 0;
+  const hasActiveRoutineFilters =
+    Boolean(searchTerm.trim()) || (showBranchFilter && activeBranch !== "all");
 
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -2846,12 +2770,10 @@ function Routines({ onNavigate }) {
         const exercises = routine.exercises || [];
         const muscles = new Set();
         let totalSets = 0;
-        let extras = 0;
         const preview = [];
 
         exercises.forEach((ex) => {
           totalSets += Number(ex.sets) || 0;
-          if (ex.isExtra) extras += 1;
           const meta =
             exerciseMetaMap.get(ex.exerciseId) ||
             exerciseMetaMap.get(slugify(ex.name));
@@ -2868,25 +2790,18 @@ function Routines({ onNavigate }) {
           }
         });
 
-        const history = routineHistoryMap.get(routine.id) || {
-          count: 0,
-          lastDate: null,
-        };
-
         return {
           ...routine,
           exerciseCount: exercises.length,
           totalSets,
-          extras,
           muscles: Array.from(muscles),
           preview,
-          sessionsCount: history.count,
-          lastDate: history.lastDate,
         };
       })
       .sort(
         (a, b) =>
-          getDateTimestamp(b.lastDate) - getDateTimestamp(a.lastDate) ||
+          getDateTimestamp(b.updatedAt || b.createdAt) -
+            getDateTimestamp(a.updatedAt || a.createdAt) ||
           (a.name || "").localeCompare(b.name || ""),
       );
   }, [
@@ -2894,22 +2809,9 @@ function Routines({ onNavigate }) {
     activeBranch,
     searchTerm,
     exerciseMetaMap,
-    routineHistoryMap,
     locationMode,
     preferredBranch,
   ]);
-
-  const totals = useMemo(() => {
-    const exerciseCount = routines.reduce(
-      (sum, routine) => sum + (routine.exercises || []).length,
-      0,
-    );
-    return {
-      routines: routines.length,
-      exercises: exerciseCount,
-      sessions: trainings?.length || 0,
-    };
-  }, [routines, trainings]);
 
   const openCreate = () => {
     setSelectedRoutine(null);
@@ -3018,19 +2920,19 @@ function Routines({ onNavigate }) {
   return (
     <>
       <Toaster position="top-center" richColors />
-      <section className="space-y-4">
+      <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-              Planificacion
+              Planificación
             </p>
             <h1 className="mt-1 text-3xl font-black leading-none text-[color:var(--text)]">
               Rutinas
             </h1>
-            <p className="mt-2 hidden max-w-2xl text-sm leading-5 text-[color:var(--text-muted)] md:block">
-              {locationMode === "multiple"
-                ? "Organiza rutinas por sede, orden real de ejercicios y grupos musculares."
-                : "Organiza rutinas por orden de ejercicios y grupos musculares."}
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              {routines.length
+                ? `${routines.length} ${routines.length === 1 ? "rutina guardada" : "rutinas guardadas"}`
+                : "Aún no tienes rutinas."}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -3044,327 +2946,268 @@ function Routines({ onNavigate }) {
                 <RotateCcw className="h-4 w-4" />
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={openCreate}
-              className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/25 transition active:scale-95"
-              aria-label="Crear rutina"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 shadow-sm sm:p-4 sm:text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-              Rutinas
-            </p>
-            <p className="mt-1 text-2xl font-black leading-none text-blue-700 dark:text-blue-100 sm:mt-2 sm:text-3xl">
-              {totals.routines}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 shadow-sm sm:p-4 sm:text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-              Ejercicios
-            </p>
-            <p className="mt-1 text-2xl font-black leading-none text-blue-700 dark:text-blue-100 sm:mt-2 sm:text-3xl">
-              {totals.exercises}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 shadow-sm sm:p-4 sm:text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-              Sesiones
-            </p>
-            <p className="mt-1 text-2xl font-black leading-none text-blue-700 dark:text-blue-100 sm:mt-2 sm:text-3xl">
-              {totals.sessions}
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-              Semana
-            </p>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
-              {weekSummary.filter((day) => day.active).length}/7 dias
-            </p>
-          </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {weekSummary.map((day) => (
-              <div
-                key={day.key}
-                className={`rounded-xl px-1 py-2 text-center ${
-                  day.active
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                    : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                }`}
+            {routines.length ? (
+              <button
+                type="button"
+                onClick={openCreate}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition active:scale-[0.98]"
               >
-                <div className="text-[9px] font-black uppercase">
-                  {day.label}
-                </div>
-                <div
-                  className={`mx-auto mt-1.5 h-1.5 w-1.5 rounded-full ${
-                    day.active ? "bg-white" : "bg-[color:var(--border)]"
-                  }`}
-                />
-              </div>
-            ))}
+                <Plus className="h-4 w-4" />
+                Nueva rutina
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="sticky top-2 z-10 space-y-3 rounded-3xl border border-[color:var(--border)] bg-[color:var(--bg)]/95 p-3 shadow-sm backdrop-blur sm:static">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar rutina"
-              className="h-12 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          {locationMode === "multiple" ? (
-            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[color:var(--card)] p-1">
-              {[
-                { id: "all", label: "Todas", count: branchCounts.all },
-                {
-                  id: "sopocachi",
-                  label: "Sopocachi",
-                  count: branchCounts.sopocachi,
-                },
-                {
-                  id: "miraflores",
-                  label: "Miraflores",
-                  count: branchCounts.miraflores,
-                },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveBranch(item.id)}
-                  className={`h-10 rounded-xl px-2 text-[11px] font-black transition ${
-                    activeBranch === item.id
-                      ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                      : "text-[color:var(--text-muted)]"
-                  }`}
-                >
-                  <span className="block truncate">{item.label}</span>
-                  <span className="text-[9px] opacity-80">{item.count}</span>
-                </button>
-              ))}
+        {!routines.length ? (
+          <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-200">
+              <Layers3 className="h-5 w-5" />
             </div>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
-        {routineCards.map((routine) => {
-          const isSopocachi = normalizeBranch(routine.branch) === "sopocachi";
-          const tone = isSopocachi
-            ? "text-emerald-700 dark:text-emerald-300"
-            : "text-blue-700 dark:text-blue-300";
-          const badgeTone = isSopocachi
-            ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:text-emerald-300"
-            : "border-blue-300 bg-blue-500/10 text-blue-700 dark:border-blue-400/30 dark:text-blue-300";
-
-          return (
-            <article
-              key={routine.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openEdit(routine)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  openEdit(routine);
-                }
-              }}
-              className="group cursor-pointer overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm transition active:scale-[0.99] hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div
-                className={`h-1.5 ${isSopocachi ? "bg-emerald-500" : "bg-blue-500"}`}
-              />
-
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {locationMode === "multiple" ? (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${badgeTone}`}
-                        >
-                          <MapPin className="h-3 w-3" />
-                          {branchLabel(routine.branch)}
-                        </span>
-                      ) : null}
-                      {routine.extras ? (
-                        <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                          {routine.extras} extra
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="mt-3 line-clamp-2 text-xl font-black leading-tight text-[color:var(--text)]">
-                      {routine.name}
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openEdit(routine);
-                    }}
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[color:var(--bg)] text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
-                    aria-label="Editar rutina"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="mt-4 grid grid-cols-[1fr_1fr_1fr] gap-2">
-                  {routine.preview.slice(0, 3).map((item, idx) => (
-                    <div
-                      key={`${routine.id}-preview-${idx}`}
-                      className="aspect-[1.35] overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]"
-                    >
-                      {item.url ? (
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="grid h-full w-full place-items-center text-sm font-black text-[color:var(--text-muted)]">
-                          {item.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {routine.preview.length === 0 ? (
-                    <div className="col-span-3 grid h-20 place-items-center rounded-2xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)]">
-                      Sin ejercicios
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl bg-[color:var(--bg)] p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                      Ejercicios
-                    </p>
-                    <p
-                      className={`mt-1 flex items-center gap-1 text-lg font-black ${tone}`}
-                    >
-                      <Dumbbell className="h-3.5 w-3.5" />
-                      {routine.exerciseCount}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-[color:var(--bg)] p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                      Series
-                    </p>
-                    <p
-                      className={`mt-1 flex items-center gap-1 text-lg font-black ${tone}`}
-                    >
-                      <Layers3 className="h-3.5 w-3.5" />
-                      {routine.totalSets}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-[color:var(--bg)] p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                      Sesiones
-                    </p>
-                    <p className={`mt-1 text-lg font-black ${tone}`}>
-                      {routine.sessionsCount}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex min-w-0 flex-wrap gap-1.5">
-                  {routine.muscles.length ? (
-                    routine.muscles.slice(0, 4).map((muscle) => (
-                      <span
-                        key={muscle}
-                        className="max-w-full truncate rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]"
-                      >
-                        {muscle}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
-                      Sin grupos
-                    </span>
-                  )}
-                  {routine.muscles.length > 4 ? (
-                    <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
-                      +{routine.muscles.length - 4}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {formatShortDate(routine.lastDate)}
-                    </span>
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleDuplicateRoutine(routine);
-                      }}
-                      disabled={Boolean(duplicatingRoutineId)}
-                      className="inline-flex h-9 items-center gap-2 rounded-xl bg-[color:var(--bg)] px-3 text-xs font-black text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] disabled:cursor-wait disabled:opacity-60"
-                      aria-label="Duplicar rutina"
-                    >
-                      <Copy className="h-4 w-4" />
-                      <span>
-                        {duplicatingRoutineId === routine.id
-                          ? "Duplicando"
-                          : "Duplicar"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        requestDeleteRoutine(routine);
-                      }}
-                      className="grid h-9 w-9 place-items-center rounded-xl bg-red-50 text-red-600 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
-                      aria-label="Eliminar rutina"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-
-        {!routineCards.length && (
-          <Card className="p-8 text-center md:col-span-2 xl:col-span-3">
-            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)]">
-              <Layers3 className="h-5 w-5 text-[color:var(--text-muted)]" />
-            </div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">
-              No hay rutinas para mostrar.
+            <h2 className="mt-4 text-lg font-black text-[color:var(--text)]">
+              Crea tu primera rutina
+            </h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
+              Empieza definiendo qué quieres entrenar.
             </p>
-            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-              Crea una rutina o ajusta los filtros.
-            </p>
-            <Button className="mt-4" onClick={openCreate}>
+            <Button className="mt-5 h-11 gap-2" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
               Crear rutina
             </Button>
-          </Card>
-        )}
+          </div>
+        ) : showSearch || showBranchFilter ? (
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            {showSearch ? (
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar rutina"
+                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            ) : (
+              <div />
+            )}
+            {showBranchFilter ? (
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1">
+                {[
+                  { id: "all", label: "Todas", count: branchCounts.all },
+                  {
+                    id: "sopocachi",
+                    label: "Sopocachi",
+                    count: branchCounts.sopocachi,
+                  },
+                  {
+                    id: "miraflores",
+                    label: "Miraflores",
+                    count: branchCounts.miraflores,
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveBranch(item.id)}
+                    className={`h-9 rounded-md px-3 text-[11px] font-black transition ${
+                      activeBranch === item.id
+                        ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                        : "text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    <span className="block truncate">{item.label}</span>
+                    <span className="ml-1 text-[9px] opacity-80">
+                      {item.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </section>
+
+      {routines.length ? (
+        <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
+          {routineCards.map((routine) => {
+            const isSopocachi = normalizeBranch(routine.branch) === "sopocachi";
+            const tone = "text-blue-700 dark:text-blue-200";
+            const badgeTone = isSopocachi
+              ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:text-emerald-300"
+              : "border-blue-300 bg-blue-500/10 text-blue-700 dark:border-blue-400/30 dark:text-blue-300";
+
+            return (
+              <article
+                key={routine.id}
+                className="overflow-visible rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+              >
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {locationMode === "multiple" ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${badgeTone}`}
+                          >
+                            <MapPin className="h-3 w-3" />
+                            {branchLabel(routine.branch)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <h2 className="mt-2 line-clamp-2 text-lg font-black leading-tight text-[color:var(--text)]">
+                        {routine.name}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-[1fr_1fr_1fr] gap-2">
+                    {routine.preview.slice(0, 3).map((item, idx) => (
+                      <div
+                        key={`${routine.id}-preview-${idx}`}
+                        className="aspect-[1.45] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]"
+                      >
+                        {item.url ? (
+                          <img
+                            src={item.url}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center text-sm font-black text-[color:var(--text-muted)]">
+                            {item.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {routine.preview.length === 0 ? (
+                      <div className="col-span-3 grid h-20 place-items-center rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)]">
+                        Sin ejercicios
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div
+                    className={`mt-4 flex items-center gap-5 text-sm font-black ${tone}`}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Dumbbell className="h-4 w-4" />
+                      {routine.exerciseCount} ejercicios
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers3 className="h-4 w-4" />
+                      {routine.totalSets} series
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex min-w-0 flex-wrap gap-1.5">
+                    {routine.muscles.length ? (
+                      routine.muscles.slice(0, 4).map((muscle) => (
+                        <span
+                          key={muscle}
+                          className="max-w-full truncate rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]"
+                        >
+                          {muscle}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
+                        Sin grupos
+                      </span>
+                    )}
+                    {routine.muscles.length > 4 ? (
+                      <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
+                        +{routine.muscles.length - 4}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(routine)}
+                      className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-200 dark:hover:bg-blue-500/10"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Editar
+                    </button>
+                    <details className="relative">
+                      <summary
+                        className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] [&::-webkit-details-marker]:hidden"
+                        aria-label="Opciones de rutina"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </summary>
+                      <div className="absolute bottom-12 right-0 z-20 w-44 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.currentTarget
+                              .closest("details")
+                              ?.removeAttribute("open");
+                            handleDuplicateRoutine(routine);
+                          }}
+                          disabled={Boolean(duplicatingRoutineId)}
+                          className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
+                        >
+                          <Copy className="h-4 w-4" />
+                          {duplicatingRoutineId === routine.id
+                            ? "Duplicando..."
+                            : "Duplicar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.currentTarget
+                              .closest("details")
+                              ?.removeAttribute("open");
+                            requestDeleteRoutine(routine);
+                          }}
+                          className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Eliminar
+                        </button>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
+          {!routineCards.length ? (
+            <div className="border-y border-[color:var(--border)] py-12 text-center md:col-span-2 xl:col-span-3">
+              <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-lg bg-[color:var(--bg)]">
+                <Layers3 className="h-5 w-5 text-[color:var(--text-muted)]" />
+              </div>
+              <p className="text-sm font-black text-[color:var(--text)]">
+                {hasActiveRoutineFilters
+                  ? "No encontramos esa rutina."
+                  : "No hay rutinas para tu gimnasio actual."}
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                {hasActiveRoutineFilters
+                  ? "Prueba con otra búsqueda o sede."
+                  : "Puedes crear una nueva desde aquí."}
+              </p>
+              <Button
+                className="mt-4"
+                onClick={() => {
+                  if (hasActiveRoutineFilters) {
+                    setSearchTerm("");
+                    setActiveBranch("all");
+                  } else {
+                    openCreate();
+                  }
+                }}
+              >
+                {hasActiveRoutineFilters ? "Limpiar filtros" : "Nueva rutina"}
+              </Button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {modalMode && (
         <RoutineModal

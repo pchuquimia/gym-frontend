@@ -23,6 +23,7 @@ const defaultProfile = {
     achievements: true,
     community: false,
   },
+  avatarPhotoId: "",
 };
 
 const defaultSecurity = {
@@ -42,15 +43,21 @@ const mergeProfile = (profile = {}) => ({
 });
 
 export function UserProvider({ children }) {
-  const [profile, setProfile] = useState(defaultProfile);
+  const [profile, setProfile] = useState(null);
   const [security, setSecurity] = useState(defaultSecurity);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [capabilities, setCapabilities] = useState({ emailChange: false });
 
   const refreshProfile = useCallback(async () => {
     try {
+      setError("");
       const data = await api.getProfile();
       setProfile(mergeProfile(data.profile));
       setSecurity({ ...defaultSecurity, ...(data.security || {}) });
+      setCapabilities({ emailChange: Boolean(data.capabilities?.emailChange) });
+    } catch (requestError) {
+      setError(requestError.message || "No se pudo cargar el perfil.");
     } finally {
       setLoading(false);
     }
@@ -60,32 +67,61 @@ export function UserProvider({ children }) {
     refreshProfile();
   }, [refreshProfile]);
 
-  const updateProfile = useCallback(async (payload) => {
-    setProfile((prev) => mergeProfile({ ...prev, ...payload }));
-    const data = await api.updateProfile(payload);
-    setProfile(mergeProfile(data.profile));
-    setSecurity({ ...defaultSecurity, ...(data.security || {}) });
-    return data.profile;
-  }, []);
+  const updateProfile = useCallback(
+    async (payload) => {
+      const previousProfile = profile;
+      try {
+        setError("");
+        const data = await api.updateProfile(payload);
+        setProfile(mergeProfile(data.profile));
+        setSecurity({ ...defaultSecurity, ...(data.security || {}) });
+        return data.profile;
+      } catch (requestError) {
+        setProfile(previousProfile);
+        setError(requestError.message || "No se pudo guardar el perfil.");
+        throw requestError;
+      }
+    },
+    [profile],
+  );
 
-  const updateSecurity = useCallback(async (payload) => {
-    setSecurity((prev) => ({ ...prev, ...payload }));
-    const data = await api.updateSecurity(payload);
-    setProfile(mergeProfile(data.profile));
-    setSecurity({ ...defaultSecurity, ...(data.security || {}) });
-    return data.security;
-  }, []);
+  const updateSecurity = useCallback(
+    async (payload) => {
+      const previousSecurity = security;
+      try {
+        const data = await api.updateSecurity(payload);
+        setProfile(mergeProfile(data.profile));
+        setSecurity({ ...defaultSecurity, ...(data.security || {}) });
+        return data.security;
+      } catch (requestError) {
+        setSecurity(previousSecurity);
+        throw requestError;
+      }
+    },
+    [security],
+  );
 
   const value = useMemo(
     () => ({
       profile,
       security,
       loading,
+      error,
+      capabilities,
       updateProfile,
       updateSecurity,
       refreshProfile,
     }),
-    [profile, security, loading, updateProfile, updateSecurity, refreshProfile],
+    [
+      profile,
+      security,
+      loading,
+      error,
+      capabilities,
+      updateProfile,
+      updateSecurity,
+      refreshProfile,
+    ],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

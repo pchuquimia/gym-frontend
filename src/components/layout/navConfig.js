@@ -34,7 +34,7 @@ export const sections = [
       { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
       {
         id: "admin_sesiones",
-        label: "Administrar sesiones",
+        label: "Historial de sesiones",
         icon: Shield,
         roles: ["Admin", "Entrenador"],
       },

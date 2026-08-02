@@ -92,6 +92,7 @@ function PhotosLibrary() {
 
   const orderedPhotos = useMemo(() => {
     return (photos || [])
+      .filter((photo) => photo.type !== "profile")
       .slice()
       .sort((a, b) => {
         const da = toValidDate(a.date)?.getTime() || 0;

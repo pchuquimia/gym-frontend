@@ -25,7 +25,7 @@ const mobileLabels = {
   library: "Ejercicios",
   ejercicio_analitica: "Analitica",
   resumen_sesion: "Resumen Diario",
-  admin_sesiones: "Sesiones Pasadas",
+  admin_sesiones: "Historial",
   fotos: "Fotos",
   perfil: "Perfil",
 };

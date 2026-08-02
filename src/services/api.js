@@ -45,6 +45,12 @@ export const api = {
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),
   getProfile: () => request("/api/auth/profile"),
+  getProfileSummary: () => request("/api/auth/profile-summary"),
+  updateAccount: (payload) =>
+    request("/api/auth/account", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   updateProfile: (payload) =>
     request("/api/auth/profile", {
       method: "PATCH",
