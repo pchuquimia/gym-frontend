@@ -35,6 +35,18 @@ export default function SetRow({
     const parsed = Number(String(val).replace(",", "."));
     return Number.isNaN(parsed) ? null : parsed;
   };
+  const moveCaretToEnd = (event) => {
+    const input = event.currentTarget;
+    const placeCaret = () => {
+      const end = String(input.value ?? "").length;
+      input.setSelectionRange(end, end);
+    };
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(placeCaret);
+    } else {
+      placeCaret();
+    }
+  };
 
   const handleDragEnd = (_, info) => {
     if (!isMobile) return;
@@ -163,6 +175,8 @@ export default function SetRow({
                   inputMode="decimal"
                   pattern="[0-9]*[.,]?[0-9]*"
                   value={entry.kg ?? ""}
+                  onFocus={moveCaretToEnd}
+                  onClick={moveCaretToEnd}
                   onChange={(e) =>
                     onChangeEntry?.(
                       entry.id,
@@ -184,6 +198,8 @@ export default function SetRow({
                   inputMode="decimal"
                   pattern="[0-9]*[.,]?[0-9]*"
                   value={entry.reps ?? ""}
+                  onFocus={moveCaretToEnd}
+                  onClick={moveCaretToEnd}
                   onChange={(e) =>
                     onChangeEntry?.(
                       entry.id,
