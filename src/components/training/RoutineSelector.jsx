@@ -8,6 +8,7 @@ export default function RoutineSelector({
   routines,
   onSelect,
   disabled = false,
+  showLocation = true,
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -40,9 +41,11 @@ export default function RoutineSelector({
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
-              {routine.location}
-            </p>
+            {showLocation ? (
+              <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+                {routine.location}
+              </p>
+            ) : null}
             <p className="text-base font-semibold text-[color:var(--text)]">
               {routine.name}
             </p>
@@ -94,9 +97,11 @@ export default function RoutineSelector({
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
-                        {r.location}
-                      </p>
+                      {showLocation ? (
+                        <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+                          {r.location}
+                        </p>
+                      ) : null}
                       <p className="text-sm font-semibold text-[color:var(--text)]">
                         {r.name}
                       </p>
@@ -145,4 +150,5 @@ RoutineSelector.propTypes = {
   ).isRequired,
   onSelect: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
+  showLocation: PropTypes.bool,
 };

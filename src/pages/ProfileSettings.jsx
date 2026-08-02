@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlarmClock,
   Bell,
+  Building2,
+  Check,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -11,6 +13,7 @@ import {
   Lock,
   LogOut,
   Mail,
+  MapPin,
   Monitor,
   Moon,
   MoreVertical,
@@ -42,6 +45,29 @@ const defaultNotifications = {
   community: false,
 };
 
+const branchOptions = [
+  { id: "sopocachi", label: "Sopocachi", detail: "Av. 20 de Octubre" },
+  { id: "miraflores", label: "Miraflores", detail: "Av. Busch" },
+];
+
+const locationModes = [
+  {
+    id: "single",
+    title: "Un solo gimnasio",
+    detail: "Usaremos tu gimnasio habitual sin volver a preguntarte.",
+  },
+  {
+    id: "multiple",
+    title: "Varios gimnasios",
+    detail: "Elegirás la sede antes de cada entrenamiento.",
+  },
+  {
+    id: "disabled",
+    title: "No registrar ubicación",
+    detail: "Rutinas, historial y marcas no se separarán por sede.",
+  },
+];
+
 function getInitials(name = "") {
   return (
     name
@@ -56,7 +82,9 @@ function getInitials(name = "") {
 function calcStreak(trainings = []) {
   const dates = new Set(
     trainings
-      .map((training) => (training.date || training.createdAt || "").slice(0, 10))
+      .map((training) =>
+        (training.date || training.createdAt || "").slice(0, 10),
+      )
       .filter(Boolean),
   );
   if (!dates.size) return 0;
@@ -190,11 +218,14 @@ function SettingsRow({ icon: Icon, title, subtitle, value, action, onClick }) {
           </p>
         ) : null}
       </div>
-      {action || (value ? (
-        <span className="text-sm text-[color:var(--text-muted)]">{value}</span>
-      ) : (
-        <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
-      ))}
+      {action ||
+        (value ? (
+          <span className="text-sm text-[color:var(--text-muted)]">
+            {value}
+          </span>
+        ) : (
+          <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
+        ))}
     </button>
   );
 }
@@ -302,7 +333,9 @@ function SessionRow({ session }) {
         <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
           {session.browser || "App"}
           {session.os ? ` en ${session.os}` : ""} ·{" "}
-          {session.current ? "Activo ahora" : formatSessionTime(session.lastSeenAt)}
+          {session.current
+            ? "Activo ahora"
+            : formatSessionTime(session.lastSeenAt)}
         </p>
       </div>
       {!session.current ? (
@@ -314,7 +347,14 @@ function SessionRow({ session }) {
 
 function ProfileSettings({ onNavigate }) {
   const { user, logout } = useAuth();
-  const { trainings = [], photos = [] } = useTrainingData();
+  const {
+    trainings = [],
+    photos = [],
+    branch,
+    locationMode,
+    allowedBranches,
+    saveLocationPreferences,
+  } = useTrainingData();
   const { profile, security, updateProfile, updateSecurity } = useUserProfile();
   const { isDark, toggleTheme } = useThemeMode();
   const [view, setView] = useState("settings");
@@ -329,6 +369,15 @@ function ProfileSettings({ onNavigate }) {
     confirmPassword: "",
   });
   const [passwordMessage, setPasswordMessage] = useState("");
+  const [locationDraft, setLocationDraft] = useState({
+    locationMode: locationMode || "single",
+    branch: branch || "sopocachi",
+    allowedBranches: allowedBranches?.length
+      ? allowedBranches
+      : [branch || "sopocachi"],
+  });
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
 
   const notifications = {
     ...defaultNotifications,
@@ -407,6 +456,206 @@ function ProfileSettings({ onNavigate }) {
     await logout();
     onNavigate?.("login");
   };
+
+  const openLocationSettings = () => {
+    setLocationDraft({
+      locationMode: locationMode || "single",
+      branch: branch || "sopocachi",
+      allowedBranches:
+        locationMode === "multiple"
+          ? allowedBranches?.length
+            ? allowedBranches
+            : branchOptions.map((option) => option.id)
+          : [branch || "sopocachi"],
+    });
+    setLocationMessage("");
+    setView("locations");
+  };
+
+  const selectLocationMode = (nextMode) => {
+    setLocationMessage("");
+    setLocationDraft((current) => ({
+      ...current,
+      locationMode: nextMode,
+      allowedBranches:
+        nextMode === "multiple"
+          ? branchOptions.map((option) => option.id)
+          : nextMode === "single"
+            ? [current.branch]
+            : [],
+    }));
+  };
+
+  const toggleAllowedBranch = (branchId) => {
+    setLocationMessage("");
+    setLocationDraft((current) => {
+      const exists = current.allowedBranches.includes(branchId);
+      if (exists && current.allowedBranches.length <= 2) return current;
+      return {
+        ...current,
+        allowedBranches: exists
+          ? current.allowedBranches.filter((item) => item !== branchId)
+          : [...current.allowedBranches, branchId],
+      };
+    });
+  };
+
+  const handleSaveLocation = async () => {
+    setSavingLocation(true);
+    setLocationMessage("");
+    try {
+      await saveLocationPreferences(locationDraft);
+      setLocationMessage("Configuración guardada.");
+    } catch (error) {
+      setLocationMessage(
+        error?.message || "No se pudo guardar la configuración.",
+      );
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const locationSummary =
+    locationMode === "disabled"
+      ? "Ubicación desactivada"
+      : locationMode === "multiple"
+        ? `${allowedBranches?.length || 2} sedes`
+        : `Gimnasio habitual: ${
+            branchOptions.find((option) => option.id === branch)?.label ||
+            "Sopocachi"
+          }`;
+
+  if (view === "locations") {
+    return (
+      <main className="mx-auto w-full max-w-md space-y-6 pb-28">
+        <button
+          type="button"
+          onClick={() => setView("settings")}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text)]"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Ajustes
+        </button>
+
+        <div>
+          <h1 className="text-2xl font-black text-[color:var(--text)]">
+            Lugares de entrenamiento
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+            Decide cuándo debe aparecer la selección de sede.
+          </p>
+        </div>
+
+        <section className="space-y-2.5">
+          <h2 className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            Cómo entrenas
+          </h2>
+          <div className="space-y-2">
+            {locationModes.map((mode) => {
+              const selected = locationDraft.locationMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => selectLocationMode(mode.id)}
+                  aria-pressed={selected}
+                  className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition ${
+                    selected
+                      ? "border-blue-400 bg-blue-500/10"
+                      : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
+                      selected
+                        ? "border-blue-500 bg-blue-500 text-white"
+                        : "border-[color:var(--border)]"
+                    }`}
+                  >
+                    {selected ? <Check className="h-3 w-3" /> : null}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-[color:var(--text)]">
+                      {mode.title}
+                    </span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
+                      {mode.detail}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {locationDraft.locationMode !== "disabled" ? (
+          <section className="space-y-2.5">
+            <h2 className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+              {locationDraft.locationMode === "single"
+                ? "Gimnasio habitual"
+                : "Sedes disponibles"}
+            </h2>
+            <div className="space-y-2">
+              {branchOptions.map((option) => {
+                const selected =
+                  locationDraft.locationMode === "single"
+                    ? locationDraft.branch === option.id
+                    : locationDraft.allowedBranches.includes(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      locationDraft.locationMode === "single"
+                        ? setLocationDraft((current) => ({
+                            ...current,
+                            branch: option.id,
+                            allowedBranches: [option.id],
+                          }))
+                        : toggleAllowedBranch(option.id)
+                    }
+                    aria-pressed={selected}
+                    className={`flex min-h-14 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left ${
+                      selected
+                        ? "border-emerald-400 bg-emerald-500/10"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)]"
+                    }`}
+                  >
+                    <Building2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black text-[color:var(--text)]">
+                        {option.label}
+                      </span>
+                      <span className="block text-xs text-[color:var(--text-muted)]">
+                        {option.detail}
+                      </span>
+                    </span>
+                    {selected ? (
+                      <Check className="h-5 w-5 shrink-0 text-emerald-500" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={handleSaveLocation}
+          disabled={savingLocation}
+          className="h-12 w-full rounded-lg bg-blue-600 text-sm font-black text-white disabled:opacity-60"
+        >
+          {savingLocation ? "Guardando..." : "Guardar configuración"}
+        </button>
+        {locationMessage ? (
+          <p className="text-center text-xs font-semibold text-[color:var(--text-muted)]">
+            {locationMessage}
+          </p>
+        ) : null}
+      </main>
+    );
+  }
 
   if (view === "security") {
     return (
@@ -716,6 +965,12 @@ function ProfileSettings({ onNavigate }) {
       </Section>
 
       <Section title="Configuración" compact>
+        <SettingsRow
+          icon={MapPin}
+          title="Lugares de entrenamiento"
+          subtitle={locationSummary}
+          onClick={openLocationSettings}
+        />
         <SettingsRow icon={Bell} title="Notificaciones" />
         <SettingsRow
           icon={Moon}
@@ -723,7 +978,11 @@ function ProfileSettings({ onNavigate }) {
           onClick={toggleTheme}
           action={
             <span className="grid h-9 w-9 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]">
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
             </span>
           }
         />

@@ -42,6 +42,22 @@ const PAGE_ROLES = {
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_TRAINING_KEY = "active_training";
 
+const AUTH_PATHS = {
+  login: "/",
+  register: "/registro",
+  recover: "/recuperar-contrasena",
+  reset: "/restablecer-contrasena",
+  verify: "/verificar-correo",
+};
+
+const authPageFromPath = () => {
+  if (typeof window === "undefined") return null;
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  return (
+    Object.entries(AUTH_PATHS).find(([, value]) => value === path)?.[0] || null
+  );
+};
+
 const roleHome = (role) => {
   if (role === "Admin") return "dashboard";
   if (role === "Entrenador") return "trainer";
@@ -70,22 +86,44 @@ function App() {
   const { user, isAuthenticated, loading } = useAuth();
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "login";
+    const authPage = authPageFromPath();
+    if (authPage && authPage !== "login") return authPage;
     if (hasActiveTrainingSnapshot()) return "registrar";
     const stored = localStorage.getItem("active_page");
-    return stored || "login";
+    return stored || authPage || "login";
   });
 
   const handleNavigate = (page) => {
     setActivePage(page);
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("active_page", page);
+      if (AUTH_PATHS[page]) {
+        localStorage.removeItem("active_page");
+        const target = `${AUTH_PATHS[page]}${page === "reset" ? window.location.search : ""}`;
+        if (`${window.location.pathname}${window.location.search}` !== target) {
+          window.history.pushState({ page }, "", target);
+        }
+      } else {
+        localStorage.setItem("active_page", page);
+        if (window.location.pathname !== "/" || window.location.search) {
+          window.history.replaceState({ page }, "", "/");
+        }
+      }
     }
   };
 
   useEffect(() => {
+    const handlePopState = () => {
+      const authPage = authPageFromPath();
+      setActivePage(authPage || localStorage.getItem("active_page") || "login");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     if (
       isAuthenticated &&
-      (activePage === "login" || activePage === "register")
+      ["login", "register", "recover", "reset", "verify"].includes(activePage)
     ) {
       handleNavigate(roleHome(user?.role));
     }
@@ -110,10 +148,22 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return activePage === "register" ? (
-      <Register onNavigate={handleNavigate} />
-    ) : (
-      <Login onNavigate={handleNavigate} />
+    if (activePage === "register") {
+      return <Register onNavigate={handleNavigate} />;
+    }
+    return (
+      <Login
+        initialMode={
+          activePage === "reset"
+            ? "reset"
+            : activePage === "verify"
+              ? "verify"
+              : activePage === "recover"
+                ? "recover"
+                : "login"
+        }
+        onNavigate={handleNavigate}
+      />
     );
   }
 

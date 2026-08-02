@@ -24,7 +24,7 @@ function PremiumAuthLayout({
   const image = images[variant] || images.login;
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[#060b16] text-white sm:min-h-screen lg:px-6 lg:py-6">
+    <main className="min-h-dvh overflow-x-hidden bg-[#060b16] text-white lg:p-4 2xl:p-6">
       <div
         className="fixed inset-0 pointer-events-none opacity-35"
         style={{
@@ -34,8 +34,8 @@ function PremiumAuthLayout({
         }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto flex min-h-dvh w-full items-stretch justify-center lg:min-h-[calc(100vh-3rem)] lg:max-w-6xl lg:items-center 2xl:max-w-7xl">
-        <section className="relative min-h-dvh w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[720px] lg:rounded-2xl lg:border lg:border-white/15 2xl:min-h-[760px]">
+      <div className="relative mx-auto flex min-h-dvh w-full items-stretch justify-center lg:min-h-[calc(100dvh-2rem)] lg:max-w-[1440px] 2xl:min-h-[calc(100dvh-3rem)] 2xl:max-w-[1680px] 2xl:items-center">
+        <section className="relative min-h-dvh w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[max(670px,calc(100dvh-2rem))] lg:rounded-lg lg:border lg:border-white/15 2xl:min-h-[900px]">
           <img
             src={image}
             alt=""
@@ -45,7 +45,7 @@ function PremiumAuthLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/72 to-slate-950" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.22),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,70,229,0.25),transparent_45%)]" />
 
-          <div className="relative flex min-h-dvh flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[720px] lg:grid-cols-[minmax(0,1.12fr)_minmax(390px,0.88fr)] lg:grid-rows-[auto_1fr_auto] lg:px-0 lg:py-0 2xl:min-h-[760px] 2xl:grid-cols-[minmax(0,1.18fr)_minmax(430px,0.82fr)]">
+          <div className="relative flex min-h-dvh flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[max(670px,calc(100dvh-2rem))] lg:grid-cols-[minmax(0,1.15fr)_minmax(400px,0.85fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:px-0 lg:py-0 2xl:min-h-[900px] 2xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
             <div className="flex min-h-10 items-center justify-between lg:px-10 lg:pt-10 2xl:px-12">
               {onBack ? (
                 <button
@@ -71,7 +71,7 @@ function PremiumAuthLayout({
                 } ${heroCompact ? "mt-8 lg:mt-0" : "mt-10 lg:mt-0"}`}
               >
                 {eyebrow ? (
-                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-blue-200 text-blue-950 shadow-lg shadow-blue-500/20 lg:mx-0">
+                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-lg bg-blue-200 text-blue-950 shadow-lg shadow-blue-500/20 lg:mx-0">
                     <Zap className="h-7 w-7 fill-blue-600 text-blue-600" />
                   </div>
                 ) : null}
@@ -86,12 +86,12 @@ function PremiumAuthLayout({
                 </p>
               </div>
 
-              <div className="w-full rounded-2xl border border-white/10 bg-slate-900/65 p-4 shadow-xl shadow-black/25 backdrop-blur-md lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-auto lg:mt-0 lg:w-[min(420px,calc(100%-4rem))] lg:self-center lg:p-6 2xl:w-[440px]">
+              <div className="w-full rounded-lg border border-white/10 bg-slate-900/70 p-4 shadow-xl shadow-black/25 backdrop-blur-md sm:p-5 lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-auto lg:my-16 lg:w-[min(440px,calc(100%-3rem))] lg:self-center lg:p-6 2xl:w-[480px]">
                 {children}
               </div>
             </div>
 
-            <div className="mx-auto w-full max-w-sm pt-4 max-[700px]:pt-3 sm:max-w-md lg:col-start-2 lg:mx-auto lg:w-[min(420px,calc(100%-4rem))] lg:max-w-none lg:pb-8 2xl:w-[440px]">
+            <div className="mx-auto w-full max-w-sm pt-4 max-[700px]:pt-3 sm:max-w-md lg:col-start-2 lg:mx-auto lg:w-[min(440px,calc(100%-3rem))] lg:max-w-none lg:pb-7 2xl:w-[480px]">
               {footer}
             </div>
           </div>

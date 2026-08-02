@@ -208,6 +208,7 @@ const groupByMuscle = (items = []) => {
 };
 
 const exerciseMatchesBranch = (exercise, branch) => {
+  if (!branch) return true;
   const branches = exercise.branches || [];
   return branches.includes(branch) || branches.includes("general");
 };
@@ -448,6 +449,9 @@ function RoutineModal({
   libraryLoading = false,
   libraryError = null,
   onRetryLibrary,
+  locationMode = "single",
+  defaultBranch = "sopocachi",
+  allowedBranches = BRANCH_OPTIONS,
 }) {
   const [routineId] = useState(
     () =>
@@ -455,8 +459,13 @@ function RoutineModal({
   );
   const [name, setName] = useState(initialData?.name || "");
   const [branch, setBranch] = useState(() =>
-    normalizeBranch(initialData?.branch),
+    normalizeBranch(initialData?.branch || defaultBranch),
   );
+  const exerciseFilterBranch = locationMode === "disabled" ? "" : branch;
+  const selectableBranches =
+    locationMode === "multiple" && allowedBranches.length
+      ? allowedBranches
+      : BRANCH_OPTIONS;
   const [routineType, setRoutineType] = useState("push");
   const [selectedSetupMuscles, setSelectedSetupMuscles] = useState(() => {
     const draftMuscles = (initialData?.exercises || [])
@@ -567,7 +576,7 @@ function RoutineModal({
       exercises.map((exercise) => exercise.exerciseId),
     );
     const sortedOptions = availableExercises
-      .filter((ex) => exerciseMatchesBranch(ex, branch))
+      .filter((ex) => exerciseMatchesBranch(ex, exerciseFilterBranch))
       .filter((ex) => !selectedMuscle || ex.muscle === selectedMuscle)
       .filter((ex) => !currentIds.has(ex.id))
       .filter(
@@ -580,8 +589,8 @@ function RoutineModal({
       )
       .sort(
         (a, b) =>
-          (b.usageByBranch?.[branch]?.count || 0) -
-            (a.usageByBranch?.[branch]?.count || 0) ||
+          (b.usageByBranch?.[exerciseFilterBranch]?.count || 0) -
+            (a.usageByBranch?.[exerciseFilterBranch]?.count || 0) ||
           (b.usageCount || 0) - (a.usageCount || 0) ||
           (b.lastUsedAt || 0) - (a.lastUsedAt || 0) ||
           a.name.localeCompare(b.name),
@@ -595,18 +604,24 @@ function RoutineModal({
         return true;
       })
       .slice(0, 80);
-  }, [availableExercises, branch, exercises, selectedMuscle, search]);
+  }, [
+    availableExercises,
+    exerciseFilterBranch,
+    exercises,
+    selectedMuscle,
+    search,
+  ]);
 
   const frequentExerciseOptions = useMemo(() => {
     if (search.trim()) return [];
     return exercisePickerOptions
       .filter(
         (exercise) =>
-          (exercise.usageByBranch?.[branch]?.count || 0) > 0 ||
+          (exercise.usageByBranch?.[exerciseFilterBranch]?.count || 0) > 0 ||
           exercise.usageCount > 0,
       )
       .slice(0, 5);
-  }, [branch, exercisePickerOptions, search]);
+  }, [exerciseFilterBranch, exercisePickerOptions, search]);
 
   const regularExerciseOptions = useMemo(() => {
     if (!frequentExerciseOptions.length) return exercisePickerOptions;
@@ -669,7 +684,8 @@ function RoutineModal({
         .filter(
           (routine) =>
             routine?.progressScopeId &&
-            normalizeBranch(routine.branch) === branch &&
+            (!exerciseFilterBranch ||
+              normalizeBranch(routine.branch) === exerciseFilterBranch) &&
             routine.matchingExercises > 0 &&
             (routine._id || routine.id) !==
               (initialData?._id || initialData?.id),
@@ -677,7 +693,7 @@ function RoutineModal({
         .sort((a, b) => b.matchingExercises - a.matchingExercises),
     [
       availableExercises,
-      branch,
+      exerciseFilterBranch,
       effectiveSetupMuscles,
       existingRoutines,
       initialData?._id,
@@ -769,7 +785,9 @@ function RoutineModal({
         availableExercises.find((exercise) => exercise.id === exerciseId),
       )
       .filter(Boolean)
-      .filter((exercise) => exerciseMatchesBranch(exercise, branch))
+      .filter((exercise) =>
+        exerciseMatchesBranch(exercise, exerciseFilterBranch),
+      )
       .map((exercise) => toRoutineExercise(exercise));
     const nextExercises = [...exercises, ...additions];
     setExercises(nextExercises);
@@ -842,11 +860,11 @@ function RoutineModal({
     if (!extraPickerMuscle) return [];
     return availableExercises.filter(
       (option) =>
-        exerciseMatchesBranch(option, branch) &&
+        exerciseMatchesBranch(option, exerciseFilterBranch) &&
         option.muscle === extraPickerMuscle &&
         !exercises.some((item) => item.exerciseId === option.id),
     );
-  }, [availableExercises, branch, exercises, extraPickerMuscle]);
+  }, [availableExercises, exerciseFilterBranch, exercises, extraPickerMuscle]);
 
   const alternativePickerOptions = useMemo(() => {
     if (!alternativePickerExercise) return [];
@@ -859,12 +877,17 @@ function RoutineModal({
     );
     return availableExercises.filter(
       (option) =>
-        exerciseMatchesBranch(option, branch) &&
+        exerciseMatchesBranch(option, exerciseFilterBranch) &&
         option.muscle === alternativePickerExercise.muscle &&
         option.id !== alternativePickerExercise.exerciseId &&
         !existing.has(option.id),
     );
-  }, [alternativePickerExercise, availableExercises, branch, exercises]);
+  }, [
+    alternativePickerExercise,
+    availableExercises,
+    exerciseFilterBranch,
+    exercises,
+  ]);
 
   const updateExercise = (idx, patch) => {
     setExercises((prev) =>
@@ -1291,34 +1314,38 @@ function RoutineModal({
                 )}
               </div>
 
-              <div className="mt-5 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Sucursal
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {BRANCH_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => handleBranchChange(option)}
-                      className={`flex h-12 items-center justify-between rounded-xl border px-3 text-left transition ${
-                        branch === option
-                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                      }`}
-                    >
-                      <span className="font-black">{branchLabel(option)}</span>
-                      <span
-                        className={`h-5 w-5 rounded-full border ${
+              {locationMode === "multiple" ? (
+                <div className="mt-5 space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    Sucursal
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectableBranches.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => handleBranchChange(option)}
+                        className={`flex h-12 items-center justify-between rounded-xl border px-3 text-left transition ${
                           branch === option
-                            ? "border-blue-500 bg-blue-500 shadow-[inset_0_0_0_4px_var(--card)]"
-                            : "border-[color:var(--border)]"
+                            ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                            : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
                         }`}
-                      />
-                    </button>
-                  ))}
+                      >
+                        <span className="font-black">
+                          {branchLabel(option)}
+                        </span>
+                        <span
+                          className={`h-5 w-5 rounded-full border ${
+                            branch === option
+                              ? "border-blue-500 bg-blue-500 shadow-[inset_0_0_0_4px_var(--card)]"
+                              : "border-[color:var(--border)]"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className="mt-5 space-y-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -1396,8 +1423,11 @@ function RoutineModal({
                           key={routine._id || routine.id}
                           value={routine._id || routine.id}
                         >
-                          {routine.name} · {branchLabel(routine.branch)} ·{" "}
-                          {routine.compatibilityPercent}% compatible
+                          {routine.name}
+                          {locationMode === "multiple"
+                            ? ` · ${branchLabel(routine.branch)}`
+                            : ""}{" "}
+                          · {routine.compatibilityPercent}% compatible
                         </option>
                       ))}
                     </select>
@@ -1450,7 +1480,13 @@ function RoutineModal({
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_260px]">
+                  <div
+                    className={`grid gap-3 ${
+                      locationMode === "multiple"
+                        ? "sm:grid-cols-[minmax(0,1fr)_260px]"
+                        : ""
+                    }`}
+                  >
                     <label className="space-y-1">
                       <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                         Nombre
@@ -1462,27 +1498,29 @@ function RoutineModal({
                         onChange={(e) => setName(e.target.value)}
                       />
                     </label>
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                        Sede
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {BRANCH_OPTIONS.map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => handleBranchChange(option)}
-                            className={`h-12 rounded-xl border px-2 text-xs font-black transition ${
-                              branch === option
-                                ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
-                                : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                            }`}
-                          >
-                            {branchLabel(option)}
-                          </button>
-                        ))}
+                    {locationMode === "multiple" ? (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                          Sede
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectableBranches.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleBranchChange(option)}
+                              className={`h-12 rounded-xl border px-2 text-xs font-black transition ${
+                                branch === option
+                                  ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                              }`}
+                            >
+                              {branchLabel(option)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
                   </div>
                   {error && (
                     <p className="mt-3 text-xs font-semibold text-red-500">
@@ -1528,7 +1566,7 @@ function RoutineModal({
                 {groupedSelected.map(([muscle, list]) => {
                   const extraOptions = availableExercises.filter(
                     (option) =>
-                      exerciseMatchesBranch(option, branch) &&
+                      exerciseMatchesBranch(option, exerciseFilterBranch) &&
                       option.muscle === muscle,
                   );
                   const selectedExtraIds = selectedExtraByMuscle[muscle] || [];
@@ -1592,7 +1630,10 @@ function RoutineModal({
                                 const alternativeOptions =
                                   availableExercises.filter(
                                     (option) =>
-                                      exerciseMatchesBranch(option, branch) &&
+                                      exerciseMatchesBranch(
+                                        option,
+                                        exerciseFilterBranch,
+                                      ) &&
                                       option.muscle === ex.muscle &&
                                       option.id !== ex.exerciseId &&
                                       !(ex.alternatives || []).some(
@@ -2206,7 +2247,7 @@ function RoutineModal({
                               key={option.id}
                               option={option}
                               selected={selectedExerciseIds.includes(option.id)}
-                              branch={branch}
+                              branch={exerciseFilterBranch}
                               onToggle={toggleExerciseSelection}
                               showUsage
                             />
@@ -2428,7 +2469,7 @@ function RoutineModal({
             );
             const alternativeOptions = availableExercises.filter(
               (option) =>
-                exerciseMatchesBranch(option, branch) &&
+                exerciseMatchesBranch(option, exerciseFilterBranch) &&
                 option.muscle === current.muscle &&
                 option.id !== current.exerciseId &&
                 !(current.alternatives || []).some(
@@ -2645,6 +2686,9 @@ function Routines({ onNavigate }) {
     trainings,
     loading: trainingDataLoading,
     error: trainingDataError,
+    branch: preferredBranch,
+    locationMode,
+    allowedBranches,
   } = useTrainingData();
 
   const [libraryDraft] = useState(readRoutineLibraryDraft);
@@ -2785,11 +2829,15 @@ function Routines({ onNavigate }) {
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return routines
-      .filter((routine) =>
-        activeBranch === "all"
+      .filter((routine) => {
+        if (locationMode === "disabled") return true;
+        if (locationMode === "single") {
+          return normalizeBranch(routine.branch) === preferredBranch;
+        }
+        return activeBranch === "all"
           ? true
-          : normalizeBranch(routine.branch) === activeBranch,
-      )
+          : normalizeBranch(routine.branch) === activeBranch;
+      })
       .filter((routine) => {
         if (!query) return true;
         return (routine.name || "").toLowerCase().includes(query);
@@ -2841,7 +2889,15 @@ function Routines({ onNavigate }) {
           getDateTimestamp(b.lastDate) - getDateTimestamp(a.lastDate) ||
           (a.name || "").localeCompare(b.name || ""),
       );
-  }, [routines, activeBranch, searchTerm, exerciseMetaMap, routineHistoryMap]);
+  }, [
+    routines,
+    activeBranch,
+    searchTerm,
+    exerciseMetaMap,
+    routineHistoryMap,
+    locationMode,
+    preferredBranch,
+  ]);
 
   const totals = useMemo(() => {
     const exerciseCount = routines.reduce(
@@ -2972,8 +3028,9 @@ function Routines({ onNavigate }) {
               Rutinas
             </h1>
             <p className="mt-2 hidden max-w-2xl text-sm leading-5 text-[color:var(--text-muted)] md:block">
-              Organiza rutinas por sede, orden real de ejercicios y grupos
-              musculares.
+              {locationMode === "multiple"
+                ? "Organiza rutinas por sede, orden real de ejercicios y grupos musculares."
+                : "Organiza rutinas por orden de ejercicios y grupos musculares."}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -3068,35 +3125,37 @@ function Routines({ onNavigate }) {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[color:var(--card)] p-1">
-            {[
-              { id: "all", label: "Todas", count: branchCounts.all },
-              {
-                id: "sopocachi",
-                label: "Sopocachi",
-                count: branchCounts.sopocachi,
-              },
-              {
-                id: "miraflores",
-                label: "Miraflores",
-                count: branchCounts.miraflores,
-              },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveBranch(item.id)}
-                className={`h-10 rounded-xl px-2 text-[11px] font-black transition ${
-                  activeBranch === item.id
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                    : "text-[color:var(--text-muted)]"
-                }`}
-              >
-                <span className="block truncate">{item.label}</span>
-                <span className="text-[9px] opacity-80">{item.count}</span>
-              </button>
-            ))}
-          </div>
+          {locationMode === "multiple" ? (
+            <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[color:var(--card)] p-1">
+              {[
+                { id: "all", label: "Todas", count: branchCounts.all },
+                {
+                  id: "sopocachi",
+                  label: "Sopocachi",
+                  count: branchCounts.sopocachi,
+                },
+                {
+                  id: "miraflores",
+                  label: "Miraflores",
+                  count: branchCounts.miraflores,
+                },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveBranch(item.id)}
+                  className={`h-10 rounded-xl px-2 text-[11px] font-black transition ${
+                    activeBranch === item.id
+                      ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  <span className="block truncate">{item.label}</span>
+                  <span className="text-[9px] opacity-80">{item.count}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -3132,12 +3191,14 @@ function Routines({ onNavigate }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${badgeTone}`}
-                      >
-                        <MapPin className="h-3 w-3" />
-                        {branchLabel(routine.branch)}
-                      </span>
+                      {locationMode === "multiple" ? (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${badgeTone}`}
+                        >
+                          <MapPin className="h-3 w-3" />
+                          {branchLabel(routine.branch)}
+                        </span>
+                      ) : null}
                       {routine.extras ? (
                         <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
                           {routine.extras} extra
@@ -3313,6 +3374,9 @@ function Routines({ onNavigate }) {
           existingRoutines={routines}
           libraryLoading={trainingDataLoading && !libraryExercises.length}
           libraryError={!libraryExercises.length ? trainingDataError : null}
+          locationMode={locationMode}
+          defaultBranch={preferredBranch}
+          allowedBranches={allowedBranches}
           onRetryLibrary={() => window.location.reload()}
           onSave={handleSave}
           onClose={closeModal}

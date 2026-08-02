@@ -17,8 +17,23 @@ const TrainingContext = createContext(null);
 
 const initialGoals = {};
 const DEFAULT_BRANCH = "sopocachi";
+const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const normalizeBranch = (value) =>
   value === "miraflores" || value === "sopocachi" ? value : DEFAULT_BRANCH;
+const normalizeLocationMode = (value) =>
+  ["single", "multiple", "disabled"].includes(value) ? value : "single";
+const normalizeAllowedBranches = (value, mode, branch) => {
+  if (mode === "disabled") return [];
+  if (mode === "single") return [normalizeBranch(branch)];
+  const allowed = Array.from(
+    new Set(
+      (Array.isArray(value) ? value : []).filter((item) =>
+        BRANCH_OPTIONS.includes(item),
+      ),
+    ),
+  );
+  return allowed.length >= 2 ? allowed : [...BRANCH_OPTIONS];
+};
 
 const slugify = (text) =>
   text
@@ -89,6 +104,8 @@ const PREFS_KEY = ["preferences"];
 export function TrainingProvider({ children }) {
   const queryClient = useQueryClient();
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
+  const [locationMode, setLocationMode] = useState("single");
+  const [allowedBranches, setAllowedBranches] = useState([DEFAULT_BRANCH]);
   const [goals, setGoals] = useState(initialGoals);
 
   const exercisesQuery = useQuery({
@@ -142,8 +159,19 @@ export function TrainingProvider({ children }) {
   });
 
   useEffect(() => {
-    if (prefsQuery.data?.branch)
-      setBranchState(normalizeBranch(prefsQuery.data.branch));
+    if (prefsQuery.data) {
+      const nextBranch = normalizeBranch(prefsQuery.data.branch);
+      const nextMode = normalizeLocationMode(prefsQuery.data.locationMode);
+      setBranchState(nextBranch);
+      setLocationMode(nextMode);
+      setAllowedBranches(
+        normalizeAllowedBranches(
+          prefsQuery.data.allowedBranches,
+          nextMode,
+          nextBranch,
+        ),
+      );
+    }
     if (prefsQuery.data?.goals) setGoals(prefsQuery.data.goals);
     if (prefsQuery.error) setBranchState(DEFAULT_BRANCH);
   }, [prefsQuery.data, prefsQuery.error]);
@@ -284,7 +312,15 @@ export function TrainingProvider({ children }) {
     mutationFn: (payload) => api.setPreference(payload),
     onSuccess: (saved) => {
       queryClient.setQueryData(PREFS_KEY, saved);
-      if (saved?.branch) setBranchState(normalizeBranch(saved.branch));
+      if (saved?.branch) {
+        const nextBranch = normalizeBranch(saved.branch);
+        const nextMode = normalizeLocationMode(saved.locationMode);
+        setBranchState(nextBranch);
+        setLocationMode(nextMode);
+        setAllowedBranches(
+          normalizeAllowedBranches(saved.allowedBranches, nextMode, nextBranch),
+        );
+      }
       if (saved?.goals) setGoals(saved.goals);
     },
   });
@@ -295,6 +331,21 @@ export function TrainingProvider({ children }) {
       goals,
     });
     return saved;
+  };
+
+  const saveLocationPreferences = async (nextPreferences) => {
+    const nextMode = normalizeLocationMode(nextPreferences?.locationMode);
+    const nextBranch = normalizeBranch(nextPreferences?.branch || branch);
+    const nextAllowed = normalizeAllowedBranches(
+      nextPreferences?.allowedBranches,
+      nextMode,
+      nextBranch,
+    );
+    return updatePreferences.mutateAsync({
+      locationMode: nextMode,
+      branch: nextBranch,
+      allowedBranches: nextAllowed,
+    });
   };
 
   const saveGoals = async (nextGoals) => {
@@ -382,6 +433,9 @@ export function TrainingProvider({ children }) {
       loading,
       error,
       branch,
+      locationMode,
+      allowedBranches,
+      preferencesLoading: prefsQuery.isLoading,
       goals,
       addSession,
       addTraining,
@@ -392,11 +446,23 @@ export function TrainingProvider({ children }) {
       addPhoto,
       deletePhoto,
       setBranch,
+      saveLocationPreferences,
       saveGoals,
       setTrainings,
       setGoals: setGoalsState,
     }),
-    [sessions, exercises, photos, trainings, loading, error, branch, goals],
+    [
+      sessions,
+      exercises,
+      photos,
+      trainings,
+      loading,
+      error,
+      branch,
+      locationMode,
+      allowedBranches,
+      goals,
+    ],
   );
 
   return (

@@ -1115,6 +1115,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     addPhoto,
     trainings,
     branch: userBranch,
+    locationMode,
+    allowedBranches,
     setBranch,
   } = useTrainingData();
 
@@ -1178,14 +1180,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const notifyRestCompleteRef = useRef(null);
   const restAudioContextRef = useRef(null);
 
+  const locationDisabled = locationMode === "disabled";
+  const requiresBranchSelection = locationMode === "multiple";
+  const branchReady = !requiresBranchSelection || branchConfirmed;
+  const effectiveBranch = locationDisabled
+    ? ""
+    : setupStarted || isEditing || requiresBranchSelection
+      ? selectedBranch
+      : normalizeBranch(userBranch);
+  const historyBranchFilter = requiresBranchSelection
+    ? effectiveBranch || null
+    : null;
+
   const branchOptions = useMemo(() => {
-    const set = new Set(BRANCH_OPTIONS);
-    (routines || []).forEach((r) => {
-      const branch = normalizeBranch(r.branch);
-      if (branch) set.add(branch);
-    });
-    return Array.from(set);
-  }, [routines]);
+    const configured = (allowedBranches || []).filter((branch) =>
+      BRANCH_OPTIONS.includes(branch),
+    );
+    return configured.length ? configured : BRANCH_OPTIONS;
+  }, [allowedBranches]);
 
   const latestRoutineDates = useMemo(() => {
     const map = new Map();
@@ -1236,13 +1248,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const routineOptions = useMemo(() => {
     const filtered =
       (routines || []).filter((r) =>
-        selectedBranch ? normalizeBranch(r.branch) === selectedBranch : true,
+        effectiveBranch ? normalizeBranch(r.branch) === effectiveBranch : true,
       ) || [];
     return filtered.map((r) => toRoutineOption(r));
-  }, [routines, selectedBranch, toRoutineOption]);
+  }, [routines, effectiveBranch, toRoutineOption]);
 
   const currentBranch =
-    selectedBranch || selectedRoutine?.location || DEFAULT_BRANCH;
+    effectiveBranch || (locationDisabled ? "" : selectedRoutine?.location);
   const selectedProgressScopeId =
     selectedRoutine?.progressScopeId ||
     selectedRoutine?.raw?.progressScopeId ||
@@ -1309,37 +1321,46 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     [historyTrainings, activeOrderExercises],
   );
   const historyBest = useMemo(
-    () => computeBestFromHistory(orderMatchedHistoryTrainings, selectedBranch),
-    [orderMatchedHistoryTrainings, selectedBranch],
+    () =>
+      computeBestFromHistory(orderMatchedHistoryTrainings, historyBranchFilter),
+    [orderMatchedHistoryTrainings, historyBranchFilter],
   );
   const historyGlobalBest = useMemo(
     () => computeBestFromHistory(historyTrainings),
     [historyTrainings],
   );
   const historyBestBySet = useMemo(
-    () => computeBestBySetFromHistory(orderMatchedHistoryTrainings),
-    [orderMatchedHistoryTrainings],
+    () =>
+      computeBestBySetFromHistory(
+        orderMatchedHistoryTrainings,
+        historyBranchFilter,
+      ),
+    [orderMatchedHistoryTrainings, historyBranchFilter],
   );
   const historyRecentBySet = useMemo(
-    () => computeRecentBySetFromHistory(orderMatchedHistoryTrainings),
-    [orderMatchedHistoryTrainings],
+    () =>
+      computeRecentBySetFromHistory(
+        orderMatchedHistoryTrainings,
+        historyBranchFilter,
+      ),
+    [orderMatchedHistoryTrainings, historyBranchFilter],
   );
   const historySeriesTypeMap = useMemo(
     () =>
       computeLatestSeriesTypeFromHistory(
         orderMatchedHistoryTrainings,
         selectedRoutineId,
-        selectedBranch,
+        historyBranchFilter,
       ),
-    [orderMatchedHistoryTrainings, selectedRoutineId, selectedBranch],
+    [orderMatchedHistoryTrainings, selectedRoutineId, historyBranchFilter],
   );
   const historySetupNotes = useMemo(
     () =>
       computeLatestSetupNotesFromHistory(
         orderMatchedHistoryTrainings,
-        selectedBranch,
+        historyBranchFilter,
       ),
-    [orderMatchedHistoryTrainings, selectedBranch],
+    [orderMatchedHistoryTrainings, historyBranchFilter],
   );
 
   const buildTrackingRowsForExercise = useCallback(
@@ -1619,7 +1640,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 id: setId,
                 prSummary: perSetSummary,
                 prBranchLabel: perSet
-                  ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                  ? getRemoteBranchLabel(perSet.branch, effectiveBranch)
                   : s.prBranchLabel || "",
                 entries: normalizeEntries({
                   entries: seedEntries,
@@ -1665,7 +1686,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 id: setId,
                 prSummary: perSetSummary,
                 prBranchLabel: perSet
-                  ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                  ? getRemoteBranchLabel(perSet.branch, effectiveBranch)
                   : "",
                 entries: normalizeEntries({
                   entries: [
@@ -1697,10 +1718,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           (globalBest.weight === best.weight &&
             globalBest.reps > (best.reps ?? 0)) ||
           normalizeBranch(globalBest.branch) !==
-            normalizeBranch(selectedBranch))
-          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
-              globalBest.branch,
-            )}`
+            normalizeBranch(effectiveBranch))
+          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps}${
+              locationDisabled
+                ? ""
+                : ` · ${formatBranchLabel(globalBest.branch)}`
+            }`
           : "";
       return {
         id,
@@ -1796,7 +1819,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             sourceHistory,
             localHistoryKeys,
             movementMode,
-            selectedBranch,
+            historyBranchFilter,
           )
         : null;
       const latestExercise = latestHistory?.exercise || null;
@@ -1834,10 +1857,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           (globalBest.weight === best.weight &&
             globalBest.reps > (best.reps ?? 0)) ||
           normalizeBranch(globalBest.branch) !==
-            normalizeBranch(selectedBranch))
-          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
-              globalBest.branch,
-            )}`
+            normalizeBranch(effectiveBranch))
+          ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps}${
+              locationDisabled
+                ? ""
+                : ` · ${formatBranchLabel(globalBest.branch)}`
+            }`
           : ex.globalPrText || "";
       const sourceSets =
         shouldReloadInputs && latestExercise?.sets?.length
@@ -1898,7 +1923,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           done: false,
           prSummary: perSetSummary,
           prBranchLabel: perSet
-            ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+            ? getRemoteBranchLabel(perSet.branch, effectiveBranch)
             : set.prBranchLabel || "",
           entries: normalizeEntries({
             entries: seedEntries,
@@ -1957,13 +1982,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
     return applyHistoryToExercises(
       orderedExercises,
-      computeBestFromHistory(matchingHistory, selectedBranch),
-      computeBestBySetFromHistory(matchingHistory),
-      computeRecentBySetFromHistory(matchingHistory),
+      computeBestFromHistory(matchingHistory, historyBranchFilter),
+      computeBestBySetFromHistory(matchingHistory, historyBranchFilter),
+      computeRecentBySetFromHistory(matchingHistory, historyBranchFilter),
       computeLatestSeriesTypeFromHistory(
         matchingHistory,
         selectedRoutineId,
-        selectedBranch,
+        historyBranchFilter,
       ),
       matchingHistory,
     );
@@ -2295,8 +2320,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         getTrainingOrderSignature(training),
       );
       const bestMap = computeBestFromHistory(matchingHist, branch);
-      const bestBySetMap = computeBestBySetFromHistory(matchingHist);
-      const recentBySetMap = computeRecentBySetFromHistory(matchingHist);
+      const bestBySetMap = computeBestBySetFromHistory(matchingHist, branch);
+      const recentBySetMap = computeRecentBySetFromHistory(
+        matchingHist,
+        branch,
+      );
       const seriesTypeMap = computeLatestSeriesTypeFromHistory(
         matchingHist,
         routine.id,
@@ -2690,15 +2718,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     historyRecentBySet,
     historySeriesTypeMap,
     historySetupNotes,
-    selectedBranch,
+    historyBranchFilter,
     exercises.length,
   ]);
 
-  // Sincronizar la sucursal seleccionada con el contexto global.
+  // En modo múltiple se recuerda la última sede elegida.
   useEffect(() => {
+    if (!requiresBranchSelection || !branchConfirmed || !selectedBranch) return;
     if (typeof setBranch === "function") setBranch(selectedBranch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranch]);
+  }, [selectedBranch, branchConfirmed, requiresBranchSelection]);
 
   const persistTrainingSnapshot = useCallback(() => {
     if (typeof localStorage === "undefined") return;
@@ -3010,7 +3039,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleStartSetupSession = () => {
-    if (!branchConfirmed) {
+    if (!branchReady) {
       toast.message("Selecciona una sucursal para continuar.");
       return;
     }
@@ -3115,7 +3144,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     const requestId = routineLoadRequestRef.current + 1;
     routineLoadRequestRef.current = requestId;
-    const branch = normalizeBranch(found?.location);
+    const branch = locationDisabled
+      ? ""
+      : effectiveBranch || normalizeBranch(found?.location);
+    const branchFilter = requiresBranchSelection ? branch : null;
+    setSelectedBranch(branch);
     setBranchConfirmed(true);
     setSelectedRoutineId(id);
     setSelectedRoutine(found);
@@ -3144,13 +3177,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         hist,
         primaryRoutineExercises,
       );
-      const bestMap = computeBestFromHistory(matchingHist, branch);
-      const bestBySetMap = computeBestBySetFromHistory(matchingHist);
-      const recentBySetMap = computeRecentBySetFromHistory(matchingHist);
+      const bestMap = computeBestFromHistory(matchingHist, branchFilter);
+      const bestBySetMap = computeBestBySetFromHistory(
+        matchingHist,
+        branchFilter,
+      );
+      const recentBySetMap = computeRecentBySetFromHistory(
+        matchingHist,
+        branchFilter,
+      );
       const seriesTypeMap = computeLatestSeriesTypeFromHistory(
         matchingHist,
         id,
-        branch,
+        branchFilter,
       );
       await loadTrainingForDate(
         sessionDate,
@@ -3501,7 +3540,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     id: newSetId,
                     prSummary: perSet ? formatHistoryLift(perSet) : "",
                     prBranchLabel: perSet
-                      ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                      ? getRemoteBranchLabel(perSet.branch, effectiveBranch)
                       : "",
                     entries: normalizeEntries({
                       entries: [
@@ -3710,10 +3749,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         globalBest.weight > best.weight ||
         (globalBest.weight === best.weight &&
           globalBest.reps > (best.reps ?? 0)) ||
-        normalizeBranch(globalBest.branch) !== normalizeBranch(selectedBranch))
-        ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps} · ${formatBranchLabel(
-            globalBest.branch,
-          )}`
+        normalizeBranch(globalBest.branch) !== normalizeBranch(effectiveBranch))
+        ? `Mejor global: ${globalBest.weight}kg x ${globalBest.reps}${
+            locationDisabled ? "" : ` · ${formatBranchLabel(globalBest.branch)}`
+          }`
         : "";
     const prSummary = best ? formatHistoryLift(best) : "";
     const perSet = bestBySet[0];
@@ -3747,7 +3786,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               id: newSetId,
               prSummary: perSetSummary,
               prBranchLabel: perSet
-                ? getRemoteBranchLabel(perSet.branch, selectedBranch)
+                ? getRemoteBranchLabel(perSet.branch, effectiveBranch)
                 : "",
               entries: normalizeEntries({
                 entries: [
@@ -3845,7 +3884,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (timerRef.current) clearInterval(timerRef.current);
     try {
       if (!selectedRoutineId || !selectedRoutine) {
-        toast.error("Selecciona sucursal y rutina antes de guardar.");
+        toast.error("Selecciona una rutina antes de guardar.");
         return;
       }
       const dateStr = sessionDate || getLocalISODate();
@@ -3855,7 +3894,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         routineName: selectedRoutine?.name,
         progressScopeId: selectedRoutine?.progressScopeId || "",
         orderSignature: getExerciseOrderSignature(exercises),
-        branch: normalizeBranch(selectedBranch || selectedRoutine?.location),
+        branch: locationDisabled
+          ? null
+          : normalizeBranch(effectiveBranch || selectedRoutine?.location),
         durationSeconds: finalTimingSummary.durationSeconds || durationSeconds,
         timeEvents: finalTimeEvents,
         exerciseDurations: finalTimingSummary.exerciseDurationsPayload,
@@ -4344,45 +4385,53 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </h1>
               </div>
               <span className="text-[11px] font-black text-[color:var(--text-muted)]">
-                Paso {branchConfirmed ? "2" : "1"}/2
+                Paso{" "}
+                {requiresBranchSelection && !branchConfirmed
+                  ? "1"
+                  : requiresBranchSelection
+                    ? "2"
+                    : "1"}
+                /{requiresBranchSelection ? "2" : "1"}
               </span>
             </header>
 
             <div className="space-y-8">
-              <div className="space-y-4">
-                <SetupStep
-                  number={1}
-                  title="Seleccionar sucursal"
-                  subtitle="¿Dónde vas a entrenar hoy?"
-                  active={!branchConfirmed}
-                  done={branchConfirmed}
-                />
-
-                <div className="space-y-3">
-                  {branchConfirmed ? (
-                    <BranchCard
-                      branch={selectedBranch}
-                      selected
-                      compact
-                      onClick={handleReopenBranchSelection}
-                    />
-                  ) : (
-                    branchOptions.map((branch) => (
-                      <BranchCard
-                        key={branch}
-                        branch={branch}
-                        selected={false}
-                        onClick={() => handleBranchChange(branch)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {branchConfirmed ? (
+              {requiresBranchSelection ? (
                 <div className="space-y-4">
                   <SetupStep
-                    number={2}
+                    number={1}
+                    title="Seleccionar sucursal"
+                    subtitle="¿Dónde vas a entrenar hoy?"
+                    active={!branchConfirmed}
+                    done={branchConfirmed}
+                  />
+
+                  <div className="space-y-3">
+                    {branchConfirmed ? (
+                      <BranchCard
+                        branch={selectedBranch}
+                        selected
+                        compact
+                        onClick={handleReopenBranchSelection}
+                      />
+                    ) : (
+                      branchOptions.map((branch) => (
+                        <BranchCard
+                          key={branch}
+                          branch={branch}
+                          selected={false}
+                          onClick={() => handleBranchChange(branch)}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {branchReady ? (
+                <div className="space-y-4">
+                  <SetupStep
+                    number={requiresBranchSelection ? 2 : 1}
                     title="Escoger rutina"
                     subtitle="Selecciona tu plan para esta sesión"
                     active={!selectedRoutineId}
@@ -4401,8 +4450,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       ))
                     ) : (
                       <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                        No hay rutinas disponibles para{" "}
-                        {getBranchTitle(selectedBranch)}.
+                        {locationDisabled
+                          ? "No hay rutinas disponibles."
+                          : `No hay rutinas disponibles para ${getBranchTitle(effectiveBranch)}.`}
                       </div>
                     )}
                     {loadingTraining ? (
@@ -4450,29 +4500,31 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <div className="mx-auto max-w-md">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
                   <span className="inline-flex min-w-0 items-center gap-2">
-                    {branchConfirmed ? (
+                    {selectedRoutineId ? (
                       <Check className="h-4 w-4 shrink-0 text-emerald-400" />
                     ) : (
                       <Circle className="h-4 w-4 shrink-0" />
                     )}
                     <span className="truncate">
-                      {branchConfirmed
-                        ? `${getBranchTitle(selectedBranch)} seleccionado`
-                        : "Selecciona sucursal"}
+                      {selectedRoutineId
+                        ? selectedRoutine?.name || "Rutina seleccionada"
+                        : requiresBranchSelection && !branchConfirmed
+                          ? "Selecciona sucursal"
+                          : "Selecciona rutina"}
                     </span>
                   </span>
                   <span>
-                    {!branchConfirmed
+                    {requiresBranchSelection && !branchConfirmed
                       ? "Paso 1: Sucursal"
                       : selectedRoutineId
                         ? "Selección lista"
-                        : "Paso 2: Rutina"}
+                        : `Paso ${requiresBranchSelection ? "2" : "1"}: Rutina`}
                   </span>
                 </div>
                 <Button
                   className="h-12 w-full rounded-2xl bg-blue-300 text-sm font-black uppercase tracking-[0.18em] text-blue-950 hover:bg-blue-200"
                   disabled={
-                    !branchConfirmed ||
+                    !branchReady ||
                     !selectedRoutineId ||
                     loadingTraining ||
                     Boolean(pendingSameDayTraining)
@@ -4625,8 +4677,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 {selectorRoutine?.name || "Rutina seleccionada"}
               </h2>
               <p className="mt-1.5 truncate text-sm font-semibold text-[color:var(--text-muted)]">
-                {getBranchTitle(selectedBranch)} · {exercises.length} ejercicios
-                total
+                {locationDisabled
+                  ? `${exercises.length} ejercicios total`
+                  : `${getBranchTitle(effectiveBranch)} · ${exercises.length} ejercicios total`}
               </p>
             </article>
 
@@ -4684,30 +4737,29 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         >
           <div className="hidden min-w-0 max-w-full space-y-4 md:block">
             <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
-                  Sucursal
-                </p>
-                <select
-                  value={selectedBranch}
-                  onChange={(e) => handleBranchChange(e.target.value)}
-                  disabled={sessionLocked}
-                  className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {branchOptions.map((b) => (
-                    <option
-                      key={b}
-                      value={b}
-                      className="bg-[color:var(--card)] text-[color:var(--text)]"
-                    >
-                      {getBranchTitle(b)}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-[color:var(--text-muted)]">
-                  Rutinas disponibles para: {selectedBranch}
-                </p>
-              </div>
+              {requiresBranchSelection ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                    Sucursal
+                  </p>
+                  <select
+                    value={selectedBranch}
+                    onChange={(e) => handleBranchChange(e.target.value)}
+                    disabled={sessionLocked}
+                    className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {branchOptions.map((b) => (
+                      <option
+                        key={b}
+                        value={b}
+                        className="bg-[color:var(--card)] text-[color:var(--text)]"
+                      >
+                        {getBranchTitle(b)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
@@ -4728,6 +4780,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   routines={routineOptions}
                   onSelect={handleSelectRoutine}
                   disabled={sessionLocked}
+                  showLocation={requiresBranchSelection}
                 />
               </div>
             </Card>
@@ -5011,8 +5064,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               </>
             ) : (
               <Card className="p-6 text-center text-sm text-[color:var(--text-muted)]">
-                Selecciona primero la sucursal y la rutina para cargar los
-                ejercicios.
+                {requiresBranchSelection
+                  ? "Selecciona primero la sucursal y la rutina para cargar los ejercicios."
+                  : "Selecciona una rutina para cargar los ejercicios."}
               </Card>
             )}
           </section>
@@ -5352,11 +5406,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           <div className="font-semibold text-[color:var(--text)]">
                             {row.date ? formatShort(row.date) : "--"}
                           </div>
-                          <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
-                            {row.branch
-                              ? formatBranchLabel(row.branch)
-                              : "Sin sucursal"}
-                          </div>
+                          {!locationDisabled ? (
+                            <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
+                              {row.branch
+                                ? formatBranchLabel(row.branch)
+                                : "Sin sucursal"}
+                            </div>
+                          ) : null}
                         </td>
                         {Array.from({ length: trackingSetCount || 0 }).map(
                           (_, idx) => {
@@ -5444,10 +5500,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               {row.routineName || "Otra rutina"}
                             </p>
                             <p className="text-xs text-[color:var(--text-muted)]">
-                              {row.date ? formatShort(row.date) : "--"} ·{" "}
-                              {row.branch
-                                ? formatBranchLabel(row.branch)
-                                : "Sin sucursal"}
+                              {row.date ? formatShort(row.date) : "--"}
+                              {!locationDisabled
+                                ? ` · ${
+                                    row.branch
+                                      ? formatBranchLabel(row.branch)
+                                      : "Sin sucursal"
+                                  }`
+                                : ""}
                             </p>
                           </div>
                           <span className="text-xs font-black text-[color:var(--text)]">

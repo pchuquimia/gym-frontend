@@ -26,6 +26,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  forgotPassword: (payload) =>
+    request("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  resetPassword: (payload) =>
+    request("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  verifyEmail: (payload) =>
+    request("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   devAdminLogin: () => request("/api/auth/dev-admin", { method: "POST" }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),

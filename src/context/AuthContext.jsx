@@ -69,6 +69,16 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     setError("");
     const data = await api.register(payload);
+    if (data?.verificationRequired) return data;
+    if (data?.token) setAuthToken(data.token);
+    const nextUser = normalizeUser(data);
+    setUser(nextUser);
+    return nextUser;
+  }, []);
+
+  const verifyEmail = useCallback(async (token) => {
+    setError("");
+    const data = await api.verifyEmail({ token });
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     setUser(nextUser);
@@ -97,15 +107,17 @@ export function AuthProvider({ children }) {
       setError,
       login,
       register,
+      verifyEmail,
       logout,
       refreshUser,
     }),
-    [user, loading, error, login, register, logout, refreshUser],
+    [user, loading, error, login, register, verifyEmail, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
