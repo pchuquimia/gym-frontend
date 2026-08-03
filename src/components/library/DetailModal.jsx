@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 import Modal from "../shared/Modal";
 import Badge from "../ui/badge";
-import { getExerciseImageUrl } from "../../utils/cloudinary";
+import {
+  getExerciseAnimationUrl,
+  getExerciseImageUrl,
+} from "../../utils/cloudinary";
 import {
   formatList,
   getExerciseBodyRegion,
@@ -59,6 +62,7 @@ function DetailModal({
 }) {
   if (!exercise) return null;
   const imageUrl = getExerciseImageUrl(exercise, { width: 1000, height: 750 });
+  const animationUrl = getExerciseAnimationUrl(exercise);
   const branches = exercise.branches?.length ? exercise.branches : ["general"];
   const categories = getExerciseCategories(exercise);
   const muscleGroup = getPrimaryMuscleGroup(exercise) || "Sin grupo";
@@ -114,9 +118,9 @@ function DetailModal({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
         <div className="space-y-3">
           <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]">
-            {imageUrl ? (
+            {animationUrl || imageUrl ? (
               <img
-                src={imageUrl}
+                src={animationUrl || imageUrl}
                 alt={exercise.name}
                 className="aspect-[4/3] w-full object-cover"
               />
@@ -132,6 +136,27 @@ function DetailModal({
               {exercise.description || "Sin descripcion cargada."}
             </p>
           </DetailBlock>
+
+          {toArray(exercise.instructions).length ? (
+            <DetailBlock title="Ejecución">
+              <ol className="grid gap-2 pl-5 text-[color:var(--text-muted)]">
+                {toArray(exercise.instructions).map((instruction, index) => (
+                  <li
+                    key={`${index}-${instruction}`}
+                    className="list-decimal leading-6"
+                  >
+                    {instruction}
+                  </li>
+                ))}
+              </ol>
+            </DetailBlock>
+          ) : null}
+
+          {exercise.source?.attribution ? (
+            <p className="px-1 text-xs text-[color:var(--text-muted)]">
+              {exercise.source.attribution}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-3">

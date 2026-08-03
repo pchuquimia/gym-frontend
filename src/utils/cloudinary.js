@@ -62,3 +62,10 @@ export const getExerciseImageUrl = (exercise, opts = {}) => {
   if (publicId) return buildCloudinaryUrl(publicId, opts);
   return exercise.media?.image?.url || exercise.image || "";
 };
+
+export const getExerciseAnimationUrl = (exercise) => {
+  if (!exercise) return "";
+  const animation = exercise.media?.animation;
+  if (animation?.publicId) return buildCloudinaryUrl(animation.publicId);
+  return animation?.url || "";
+};

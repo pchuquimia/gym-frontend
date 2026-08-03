@@ -1,7 +1,7 @@
 import { API_URL, axiosClient } from "./axiosConfig";
 
 const EXERCISE_FIELDS =
-  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt";
+  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
 
 async function request(path, options = {}) {
   const { method = "GET", body, headers, ...config } = options;
@@ -85,6 +85,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  createCoachPlan: (athleteId, payload) =>
+    request(`/api/coach/athletes/${athleteId}/plans`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateCoachPlanStatus: (athleteId, planId, status) =>
+    request(`/api/coach/athletes/${athleteId}/plans/${planId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  updateCoachPlan: (athleteId, planId, payload) =>
+    request(`/api/coach/athletes/${athleteId}/plans/${planId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  getTrainingPlans: (athleteId = "") =>
+    request(`/api/plans${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  deleteTrainingPlan: (planId) =>
+    request(`/api/plans/${planId}`, { method: "DELETE" }),
 
   getExercises: (params = {}) => {
     const query = new URLSearchParams({

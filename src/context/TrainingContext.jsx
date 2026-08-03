@@ -45,7 +45,7 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, "");
 
 const EXERCISE_FIELDS =
-  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,isActive,updatedAt,createdAt";
+  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
 
 const normalizeExercise = (exercise) => {
   const primaryMuscleGroup = getPrimaryMuscleGroup(exercise);
@@ -95,7 +95,7 @@ const normalizeTraining = (training) => ({
   id: training._id || training.id,
 });
 
-const EXERCISES_KEY = ["exercises", "taxonomy-v3", 1000];
+const EXERCISES_KEY = ["exercises", "taxonomy-v4", "all-active"];
 const SESSIONS_KEY = ["sessions"];
 const PHOTOS_KEY = ["photos"];
 const PREFS_KEY = ["preferences"];
@@ -114,13 +114,30 @@ export function TrainingProvider({ children, ownerId = "" }) {
   const exercisesQuery = useQuery({
     queryKey: EXERCISES_KEY,
     queryFn: async () => {
-      const exsResponse = await api.getExercises({
+      const firstPage = await api.getExercises({
         fields: EXERCISE_FIELDS,
-        limit: 1000,
+        limit: 500,
+        page: 1,
+        meta: true,
       });
-      const list = Array.isArray(exsResponse)
-        ? exsResponse
-        : exsResponse?.items || [];
+      if (Array.isArray(firstPage)) return firstPage.map(normalizeExercise);
+      const list = [...(firstPage?.items || [])];
+      const totalPages = Math.ceil((firstPage?.total || list.length) / 500);
+      if (totalPages > 1) {
+        const remainingPages = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, index) =>
+            api.getExercises({
+              fields: EXERCISE_FIELDS,
+              limit: 500,
+              page: index + 2,
+              meta: true,
+            }),
+          ),
+        );
+        remainingPages.forEach((response) => {
+          list.push(...(response?.items || []));
+        });
+      }
       return list.map(normalizeExercise);
     },
     staleTime: 5 * 60 * 1000,

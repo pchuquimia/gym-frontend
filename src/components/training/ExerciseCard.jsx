@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -14,6 +15,7 @@ import Card from "../ui/card";
 import Button from "../ui/button";
 import Badge from "../ui/badge";
 import SetRow from "./SetRow";
+import DetailModal from "../library/DetailModal";
 import SlideToConfirm from "../shared/SlideToConfirm";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
@@ -114,6 +116,7 @@ export default function ExerciseCard({
 }) {
   const [showOptions, setShowOptions] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const [detailExercise, setDetailExercise] = useState(null);
   const [imageSrc, setImageSrc] = useState(() => {
     const key = `exercise_thumb_${exercise.id}`;
     if (typeof localStorage !== "undefined") {
@@ -169,6 +172,20 @@ export default function ExerciseCard({
     onToggleOpen?.();
   };
 
+  const handleOpenDetails = async () => {
+    setDetailExercise(exercise);
+    try {
+      const fullExercise = await api.getExercise(exercise.id);
+      setDetailExercise({
+        ...exercise,
+        ...fullExercise,
+        id: fullExercise._id || fullExercise.id || exercise.id,
+      });
+    } catch {
+      // The session snapshot remains useful if the catalog request fails.
+    }
+  };
+
   useEffect(() => {
     if (imageSrc || imgLoaded.current) return;
     imgLoaded.current = true;
@@ -209,20 +226,25 @@ export default function ExerciseCard({
         <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
           <button
             type="button"
+            onClick={handleOpenDetails}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label={`Ver técnica de ${exercise.name}`}
+            title="Ver técnica"
+          >
+            {imageSrc ? (
+              <img
+                src={imageSrc}
+                alt=""
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              />
+            ) : null}
+          </button>
+          <button
+            type="button"
             onClick={handleToggleOpen}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
-            {imageSrc ? (
-              <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-[color:var(--bg)] border border-[color:var(--border)]">
-                <img
-                  src={imageSrc}
-                  alt={exercise.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="h-14 w-14 shrink-0 rounded-xl bg-[color:var(--bg)] border border-[color:var(--border)]" />
-            )}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="truncate text-sm font-semibold text-[color:var(--text)]">
@@ -490,6 +512,16 @@ export default function ExerciseCard({
           }}
         />
       )}
+      {detailExercise && typeof document !== "undefined"
+        ? createPortal(
+            <DetailModal
+              exercise={detailExercise}
+              canManage={false}
+              onClose={() => setDetailExercise(null)}
+            />,
+            document.body,
+          )
+        : null}
     </motion.div>
   );
 }

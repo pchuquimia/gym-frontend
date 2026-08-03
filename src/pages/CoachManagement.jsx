@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Trash2, UserCog, Users, X } from "lucide-react";
+import {
+  CalendarDays,
+  Loader2,
+  Search,
+  Trash2,
+  UserCog,
+  Users,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import Button from "../components/ui/button";
 import { api } from "../services/api";
@@ -10,6 +18,11 @@ export default function CoachManagement() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [userToDelete, setUserToDelete] = useState(null);
+  const [planClient, setPlanClient] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [pendingPlanDeleteId, setPendingPlanDeleteId] = useState("");
+  const [deletingPlanId, setDeletingPlanId] = useState("");
 
   const loadUsers = async () => {
     try {
@@ -78,6 +91,41 @@ export default function CoachManagement() {
       toast.error(err.message || "No se pudo eliminar el usuario");
     } finally {
       setSavingId("");
+    }
+  };
+
+  const openPlans = async (client) => {
+    const clientId = client._id || client.id;
+    setPlanClient(client);
+    setPlans([]);
+    setPendingPlanDeleteId("");
+    setLoadingPlans(true);
+    try {
+      setPlans(await api.getTrainingPlans(clientId));
+    } catch (err) {
+      toast.error(err.message || "No se pudieron cargar los planes");
+      setPlanClient(null);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  const deletePlan = async (plan) => {
+    const planId = plan._id || plan.id;
+    try {
+      setDeletingPlanId(planId);
+      await api.deleteTrainingPlan(planId);
+      setPlans((current) =>
+        current.filter((item) => (item._id || item.id) !== planId),
+      );
+      setPendingPlanDeleteId("");
+      toast.success("Plan eliminado", {
+        description: `${plan.name} fue retirado y sus rutinas quedaron archivadas.`,
+      });
+    } catch (err) {
+      toast.error(err.message || "No se pudo eliminar el plan");
+    } finally {
+      setDeletingPlanId("");
     }
   };
 
@@ -213,7 +261,7 @@ export default function CoachManagement() {
                         </span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 sm:w-80">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 sm:w-96">
                       <select
                         value={client.assignedTrainerId || ""}
                         disabled={savingId === id || !coaches.length}
@@ -266,6 +314,16 @@ export default function CoachManagement() {
                       >
                         Hacer coach
                       </Button>
+                      <button
+                        type="button"
+                        onClick={() => openPlans(client)}
+                        disabled={savingId === id}
+                        className="grid h-10 w-10 place-items-center rounded-lg text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:hover:bg-blue-500/10"
+                        aria-label={`Planes de ${client.name}`}
+                        title="Gestionar planes"
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setUserToDelete(client)}
@@ -332,6 +390,106 @@ export default function CoachManagement() {
               >
                 {savingId ? "Eliminando..." : "Eliminar definitivamente"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {planClient ? (
+        <div className="fixed inset-0 z-[90] flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-4">
+          <div className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-lg">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+                  Administracion de planes
+                </p>
+                <h2 className="mt-1 truncate text-xl font-black">
+                  {planClient.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanClient(null)}
+                disabled={Boolean(deletingPlanId)}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--border)]"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {loadingPlans ? (
+                <div className="grid min-h-40 place-items-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                </div>
+              ) : plans.length ? (
+                <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                  {plans.map((plan) => {
+                    const planId = plan._id || plan.id;
+                    const confirming = pendingPlanDeleteId === planId;
+                    return (
+                      <div
+                        key={planId}
+                        className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black">
+                            {plan.name}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                            {plan.durationWeeks} semanas ·{" "}
+                            {plan.status === "active"
+                              ? "Activo"
+                              : plan.status === "completed"
+                                ? "Finalizado"
+                                : "Pausado"}
+                          </p>
+                        </div>
+                        {confirming ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={Boolean(deletingPlanId)}
+                              onClick={() => setPendingPlanDeleteId("")}
+                            >
+                              Cancelar
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => deletePlan(plan)}
+                              disabled={Boolean(deletingPlanId)}
+                              className="h-10 rounded-lg bg-red-600 px-3 text-xs font-black text-white disabled:opacity-60"
+                            >
+                              {deletingPlanId === planId
+                                ? "Eliminando..."
+                                : "Confirmar"}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setPendingPlanDeleteId(planId)}
+                            className="grid h-10 w-10 place-items-center self-end rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 sm:self-auto"
+                            aria-label={`Eliminar ${plan.name}`}
+                            title="Eliminar plan"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <CalendarDays className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
+                  <p className="mt-3 text-sm font-black">Sin planes</p>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    Este usuario no tiene planes asignados.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

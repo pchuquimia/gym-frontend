@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import {
   Check,
+  CalendarDays,
   ChevronDown,
   Copy,
   Dumbbell,
@@ -39,6 +40,7 @@ import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
+import { api } from "../services/api";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -2674,6 +2676,38 @@ function Routines({ onNavigate }) {
   );
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
+  const [activePlan, setActivePlan] = useState(null);
+
+  useEffect(() => {
+    if (!isManagedClient) return;
+    let active = true;
+    const loadPlan = () =>
+      api
+        .getTrainingPlans()
+        .then((plans) => {
+          if (active) {
+            setActivePlan(
+              plans.find((plan) => plan.status === "active") || null,
+            );
+          }
+        })
+        .catch(() => {
+          if (active) setActivePlan(null);
+        });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") loadPlan();
+    };
+    loadPlan();
+    window.addEventListener("focus", loadPlan);
+    document.addEventListener("visibilitychange", handleVisibility);
+    const intervalId = window.setInterval(loadPlan, 60_000);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", loadPlan);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearInterval(intervalId);
+    };
+  }, [isManagedClient]);
 
   const availableExercises = useMemo(() => {
     const usage = new Map();
@@ -2970,7 +3004,7 @@ function Routines({ onNavigate }) {
           </div>
         </div>
 
-        {!routines.length ? (
+        {!routines.length && !activePlan ? (
           <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-200">
               <Layers3 className="h-5 w-5" />
@@ -3043,6 +3077,60 @@ function Routines({ onNavigate }) {
           </div>
         ) : null}
       </section>
+
+      {isManagedClient && activePlan ? (
+        <section className="mt-5 border-y border-[color:var(--border)] py-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+                Plan activo
+              </p>
+              <h2 className="mt-1 text-lg font-black">{activePlan.name}</h2>
+              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                {activePlan.durationWeeks} semanas · {activePlan.goal}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs font-black text-[color:var(--text-muted)]">
+              <CalendarDays className="h-4 w-4" /> Semana tipo
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-7">
+            {(activePlan.weeklySchedule || []).map((day, index) => (
+              <div
+                key={day.dayIndex}
+                className="min-h-20 bg-[color:var(--card)] p-2.5"
+              >
+                <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                  {["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"][index]}
+                </p>
+                <p className="mt-2 text-xs font-black">
+                  {day.type === "rest"
+                    ? "Descanso"
+                    : day.type === "recovery"
+                      ? "Recuperacion"
+                      : day.focus || "Entrenamiento"}
+                </p>
+                {day.routineId ? (
+                  <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    {
+                      routines.find(
+                        (routine) =>
+                          String(routine.id || routine._id) ===
+                          String(day.routineId),
+                      )?.name
+                    }
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {activePlan.notes ? (
+            <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
+              {activePlan.notes}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {routines.length ? (
         <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">

@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { api } from "../services/api";
 
 const RoutineContext = createContext(null);
@@ -15,21 +21,40 @@ export function RoutineProvider({ children, ownerId = "" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function load() {
+  const loadRoutines = useCallback(
+    async ({ silent = false } = {}) => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const data = await api.getRoutines({ athleteId: ownerId });
         setRoutines(data.map((r) => ({ ...r, id: r._id || r.id })));
         setError(null);
       } catch (e) {
         setError(e.message);
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    }
-    load();
-  }, [ownerId]);
+    },
+    [ownerId],
+  );
+
+  useEffect(() => {
+    loadRoutines();
+  }, [loadRoutines]);
+
+  useEffect(() => {
+    const refresh = () => loadRoutines({ silent: true });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+    const intervalId = window.setInterval(refresh, 60_000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearInterval(intervalId);
+    };
+  }, [loadRoutines]);
 
   const addRoutine = async (routine) => {
     const payload = compactObject({
@@ -90,24 +115,22 @@ export function RoutineProvider({ children, ownerId = "" }) {
     return addRoutine(copy);
   };
 
-  const value = useMemo(
-    () => ({
-      routines,
-      loading,
-      error,
-      addRoutine,
-      updateRoutine,
-      deleteRoutine,
-      duplicateRoutine,
-    }),
-    [routines, loading, error, ownerId],
-  );
+  const value = {
+    routines,
+    loading,
+    error,
+    addRoutine,
+    updateRoutine,
+    deleteRoutine,
+    duplicateRoutine,
+  };
 
   return (
     <RoutineContext.Provider value={value}>{children}</RoutineContext.Provider>
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRoutines() {
   const ctx = useContext(RoutineContext);
   if (!ctx) throw new Error("useRoutines must be used within RoutineProvider");

@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  CalendarPlus,
   CalendarDays,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
   Dumbbell,
+  PauseCircle,
+  Pencil,
   Play,
+  RotateCcw,
   Search,
   UserRound,
   Users,
@@ -13,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Button from "../components/ui/button";
+import CoachPlanModal from "../components/coach/CoachPlanModal";
 import { useRoutines } from "../context/RoutineContext";
 import { api } from "../services/api";
 
@@ -29,6 +35,18 @@ const formatDate = (value) => {
 
 const formatVolume = (value) =>
   `${Math.round(Number(value) || 0).toLocaleString("es-ES")} kg`;
+const formatMetricVolume = (value) => {
+  const amount = Math.round(Number(value) || 0);
+  if (amount < 10_000) return `${amount.toLocaleString("es-ES")} kg`;
+  return `${(amount / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k kg`;
+};
+
+const DAY_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+const LEVEL_LABELS = {
+  beginner: "Principiante",
+  intermediate: "Intermedio",
+  advanced: "Avanzado",
+};
 
 const initials = (name = "") =>
   name
@@ -85,9 +103,12 @@ function AssignRoutineModal({ athlete, templates, onAssign, onClose }) {
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
-              Asignar a {athlete.name}
+              Rutina adicional para {athlete.name}
             </p>
             <h2 className="mt-1 text-xl font-black">Elige una plantilla</h2>
+            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              Quedara disponible fuera del calendario del plan.
+            </p>
           </div>
           <button
             type="button"
@@ -151,7 +172,7 @@ function AssignRoutineModal({ athlete, templates, onAssign, onClose }) {
             disabled={!sourceRoutineId || saving}
             onClick={submit}
           >
-            {saving ? "Asignando..." : "Asignar rutina"}
+            {saving ? "Asignando..." : "Agregar rutina adicional"}
           </Button>
         </div>
       </div>
@@ -171,15 +192,17 @@ export default function CoachDashboard({
   const [loading, setLoading] = useState(true);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
 
-  const loadAthletes = async () => {
+  const loadAthletes = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setAthletes(await api.getCoachAthletes());
     } catch (err) {
       toast.error(err.message || "No se pudieron cargar los atletas");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -215,6 +238,16 @@ export default function CoachDashboard({
   const selectedAthlete = athletes.find(
     (athlete) => (athlete.id || athlete._id) === selectedId,
   );
+  const activePlan = overview?.plans?.find((plan) => plan.status === "active");
+  const previousPlans = (overview?.plans || []).filter(
+    (plan) => plan.status !== "active",
+  );
+  const routineNameById = new Map(
+    (overview?.routines || []).map((routine) => [
+      String(routine._id || routine.id),
+      routine.name,
+    ]),
+  );
 
   const assignRoutine = async (sourceRoutineId) => {
     try {
@@ -224,14 +257,72 @@ export default function CoachDashboard({
       await api.assignCoachRoutine(selectedId, { sourceRoutineId });
       const data = await api.getCoachAthleteOverview(selectedId);
       setOverview(data);
-      await loadAthletes();
+      await loadAthletes({ silent: true });
       setAssigning(false);
-      toast.success("Rutina asignada", {
+      toast.success("Rutina adicional asignada", {
         description: `${template?.name || "La rutina"} fue asignada a ${selectedAthlete?.name}.`,
       });
     } catch (err) {
       toast.error(err.message || "No se pudo asignar la rutina");
     }
+  };
+
+  const savePlan = async (payload) => {
+    try {
+      if (editingPlan) {
+        await api.updateCoachPlan(
+          selectedId,
+          editingPlan._id || editingPlan.id,
+          payload,
+        );
+      } else {
+        await api.createCoachPlan(selectedId, payload);
+      }
+      const data = await api.getCoachAthleteOverview(selectedId);
+      setOverview(data);
+      await loadAthletes({ silent: true });
+      setCreatingPlan(false);
+      setEditingPlan(null);
+      toast.success(editingPlan ? "Plan actualizado" : "Plan activado", {
+        description: `${payload.name} fue ${editingPlan ? "actualizado" : "asignado"} para ${selectedAthlete?.name}.`,
+      });
+    } catch (err) {
+      toast.error(err.message || "No se pudo crear el plan");
+      throw err;
+    }
+  };
+
+  const updatePlanStatus = async (plan, status) => {
+    try {
+      await api.updateCoachPlanStatus(selectedId, plan._id || plan.id, status);
+      const data = await api.getCoachAthleteOverview(selectedId);
+      setOverview(data);
+      await loadAthletes({ silent: true });
+      toast.success(
+        status === "active"
+          ? "Plan reactivado"
+          : status === "completed"
+            ? "Plan finalizado"
+            : "Plan pausado",
+      );
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar el plan");
+    }
+  };
+
+  const requireTemplates = (open) => {
+    if (templates.length) {
+      open();
+      return;
+    }
+    toast.info("Primero crea una plantilla de rutina", {
+      description:
+        "El plan necesita ejercicios definidos para poder activarse.",
+      action: {
+        label: "Ir a plantillas",
+        onClick: () => onNavigate("rutinas"),
+      },
+    });
   };
 
   const startTraining = () => {
@@ -348,17 +439,27 @@ export default function CoachDashboard({
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
-                    className="h-11 rounded-lg"
-                    onClick={() => setAssigning(true)}
+                    className="h-11 gap-2 rounded-lg"
+                    onClick={() =>
+                      requireTemplates(() => setCreatingPlan(true))
+                    }
                   >
-                    <ClipboardList className="h-4 w-4" />
-                    Asignar
+                    <CalendarPlus className="h-4 w-4" />
+                    Plan
                   </Button>
                   <Button
-                    className="h-11 rounded-lg"
+                    variant="outline"
+                    className="h-11 gap-2 rounded-lg"
+                    onClick={() => requireTemplates(() => setAssigning(true))}
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    Adicional
+                  </Button>
+                  <Button
+                    className="h-11 gap-2 rounded-lg"
                     disabled={!overview.routines.length}
                     onClick={startTraining}
                   >
@@ -387,13 +488,168 @@ export default function CoachDashboard({
                 </div>
                 <div>
                   <p className="truncate text-2xl font-black">
-                    {formatVolume(overview.metrics.recentVolume)}
+                    {formatMetricVolume(overview.metrics.recentVolume)}
                   </p>
                   <p className="text-xs font-bold text-[color:var(--text-muted)]">
                     Volumen reciente
                   </p>
                 </div>
               </div>
+
+              {activePlan ? (
+                <section className="mt-7 border-y border-[color:var(--border)] py-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+                        Plan activo
+                      </p>
+                      <h3 className="mt-1 text-lg font-black">
+                        {activePlan.name}
+                      </h3>
+                      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                        {activePlan.durationWeeks} semanas ·{" "}
+                        {LEVEL_LABELS[activePlan.level] || activePlan.level} ·{" "}
+                        {activePlan.goal}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-blue-700 dark:text-blue-300">
+                        {
+                          (activePlan.weeklySchedule || []).filter(
+                            (day) => day.type === "training",
+                          ).length
+                        }{" "}
+                        dias
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPlan(activePlan)}
+                        title="Editar plan"
+                        aria-label="Editar plan"
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-blue-600"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updatePlanStatus(activePlan, "paused")}
+                        title="Pausar plan"
+                        aria-label="Pausar plan"
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                      >
+                        <PauseCircle className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updatePlanStatus(activePlan, "completed")
+                        }
+                        title="Finalizar plan"
+                        aria-label="Finalizar plan"
+                        className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-emerald-600"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-7">
+                    {(activePlan.weeklySchedule || []).map((day, index) => (
+                      <div
+                        key={day.dayIndex}
+                        className="min-h-20 bg-[color:var(--card)] p-2.5"
+                      >
+                        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                          {DAY_NAMES[index]}
+                        </p>
+                        <p
+                          className={`mt-2 text-xs font-black ${day.type === "training" ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
+                        >
+                          {day.type === "rest"
+                            ? "Descanso"
+                            : day.type === "recovery"
+                              ? "Recuperacion"
+                              : day.focus || "Entrenamiento"}
+                        </p>
+                        {day.routineId &&
+                        routineNameById.get(String(day.routineId)) ? (
+                          <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                            {routineNameById.get(String(day.routineId))}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  {activePlan.notes ? (
+                    <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                      {activePlan.notes}
+                    </p>
+                  ) : null}
+                </section>
+              ) : (
+                <section className="mt-7 flex flex-col gap-3 border-y border-[color:var(--border)] py-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-black">Sin plan activo</h3>
+                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                      Organiza semanas, descansos y rutinas en una sola
+                      planificacion.
+                    </p>
+                  </div>
+                  <Button
+                    className="h-11 rounded-lg"
+                    onClick={() =>
+                      requireTemplates(() => setCreatingPlan(true))
+                    }
+                  >
+                    <CalendarPlus className="h-4 w-4" /> Crear plan
+                  </Button>
+                </section>
+              )}
+
+              {previousPlans.length ? (
+                <details className="mt-4 border-b border-[color:var(--border)] pb-4">
+                  <summary className="cursor-pointer text-xs font-black text-[color:var(--text-muted)]">
+                    Planes anteriores ({previousPlans.length})
+                  </summary>
+                  <div className="mt-3 divide-y divide-[color:var(--border)]">
+                    {previousPlans.map((plan) => (
+                      <div
+                        key={plan._id || plan.id}
+                        className="flex items-center justify-between gap-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black">
+                            {plan.name}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                            {plan.durationWeeks} semanas ·{" "}
+                            {plan.status === "completed"
+                              ? "Finalizado"
+                              : "Pausado"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingPlan(plan)}
+                            title="Editar plan"
+                            aria-label={`Editar ${plan.name}`}
+                            className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] text-blue-600"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updatePlanStatus(plan, "active")}
+                            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-xs font-black"
+                          >
+                            <RotateCcw className="h-4 w-4" /> Reactivar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
 
               <div className="mt-7 grid gap-8 xl:grid-cols-2">
                 <section>
@@ -420,9 +676,13 @@ export default function CoachDashboard({
                             </p>
                             <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
                               {(routine.exercises || []).length} ejercicios
-                              {routine.assignedByCoachId
-                                ? " · Asignada por coach"
-                                : ""}
+                              {routine.assignmentType === "extra"
+                                ? " · Adicional"
+                                : routine.trainingPlanId
+                                  ? " · Plan activo"
+                                  : routine.assignedByCoachId
+                                    ? " · Asignada por coach"
+                                    : ""}
                             </p>
                           </div>
                         </div>
@@ -485,6 +745,19 @@ export default function CoachDashboard({
           templates={templates}
           onAssign={assignRoutine}
           onClose={() => setAssigning(false)}
+        />
+      ) : null}
+      {(creatingPlan || editingPlan) && selectedAthlete ? (
+        <CoachPlanModal
+          athlete={selectedAthlete}
+          templates={templates}
+          initialData={editingPlan}
+          replacingPlan={editingPlan ? null : activePlan}
+          onSave={savePlan}
+          onClose={() => {
+            setCreatingPlan(false);
+            setEditingPlan(null);
+          }}
         />
       ) : null}
     </main>
