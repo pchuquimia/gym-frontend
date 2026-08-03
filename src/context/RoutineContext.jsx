@@ -119,6 +119,7 @@ export function RoutineProvider({ children, ownerId = "" }) {
     routines,
     loading,
     error,
+    reloadRoutines: loadRoutines,
     addRoutine,
     updateRoutine,
     deleteRoutine,

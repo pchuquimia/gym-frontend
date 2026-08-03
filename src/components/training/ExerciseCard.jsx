@@ -62,7 +62,7 @@ function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
             <Trash2 className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Eliminar ejercicio
             </p>
             <h3 className="mt-1 truncate text-lg font-black">{exerciseName}</h3>
@@ -156,7 +156,7 @@ export default function ExerciseCard({
     );
   const actionLabel = exercise.isActive ? "En curso" : "Empezar";
   const actionClass = exercise.isActive
-    ? "border-emerald-500 bg-emerald-600 text-white hover:bg-emerald-700"
+    ? "border-[#ff5722] bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
     : "";
 
   const handleDragEnd = (_, info) => {
@@ -222,13 +222,13 @@ export default function ExerciseCard({
         onSwapVariant && hasVariants ? { touchAction: "pan-y" } : undefined
       }
     >
-      <Card className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur overflow-hidden">
+      <Card className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur dark:rounded-[4px]">
         <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
           <button
             type="button"
             onClick={handleOpenDetails}
             onPointerDown={(event) => event.stopPropagation()}
-            className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
             aria-label={`Ver técnica de ${exercise.name}`}
             title="Ver técnica"
           >
@@ -247,22 +247,22 @@ export default function ExerciseCard({
           >
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                <p className="truncate text-lg font-bold leading-tight text-[color:var(--text)]">
                   {exercise.name}
                 </p>
                 {exercise.isActive && !isComplete && (
-                  <Badge className="shrink-0 bg-emerald-600 text-white text-[10px]">
+                  <Badge className="shrink-0 border-[#ff5722] bg-[#ff5722] text-xs text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black">
                     En curso
                   </Badge>
                 )}
                 {isComplete && (
-                  <Badge className="shrink-0 bg-blue-600 text-white text-[10px]">
+                  <Badge className="shrink-0 border-[#1a1a1a] bg-[#1a1a1a] text-xs text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black">
                     Completado
                   </Badge>
                 )}
                 {hasVariants && (
                   <span
-                    className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 text-[10px] font-black text-blue-700 dark:text-blue-300"
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 text-xs font-black text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
                     title="Desliza lateralmente para cambiar de ejercicio. Al llegar al final vuelve al inicio."
                   >
                     <Repeat2 className="h-3.5 w-3.5" />
@@ -306,7 +306,7 @@ export default function ExerciseCard({
           {onStartNow && isComplete && (
             <Button
               size="sm"
-              className="hidden shrink-0 rounded-full bg-blue-600 px-3 text-white hover:bg-blue-700 sm:inline-flex"
+              className="hidden shrink-0 rounded-full bg-[#1a1a1a] px-3 text-white dark:bg-[#e2ff00] dark:text-black sm:inline-flex"
               disabled
             >
               Completado
@@ -315,7 +315,7 @@ export default function ExerciseCard({
           {onStartNow && isComplete && (
             <Button
               size="icon"
-              className="h-9 w-9 shrink-0 rounded-full bg-blue-600 p-0 text-white hover:bg-blue-700 sm:hidden"
+              className="h-9 w-9 shrink-0 rounded-full bg-[#1a1a1a] p-0 text-white dark:bg-[#e2ff00] dark:text-black sm:hidden"
               disabled
               aria-label="Ejercicio completado"
             >
@@ -348,7 +348,9 @@ export default function ExerciseCard({
                       size="sm"
                       variant="outline"
                       className={`rounded-full px-3 ${
-                        showOptions ? "border-blue-500 text-blue-600" : ""
+                        showOptions
+                          ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                          : ""
                       }`}
                       onClick={() => setShowOptions((value) => !value)}
                       title={
@@ -361,7 +363,7 @@ export default function ExerciseCard({
                       Opciones
                       {exercise.setupNote && (
                         <span
-                          className="h-2 w-2 rounded-full bg-amber-500"
+                          className="h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
                           aria-label="Configuración guardada"
                         />
                       )}
@@ -391,7 +393,7 @@ export default function ExerciseCard({
                   >
                     <div className="mx-4 mb-3 space-y-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                        <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                           Serie
                         </span>
                         <div className="grid min-w-0 flex-1 grid-cols-3 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
@@ -406,7 +408,7 @@ export default function ExerciseCard({
                               onClick={() => onSeriesTypeChange(value)}
                               className={`h-8 rounded-full text-xs font-black transition ${
                                 seriesValue === value
-                                  ? "bg-blue-600 text-white shadow-sm"
+                                  ? "bg-[#ff5722] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
                                   : "text-[color:var(--text-muted)]"
                               }`}
                             >
@@ -417,7 +419,7 @@ export default function ExerciseCard({
                       </div>
                       {supportsUnilateral && (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                          <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                             Modo
                           </span>
                           <div className="grid min-w-0 flex-1 grid-cols-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
@@ -431,7 +433,7 @@ export default function ExerciseCard({
                                 onClick={() => onMovementModeChange(value)}
                                 className={`h-8 rounded-full text-xs font-black transition ${
                                   movementMode === value
-                                    ? "bg-emerald-500 text-slate-950 shadow-sm"
+                                    ? "bg-[#ff5722] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
                                     : "text-[color:var(--text-muted)]"
                                 }`}
                               >
@@ -442,7 +444,7 @@ export default function ExerciseCard({
                         </div>
                       )}
                       <label className="block border-t border-[color:var(--border)] pt-3">
-                        <span className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                        <span className="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
                           <Settings2 className="h-3.5 w-3.5" />
                           Ajuste / configuración
                         </span>
@@ -456,7 +458,7 @@ export default function ExerciseCard({
                           enterKeyHint="done"
                           autoComplete="off"
                           placeholder="Ej. asiento 3 · respaldo 5 · altura 9"
-                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
                           aria-label={`Ajuste de ${exercise.name}`}
                         />
                       </label>

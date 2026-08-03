@@ -37,12 +37,12 @@ export default function RoutineSelector({
         disabled={disabled}
         aria-expanded={open && !disabled}
         aria-haspopup="listbox"
-        className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm p-4 text-left hover:border-blue-200 dark:hover:border-blue-500/40 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition-colors hover:border-[#ff5722] disabled:cursor-not-allowed disabled:opacity-60 dark:rounded-[4px] dark:hover:border-[#e2ff00]"
       >
         <div className="flex items-center justify-between">
           <div>
             {showLocation ? (
-              <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+              <p className="text-xs font-semibold capitalize text-[#ff5722] dark:text-[#e2ff00]">
                 {routine.location}
               </p>
             ) : null}
@@ -69,7 +69,7 @@ export default function RoutineSelector({
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            className="absolute z-20 mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-lg p-2"
+            className="absolute z-20 mt-2 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-lg dark:rounded-[4px]"
           >
             <p className="text-[11px] uppercase text-[color:var(--text-muted)] px-2 pb-1">
               Cambiar rutina
@@ -91,14 +91,14 @@ export default function RoutineSelector({
                   }}
                   className={`w-full rounded-xl px-3 py-2 text-left hover:bg-[color:var(--bg)] ${
                     r.id === routine.id
-                      ? "border border-blue-200 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-500/10"
+                      ? "border border-[#ffb199] bg-[#fff0eb] dark:border-[#e2ff00]/30 dark:bg-[#161900]"
                       : "border border-transparent"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       {showLocation ? (
-                        <p className="text-xs font-semibold capitalize text-blue-600 dark:text-blue-400">
+                        <p className="text-xs font-semibold capitalize text-[#ff5722] dark:text-[#e2ff00]">
                           {r.location}
                         </p>
                       ) : null}
@@ -114,7 +114,7 @@ export default function RoutineSelector({
                       </p>
                     </div>
                     {r.id === routine.id && (
-                      <span className="text-blue-600 dark:text-blue-300 text-sm font-semibold">
+                      <span className="text-sm font-semibold text-[#ff5722] dark:text-[#e2ff00]">
                         Elegido
                       </span>
                     )}

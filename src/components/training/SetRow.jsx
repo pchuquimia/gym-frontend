@@ -17,9 +17,9 @@ export default function SetRow({
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
   const baseClasses =
-    "max-w-full overflow-hidden rounded-2xl border border-[color:var(--border)] px-2 py-2 space-y-2";
+    "max-w-full overflow-hidden rounded-lg dark:rounded-[4px] border border-[color:var(--border)] px-2 py-2 space-y-2";
   const stateClasses = setDone
-    ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
+    ? "bg-[#f0f0f0] dark:bg-[#1b1b1b] text-[color:var(--text-muted)]"
     : "bg-[color:var(--card)]";
   const x = useMotionValue(0);
   const isMobile =
@@ -73,19 +73,21 @@ export default function SetRow({
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-              setDone ? "bg-emerald-500 text-white" : "bg-blue-600 text-white"
+              setDone
+                ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                : "bg-[#1a1a1a] text-white dark:bg-[#252525]"
             }`}
           >
             {index}
           </span>
           {prSummary ? (
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="min-w-0 truncate text-[11px] text-[color:var(--text-muted)]">
+              <span className="min-w-0 truncate text-[13px] text-[color:var(--text-muted)]">
                 PR {prSummary}
               </span>
               {prBranchLabel ? (
                 <span
-                  className="shrink-0 rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300"
+                  className="shrink-0 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 py-0.5 text-xs font-medium text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
                   title={`PR registrado en ${prBranchLabel}`}
                 >
                   {prBranchLabel}
@@ -138,7 +140,7 @@ export default function SetRow({
           }
           const trendClass =
             trend === "up"
-              ? "text-emerald-500"
+              ? "text-[#ff5722] dark:text-[#e2ff00]"
               : trend === "down"
                 ? "text-rose-500"
                 : "text-[color:var(--text-muted)]";
@@ -153,7 +155,7 @@ export default function SetRow({
               key={entry.id || `${index}-${entryIdx}`}
               className={`grid max-w-full grid-cols-[28px_minmax(0,1fr)_74px_68px_32px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_88px_80px_40px] sm:gap-2 sm:px-2 ${
                 entryDone
-                  ? "bg-slate-100 dark:bg-slate-800 text-[color:var(--text-muted)]"
+                  ? "bg-[#f0f0f0] text-[color:var(--text-muted)] dark:bg-[#1b1b1b]"
                   : "bg-[color:var(--card)]"
               }`}
             >
@@ -161,14 +163,14 @@ export default function SetRow({
                 {entryLabel}
               </div>
               <div
-                className={`flex min-w-0 items-center gap-1 text-[11px] sm:text-[12px] ${trendClass}`}
+                className={`flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
               >
                 <span className="min-w-0 truncate">
                   {entry.previousText || "Sin referencia"}
                 </span>
                 {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
               </div>
-              <label className="flex h-9 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+              <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                 <input
                   className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                   type="text"
@@ -187,11 +189,11 @@ export default function SetRow({
                   placeholder="0"
                   aria-label={`Peso en kilogramos, ${exerciseName}, serie ${index}`}
                 />
-                <span className="ml-1 w-4 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                <span className="ml-1 w-4 shrink-0 text-left text-xs font-black text-[color:var(--text-muted)]">
                   kg
                 </span>
               </label>
-              <label className="flex h-9 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+              <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                 <input
                   className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                   type="text"
@@ -210,7 +212,7 @@ export default function SetRow({
                   placeholder="0"
                   aria-label={`Repeticiones, ${exerciseName}, serie ${index}`}
                 />
-                <span className="ml-1 w-5 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                <span className="ml-1 w-5 shrink-0 text-left text-xs font-black text-[color:var(--text-muted)]">
                   rep
                 </span>
               </label>
@@ -221,7 +223,7 @@ export default function SetRow({
                   onClick={() => onToggleEntry?.(entry.id)}
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                     entryDone
-                      ? "bg-blue-600 border-blue-600 text-white"
+                      ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                       : "border-[color:var(--border)] text-[color:var(--text-muted)]"
                   }`}
                   aria-label={

@@ -136,6 +136,31 @@ button,
   line-height: 1.125rem;
 }
 
+.training-shell {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0;
+}
+
+.training-shell [class~="text-[8px]"],
+.training-shell [class~="text-[10px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.training-shell [class~="text-[11px]"],
+.training-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+@media (max-width: 767px) {
+  .training-shell input,
+  .training-shell select,
+  .training-shell textarea {
+    font-size: 1rem;
+  }
+}
+
 /* Card utilitaria consistente */
 .card {
   background: var(--card);

@@ -20,6 +20,7 @@ function MainLayout({
   const [showDrawer, setShowDrawer] = useState(false);
   const { isDark } = useThemeMode();
   const useDashboardChrome = activePage === "dashboard";
+  const useTrainingChrome = activePage === "registrar";
 
   const formatDuration = (sec) => {
     const total = Math.max(0, Math.floor(sec || 0));
@@ -106,11 +107,15 @@ function MainLayout({
         <div
           className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 md:px-8 md:py-8 ${
             showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
-          } ${useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : isDark ? "max-md:pb-24" : ""}`}
+          } ${useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : isDark || useTrainingChrome ? "max-md:pb-24" : ""}`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
-              useDashboardChrome ? "hidden" : "flex"
+              useDashboardChrome
+                ? "hidden"
+                : useTrainingChrome && activeTraining
+                  ? "hidden md:flex"
+                  : "flex"
             } ${
               showReturnTraining
                 ? "fixed top-0 left-0 right-0 z-40 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
@@ -193,7 +198,7 @@ function MainLayout({
 
       <div
         className={
-          isDark || useDashboardChrome
+          isDark || useDashboardChrome || useTrainingChrome
             ? "fixed inset-x-0 bottom-0 z-40 md:hidden"
             : "hidden"
         }
