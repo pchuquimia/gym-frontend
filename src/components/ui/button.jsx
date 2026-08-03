@@ -6,6 +6,10 @@ const base =
 const variants = {
   default:
     "bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]",
+  accentOutline:
+    "border border-[#ff5722] bg-transparent text-[#ff5722] hover:bg-[#fff0eb] dark:border-[#e2ff00] dark:text-[#e2ff00] dark:hover:bg-[#1d2100]",
+  accentSolid:
+    "border border-[#ff5722] bg-[#ff5722] text-white hover:bg-[#df3f0d] disabled:!opacity-100 dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]",
   outline:
     "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] hover:border-[#ff5722] hover:text-[color:var(--text)] dark:hover:border-[#e2ff00]",
   ghost: "text-[color:var(--text)] hover:bg-[color:var(--card)]",
@@ -15,6 +19,7 @@ const sizes = {
   default: "h-11 px-4",
   sm: "h-9 px-3 text-xs",
   icon: "h-10 w-10",
+  touchIcon: "h-11 w-11 p-0",
 };
 
 export const Button = forwardRef(function Button(

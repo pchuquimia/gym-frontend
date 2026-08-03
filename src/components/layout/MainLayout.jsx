@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Menu } from "lucide-react";
+import { ArrowRight, Menu, Timer } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import ThemeToggle from "../ThemeToggle";
@@ -57,9 +57,11 @@ function MainLayout({
     const loadSnapshot = () => setActiveTraining(readSnapshot());
     loadSnapshot();
     window.addEventListener("storage", loadSnapshot);
+    window.addEventListener("active-training-updated", loadSnapshot);
     pollRef.current = setInterval(loadSnapshot, 1500);
     return () => {
       window.removeEventListener("storage", loadSnapshot);
+      window.removeEventListener("active-training-updated", loadSnapshot);
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
@@ -74,6 +76,13 @@ function MainLayout({
     if (typeof onNavigate === "function") onNavigate("registrar");
   };
 
+  const handleNavigate = (page) => {
+    if (activePage === "registrar" && page !== "registrar") {
+      window.dispatchEvent(new Event("persist-active-training"));
+    }
+    onNavigate?.(page);
+  };
+
   const showReturnTraining = activePage !== "registrar" && activeTraining;
 
   return (
@@ -82,44 +91,70 @@ function MainLayout({
         useDashboardChrome ? "dashboard-app-shell" : ""
       }`}
     >
-      {showReturnTraining && (
-        <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm hidden md:block">
-          <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
-            <div className="text-sm text-[color:var(--text-muted)] flex items-center gap-1">
-              <span>Sesión en curso</span>
-              <span className="ml-1 font-semibold text-[color:var(--text)] font-mono">
+      {showReturnTraining ? (
+        <>
+          <button
+            data-active-training-banner
+            type="button"
+            onClick={handleReturnTraining}
+            className="sticky top-0 z-50 flex h-12 w-full items-center gap-3 border-b border-[#ff5722] bg-[#fff0eb] px-3 text-left text-[#852300] shadow-sm md:hidden dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+            aria-label="Volver al entrenamiento en curso"
+          >
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+              <Timer className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-black uppercase leading-none">
+                Entrenamiento en curso
+              </span>
+              <span className="mt-1 block font-mono text-xs font-bold leading-none">
                 {formatDuration(activeTraining.elapsed || 0)}
               </span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase">
+              Volver
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </button>
+
+          <div className="sticky top-0 z-30 hidden w-full border-b border-[color:var(--border)] bg-[color:var(--card)] shadow-sm md:block">
+            <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
+              <div className="flex items-center gap-1 text-sm text-[color:var(--text-muted)]">
+                <span>Sesión en curso</span>
+                <span className="ml-1 font-mono font-semibold text-[color:var(--text)]">
+                  {formatDuration(activeTraining.elapsed || 0)}
+                </span>
+              </div>
+              <button
+                onClick={handleReturnTraining}
+                className="inline-flex items-center gap-2 rounded-full bg-[#ff5722] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+              >
+                Volver al entrenamiento
+              </button>
             </div>
-            <button
-              onClick={handleReturnTraining}
-              className="inline-flex items-center gap-2 rounded-full bg-[#ff5722] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
-            >
-              Volver al entrenamiento
-            </button>
           </div>
-        </div>
-      )}
+        </>
+      ) : null}
       <div className="grid grid-cols-[280px_1fr] max-md:grid-cols-1 flex-1">
         <div className="hidden md:block">
-          <Sidebar activePage={activePage} onNavigate={onNavigate} />
+          <Sidebar activePage={activePage} onNavigate={handleNavigate} />
         </div>
         <div
-          className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 md:px-8 md:py-8 ${
-            showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
-          } ${useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : isDark || useTrainingChrome ? "max-md:pb-24" : ""}`}
+          className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
+            useDashboardChrome
+              ? "max-md:pb-24 max-md:pt-0"
+              : isDark || useTrainingChrome
+                ? "max-md:pb-24"
+                : ""
+          }`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
               useDashboardChrome
                 ? "hidden"
-                : useTrainingChrome && activeTraining
+                : useTrainingChrome
                   ? "hidden md:flex"
                   : "flex"
-            } ${
-              showReturnTraining
-                ? "fixed top-0 left-0 right-0 z-40 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
-                : ""
             }`}
           >
             <button
@@ -132,24 +167,6 @@ function MainLayout({
             </button>
 
             <div className="flex-1" />
-            {showReturnTraining && (
-              <div className="md:hidden inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-[11px] font-semibold text-[color:var(--text)]">
-                <span className="font-mono">
-                  {formatDuration(activeTraining.elapsed || 0)}
-                </span>
-                <span className="text-[10px] uppercase text-[color:var(--text-muted)]">
-                  En curso
-                </span>
-              </div>
-            )}
-            {showReturnTraining && (
-              <button
-                onClick={handleReturnTraining}
-                className="inline-flex items-center gap-2 rounded-full border border-[#ff5722]/35 bg-[#ff5722]/10 px-3 py-1.5 text-xs font-semibold text-[color:var(--text)] dark:border-[#e2ff00]/35 dark:bg-[#e2ff00]/10 md:hidden"
-              >
-                Volver
-              </button>
-            )}
             <ThemeToggle />
           </div>
           {coachAthlete ? (
@@ -189,7 +206,7 @@ function MainLayout({
               activePage={activePage}
               onNavigate={(id) => {
                 setShowDrawer(false);
-                onNavigate?.(id);
+                handleNavigate(id);
               }}
             />
           </div>
@@ -203,7 +220,7 @@ function MainLayout({
             : "hidden"
         }
       >
-        <MobileNav activePage={activePage} onNavigate={onNavigate} />
+        <MobileNav activePage={activePage} onNavigate={handleNavigate} />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Activity,
   Check,
   ChevronDown,
   Play,
@@ -144,8 +145,6 @@ export default function ExerciseCard({
       1
     : 0;
   const referenceDateLabel = getReferenceDateLabel(exercise);
-  const isMoved =
-    exercise.orderContext === "early" || exercise.orderContext === "fatigued";
   const isComplete =
     Array.isArray(exercise.sets) &&
     exercise.sets.length > 0 &&
@@ -155,9 +154,7 @@ export default function ExerciseCard({
         : Boolean(set.done),
     );
   const actionLabel = exercise.isActive ? "En curso" : "Empezar";
-  const actionClass = exercise.isActive
-    ? "border-[#ff5722] bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
-    : "";
+  const ActionIcon = exercise.isActive ? Activity : Play;
 
   const handleDragEnd = (_, info) => {
     if (!onSwapVariant || !hasVariants) return;
@@ -228,7 +225,7 @@ export default function ExerciseCard({
             type="button"
             onClick={handleOpenDetails}
             onPointerDown={(event) => event.stopPropagation()}
-            className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
+            className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] sm:h-[72px] sm:w-[72px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
             aria-label={`Ver técnica de ${exercise.name}`}
             title="Ver técnica"
           >
@@ -251,12 +248,12 @@ export default function ExerciseCard({
                   {exercise.name}
                 </p>
                 {exercise.isActive && !isComplete && (
-                  <Badge className="shrink-0 border-[#ff5722] bg-[#ff5722] text-xs text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black">
+                  <Badge variant="active" className="shrink-0">
                     En curso
                   </Badge>
                 )}
                 {isComplete && (
-                  <Badge className="shrink-0 border-[#1a1a1a] bg-[#1a1a1a] text-xs text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black">
+                  <Badge variant="completed" className="shrink-0">
                     Completado
                   </Badge>
                 )}
@@ -283,30 +280,41 @@ export default function ExerciseCard({
           {onStartNow && !isComplete && (
             <Button
               size="sm"
-              variant={isMoved ? "default" : "outline"}
-              className={`hidden shrink-0 rounded-full px-3 sm:inline-flex ${actionClass}`}
-              onClick={onStartNow}
-              aria-label={`Empezar ${exercise.name}`}
+              variant={exercise.isActive ? "accentSolid" : "accentOutline"}
+              className="hidden shrink-0 rounded-full px-3 disabled:cursor-default sm:inline-flex"
+              onClick={exercise.isActive ? undefined : onStartNow}
+              disabled={exercise.isActive}
+              aria-label={
+                exercise.isActive
+                  ? `${exercise.name} en curso`
+                  : `Empezar ${exercise.name}`
+              }
             >
-              <Play className="h-4 w-4" />
+              <ActionIcon className="h-4 w-4" />
               <span>{actionLabel}</span>
             </Button>
           )}
           {onStartNow && !isComplete && (
             <Button
-              size="icon"
-              variant={isMoved ? "default" : "outline"}
-              className={`h-9 w-9 shrink-0 rounded-full p-0 sm:hidden ${actionClass}`}
-              onClick={onStartNow}
-              aria-label={`Empezar ${exercise.name}`}
+              size="touchIcon"
+              variant={exercise.isActive ? "accentSolid" : "accentOutline"}
+              className="shrink-0 rounded-full disabled:cursor-default sm:hidden"
+              onClick={exercise.isActive ? undefined : onStartNow}
+              disabled={exercise.isActive}
+              aria-label={
+                exercise.isActive
+                  ? `${exercise.name} en curso`
+                  : `Empezar ${exercise.name}`
+              }
             >
-              <Play className="h-4 w-4" />
+              <ActionIcon className="h-4 w-4" />
             </Button>
           )}
           {onStartNow && isComplete && (
             <Button
               size="sm"
-              className="hidden shrink-0 rounded-full bg-[#1a1a1a] px-3 text-white dark:bg-[#e2ff00] dark:text-black sm:inline-flex"
+              variant="accentSolid"
+              className="hidden shrink-0 rounded-full px-3 disabled:cursor-default sm:inline-flex"
               disabled
             >
               Completado
@@ -314,8 +322,9 @@ export default function ExerciseCard({
           )}
           {onStartNow && isComplete && (
             <Button
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-full bg-[#1a1a1a] p-0 text-white dark:bg-[#e2ff00] dark:text-black sm:hidden"
+              size="touchIcon"
+              variant="accentSolid"
+              className="shrink-0 rounded-full disabled:cursor-default sm:hidden"
               disabled
               aria-label="Ejercicio completado"
             >
@@ -337,6 +346,7 @@ export default function ExerciseCard({
                   <motion.div whileTap={{ scale: 0.97 }}>
                     <Button
                       size="sm"
+                      variant="outline"
                       className="rounded-full px-4"
                       onClick={onViewTracking}
                     >
@@ -372,7 +382,7 @@ export default function ExerciseCard({
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
-                    size="icon"
+                    size="touchIcon"
                     variant="ghost"
                     className="text-red-600"
                     onClick={() => setDeleteSheetOpen(true)}

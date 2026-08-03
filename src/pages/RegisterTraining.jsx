@@ -2,13 +2,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
-  ArrowLeft,
   Check,
   Circle,
   CircleDot,
   ClipboardList,
   Dumbbell,
   Flag,
+  Hourglass,
   MapPin,
   Menu,
   Minimize2,
@@ -27,9 +27,9 @@ import Modal from "../components/shared/Modal";
 import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
 import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
+import ThemeToggle from "../components/ThemeToggle";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
-import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 
@@ -51,12 +51,6 @@ const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
-
-const getExitPageForRole = (role) => {
-  if (role === "Admin") return "dashboard";
-  if (role === "Entrenador") return "trainer";
-  return "perfil";
-};
 
 const toValidDate = (value) => {
   if (!value) return null;
@@ -1137,7 +1131,6 @@ const computeRecentBySetFromHistory = (
 };
 
 export default function RegisterTraining({ onNavigate = () => {} }) {
-  const { user } = useAuth();
   const {
     routines,
     loading: routinesLoading,
@@ -2816,6 +2809,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       };
       lastUpdateRef.current = now;
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+      window.dispatchEvent(new Event("active-training-updated"));
     } catch (e) {
       console.warn("No se pudo guardar el estado del entrenamiento", e);
     }
@@ -2835,6 +2829,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   useEffect(() => {
     const timeoutId = window.setTimeout(persistTrainingSnapshot, 250);
     return () => window.clearTimeout(timeoutId);
+  }, [persistTrainingSnapshot]);
+
+  useEffect(() => {
+    const persistNow = () => persistTrainingSnapshot();
+    window.addEventListener("persist-active-training", persistNow);
+    window.addEventListener("popstate", persistNow);
+    window.addEventListener("pagehide", persistNow);
+    return () => {
+      window.removeEventListener("persist-active-training", persistNow);
+      window.removeEventListener("popstate", persistNow);
+      window.removeEventListener("pagehide", persistNow);
+    };
   }, [persistTrainingSnapshot]);
 
   const handleEditRoutineFromTraining = useCallback(() => {
@@ -3189,6 +3195,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
+      window.dispatchEvent(new Event("active-training-updated"));
     }
   };
 
@@ -4138,11 +4145,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     performCancel();
   };
 
-  const handleLeaveSetup = () => {
-    resetState();
-    onNavigate?.(getExitPageForRole(user?.role));
-  };
-
   const totalSets = useMemo(
     () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0),
     [exercises],
@@ -4292,12 +4294,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     <main className="training-shell relative min-h-0 w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
       <div
         className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
-          showMobileTrainingBar ? "pt-0 md:pt-4" : "pt-4"
+          showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"
         } ${!setupStarted && !isEditing ? "pb-0" : "pb-28"}`}
       >
         {showMobileTrainingBar && (
-          <div className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden">
-            <div className="mx-auto flex max-w-md items-center gap-3">
+          <div
+            data-training-header
+            className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden"
+          >
+            <div className="mx-auto flex max-w-md items-center gap-1.5">
               <button
                 type="button"
                 onClick={() =>
@@ -4320,7 +4325,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <button
                 type="button"
                 onClick={isRunning ? handlePause : handleStart}
-                className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl bg-[color:var(--card)] px-3 font-mono text-sm font-black text-[color:var(--text)]"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)]"
+                aria-label={`${isRunning ? "Pausar" : "Reanudar"} entrenamiento, ${formatDuration(durationSeconds)}`}
               >
                 <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
                 {formatDuration(durationSeconds)}
@@ -4335,21 +4341,24 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 }`}
                 aria-label="Abrir temporizador de descanso"
               >
-                <Timer className="h-4 w-4" />
+                <Hourglass className="h-4 w-4" />
                 {restTimerStarted ? (
                   <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#ff5722] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
                     {restTimerLabel}
                   </span>
                 ) : null}
               </button>
+              <ThemeToggle compact />
               {showFinishButton ? (
                 <button
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length}
-                  className="h-9 shrink-0 rounded-xl bg-[#ff5722] px-4 text-xs font-black uppercase tracking-wide text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black"
+                  aria-label="Finalizar entrenamiento"
                 >
-                  Finalizar
+                  <Flag className="h-4 w-4" />
+                  <span className="hidden min-[360px]:inline">Finalizar</span>
                 </button>
               ) : null}
             </div>
@@ -4398,7 +4407,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 </button>
                 <button
                   type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-red-500/25 bg-red-500/10 px-4 text-sm font-bold text-red-300"
+                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-red-500/25 bg-red-500/10 px-4 text-sm font-bold text-red-700 dark:text-red-300"
                   onClick={handleCancel}
                 >
                   <span>Cancelar entrenamiento</span>
@@ -4435,21 +4444,26 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
         {!setupStarted && !isEditing ? (
           <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col pb-28 md:min-h-0 md:max-w-2xl md:pb-0">
-            <header className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden">
+            <header
+              data-training-setup-header
+              className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden"
+            >
               <button
                 type="button"
-                onClick={handleLeaveSetup}
-                className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)]"
-                aria-label="Volver al inicio"
+                onClick={() =>
+                  window.dispatchEvent(new Event("open-main-menu"))
+                }
+                className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                aria-label="Abrir menu principal"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1 px-2 text-center">
                 <h1 className="font-condensed truncate text-xl font-bold uppercase text-[color:var(--text)]">
                   Registrar entrenamiento
                 </h1>
               </div>
-              <span className="h-9 w-9" aria-hidden="true" />
+              <ThemeToggle />
             </header>
 
             <div className="space-y-8">
@@ -4675,7 +4689,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     <span
                       className={`text-[11px] font-semibold uppercase ${
                         isRunning
-                          ? "text-red-400"
+                          ? "text-[color:var(--accent)]"
                           : "text-[color:var(--text-muted)]"
                       }`}
                     >
