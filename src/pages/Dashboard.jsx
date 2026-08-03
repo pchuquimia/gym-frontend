@@ -15,9 +15,9 @@ import {
   Zap,
 } from "lucide-react";
 import { presets } from "../utils/motion";
-import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useThemeMode } from "../hooks/useThemeMode";
+import ThemeToggle from "../components/ThemeToggle";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -304,15 +304,6 @@ function formatCompact(value = 0) {
   return Math.round(number).toString();
 }
 
-function getInitials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "U";
-  return parts
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-}
-
 function extractExercisePerformances(training) {
   return (training.exercises || []).flatMap((exercise) => {
     const key = getExerciseKey(exercise);
@@ -556,12 +547,10 @@ function StatCard({
   onClick,
 }) {
   const tones = {
-    blue: "bg-blue-50 text-blue-700 dark:bg-transparent dark:text-[#e2ff00]",
-    amber: "bg-amber-50 text-amber-700 dark:bg-transparent dark:text-[#e2ff00]",
-    emerald:
-      "bg-emerald-50 text-emerald-700 dark:bg-transparent dark:text-[#e2ff00]",
-    violet:
-      "bg-violet-50 text-violet-700 dark:bg-transparent dark:text-[#e2ff00]",
+    blue: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
+    amber: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
+    emerald: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
+    violet: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
   };
 
   const Component = onClick ? "button" : "article";
@@ -571,9 +560,9 @@ function StatCard({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       aria-label={onClick ? `Ver detalle de ${label}` : undefined}
-      className={`w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm dark:rounded-[4px] dark:p-4 dark:shadow-none ${
+      className={`w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
         onClick
-          ? "transition hover:border-amber-300 hover:bg-amber-50/70 dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          ? "transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
           : ""
       }`}
     >
@@ -606,13 +595,13 @@ function StatCard({
 
 function WeekStrip({ days }) {
   return (
-    <section className="grid grid-cols-7 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-sm dark:rounded-[4px] dark:p-3 dark:shadow-none">
+    <section className="grid grid-cols-7 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm dark:rounded-[4px] dark:shadow-none">
       {days.map((day) => (
         <div
           key={day.key}
           className={`rounded-xl px-1.5 py-2 text-center dark:rounded-[3px] ${
             day.isToday
-              ? "bg-blue-50 text-blue-700 dark:border dark:border-[#e2ff00] dark:bg-[#161900] dark:text-[#e2ff00]"
+              ? "border border-[#ff5722] bg-[#fff4f0] text-[#ff5722] dark:border-[#e2ff00] dark:bg-[#161900] dark:text-[#e2ff00]"
               : "text-[color:var(--text-muted)]"
           }`}
         >
@@ -620,7 +609,7 @@ function WeekStrip({ days }) {
           <p
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
-                ? "text-[color:var(--text)] dark:text-[#e2ff00]"
+                ? "text-[#ff5722] dark:text-[#e2ff00]"
                 : "text-slate-300 dark:text-slate-600"
             }`}
           >
@@ -644,7 +633,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
   const endLabel = data[data.length - 1]?.label || "";
 
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text)]">
@@ -654,12 +643,12 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             Dias con entrenamiento registrado
           </p>
         </div>
-        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-300 dark:rounded-[3px] dark:bg-[#1d2100] dark:text-[#e2ff00]">
+        <span className="rounded bg-[#1a1a1a] px-2 py-1 text-[10px] font-black uppercase text-[#ff5722] dark:rounded-[3px] dark:bg-[#1d2100] dark:text-[#e2ff00]">
           {trainedDays}/30 dias
         </span>
       </div>
 
-      <div className="mt-4 h-40 rounded-2xl bg-slate-50 p-2 dark:rounded-[3px] dark:border dark:border-[#292929] dark:bg-[#080808]">
+      <div className="mt-4 h-40 rounded border border-[#d8d8d8] bg-[#fafafa] p-2 dark:rounded-[3px] dark:border-[#292929] dark:bg-[#080808]">
         <ResponsiveBar
           data={data}
           keys={["active"]}
@@ -670,7 +659,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             item.active > 0
               ? isDark
                 ? "#e2ff00"
-                : "#34d399"
+                : "#ff5722"
               : isDark
                 ? "#242424"
                 : "#e2e8f0"
@@ -713,14 +702,14 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
 
       <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
         <span>{startLabel}</span>
-        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-700 dark:rounded-[3px] dark:bg-[#242424] dark:text-[#e2ff00]">
+        <span className="rounded border border-[#d8d8d8] bg-white px-2 py-0.5 text-[#8e8e93] dark:rounded-[3px] dark:border-0 dark:bg-[#242424] dark:text-[#e2ff00]">
           30 dias
         </span>
         <span>Hoy · {endLabel}</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:rounded-[3px] dark:bg-transparent">
+        <div className="rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[3px] dark:bg-transparent">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Dias entrenados
           </p>
@@ -731,7 +720,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             de 30 dias
           </p>
         </div>
-        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:rounded-[3px] dark:bg-transparent">
+        <div className="rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[3px] dark:bg-transparent">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Volumen
           </p>
@@ -756,7 +745,7 @@ function CollapsibleSection({
   children,
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
       <button
         type="button"
         onClick={onToggle}
@@ -764,7 +753,7 @@ function CollapsibleSection({
         className="flex w-full items-center justify-between gap-3 p-4 text-left"
       >
         <span>
-          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-[#e2ff00]">
+          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-[#1a1a1a] dark:text-[#e2ff00]">
             {subtitle}
           </span>
           <span className="mt-1 block text-lg font-black text-[color:var(--text)]">
@@ -897,7 +886,6 @@ function MonthDetailView({ detail, onBack }) {
 
 function Dashboard({ onNavigate = () => {} }) {
   const { trainings = [] } = useTrainingData();
-  const { user } = useAuth();
   const { theme } = useThemeMode();
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
@@ -1599,33 +1587,31 @@ function Dashboard({ onNavigate = () => {} }) {
     };
   }, [weekData]);
 
-  const profileName = user?.name || "Atleta";
-  const avatarUrl = user?.avatar || user?.photo || user?.image;
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
 
   return (
     <motion.div
       {...presets.fadeUp}
-      className="dashboard-shell mx-auto w-full max-w-md space-y-4 pb-10 text-[color:var(--text)] dark:max-md:pt-4 md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
       <header className="flex items-center justify-between gap-3 border-b border-transparent pb-1 dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
-          {isDark ? (
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
-              className="grid h-10 w-10 shrink-0 place-items-center text-[#d8d8c0] md:hidden"
-              aria-label="Abrir menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+            className="grid h-10 w-10 shrink-0 place-items-center text-[#1a1a1a] dark:text-[#d8d8c0] md:hidden"
+            aria-label="Abrir menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <div className="min-w-0">
-            <h1 className="text-3xl font-black italic leading-[0.9] text-blue-700 dark:text-white">
+            <h1 className="text-3xl font-black italic leading-[0.9] text-[#1a1a1a] dark:text-white">
               APEX
               <br />
-              <span className="dark:text-[#e2ff00]">PERFORMANCE</span>
+              <span className="text-[#ff5722] dark:text-[#e2ff00]">
+                PERFORMANCE
+              </span>
             </h1>
           </div>
         </div>
@@ -1634,31 +1620,16 @@ function Dashboard({ onNavigate = () => {} }) {
           <button
             type="button"
             onClick={() => onNavigate("registrar")}
-            className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-blue-700 shadow-sm dark:text-[#e2ff00] dark:shadow-none"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#1a1a1a] shadow-sm dark:text-[#e2ff00] dark:shadow-none"
             aria-label="Registrar entrenamiento"
           >
             <Play className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            onClick={() => onNavigate("perfil")}
-            className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-black text-blue-700 shadow-sm dark:text-[#e2ff00] dark:shadow-none"
-            aria-label="Abrir perfil"
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={profileName}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getInitials(profileName)
-            )}
-          </button>
+          <ThemeToggle />
         </div>
       </header>
 
-      <p className="text-sm font-semibold text-[color:var(--text-muted)] dark:text-xs dark:font-black dark:uppercase dark:text-[#d8d8c0]">
+      <p className="text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
         Semana activa
       </p>
 
@@ -1673,7 +1644,7 @@ function Dashboard({ onNavigate = () => {} }) {
             {weekData.days.map((day) => (
               <span
                 key={day.key}
-                className={`h-1.5 rounded-full ${day.trained ? "bg-emerald-400 dark:bg-[#e2ff00]" : "bg-slate-200 dark:bg-[#292929]"}`}
+                className={`h-1.5 rounded-full ${day.trained ? "bg-[#ff5722] dark:bg-[#e2ff00]" : "bg-[#e5e5e5] dark:bg-[#292929]"}`}
               />
             ))}
           </div>
@@ -1691,12 +1662,12 @@ function Dashboard({ onNavigate = () => {} }) {
           tone="amber"
           onClick={() => setDurationModalOpen(true)}
         />
-        <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm dark:rounded-[4px] dark:p-4 dark:shadow-none">
+        <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Vs anterior
             </p>
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-[#e2ff00]" />
+            <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
           <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] dark:rounded-[3px]">
             <button
@@ -1704,10 +1675,10 @@ function Dashboard({ onNavigate = () => {} }) {
               onClick={() => setPerformanceModalType("declines")}
               className="border-r border-[color:var(--border)] px-2.5 py-2 text-left transition hover:bg-red-500/10 active:bg-red-500/15"
             >
-              <p className="text-[9px] font-black uppercase tracking-wide text-red-700 dark:text-red-300">
+              <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-red-300">
                 Bajamos
               </p>
-              <p className="mt-1 text-2xl font-black text-red-700 dark:text-red-300">
+              <p className="mt-1 text-2xl font-black text-[#1a1a1a] dark:text-red-300">
                 {formatSignedCount(weekData.declines?.length, "-")}
               </p>
             </button>
@@ -1716,10 +1687,10 @@ function Dashboard({ onNavigate = () => {} }) {
               onClick={() => setPerformanceModalType("improvements")}
               className="px-2.5 py-2 text-left transition hover:bg-emerald-500/10 active:bg-emerald-500/15"
             >
-              <p className="text-[9px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+              <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
                 Mejoras
               </p>
-              <p className="mt-1 text-2xl font-black text-emerald-700 dark:text-emerald-300">
+              <p className="mt-1 text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
                 {formatSignedCount(weekData.improvements?.length, "+")}
               </p>
             </button>
@@ -1729,9 +1700,7 @@ function Dashboard({ onNavigate = () => {} }) {
 
       <WeekStrip days={weekData.days} />
 
-      <div
-        className={`grid gap-3 ${isDark ? "lg:grid-cols-2" : "grid-cols-2"}`}
-      >
+      <div className="grid gap-3 lg:grid-cols-2">
         <button
           type="button"
           onClick={() =>
@@ -1744,19 +1713,19 @@ function Dashboard({ onNavigate = () => {} }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="row-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="row-span-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Recovery
             </p>
-            <Zap className="h-4 w-4 text-emerald-600 dark:text-[#e2ff00]" />
+            <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
           <div className="mt-5 grid place-items-center">
             <div
-              className="grid h-32 w-32 place-items-center rounded-full p-[11px] shadow-[0_0_26px_rgba(52,211,153,0.25)] dark:shadow-[0_0_24px_rgba(226,255,0,0.12)]"
+              className="grid h-36 w-36 place-items-center rounded-full p-[11px] shadow-[0_0_22px_rgba(255,87,34,0.12)] dark:shadow-[0_0_24px_rgba(226,255,0,0.12)]"
               style={{
-                background: `conic-gradient(${isDark ? "#e2ff00" : "#34d399"} ${hasTrainingHistory ? recovery.value : 0}%, ${isDark ? "#292929" : "#d1fae5"} 0)`,
+                background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recovery.value : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
               }}
             >
               <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
@@ -1778,13 +1747,13 @@ function Dashboard({ onNavigate = () => {} }) {
         <button
           type="button"
           onClick={() => setWeeklyLoadModalOpen(true)}
-          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:rounded-[4px] dark:p-4 dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Carga semanal
             </p>
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-[#e2ff00]" />
+            <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
           <p className="mt-2 text-xl font-black text-[color:var(--text)]">
             {formatCompact(weeklyLoad.current)} kg
@@ -1796,13 +1765,13 @@ function Dashboard({ onNavigate = () => {} }) {
         <button
           type="button"
           onClick={() => setWeeklySetsModalOpen(true)}
-          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50 dark:rounded-[4px] dark:p-4 dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Sets semana
             </p>
-            <ListChecks className="h-3.5 w-3.5 text-blue-700 dark:text-[#e2ff00]" />
+            <ListChecks className="h-3.5 w-3.5 text-[#5f5f5f] dark:text-[#e2ff00]" />
           </div>
           <p className="mt-2 text-xl font-black text-[color:var(--text)]">
             {weeklySets.total}
@@ -1844,7 +1813,7 @@ function Dashboard({ onNavigate = () => {} }) {
                 indexBy="month"
                 margin={{ top: 12, right: 8, bottom: 28, left: 46 }}
                 padding={0.35}
-                colors="#60a5fa"
+                colors={isDark ? "#e2ff00" : "#ff5722"}
                 borderRadius={6}
                 enableLabel={false}
                 axisTop={null}

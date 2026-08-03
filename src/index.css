@@ -108,6 +108,16 @@ button,
   background-size: 14px 14px;
 }
 
+.dashboard-app-shell {
+  background-color: var(--bg);
+  background-image: radial-gradient(#d8d8d8 0.7px, transparent 0.7px);
+  background-size: 14px 14px;
+}
+
+.dark .dashboard-app-shell {
+  background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
+}
+
 /* Card utilitaria consistente */
 .card {
   background: var(--card);

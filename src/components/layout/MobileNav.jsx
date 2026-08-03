@@ -14,9 +14,9 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="border-t border-[#292929] bg-[#101010]/98 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+    <nav className="border-t border-[#d7d7d7] bg-[#f8f8f8]/98 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-[#292929] dark:bg-[#101010]/98 md:hidden">
       <div
-        className="grid text-[10px] font-bold uppercase text-[#c9c9ad]"
+        className="grid text-[10px] font-bold uppercase text-[#8e8e93] dark:text-[#c9c9ad]"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         }}
@@ -30,8 +30,8 @@ function MobileNav({ activePage, onNavigate }) {
               onClick={() => onNavigate?.(item.id)}
               className={`flex min-h-12 flex-col items-center justify-center gap-1 border border-transparent py-1 transition-colors ${
                 activePage === item.id
-                  ? "bg-[#e2ff00] text-black"
-                  : "hover:border-[#454545] hover:text-white"
+                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                  : "hover:border-[#cfcfcf] hover:text-[#1a1a1a] dark:hover:border-[#454545] dark:hover:text-white"
               }`}
             >
               <Icon className="h-5 w-5" />

@@ -19,7 +19,7 @@ function MainLayout({
   const pollRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const { isDark } = useThemeMode();
-  const useOnyxDashboardChrome = isDark && activePage === "dashboard";
+  const useDashboardChrome = activePage === "dashboard";
 
   const formatDuration = (sec) => {
     const total = Math.max(0, Math.floor(sec || 0));
@@ -76,7 +76,11 @@ function MainLayout({
   const showReturnTraining = activePage !== "registrar" && activeTraining;
 
   return (
-    <div className="app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
+    <div
+      className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors ${
+        useDashboardChrome ? "dashboard-app-shell" : ""
+      }`}
+    >
       {showReturnTraining && (
         <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm hidden md:block">
           <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
@@ -102,11 +106,11 @@ function MainLayout({
         <div
           className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 md:px-8 md:py-8 ${
             showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
-          } ${isDark ? "max-md:pb-24" : ""} ${useOnyxDashboardChrome ? "max-md:pt-0" : ""}`}
+          } ${useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : isDark ? "max-md:pb-24" : ""}`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
-              useOnyxDashboardChrome ? "hidden md:flex" : "flex"
+              useDashboardChrome ? "hidden" : "flex"
             } ${
               showReturnTraining
                 ? "fixed top-0 left-0 right-0 z-40 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
@@ -189,7 +193,9 @@ function MainLayout({
 
       <div
         className={
-          isDark ? "fixed inset-x-0 bottom-0 z-40 md:hidden" : "hidden"
+          isDark || useDashboardChrome
+            ? "fixed inset-x-0 bottom-0 z-40 md:hidden"
+            : "hidden"
         }
       >
         <MobileNav activePage={activePage} onNavigate={onNavigate} />
