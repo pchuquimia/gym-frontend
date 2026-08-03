@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -6,6 +6,8 @@ import {
   Bed,
   CalendarDays,
   Dumbbell,
+  Minus,
+  Plus,
   Sparkles,
   X,
 } from "lucide-react";
@@ -43,28 +45,7 @@ const PRESETS = {
   ],
 };
 
-const normalizeText = (value = "") =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-const findTemplate = (focus, templates) => {
-  const terms = {
-    Empuje: ["empuje", "push"],
-    Jale: ["jale", "traccion", "pull", "espalda"],
-    Piernas: ["pierna", "lower"],
-    "Tren superior": ["tren superior", "upper", "torso"],
-    "Tren inferior": ["tren inferior", "lower", "pierna"],
-    "Full body": ["full body", "cuerpo completo"],
-  }[focus] || [normalizeText(focus)];
-  return templates.find((routine) => {
-    const name = normalizeText(routine.name);
-    return terms.some((term) => name.includes(term));
-  });
-};
-
-const createSchedule = (preset = PRESETS.ppl, templates = []) =>
+const createSchedule = (preset = PRESETS.ppl) =>
   preset.map((focus, index) => ({
     dayIndex: index + 1,
     type:
@@ -74,22 +55,35 @@ const createSchedule = (preset = PRESETS.ppl, templates = []) =>
           ? "recovery"
           : "training",
     focus: focus === "Descanso" ? "" : focus,
-    sourceRoutineId:
-      focus === "Descanso" || focus === "Recuperacion"
+    slotId: `slot_${index + 1}`,
+    order: index + 1,
+    sourceRoutineId: "",
+  }));
+
+const createCycleSchedule = (length = 4) =>
+  Array.from({ length }, (_, index) => ({
+    dayIndex: index + 1,
+    type: index === 0 ? "rest" : "training",
+    focus:
+      index === 0
         ? ""
-        : findTemplate(focus, templates)?.id ||
-          findTemplate(focus, templates)?._id ||
-          "",
+        : ["Piernas", "Pecho", "Espalda"][index - 1] || "Entrenamiento",
+    slotId: `slot_${index + 1}`,
+    order: index + 1,
+    sourceRoutineId: "",
   }));
 
 export default function CoachPlanModal({
   athlete,
-  templates,
+  templates = [],
   initialData,
   replacingPlan,
+  manageRoutinesSeparately = false,
   onSave,
   onClose,
 }) {
+  const dialogRef = useRef(null);
+  const onCloseRef = useRef(onClose);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(initialData?._id || initialData?.id);
@@ -102,25 +96,64 @@ export default function CoachPlanModal({
     initialData?.durationWeeks || 8,
   );
   const [startDate, setStartDate] = useState(
-    initialData?.startDate ? String(initialData.startDate).slice(0, 10) : "",
+    initialData?.startDate
+      ? String(initialData.startDate).slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
   );
-  const [strategy, setStrategy] = useState(
-    initialData?.progression?.strategy || "double_progression",
-  );
-  const [deloadEveryWeeks, setDeloadEveryWeeks] = useState(
-    initialData?.progression?.deloadEveryWeeks ?? 4,
+  const [scheduleMode, setScheduleMode] = useState(
+    initialData?.scheduleMode === "flexible_guided"
+      ? "sequential_cycle"
+      : initialData?.scheduleMode || "fixed",
   );
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [schedule, setSchedule] = useState(() =>
-    initialData?.weeklySchedule?.length === 7
+    initialData?.weeklySchedule?.length
       ? initialData.weeklySchedule.map((day, index) => ({
           dayIndex: index + 1,
+          slotId: day.slotId || `slot_${index + 1}`,
+          order: day.order || index + 1,
           type: day.type || "training",
           focus: day.focus || "",
           sourceRoutineId: day.sourceRoutineId || "",
         }))
-      : createSchedule(PRESETS.ppl, templates),
+      : createSchedule(PRESETS.ppl),
   );
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onCloseRef.current?.();
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, []);
 
   const trainingDays = useMemo(
     () => schedule.filter((day) => day.type === "training").length,
@@ -138,6 +171,17 @@ export default function CoachPlanModal({
   }, [schedule, templates]);
   const validDuration =
     Number(durationWeeks) >= 1 && Number(durationWeeks) <= 52;
+  const endDate = useMemo(() => {
+    if (!startDate || !validDuration) return "";
+    const value = new Date(`${startDate}T00:00:00Z`);
+    value.setUTCDate(value.getUTCDate() + Number(durationWeeks) * 7 - 1);
+    return value.toLocaleDateString("es-BO", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  }, [durationWeeks, startDate, validDuration]);
 
   const updateDay = (index, changes) => {
     setSchedule((current) =>
@@ -155,17 +199,40 @@ export default function CoachPlanModal({
     );
   };
 
-  const applyPreset = (preset) =>
-    setSchedule(createSchedule(PRESETS[preset], templates));
+  const changeScheduleMode = (mode) => {
+    setScheduleMode(mode);
+    setSchedule((current) => {
+      if (mode === "fixed") {
+        return current.length === 7 ? current : createSchedule(PRESETS.ppl);
+      }
+      if (scheduleMode === "fixed") return createCycleSchedule();
+      return current.length >= 2 && current.length <= 28
+        ? current
+        : createCycleSchedule();
+    });
+  };
+
+  const resizeCycle = (delta) => {
+    setSchedule((current) => {
+      const nextLength = Math.min(28, Math.max(2, current.length + delta));
+      if (nextLength === current.length) return current;
+      if (nextLength < current.length) return current.slice(0, nextLength);
+      return [
+        ...current,
+        ...Array.from({ length: nextLength - current.length }, (_, index) => ({
+          dayIndex: current.length + index + 1,
+          type: "training",
+          focus: "Entrenamiento",
+          slotId: `slot_${current.length + index + 1}`,
+          order: current.length + index + 1,
+          sourceRoutineId: "",
+        })),
+      ];
+    });
+  };
 
   const submit = async () => {
-    if (
-      !name.trim() ||
-      !validDuration ||
-      !trainingDays ||
-      missingRoutines ||
-      saving
-    )
+    if (!name.trim() || !validDuration || !trainingDays || !startDate || saving)
       return;
     setSaving(true);
     try {
@@ -175,11 +242,8 @@ export default function CoachPlanModal({
         goal,
         durationWeeks: Number(durationWeeks),
         startDate: startDate || null,
+        scheduleMode,
         weeklySchedule: schedule,
-        progression: {
-          strategy,
-          deloadEveryWeeks: Number(deloadEveryWeeks),
-        },
         notes: notes.trim(),
       });
     } finally {
@@ -188,15 +252,22 @@ export default function CoachPlanModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4">
-      <div className="flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-3xl sm:rounded-lg">
+    <div className="routines-shell fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEditing ? "Editar planificación" : "Crear planificación"}
+        tabIndex={-1}
+        className="flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl outline-none sm:max-w-3xl sm:rounded-lg dark:sm:rounded-[4px]"
+      >
         <header className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:px-6">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+            <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               Paso {step} de 2 · {athlete.name}
             </p>
             <h2 className="mt-1 truncate text-xl font-black">
-              {step === 1 ? "Estructura del plan" : "Semana de entrenamiento"}
+              {step === 1 ? "Estructura del plan" : "Orden de entrenamiento"}
             </h2>
             {!isEditing && replacingPlan ? (
               <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
@@ -223,7 +294,7 @@ export default function CoachPlanModal({
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={100}
-                  className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  className="theme-accent-focus mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold outline-none"
                 />
               </label>
 
@@ -280,80 +351,85 @@ export default function CoachPlanModal({
                     onChange={(event) => setStartDate(event.target.value)}
                     className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
                   />
+                  {endDate ? (
+                    <span className="mt-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
+                      Finaliza el {endDate}
+                    </span>
+                  ) : null}
                 </label>
               </div>
 
-              <div className="grid gap-4 border-y border-[color:var(--border)] py-5 sm:grid-cols-2">
-                <label>
-                  <span className="text-xs font-black">Progresion</span>
-                  <select
-                    value={strategy}
-                    onChange={(event) => setStrategy(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                  >
-                    <option value="double_progression">Doble progresion</option>
-                    <option value="linear">Carga lineal</option>
-                    <option value="rpe">Autorregulacion por RPE</option>
-                    <option value="custom">Personalizada</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="text-xs font-black">Semana de descarga</span>
-                  <select
-                    value={deloadEveryWeeks}
-                    onChange={(event) =>
-                      setDeloadEveryWeeks(event.target.value)
-                    }
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                  >
-                    <option value="0">Sin descarga programada</option>
-                    <option value="3">Cada 3 semanas</option>
-                    <option value="4">Cada 4 semanas</option>
-                    <option value="6">Cada 6 semanas</option>
-                    <option value="8">Cada 8 semanas</option>
-                  </select>
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-xs font-black">Notas para el atleta</span>
+              <label className="block border-t border-[color:var(--border)] pt-4">
+                <span className="text-xs font-black">Notas opcionales</span>
                 <textarea
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   maxLength={1000}
                   rows={3}
-                  placeholder="Indicaciones generales, restricciones o criterios para progresar"
-                  className="mt-2 w-full resize-none rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-sm font-semibold outline-none focus:border-blue-500"
+                  placeholder="Indicaciones generales o restricciones"
+                  className="theme-accent-focus mt-2 w-full resize-none rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-sm font-semibold outline-none"
                 />
               </label>
             </div>
           ) : (
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 text-xs font-black text-[color:var(--text-muted)]">
-                  Empezar con
-                </span>
-                <button
-                  type="button"
-                  onClick={() => applyPreset("ppl")}
-                  className="h-9 rounded-lg border border-blue-500 px-3 text-xs font-black text-blue-700 dark:text-blue-300"
+            <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <fieldset
+                  className={scheduleMode === "fixed" ? "sm:col-span-2" : ""}
                 >
-                  Empuje / Jale / Piernas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset("balanced")}
-                  className="h-9 rounded-lg border border-[color:var(--border)] px-3 text-xs font-black"
-                >
-                  Equilibrado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset("beginner")}
-                  className="h-9 rounded-lg border border-[color:var(--border)] px-3 text-xs font-black"
-                >
-                  Principiante 3 dias
-                </button>
+                  <legend className="text-xs font-black">
+                    Orden de entrenamiento
+                  </legend>
+                  <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--border)] p-1">
+                    {[
+                      { id: "fixed", label: "Semana fija" },
+                      { id: "sequential_cycle", label: "Ciclo libre" },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => changeScheduleMode(option.id)}
+                        className={`h-11 rounded-md px-2 text-xs font-black transition ${
+                          scheduleMode === option.id
+                            ? "theme-accent-solid"
+                            : "text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                {scheduleMode !== "fixed" ? (
+                  <fieldset>
+                    <legend className="text-xs font-black">
+                      Duracion del ciclo
+                    </legend>
+                    <div className="mt-2 flex h-[54px] items-center justify-between rounded-lg border border-[color:var(--border)] px-1">
+                      <button
+                        type="button"
+                        onClick={() => resizeCycle(-1)}
+                        disabled={schedule.length <= 2}
+                        className="grid h-11 w-11 place-items-center disabled:opacity-30"
+                        aria-label="Quitar un dia del ciclo"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <strong className="text-sm">
+                        {schedule.length} dias
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => resizeCycle(1)}
+                        disabled={schedule.length >= 28}
+                        className="grid h-11 w-11 place-items-center disabled:opacity-30"
+                        aria-label="Agregar un dia al ciclo"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </fieldset>
+                ) : null}
               </div>
 
               <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
@@ -363,15 +439,17 @@ export default function CoachPlanModal({
                     className="grid gap-2 py-3 sm:grid-cols-[92px_130px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
                   >
                     <span className="text-sm font-black">
-                      {DAY_NAMES[index]}
+                      {scheduleMode === "fixed"
+                        ? DAY_NAMES[index]
+                        : `Dia ${index + 1}`}
                     </span>
                     <select
                       value={day.type}
                       onChange={(event) =>
                         updateDay(index, { type: event.target.value })
                       }
-                      aria-label={`Tipo de ${DAY_NAMES[index]}`}
-                      className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-bold"
+                      aria-label={`Tipo de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
+                      className="h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold"
                     >
                       <option value="training">Entrenamiento</option>
                       <option value="recovery">Recuperacion</option>
@@ -386,29 +464,35 @@ export default function CoachPlanModal({
                           }
                           maxLength={80}
                           placeholder="Enfoque: Empuje"
-                          aria-label={`Enfoque de ${DAY_NAMES[index]}`}
-                          className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-semibold"
+                          aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
+                          className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
                         />
-                        <select
-                          value={day.sourceRoutineId}
-                          onChange={(event) =>
-                            updateDay(index, {
-                              sourceRoutineId: event.target.value,
-                            })
-                          }
-                          aria-label={`Rutina de ${DAY_NAMES[index]}`}
-                          className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-semibold"
-                        >
-                          <option value="">Selecciona una rutina</option>
-                          {templates.map((routine) => (
-                            <option
-                              key={routine.id || routine._id}
-                              value={routine.id || routine._id}
-                            >
-                              {routine.name}
-                            </option>
-                          ))}
-                        </select>
+                        {isEditing && !manageRoutinesSeparately ? (
+                          <select
+                            value={day.sourceRoutineId}
+                            onChange={(event) =>
+                              updateDay(index, {
+                                sourceRoutineId: event.target.value,
+                              })
+                            }
+                            aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
+                            className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-semibold"
+                          >
+                            <option value="">Selecciona una rutina</option>
+                            {templates.map((routine) => (
+                              <option
+                                key={routine.id || routine._id}
+                                value={routine.id || routine._id}
+                              >
+                                {routine.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="flex h-11 items-center rounded-lg border border-dashed border-[color:var(--border)] px-3 text-xs font-bold text-[color:var(--text-muted)]">
+                            La rutina se crea despues
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex h-10 items-center gap-2 text-xs font-bold text-[color:var(--text-muted)] sm:col-span-2">
@@ -426,13 +510,13 @@ export default function CoachPlanModal({
                 ))}
               </div>
 
-              {missingRoutines ? (
+              {isEditing && !manageRoutinesSeparately && missingRoutines ? (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="text-xs font-bold">
                     {templates.length
                       ? `Selecciona una rutina para ${missingRoutines} ${missingRoutines === 1 ? "dia" : "dias"}.`
-                      : "Primero crea plantillas de rutina. Un plan activo no puede contener dias sin ejercicios definidos."}
+                      : "Crea primero las rutinas que formaran parte de esta planificacion."}
                   </p>
                 </div>
               ) : null}
@@ -472,22 +556,26 @@ export default function CoachPlanModal({
           {step === 1 ? (
             <Button
               className="h-11 rounded-lg"
-              disabled={!name.trim() || !validDuration}
+              disabled={!name.trim() || !validDuration || !startDate}
               onClick={() => setStep(2)}
             >
-              Configurar semana <ArrowRight className="h-4 w-4" />
+              Configurar estructura <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button
               className="h-11 rounded-lg"
-              disabled={!trainingDays || Boolean(missingRoutines) || saving}
+              disabled={!trainingDays || saving}
               onClick={submit}
             >
               {saving
                 ? "Guardando..."
                 : isEditing
-                  ? "Guardar cambios"
-                  : "Crear y activar plan"}
+                  ? manageRoutinesSeparately
+                    ? "Guardar cambios"
+                    : missingRoutines
+                      ? "Guardar borrador"
+                      : "Guardar y activar"
+                  : "Crear planificacion"}
             </Button>
           )}
         </footer>

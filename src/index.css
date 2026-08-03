@@ -118,6 +118,127 @@ button,
   background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
 }
 
+.routines-shell {
+  --text-muted: #68686d;
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  font-stretch: condensed;
+  letter-spacing: 0;
+}
+
+.dark .routines-shell {
+  --text-muted: #b8b8a6;
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+}
+
+.routines-shell p,
+.routines-shell span,
+.routines-shell a,
+.routines-shell input,
+.routines-shell select,
+.routines-shell textarea {
+  font-family: inherit;
+}
+
+.routines-shell .font-black {
+  font-weight: 700;
+}
+
+.routines-shell h1,
+.routines-shell h2,
+.routines-shell h3,
+.routines-shell h4 {
+  line-height: 1.05;
+}
+
+.routines-shell p {
+  line-height: 1.25;
+}
+
+.routines-shell .text-\[9px\],
+.routines-shell .text-\[10px\] {
+  font-size: 11px;
+}
+
+.theme-accent-text {
+  color: var(--accent-strong);
+}
+
+.dark .theme-accent-text {
+  color: var(--accent);
+}
+
+.theme-accent-solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.dark .theme-accent-solid {
+  color: #050505;
+}
+
+.theme-accent-soft {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-strong);
+}
+
+.dark .theme-accent-soft {
+  color: var(--accent);
+}
+
+.theme-accent-focus:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.routines-surface {
+  border-radius: 8px;
+}
+
+.dark .routines-surface {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.routines-shell [class~="text-blue-700"],
+.routines-shell [class~="text-blue-600"],
+.dark .routines-shell [class~="dark:text-blue-200"],
+.dark .routines-shell [class~="dark:text-blue-300"] {
+  color: var(--accent-strong) !important;
+}
+
+.dark .routines-shell [class~="dark:text-blue-200"],
+.dark .routines-shell [class~="dark:text-blue-300"] {
+  color: var(--accent) !important;
+}
+
+.routines-shell [class~="bg-blue-600"],
+.routines-shell [class~="bg-blue-500"] {
+  background-color: var(--accent) !important;
+}
+
+.dark .routines-shell [class~="bg-blue-600"],
+.dark .routines-shell [class~="bg-blue-500"] {
+  color: #050505 !important;
+}
+
+.routines-shell [class~="bg-blue-500/10"],
+.routines-shell [class~="bg-blue-500/5"] {
+  background-color: color-mix(
+    in srgb,
+    var(--accent) 10%,
+    transparent
+  ) !important;
+}
+
+.routines-shell [class~="border-blue-300"],
+.routines-shell [class~="border-blue-400"],
+.routines-shell [class~="border-blue-500"],
+.routines-shell [class~="border-blue-600"] {
+  border-color: var(--accent) !important;
+}
+
 /* Escala legible y estable para el dashboard en ambos temas. */
 .dashboard-shell {
   font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
@@ -139,6 +260,23 @@ button,
 .training-shell {
   font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
   letter-spacing: 0;
+}
+
+.training-schedule {
+  background-image: radial-gradient(
+    circle,
+    rgba(26, 26, 26, 0.1) 0.8px,
+    transparent 0.9px
+  );
+  background-size: 18px 18px;
+}
+
+.dark .training-schedule {
+  background-image: radial-gradient(
+    circle,
+    rgba(216, 255, 0, 0.12) 0.8px,
+    transparent 0.9px
+  );
 }
 
 .training-shell [class~="text-[8px]"],

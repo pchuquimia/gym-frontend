@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -15,9 +15,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
+  Bed,
   Check,
+  Archive,
   CalendarDays,
   ChevronDown,
+  ChevronRight,
   Copy,
   Dumbbell,
   GripVertical,
@@ -26,7 +30,9 @@ import {
   Loader2,
   MapPin,
   MoreVertical,
+  Pause,
   Pencil,
+  Play,
   Plus,
   RotateCcw,
   Search,
@@ -41,9 +47,113 @@ import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 import { api } from "../services/api";
+import CoachPlanModal from "../components/coach/CoachPlanModal";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const formatPlanDate = (value) =>
+  value
+    ? new Date(value).toLocaleDateString("es-BO", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    : "";
+const getPlanEndDate = (plan) => {
+  if (plan?.endDate) return plan.endDate;
+  if (!plan?.startDate) return "";
+  const end = new Date(plan.startDate);
+  end.setUTCDate(end.getUTCDate() + Number(plan.durationWeeks || 1) * 7 - 1);
+  return end;
+};
+const getPlanTimeProgress = (plan, now = new Date()) => {
+  if (!plan?.startDate) {
+    return { percentage: 0, message: "Sin fecha de inicio" };
+  }
+  const start = new Date(plan.startDate);
+  const end = new Date(getPlanEndDate(plan));
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+  const endExclusive = new Date(end);
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const totalMs = Math.max(1, endExclusive.getTime() - start.getTime());
+  const elapsedMs = Math.min(
+    totalMs,
+    Math.max(0, now.getTime() - start.getTime()),
+  );
+  const percentage = Math.round((elapsedMs / totalMs) * 100);
+
+  if (now < start) {
+    const days = Math.max(
+      1,
+      Math.ceil((start.getTime() - now.getTime()) / 86400000),
+    );
+    return {
+      percentage,
+      message: `Comienza en ${days} ${days === 1 ? "dia" : "dias"}`,
+    };
+  }
+  if (now >= endExclusive) {
+    return { percentage: 100, message: "Periodo finalizado" };
+  }
+  const days = Math.max(
+    1,
+    Math.ceil((endExclusive.getTime() - now.getTime()) / 86400000),
+  );
+  return {
+    percentage,
+    message: `${days} ${days === 1 ? "dia restante" : "dias restantes"}`,
+  };
+};
+const PLAN_DAY_NAMES = [
+  "Lunes",
+  "Martes",
+  "Miercoles",
+  "Jueves",
+  "Viernes",
+  "Sabado",
+  "Domingo",
+];
+const PLAN_STATUS_LABELS = {
+  active: "Vigente",
+  scheduled: "Programada",
+  draft: "Borrador",
+  paused: "Pausada",
+  completed: "Completada",
+  cancelled: "Archivada",
+};
+const getRoutineExerciseSummary = (routine) => {
+  const exercises = routine?.exercises || [];
+  const optionalCount = exercises.filter((exercise) => exercise.isExtra).length;
+  const baseCount = exercises.length - optionalCount;
+  return `${baseCount} ejercicios${optionalCount ? ` + ${optionalCount} ${optionalCount === 1 ? "opcional" : "opcionales"}` : ""}`;
+};
+const TRAINING_PLAN_ROUTINE_INTENT_KEY = "training_plan_routine_intent";
+const getPlanWeekIndex = (plan) => {
+  if (!plan?.startDate) return 0;
+  const start = new Date(plan.startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return Math.min(
+    Math.max(0, Number(plan.durationWeeks || 1) - 1),
+    Math.max(0, Math.floor((today - start) / (7 * 86400000))),
+  );
+};
+const getPlanDayDate = (plan, weekIndex, dayIndex) => {
+  const date = new Date(plan.startDate);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + weekIndex * 7 + dayIndex);
+  return date;
+};
+const toPlanIsoDate = (date) => date.toISOString().slice(0, 10);
+const formatPlanDayDate = (date) =>
+  date.toLocaleDateString("es-BO", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 const GLOBAL_ORDER_GROUP = "Orden de la rutina";
 const SETUP_MUSCLE_ORDER = [
   "Pecho",
@@ -341,8 +451,9 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
             </p>
             <h3 className="mt-1 truncate text-lg font-black">{routine.name}</h3>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-              Esta accion no se puede deshacer. Desliza hasta el final para
-              confirmar.
+              {routine.plan
+                ? `Esta rutina pertenece a ${routine.plan.name}. Al eliminarla, la planificación volverá a borrador hasta que asignes un reemplazo.`
+                : "Esta accion no se puede deshacer. Desliza hasta el final para confirmar."}
             </p>
           </div>
         </div>
@@ -1205,14 +1316,14 @@ function RoutineModal({
         <div className="mb-4 flex items-center gap-2 overflow-x-auto text-xs font-black text-[color:var(--text-muted)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span
             className={`shrink-0 rounded-full px-3 py-1.5 ${
-              isSetupStep ? "bg-blue-600 text-white" : "bg-[color:var(--bg)]"
+              isSetupStep ? "theme-accent-solid" : "bg-[color:var(--bg)]"
             }`}
           >
             1. Enfoque
           </span>
           <span
             className={`shrink-0 rounded-full px-3 py-1.5 ${
-              !isSetupStep ? "bg-blue-600 text-white" : "bg-[color:var(--bg)]"
+              !isSetupStep ? "theme-accent-solid" : "bg-[color:var(--bg)]"
             }`}
           >
             2. Ejercicios
@@ -1222,7 +1333,7 @@ function RoutineModal({
           <div className="mx-auto max-w-xl space-y-4">
             <div className="px-1 sm:px-2">
               <div className="mb-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
                   Nueva rutina
                 </p>
                 <h2 className="mt-1 text-2xl font-black leading-tight text-[color:var(--text)]">
@@ -1231,7 +1342,7 @@ function RoutineModal({
               </div>
 
               <div className="block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
                   Tipo de rutina
                 </span>
                 <div className="grid grid-cols-2 gap-2">
@@ -1242,7 +1353,7 @@ function RoutineModal({
                       onClick={() => handleRoutineTypeSelect(type.id)}
                       className={`rounded-2xl border p-3 text-left transition ${
                         routineType === type.id
-                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                          ? "theme-accent-soft"
                           : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
                       }`}
                     >
@@ -1319,7 +1430,7 @@ function RoutineModal({
                         onClick={() => handleBranchChange(option)}
                         className={`flex h-12 items-center justify-between rounded-xl border px-3 text-left transition ${
                           branch === option
-                            ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                            ? "theme-accent-soft"
                             : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1329,7 +1440,7 @@ function RoutineModal({
                         <span
                           className={`h-5 w-5 rounded-full border ${
                             branch === option
-                              ? "border-blue-500 bg-blue-500 shadow-[inset_0_0_0_4px_var(--card)]"
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent)] shadow-[inset_0_0_0_4px_var(--card)]"
                               : "border-[color:var(--border)]"
                           }`}
                         />
@@ -1353,7 +1464,7 @@ function RoutineModal({
                       }}
                       className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
                         progressMode === "fresh"
-                          ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                          ? "theme-accent-soft"
                           : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
                       }`}
                     >
@@ -1431,7 +1542,7 @@ function RoutineModal({
                   Nombre de la rutina
                 </span>
                 <input
-                  className="h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  className="theme-accent-focus h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
                   placeholder="Ej. Pecho · Biceps"
                   value={effectiveRoutineName}
                   onChange={(e) => {
@@ -1483,7 +1594,7 @@ function RoutineModal({
                         Nombre
                       </span>
                       <input
-                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                        className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
                         placeholder="Ej. Pecho - Biceps"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -1502,7 +1613,7 @@ function RoutineModal({
                               onClick={() => handleBranchChange(option)}
                               className={`h-12 rounded-xl border px-2 text-xs font-black transition ${
                                 branch === option
-                                  ? "border-blue-400 bg-blue-500/10 text-blue-700 shadow-sm dark:text-blue-200"
+                                  ? "theme-accent-soft"
                                   : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                               }`}
                             >
@@ -1708,7 +1819,7 @@ function RoutineModal({
                                               pattern="[0-9]*"
                                               enterKeyHint="done"
                                               aria-label={`Series de ${ex.name}`}
-                                              className="h-11 w-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-sm font-black tabular-nums text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:h-10 sm:w-14 sm:rounded-xl"
+                                              className="theme-accent-focus h-11 w-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-sm font-black tabular-nums text-[color:var(--text)] outline-none sm:h-10 sm:w-14 sm:rounded-xl"
                                               value={ex.sets}
                                               onChange={(event) =>
                                                 updateExercise(ex.idx, {
@@ -1731,7 +1842,7 @@ function RoutineModal({
                                             <Button
                                               size="icon"
                                               variant="ghost"
-                                              className="h-11 w-10 rounded-lg p-0 text-blue-700 dark:text-blue-300 sm:h-10 sm:w-10 sm:rounded-xl"
+                                              className="theme-accent-text h-11 w-10 rounded-lg p-0 sm:h-10 sm:w-10 sm:rounded-xl"
                                               onClick={() =>
                                                 setOptionsExerciseId(
                                                   ex.exerciseId,
@@ -2637,6 +2748,422 @@ function RoutineModal({
   );
 }
 
+function PlanRoutineChoiceModal({
+  day,
+  routines,
+  onCreate,
+  onAssign,
+  onClose,
+}) {
+  const [query, setQuery] = useState("");
+  const [assigningId, setAssigningId] = useState(null);
+  const currentRoutineId = String(day?.routineId || "");
+  const options = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return routines
+      .filter((routine) => routine.isArchived !== true)
+      .filter((routine) =>
+        normalized
+          ? String(routine.name || "")
+              .toLowerCase()
+              .includes(normalized)
+          : true,
+      )
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }, [query, routines]);
+
+  const assign = async (routineId) => {
+    setAssigningId(routineId);
+    try {
+      await onAssign(routineId);
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
+  return (
+    <Modal
+      title={
+        day?.routineId
+          ? "Cambiar rutina"
+          : day?.focus || "Configurar entrenamiento"
+      }
+      subtitle={
+        day?.routineId
+          ? `Selecciona el reemplazo para ${day.focus || "este bloque"}`
+          : "Selecciona una rutina para este bloque"
+      }
+      onClose={onClose}
+    >
+      <div className="space-y-4 pb-2">
+        <Button className="h-12 w-full gap-2" onClick={onCreate}>
+          <Plus className="h-4 w-4" />
+          Crear una rutina nueva
+        </Button>
+
+        {routines.length ? (
+          <>
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar rutina guardada"
+                autoFocus
+                className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm font-semibold outline-none"
+              />
+            </div>
+            <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+              {options.length ? (
+                options.map((routine) => {
+                  const routineId = String(routine.id || routine._id);
+                  const isCurrent = routineId === currentRoutineId;
+                  const muscles = [
+                    ...new Set(
+                      (routine.exercises || [])
+                        .map((exercise) => exercise.muscle)
+                        .filter(Boolean),
+                    ),
+                  ].slice(0, 2);
+                  return (
+                    <button
+                      key={routineId}
+                      type="button"
+                      onClick={() => assign(routineId)}
+                      disabled={Boolean(assigningId) || isCurrent}
+                      className="flex min-h-14 w-full items-center justify-between gap-3 py-3 text-left disabled:opacity-60"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-[color:var(--text)]">
+                          {routine.name}
+                        </span>
+                        <span className="mt-0.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                          {getRoutineExerciseSummary(routine)} ·{" "}
+                          {branchLabel(routine.branch)}
+                          {muscles.length ? ` · ${muscles.join(" + ")}` : ""}
+                        </span>
+                      </span>
+                      <span className="theme-accent-text shrink-0 text-xs font-black">
+                        {isCurrent
+                          ? "Actual"
+                          : assigningId === routineId
+                            ? "Vinculando..."
+                            : "Usar"}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                  No hay coincidencias
+                </p>
+              )}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
+function RoutineToolbar({
+  showSearch,
+  searchTerm,
+  setSearchTerm,
+  showBranchFilter,
+  activeBranch,
+  setActiveBranch,
+  branchCounts,
+}) {
+  if (!showSearch && !showBranchFilter) return null;
+  const branches = [
+    { id: "all", label: "Todas", count: branchCounts.all },
+    { id: "sopocachi", label: "Sopocachi", count: branchCounts.sopocachi },
+    { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
+  ];
+  return (
+    <section className="mt-5">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        {showSearch ? (
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar rutina"
+              className="theme-accent-focus routines-surface h-11 w-full border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+            />
+          </div>
+        ) : (
+          <div />
+        )}
+        {showBranchFilter ? (
+          <div className="routines-surface grid grid-cols-3 gap-1 border border-[color:var(--border)] bg-[color:var(--card)] p-1">
+            {branches.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveBranch(item.id)}
+                className={`h-10 rounded-md px-3 text-xs font-black transition ${
+                  activeBranch === item.id
+                    ? "theme-accent-solid"
+                    : "text-[color:var(--text-muted)]"
+                }`}
+              >
+                {item.label} <span className="opacity-75">{item.count}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function TrainingPlanSchedule({
+  plan,
+  routines,
+  trainings,
+  selectedWeek,
+  isManagedClient,
+  onChooseRoutine,
+  onEditRoutine,
+  onStartRoutine,
+  onAdvanceCycle,
+  advancingCycle,
+}) {
+  const sequential = plan.scheduleMode !== "fixed";
+  const schedule = plan.weeklySchedule || [];
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const currentCycleIndex = Math.min(
+    schedule.length - 1,
+    Math.max(0, Number(plan.cycleProgress?.currentIndex || 0)),
+  );
+  const weekStart = getPlanDayDate(plan, selectedWeek, 0);
+  const weekEnd = getPlanDayDate(plan, selectedWeek, 6);
+  const routineById = new Map(
+    routines.map((routine) => [String(routine.id || routine._id), routine]),
+  );
+  const weekTrainings = (trainings || []).filter((training) => {
+    if (sequential) return false;
+    const date = String(training.date || "").slice(0, 10);
+    return date >= toPlanIsoDate(weekStart) && date <= toPlanIsoDate(weekEnd);
+  });
+  const completedTrainingDays = schedule.filter((day, index) => {
+    if (day.type !== "training" || !day.routineId || sequential) return false;
+    const date = toPlanIsoDate(getPlanDayDate(plan, selectedWeek, index));
+    return weekTrainings.some(
+      (training) =>
+        String(training.date).slice(0, 10) === date &&
+        ((training.trainingPlanId &&
+          String(training.trainingPlanId) === String(plan._id || plan.id) &&
+          training.trainingPlanSlotId === day.slotId) ||
+          String(training.routineId) === String(day.routineId)),
+    );
+  }).length;
+  const totalTrainingDays = schedule.filter(
+    (day) => day.type === "training",
+  ).length;
+
+  return (
+    <div className="mt-5">
+      {!sequential ? (
+        <>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                Cumplimiento semanal
+              </p>
+              <p className="mt-1 text-xs font-bold">
+                {formatPlanDayDate(weekStart)} - {formatPlanDayDate(weekEnd)}
+              </p>
+            </div>
+            <strong className="theme-accent-text text-xs uppercase">
+              {completedTrainingDays} de {totalTrainingDays} completados
+            </strong>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden bg-[color:var(--border)]">
+            <div
+              className="theme-accent-solid h-full border-0 transition-all"
+              style={{
+                width: `${totalTrainingDays ? (completedTrainingDays / totalTrainingDays) * 100 : 0}%`,
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="border-b border-[color:var(--border)] pb-4">
+          <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+            Ciclo secuencial libre
+          </p>
+          <div className="mt-1 flex items-end justify-between gap-3">
+            <h3 className="text-xl font-black">Sigue el orden del patrón</h3>
+            <span className="theme-accent-soft rounded px-2.5 py-1 text-xs font-black">
+              Día {currentCycleIndex + 1} de {schedule.length}
+            </span>
+          </div>
+          <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
+            El ciclo avanza al guardar una sesión o confirmar un descanso.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {schedule.map((day, index) => {
+          const date = sequential
+            ? null
+            : getPlanDayDate(plan, selectedWeek, index);
+          const dateIso = date ? toPlanIsoDate(date) : "";
+          const isToday = dateIso === todayIso;
+          const isCurrent = sequential ? index === currentCycleIndex : isToday;
+          const routine = day.routineId
+            ? routineById.get(String(day.routineId))
+            : null;
+          const training = !sequential
+            ? weekTrainings.find(
+                (item) =>
+                  String(item.date).slice(0, 10) === dateIso &&
+                  ((item.trainingPlanId &&
+                    String(item.trainingPlanId) ===
+                      String(plan._id || plan.id) &&
+                    item.trainingPlanSlotId === day.slotId) ||
+                    String(item.routineId) === String(day.routineId)),
+              )
+            : null;
+          const isRest = day.type !== "training";
+          const dayTitle = isRest
+            ? day.type === "rest"
+              ? "Descanso completo"
+              : "Recuperación activa"
+            : day.focus || routine?.name || "Entrenamiento";
+          const routineSubtitle =
+            !isRest &&
+            routine?.name?.trim().toLowerCase() !==
+              dayTitle.trim().toLowerCase()
+              ? routine?.name
+              : "";
+          return (
+            <article
+              key={day.slotId || day.dayIndex}
+              className={`routines-surface border bg-[color:var(--card)] p-4 ${
+                isCurrent
+                  ? "border-[#ff5722] dark:border-[#e2ff00]"
+                  : "border-[color:var(--border)]"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h4
+                    className={`text-lg font-black uppercase ${isCurrent ? "theme-accent-text" : ""}`}
+                  >
+                    {sequential ? `Día ${index + 1}` : PLAN_DAY_NAMES[index]}
+                  </h4>
+                  <p className="mt-0.5 text-[11px] font-bold text-[color:var(--text-muted)]">
+                    {date ? formatPlanDayDate(date) : `Bloque ${index + 1}`}
+                  </p>
+                </div>
+                {training ? (
+                  <Check className="theme-accent-text h-5 w-5" />
+                ) : isCurrent ? (
+                  <span className="theme-accent-solid rounded px-2 py-1 text-[10px] font-black uppercase">
+                    Actual
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4">
+                <p className="text-[13px] font-black uppercase">{dayTitle}</p>
+                {isRest || routineSubtitle || !routine ? (
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    {isRest
+                      ? day.type === "rest"
+                        ? "Recupera antes del siguiente bloque"
+                        : "Movilidad y actividad ligera"
+                      : routineSubtitle || "Rutina pendiente de configurar"}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {isRest ? (
+                    <span className="border border-[color:var(--border)] px-2 py-1 text-[10px] font-black uppercase">
+                      Recuperación
+                    </span>
+                  ) : null}
+                  {!isRest && routine ? (
+                    <span className="border border-[color:var(--border)] px-2 py-1 text-[10px] font-black uppercase">
+                      {getRoutineExerciseSummary(routine)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3">
+                {!isRest && routine && !isManagedClient ? (
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4">
+                    <button
+                      type="button"
+                      onClick={() => onEditRoutine(routine)}
+                      className="theme-accent-text inline-flex h-11 items-center gap-2 text-xs font-black uppercase"
+                    >
+                      <Pencil className="h-4 w-4" /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChooseRoutine(day)}
+                      className="inline-flex h-11 items-center gap-2 text-xs font-black uppercase text-[color:var(--text)]"
+                    >
+                      <RotateCcw className="h-4 w-4" /> Cambiar rutina
+                    </button>
+                  </div>
+                ) : (
+                  <span />
+                )}
+                {training ? (
+                  <span className="text-xs font-black text-[color:var(--text-muted)]">
+                    {Math.round(
+                      Number(training.totalVolume || 0),
+                    ).toLocaleString("es-BO")}{" "}
+                    kg
+                  </span>
+                ) : null}
+              </div>
+
+              {day.type === "training" && !routine && !isManagedClient ? (
+                <button
+                  type="button"
+                  onClick={() => onChooseRoutine(day)}
+                  className="theme-accent-soft mt-3 flex h-11 w-full items-center justify-center border text-xs font-black uppercase"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Configurar rutina
+                </button>
+              ) : null}
+              {isCurrent && plan.status === "active" && routine ? (
+                <button
+                  type="button"
+                  onClick={() => onStartRoutine(day)}
+                  className="theme-accent-solid mt-3 flex h-12 w-full items-center justify-center gap-2 border-0 text-xs font-black uppercase"
+                >
+                  <Play className="h-4 w-4" /> Iniciar sesión
+                </button>
+              ) : null}
+              {sequential && isCurrent && plan.status === "active" && isRest ? (
+                <button
+                  type="button"
+                  disabled={advancingCycle}
+                  onClick={onAdvanceCycle}
+                  className="theme-accent-soft mt-3 flex h-12 w-full items-center justify-center gap-2 border text-xs font-black uppercase disabled:opacity-50"
+                >
+                  <Bed className="h-4 w-4" />{" "}
+                  {advancingCycle ? "Actualizando..." : "Completar y continuar"}
+                </button>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Routines({ onNavigate }) {
   const { user } = useAuth();
   const isManagedClient =
@@ -2647,6 +3174,7 @@ function Routines({ onNavigate }) {
     updateRoutine,
     deleteRoutine,
     duplicateRoutine,
+    reloadRoutines,
   } = useRoutines();
   const {
     exercises: libraryExercises,
@@ -2677,23 +3205,85 @@ function Routines({ onNavigate }) {
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
+  const [trainingPlans, setTrainingPlans] = useState([]);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [planDayChoice, setPlanDayChoice] = useState(null);
+  const [replacementPlanDay, setReplacementPlanDay] = useState(null);
+  const [archivePlanConfirmOpen, setArchivePlanConfirmOpen] = useState(false);
+  const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
+  const [advancingCycle, setAdvancingCycle] = useState(false);
+  const [showRoutineLibrary, setShowRoutineLibrary] = useState(false);
+  const missingPlanRoutines = useMemo(
+    () =>
+      (activePlan?.weeklySchedule || []).filter(
+        (day) => day.type === "training" && !day.routineId,
+      ).length,
+    [activePlan],
+  );
+  const planTrainingDays = useMemo(
+    () =>
+      (activePlan?.weeklySchedule || []).filter(
+        (day) => day.type === "training",
+      ).length,
+    [activePlan],
+  );
+  const configuredPlanRoutines = planTrainingDays - missingPlanRoutines;
+  const currentActivePlan = useMemo(
+    () => trainingPlans.find((plan) => plan.status === "active") || null,
+    [trainingPlans],
+  );
+  const orderedTrainingPlans = useMemo(() => {
+    const statusOrder = {
+      active: 0,
+      scheduled: 1,
+      draft: 2,
+      paused: 3,
+      completed: 4,
+      cancelled: 5,
+    };
+    return [...trainingPlans].sort(
+      (a, b) =>
+        (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) ||
+        getDateTimestamp(b.updatedAt) - getDateTimestamp(a.updatedAt),
+    );
+  }, [trainingPlans]);
+  const routinePlanById = useMemo(() => {
+    const map = new Map();
+    trainingPlans
+      .filter((plan) => ["active", "scheduled", "draft"].includes(plan.status))
+      .forEach((plan) => {
+        (plan.weeklySchedule || []).forEach((day) => {
+          if (day.routineId) map.set(String(day.routineId), plan);
+        });
+      });
+    return map;
+  }, [trainingPlans]);
+
+  const refreshPlans = useCallback(async () => {
+    const plans = await api.getTrainingPlans();
+    setTrainingPlans(plans);
+    setActivePlan((current) =>
+      current
+        ? plans.find(
+            (plan) =>
+              String(plan._id || plan.id) === String(current._id || current.id),
+          ) || null
+        : null,
+    );
+    return plans;
+  }, []);
 
   useEffect(() => {
-    if (!isManagedClient) return;
+    if (!user?.id && !user?._id) return;
     let active = true;
     const loadPlan = () =>
-      api
-        .getTrainingPlans()
-        .then((plans) => {
-          if (active) {
-            setActivePlan(
-              plans.find((plan) => plan.status === "active") || null,
-            );
-          }
-        })
-        .catch(() => {
-          if (active) setActivePlan(null);
-        });
+      refreshPlans().catch(() => {
+        if (active) {
+          setTrainingPlans([]);
+          setActivePlan(null);
+        }
+      });
     const handleVisibility = () => {
       if (document.visibilityState === "visible") loadPlan();
     };
@@ -2707,7 +3297,7 @@ function Routines({ onNavigate }) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);
     };
-  }, [isManagedClient]);
+  }, [refreshPlans, user?.id, user?._id]);
 
   const availableExercises = useMemo(() => {
     const usage = new Map();
@@ -2832,7 +3422,12 @@ function Routines({ onNavigate }) {
 
         return {
           ...routine,
-          exerciseCount: exercises.length,
+          plan: routinePlanById.get(String(routine.id || routine._id)) || null,
+          exerciseCount: exercises.filter((exercise) => !exercise.isExtra)
+            .length,
+          optionalExerciseCount: exercises.filter(
+            (exercise) => exercise.isExtra,
+          ).length,
           totalSets,
           muscles: Array.from(muscles),
           preview,
@@ -2840,6 +3435,7 @@ function Routines({ onNavigate }) {
       })
       .sort(
         (a, b) =>
+          Number(Boolean(b.plan)) - Number(Boolean(a.plan)) ||
           getDateTimestamp(b.updatedAt || b.createdAt) -
             getDateTimestamp(a.updatedAt || a.createdAt) ||
           (a.name || "").localeCompare(b.name || ""),
@@ -2851,11 +3447,39 @@ function Routines({ onNavigate }) {
     exerciseMetaMap,
     locationMode,
     preferredBranch,
+    routinePlanById,
   ]);
+  const groupedRoutineCards = useMemo(() => {
+    const planRoutines = routineCards.filter((routine) => routine.plan);
+    const otherRoutines = routineCards.filter((routine) => !routine.plan);
+    if (!planRoutines.length) return routineCards;
+    return [
+      { id: "__plan_heading", groupHeading: "Rutinas de la planificación" },
+      ...planRoutines,
+      ...(otherRoutines.length
+        ? [{ id: "__other_heading", groupHeading: "Otras rutinas" }]
+        : []),
+      ...otherRoutines,
+    ];
+  }, [routineCards]);
 
-  const openCreate = () => {
+  const openCreate = (planDay = null, { replacing = false } = {}) => {
     if (isManagedClient) return;
-    setSelectedRoutine(null);
+    setReplacementPlanDay(replacing ? planDay : null);
+    setSelectedRoutine(
+      planDay
+        ? {
+            name: planDay.focus || `Rutina ${planDay.order}`,
+            ...(replacing
+              ? {}
+              : {
+                  trainingPlanId: activePlan?._id || activePlan?.id,
+                  trainingPlanSlotId: planDay.slotId,
+                  assignmentType: "plan",
+                }),
+          }
+        : null,
+    );
     setModalMode("create");
   };
 
@@ -2886,6 +3510,7 @@ function Routines({ onNavigate }) {
   const closeModal = () => {
     setSelectedRoutine(null);
     setModalMode(null);
+    setReplacementPlanDay(null);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(ROUTINE_LIBRARY_DRAFT_KEY);
       localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
@@ -2895,8 +3520,34 @@ function Routines({ onNavigate }) {
   const handleSave = async (routine) => {
     if (isManagedClient) return;
     if (modalMode === "create") {
-      await addRoutine(routine);
-      toast.success("Rutina creada");
+      const savedRoutine = await addRoutine(routine);
+      if (replacementPlanDay && activePlan) {
+        let savedPlan;
+        try {
+          savedPlan = await api.assignRoutineToPlanSlot(
+            activePlan._id || activePlan.id,
+            replacementPlanDay.slotId,
+            savedRoutine.id || savedRoutine._id,
+          );
+        } catch (error) {
+          await deleteRoutine(savedRoutine.id || savedRoutine._id).catch(
+            () => {},
+          );
+          throw error;
+        }
+        setActivePlan(savedPlan);
+        setTrainingPlans((current) =>
+          current.map((plan) =>
+            String(plan._id || plan.id) ===
+            String(savedPlan._id || savedPlan.id)
+              ? savedPlan
+              : plan,
+          ),
+        );
+        toast.success("Rutina creada y asignada");
+      } else {
+        toast.success("Rutina creada");
+      }
     }
     if (modalMode === "edit") {
       await updateRoutine(routine.id, routine);
@@ -2916,6 +3567,164 @@ function Routines({ onNavigate }) {
       );
     }
     closeModal();
+    if (routine.trainingPlanId) {
+      await refreshPlans();
+    }
+  };
+
+  const saveTrainingPlan = async (payload) => {
+    try {
+      const saved = editingPlan
+        ? await api.updateTrainingPlan(
+            editingPlan._id || editingPlan.id,
+            payload,
+          )
+        : await api.createTrainingPlan(payload);
+      setActivePlan(saved);
+      setSelectedPlanWeek(getPlanWeekIndex(saved));
+      setTrainingPlans((current) => [
+        saved,
+        ...current.filter(
+          (plan) =>
+            String(plan._id || plan.id) !== String(saved._id || saved.id),
+        ),
+      ]);
+      setPlanModalOpen(false);
+      setEditingPlan(null);
+      toast.success(
+        editingPlan ? "Planificacion actualizada" : "Planificacion creada",
+        {
+          description:
+            "Ahora agrega una rutina a cada bloque de entrenamiento.",
+        },
+      );
+    } catch (error) {
+      toast.error(error.message || "No se pudo guardar la planificacion");
+      throw error;
+    }
+  };
+
+  const activateTrainingPlan = async () => {
+    try {
+      const saved = await api.updateTrainingPlanStatus(
+        activePlan._id || activePlan.id,
+        "active",
+      );
+      setActivePlan(saved);
+      await refreshPlans();
+      await reloadRoutines({ silent: true });
+      toast.success(
+        saved.status === "scheduled"
+          ? "Planificación programada"
+          : "Planificación activada",
+      );
+    } catch (error) {
+      toast.error(error.message || "No se pudo activar la planificacion");
+    }
+  };
+
+  const pauseTrainingPlan = async () => {
+    try {
+      const saved = await api.updateTrainingPlanStatus(
+        activePlan._id || activePlan.id,
+        "paused",
+      );
+      setActivePlan(saved);
+      await refreshPlans();
+      await reloadRoutines({ silent: true });
+      toast.success("Planificación pausada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo pausar la planificación");
+    }
+  };
+
+  const assignExistingRoutine = async (routineId) => {
+    if (!activePlan || !planDayChoice) return;
+    const replacingRoutine = Boolean(planDayChoice.routineId);
+    try {
+      const saved = await api.assignRoutineToPlanSlot(
+        activePlan._id || activePlan.id,
+        planDayChoice.slotId,
+        routineId,
+      );
+      setActivePlan(saved);
+      setTrainingPlans((current) =>
+        current.map((plan) =>
+          String(plan._id || plan.id) === String(saved._id || saved.id)
+            ? saved
+            : plan,
+        ),
+      );
+      setPlanDayChoice(null);
+      toast.success(
+        replacingRoutine ? "Rutina cambiada" : "Rutina vinculada al plan",
+      );
+    } catch (error) {
+      toast.error(error.message || "No se pudo vincular la rutina");
+    }
+  };
+
+  const archiveDraftPlan = async () => {
+    if (!activePlan || activePlan.status !== "draft") return;
+    try {
+      await api.updateTrainingPlanStatus(
+        activePlan._id || activePlan.id,
+        "cancelled",
+      );
+      setArchivePlanConfirmOpen(false);
+      setActivePlan(null);
+      await refreshPlans();
+      await reloadRoutines({ silent: true });
+      toast.success("Borrador archivado");
+    } catch (error) {
+      toast.error(error.message || "No se pudo archivar el borrador");
+    }
+  };
+
+  const openTrainingPlan = (plan) => {
+    setActivePlan(plan);
+    setSelectedPlanWeek(getPlanWeekIndex(plan));
+    setShowRoutineLibrary(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const startPlanRoutine = (day) => {
+    if (!day?.routineId) return;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(
+        TRAINING_PLAN_ROUTINE_INTENT_KEY,
+        JSON.stringify({
+          routineId: String(day.routineId),
+          planId: String(activePlan?._id || activePlan?.id || ""),
+          slotId: day.slotId,
+          createdAt: Date.now(),
+        }),
+      );
+    }
+    onNavigate?.("registrar");
+  };
+
+  const advanceCycle = async () => {
+    if (!activePlan || advancingCycle) return;
+    setAdvancingCycle(true);
+    try {
+      const saved = await api.advanceTrainingPlanCycle(
+        activePlan._id || activePlan.id,
+      );
+      setActivePlan(saved);
+      setTrainingPlans((current) =>
+        current.map((plan) =>
+          String(plan._id || plan.id) === String(saved._id || saved.id)
+            ? saved
+            : plan,
+        ),
+      );
+      toast.success("Ciclo actualizado");
+    } catch (error) {
+      toast.error(error.message || "No se pudo avanzar el ciclo");
+    } finally {
+      setAdvancingCycle(false);
+    }
   };
 
   const requestDeleteRoutine = (routine) => {
@@ -2933,6 +3742,7 @@ function Routines({ onNavigate }) {
     closeDeleteRoutine();
     try {
       await deleteRoutine(target.id);
+      if (target.plan) await refreshPlans();
       toast.success("Rutina eliminada");
     } catch {
       toast.error("No se pudo eliminar la rutina");
@@ -2961,24 +3771,29 @@ function Routines({ onNavigate }) {
     onNavigate?.("registrar");
   };
 
+  const activePlanTimeProgress = activePlan
+    ? getPlanTimeProgress(activePlan)
+    : null;
+
   return (
-    <>
+    <div className="routines-shell">
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-              {isManagedClient ? "Plan de entrenamiento" : "Planificación"}
+            <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
+              {activePlan ? "Detalle de planificación" : "Entrenamiento"}
             </p>
-            <h1 className="mt-1 text-3xl font-black leading-none text-[color:var(--text)]">
-              {isManagedClient ? "Mis rutinas" : "Rutinas"}
+            <h1 className="mt-1 text-[26px] font-black leading-none text-[color:var(--text)] sm:text-3xl">
+              {activePlan ? activePlan.name : "Planificaciones"}
             </h1>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {routines.length
-                ? `${routines.length} ${routines.length === 1 ? (isManagedClient ? "rutina asignada" : "rutina guardada") : isManagedClient ? "rutinas asignadas" : "rutinas guardadas"}`
-                : isManagedClient
-                  ? "Tu coach aún no asignó rutinas."
-                  : "Aún no tienes rutinas."}
-            </p>
+            {!activePlan ? (
+              <p className="mt-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                {trainingPlans.length}{" "}
+                {trainingPlans.length === 1
+                  ? "planificación"
+                  : "planificaciones"}
+              </p>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {canReturnToTraining ? (
@@ -2991,28 +3806,36 @@ function Routines({ onNavigate }) {
                 <RotateCcw className="h-4 w-4" />
               </button>
             ) : null}
-            {routines.length && !isManagedClient ? (
+            {activePlan ? (
               <button
                 type="button"
-                onClick={openCreate}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white shadow-sm transition active:scale-[0.98]"
+                onClick={() => setActivePlan(null)}
+                className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]"
+                aria-label="Volver a planificaciones"
               >
-                <Plus className="h-4 w-4" />
-                Nueva rutina
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            ) : !isManagedClient ? (
+              <button
+                type="button"
+                onClick={() => setPlanModalOpen(true)}
+                className="theme-accent-solid routines-surface inline-flex h-11 items-center justify-center gap-2 border px-4 text-sm font-black shadow-sm transition active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" /> Nueva
               </button>
             ) : null}
           </div>
         </div>
 
-        {!routines.length && !activePlan ? (
+        {!trainingPlans.length && !activePlan ? (
           <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-200">
+            <div className="theme-accent-soft mx-auto grid h-12 w-12 place-items-center rounded-lg border">
               <Layers3 className="h-5 w-5" />
             </div>
             <h2 className="mt-4 text-lg font-black text-[color:var(--text)]">
               {isManagedClient
                 ? "Aún no tienes una rutina asignada"
-                : "Crea tu primera rutina"}
+                : "Crea tu planificacion"}
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
               {isManagedClient
@@ -3020,123 +3843,346 @@ function Routines({ onNavigate }) {
                 : "Empieza definiendo qué quieres entrenar."}
             </p>
             {!isManagedClient ? (
-              <Button className="mt-5 h-11 gap-2" onClick={openCreate}>
-                <Plus className="h-4 w-4" />
-                Crear rutina
+              <Button
+                className="mt-5 h-11 gap-2"
+                onClick={() => setPlanModalOpen(true)}
+              >
+                <CalendarDays className="h-4 w-4" />
+                Crear planificacion
               </Button>
-            ) : null}
-          </div>
-        ) : showSearch || showBranchFilter ? (
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            {showSearch ? (
-              <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-                <input
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar rutina"
-                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            ) : (
-              <div />
-            )}
-            {showBranchFilter ? (
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1">
-                {[
-                  { id: "all", label: "Todas", count: branchCounts.all },
-                  {
-                    id: "sopocachi",
-                    label: "Sopocachi",
-                    count: branchCounts.sopocachi,
-                  },
-                  {
-                    id: "miraflores",
-                    label: "Miraflores",
-                    count: branchCounts.miraflores,
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveBranch(item.id)}
-                    className={`h-9 rounded-md px-3 text-[11px] font-black transition ${
-                      activeBranch === item.id
-                        ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                        : "text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    <span className="block truncate">{item.label}</span>
-                    <span className="ml-1 text-[9px] opacity-80">
-                      {item.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
             ) : null}
           </div>
         ) : null}
       </section>
 
-      {isManagedClient && activePlan ? (
+      {!activePlan && trainingPlans.length ? (
+        <section className="mt-6 space-y-3 pb-24 sm:pb-0">
+          <div className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+            <div>
+              <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                Tus programas
+              </p>
+              <h2 className="mt-1 text-xl font-black">
+                Elige una planificación
+              </h2>
+            </div>
+            {currentActivePlan ? (
+              <span className="theme-accent-soft rounded px-2.5 py-1 text-xs font-black">
+                1 vigente
+              </span>
+            ) : null}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {orderedTrainingPlans.map((plan) => {
+              const trainingDays = (plan.weeklySchedule || []).filter(
+                (day) => day.type === "training",
+              );
+              const configured = trainingDays.filter(
+                (day) => day.routineId,
+              ).length;
+              const isCurrent = plan.status === "active";
+              const isSequential = plan.scheduleMode !== "fixed";
+              const timeProgress = getPlanTimeProgress(plan);
+              return (
+                <button
+                  key={plan._id || plan.id}
+                  type="button"
+                  onClick={() => openTrainingPlan(plan)}
+                  className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
+                    isCurrent
+                      ? "border-[#ff5722] dark:border-[#e2ff00]"
+                      : "border-[color:var(--border)]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span
+                      className={`rounded px-2 py-1 text-[11px] font-black uppercase ${
+                        isCurrent
+                          ? "theme-accent-solid"
+                          : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                      }`}
+                    >
+                      {PLAN_STATUS_LABELS[plan.status] || plan.status}
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-black leading-tight">
+                    {plan.name}
+                  </h3>
+                  <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                    {isSequential
+                      ? `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`
+                      : "Rutina semanal fija"}
+                  </p>
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-[11px] font-black uppercase">
+                      <span className="text-[color:var(--text-muted)]">
+                        Progreso
+                      </span>
+                      <span className={isCurrent ? "theme-accent-text" : ""}>
+                        {timeProgress.percentage}%
+                      </span>
+                    </div>
+                    <div
+                      className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]"
+                      role="progressbar"
+                      aria-label={`Progreso temporal de ${plan.name}`}
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow={timeProgress.percentage}
+                    >
+                      <div
+                        className={`h-full ${
+                          isCurrent
+                            ? "theme-accent-solid border-0"
+                            : "bg-[color:var(--text-muted)]"
+                        }`}
+                        style={{ width: `${timeProgress.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs font-black">
+                    <span>{plan.durationWeeks} semanas</span>
+                    <span
+                      className={
+                        configured === trainingDays.length
+                          ? "theme-accent-text"
+                          : "text-[color:var(--text-muted)]"
+                      }
+                    >
+                      {configured}/{trainingDays.length} rutinas
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {activePlan?.status === "draft" &&
+      currentActivePlan &&
+      String(currentActivePlan._id || currentActivePlan.id) !==
+        String(activePlan._id || activePlan.id) ? (
+        <section className="routines-surface mt-5 flex items-center justify-between gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+              Plan actualmente activo
+            </p>
+            <p className="mt-1 truncate text-base font-black">
+              {currentActivePlan.name}
+            </p>
+          </div>
+          <span className="theme-accent-soft shrink-0 rounded px-2.5 py-1 text-xs font-black">
+            En curso
+          </span>
+        </section>
+      ) : null}
+
+      {activePlan ? (
         <section className="mt-5 border-y border-[color:var(--border)] py-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
-                Plan activo
+              <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
+                {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
               </p>
-              <h2 className="mt-1 text-lg font-black">{activePlan.name}</h2>
-              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                {activePlan.durationWeeks} semanas · {activePlan.goal}
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-black text-[color:var(--text-muted)]">
-              <CalendarDays className="h-4 w-4" /> Semana tipo
-            </span>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-7">
-            {(activePlan.weeklySchedule || []).map((day, index) => (
-              <div
-                key={day.dayIndex}
-                className="min-h-20 bg-[color:var(--card)] p-2.5"
-              >
-                <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                  {["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"][index]}
-                </p>
-                <p className="mt-2 text-xs font-black">
-                  {day.type === "rest"
-                    ? "Descanso"
-                    : day.type === "recovery"
-                      ? "Recuperacion"
-                      : day.focus || "Entrenamiento"}
-                </p>
-                {day.routineId ? (
-                  <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                    {
-                      routines.find(
-                        (routine) =>
-                          String(routine.id || routine._id) ===
-                          String(day.routineId),
-                      )?.name
-                    }
-                  </p>
-                ) : null}
+              <div className="mt-2 flex flex-wrap gap-2 text-xs font-black uppercase">
+                <span className="border border-[color:var(--border)] px-2 py-1">
+                  {activePlan.goal}
+                </span>
+                <span className="border border-[color:var(--border)] px-2 py-1">
+                  {activePlan.durationWeeks} semanas
+                </span>
+                <span className="border border-[color:var(--border)] px-2 py-1">
+                  {activePlan.scheduleMode === "fixed"
+                    ? "Semana recurrente"
+                    : "Ciclo libre"}
+                </span>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {!isManagedClient &&
+              !["completed", "cancelled"].includes(activePlan.status) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingPlan(activePlan);
+                    setPlanModalOpen(true);
+                  }}
+                  className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)]"
+                  aria-label="Editar planificacion"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
           </div>
+          <div className="mt-5 border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                  Progreso del periodo
+                </p>
+                <p className="mt-1 text-sm font-black">
+                  {activePlanTimeProgress.message}
+                </p>
+              </div>
+              <strong className="theme-accent-text text-2xl font-black tabular-nums">
+                {activePlanTimeProgress.percentage}%
+              </strong>
+            </div>
+            <div
+              className="mt-3 h-2 overflow-hidden bg-[color:var(--border)]"
+              role="progressbar"
+              aria-label="Progreso temporal de la planificación"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow={activePlanTimeProgress.percentage}
+            >
+              <div
+                className="theme-accent-solid h-full border-0 transition-all"
+                style={{
+                  width: `${activePlanTimeProgress.percentage}%`,
+                }}
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="block font-bold uppercase text-[color:var(--text-muted)]">
+                  Inicio
+                </span>
+                <strong className="mt-0.5 block font-black">
+                  {formatPlanDate(activePlan.startDate)}
+                </strong>
+              </div>
+              <div className="text-right">
+                <span className="block font-bold uppercase text-[color:var(--text-muted)]">
+                  Finalización
+                </span>
+                <strong className="mt-0.5 block font-black">
+                  {formatPlanDate(getPlanEndDate(activePlan))}
+                </strong>
+              </div>
+            </div>
+          </div>
+          <TrainingPlanSchedule
+            plan={activePlan}
+            routines={routines}
+            trainings={trainings}
+            selectedWeek={selectedPlanWeek}
+            isManagedClient={isManagedClient}
+            onChooseRoutine={setPlanDayChoice}
+            onEditRoutine={openEdit}
+            onStartRoutine={startPlanRoutine}
+            onAdvanceCycle={advanceCycle}
+            advancingCycle={advancingCycle}
+          />
           {activePlan.notes ? (
             <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
               {activePlan.notes}
             </p>
           ) : null}
+          {!isManagedClient && activePlan.status === "draft" ? (
+            missingPlanRoutines ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="inline-flex h-11 items-center gap-2 rounded-lg border border-amber-300 bg-amber-500/10 px-4 text-xs font-black text-amber-800 dark:border-amber-400/30 dark:text-amber-200">
+                  <CalendarDays className="h-4 w-4" />
+                  {configuredPlanRoutines} de {planTrainingDays} rutinas
+                  configuradas
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setArchivePlanConfirmOpen(true)}
+                  className="inline-flex h-11 items-center gap-2 px-3 text-sm font-black text-[color:var(--text-muted)]"
+                >
+                  <Archive className="h-4 w-4" />
+                  Archivar borrador
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button className="h-11 gap-2" onClick={activateTrainingPlan}>
+                  <Play className="h-4 w-4" />
+                  Activar planificación
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setArchivePlanConfirmOpen(true)}
+                  className="inline-flex h-11 items-center gap-2 px-3 text-sm font-black text-[color:var(--text-muted)]"
+                >
+                  <Archive className="h-4 w-4" />
+                  Archivar
+                </button>
+              </div>
+            )
+          ) : null}
+          {!isManagedClient && activePlan.status === "paused" ? (
+            <Button className="mt-4 h-11 gap-2" onClick={activateTrainingPlan}>
+              <Play className="h-4 w-4" /> Activar planificación
+            </Button>
+          ) : null}
+          {!isManagedClient && activePlan.status === "scheduled" ? (
+            <button
+              type="button"
+              onClick={pauseTrainingPlan}
+              className="mt-4 inline-flex h-11 items-center gap-2 text-sm font-black text-[color:var(--text-muted)]"
+            >
+              <Pause className="h-4 w-4" /> Pausar programación
+            </button>
+          ) : null}
+          {!isManagedClient && activePlan.status === "active" ? (
+            <button
+              type="button"
+              onClick={pauseTrainingPlan}
+              className="mt-4 inline-flex h-11 items-center gap-2 text-sm font-black text-[color:var(--text-muted)]"
+            >
+              <Pause className="h-4 w-4" /> Pausar planificación
+            </button>
+          ) : null}
         </section>
       ) : null}
 
-      {routines.length ? (
+      {activePlan && routines.length ? (
+        <button
+          type="button"
+          onClick={() => setShowRoutineLibrary((current) => !current)}
+          className="mt-5 flex h-11 w-full items-center justify-between border-y border-[color:var(--border)] px-1 text-sm font-black"
+          aria-expanded={showRoutineLibrary}
+        >
+          <span>Rutinas guardadas</span>
+          <ChevronDown
+            className={`h-4 w-4 transition ${showRoutineLibrary ? "rotate-180" : ""}`}
+          />
+        </button>
+      ) : null}
+
+      {activePlan && showRoutineLibrary ? (
+        <RoutineToolbar
+          showSearch={showSearch}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          showBranchFilter={showBranchFilter}
+          activeBranch={activeBranch}
+          setActiveBranch={setActiveBranch}
+          branchCounts={branchCounts}
+        />
+      ) : null}
+
+      {activePlan && showRoutineLibrary && routines.length ? (
         <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
-          {routineCards.map((routine) => {
+          {groupedRoutineCards.map((routine) => {
+            if (routine.groupHeading) {
+              return (
+                <h2
+                  key={routine.id}
+                  className="col-span-full mt-2 text-base font-black text-[color:var(--text)]"
+                >
+                  {routine.groupHeading}
+                </h2>
+              );
+            }
             const isSopocachi = normalizeBranch(routine.branch) === "sopocachi";
-            const tone = "text-blue-700 dark:text-blue-200";
+            const tone = "theme-accent-text";
             const badgeTone = isSopocachi
               ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:text-emerald-300"
               : "border-blue-300 bg-blue-500/10 text-blue-700 dark:border-blue-400/30 dark:text-blue-300";
@@ -3144,15 +4190,30 @@ function Routines({ onNavigate }) {
             return (
               <article
                 key={routine.id}
-                className="overflow-visible rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+                className="routines-surface overflow-visible border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
               >
-                <div className="p-4">
+                <div className="p-3 sm:p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
+                        {routine.plan ? (
+                          <span className="theme-accent-soft inline-flex items-center gap-1 rounded border px-2.5 py-1 text-[11px] font-black uppercase">
+                            <CalendarDays className="h-3 w-3" />
+                            {routine.plan.status === "active"
+                              ? "Plan activo"
+                              : routine.plan.status === "scheduled"
+                                ? "Plan programado"
+                                : "En preparación"}
+                          </span>
+                        ) : routine.isAvailableForTraining === false ? (
+                          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-500/10 px-2.5 py-1 text-[11px] font-black uppercase text-amber-700 dark:border-amber-400/30 dark:text-amber-300">
+                            <CalendarDays className="h-3 w-3" />
+                            En preparacion
+                          </span>
+                        ) : null}
                         {locationMode === "multiple" ? (
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${badgeTone}`}
+                            className={`inline-flex items-center gap-1 rounded border px-2.5 py-1 text-[11px] font-black uppercase ${badgeTone}`}
                           >
                             <MapPin className="h-3 w-3" />
                             {branchLabel(routine.branch)}
@@ -3165,7 +4226,7 @@ function Routines({ onNavigate }) {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-[1fr_1fr_1fr] gap-2">
+                  <div className="mt-3 grid grid-cols-[1fr_1fr_1fr] gap-2 sm:mt-4">
                     {routine.preview.slice(0, 3).map((item, idx) => (
                       <div
                         key={`${routine.id}-preview-${idx}`}
@@ -3193,11 +4254,14 @@ function Routines({ onNavigate }) {
                   </div>
 
                   <div
-                    className={`mt-4 flex items-center gap-5 text-sm font-black ${tone}`}
+                    className={`mt-3 flex items-center gap-5 text-sm font-black sm:mt-4 ${tone}`}
                   >
                     <span className="inline-flex items-center gap-1.5">
                       <Dumbbell className="h-4 w-4" />
                       {routine.exerciseCount} ejercicios
+                      {routine.optionalExerciseCount
+                        ? ` + ${routine.optionalExerciseCount} ${routine.optionalExerciseCount === 1 ? "opcional" : "opcionales"}`
+                        : ""}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Layers3 className="h-4 w-4" />
@@ -3205,23 +4269,23 @@ function Routines({ onNavigate }) {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex min-w-0 flex-wrap gap-1.5">
+                  <div className="mt-4 hidden min-w-0 flex-wrap gap-1.5 sm:flex">
                     {routine.muscles.length ? (
                       routine.muscles.slice(0, 4).map((muscle) => (
                         <span
                           key={muscle}
-                          className="max-w-full truncate rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]"
+                          className="max-w-full truncate rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]"
                         >
                           {muscle}
                         </span>
                       ))
                     ) : (
-                      <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
+                      <span className="rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]">
                         Sin grupos
                       </span>
                     )}
                     {routine.muscles.length > 4 ? (
-                      <span className="rounded-full bg-[color:var(--bg)] px-2.5 py-1 text-[10px] font-black text-[color:var(--text-muted)]">
+                      <span className="rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]">
                         +{routine.muscles.length - 4}
                       </span>
                     ) : null}
@@ -3229,7 +4293,7 @@ function Routines({ onNavigate }) {
 
                   <div className="mt-4 flex items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
                     {isManagedClient ? (
-                      <span className="inline-flex h-11 items-center text-sm font-black text-blue-700 dark:text-blue-200">
+                      <span className="theme-accent-text inline-flex h-11 items-center text-sm font-black">
                         Asignada por tu coach
                       </span>
                     ) : (
@@ -3237,7 +4301,7 @@ function Routines({ onNavigate }) {
                         <button
                           type="button"
                           onClick={() => openEdit(routine)}
-                          className="inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-200 dark:hover:bg-blue-500/10"
+                          className="theme-accent-text inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black transition hover:bg-[color:var(--bg)]"
                         >
                           <Pencil className="h-4 w-4" />
                           Editar
@@ -3347,6 +4411,55 @@ function Routines({ onNavigate }) {
           }}
         />
       )}
+      {planDayChoice && !isManagedClient ? (
+        <PlanRoutineChoiceModal
+          day={planDayChoice}
+          routines={routines}
+          onAssign={assignExistingRoutine}
+          onCreate={() => {
+            const day = planDayChoice;
+            setPlanDayChoice(null);
+            openCreate(day, { replacing: Boolean(day.routineId) });
+          }}
+          onClose={() => setPlanDayChoice(null)}
+        />
+      ) : null}
+      {archivePlanConfirmOpen ? (
+        <Modal
+          title="Archivar borrador"
+          subtitle={activePlan?.name}
+          onClose={() => setArchivePlanConfirmOpen(false)}
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setArchivePlanConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={archiveDraftPlan}>Archivar</Button>
+            </div>
+          }
+        >
+          <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
+            Las rutinas guardadas se conservarán. La planificación dejará de
+            aparecer como pendiente.
+          </p>
+        </Modal>
+      ) : null}
+      {planModalOpen && !isManagedClient ? (
+        <CoachPlanModal
+          athlete={{ name: user?.name || "Mi planificacion" }}
+          templates={[]}
+          initialData={editingPlan}
+          manageRoutinesSeparately
+          onSave={saveTrainingPlan}
+          onClose={() => {
+            setPlanModalOpen(false);
+            setEditingPlan(null);
+          }}
+        />
+      ) : null}
       {!isManagedClient ? (
         <DeleteRoutineSheet
           routine={routineToDelete}
@@ -3354,7 +4467,7 @@ function Routines({ onNavigate }) {
           onClose={closeDeleteRoutine}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 

@@ -238,14 +238,25 @@ export default function CoachDashboard({
   const selectedAthlete = athletes.find(
     (athlete) => (athlete.id || athlete._id) === selectedId,
   );
-  const activePlan = overview?.plans?.find((plan) => plan.status === "active");
+  const activePlan =
+    overview?.plans?.find((plan) => plan.status === "active") ||
+    overview?.plans?.find((plan) => plan.status === "scheduled") ||
+    overview?.plans?.find((plan) => plan.status === "draft");
+  const activePlanIsDraft = activePlan?.status === "draft";
   const previousPlans = (overview?.plans || []).filter(
-    (plan) => plan.status !== "active",
+    (plan) =>
+      String(plan._id || plan.id) !== String(activePlan?._id || activePlan?.id),
   );
   const routineNameById = new Map(
     (overview?.routines || []).map((routine) => [
       String(routine._id || routine.id),
       routine.name,
+    ]),
+  );
+  const planStatusById = new Map(
+    (overview?.plans || []).map((plan) => [
+      String(plan._id || plan.id),
+      plan.status,
     ]),
   );
 
@@ -269,22 +280,26 @@ export default function CoachDashboard({
 
   const savePlan = async (payload) => {
     try {
-      if (editingPlan) {
-        await api.updateCoachPlan(
-          selectedId,
-          editingPlan._id || editingPlan.id,
-          payload,
-        );
-      } else {
-        await api.createCoachPlan(selectedId, payload);
-      }
+      const saved = editingPlan
+        ? await api.updateCoachPlan(
+            selectedId,
+            editingPlan._id || editingPlan.id,
+            payload,
+          )
+        : await api.createCoachPlan(selectedId, payload);
       const data = await api.getCoachAthleteOverview(selectedId);
       setOverview(data);
       await loadAthletes({ silent: true });
       setCreatingPlan(false);
       setEditingPlan(null);
-      toast.success(editingPlan ? "Plan actualizado" : "Plan activado", {
-        description: `${payload.name} fue ${editingPlan ? "actualizado" : "asignado"} para ${selectedAthlete?.name}.`,
+      toast.success(editingPlan ? "Plan actualizado" : "Planificacion creada", {
+        description: editingPlan
+          ? `${payload.name} fue actualizado para ${selectedAthlete?.name}.`
+          : saved.status === "scheduled"
+            ? `${payload.name} comenzara en la fecha programada.`
+            : saved.status === "active"
+              ? `${payload.name} ya esta disponible para entrenar.`
+              : `Ahora completa las rutinas de ${payload.name}.`,
       });
     } catch (err) {
       toast.error(err.message || "No se pudo crear el plan");
@@ -294,13 +309,19 @@ export default function CoachDashboard({
 
   const updatePlanStatus = async (plan, status) => {
     try {
-      await api.updateCoachPlanStatus(selectedId, plan._id || plan.id, status);
+      const saved = await api.updateCoachPlanStatus(
+        selectedId,
+        plan._id || plan.id,
+        status,
+      );
       const data = await api.getCoachAthleteOverview(selectedId);
       setOverview(data);
       await loadAthletes({ silent: true });
       toast.success(
         status === "active"
-          ? "Plan reactivado"
+          ? saved.status === "scheduled"
+            ? "Plan programado"
+            : "Plan reactivado"
           : status === "completed"
             ? "Plan finalizado"
             : "Plan pausado",
@@ -501,11 +522,19 @@ export default function CoachDashboard({
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
-                        Plan activo
+                        {activePlanIsDraft
+                          ? "Planificacion en preparacion"
+                          : activePlan.status === "scheduled"
+                            ? "Proximo plan"
+                            : "Plan activo"}
                       </p>
                       <h3 className="mt-1 text-lg font-black">
                         {activePlan.name}
                       </h3>
+                      <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                        {formatDate(activePlan.startDate)} al{" "}
+                        {formatDate(activePlan.endDate)}
+                      </p>
                       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                         {activePlan.durationWeeks} semanas ·{" "}
                         {LEVEL_LABELS[activePlan.level] || activePlan.level} ·{" "}
@@ -530,26 +559,30 @@ export default function CoachDashboard({
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => updatePlanStatus(activePlan, "paused")}
-                        title="Pausar plan"
-                        aria-label="Pausar plan"
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]"
-                      >
-                        <PauseCircle className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updatePlanStatus(activePlan, "completed")
-                        }
-                        title="Finalizar plan"
-                        aria-label="Finalizar plan"
-                        className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-emerald-600"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
+                      {["active", "scheduled"].includes(activePlan.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => updatePlanStatus(activePlan, "paused")}
+                          title="Pausar plan"
+                          aria-label="Pausar plan"
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                        >
+                          <PauseCircle className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      {activePlan.status === "active" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updatePlanStatus(activePlan, "completed")
+                          }
+                          title="Finalizar plan"
+                          aria-label="Finalizar plan"
+                          className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] text-emerald-600"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-7">
@@ -559,7 +592,9 @@ export default function CoachDashboard({
                         className="min-h-20 bg-[color:var(--card)] p-2.5"
                       >
                         <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                          {DAY_NAMES[index]}
+                          {activePlan.scheduleMode === "flexible_guided"
+                            ? `Bloque ${index + 1}`
+                            : DAY_NAMES[index]}
                         </p>
                         <p
                           className={`mt-2 text-xs font-black ${day.type === "training" ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
@@ -574,6 +609,10 @@ export default function CoachDashboard({
                         routineNameById.get(String(day.routineId)) ? (
                           <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
                             {routineNameById.get(String(day.routineId))}
+                          </p>
+                        ) : day.type === "training" ? (
+                          <p className="mt-1 text-[10px] font-bold text-amber-600 dark:text-amber-300">
+                            Rutina pendiente
                           </p>
                         ) : null}
                       </div>
@@ -596,9 +635,7 @@ export default function CoachDashboard({
                   </div>
                   <Button
                     className="h-11 rounded-lg"
-                    onClick={() =>
-                      requireTemplates(() => setCreatingPlan(true))
-                    }
+                    onClick={() => setCreatingPlan(true)}
                   >
                     <CalendarPlus className="h-4 w-4" /> Crear plan
                   </Button>
@@ -608,7 +645,7 @@ export default function CoachDashboard({
               {previousPlans.length ? (
                 <details className="mt-4 border-b border-[color:var(--border)] pb-4">
                   <summary className="cursor-pointer text-xs font-black text-[color:var(--text-muted)]">
-                    Planes anteriores ({previousPlans.length})
+                    Otras planificaciones ({previousPlans.length})
                   </summary>
                   <div className="mt-3 divide-y divide-[color:var(--border)]">
                     {previousPlans.map((plan) => (
@@ -624,26 +661,36 @@ export default function CoachDashboard({
                             {plan.durationWeeks} semanas ·{" "}
                             {plan.status === "completed"
                               ? "Finalizado"
-                              : "Pausado"}
+                              : plan.status === "draft"
+                                ? "En preparacion"
+                                : plan.status === "scheduled"
+                                  ? "Programado"
+                                  : plan.status === "active"
+                                    ? "Activo"
+                                    : "Pausado"}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingPlan(plan)}
-                            title="Editar plan"
-                            aria-label={`Editar ${plan.name}`}
-                            className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] text-blue-600"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updatePlanStatus(plan, "active")}
-                            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-xs font-black"
-                          >
-                            <RotateCcw className="h-4 w-4" /> Reactivar
-                          </button>
+                          {!["completed", "cancelled"].includes(plan.status) ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingPlan(plan)}
+                              title="Editar plan"
+                              aria-label={`Editar ${plan.name}`}
+                              className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] text-blue-600"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                          {plan.status === "paused" ? (
+                            <button
+                              type="button"
+                              onClick={() => updatePlanStatus(plan, "active")}
+                              className="inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-xs font-black"
+                            >
+                              <RotateCcw className="h-4 w-4" /> Reactivar
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -679,7 +726,11 @@ export default function CoachDashboard({
                               {routine.assignmentType === "extra"
                                 ? " · Adicional"
                                 : routine.trainingPlanId
-                                  ? " · Plan activo"
+                                  ? planStatusById.get(
+                                      String(routine.trainingPlanId),
+                                    ) === "active"
+                                    ? " · Plan activo"
+                                    : " · Plan en preparación"
                                   : routine.assignedByCoachId
                                     ? " · Asignada por coach"
                                     : ""}

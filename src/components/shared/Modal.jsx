@@ -53,9 +53,7 @@ function Modal({
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4"
-    >
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/60 p-0 backdrop-blur-sm sm:place-items-center sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
@@ -85,7 +83,7 @@ function Modal({
           )}
           <button
             type="button"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text)]"
             onClick={onClose}
             aria-label="Cerrar"
             title="Cerrar"

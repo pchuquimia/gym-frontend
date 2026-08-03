@@ -104,6 +104,12 @@ export function RoutineProvider({ children, ownerId = "" }) {
     const sourceRoutineId = found.id || found._id || id;
     delete baseCopy._id;
     delete baseCopy.progressScopeId;
+    delete baseCopy.trainingPlanId;
+    delete baseCopy.trainingPlanSlotId;
+    delete baseCopy.assignedByCoachId;
+    delete baseCopy.assignedAt;
+    delete baseCopy.isArchived;
+    delete baseCopy.isAvailableForTraining;
     const copy = {
       ...baseCopy,
       id: `${id}-copy-${Date.now()}`,
@@ -111,6 +117,9 @@ export function RoutineProvider({ children, ownerId = "" }) {
       branch: normalizeBranch(found.branch),
       progressMode: "fresh",
       sourceRoutineId,
+      assignmentType: "personal",
+      isArchived: false,
+      isAvailableForTraining: true,
     };
     return addRoutine(copy);
   };

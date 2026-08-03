@@ -102,6 +102,28 @@ export const api = {
     }),
   getTrainingPlans: (athleteId = "") =>
     request(`/api/plans${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  createTrainingPlan: (payload) =>
+    request("/api/plans", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateTrainingPlan: (planId, payload) =>
+    request(`/api/plans/${planId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  updateTrainingPlanStatus: (planId, status) =>
+    request(`/api/plans/${planId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  assignRoutineToPlanSlot: (planId, slotId, routineId) =>
+    request(`/api/plans/${planId}/slots/${slotId}/routine`, {
+      method: "POST",
+      body: JSON.stringify({ routineId }),
+    }),
+  advanceTrainingPlanCycle: (planId) =>
+    request(`/api/plans/${planId}/cycle/advance`, { method: "POST" }),
   deleteTrainingPlan: (planId) =>
     request(`/api/plans/${planId}`, { method: "DELETE" }),
 

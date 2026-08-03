@@ -2,6 +2,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   Circle,
   CircleDot,
@@ -26,6 +27,7 @@ import Modal from "../components/shared/Modal";
 import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
 import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
+import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPlanner";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import { useRoutines } from "../context/RoutineContext";
@@ -41,10 +43,21 @@ const getLocalISODate = (value) => {
   return local.toISOString().slice(0, 10);
 };
 const todayISO = getLocalISODate();
+const getCurrentPlanWeek = (plan, dateValue = getLocalISODate()) => {
+  if (!plan?.startDate) return 0;
+  const start = new Date(plan.startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const selectedDate = new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`);
+  return Math.min(
+    Math.max(0, Number(plan.durationWeeks || 1) - 1),
+    Math.max(0, Math.floor((selectedDate - start) / (7 * 86400000))),
+  );
+};
 const SNAPSHOT_KEY = "active_training_snapshot";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
+const TRAINING_PLAN_ROUTINE_INTENT_KEY = "training_plan_routine_intent";
 const MAX_TRAINING_PHOTO_BYTES = 5 * 1024 * 1024;
 const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
@@ -1130,6 +1143,31 @@ const computeRecentBySetFromHistory = (
   return map;
 };
 
+function DevTrainingDateControl({ value, onChange }) {
+  if (!import.meta.env.DEV) return null;
+
+  return (
+    <label
+      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center border bg-[color:var(--card)] transition-colors hover:border-[#ff5722] dark:hover:border-[#d8ff00] ${
+        value !== todayISO
+          ? "border-[#ff5722] text-[#ff5722] dark:border-[#d8ff00] dark:text-[#d8ff00]"
+          : "border-[color:var(--border)] text-[color:var(--text)]"
+      }`}
+      title={`Fecha de prueba: ${formatLongDate(value)}`}
+      aria-label={`Cambiar fecha de prueba. Fecha actual: ${formatLongDate(value)}`}
+    >
+      <CalendarDays className="h-4 w-4" />
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value || todayISO)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+        aria-label="Seleccionar fecha de prueba"
+      />
+    </label>
+  );
+}
+
 export default function RegisterTraining({ onNavigate = () => {} }) {
   const {
     routines,
@@ -1185,6 +1223,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   );
   const [branchConfirmed, setBranchConfirmed] = useState(false);
   const [setupStarted, setSetupStarted] = useState(false);
+  const [activeTrainingPlan, setActiveTrainingPlan] = useState(null);
+  const [trainingPlanLoading, setTrainingPlanLoading] = useState(true);
+  const [trainingPlanError, setTrainingPlanError] = useState("");
+  const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
+  const [advancingPlanCycle, setAdvancingPlanCycle] = useState(false);
+  const [pendingPlanRoutineId, setPendingPlanRoutineId] = useState("");
+  const [selectedPlanContext, setSelectedPlanContext] = useState(null);
   const [pendingSameDayTraining, setPendingSameDayTraining] = useState(null);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const initializedTrainingScreen = useRef(false);
@@ -1210,6 +1255,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const buildExercisesForRoutineRef = useRef(null);
   const notifyRestCompleteRef = useRef(null);
   const restAudioContextRef = useRef(null);
+  const startSetupSessionRef = useRef(null);
 
   const locationDisabled = locationMode === "disabled";
   const requiresBranchSelection = locationMode === "multiple";
@@ -1222,6 +1268,37 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const historyBranchFilter = requiresBranchSelection
     ? effectiveBranch || null
     : null;
+
+  const handleDevTrainingDateChange = (nextDate) => {
+    const normalizedDate = nextDate.slice(0, 10);
+    setSessionDate(normalizedDate);
+    setSelectedPlanWeek(getCurrentPlanWeek(activeTrainingPlan, normalizedDate));
+    setPendingSameDayTraining(null);
+    toast.success(`Fecha de prueba: ${formatLongDate(normalizedDate)}`);
+  };
+
+  const loadActiveTrainingPlan = useCallback(async () => {
+    setTrainingPlanLoading(true);
+    setTrainingPlanError("");
+    try {
+      const plans = await api.getTrainingPlans(dataOwnerId || "");
+      const active =
+        (plans || []).find((plan) => plan.status === "active") || null;
+      setActiveTrainingPlan(active);
+      setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
+    } catch (error) {
+      setActiveTrainingPlan(null);
+      setTrainingPlanError(
+        error.message || "No se pudo cargar la planificación",
+      );
+    } finally {
+      setTrainingPlanLoading(false);
+    }
+  }, [dataOwnerId, sessionDate]);
+
+  useEffect(() => {
+    loadActiveTrainingPlan();
+  }, [loadActiveTrainingPlan]);
 
   const branchOptions = useMemo(() => {
     const configured = (allowedBranches || []).filter((branch) =>
@@ -1279,14 +1356,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   );
 
   const allRoutineOptions = useMemo(
-    () => (routines || []).map((r) => toRoutineOption(r)),
+    () =>
+      (routines || [])
+        .filter((r) => r.isAvailableForTraining !== false)
+        .map((r) => toRoutineOption(r)),
     [routines, toRoutineOption],
   );
 
   const routineOptions = useMemo(() => {
     const filtered =
-      (routines || []).filter((r) =>
-        effectiveBranch ? normalizeBranch(r.branch) === effectiveBranch : true,
+      (routines || []).filter(
+        (r) =>
+          r.isAvailableForTraining !== false &&
+          (effectiveBranch
+            ? normalizeBranch(r.branch) === effectiveBranch
+            : true),
       ) || [];
     return filtered.map((r) => toRoutineOption(r));
   }, [routines, effectiveBranch, toRoutineOption]);
@@ -2594,6 +2678,32 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     selectedProgressScopeId,
   ]);
 
+  useEffect(() => {
+    if (!allRoutineOptions.length || isEditing || selectedRoutineId) return;
+    if (typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(TRAINING_PLAN_ROUTINE_INTENT_KEY);
+    if (!raw) return;
+    try {
+      const intent = JSON.parse(raw);
+      if (Date.now() - Number(intent.createdAt || 0) > 5 * 60 * 1000) return;
+      const routine = allRoutineOptions.find(
+        (item) => String(item.id) === String(intent.routineId),
+      );
+      if (!routine) return;
+      setSelectedRoutineId(routine.id);
+      setSelectedRoutine(routine);
+      setSelectedBranch(normalizeBranch(routine.location));
+      setSelectedPlanContext({
+        planId: String(intent.planId || ""),
+        slotId: String(intent.slotId || ""),
+      });
+    } catch {
+      // Ignore stale or malformed navigation intents.
+    } finally {
+      localStorage.removeItem(TRAINING_PLAN_ROUTINE_INTENT_KEY);
+    }
+  }, [allRoutineOptions, isEditing, selectedRoutineId]);
+
   // Restaurar entrenamiento activo desde snapshot local
   useEffect(() => {
     if (!allRoutineOptions.length) return;
@@ -2638,6 +2748,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setBranchConfirmed(true);
       setSelectedRoutineId(snap.selectedRoutineId);
       setSelectedRoutine(routine);
+      setSelectedPlanContext(snap.selectedPlanContext || null);
       setSessionDate(snap.sessionDate || todayISO);
       lastUpdateRef.current = now;
       setNowMs(now);
@@ -2798,6 +2909,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         selectedRoutineId,
         selectedRoutine,
         selectedBranch,
+        selectedPlanContext,
         sessionDate,
         durationSeconds: liveDurationSeconds,
         elapsed: liveDurationSeconds,
@@ -2817,6 +2929,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     selectedRoutineId,
     selectedRoutine,
     selectedBranch,
+    selectedPlanContext,
     sessionDate,
     setupStarted,
     isRunning,
@@ -3129,6 +3242,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSetupStarted(true);
     if (!isRunning) handleStart();
   };
+  startSetupSessionRef.current = handleStartSetupSession;
 
   const handlePause = () => {
     const now = Date.now();
@@ -3175,6 +3289,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSelectedBranch(DEFAULT_BRANCH);
     setSelectedRoutineId("");
     setSelectedRoutine(null);
+    setSelectedPlanContext(null);
     setExercises([]);
     setIsOrderingExercises(false);
     setShowExercisePicker(false);
@@ -3199,14 +3314,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
   };
 
-  const handleSelectRoutine = (id) => {
+  const handleSelectRoutine = (id, planContext = null) => {
     if (!id || id === "sin-rutina") return;
     if (sessionLocked) {
       toast.message("Finaliza o cancela la sesión antes de cambiar de rutina.");
       return;
     }
-    const found = routineOptions.find((r) => r.id === id);
+    const found =
+      routineOptions.find((r) => r.id === id) ||
+      allRoutineOptions.find((r) => r.id === id);
     if (!found) {
+      setPendingPlanRoutineId("");
       toast.error("La rutina seleccionada ya no está disponible.");
       return;
     }
@@ -3220,6 +3338,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchConfirmed(true);
     setSelectedRoutineId(id);
     setSelectedRoutine(found);
+    setSelectedPlanContext(planContext);
     setLoadingTraining(true);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
@@ -3272,6 +3391,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       .catch((error) => {
         if (routineLoadRequestRef.current !== requestId) return;
         console.error("No se pudo preparar la rutina", error);
+        setPendingPlanRoutineId("");
         toast.error("No se pudo cargar la rutina seleccionada.");
       })
       .finally(() => {
@@ -3279,6 +3399,58 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           setLoadingTraining(false);
         }
       });
+  };
+
+  const handleStartPlanRoutine = (routineId, slotId) => {
+    if (!routineId || loadingTraining) return;
+    const planContext = {
+      planId: String(activeTrainingPlan?._id || activeTrainingPlan?.id || ""),
+      slotId: String(slotId || ""),
+    };
+    setSelectedPlanContext(planContext);
+    setPendingPlanRoutineId(String(routineId));
+    if (String(selectedRoutineId) !== String(routineId) || !exercises.length) {
+      handleSelectRoutine(routineId, planContext);
+      return;
+    }
+    setPendingPlanRoutineId("");
+    startSetupSessionRef.current?.();
+  };
+
+  useEffect(() => {
+    if (
+      !pendingPlanRoutineId ||
+      loadingTraining ||
+      pendingSameDayTraining ||
+      String(selectedRoutineId) !== String(pendingPlanRoutineId) ||
+      !exercises.length
+    ) {
+      return;
+    }
+    setPendingPlanRoutineId("");
+    startSetupSessionRef.current?.();
+  }, [
+    exercises.length,
+    loadingTraining,
+    pendingPlanRoutineId,
+    pendingSameDayTraining,
+    selectedRoutineId,
+  ]);
+
+  const handleAdvancePlanCycle = async () => {
+    if (!activeTrainingPlan || advancingPlanCycle) return;
+    setAdvancingPlanCycle(true);
+    try {
+      const saved = await api.advanceTrainingPlanCycle(
+        activeTrainingPlan._id || activeTrainingPlan.id,
+      );
+      setActiveTrainingPlan(saved);
+      toast.success("Ciclo actualizado");
+    } catch (error) {
+      toast.error(error.message || "No se pudo avanzar el ciclo");
+    } finally {
+      setAdvancingPlanCycle(false);
+    }
   };
 
   const handleBranchChange = (value) => {
@@ -3967,6 +4139,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         date: dateStr,
         routineId: selectedRoutine?.id,
         routineName: selectedRoutine?.name,
+        trainingPlanId: selectedPlanContext?.planId || null,
+        trainingPlanSlotId: selectedPlanContext?.slotId || null,
         progressScopeId: selectedRoutine?.progressScopeId || "",
         orderSignature: getExerciseOrderSignature(exercises),
         branch: locationDisabled
@@ -4426,11 +4600,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           <h1 className="font-condensed text-4xl font-bold uppercase">
             Registrar entrenamiento
           </h1>
-          {isEditing ? (
-            <Button variant="outline" size="sm" onClick={handleExitEdit}>
-              Salir de edición
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {!setupStarted && !isEditing ? (
+              <DevTrainingDateControl
+                value={sessionDate}
+                onChange={handleDevTrainingDateChange}
+              />
+            ) : null}
+            {isEditing ? (
+              <Button variant="outline" size="sm" onClick={handleExitEdit}>
+                Salir de edición
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {!setupStarted && !isEditing ? (
@@ -4442,10 +4624,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               <MobileMenuButton />
               <div className="min-w-0 flex-1 px-2 text-center">
                 <h1 className="font-condensed truncate text-xl font-bold uppercase text-[color:var(--text)]">
-                  Registrar entrenamiento
+                  Apex Performance
                 </h1>
               </div>
-              <ThemeToggle />
+              <div className="flex items-center gap-2">
+                <DevTrainingDateControl
+                  value={sessionDate}
+                  onChange={handleDevTrainingDateChange}
+                />
+                <ThemeToggle />
+              </div>
             </header>
 
             <div className="space-y-8">
@@ -4482,6 +4670,56 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
 
               {branchReady ? (
+                <ActivePlanWorkoutPlanner
+                  plan={activeTrainingPlan}
+                  routines={allRoutineOptions}
+                  trainings={trainings}
+                  loading={trainingPlanLoading || routinesLoading}
+                  error={trainingPlanError || routinesError}
+                  selectedWeek={selectedPlanWeek}
+                  currentDate={sessionDate}
+                  onRetry={() => {
+                    loadActiveTrainingPlan();
+                    reloadRoutines?.();
+                  }}
+                  onOpenPlans={() => onNavigate?.("rutinas")}
+                  onStart={handleStartPlanRoutine}
+                  onAdvance={handleAdvancePlanCycle}
+                  advancing={advancingPlanCycle}
+                  preparingRoutineId={pendingPlanRoutineId}
+                />
+              ) : null}
+
+              {branchReady && pendingSameDayTraining ? (
+                <div className="border-2 border-[#d9a927] bg-[#fff7d8] p-4 text-[#24271f] dark:border-[#e2ff00]/50 dark:bg-[#1b1b1b] dark:text-white">
+                  <p className="text-sm font-bold uppercase">
+                    Ya registraste esta rutina hoy
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[#6e6751] dark:text-[#a8a8a8]">
+                    Continúa donde quedaste o reinicia los datos de hoy.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-none dark:border-[#5a5a5a] dark:bg-[#252525] dark:text-white"
+                      onClick={() => handleSameDayTrainingChoice(false)}
+                    >
+                      <RotateCcw className="h-4 w-4" /> Reiniciar
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-11 rounded-none dark:!bg-[#e2ff00] dark:text-black"
+                      onClick={() => handleSameDayTrainingChoice(true)}
+                    >
+                      <Play className="h-4 w-4" /> Continuar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {branchReady &&
+              import.meta.env.VITE_SHOW_LEGACY_ROUTINE_PICKER === "true" ? (
                 <div className="space-y-5 bg-[#f5f5f5] p-4 text-[#1a1a1a] shadow-sm dark:bg-black dark:text-white md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
                   <div className="relative grid grid-cols-3 gap-2 pb-2">
                     <div className="absolute left-[16.66%] right-[16.66%] top-3.5 h-1 bg-[#e2e2e5] dark:bg-[#252525]" />
@@ -4632,7 +4870,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
             </div>
 
-            <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mt-auto border-t border-[#1a1a1a] bg-[#f5f5f5]/95 px-3 py-3 backdrop-blur dark:border-[#252525] dark:bg-[#121212]/95 md:static md:mt-4 md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
+            <div className="hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mt-auto border-t border-[#1a1a1a] bg-[#f5f5f5]/95 px-3 py-3 backdrop-blur dark:border-[#252525] dark:bg-[#121212]/95 md:static md:mt-4 md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
               <div className="mx-auto w-full max-w-md md:max-w-none">
                 <Button
                   className="font-condensed h-12 w-full rounded-none border-0 !bg-[#ff5722] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:!bg-[#df3f0d] focus-visible:ring-[#ff5722] disabled:!bg-[#d6d4d4] disabled:text-[#8e8e93] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600] dark:focus-visible:ring-[#e2ff00] dark:disabled:!bg-[#343434] dark:disabled:text-[#777]"
