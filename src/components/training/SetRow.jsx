@@ -1,9 +1,11 @@
 import PropTypes from "prop-types";
-import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Check, Trash2, X } from "lucide-react";
 
-const SWIPE_LIMIT = 96;
-const DELETE_THRESHOLD = 88;
+const LONG_PRESS_MS = 650;
+const MOVE_TOLERANCE_PX = 10;
 
 export default function SetRow({
   index,
@@ -24,12 +26,10 @@ export default function SetRow({
   const stateClasses = setDone
     ? "bg-[#f0f0f0] dark:bg-[#1b1b1b] text-[color:var(--text-muted)]"
     : "bg-[color:var(--card)]";
-  const x = useMotionValue(0);
-  const deleteOpacity = useTransform(
-    x,
-    [-SWIPE_LIMIT, -DELETE_THRESHOLD / 2, 0],
-    [1, 0.65, 0],
-  );
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
+  const holdTimerRef = useRef(null);
+  const holdStartRef = useRef({ x: 0, y: 0 });
   const isMobile =
     typeof window !== "undefined"
       ? window.matchMedia("(max-width: 767px)").matches
@@ -56,56 +56,65 @@ export default function SetRow({
     }
   };
 
-  const resetSwipe = () =>
-    animate(x, 0, {
-      type: "spring",
-      stiffness: 520,
-      damping: 38,
-      mass: 0.65,
-    });
-
-  const handleDragEnd = () => {
-    if (!isMobile) return;
-    if (x.get() <= -DELETE_THRESHOLD && onRemove) {
-      onRemove();
-      return;
+  const clearLongPress = () => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
     }
-    resetSwipe();
+    setIsHolding(false);
   };
 
+  const isInteractiveTarget = (target) =>
+    target instanceof Element &&
+    Boolean(target.closest("input, button, label, select, textarea, a"));
+
+  const handlePointerDown = (event) => {
+    if (!isMobile || !onRemove || isInteractiveTarget(event.target)) return;
+    clearLongPress();
+    holdStartRef.current = { x: event.clientX, y: event.clientY };
+    setIsHolding(true);
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      setIsHolding(false);
+      if (typeof navigator.vibrate === "function") navigator.vibrate(35);
+      setDeleteConfirmOpen(true);
+    }, LONG_PRESS_MS);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!holdTimerRef.current) return;
+    const deltaX = Math.abs(event.clientX - holdStartRef.current.x);
+    const deltaY = Math.abs(event.clientY - holdStartRef.current.y);
+    if (deltaX > MOVE_TOLERANCE_PX || deltaY > MOVE_TOLERANCE_PX) {
+      clearLongPress();
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
+    },
+    [],
+  );
+
   return (
-    <motion.div
+    <div
       data-set-row
-      layout
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      className="relative max-w-full overflow-hidden rounded-lg dark:rounded-[4px]"
-    >
-      {isMobile && onRemove ? (
-        <motion.div
-          aria-hidden="true"
-          style={{ opacity: deleteOpacity }}
-          className="absolute inset-y-0 right-0 grid w-24 place-items-center bg-red-600 text-white"
-        >
-          <div className="grid place-items-center gap-1 text-xs font-black uppercase">
-            <Trash2 className="h-5 w-5" />
-            Eliminar
-          </div>
-        </motion.div>
-      ) : null}
-      <motion.div
-        drag={isMobile && onRemove ? "x" : false}
-        dragConstraints={
-          isMobile ? { left: -SWIPE_LIMIT, right: 0 } : undefined
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={clearLongPress}
+      onPointerCancel={clearLongPress}
+      onPointerLeave={clearLongPress}
+      onContextMenu={(event) => {
+        if (isMobile && !isInteractiveTarget(event.target)) {
+          event.preventDefault();
         }
-        dragElastic={0.03}
-        dragMomentum={false}
-        dragDirectionLock
-        style={isMobile ? { x, touchAction: "pan-y" } : undefined}
-        onDragEnd={handleDragEnd}
-        className={`relative z-10 ${baseClasses} ${stateClasses}`}
-      >
+      }}
+      className={`relative max-w-full rounded-lg transition-shadow dark:rounded-[4px] ${
+        isHolding ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45" : ""
+      }`}
+    >
+      <div data-set-content className={`${baseClasses} ${stateClasses}`}>
         <div className="flex min-w-0 items-center justify-between gap-2 px-1 sm:px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
@@ -137,7 +146,7 @@ export default function SetRow({
             <motion.button
               whileTap={{ scale: 0.9 }}
               type="button"
-              onClick={onRemove}
+              onClick={() => setDeleteConfirmOpen(true)}
               className="text-[color:var(--text-muted)] hover:text-red-600 text-lg leading-none px-1"
               aria-label="Eliminar set"
             >
@@ -287,8 +296,68 @@ export default function SetRow({
             );
           })}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+      {deleteConfirmOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-[95] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+              <button
+                type="button"
+                className="absolute inset-0"
+                onClick={() => setDeleteConfirmOpen(false)}
+                aria-label="Cancelar eliminacion de serie"
+              />
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={`delete-set-${index}`}
+                className="relative w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl sm:max-w-sm sm:rounded-2xl sm:pb-4"
+              >
+                <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-600">
+                    <Trash2 className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase text-red-600">
+                      Eliminar serie
+                    </p>
+                    <h3
+                      id={`delete-set-${index}`}
+                      className="mt-1 text-xl font-black"
+                    >
+                      Serie {index}
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+                      Se eliminarán los pesos y repeticiones ingresados en esta
+                      serie.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    className="h-12 rounded-xl border border-[color:var(--border)] font-black text-[color:var(--text)]"
+                    onClick={() => setDeleteConfirmOpen(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="h-12 rounded-xl bg-red-600 font-black text-white hover:bg-red-700"
+                    onClick={() => {
+                      setDeleteConfirmOpen(false);
+                      onRemove?.();
+                    }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
   );
 }
 
