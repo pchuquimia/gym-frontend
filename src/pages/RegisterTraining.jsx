@@ -10,7 +10,6 @@ import {
   Flag,
   Hourglass,
   MapPin,
-  Menu,
   Minimize2,
   MoreVertical,
   Pause,
@@ -28,6 +27,7 @@ import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
 import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import ThemeToggle from "../components/ThemeToggle";
+import MobileMenuButton from "../components/layout/MobileMenuButton";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
@@ -4303,16 +4303,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden"
           >
             <div className="mx-auto flex max-w-md items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(new Event("open-main-menu"))
-                }
-                className="grid h-10 w-8 shrink-0 place-items-center text-[#ff5722] dark:text-[#e2ff00]"
-                aria-label="Abrir menu principal"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
+              <MobileMenuButton />
               <button
                 type="button"
                 onClick={() => setSessionMenuOpen(true)}
@@ -4448,16 +4439,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               data-training-setup-header
               className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden"
             >
-              <button
-                type="button"
-                onClick={() =>
-                  window.dispatchEvent(new Event("open-main-menu"))
-                }
-                className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
-                aria-label="Abrir menu principal"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
+              <MobileMenuButton />
               <div className="min-w-0 flex-1 px-2 text-center">
                 <h1 className="font-condensed truncate text-xl font-bold uppercase text-[color:var(--text)]">
                   Registrar entrenamiento

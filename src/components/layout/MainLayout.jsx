@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import { ArrowRight, Menu, Timer } from "lucide-react";
+import { ArrowRight, Timer } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
+import MobileMenuButton from "./MobileMenuButton";
 import ThemeToggle from "../ThemeToggle";
 import { useThemeMode } from "../../hooks/useThemeMode";
 
@@ -157,14 +158,7 @@ function MainLayout({
                   : "flex"
             }`}
           >
-            <button
-              type="button"
-              className="md:hidden inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2 text-sm font-medium text-[color:var(--text)]"
-              onClick={() => setShowDrawer(true)}
-            >
-              <Menu className="w-4 h-4" />
-              Menu
-            </button>
+            <MobileMenuButton onClick={() => setShowDrawer(true)} />
 
             <div className="flex-1" />
             <ThemeToggle />

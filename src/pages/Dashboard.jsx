@@ -8,7 +8,6 @@ import {
   ChevronDown,
   Clock3,
   ListChecks,
-  Menu,
   Play,
   TrendingUp,
   X,
@@ -18,6 +17,7 @@ import { presets } from "../utils/motion";
 import { useTrainingData } from "../context/TrainingContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
+import MobileMenuButton from "../components/layout/MobileMenuButton";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1600,14 +1600,7 @@ function Dashboard({ onNavigate = () => {} }) {
     >
       <header className="flex items-center justify-between gap-3 border-b border-transparent pb-1 dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
-            className="grid h-10 w-10 shrink-0 place-items-center text-[#1a1a1a] dark:text-[#d8d8c0] md:hidden"
-            aria-label="Abrir menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          <MobileMenuButton />
           <div className="min-w-0">
             <h1 className="text-3xl font-black italic leading-[0.9] text-[#1a1a1a] dark:text-white">
               APEX
