@@ -228,7 +228,21 @@ export const api = {
     return request(`/api/trainings/summary?${query}`);
   },
 
-  getPhotos: (type) => request(`/api/photos${type ? `?type=${type}` : ""}`),
+  getPhotos: (params = {}) => {
+    const options = typeof params === "string" ? { type: params } : params;
+    const query = new URLSearchParams({
+      type: options.type ?? "",
+      view: options.view ?? "",
+      athleteId: options.athleteId ?? "",
+      includeProfile: options.includeProfile ?? false,
+      page: options.page ?? 1,
+      limit: options.limit ?? 50,
+      meta: options.meta ?? false,
+    }).toString();
+    return request(`/api/photos?${query}`);
+  },
+  getPhotoSummary: (athleteId = "") =>
+    request(`/api/photos/summary${athleteId ? `?athleteId=${athleteId}` : ""}`),
   createPhoto: (payload) =>
     request("/api/photos", { method: "POST", body: JSON.stringify(payload) }),
   updatePhoto: (id, payload) =>

@@ -1,29 +1,40 @@
-import Modal from '../shared/Modal'
+import Modal from "../shared/Modal";
 
-function ConfirmModal({ name, onConfirm, onClose }) {
+function ConfirmModal({ name, onConfirm, onClose, entityLabel = "ejercicio" }) {
   const footer = (
-    <div className="modal-actions">
-      <button type="button" className="ghost-btn" onClick={onClose}>
+    <>
+      <button
+        type="button"
+        className="h-10 rounded-lg border border-[color:var(--border)] px-4 text-sm font-bold text-[color:var(--text)]"
+        onClick={onClose}
+      >
         Cancelar
       </button>
-      <button type="button" className="primary-btn" onClick={onConfirm}>
-        Confirmar Eliminación
+      <button
+        type="button"
+        className="h-10 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700"
+        onClick={onConfirm}
+      >
+        Eliminar
       </button>
-    </div>
-  )
+    </>
+  );
 
   return (
     <Modal
-      title="Eliminar ejercicio"
+      title={`Eliminar ${entityLabel}`}
       subtitle="Esta acción no se puede deshacer"
       onClose={onClose}
       footer={footer}
     >
       <p>
-        ¿Estás seguro de que deseas eliminar "{name}"? Esta acción no se puede deshacer.
+        ¿Estás seguro de que deseas eliminar "{name}"?
+        {entityLabel === "foto"
+          ? " También se eliminará el archivo almacenado."
+          : ""}
       </p>
     </Modal>
-  )
+  );
 }
 
-export default ConfirmModal
+export default ConfirmModal;

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
+import { API_URL } from "../services/axiosConfig";
 import {
   getExerciseBodyRegion,
   getExerciseCategories,
@@ -88,6 +89,7 @@ const normalizeSession = (session) => ({
 const normalizePhoto = (photo) => ({
   ...photo,
   id: photo._id || photo.id,
+  url: photo.contentUrl ? `${API_URL}${photo.contentUrl}` : photo.url || "",
 });
 
 const normalizeTraining = (training) => ({
@@ -95,17 +97,29 @@ const normalizeTraining = (training) => ({
   id: training._id || training.id,
 });
 
+const localDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const EXERCISES_KEY = ["exercises", "taxonomy-v4", "all-active"];
 const SESSIONS_KEY = ["sessions"];
-const PHOTOS_KEY = ["photos"];
 const PREFS_KEY = ["preferences"];
 
-export function TrainingProvider({ children, ownerId = "", loadExercises = true }) {
+export function TrainingProvider({
+  children,
+  ownerId = "",
+  loadExercises = true,
+  loadPhotos = true,
+}) {
   const queryClient = useQueryClient();
   const trainingsKey = useMemo(
     () => ["trainings", 120, ownerId || "self"],
     [ownerId],
   );
+  const photosKey = useMemo(() => ["photos", ownerId || "self"], [ownerId]);
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
   const [locationMode, setLocationMode] = useState("single");
   const [allowedBranches, setAllowedBranches] = useState([DEFAULT_BRANCH]);
@@ -154,12 +168,17 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
   });
 
   const photosQuery = useQuery({
-    queryKey: PHOTOS_KEY,
+    queryKey: photosKey,
     queryFn: async () => {
-      const list = await api.getPhotos();
+      const list = await api.getPhotos({
+        athleteId: ownerId,
+        includeProfile: true,
+        limit: 100,
+      });
       return (list || []).map(normalizePhoto);
     },
     staleTime: 5 * 60 * 1000,
+    enabled: loadPhotos,
   });
 
   const trainingsQuery = useQuery({
@@ -185,6 +204,8 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
     if (prefsQuery.data) {
       const nextBranch = normalizeBranch(prefsQuery.data.branch);
       const nextMode = normalizeLocationMode(prefsQuery.data.locationMode);
+      // React Query is the external source; mirror its persisted preferences locally.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBranchState(nextBranch);
       setLocationMode(nextMode);
       setAllowedBranches(
@@ -212,9 +233,12 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
       form.append("label", session.exerciseName || "");
       form.append("type", session.photoType || "gym");
       form.append("sessionId", session.id || "");
+      form.append("view", session.photoView || "front");
+      if (session.routineName) form.append("routineName", session.routineName);
+      if (ownerId) form.append("ownerId", ownerId);
       const uploaded = await api.uploadPhoto(form);
       const normalizedPhoto = normalizePhoto(uploaded);
-      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [
+      queryClient.setQueryData(photosKey, (prev = []) => [
         normalizedPhoto,
         ...prev,
       ]);
@@ -225,10 +249,13 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
         label: session.exerciseName,
         url: photoUrl,
         type: session.photoType || "gym",
+        view: session.photoView || "front",
+        routineName: session.routineName || "",
         sessionId: session.id,
+        ownerId: ownerId || undefined,
       });
       const normalizedPhoto = normalizePhoto(photo);
-      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [
+      queryClient.setQueryData(photosKey, (prev = []) => [
         normalizedPhoto,
         ...prev,
       ]);
@@ -400,30 +427,51 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
     if (photo?.file) {
       const form = new FormData();
       form.append("file", photo.file);
-      form.append("date", photo.date || new Date().toISOString().slice(0, 10));
+      form.append("date", photo.date || localDateString());
       if (photo.label) form.append("label", photo.label);
       if (photo.type) form.append("type", photo.type);
+      if (photo.view) form.append("view", photo.view);
       if (photo.sessionId) form.append("sessionId", photo.sessionId);
+      if (photo.routineName) form.append("routineName", photo.routineName);
+      if (ownerId) form.append("ownerId", ownerId);
       const uploaded = await api.uploadPhoto(form);
       const normalized = normalizePhoto(uploaded);
-      queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [
-        normalized,
-        ...prev,
-      ]);
+      queryClient.setQueryData(photosKey, (prev = []) => [normalized, ...prev]);
+      queryClient.invalidateQueries({ queryKey: ["photo-library"] });
+      queryClient.invalidateQueries({ queryKey: ["photo-summary"] });
       return normalized;
     }
-    const payload = { ...photo, id: undefined, file: undefined };
+    const payload = {
+      ...photo,
+      ownerId: photo.ownerId || ownerId || undefined,
+      id: undefined,
+      file: undefined,
+    };
     const saved = await api.createPhoto(payload);
     const normalized = normalizePhoto(saved);
-    queryClient.setQueryData(PHOTOS_KEY, (prev = []) => [normalized, ...prev]);
+    queryClient.setQueryData(photosKey, (prev = []) => [normalized, ...prev]);
+    queryClient.invalidateQueries({ queryKey: ["photo-library"] });
+    queryClient.invalidateQueries({ queryKey: ["photo-summary"] });
     return normalized;
+  };
+
+  const updatePhoto = async (id, payload) => {
+    const saved = normalizePhoto(await api.updatePhoto(id, payload));
+    queryClient.setQueryData(photosKey, (prev = []) =>
+      prev.map((photo) => (photo.id === id ? saved : photo)),
+    );
+    queryClient.invalidateQueries({ queryKey: ["photo-library"] });
+    queryClient.invalidateQueries({ queryKey: ["photo-summary"] });
+    return saved;
   };
 
   const deletePhoto = async (id) => {
     await api.deletePhoto(id);
-    queryClient.setQueryData(PHOTOS_KEY, (prev = []) =>
+    queryClient.setQueryData(photosKey, (prev = []) =>
       prev.filter((p) => p.id !== id),
     );
+    queryClient.invalidateQueries({ queryKey: ["photo-library"] });
+    queryClient.invalidateQueries({ queryKey: ["photo-summary"] });
   };
 
   const setTrainings = (updater) => {
@@ -447,7 +495,7 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
   const loading =
     (loadExercises && exercisesQuery.isLoading) ||
     sessionsQuery.isLoading ||
-    photosQuery.isLoading ||
+    (loadPhotos && photosQuery.isLoading) ||
     trainingsQuery.isLoading ||
     prefsQuery.isLoading;
   const error =
@@ -458,48 +506,34 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
     prefsQuery.error?.message ||
     null;
 
-  const value = useMemo(
-    () => ({
-      sessions,
-      exercises,
-      photos,
-      trainings,
-      loading,
-      error,
-      branch,
-      locationMode,
-      allowedBranches,
-      dataOwnerId: ownerId,
-      preferencesLoading: prefsQuery.isLoading,
-      goals,
-      addSession,
-      addTraining,
-      updateTraining,
-      addExercise,
-      updateExerciseMeta,
-      deleteExercise,
-      addPhoto,
-      deletePhoto,
-      setBranch,
-      saveLocationPreferences,
-      saveGoals,
-      setTrainings,
-      setGoals: setGoalsState,
-    }),
-    [
-      sessions,
-      exercises,
-      photos,
-      trainings,
-      loading,
-      error,
-      branch,
-      locationMode,
-      allowedBranches,
-      ownerId,
-      goals,
-    ],
-  );
+  const value = {
+    sessions,
+    exercises,
+    photos,
+    trainings,
+    loading,
+    error,
+    branch,
+    locationMode,
+    allowedBranches,
+    dataOwnerId: ownerId,
+    preferencesLoading: prefsQuery.isLoading,
+    goals,
+    addSession,
+    addTraining,
+    updateTraining,
+    addExercise,
+    updateExerciseMeta,
+    deleteExercise,
+    addPhoto,
+    updatePhoto,
+    deletePhoto,
+    setBranch,
+    saveLocationPreferences,
+    saveGoals,
+    setTrainings,
+    setGoals: setGoalsState,
+  };
 
   return (
     <TrainingContext.Provider value={value}>
@@ -508,6 +542,8 @@ export function TrainingProvider({ children, ownerId = "", loadExercises = true 
   );
 }
 
+// This colocated hook is the public API of the provider.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTrainingData() {
   const ctx = useContext(TrainingContext);
   if (!ctx)

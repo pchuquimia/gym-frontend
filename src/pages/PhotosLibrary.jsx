@@ -1,362 +1,665 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
+  CalendarDays,
   Camera,
-  Dumbbell,
-  ImageIcon,
+  Check,
+  Columns2,
   ImagePlus,
+  Pencil,
+  Plus,
+  RefreshCw,
   Trash2,
-  TrendingUp,
+  UserRound,
+  X,
 } from "lucide-react";
-import Button from "../components/ui/button";
-import Modal from "../components/shared/Modal";
 import { toast } from "sonner";
+import ConfirmModal from "../components/library/ConfirmModal";
+import Modal from "../components/shared/Modal";
+import Button from "../components/ui/button";
+import Skeleton from "../components/ui/skeleton";
+import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
-import { buildCloudinaryUrl } from "../utils/cloudinary";
+import { api } from "../services/api";
+import { API_URL } from "../services/axiosConfig";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const PAGE_SIZE = 12;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-const uploadTypeOptions = [
-  { id: "gym", label: "Entrenamiento" },
-  { id: "home", label: "Casa" },
+const TYPE_OPTIONS = [
+  { value: "", label: "Todos los contextos" },
+  { value: "gym", label: "Entrenamiento" },
+  { value: "home", label: "Fuera del gimnasio" },
+  { value: "profile", label: "Perfil" },
+];
+const CONTEXT_OPTIONS = TYPE_OPTIONS.filter(
+  (option) => option.value === "gym" || option.value === "home",
+);
+
+const VIEW_OPTIONS = [
+  { value: "", label: "Todas las vistas" },
+  { value: "front", label: "Frontal" },
+  { value: "side", label: "Lateral" },
+  { value: "back", label: "Posterior" },
+  { value: "other", label: "Otra" },
 ];
 
-const toValidDate = (value) => {
+const localDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const toDate = (value) => {
   if (!value) return null;
-  const normalized = value.length <= 10 ? `${value}T00:00:00` : value;
-  const parsed = new Date(normalized);
+  const parsed = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const formatDate = (value, opts = {}) => {
-  const d = toValidDate(value);
-  if (!d) return "--";
-  return d.toLocaleDateString("es-ES", opts);
+const formatDate = (value, options = {}) => {
+  const date = toDate(value);
+  return date ? date.toLocaleDateString("es-BO", options) : "Sin fecha";
 };
 
-const getPhotoUrl = (photo, opts = {}) => {
+const capitalizeFirst = (value) =>
+  value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
+
+const monthKey = (value) => String(value || "").slice(0, 7) || "sin-fecha";
+
+const photoUrl = (photo, width = 900, height = 1200) => {
   if (!photo) return "";
-  if (photo.publicId) return buildCloudinaryUrl(photo.publicId, opts);
+  if (photo.contentUrl) {
+    return `${API_URL}${photo.contentUrl}?width=${width}&height=${height}`;
+  }
   return photo.url || "";
 };
 
-const monthLabel = (month) => month?.replace(/\s+\d{4}$/g, "") || month;
+const normalizePhoto = (photo = {}) => ({
+  ...photo,
+  id: String(photo._id || photo.id || ""),
+  view: photo.view || "front",
+});
 
-function StatCard({ icon: Icon, label, value, tone = "emerald" }) {
-  const toneClass =
-    tone === "amber"
-      ? "text-amber-400"
-      : tone === "blue"
-        ? "text-blue-300"
-        : "text-emerald-400";
-
+function SelectField({ label, value, onChange, options }) {
   return (
-    <div className="min-w-[112px] rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-      <Icon className={`h-5 w-5 ${toneClass}`} />
-      <p className={`mt-4 text-3xl font-black leading-none ${toneClass}`}>
-        {value}
-      </p>
-      <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+    <label className="block space-y-1.5">
+      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
         {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-semibold text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ErrorState({ onRetry }) {
+  return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-500/20 dark:bg-red-500/10">
+      <p className="font-black text-[color:var(--text)]">
+        No pudimos cargar tus fotos
       </p>
+      <Button variant="outline" className="mt-4 gap-2" onClick={onRetry}>
+        <RefreshCw className="h-4 w-4" />
+        Reintentar
+      </Button>
     </div>
   );
 }
 
-function PhotosLibrary() {
-  const { photos, addPhoto, deletePhoto, trainings } = useTrainingData();
-  const [uploadType, setUploadType] = useState("gym");
-  const [uploadLabel, setUploadLabel] = useState("");
+function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
+      aria-pressed={selectionMode ? selected : undefined}
+      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+        selected
+          ? "border-blue-500 ring-2 ring-blue-500/20"
+          : "border-[color:var(--border)] hover:border-blue-300"
+      }`}
+    >
+      <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
+        <img
+          src={photoUrl(photo, 520, 680)}
+          alt={label}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+        />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 bg-black/72 p-3 text-white backdrop-blur-sm">
+        <p className="text-[10px] font-black uppercase tracking-wide text-white/70">
+          {formatDate(photo.date, {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}
+        </p>
+        <p className="mt-1 truncate text-sm font-black">{label}</p>
+      </div>
+      <span className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[10px] font-black text-white backdrop-blur-sm">
+        {VIEW_OPTIONS.find((option) => option.value === photo.view)?.label ||
+          "Otra"}
+      </span>
+      {selectionMode ? (
+        <span
+          className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
+            selected
+              ? "border-blue-500 bg-blue-600 text-white"
+              : "border-white/70 bg-black/40 text-transparent"
+          }`}
+        >
+          <Check className="h-4 w-4" />
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+export default function PhotosLibrary() {
+  const { updateAccount } = useAuth();
+  const {
+    addPhoto,
+    updatePhoto,
+    deletePhoto,
+    trainings = [],
+    dataOwnerId = "",
+  } = useTrainingData();
+  const [mode, setMode] = useState("history");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [viewFilter, setViewFilter] = useState("");
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
   const [activePhoto, setActivePhoto] = useState(null);
-  const [modalSrc, setModalSrc] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [meta, setMeta] = useState({
+    date: localDateString(),
+    type: "gym",
+    view: "front",
+    sessionId: "",
+    label: "",
+  });
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  const routineMap = useMemo(() => {
-    const map = new Map();
-    (trainings || []).forEach((training) => {
-      const id = training.id || training._id;
-      if (!id) return;
-      if (training.routineName) map.set(id, training.routineName);
-    });
-    return map;
-  }, [trainings]);
+  const summaryQuery = useQuery({
+    queryKey: ["photo-summary", dataOwnerId || "self"],
+    queryFn: () => api.getPhotoSummary(dataOwnerId),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const resolveRoutineLabel = (photo) => {
-    if (!photo) return "";
-    if (photo.type === "home") return photo.label || "Progreso en casa";
-    const sessionId = photo.sessionId || photo.trainingId || "";
-    if (sessionId && routineMap.has(sessionId)) {
-      return routineMap.get(sessionId) || "Rutina";
-    }
-    if (photo.label) {
-      const match = /^Entrenamiento\\s*-\\s*(.+)$/i.exec(photo.label.trim());
-      if (match?.[1]) return match[1];
-      return photo.label;
-    }
-    return "Rutina sin nombre";
+  const photosQuery = useInfiniteQuery({
+    queryKey: ["photo-library", dataOwnerId || "self", typeFilter, viewFilter],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      api.getPhotos({
+        athleteId: dataOwnerId,
+        type: typeFilter,
+        view: viewFilter,
+        page: pageParam,
+        limit: PAGE_SIZE,
+        meta: true,
+      }),
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.limit < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
+  });
+
+  const photos = (photosQuery.data?.pages || [])
+    .flatMap((page) => page.items || [])
+    .map(normalizePhoto);
+  const total = photosQuery.data?.pages?.[0]?.total || 0;
+  const trainingOptions = useMemo(
+    () =>
+      trainings
+        .slice()
+        .sort((a, b) =>
+          String(b.date || "").localeCompare(String(a.date || "")),
+        )
+        .slice(0, 30)
+        .map((training) => ({
+          id: String(training.id || training._id || ""),
+          label: `${formatDate(training.date, { day: "2-digit", month: "short" })} · ${training.routineName || "Entrenamiento"}`,
+          routineName: training.routineName || "Entrenamiento",
+        })),
+    [trainings],
+  );
+  const trainingMap = useMemo(
+    () => new Map(trainingOptions.map((item) => [item.id, item.routineName])),
+    [trainingOptions],
+  );
+  const labelFor = (photo) =>
+    photo.routineName ||
+    trainingMap.get(String(photo.sessionId || "")) ||
+    photo.label ||
+    (photo.type === "home" ? "Progreso personal" : "Entrenamiento");
+  const groupedPhotos = useMemo(() => {
+    const groups = new Map();
+    photos.forEach((photo) => {
+      const key = monthKey(photo.date);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(photo);
+    });
+    return Array.from(groups.entries());
+  }, [photos]);
+  const selectedPhotos = selectedIds
+    .map((id) => photos.find((photo) => photo.id === id))
+    .filter(Boolean);
+
+  const toggleComparison = (id) => {
+    setSelectedIds((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= 2) return [current[1], id];
+      return [...current, id];
+    });
   };
 
-  const orderedPhotos = useMemo(() => {
-    return (photos || [])
-      .filter((photo) => photo.type !== "profile")
-      .slice()
-      .sort((a, b) => {
-        const da = toValidDate(a.date)?.getTime() || 0;
-        const db = toValidDate(b.date)?.getTime() || 0;
-        return db - da;
-      });
-  }, [photos]);
-
-  const groupedPhotos = useMemo(() => {
-    const map = new Map();
-    orderedPhotos.forEach((photo) => {
-      const key =
-        formatDate(photo.date, { month: "long", year: "numeric" }) ||
-        "Sin fecha";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(photo);
+  const resetMeta = () =>
+    setMeta({
+      date: localDateString(),
+      type: "gym",
+      view: "front",
+      sessionId: "",
+      label: "",
     });
-    return Array.from(map.entries());
-  }, [orderedPhotos]);
-
-  const stats = useMemo(() => {
-    const total = orderedPhotos.length;
-    const gymCount = orderedPhotos.filter((p) => p.type === "gym").length;
-    const homeCount = orderedPhotos.filter((p) => p.type === "home").length;
-    const lastDate = orderedPhotos[0]?.date || null;
-    return { total, gymCount, homeCount, lastDate };
-  }, [orderedPhotos]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setFileError("Max 10MB");
-      event.target.value = "";
+    if (!ALLOWED_TYPES.has(file.type)) {
+      setFileError("Usa una imagen JPG, PNG o WebP.");
       return;
     }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setFileError("La imagen no puede superar 5 MB.");
+      return;
+    }
+    setUploading(true);
     setFileError("");
-    setIsUploading(true);
+    const routineName = meta.sessionId
+      ? trainingMap.get(meta.sessionId) || ""
+      : "";
     try {
-      const label =
-        uploadLabel.trim() ||
-        (uploadType === "home" ? "Progreso en casa" : "Foto en entrenamiento");
       await addPhoto({
         file,
-        date: new Date().toISOString().slice(0, 10),
-        label,
-        type: uploadType,
+        ...meta,
+        routineName,
+        label: meta.label.trim() || routineName,
       });
-      setUploadLabel("");
-      toast.success("Foto guardada", {
-        description: "La imagen se agregó a tu historial.",
-      });
-    } catch (err) {
-      console.error("No se pudo subir la foto", err);
-      setFileError("No se pudo subir la foto");
-      toast.error("No se pudo subir la foto");
-    } finally {
-      setIsUploading(false);
-      event.target.value = "";
-    }
-  };
-
-  const handleDelete = async (photo) => {
-    if (!photo) return;
-    const confirmDelete = window.confirm("Eliminar esta foto?");
-    if (!confirmDelete) return;
-    try {
-      await deletePhoto(photo.id);
-      setActivePhoto(null);
-      toast.success("Foto eliminada");
+      toast.success("Foto guardada");
+      resetMeta();
+      setUploadOpen(false);
     } catch (error) {
-      toast.error(error.message || "No se pudo eliminar la foto");
+      const message = error.message || "No se pudo subir la foto";
+      setFileError(message);
+      toast.error(message);
+    } finally {
+      setUploading(false);
     }
   };
 
-  useEffect(() => {
-    if (!activePhoto) {
-      setModalSrc("");
-      return;
+  const openPhoto = (photo) => {
+    setActivePhoto(photo);
+    setEditing(false);
+  };
+
+  const saveEdit = async () => {
+    if (!activePhoto) return;
+    const sessionId = activePhoto.sessionId || "";
+    try {
+      const saved = await updatePhoto(activePhoto.id, {
+        date: activePhoto.date,
+        type: activePhoto.type,
+        view: activePhoto.view,
+        label: activePhoto.label || "",
+        sessionId: sessionId || null,
+        routineName: sessionId ? trainingMap.get(sessionId) || "" : "",
+      });
+      setActivePhoto(saved);
+      setEditing(false);
+      toast.success("Datos actualizados");
+    } catch (error) {
+      toast.error(error.message || "No se pudo actualizar la foto");
     }
-    const primary = getPhotoUrl(activePhoto, {
-      width: 1200,
-      height: 1200,
-      crop: "limit",
-    });
-    setModalSrc(primary || activePhoto.url || "");
-  }, [activePhoto]);
+  };
+
+  const setAsAvatar = async () => {
+    if (!activePhoto) return;
+    try {
+      await updateAccount({ avatarPhotoId: activePhoto.id });
+      toast.success("Foto de perfil actualizada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo actualizar el perfil");
+    }
+  };
 
   return (
     <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto w-full max-w-5xl space-y-8 px-4 py-5 pb-28 sm:px-6">
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-black leading-tight">Overview</h1>
-          <span className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-            Visual data
-          </span>
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-3 py-4 pb-28 sm:px-6 sm:py-6">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+              Progreso visual
+            </p>
+            <h1 className="text-2xl font-black sm:text-3xl">
+              Fotos de progreso
+            </h1>
+            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+              {summaryQuery.isLoading
+                ? "Cargando historial..."
+                : `${summaryQuery.data?.total || 0} fotos${summaryQuery.data?.lastDate ? ` · Última: ${formatDate(summaryQuery.data.lastDate, { day: "2-digit", month: "short", year: "numeric" })}` : ""}`}
+            </p>
+          </div>
+          <Button
+            className="gap-2"
+            onClick={() => setUploadOpen((open) => !open)}
+          >
+            {uploadOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            {uploadOpen ? "Cancelar" : "Agregar foto"}
+          </Button>
         </header>
 
-        <section className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <StatCard icon={ImageIcon} label="Total photos" value={stats.total} />
-          <StatCard
-            icon={Dumbbell}
-            label="Sessions"
-            value={trainings?.length || 0}
-            tone="amber"
-          />
-          <StatCard
-            icon={TrendingUp}
-            label="Gym photos"
-            value={stats.gymCount}
-            tone="blue"
-          />
-          <StatCard icon={Camera} label="Home photos" value={stats.homeCount} />
-        </section>
-
-        <section className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-5">
-          <h2 className="text-xl font-black">New Milestone</h2>
-          <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-            Capture your physique today to track change.
-          </p>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isUploading}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-blue-200 text-sm font-black text-blue-950 transition hover:bg-blue-100 disabled:opacity-70"
-            >
-              <Camera className="h-4 w-4" />
-              Camera
-            </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[color:var(--bg)] text-sm font-black text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] disabled:opacity-70"
-            >
-              <ImagePlus className="h-4 w-4" />
-              Gallery
-            </button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        {uploadOpen ? (
+          <section className="space-y-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                  Fecha
+                </span>
+                <input
+                  type="date"
+                  value={meta.date}
+                  max={localDateString()}
+                  onChange={(event) =>
+                    setMeta((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none focus:border-blue-400 sm:text-sm"
+                />
+              </label>
+              <SelectField
+                label="Vista corporal"
+                value={meta.view}
+                onChange={(view) =>
+                  setMeta((current) => ({ ...current, view }))
+                }
+                options={VIEW_OPTIONS.slice(1)}
+              />
+              <SelectField
+                label="Contexto"
+                value={meta.type}
+                onChange={(type) =>
+                  setMeta((current) => ({
+                    ...current,
+                    type,
+                    sessionId: type === "gym" ? current.sessionId : "",
+                  }))
+                }
+                options={CONTEXT_OPTIONS}
+              />
+              {meta.type === "gym" ? (
+                <SelectField
+                  label="Sesión opcional"
+                  value={meta.sessionId}
+                  onChange={(sessionId) =>
+                    setMeta((current) => ({ ...current, sessionId }))
+                  }
+                  options={[
+                    { value: "", label: "Sin vincular" },
+                    ...trainingOptions.map((item) => ({
+                      value: item.id,
+                      label: item.label,
+                    })),
+                  ]}
+                />
+              ) : (
+                <div />
+              )}
+            </div>
+            <label className="block space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                Nota opcional
+              </span>
+              <input
+                value={meta.label}
+                maxLength={240}
+                onChange={(event) =>
+                  setMeta((current) => ({
+                    ...current,
+                    label: event.target.value,
+                  }))
+                }
+                placeholder="Ej. Inicio de definición"
+                className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 sm:text-sm"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                disabled={uploading}
+                className="h-11 gap-2"
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4" />
+                Cámara
+              </Button>
+              <Button
+                disabled={uploading}
+                variant="outline"
+                className="h-11 gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImagePlus className="h-4 w-4" />
+                Archivos
+              </Button>
+            </div>
             <input
-              value={uploadLabel}
-              onChange={(event) => setUploadLabel(event.target.value)}
-              placeholder="Add a quick note (e.g. Morning pump)..."
-              className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="sr-only"
+              onChange={handleUpload}
             />
-            <select
-              value={uploadType}
-              onChange={(event) => setUploadType(event.target.value)}
-              className="h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-bold outline-none"
-              aria-label="Tipo de foto"
-            >
-              {uploadTypeOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleUpload}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleUpload}
-          />
-          {fileError ? (
-            <p className="mt-2 text-xs text-red-500">{fileError}</p>
-          ) : null}
-          {isUploading ? (
-            <p className="mt-2 text-xs font-semibold text-blue-500">
-              Subiendo foto...
-            </p>
-          ) : null}
-        </section>
-
-        {groupedPhotos.length === 0 ? (
-          <section className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center text-sm text-[color:var(--text-muted)]">
-            Aun no hay fotos guardadas. Sube la primera al terminar tu sesion.
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={handleUpload}
+            />
+            {uploading ? (
+              <p role="status" className="text-sm font-bold text-blue-600">
+                Subiendo foto...
+              </p>
+            ) : null}
+            {fileError ? (
+              <p role="alert" className="text-sm font-bold text-red-500">
+                {fileError}
+              </p>
+            ) : null}
           </section>
         ) : null}
 
-        {groupedPhotos.map(([month, photosByMonth]) => (
-          <section key={month} className="space-y-4">
-            <div className="flex items-end justify-between">
-              <h2 className="text-2xl font-black capitalize">
-                {monthLabel(month)}
-              </h2>
-              <span className="text-[11px] font-black uppercase tracking-wide text-blue-700 dark:text-blue-200">
-                {photosByMonth.length} photos
-              </span>
-            </div>
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+          <div
+            className="flex rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+            role="tablist"
+            aria-label="Vista de fotos"
+          >
+            {[
+              ["history", CalendarDays, "Historial"],
+              ["compare", Columns2, "Comparar"],
+            ].map(([value, Icon, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={mode === value}
+                onClick={() => setMode(value)}
+                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black ${mode === value ? "bg-blue-600 text-white" : "text-[color:var(--text-muted)]"}`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-[360px]">
+            <SelectField
+              label="Contexto"
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={TYPE_OPTIONS}
+            />
+            <SelectField
+              label="Vista"
+              value={viewFilter}
+              onChange={setViewFilter}
+              options={VIEW_OPTIONS}
+            />
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {photosByMonth.map((photo) => {
-                const preview = getPhotoUrl(photo, {
-                  width: 520,
-                  height: 680,
-                  crop: "fill",
-                  gravity: "auto",
-                });
-                const routineLabel = resolveRoutineLabel(photo);
-                return (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    className="group relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] text-left"
-                    onClick={() => setActivePhoto(photo)}
-                  >
-                    <div className="aspect-[4/5] w-full overflow-hidden">
+        {mode === "compare" ? (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-[color:var(--text-muted)]">
+                Selecciona dos fotos · {selectedIds.length}/2
+              </p>
+              {selectedIds.length ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds([])}
+                  className="text-xs font-black text-blue-600"
+                >
+                  Limpiar
+                </button>
+              ) : null}
+            </div>
+            {selectedPhotos.length === 2 ? (
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2 sm:gap-4 sm:p-4">
+                {selectedPhotos.map((photo) => (
+                  <figure key={photo.id} className="min-w-0">
+                    <div className="aspect-[3/4] overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
                       <img
-                        src={preview || photo.url}
-                        alt={routineLabel || "Foto de progreso"}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
+                        src={photoUrl(photo, 900, 1200)}
+                        alt={labelFor(photo)}
+                        className="h-full w-full object-contain"
                       />
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
-                    <span className="absolute right-2 top-2 rounded bg-emerald-500/90 px-2 py-0.5 text-[10px] font-black text-emerald-950">
-                      {photo.type === "home" ? "Casa" : "Gym"}
-                    </span>
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-[11px] font-black uppercase text-blue-100">
-                        {formatDate(photo.date, {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <p className="mt-1 truncate text-sm font-black text-white">
-                        {routineLabel}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    <figcaption className="mt-2 truncate text-center text-xs font-black">
+                      {formatDate(photo.date, {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            ) : null}
           </section>
-        ))}
+        ) : null}
+
+        {photosQuery.isError ? (
+          <ErrorState onRetry={() => photosQuery.refetch()} />
+        ) : photosQuery.isLoading ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <Skeleton key={index} className="aspect-[4/5] rounded-lg" />
+            ))}
+          </div>
+        ) : photos.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center">
+            <ImagePlus className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
+            <p className="mt-3 font-black">Aún no hay fotos en esta vista</p>
+            <Button className="mt-4 gap-2" onClick={() => setUploadOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Agregar foto
+            </Button>
+          </div>
+        ) : mode === "history" ? (
+          groupedPhotos.map(([key, items]) => (
+            <section key={key} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black sm:text-xl">
+                  {capitalizeFirst(
+                    formatDate(`${key}-01`, { month: "long", year: "numeric" }),
+                  )}
+                </h2>
+                <span className="text-xs font-bold text-[color:var(--text-muted)]">
+                  {items.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {items.map((photo) => (
+                  <PhotoCard
+                    key={photo.id}
+                    photo={photo}
+                    label={labelFor(photo)}
+                    onClick={() => openPhoto(photo)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {photos.map((photo) => (
+              <PhotoCard
+                key={photo.id}
+                photo={photo}
+                label={labelFor(photo)}
+                selectionMode
+                selected={selectedIds.includes(photo.id)}
+                onClick={() => toggleComparison(photo.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {!photosQuery.isLoading && photos.length ? (
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+              Mostrando {photos.length} de {total}
+            </p>
+            {photosQuery.hasNextPage ? (
+              <Button
+                variant="outline"
+                disabled={photosQuery.isFetchingNextPage}
+                onClick={() => photosQuery.fetchNextPage()}
+              >
+                {photosQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      {activePhoto && (
+      {activePhoto ? (
         <Modal
-          title={resolveRoutineLabel(activePhoto)}
+          title={labelFor(activePhoto)}
           subtitle={formatDate(activePhoto.date, {
             day: "2-digit",
             month: "long",
@@ -364,82 +667,183 @@ function PhotosLibrary() {
           })}
           onClose={() => setActivePhoto(null)}
           footer={
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full gap-2"
-                onClick={() => handleDelete(activePhoto)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Eliminar
-              </Button>
-              <Button
-                size="sm"
-                className="rounded-full"
-                onClick={() => setActivePhoto(null)}
-              >
-                Cerrar
-              </Button>
-            </>
+            editing ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button size="sm" onClick={saveEdit}>
+                  Guardar
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  onClick={() => {
+                    setDeleteTarget(activePhoto);
+                    setActivePhoto(null);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  title="Usar como foto de perfil"
+                  aria-label="Usar como foto de perfil"
+                  onClick={setAsAvatar}
+                >
+                  <UserRound className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+              </>
+            )
           }
         >
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[color:var(--border)] overflow-hidden">
-              {modalSrc ? (
-                <img
-                  src={modalSrc}
-                  alt={resolveRoutineLabel(activePhoto)}
-                  className="w-full max-h-[70vh] object-cover"
-                  onError={() => {
-                    const fallback = activePhoto?.url || "";
-                    if (fallback && modalSrc !== fallback) {
-                      setModalSrc(fallback);
-                    } else {
-                      setModalSrc("");
-                    }
-                  }}
+          {editing ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-[color:var(--text-muted)]">
+                  Fecha
+                </span>
+                <input
+                  type="date"
+                  value={activePhoto.date || ""}
+                  max={localDateString()}
+                  onChange={(event) =>
+                    setActivePhoto((photo) => ({
+                      ...photo,
+                      date: event.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base sm:text-sm"
+                />
+              </label>
+              <SelectField
+                label="Vista corporal"
+                value={activePhoto.view || "front"}
+                onChange={(view) =>
+                  setActivePhoto((photo) => ({ ...photo, view }))
+                }
+                options={VIEW_OPTIONS.slice(1)}
+              />
+              <SelectField
+                label="Contexto"
+                value={activePhoto.type || "gym"}
+                onChange={(type) =>
+                  setActivePhoto((photo) => ({
+                    ...photo,
+                    type,
+                    sessionId: type === "gym" ? photo.sessionId : "",
+                  }))
+                }
+                options={
+                  activePhoto.type === "profile"
+                    ? TYPE_OPTIONS.slice(1)
+                    : CONTEXT_OPTIONS
+                }
+              />
+              {activePhoto.type === "gym" ? (
+                <SelectField
+                  label="Sesión"
+                  value={activePhoto.sessionId || ""}
+                  onChange={(sessionId) =>
+                    setActivePhoto((photo) => ({ ...photo, sessionId }))
+                  }
+                  options={[
+                    { value: "", label: "Sin vincular" },
+                    ...trainingOptions.map((item) => ({
+                      value: item.id,
+                      label: item.label,
+                    })),
+                  ]}
                 />
               ) : (
-                <div className="w-full h-[40vh] grid place-items-center text-sm text-[color:var(--text-muted)] bg-[color:var(--bg)]">
-                  No se pudo cargar la foto.
-                </div>
+                <div />
               )}
+              <label className="block space-y-1.5 sm:col-span-2">
+                <span className="text-xs font-bold text-[color:var(--text-muted)]">
+                  Nota
+                </span>
+                <input
+                  value={activePhoto.label || ""}
+                  maxLength={240}
+                  onChange={(event) =>
+                    setActivePhoto((photo) => ({
+                      ...photo,
+                      label: event.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base sm:text-sm"
+                />
+              </label>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-xs text-[color:var(--text-muted)]">Rutina</p>
-                <p className="text-sm font-semibold">
-                  {resolveRoutineLabel(activePhoto)}
-                </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
+                <img
+                  src={photoUrl(activePhoto, 1600, 1600)}
+                  alt={labelFor(activePhoto)}
+                  className="max-h-[68vh] w-full object-contain"
+                />
               </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-xs text-[color:var(--text-muted)]">Tipo</p>
-                <p className="text-sm font-semibold">
-                  {activePhoto.type === "home" ? "Casa" : "Entrenamiento"}
-                </p>
+              <div className="flex flex-wrap gap-2 text-xs font-bold text-[color:var(--text-muted)]">
+                <span className="rounded-md bg-[color:var(--bg)] px-2 py-1">
+                  {VIEW_OPTIONS.find(
+                    (option) => option.value === activePhoto.view,
+                  )?.label || "Otra"}
+                </span>
+                <span className="rounded-md bg-[color:var(--bg)] px-2 py-1">
+                  {TYPE_OPTIONS.find(
+                    (option) => option.value === activePhoto.type,
+                  )?.label || "Entrenamiento"}
+                </span>
               </div>
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 sm:col-span-2">
-                <p className="text-xs text-[color:var(--text-muted)]">Fecha</p>
-                <p className="text-sm font-semibold">
-                  {formatDate(activePhoto.date, {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+              {activePhoto.label &&
+              activePhoto.label !== labelFor(activePhoto) ? (
+                <p className="text-sm text-[color:var(--text-muted)]">
+                  {activePhoto.label}
                 </p>
-              </div>
+              ) : null}
             </div>
-            {activePhoto.label && (
-              <p className="text-sm text-[color:var(--text-muted)]">
-                {activePhoto.label}
-              </p>
-            )}
-          </div>
+          )}
         </Modal>
-      )}
+      ) : null}
+
+      {deleteTarget ? (
+        <ConfirmModal
+          name={labelFor(deleteTarget)}
+          entityLabel="foto"
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            try {
+              await deletePhoto(deleteTarget.id);
+              setSelectedIds((ids) =>
+                ids.filter((id) => id !== deleteTarget.id),
+              );
+              setDeleteTarget(null);
+              toast.success("Foto eliminada");
+            } catch (error) {
+              toast.error(error.message || "No se pudo eliminar la foto");
+            }
+          }}
+        />
+      ) : null}
     </main>
   );
 }
-
-export default PhotosLibrary;

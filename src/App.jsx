@@ -251,6 +251,7 @@ function App() {
     <TrainingProvider
       ownerId={supervisedOwnerId}
       loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
+      loadPhotos={activePage !== "fotos"}
     >
       <RoutineProvider ownerId={supervisedOwnerId}>
         <UserProvider>

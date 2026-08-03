@@ -1,11 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowRight,
   ArrowLeft,
   Check,
   Circle,
   CircleDot,
   ClipboardList,
+  Dumbbell,
   Flag,
   MapPin,
   Menu,
@@ -43,7 +45,8 @@ const SNAPSHOT_KEY = "active_training_snapshot";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
-const MAX_TRAINING_PHOTO_BYTES = 10 * 1024 * 1024;
+const MAX_TRAINING_PHOTO_BYTES = 5 * 1024 * 1024;
+const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const normalizeBranch = (value) =>
@@ -220,6 +223,22 @@ const branchMeta = {
 const getBranchTitle = (branch) =>
   branchMeta[normalizeBranch(branch)]?.title || branch || "Sucursal";
 
+const formatRelativeSessionDate = (value) => {
+  const date = toValidDate(value);
+  if (!date) return "Sin registros anteriores";
+  const today = toValidDate(todayISO);
+  const days = Math.max(
+    0,
+    Math.round((today.getTime() - date.getTime()) / 86400000),
+  );
+  if (days === 0) return "Hoy";
+  if (days === 1) return "Ayer";
+  if (days < 7) return `Hace ${days} días`;
+  if (days < 14) return "Hace 1 semana";
+  if (days < 30) return `Hace ${Math.floor(days / 7)} semanas`;
+  return formatShort(value);
+};
+
 function SetupStep({ number, title, subtitle, active = false, done = false }) {
   return (
     <div className="flex items-start gap-3">
@@ -289,32 +308,44 @@ function RoutineSetupCard({ routine, selected, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-xl border p-4 text-left transition ${
+      aria-pressed={selected}
+      className={`group relative w-full border-2 bg-[#fbfaff] p-4 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#ff5722]/25 ${
         selected
-          ? "border-emerald-400/60 bg-emerald-500/10"
-          : "border-transparent bg-[color:var(--card)]"
+          ? "border-[#ff5722]"
+          : "border-transparent hover:border-[#8e8e93]"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-lg font-black text-[color:var(--text)]">
+          <p className="font-condensed line-clamp-2 text-2xl font-bold uppercase leading-none text-[#1a1a1a]">
             {routine.name}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-            {routine.exerciseCount} principales
-            {routine.optionalExerciseCount
-              ? ` + ${routine.optionalExerciseCount} opcional`
-              : ""}
           </p>
         </div>
       </div>
-      {routine.lastDate ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
-            Último registro: {routine.lastDate}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {routine.kind ? (
+          <span className="font-condensed bg-[#1a1a1a] px-2 py-1 text-xs font-bold uppercase leading-none text-white">
+            {routine.kind}
           </span>
-        </div>
-      ) : null}
+        ) : null}
+        {routine.optionalExerciseCount ? (
+          <span className="font-condensed bg-[#1a1a1a] px-2 py-1 text-xs font-bold uppercase leading-none text-white">
+            {routine.optionalExerciseCount} opcional
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#e2e2e2] pt-3">
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-[#60443e]">
+          <Timer className="h-3.5 w-3.5" />
+          <span className="font-bold">
+            {formatRelativeSessionDate(routine.lastDateRaw)}
+          </span>
+        </p>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase text-[#60443e]">
+          <Dumbbell className="h-3.5 w-3.5" />
+          {routine.exerciseCount} ejercicios
+        </span>
+      </div>
     </button>
   );
 }
@@ -1129,6 +1160,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [nowMs, setNowMs] = useState(Date.now());
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
+  const [showAllRoutineOptions, setShowAllRoutineOptions] = useState(false);
   const [exercises, setExercises] = useState([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isOrderingExercises, setIsOrderingExercises] = useState(false);
@@ -1232,6 +1264,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         sourceRoutineId: r.sourceRoutineId || null,
         exerciseCount: primaryExercises.length,
         optionalExerciseCount: optionalExercises.length,
+        kind:
+          r.assignmentType === "plan"
+            ? "Plan semanal"
+            : r.assignmentType === "extra"
+              ? "Sesión extra"
+              : "Rutina personal",
+        lastDateRaw: latestRoutineDates.get(r.id)?.date || "",
         lastDate: latestRoutineDates.get(r.id)?.date
           ? formatShort(latestRoutineDates.get(r.id).date)
           : "",
@@ -1253,6 +1292,19 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       ) || [];
     return filtered.map((r) => toRoutineOption(r));
   }, [routines, effectiveBranch, toRoutineOption]);
+  const visibleRoutineOptions = useMemo(() => {
+    if (showAllRoutineOptions || routineOptions.length <= 3) {
+      return routineOptions;
+    }
+    const initial = routineOptions.slice(0, 3);
+    const selected = routineOptions.find(
+      (routine) => routine.id === selectedRoutineId,
+    );
+    if (selected && !initial.some((routine) => routine.id === selected.id)) {
+      return [selected, ...initial.slice(0, 2)];
+    }
+    return initial;
+  }, [routineOptions, selectedRoutineId, showAllRoutineOptions]);
 
   const currentBranch =
     effectiveBranch || (locationDisabled ? "" : selectedRoutine?.location);
@@ -3232,6 +3284,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchConfirmed(true);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
+    setShowAllRoutineOptions(false);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
     setLoadingTraining(false);
@@ -3250,6 +3303,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setBranchConfirmed(false);
     setSelectedRoutineId(null);
     setSelectedRoutine(null);
+    setShowAllRoutineOptions(false);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
     setExercises([]);
@@ -3825,8 +3879,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const handleTrainingPhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!TRAINING_PHOTO_TYPES.has(file.type)) {
+      setTrainingPhotoError("Usa una imagen JPG, PNG o WebP");
+      event.target.value = "";
+      return;
+    }
     if (file.size > MAX_TRAINING_PHOTO_BYTES) {
-      setTrainingPhotoError("Max 10MB");
+      setTrainingPhotoError("La imagen no puede superar 5 MB");
       event.target.value = "";
       return;
     }
@@ -4355,11 +4414,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         <div
           className={`hidden items-center justify-between md:flex ${
             !setupStarted && !isEditing
-              ? "md:mx-auto md:w-full md:max-w-md"
+              ? "md:mx-auto md:w-full md:max-w-xl"
               : ""
           }`}
         >
-          <h1 className="text-3xl font-bold">Registrar Entrenamiento</h1>
+          <h1 className="font-condensed text-4xl font-bold uppercase">
+            Registrar entrenamiento
+          </h1>
           {isEditing ? (
             <Button variant="outline" size="sm" onClick={handleExitEdit}>
               Salir de edición
@@ -4368,7 +4429,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         </div>
 
         {!setupStarted && !isEditing ? (
-          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col md:min-h-0">
+          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col md:min-h-0 md:max-w-xl">
             <header className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden">
               <button
                 type="button"
@@ -4378,20 +4439,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <div className="min-w-0 flex-1 px-2">
-                <h1 className="truncate text-lg font-black text-[color:var(--text)]">
+              <div className="min-w-0 flex-1 px-2 text-center">
+                <h1 className="font-condensed truncate text-xl font-bold uppercase text-[color:var(--text)]">
                   Nueva sesión
                 </h1>
               </div>
-              <span className="text-[11px] font-black text-[color:var(--text-muted)]">
-                Paso{" "}
-                {requiresBranchSelection && !branchConfirmed
-                  ? "1"
-                  : requiresBranchSelection
-                    ? "2"
-                    : "1"}
-                /{requiresBranchSelection ? "2" : "1"}
-              </span>
+              <span className="h-9 w-9" aria-hidden="true" />
             </header>
 
             <div className="space-y-8">
@@ -4428,44 +4481,101 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
 
               {branchReady ? (
-                <div className="space-y-4">
-                  <SetupStep
-                    number={requiresBranchSelection ? 2 : 1}
-                    title="Escoger rutina"
-                    subtitle="Selecciona tu plan para esta sesión"
-                    active={!selectedRoutineId}
-                    done={Boolean(selectedRoutineId)}
-                  />
+                <div className="space-y-5 bg-[#f5f5f5] p-4 text-[#1a1a1a] shadow-sm md:border md:border-[#d8d8d8]">
+                  <div className="relative grid grid-cols-3 gap-2 pb-2">
+                    <div className="absolute left-[16.66%] right-[16.66%] top-3.5 h-1 bg-[#e2e2e5]" />
+                    {(requiresBranchSelection
+                      ? [
+                          { number: 1, label: "Sucursal", state: "done" },
+                          { number: 2, label: "Rutina", state: "active" },
+                          { number: 3, label: "Inicio", state: "next" },
+                        ]
+                      : [
+                          { number: 1, label: "Rutina", state: "active" },
+                          { number: 2, label: "Revisión", state: "next" },
+                          { number: 3, label: "Inicio", state: "next" },
+                        ]
+                    ).map((step) => (
+                      <div
+                        key={step.number}
+                        className="relative z-10 flex flex-col items-center"
+                      >
+                        <span
+                          className={`font-condensed grid h-8 w-8 place-items-center rounded-full border text-sm font-bold ${
+                            step.state === "active"
+                              ? "border-[#ff5722] bg-[#ff5722] text-white"
+                              : step.state === "done"
+                                ? "border-[#1a1a1a] bg-[#1a1a1a] text-white"
+                                : "border-[#60443e] bg-[#f5f5f5] text-[#1a1a1a]"
+                          }`}
+                        >
+                          {step.state === "done" ? (
+                            <Check className="h-4 w-4 stroke-[3]" />
+                          ) : (
+                            step.number
+                          )}
+                        </span>
+                        <span className="font-condensed mt-2 text-xs font-bold uppercase text-[#472d28]">
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <h2 className="font-condensed text-3xl font-bold uppercase leading-none text-[#1a1a1a]">
+                      Selecciona tu rutina
+                    </h2>
+                    <p className="mt-2 text-sm font-medium text-[#6d6462]">
+                      Elige el entrenamiento que realizarás hoy.
+                    </p>
+                  </div>
 
                   <div className="space-y-3">
                     {routineOptions.length ? (
-                      routineOptions.map((routine) => (
-                        <RoutineSetupCard
-                          key={routine.id}
-                          routine={routine}
-                          selected={routine.id === selectedRoutineId}
-                          onClick={() => handleSelectRoutine(routine.id)}
-                        />
-                      ))
+                      <>
+                        <div className="grid gap-3">
+                          {visibleRoutineOptions.map((routine) => (
+                            <RoutineSetupCard
+                              key={routine.id}
+                              routine={routine}
+                              selected={routine.id === selectedRoutineId}
+                              onClick={() => handleSelectRoutine(routine.id)}
+                            />
+                          ))}
+                        </div>
+                        {routineOptions.length > 3 ? (
+                          <button
+                            type="button"
+                            className="font-condensed h-11 w-full border border-[#8e8e93] bg-transparent text-sm font-bold uppercase tracking-[0.08em] text-[#1a1a1a] hover:border-[#ff5722] hover:text-[#c52d00]"
+                            onClick={() =>
+                              setShowAllRoutineOptions((current) => !current)
+                            }
+                          >
+                            {showAllRoutineOptions
+                              ? "Mostrar menos"
+                              : `Ver ${routineOptions.length - visibleRoutineOptions.length} rutinas más`}
+                          </button>
+                        ) : null}
+                      </>
                     ) : (
-                      <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                      <div className="border border-dashed border-[#8e8e93] bg-[#fbfaff] p-5 text-sm font-semibold text-[#6d6462]">
                         {locationDisabled
                           ? "No hay rutinas disponibles."
                           : `No hay rutinas disponibles para ${getBranchTitle(effectiveBranch)}.`}
                       </div>
                     )}
                     {loadingTraining ? (
-                      <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-4 text-sm font-semibold text-blue-700 dark:text-blue-200">
+                      <div className="border border-[#ff8a65] bg-[#fff0eb] p-4 text-sm font-bold text-[#852300]">
                         Preparando rutina e historial...
                       </div>
                     ) : null}
                     {pendingSameDayTraining ? (
-                      <div className="space-y-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+                      <div className="space-y-3 border-2 border-[#d9a927] bg-[#fff7d8] p-4">
                         <div>
-                          <p className="text-sm font-black text-[color:var(--text)]">
+                          <p className="text-sm font-black text-[#24271f]">
                             Ya registraste esta rutina hoy
                           </p>
-                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                          <p className="mt-1 text-xs font-semibold text-[#6e6751]">
                             Continúa donde quedaste o reinicia los datos de hoy.
                           </p>
                         </div>
@@ -4495,33 +4605,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
               ) : null}
             </div>
 
-            <div className="sticky bottom-0 z-40 mt-auto border-t border-[color:var(--border)] bg-[color:var(--bg)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:static md:mt-6 md:rounded-xl md:border">
-              <div className="mx-auto max-w-md">
-                <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black text-[color:var(--text-muted)]">
-                  <span className="inline-flex min-w-0 items-center gap-2">
-                    {selectedRoutineId ? (
-                      <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-                    ) : (
-                      <Circle className="h-4 w-4 shrink-0" />
-                    )}
-                    <span className="truncate">
-                      {selectedRoutineId
-                        ? selectedRoutine?.name || "Rutina seleccionada"
-                        : requiresBranchSelection && !branchConfirmed
-                          ? "Selecciona sucursal"
-                          : "Selecciona rutina"}
-                    </span>
-                  </span>
-                  <span>
-                    {requiresBranchSelection && !branchConfirmed
-                      ? "Paso 1: Sucursal"
-                      : selectedRoutineId
-                        ? "Selección lista"
-                        : `Paso ${requiresBranchSelection ? "2" : "1"}: Rutina`}
-                  </span>
-                </div>
+            <div className="sticky bottom-0 z-40 mt-auto border-t border-[#1a1a1a] bg-[#f5f5f5]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur md:static md:mt-4 md:border md:border-[#d8d8d8]">
+              <div className="mx-auto w-full">
                 <Button
-                  className="h-12 w-full rounded-2xl bg-blue-300 text-sm font-black uppercase tracking-[0.18em] text-blue-950 hover:bg-blue-200"
+                  className="font-condensed h-12 w-full rounded-none border-0 bg-[#ff5722] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:bg-[#df3f0d] disabled:bg-[#d6d4d4] disabled:text-[#8e8e93]"
                   disabled={
                     !branchReady ||
                     !selectedRoutineId ||
@@ -4530,12 +4617,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   }
                   onClick={handleStartSetupSession}
                 >
-                  <Play className="h-4 w-4" />
                   {loadingTraining
                     ? "Cargando rutina"
                     : pendingSameDayTraining
                       ? "Elige cómo continuar"
                       : "Iniciar entrenamiento"}
+                  <ArrowRight className="h-4 w-4 stroke-[3]" />
                 </Button>
               </div>
             </div>
@@ -5111,7 +5198,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   </Button>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     capture="environment"
                     className="hidden"
                     onChange={handleTrainingPhotoChange}
