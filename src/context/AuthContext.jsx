@@ -47,8 +47,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refreshUser = useCallback(async () => {
-    setLoading(true);
+  const refreshUser = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const data = await api.me();
@@ -73,13 +73,32 @@ export function AuthProvider({ children }) {
       setUser(null);
       return null;
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [queryClient]);
 
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const refreshPermissions = () => refreshUser({ silent: true });
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshPermissions();
+    };
+
+    window.addEventListener("focus", refreshPermissions);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const intervalId = window.setInterval(refreshPermissions, 60_000);
+
+    return () => {
+      window.removeEventListener("focus", refreshPermissions);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [refreshUser, user?.id]);
 
   const login = useCallback(async (payload) => {
     setError("");
