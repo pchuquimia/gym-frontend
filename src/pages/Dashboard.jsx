@@ -610,7 +610,7 @@ function WeekStrip({ days }) {
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
                 ? "text-[#ff5722] dark:text-[#e2ff00]"
-                : "text-slate-300 dark:text-slate-600"
+                : "text-[#c9c9c9] dark:text-[#454545]"
             }`}
           >
             {day.routine || "-"}
@@ -662,7 +662,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
                 : "#ff5722"
               : isDark
                 ? "#242424"
-                : "#e2e8f0"
+                : "#dedede"
           }
           borderRadius={4}
           enableLabel={false}
@@ -678,14 +678,15 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
           enableGridY={false}
           theme={{
             text: {
-              fill: isDark ? "#b8b8a6" : "#64748b",
+              fill: isDark ? "#b8b8a6" : "#6f6f6f",
               fontSize: 11,
               fontWeight: 700,
+              fontFamily: '"Barlow Condensed", "Arial Narrow", sans-serif',
             },
             axis: {
               ticks: {
                 line: { stroke: "transparent" },
-                text: { fill: isDark ? "#b8b8a6" : "#64748b" },
+                text: { fill: isDark ? "#b8b8a6" : "#6f6f6f" },
               },
               domain: { line: { stroke: "transparent" } },
             },
@@ -787,20 +788,20 @@ function MonthDetailView({ detail, onBack }) {
         <button
           type="button"
           onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-blue-700 shadow-sm dark:text-blue-200"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#ff5722] shadow-sm dark:text-[#e2ff00]"
           aria-label="Volver a tendencia"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
             Detalle mensual
           </p>
           <h3 className="truncate text-xl font-black text-[color:var(--text)]">
             {detail.monthName}
           </h3>
         </div>
-        <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">
+        <span className="rounded bg-[#fff0eb] px-2.5 py-1 text-[10px] font-black uppercase text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
           {detail.trainedDays} dias
         </span>
       </div>
@@ -811,13 +812,15 @@ function MonthDetailView({ detail, onBack }) {
             key={day.key}
             className={`relative min-h-[86px] rounded-2xl border p-3 shadow-sm ${
               day.active
-                ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-50"
-                : "border-[color:var(--border)] bg-slate-50 text-[color:var(--text)] dark:bg-slate-950/30"
+                ? "border-[#ffb199] bg-[#fff0eb] text-[#1a1a1a] dark:border-[#e2ff00]/30 dark:bg-[#161900] dark:text-white"
+                : "border-[color:var(--border)] bg-[#fafafa] text-[color:var(--text)] dark:bg-[#080808]"
             }`}
           >
             <span
               className={`absolute right-3 top-3 h-2 w-2 rounded-full ${
-                day.active ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
+                day.active
+                  ? "bg-[#ff5722] dark:bg-[#e2ff00]"
+                  : "bg-[#d8d8d8] dark:bg-[#383838]"
               }`}
             />
             <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -839,7 +842,7 @@ function MonthDetailView({ detail, onBack }) {
       </div>
 
       <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
           Rutinas entrenadas este mes
         </p>
         <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
@@ -851,7 +854,7 @@ function MonthDetailView({ detail, onBack }) {
             detail.routines.map((routine) => (
               <article
                 key={routine.name}
-                className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:bg-slate-950/30"
+                className="rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[4px] dark:bg-[#080808]"
               >
                 <p className="text-sm font-black text-[color:var(--text)]">
                   {routine.name}
@@ -1685,7 +1688,7 @@ function Dashboard({ onNavigate = () => {} }) {
             <button
               type="button"
               onClick={() => setPerformanceModalType("improvements")}
-              className="px-2.5 py-2 text-left transition hover:bg-emerald-500/10 active:bg-emerald-500/15"
+              className="px-2.5 py-2 text-left transition hover:bg-[#ff5722]/10 active:bg-[#ff5722]/15 dark:hover:bg-[#e2ff00]/10 dark:active:bg-[#e2ff00]/15"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
                 Mejoras
@@ -1806,7 +1809,7 @@ function Dashboard({ onNavigate = () => {} }) {
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
-            <div className="h-56 rounded-2xl bg-slate-50 p-3 dark:bg-slate-950/50">
+            <div className="h-56 rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:bg-[#080808]">
               <ResponsiveBar
                 data={threeMonthSummary}
                 keys={["volume"]}
@@ -1827,20 +1830,22 @@ function Dashboard({ onNavigate = () => {} }) {
                 axisBottom={{ tickSize: 0, tickPadding: 8 }}
                 theme={{
                   text: {
-                    fill: isDark ? "#94a3b8" : "#64748b",
+                    fill: isDark ? "#b8b8a6" : "#6f6f6f",
                     fontSize: 11,
                     fontWeight: 700,
+                    fontFamily:
+                      '"Barlow Condensed", "Arial Narrow", sans-serif',
                   },
                   grid: {
                     line: {
-                      stroke: isDark ? "#1e293b" : "#e2e8f0",
+                      stroke: isDark ? "#292929" : "#dedede",
                       strokeDasharray: "3 3",
                     },
                   },
                   axis: {
                     ticks: {
                       line: { stroke: "transparent" },
-                      text: { fill: isDark ? "#94a3b8" : "#64748b" },
+                      text: { fill: isDark ? "#b8b8a6" : "#6f6f6f" },
                     },
                     domain: { line: { stroke: "transparent" } },
                   },
@@ -1866,13 +1871,13 @@ function Dashboard({ onNavigate = () => {} }) {
                   type="button"
                   key={month.key}
                   onClick={() => setSelectedMonthKey(month.key)}
-                  className="w-full rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50 dark:bg-slate-950/40 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10"
+                  className="w-full rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff0eb] dark:rounded-[4px] dark:bg-[#080808] dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-black text-[color:var(--text)]">
                       {month.month}
                     </p>
-                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                    <p className="text-xs font-black text-[#ff5722] dark:text-[#e2ff00]">
                       {month.sessions} sesiones
                     </p>
                   </div>
@@ -1901,7 +1906,7 @@ function Dashboard({ onNavigate = () => {} }) {
           <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                   Recovery
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
@@ -1984,7 +1989,7 @@ function Dashboard({ onNavigate = () => {} }) {
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                     Si entrenas hoy
                   </p>
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                  <span className="rounded bg-[#fff0eb] px-2 py-1 text-[10px] font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
                     Por rutina
                   </span>
                 </div>
@@ -2007,8 +2012,8 @@ function Dashboard({ onNavigate = () => {} }) {
                           <span
                             className={`shrink-0 rounded-xl px-3 py-2 text-sm font-black ${
                               routine.value >= 70
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                                : "bg-red-500/10 text-red-700 dark:text-red-300"
                             }`}
                           >
                             {routine.value}%
@@ -2050,8 +2055,8 @@ function Dashboard({ onNavigate = () => {} }) {
                           <span
                             className={`rounded-full px-2 py-1 text-[10px] font-black ${
                               muscle.value >= 70
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                                : "bg-red-500/10 text-red-700 dark:text-red-300"
                             }`}
                           >
                             {muscle.value}%
@@ -2091,8 +2096,8 @@ function Dashboard({ onNavigate = () => {} }) {
                         <span
                           className={`rounded-full px-2 py-1 text-[10px] font-black ${
                             factor.impact.startsWith("+")
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                              : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                              ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                              : "bg-red-500/10 text-red-700 dark:text-red-300"
                           }`}
                         >
                           {factor.impact}
@@ -2125,7 +2130,7 @@ function Dashboard({ onNavigate = () => {} }) {
           <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                   Carga semanal
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
@@ -2181,13 +2186,13 @@ function Dashboard({ onNavigate = () => {} }) {
                           <p className="text-sm font-black text-[color:var(--text)]">
                             {item.muscle}
                           </p>
-                          <p className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                          <p className="text-sm font-black text-[#ff5722] dark:text-[#e2ff00]">
                             {formatCompact(item.volume)} kg
                           </p>
                         </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e5e5e5] dark:bg-[#292929]">
                           <div
-                            className="h-full rounded-full bg-emerald-500"
+                            className="h-full rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
                             style={{
                               width: `${Math.min(
                                 100,
@@ -2258,7 +2263,7 @@ function Dashboard({ onNavigate = () => {} }) {
           <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                   Sets semana
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
@@ -2312,7 +2317,7 @@ function Dashboard({ onNavigate = () => {} }) {
                         <p className="truncate text-sm font-black text-[color:var(--text)]">
                           {item.name}
                         </p>
-                        <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-1 text-xs font-black text-blue-700 dark:text-blue-300">
+                        <span className="shrink-0 rounded bg-[#fff0eb] px-2 py-1 text-xs font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
                           {item.sets} sets
                         </span>
                       </div>
@@ -2375,7 +2380,7 @@ function Dashboard({ onNavigate = () => {} }) {
           <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                   Tiempo total
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
@@ -2412,7 +2417,7 @@ function Dashboard({ onNavigate = () => {} }) {
                           {row.branch ? ` · ${titleCase(row.branch)}` : ""}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-xl bg-amber-500/10 px-3 py-2 text-sm font-black text-amber-700 dark:text-amber-300">
+                      <span className="shrink-0 rounded bg-[#fff0eb] px-3 py-2 text-sm font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
                         {formatSessionMinutes(row.seconds)}
                       </span>
                     </article>
@@ -2446,7 +2451,7 @@ function Dashboard({ onNavigate = () => {} }) {
                   className={`text-[10px] font-black uppercase tracking-[0.18em] ${
                     performanceModalConfig.tone === "red"
                       ? "text-red-700 dark:text-red-300"
-                      : "text-emerald-700 dark:text-emerald-300"
+                      : "text-[#ff5722] dark:text-[#e2ff00]"
                   }`}
                 >
                   {performanceModalConfig.eyebrow}
@@ -2473,14 +2478,14 @@ function Dashboard({ onNavigate = () => {} }) {
                 className={`rounded-2xl border p-3 ${
                   performanceModalConfig.tone === "red"
                     ? "border-red-200 bg-red-50 dark:border-red-400/20 dark:bg-red-500/10"
-                    : "border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-500/10"
+                    : "border-[#ffb199] bg-[#fff0eb] dark:border-[#e2ff00]/30 dark:bg-[#161900]"
                 }`}
               >
                 <p
                   className={`text-[10px] font-black uppercase tracking-wide ${
                     performanceModalConfig.tone === "red"
                       ? "text-red-700 dark:text-red-300"
-                      : "text-emerald-700 dark:text-emerald-300"
+                      : "text-[#c52d00] dark:text-[#e2ff00]"
                   }`}
                 >
                   {performanceModalConfig.label}
@@ -2489,7 +2494,7 @@ function Dashboard({ onNavigate = () => {} }) {
                   className={`mt-2 text-3xl font-black ${
                     performanceModalConfig.tone === "red"
                       ? "text-red-700 dark:text-red-300"
-                      : "text-emerald-700 dark:text-emerald-300"
+                      : "text-[#ff5722] dark:text-[#e2ff00]"
                   }`}
                 >
                   {performanceModalConfig.tone === "red" ? "-" : "+"}
@@ -2509,7 +2514,7 @@ function Dashboard({ onNavigate = () => {} }) {
                           className={`rounded-full px-2 py-1 text-[10px] font-black ${
                             performanceModalConfig.tone === "red"
                               ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                              : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                              : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
                           }`}
                         >
                           {items.length}
@@ -2534,7 +2539,7 @@ function Dashboard({ onNavigate = () => {} }) {
                                 className={`shrink-0 rounded-xl px-3 py-2 text-sm font-black ${
                                   performanceModalConfig.tone === "red"
                                     ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                    : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
                                 }`}
                               >
                                 {item.weight}kg x {item.reps}
@@ -2545,7 +2550,7 @@ function Dashboard({ onNavigate = () => {} }) {
                                 className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                                   performanceModalConfig.tone === "red"
                                     ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                    : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
                                 }`}
                               >
                                 {item[performanceModalConfig.typeKey]}

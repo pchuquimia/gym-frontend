@@ -119,6 +119,11 @@ button,
 }
 
 /* Escala legible y estable para el dashboard en ambos temas. */
+.dashboard-shell {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0;
+}
+
 .dashboard-shell [class~="text-[9px]"],
 .dashboard-shell [class~="text-[10px]"] {
   font-size: 0.75rem;
