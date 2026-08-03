@@ -43,39 +43,43 @@ const shouldUseDevAdminLogin = () => {
 
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
+  const developmentAdminMode = shouldUseDevAdminLogin();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const refreshUser = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true);
-    setError("");
-    try {
-      const data = await api.me();
-      const nextUser = normalizeUser(data);
-      setUser(nextUser);
-      return nextUser;
-    } catch (_err) {
-      if (shouldUseDevAdminLogin()) {
-        try {
-          const data = await api.devAdminLogin();
-          if (data?.token) setAuthToken(data.token);
-          const nextUser = normalizeUser(data);
-          setUser(nextUser);
-          return nextUser;
-        } catch {
-          // Fall through to normal unauthenticated state.
+  const refreshUser = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      setError("");
+      try {
+        const data = await api.me();
+        const nextUser = normalizeUser(data);
+        setUser(nextUser);
+        return nextUser;
+      } catch (_err) {
+        if (shouldUseDevAdminLogin()) {
+          try {
+            const data = await api.devAdminLogin();
+            if (data?.token) setAuthToken(data.token);
+            const nextUser = normalizeUser(data);
+            setUser(nextUser);
+            return nextUser;
+          } catch {
+            // Fall through to normal unauthenticated state.
+          }
         }
+        clearAuthToken();
+        clearUserScopedStorage();
+        queryClient.clear();
+        setUser(null);
+        return null;
+      } finally {
+        if (!silent) setLoading(false);
       }
-      clearAuthToken();
-      clearUserScopedStorage();
-      queryClient.clear();
-      setUser(null);
-      return null;
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [queryClient]);
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     refreshUser();
@@ -136,6 +140,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (developmentAdminMode) return false;
     try {
       await api.logout();
     } finally {
@@ -144,7 +149,8 @@ export function AuthProvider({ children }) {
       queryClient.clear();
       clearUserScopedStorage();
     }
-  }, [queryClient]);
+    return true;
+  }, [developmentAdminMode, queryClient]);
 
   const value = useMemo(
     () => ({
@@ -159,6 +165,7 @@ export function AuthProvider({ children }) {
       updateAccount,
       logout,
       refreshUser,
+      developmentAdminMode,
     }),
     [
       user,
@@ -170,6 +177,7 @@ export function AuthProvider({ children }) {
       updateAccount,
       logout,
       refreshUser,
+      developmentAdminMode,
     ],
   );
 

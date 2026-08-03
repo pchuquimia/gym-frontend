@@ -8,7 +8,6 @@ function TopBar({
   ctaLabel,
   onCta,
   rightSlot,
-  leftSlot,
   variant = "default",
 }) {
   if (variant === "dashboard") {
@@ -60,11 +59,12 @@ function TopBar({
               className="
                 mt-4 inline-flex w-full items-center justify-center gap-2
                 rounded-2xl
-                bg-blue-600 px-4 py-3
+                bg-[#ff5722] px-4 py-3
                 text-sm font-semibold text-white
                 shadow-sm
-                hover:bg-blue-700
-                focus:outline-none focus:ring-2 focus:ring-blue-500/25
+                hover:bg-[#df3f0d]
+                focus:outline-none focus:ring-2 focus:ring-[#ff5722]/25
+                dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               "
             >
               <Plus className="h-4 w-4" />
@@ -123,11 +123,11 @@ function TopBar({
                 hidden sm:inline-flex
                 items-center gap-2
                 rounded-xl
-                bg-blue-700 px-8 py-3
+                bg-[#ff5722] px-8 py-3
                 text-sm font-semibold text-white
                 shadow-sm
-                hover:bg-blue-800
-                dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100
+                hover:bg-[#df3f0d]
+                dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               "
             >
               <Plus className="h-4 w-4" />
@@ -144,16 +144,16 @@ function TopBar({
             className="
               mt-4 inline-flex w-full items-center justify-center gap-2
               rounded-xl
-              bg-blue-700
+              bg-[#ff5722]
               px-4 py-3
               text-sm font-semibold text-slate-900
               shadow-sm
-              hover:bg-blue-800
-              dark:border-slate-700 dark:bg-slate-700 dark:text-slate-50 dark:hover:bg-slate-500
+              hover:bg-[#df3f0d]
+              dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               sm:hidden
-              active:bg-emerald-800
+              active:bg-[#c52d00]
               transition
-              focus:outline-none focus:ring-2 focus:ring-emerald-500/40
+              focus:outline-none focus:ring-2 focus:ring-[#ff5722]/40
             "
           >
             <Plus className="h-4 w-4" />

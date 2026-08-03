@@ -1,4 +1,4 @@
-import { Check, LogOut } from "lucide-react";
+import { Check, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/button";
 import { coachSections, managedClientSections, sections } from "./navConfig";
@@ -88,7 +88,7 @@ const managedClientMobileGroups = [
 ];
 
 function Sidebar({ activePage, onNavigate, forceVisible = false }) {
-  const { user, logout } = useAuth();
+  const { user, logout, developmentAdminMode } = useAuth();
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
@@ -112,8 +112,8 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
       .join("") || "U";
 
   const handleLogout = async () => {
-    await logout();
-    onNavigate?.("login");
+    const didLogout = await logout();
+    if (didLogout) onNavigate?.("login");
   };
 
   if (forceVisible) {
@@ -123,19 +123,19 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
     const getMobileItem = (id) => availableItems.find((item) => item.id === id);
 
     return (
-      <aside className="flex h-dvh w-[276px] flex-col overflow-hidden border-r border-slate-200 bg-white px-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-5 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#292d55] dark:text-slate-100">
+      <aside className="flex h-dvh w-[276px] flex-col overflow-hidden border-r border-slate-200 bg-white px-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-5 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#121212] dark:text-white">
         <button
           type="button"
           className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left shadow-sm max-[700px]:py-2.5 dark:border-white/10 dark:bg-white/[0.055] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
           onClick={() => onNavigate?.("perfil")}
         >
-          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-blue-200 bg-slate-100 shadow-md shadow-slate-200/70 dark:border-cyan-300/30 dark:bg-slate-900 dark:shadow-lg dark:shadow-black/20">
+          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#ffb199] bg-[#fff0eb] shadow-md shadow-slate-200/70 dark:border-[#e2ff00]/40 dark:bg-[#252525] dark:shadow-lg dark:shadow-black/20">
             <img
               src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=160&q=70"
               alt=""
               className="h-full w-full object-cover"
             />
-            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-white bg-emerald-500 text-white dark:border-[#292d55] dark:bg-emerald-400 dark:text-emerald-950">
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-white bg-[#ff5722] text-white dark:border-[#121212] dark:bg-[#e2ff00] dark:text-black">
               <Check className="h-2.5 w-2.5 stroke-[4]" />
             </span>
           </div>
@@ -184,14 +184,14 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                           onClick={() => onNavigate?.(item.id)}
                           className={`group flex h-[clamp(46px,6.1svh,54px)] w-full items-center gap-4 rounded-xl px-3 text-left transition max-[700px]:h-[clamp(42px,6svh,46px)] ${
                             isActive
-                              ? "bg-emerald-50 text-slate-950 shadow-[inset_3px_0_0_rgba(16,185,129,0.9)] dark:bg-white/[0.065] dark:text-white dark:shadow-[inset_3px_0_0_rgba(110,231,183,0.9)]"
+                              ? "bg-[#fff0eb] text-slate-950 shadow-[inset_3px_0_0_#ff5722] dark:bg-[#252525] dark:text-white dark:shadow-[inset_3px_0_0_#e2ff00]"
                               : "text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300/72 dark:hover:bg-white/[0.045] dark:hover:text-white"
                           }`}
                         >
                           <Icon
                             className={`h-5 w-5 shrink-0 ${
                               isActive
-                                ? "text-emerald-600 dark:text-emerald-300"
+                                ? "text-[#ff5722] dark:text-[#e2ff00]"
                                 : "text-slate-400 dark:text-slate-300/72"
                             }`}
                             strokeWidth={2.2}
@@ -212,11 +212,22 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         <Button
           type="button"
           variant="outline"
-          className="mt-5 h-12 justify-center gap-2 rounded-xl border border-red-200 bg-red-50 text-[12px] font-black uppercase tracking-[0.08em] text-red-600 hover:bg-red-100 max-[700px]:mt-4 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
+          className={`mt-5 h-12 justify-center gap-2 rounded-xl text-[12px] font-black uppercase tracking-[0.08em] max-[700px]:mt-4 ${
+            developmentAdminMode
+              ? "border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+              : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
+          }`}
           onClick={handleLogout}
+          disabled={developmentAdminMode}
         >
-          <LogOut className="h-4 w-4" />
-          <span>Cerrar sesion</span>
+          {developmentAdminMode ? (
+            <ShieldCheck className="h-4 w-4" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <span>
+            {developmentAdminMode ? "Admin de desarrollo" : "Cerrar sesion"}
+          </span>
         </Button>
         <p className="mt-4 text-center text-[10px] font-black uppercase tracking-tight text-slate-400/70 dark:text-slate-400/25">
           Apex Performance v2.4.0
@@ -232,7 +243,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
         onClick={() => onNavigate?.("perfil")}
       >
-        <div className="grid h-10 w-10 place-items-center rounded-full bg-blue-600 font-bold text-white">
+        <div className="grid h-10 w-10 place-items-center rounded-full bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black">
           {initials}
         </div>
         <div className="min-w-0 flex flex-col">
@@ -269,20 +280,20 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                         onClick={() => onNavigate?.(item.id)}
                         className={`relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                           isActive
-                            ? "border border-primary/30 bg-primary/15 font-semibold text-[color:var(--text)] shadow-sm"
+                            ? "border border-[#ff5722]/40 bg-[#fff0eb] font-semibold text-[color:var(--text)] shadow-sm dark:border-[#e2ff00]/45 dark:bg-[#252525]"
                             : "text-[color:var(--text-muted)] hover:bg-accent/50 hover:text-[color:var(--text)]"
                         }`}
                       >
                         {isActive && (
                           <span
-                            className="absolute left-1 h-5 w-1 rounded-full bg-primary shadow-[0_0_8px_rgba(79,70,229,0.35)]"
+                            className="absolute left-1 h-5 w-1 rounded-full bg-[#ff5722] shadow-[0_0_8px_rgba(255,87,34,0.35)] dark:bg-[#e2ff00] dark:shadow-[0_0_8px_rgba(226,255,0,0.45)]"
                             aria-hidden="true"
                           />
                         )}
                         <Icon
                           className={`h-5 w-5 shrink-0 ${
                             isActive
-                              ? "text-primary"
+                              ? "text-[#ff5722] dark:text-[#e2ff00]"
                               : "text-[color:var(--text-muted)]"
                           }`}
                           strokeWidth={2}
@@ -309,9 +320,16 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         variant="outline"
         className="mt-auto justify-start gap-2 rounded-xl"
         onClick={handleLogout}
+        disabled={developmentAdminMode}
       >
-        <LogOut className="h-4 w-4" />
-        <span>Cerrar sesion</span>
+        {developmentAdminMode ? (
+          <ShieldCheck className="h-4 w-4" />
+        ) : (
+          <LogOut className="h-4 w-4" />
+        )}
+        <span>
+          {developmentAdminMode ? "Admin de desarrollo" : "Cerrar sesion"}
+        </span>
       </Button>
     </aside>
   );

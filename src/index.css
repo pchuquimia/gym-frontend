@@ -11,21 +11,25 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Light (screenshot) */
-  --bg: #f8fafc;
+  color-scheme: light;
+  --bg: #f5f5f5;
   --card: #ffffff;
-  --border: #e5e7eb;
-  --text: #0f172a;
-  --text-muted: #64748b;
+  --border: #dedede;
+  --text: #1a1a1a;
+  --text-muted: #8e8e93;
+  --accent: #ff5722;
+  --accent-strong: #c52d00;
 }
 
 .dark {
-  /* Dark legible */
-  --bg: #0b1220;
-  --card: #0f172a;
-  --border: rgba(255, 255, 255, 0.12);
-  --text: #e5e7eb;
-  --text-muted: #94a3b8;
+  --bg: #050505;
+  --card: #121212;
+  --border: #303030;
+  --text: #f8f8f4;
+  --text-muted: #b8b8a6;
+  --accent: #e2ff00;
+  --accent-strong: #cbe600;
+  color-scheme: dark;
 }
 
 html {
@@ -52,6 +56,23 @@ body {
   color: var(--text);
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+button,
+[role="tab"] {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0;
+}
+
+.uppercase {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0 !important;
+}
+
 .font-display {
   font-family:
     "Space Grotesk",
@@ -69,19 +90,22 @@ body {
   font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
 }
 
-/* Glow suave en dark (opcional) */
+.dark body {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0;
+  background-color: var(--bg);
+  background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
+  background-size: 14px 14px;
+}
+
 .dark body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      circle at 20% 20%,
-      rgba(59, 130, 246, 0.1),
-      transparent 40%
-    ),
-    radial-gradient(circle at 85% 0%, rgba(16, 185, 129, 0.1), transparent 38%);
+  content: none;
+}
+
+.dark .app-shell {
+  background-color: var(--bg);
+  background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
+  background-size: 14px 14px;
 }
 
 /* Card utilitaria consistente */

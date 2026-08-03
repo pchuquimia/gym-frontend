@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clock3,
   ListChecks,
+  Menu,
   Play,
   TrendingUp,
   X,
@@ -555,13 +556,12 @@ function StatCard({
   onClick,
 }) {
   const tones = {
-    blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
-    amber:
-      "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+    blue: "bg-blue-50 text-blue-700 dark:bg-transparent dark:text-[#e2ff00]",
+    amber: "bg-amber-50 text-amber-700 dark:bg-transparent dark:text-[#e2ff00]",
     emerald:
-      "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+      "bg-emerald-50 text-emerald-700 dark:bg-transparent dark:text-[#e2ff00]",
     violet:
-      "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+      "bg-violet-50 text-violet-700 dark:bg-transparent dark:text-[#e2ff00]",
   };
 
   const Component = onClick ? "button" : "article";
@@ -571,9 +571,9 @@ function StatCard({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       aria-label={onClick ? `Ver detalle de ${label}` : undefined}
-      className={`w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm dark:shadow-[0_16px_40px_rgba(0,0,0,0.18)] ${
+      className={`w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm dark:rounded-[4px] dark:p-4 dark:shadow-none ${
         onClick
-          ? "transition hover:border-amber-300 hover:bg-amber-50/70 dark:hover:border-amber-500/40 dark:hover:bg-amber-500/10"
+          ? "transition hover:border-amber-300 hover:bg-amber-50/70 dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
           : ""
       }`}
     >
@@ -583,14 +583,14 @@ function StatCard({
         </p>
         {Icon ? (
           <span
-            className={`grid h-7 w-7 place-items-center rounded-xl ${tones[tone] || tones.emerald}`}
+            className={`grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.emerald}`}
           >
             <Icon className="h-3.5 w-3.5" />
           </span>
         ) : null}
       </div>
       <div className="mt-2 flex items-end gap-1">
-        <span className="text-3xl font-black leading-none text-[color:var(--text)]">
+        <span className="text-3xl font-black leading-none text-[color:var(--text)] dark:text-4xl">
           {value}
         </span>
         {suffix ? (
@@ -606,13 +606,13 @@ function StatCard({
 
 function WeekStrip({ days }) {
   return (
-    <section className="grid grid-cols-7 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-sm">
+    <section className="grid grid-cols-7 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-sm dark:rounded-[4px] dark:p-3 dark:shadow-none">
       {days.map((day) => (
         <div
           key={day.key}
-          className={`rounded-xl px-1.5 py-2 text-center ${
+          className={`rounded-xl px-1.5 py-2 text-center dark:rounded-[3px] ${
             day.isToday
-              ? "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-100"
+              ? "bg-blue-50 text-blue-700 dark:border dark:border-[#e2ff00] dark:bg-[#161900] dark:text-[#e2ff00]"
               : "text-[color:var(--text-muted)]"
           }`}
         >
@@ -620,7 +620,7 @@ function WeekStrip({ days }) {
           <p
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
-                ? "text-[color:var(--text)]"
+                ? "text-[color:var(--text)] dark:text-[#e2ff00]"
                 : "text-slate-300 dark:text-slate-600"
             }`}
           >
@@ -644,7 +644,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
   const endLabel = data[data.length - 1]?.label || "";
 
   return (
-    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text)]">
@@ -654,12 +654,12 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             Dias con entrenamiento registrado
           </p>
         </div>
-        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-300">
+        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase text-emerald-300 dark:rounded-[3px] dark:bg-[#1d2100] dark:text-[#e2ff00]">
           {trainedDays}/30 dias
         </span>
       </div>
 
-      <div className="mt-4 h-40 rounded-2xl bg-slate-50 p-2 dark:bg-slate-950/50">
+      <div className="mt-4 h-40 rounded-2xl bg-slate-50 p-2 dark:rounded-[3px] dark:border dark:border-[#292929] dark:bg-[#080808]">
         <ResponsiveBar
           data={data}
           keys={["active"]}
@@ -667,7 +667,13 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
           margin={{ top: 8, right: 4, bottom: 26, left: 4 }}
           padding={0.24}
           colors={({ data: item }) =>
-            item.active > 0 ? "#34d399" : isDark ? "#1e293b" : "#e2e8f0"
+            item.active > 0
+              ? isDark
+                ? "#e2ff00"
+                : "#34d399"
+              : isDark
+                ? "#242424"
+                : "#e2e8f0"
           }
           borderRadius={4}
           enableLabel={false}
@@ -683,14 +689,14 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
           enableGridY={false}
           theme={{
             text: {
-              fill: isDark ? "#94a3b8" : "#64748b",
+              fill: isDark ? "#b8b8a6" : "#64748b",
               fontSize: 10,
               fontWeight: 700,
             },
             axis: {
               ticks: {
                 line: { stroke: "transparent" },
-                text: { fill: isDark ? "#94a3b8" : "#64748b" },
+                text: { fill: isDark ? "#b8b8a6" : "#64748b" },
               },
               domain: { line: { stroke: "transparent" } },
             },
@@ -707,14 +713,14 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
 
       <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
         <span>{startLabel}</span>
-        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-700 dark:text-blue-200">
+        <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-700 dark:rounded-[3px] dark:bg-[#242424] dark:text-[#e2ff00]">
           30 dias
         </span>
         <span>Hoy · {endLabel}</span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:bg-slate-950/40">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:rounded-[3px] dark:bg-transparent">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Dias entrenados
           </p>
@@ -725,7 +731,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
             de 30 dias
           </p>
         </div>
-        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:bg-slate-950/40">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-slate-50 p-3 dark:rounded-[3px] dark:bg-transparent">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Volumen
           </p>
@@ -750,7 +756,7 @@ function CollapsibleSection({
   children,
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
       <button
         type="button"
         onClick={onToggle}
@@ -758,7 +764,7 @@ function CollapsibleSection({
         className="flex w-full items-center justify-between gap-3 p-4 text-left"
       >
         <span>
-          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-[#e2ff00]">
             {subtitle}
           </span>
           <span className="mt-1 block text-lg font-black text-[color:var(--text)]">
@@ -1601,25 +1607,34 @@ function Dashboard({ onNavigate = () => {} }) {
   return (
     <motion.div
       {...presets.fadeUp}
-      className="mx-auto w-full max-w-md space-y-4 pb-10 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell mx-auto w-full max-w-md space-y-4 pb-10 text-[color:var(--text)] dark:max-md:pt-4 md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]"
     >
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black italic leading-[0.9] tracking-tight text-blue-700 dark:text-blue-100">
-            APEX
-            <br />
-            PERFORMANCE
-          </h1>
-          <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-            Semana activa
-          </p>
+      <header className="flex items-center justify-between gap-3 border-b border-transparent pb-1 dark:border-[#252525] dark:pb-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {isDark ? (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+              className="grid h-10 w-10 shrink-0 place-items-center text-[#d8d8c0] md:hidden"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          ) : null}
+          <div className="min-w-0">
+            <h1 className="text-3xl font-black italic leading-[0.9] text-blue-700 dark:text-white">
+              APEX
+              <br />
+              <span className="dark:text-[#e2ff00]">PERFORMANCE</span>
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => onNavigate("registrar")}
-            className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-blue-700 shadow-sm dark:text-blue-100"
+            className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-blue-700 shadow-sm dark:text-[#e2ff00] dark:shadow-none"
             aria-label="Registrar entrenamiento"
           >
             <Play className="h-5 w-5" />
@@ -1627,7 +1642,7 @@ function Dashboard({ onNavigate = () => {} }) {
           <button
             type="button"
             onClick={() => onNavigate("perfil")}
-            className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-black text-blue-700 shadow-sm dark:text-blue-100"
+            className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-black text-blue-700 shadow-sm dark:text-[#e2ff00] dark:shadow-none"
             aria-label="Abrir perfil"
           >
             {avatarUrl ? (
@@ -1643,7 +1658,11 @@ function Dashboard({ onNavigate = () => {} }) {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3">
+      <p className="text-sm font-semibold text-[color:var(--text-muted)] dark:text-xs dark:font-black dark:uppercase dark:text-[#d8d8c0]">
+        Semana activa
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Dias activos"
           value={`${weekData.activeDays}/7`}
@@ -1654,7 +1673,7 @@ function Dashboard({ onNavigate = () => {} }) {
             {weekData.days.map((day) => (
               <span
                 key={day.key}
-                className={`h-1.5 rounded-full ${day.trained ? "bg-emerald-400" : "bg-slate-200 dark:bg-slate-700"}`}
+                className={`h-1.5 rounded-full ${day.trained ? "bg-emerald-400 dark:bg-[#e2ff00]" : "bg-slate-200 dark:bg-[#292929]"}`}
               />
             ))}
           </div>
@@ -1672,14 +1691,14 @@ function Dashboard({ onNavigate = () => {} }) {
           tone="amber"
           onClick={() => setDurationModalOpen(true)}
         />
-        <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm">
+        <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm dark:rounded-[4px] dark:p-4 dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Vs anterior
             </p>
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-[#e2ff00]" />
           </div>
-          <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]">
+          <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] dark:rounded-[3px]">
             <button
               type="button"
               onClick={() => setPerformanceModalType("declines")}
@@ -1710,7 +1729,9 @@ function Dashboard({ onNavigate = () => {} }) {
 
       <WeekStrip days={weekData.days} />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div
+        className={`grid gap-3 ${isDark ? "lg:grid-cols-2" : "grid-cols-2"}`}
+      >
         <button
           type="button"
           onClick={() =>
@@ -1723,19 +1744,26 @@ function Dashboard({ onNavigate = () => {} }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="row-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
+          className="row-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Recovery
             </p>
-            <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+            <Zap className="h-4 w-4 text-emerald-600 dark:text-[#e2ff00]" />
           </div>
           <div className="mt-5 grid place-items-center">
-            <div className="grid h-24 w-24 place-items-center rounded-full border-[10px] border-emerald-400/80 bg-emerald-400/10 shadow-[0_0_26px_rgba(52,211,153,0.25)]">
-              <span className="text-2xl font-black text-[color:var(--text)]">
-                {hasTrainingHistory ? `${recovery.value}%` : "--"}
-              </span>
+            <div
+              className="grid h-32 w-32 place-items-center rounded-full p-[11px] shadow-[0_0_26px_rgba(52,211,153,0.25)] dark:shadow-[0_0_24px_rgba(226,255,0,0.12)]"
+              style={{
+                background: `conic-gradient(${isDark ? "#e2ff00" : "#34d399"} ${hasTrainingHistory ? recovery.value : 0}%, ${isDark ? "#292929" : "#d1fae5"} 0)`,
+              }}
+            >
+              <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
+                <span className="text-3xl font-black text-[color:var(--text)]">
+                  {hasTrainingHistory ? `${recovery.value}%` : "--"}
+                </span>
+              </div>
             </div>
           </div>
           <p className="mt-4 text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
@@ -1750,13 +1778,13 @@ function Dashboard({ onNavigate = () => {} }) {
         <button
           type="button"
           onClick={() => setWeeklyLoadModalOpen(true)}
-          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
+          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 dark:rounded-[4px] dark:p-4 dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Carga semanal
             </p>
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-700 dark:text-[#e2ff00]" />
           </div>
           <p className="mt-2 text-xl font-black text-[color:var(--text)]">
             {formatCompact(weeklyLoad.current)} kg
@@ -1768,13 +1796,13 @@ function Dashboard({ onNavigate = () => {} }) {
         <button
           type="button"
           onClick={() => setWeeklySetsModalOpen(true)}
-          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10"
+          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50 dark:rounded-[4px] dark:p-4 dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Sets semana
             </p>
-            <ListChecks className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300" />
+            <ListChecks className="h-3.5 w-3.5 text-blue-700 dark:text-[#e2ff00]" />
           </div>
           <p className="mt-2 text-xl font-black text-[color:var(--text)]">
             {weeklySets.total}

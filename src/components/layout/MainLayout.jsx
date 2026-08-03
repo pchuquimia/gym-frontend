@@ -3,6 +3,7 @@ import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import ThemeToggle from "../ThemeToggle";
+import { useThemeMode } from "../../hooks/useThemeMode";
 
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_KEY = "active_training";
@@ -17,6 +18,8 @@ function MainLayout({
   const [activeTraining, setActiveTraining] = useState(null);
   const pollRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
+  const { isDark } = useThemeMode();
+  const useOnyxDashboardChrome = isDark && activePage === "dashboard";
 
   const formatDuration = (sec) => {
     const total = Math.max(0, Math.floor(sec || 0));
@@ -73,7 +76,7 @@ function MainLayout({
   const showReturnTraining = activePage !== "registrar" && activeTraining;
 
   return (
-    <div className="min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
+    <div className="app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors">
       {showReturnTraining && (
         <div className="sticky top-0 z-30 w-full bg-[color:var(--card)] border-b border-[color:var(--border)] shadow-sm hidden md:block">
           <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
@@ -85,7 +88,7 @@ function MainLayout({
             </div>
             <button
               onClick={handleReturnTraining}
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 text-white text-sm font-medium px-4 py-2 shadow-sm hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-[#ff5722] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
             >
               Volver al entrenamiento
             </button>
@@ -99,10 +102,12 @@ function MainLayout({
         <div
           className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-4 md:px-8 md:py-8 ${
             showReturnTraining ? "pt-16 md:pt-8" : "pt-4"
-          }`}
+          } ${isDark ? "max-md:pb-24" : ""} ${useOnyxDashboardChrome ? "max-md:pt-0" : ""}`}
         >
           <div
-            className={`flex items-center justify-between mb-4 gap-3 ${
+            className={`items-center justify-between mb-4 gap-3 ${
+              useOnyxDashboardChrome ? "hidden md:flex" : "flex"
+            } ${
               showReturnTraining
                 ? "fixed top-0 left-0 right-0 z-40 px-3 sm:px-4 py-3 bg-[color:var(--bg)]/96 backdrop-blur md:static md:mx-0 md:px-0 md:py-0"
                 : ""
@@ -131,7 +136,7 @@ function MainLayout({
             {showReturnTraining && (
               <button
                 onClick={handleReturnTraining}
-                className="md:hidden inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 text-[color:var(--text)] text-xs font-semibold px-3 py-1.5"
+                className="inline-flex items-center gap-2 rounded-full border border-[#ff5722]/35 bg-[#ff5722]/10 px-3 py-1.5 text-xs font-semibold text-[color:var(--text)] dark:border-[#e2ff00]/35 dark:bg-[#e2ff00]/10 md:hidden"
               >
                 Volver
               </button>
@@ -139,9 +144,9 @@ function MainLayout({
             <ThemeToggle />
           </div>
           {coachAthlete ? (
-            <div className="mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-400/25 dark:bg-blue-500/10">
+            <div className="mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-[#ffb199] bg-[#fff0eb] px-3 py-2 dark:border-[#e2ff00]/25 dark:bg-[#e2ff00]/10">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-700 dark:text-blue-300">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#b82f05] dark:text-[#e2ff00]">
                   Sesión supervisada
                 </p>
                 <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -151,7 +156,7 @@ function MainLayout({
               <button
                 type="button"
                 onClick={onCoachContextExit}
-                className="h-10 shrink-0 rounded-lg border border-blue-300 px-3 text-xs font-black text-blue-700 dark:border-blue-400/30 dark:text-blue-200"
+                className="h-10 shrink-0 rounded-lg border border-[#ff8a66] px-3 text-xs font-black text-[#b82f05] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]"
               >
                 Salir
               </button>
@@ -182,7 +187,11 @@ function MainLayout({
         </div>
       )}
 
-      <div className="hidden">
+      <div
+        className={
+          isDark ? "fixed inset-x-0 bottom-0 z-40 md:hidden" : "hidden"
+        }
+      >
         <MobileNav activePage={activePage} onNavigate={onNavigate} />
       </div>
     </div>

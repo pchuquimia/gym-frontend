@@ -3,14 +3,20 @@ import { useAuth } from "../../context/AuthContext";
 
 function MobileNav({ activePage, onNavigate }) {
   const { user } = useAuth();
-  const items = ["dashboard", "library", "registrar", "rutinas", "perfil"]
+  const itemIds =
+    user?.role === "Entrenador"
+      ? ["trainer", "rutinas", "library", "perfil"]
+      : user?.trainingMode === "managed"
+        ? ["dashboard", "registrar", "rutinas", "perfil"]
+        : ["dashboard", "registrar", "ejercicio_analitica", "perfil"];
+  const items = itemIds
     .map((id) => navLinks.find((link) => link.id === id))
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="md:hidden border-t border-border-soft bg-bg-darker px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+    <nav className="border-t border-[#292929] bg-[#101010]/98 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur md:hidden">
       <div
-        className="grid text-xs text-muted"
+        className="grid text-[10px] font-bold uppercase text-[#c9c9ad]"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         }}
@@ -22,12 +28,22 @@ function MobileNav({ activePage, onNavigate }) {
               key={item.id}
               type="button"
               onClick={() => onNavigate?.(item.id)}
-              className={`flex flex-col items-center gap-1 py-1 ${
-                activePage === item.id ? "text-accent" : ""
+              className={`flex min-h-12 flex-col items-center justify-center gap-1 border border-transparent py-1 transition-colors ${
+                activePage === item.id
+                  ? "bg-[#e2ff00] text-black"
+                  : "hover:border-[#454545] hover:text-white"
               }`}
             >
               <Icon className="h-5 w-5" />
-              <span className="truncate">{item.label.split(" ")[0]}</span>
+              <span className="max-w-full truncate">
+                {item.id === "registrar"
+                  ? "Entrenar"
+                  : item.id === "ejercicio_analitica"
+                    ? "Metricas"
+                    : item.id === "trainer"
+                      ? "Atletas"
+                      : item.label.split(" ")[0]}
+              </span>
             </button>
           );
         })}
