@@ -579,7 +579,7 @@ function StatCard({
         ) : null}
       </div>
       <div className="mt-2 flex items-end gap-1">
-        <span className="text-3xl font-black leading-none text-[color:var(--text)] dark:text-4xl">
+        <span className="text-[34px] font-black leading-none text-[color:var(--text)]">
           {value}
         </span>
         {suffix ? (
@@ -679,7 +679,7 @@ function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
           theme={{
             text: {
               fill: isDark ? "#b8b8a6" : "#64748b",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
             },
             axis: {
@@ -1729,7 +1729,7 @@ function Dashboard({ onNavigate = () => {} }) {
               }}
             >
               <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
-                <span className="text-3xl font-black text-[color:var(--text)]">
+                <span className="text-[34px] font-black text-[color:var(--text)]">
                   {hasTrainingHistory ? `${recovery.value}%` : "--"}
                 </span>
               </div>
@@ -1755,7 +1755,7 @@ function Dashboard({ onNavigate = () => {} }) {
             </p>
             <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
-          <p className="mt-2 text-xl font-black text-[color:var(--text)]">
+          <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
             {formatCompact(weeklyLoad.current)} kg
           </p>
           <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
@@ -1773,7 +1773,7 @@ function Dashboard({ onNavigate = () => {} }) {
             </p>
             <ListChecks className="h-3.5 w-3.5 text-[#5f5f5f] dark:text-[#e2ff00]" />
           </div>
-          <p className="mt-2 text-xl font-black text-[color:var(--text)]">
+          <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
             {weeklySets.total}
           </p>
           <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">

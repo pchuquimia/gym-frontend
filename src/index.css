@@ -118,6 +118,19 @@ button,
   background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
 }
 
+/* Escala legible y estable para el dashboard en ambos temas. */
+.dashboard-shell [class~="text-[9px]"],
+.dashboard-shell [class~="text-[10px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.dashboard-shell [class~="text-[11px]"],
+.dashboard-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
 /* Card utilitaria consistente */
 .card {
   background: var(--card);

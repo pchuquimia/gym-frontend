@@ -16,7 +16,7 @@ function MobileNav({ activePage, onNavigate }) {
   return (
     <nav className="border-t border-[#d7d7d7] bg-[#f8f8f8]/98 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-[#292929] dark:bg-[#101010]/98 md:hidden">
       <div
-        className="grid text-[10px] font-bold uppercase text-[#8e8e93] dark:text-[#c9c9ad]"
+        className="grid text-xs font-bold uppercase text-[#8e8e93] dark:text-[#c9c9ad]"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         }}
