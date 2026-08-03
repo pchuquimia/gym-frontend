@@ -45,7 +45,7 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, "");
 
 const EXERCISE_FIELDS =
-  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
+  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,laterality,difficulty,goals,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive,updatedAt";
 
 const normalizeExercise = (exercise) => {
   const primaryMuscleGroup = getPrimaryMuscleGroup(exercise);
@@ -100,7 +100,7 @@ const SESSIONS_KEY = ["sessions"];
 const PHOTOS_KEY = ["photos"];
 const PREFS_KEY = ["preferences"];
 
-export function TrainingProvider({ children, ownerId = "" }) {
+export function TrainingProvider({ children, ownerId = "", loadExercises = true }) {
   const queryClient = useQueryClient();
   const trainingsKey = useMemo(
     () => ["trainings", 120, ownerId || "self"],
@@ -141,7 +141,7 @@ export function TrainingProvider({ children, ownerId = "" }) {
       return list.map(normalizeExercise);
     },
     staleTime: 5 * 60 * 1000,
-    refetchOnMount: "always",
+    enabled: loadExercises,
   });
 
   const sessionsQuery = useQuery({
@@ -302,6 +302,8 @@ export function TrainingProvider({ children, ownerId = "" }) {
       ...prev,
       normalized,
     ]);
+    queryClient.invalidateQueries({ queryKey: ["exercise-library"] });
+    queryClient.invalidateQueries({ queryKey: ["exercise-facets"] });
     return normalized;
   };
 
@@ -326,6 +328,8 @@ export function TrainingProvider({ children, ownerId = "" }) {
     queryClient.setQueryData(EXERCISES_KEY, (prev = []) =>
       prev.map((ex) => (ex.id === id ? normalized : ex)),
     );
+    queryClient.invalidateQueries({ queryKey: ["exercise-library"] });
+    queryClient.invalidateQueries({ queryKey: ["exercise-facets"] });
     return normalized;
   };
 
@@ -334,6 +338,8 @@ export function TrainingProvider({ children, ownerId = "" }) {
     queryClient.setQueryData(EXERCISES_KEY, (prev = []) =>
       prev.filter((ex) => ex.id !== id),
     );
+    queryClient.invalidateQueries({ queryKey: ["exercise-library"] });
+    queryClient.invalidateQueries({ queryKey: ["exercise-facets"] });
   };
 
   const updatePreferences = useMutation({
@@ -439,7 +445,7 @@ export function TrainingProvider({ children, ownerId = "" }) {
   const photos = photosQuery.data || [];
   const trainings = trainingsQuery.data || [];
   const loading =
-    exercisesQuery.isLoading ||
+    (loadExercises && exercisesQuery.isLoading) ||
     sessionsQuery.isLoading ||
     photosQuery.isLoading ||
     trainingsQuery.isLoading ||

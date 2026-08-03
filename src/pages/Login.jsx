@@ -27,7 +27,14 @@ const roleHome = (role) => {
 };
 
 const inputClass =
-  "h-12 w-full rounded-lg border border-white/10 bg-slate-950/50 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20";
+  "h-12 w-full rounded-lg border border-white/10 bg-slate-950/50 pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:text-sm";
+
+const keepFieldVisible = (event) => {
+  const field = event.currentTarget;
+  window.setTimeout(() => {
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 250);
+};
 
 const loginErrorMessage = (error) => {
   if (error?.status === 423) return error.message;
@@ -46,6 +53,7 @@ function PasswordToggle({ visible, onToggle }) {
     <button
       type="button"
       onClick={onToggle}
+      onPointerDown={(event) => event.preventDefault()}
       className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-blue-100/60 transition hover:bg-white/10 hover:text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
       aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
       aria-pressed={visible}
@@ -93,8 +101,8 @@ function LoginForm({ onNavigate }) {
           autoComplete="email"
           inputMode="email"
           required
-          autoFocus
           value={form.email}
+          onFocus={keepFieldVisible}
           onChange={(event) =>
             setForm((previous) => ({ ...previous, email: event.target.value }))
           }
@@ -110,6 +118,7 @@ function LoginForm({ onNavigate }) {
           autoComplete="current-password"
           required
           value={form.password}
+          onFocus={keepFieldVisible}
           onChange={(event) =>
             setForm((previous) => ({
               ...previous,
@@ -216,8 +225,8 @@ function RecoverForm({ onNavigate }) {
               type="email"
               autoComplete="email"
               inputMode="email"
-              autoFocus
               value={email}
+              onFocus={keepFieldVisible}
               onChange={(event) => {
                 setEmail(event.target.value);
                 if (fieldError) setFieldError("");
@@ -324,8 +333,8 @@ function ResetForm({ token, onNavigate }) {
           name="password"
           type={showPassword ? "text" : "password"}
           autoComplete="new-password"
-          autoFocus
           value={form.password}
+          onFocus={keepFieldVisible}
           onChange={(event) =>
             setForm((previous) => ({
               ...previous,
@@ -365,6 +374,7 @@ function ResetForm({ token, onNavigate }) {
           type={showPassword ? "text" : "password"}
           autoComplete="new-password"
           value={form.confirmPassword}
+          onFocus={keepFieldVisible}
           onChange={(event) =>
             setForm((previous) => ({
               ...previous,

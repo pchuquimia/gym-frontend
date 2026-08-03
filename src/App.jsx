@@ -59,6 +59,14 @@ const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "rutinas",
   "perfil",
 ]);
+const EXERCISE_CONTEXT_PAGES = new Set([
+  "dashboard",
+  "registrar",
+  "ejercicio_analitica",
+  "resumen_sesion",
+  "rutinas",
+  "admin_sesiones",
+]);
 
 const readCoachAthlete = () => {
   if (typeof localStorage === "undefined") return null;
@@ -240,7 +248,10 @@ function App() {
   }
 
   return (
-    <TrainingProvider ownerId={supervisedOwnerId}>
+    <TrainingProvider
+      ownerId={supervisedOwnerId}
+      loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
+    >
       <RoutineProvider ownerId={supervisedOwnerId}>
         <UserProvider>
           <MainLayout

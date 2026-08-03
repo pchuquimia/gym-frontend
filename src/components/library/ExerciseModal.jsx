@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera } from "lucide-react";
+import { Camera, ChevronDown } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../shared/Modal";
 import {
@@ -16,12 +16,10 @@ import {
   STABILITY_OPTIONS,
   canonicalizeMuscleGroup,
   getBodyRegionForGroup,
-  getDefaultMovementPatternForGroup,
   getExerciseBodyRegion,
   getExerciseCategories,
   getExerciseEquipment,
   getExerciseGoals,
-  getExerciseLaterality,
   getExerciseMovementPatterns,
   getExerciseNavigationRegion,
   getExerciseType,
@@ -49,17 +47,17 @@ const defaultForm = {
   primaryMuscles: "",
   secondaryMuscles: "",
   stabilizerMuscles: "",
-  movementPatterns: defaultTaxonomy.movementPatterns,
-  movementPattern: defaultTaxonomy.movementPattern,
+  movementPatterns: [],
+  movementPattern: "",
   equipment: [],
-  exerciseType: defaultTaxonomy.exerciseType,
-  laterality: defaultTaxonomy.laterality,
-  kineticChain: defaultTaxonomy.kineticChain,
-  executionType: defaultTaxonomy.executionType,
-  stability: defaultTaxonomy.stability,
-  position: defaultTaxonomy.position,
-  difficulty: defaultTaxonomy.difficulty,
-  goals: defaultTaxonomy.goals,
+  exerciseType: "",
+  laterality: "",
+  kineticChain: "",
+  executionType: "",
+  stability: "",
+  position: "",
+  difficulty: "",
+  goals: [],
   precautions: "",
   branches: ["general"],
   description: "",
@@ -81,7 +79,7 @@ function Field({ label, children, className = "" }) {
   );
 }
 
-function ChipPicker({ label, options, selected, onToggle }) {
+function ChipPicker({ label, options, selected, onToggle, requireOne = false }) {
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -94,7 +92,11 @@ function ChipPicker({ label, options, selected, onToggle }) {
             <button
               key={option}
               type="button"
-              onClick={() => onToggle(option)}
+              onClick={() => {
+                if (requireOne && active && selected.length === 1) return;
+                onToggle(option);
+              }}
+              aria-pressed={active}
               className={`rounded-full border px-3 py-2 text-xs font-black transition ${
                 active
                   ? "border-blue-500 bg-blue-600 text-white"
@@ -106,6 +108,51 @@ function ChipPicker({ label, options, selected, onToggle }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SelectPicker({ label, options, selected, onToggle }) {
+  const available = options.filter(
+    (option) => !selected.some((item) => optionMatches(item, option)),
+  );
+
+  return (
+    <div className="space-y-2">
+      <label className="block space-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+          {label}
+        </span>
+        <select
+          className="h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
+          value=""
+          onChange={(event) => {
+            if (event.target.value) onToggle(event.target.value);
+          }}
+        >
+          <option value="">Agregar...</option>
+          {available.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selected.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onToggle(option)}
+              className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+              aria-label={`Quitar ${option}`}
+            >
+              {option} &times;
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -130,16 +177,19 @@ const slugify = (text = "") =>
 function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState(() => ({
+    ...defaultForm,
+    type: isAdmin ? "system" : "custom",
+  }));
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     if (initialData) {
       const primaryMuscleGroup =
         getPrimaryMuscleGroup(initialData) || defaultForm.primaryMuscleGroup;
-      const fallback = makeDefaultExerciseTaxonomy(primaryMuscleGroup);
       const categories = getExerciseCategories(initialData);
       const movementPatterns = getExerciseMovementPatterns(initialData);
       const equipment = getExerciseEquipment(initialData);
@@ -148,33 +198,28 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       setForm({
         name: initialData.name || "",
         aliases: toArray(initialData.aliases).join(", "),
-        categories: categories.length ? categories : fallback.categories,
-        category: initialData.category || categories[0] || fallback.category,
-        bodyRegion: getExerciseBodyRegion(initialData) || fallback.bodyRegion,
-        navigationRegion:
-          getExerciseNavigationRegion(initialData) || fallback.navigationRegion,
+        categories,
+        category: initialData.category || categories[0] || "",
+        bodyRegion: getExerciseBodyRegion(initialData) || "",
+        navigationRegion: getExerciseNavigationRegion(initialData) || "",
         muscle: primaryMuscleGroup,
         primaryMuscle: primaryMuscleGroup,
         primaryMuscleGroup,
         primaryMuscles: toArray(initialData.primaryMuscles).join(", "),
         secondaryMuscles: toArray(initialData.secondaryMuscles).join(", "),
         stabilizerMuscles: toArray(initialData.stabilizerMuscles).join(", "),
-        movementPatterns: movementPatterns.length
-          ? movementPatterns
-          : fallback.movementPatterns,
+        movementPatterns,
         movementPattern:
-          initialData.movementPattern ||
-          movementPatterns[0] ||
-          fallback.movementPattern,
+          initialData.movementPattern || movementPatterns[0] || "",
         equipment,
-        exerciseType: getExerciseType(initialData) || fallback.exerciseType,
-        laterality: getExerciseLaterality(initialData) || fallback.laterality,
-        kineticChain: initialData.kineticChain || fallback.kineticChain,
-        executionType: initialData.executionType || fallback.executionType,
-        stability: initialData.stability || fallback.stability,
-        position: initialData.position || fallback.position,
-        difficulty: initialData.difficulty || fallback.difficulty,
-        goals: goals.length ? goals : fallback.goals,
+        exerciseType: getExerciseType(initialData) || "",
+        laterality: initialData.laterality || "",
+        kineticChain: initialData.kineticChain || "",
+        executionType: initialData.executionType || "",
+        stability: initialData.stability || "",
+        position: initialData.position || "",
+        difficulty: initialData.difficulty || "",
+        goals,
         precautions: toArray(initialData.precautions).join(", "),
         branches: initialData.branches?.length
           ? initialData.branches
@@ -192,6 +237,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       setPreview("");
     }
     setImageFile(null);
+    setAdvancedOpen(false);
   }, [initialData, isAdmin]);
 
   const movementOptions = useMemo(
@@ -231,16 +277,14 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   ]);
 
   const inputClass =
-    "h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
+    "h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm";
 
   const textareaClass =
-    "min-h-24 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20";
+    "min-h-24 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-base font-semibold text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm";
 
   const updatePrimaryGroup = (group) => {
     const primaryMuscleGroup = canonicalizeMuscleGroup(group);
     const bodyRegion = getBodyRegionForGroup(primaryMuscleGroup);
-    const movementPattern =
-      getDefaultMovementPatternForGroup(primaryMuscleGroup);
     setForm((prev) => ({
       ...prev,
       bodyRegion: bodyRegion || prev.bodyRegion,
@@ -248,8 +292,6 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       muscle: primaryMuscleGroup,
       primaryMuscle: primaryMuscleGroup,
       primaryMuscleGroup,
-      movementPatterns: [movementPattern],
-      movementPattern,
     }));
   };
 
@@ -257,7 +299,6 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
     const { name, value, type, checked } = event.target;
     if (name === "bodyRegion") {
       const firstGroup = getMuscleGroupsForBodyRegion(value)[0] || "Pecho";
-      const movementPattern = getDefaultMovementPatternForGroup(firstGroup);
       setForm((prev) => ({
         ...prev,
         bodyRegion: value,
@@ -265,8 +306,6 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
         muscle: firstGroup,
         primaryMuscle: firstGroup,
         primaryMuscleGroup: firstGroup,
-        movementPatterns: [movementPattern],
-        movementPattern,
       }));
       return;
     }
@@ -389,10 +428,10 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
               <img
                 src={preview || form.image}
                 alt="Vista previa"
-                className="aspect-[16/8] w-full object-cover"
+                className="h-40 w-full object-contain sm:h-48"
               />
             ) : (
-              <div className="grid aspect-[16/8] w-full place-items-center text-center text-sm font-semibold text-[color:var(--text-muted)]">
+              <div className="grid h-40 w-full place-items-center text-center text-sm font-semibold text-[color:var(--text-muted)] sm:h-48">
                 <span className="grid place-items-center gap-2">
                   <Camera className="h-7 w-7" />
                   Agregar imagen
@@ -408,27 +447,17 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
           </div>
         </label>
 
-        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-          <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-            {isAdmin
-              ? "Como administrador puedes cargar imágenes del catálogo global. El nombre en Cloudinary se genera automáticamente con la taxonomía del ejercicio."
-              : "Tu cuenta puede crear rutinas y ejercicios personales. El catálogo global y sus imágenes solo los modifica un administrador."}
-          </p>
-          <p className="mt-2 break-all rounded-xl bg-[color:var(--card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {cloudinaryPreview}
-          </p>
-        </div>
-
         {isAdmin && (
           <div className="grid grid-cols-2 gap-2">
             {[
-              ["system", "Catalogo"],
+                ["system", "Catálogo"],
               ["custom", "Personal"],
             ].map(([value, label]) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, type: value }))}
+                aria-pressed={form.type === value}
                 className={`h-11 rounded-xl border px-3 text-sm font-black transition ${
                   form.type === value
                     ? "border-blue-600 bg-blue-600 text-white"
@@ -443,7 +472,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
 
         <section className="space-y-3">
           <SectionTitle>Identidad</SectionTitle>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div>
             <Field label="Nombre">
               <input
                 className={inputClass}
@@ -452,15 +481,6 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 onChange={handleChange}
                 required
                 placeholder="Press banca con barra"
-              />
-            </Field>
-            <Field label="Alias">
-              <input
-                className={inputClass}
-                name="aliases"
-                value={form.aliases}
-                onChange={handleChange}
-                placeholder="Press banca, Bench press"
               />
             </Field>
           </div>
@@ -473,9 +493,10 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
             options={EXERCISE_CATEGORIES}
             selected={form.categories}
             onToggle={(value) => toggleListValue("categories", value)}
+            requireOne
           />
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <Field label="Región corporal">
               <select
                 className={inputClass}
@@ -502,47 +523,74 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
               </select>
             </Field>
 
-            <Field label="Navegación visual">
-              <input
-                className={inputClass}
-                name="navigationRegion"
-                value={form.navigationRegion}
-                onChange={handleChange}
-                placeholder="Pecho"
-              />
-            </Field>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <Field label="Músculos principales">
-              <input
-                className={inputClass}
-                name="primaryMuscles"
-                value={form.primaryMuscles}
-                onChange={handleChange}
-                placeholder="Pectoral mayor"
-              />
-            </Field>
-            <Field label="Secundarios">
-              <input
-                className={inputClass}
-                name="secondaryMuscles"
-                value={form.secondaryMuscles}
-                onChange={handleChange}
-                placeholder="Tríceps braquial"
-              />
-            </Field>
-            <Field label="Estabilizadores">
-              <input
-                className={inputClass}
-                name="stabilizerMuscles"
-                value={form.stabilizerMuscles}
-                onChange={handleChange}
-                placeholder="Manguito rotador"
-              />
-            </Field>
           </div>
         </section>
+
+        <SelectPicker
+          label="Equipamiento"
+          options={EQUIPMENT_OPTIONS}
+          selected={form.equipment}
+          onToggle={(value) => toggleListValue("equipment", value)}
+        />
+
+        <Field label="Descripción técnica">
+          <textarea
+            className={textareaClass}
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Indicaciones clave, rango de movimiento y control técnico."
+          />
+        </Field>
+
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((open) => !open)}
+          aria-expanded={advancedOpen}
+          className="flex h-12 w-full items-center justify-between rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
+        >
+          Opciones avanzadas
+          <ChevronDown
+            className={`h-5 w-5 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {advancedOpen && (
+          <div className="space-y-5 border-t border-[color:var(--border)] pt-5">
+            <section className="space-y-3">
+              <SectionTitle>Identificación adicional</SectionTitle>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Alias">
+                  <input
+                    className={inputClass}
+                    name="aliases"
+                    value={form.aliases}
+                    onChange={handleChange}
+                    placeholder="Press banca, Bench press"
+                  />
+                </Field>
+                <Field label="Navegación visual">
+                  <input
+                    className={inputClass}
+                    name="navigationRegion"
+                    value={form.navigationRegion}
+                    onChange={handleChange}
+                    placeholder="Pecho"
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Músculos principales">
+                  <input className={inputClass} name="primaryMuscles" value={form.primaryMuscles} onChange={handleChange} placeholder="Pectoral mayor" />
+                </Field>
+                <Field label="Secundarios">
+                  <input className={inputClass} name="secondaryMuscles" value={form.secondaryMuscles} onChange={handleChange} placeholder="Tríceps braquial" />
+                </Field>
+                <Field label="Estabilizadores">
+                  <input className={inputClass} name="stabilizerMuscles" value={form.stabilizerMuscles} onChange={handleChange} placeholder="Manguito rotador" />
+                </Field>
+              </div>
+            </section>
 
         <section className="space-y-4">
           <SectionTitle>Movimiento</SectionTitle>
@@ -561,6 +609,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.exerciseType}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {EXERCISE_TYPE_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -573,6 +622,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.laterality}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {LATERALITY_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -585,6 +635,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.kineticChain}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {KINETIC_CHAIN_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -600,6 +651,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.executionType}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {EXECUTION_TYPE_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -612,6 +664,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.stability}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {STABILITY_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -624,6 +677,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.position}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {POSITION_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -636,6 +690,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
                 value={form.difficulty}
                 onChange={handleChange}
               >
+                <option value="">Sin especificar</option>
                 {DIFFICULTY_OPTIONS.map((option) => (
                   <option key={option}>{option}</option>
                 ))}
@@ -646,13 +701,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
 
         <section className="space-y-4">
           <SectionTitle>Filtros independientes</SectionTitle>
-          <ChipPicker
-            label="Equipamiento"
-            options={EQUIPMENT_OPTIONS}
-            selected={form.equipment}
-            onToggle={(value) => toggleListValue("equipment", value)}
-          />
-          <ChipPicker
+          <SelectPicker
             label="Objetivos"
             options={GOAL_OPTIONS}
             selected={form.goals}
@@ -702,15 +751,20 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
           </div>
         </section>
 
-        <Field label="Descripción técnica">
-          <textarea
-            className={textareaClass}
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            placeholder="Indicaciones clave, rango de movimiento y control técnico."
-          />
-        </Field>
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                {isAdmin
+                  ? "Las imágenes del catálogo global solo pueden ser modificadas por administradores. Cloudinary usa una ruta generada desde la clasificación."
+                  : "Este ejercicio y su imagen son personales. El catálogo global solo puede ser modificado por un administrador."}
+              </p>
+              {isAdmin && (
+                <p className="mt-2 break-all rounded-lg bg-[color:var(--card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  {cloudinaryPreview}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

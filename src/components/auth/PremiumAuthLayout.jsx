@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { useEffect, useRef } from "react";
 import { ChevronLeft, Zap } from "lucide-react";
 
 const images = {
@@ -22,9 +23,29 @@ function PremiumAuthLayout({
   hideHeroOnMobile = false,
 }) {
   const image = images[variant] || images.login;
+  const layoutRef = useRef(null);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      const height = Math.round(viewport?.height || window.innerHeight);
+      layoutRef.current?.style.setProperty("--auth-height", `${height}px`);
+    };
+    updateViewportHeight();
+    viewport?.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+    };
+  }, []);
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[#060b16] text-white lg:p-4 2xl:p-6">
+    <main
+      ref={layoutRef}
+      style={{ "--auth-height": "100dvh" }}
+      className="min-h-[var(--auth-height)] overflow-x-hidden bg-[#060b16] text-white lg:p-4 2xl:p-6"
+    >
       <div
         className="fixed inset-0 pointer-events-none opacity-35"
         style={{
@@ -34,8 +55,8 @@ function PremiumAuthLayout({
         }}
         aria-hidden="true"
       />
-      <div className="relative mx-auto flex min-h-dvh w-full items-stretch justify-center lg:min-h-[calc(100dvh-2rem)] lg:max-w-[1440px] 2xl:min-h-[calc(100dvh-3rem)] 2xl:max-w-[1680px] 2xl:items-center">
-        <section className="relative min-h-dvh w-full overflow-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[max(670px,calc(100dvh-2rem))] lg:rounded-lg lg:border lg:border-white/15 2xl:min-h-[900px]">
+      <div className="relative mx-auto flex min-h-[var(--auth-height)] w-full items-stretch justify-center lg:min-h-[calc(100dvh-2rem)] lg:max-w-[1440px] 2xl:min-h-[calc(100dvh-3rem)] 2xl:max-w-[1680px] 2xl:items-center">
+        <section className="relative min-h-[var(--auth-height)] w-full overflow-x-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[max(670px,calc(100dvh-2rem))] lg:overflow-hidden lg:rounded-lg lg:border lg:border-white/15 2xl:min-h-[900px]">
           <img
             src={image}
             alt=""
@@ -45,7 +66,7 @@ function PremiumAuthLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/72 to-slate-950" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.22),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,70,229,0.25),transparent_45%)]" />
 
-          <div className="relative flex min-h-dvh flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[max(670px,calc(100dvh-2rem))] lg:grid-cols-[minmax(0,1.15fr)_minmax(400px,0.85fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:px-0 lg:py-0 2xl:min-h-[900px] 2xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
+          <div className="relative flex min-h-[var(--auth-height)] flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[max(670px,calc(100dvh-2rem))] lg:grid-cols-[minmax(0,1.15fr)_minmax(400px,0.85fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:px-0 lg:py-0 2xl:min-h-[900px] 2xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
             <div className="flex min-h-10 items-center justify-between lg:px-10 lg:pt-10 2xl:px-12">
               {onBack ? (
                 <button
@@ -64,7 +85,7 @@ function PremiumAuthLayout({
               )}
             </div>
 
-            <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 pb-1 sm:max-w-md lg:contents">
+            <div className="mx-auto flex w-full max-w-sm flex-none flex-col justify-start gap-4 pb-1 pt-[clamp(2rem,9vh,5rem)] sm:max-w-md sm:flex-1 sm:justify-center sm:pt-0 lg:contents">
               <div
                 className={`text-center lg:flex lg:flex-col lg:justify-center lg:px-12 lg:pb-20 lg:text-left 2xl:px-16 ${
                   hideHeroOnMobile ? "hidden lg:flex" : ""

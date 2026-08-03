@@ -1,9 +1,12 @@
+import { useState } from "react";
 import {
   Activity,
   AlertTriangle,
   Dumbbell,
   MapPin,
+  Pause,
   Pencil,
+  Play,
   Tags,
   Trash2,
 } from "lucide-react";
@@ -19,7 +22,6 @@ import {
   getExerciseCategories,
   getExerciseEquipment,
   getExerciseGoals,
-  getExerciseLaterality,
   getExerciseMovementPatterns,
   getExerciseNavigationRegion,
   getExerciseType,
@@ -27,12 +29,14 @@ import {
   toArray,
 } from "../../constants/exerciseTaxonomy";
 
-const branchLabel = (branch) =>
-  branch === "general"
-    ? "Todas"
-    : branch.charAt(0).toUpperCase() + branch.slice(1);
+const hasText = (value) =>
+  Array.isArray(value) ? value.filter(Boolean).length > 0 : Boolean(value);
+
+const capitalizeName = (value = "") =>
+  value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Ejercicio";
 
 function InfoRow({ icon: Icon, label, value }) {
+  if (!hasText(value)) return null;
   return (
     <div className="flex gap-3">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
@@ -46,238 +50,248 @@ function InfoRow({ icon: Icon, label, value }) {
 
 function DetailBlock({ title, children }) {
   return (
-    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-4">
-      <p className="text-sm font-black text-[color:var(--text)]">{title}</p>
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-4">
+      <h4 className="text-sm font-black text-[color:var(--text)]">{title}</h4>
       <div className="mt-3 grid gap-3 text-sm">{children}</div>
-    </div>
+    </section>
   );
 }
 
-function DetailModal({
+export default function DetailModal({
   exercise,
   onClose,
   onEdit,
   onDelete,
   canManage = false,
 }) {
-  if (!exercise) return null;
-  const imageUrl = getExerciseImageUrl(exercise, { width: 1000, height: 750 });
+  const [activeTab, setActiveTab] = useState("technique");
+  const [showAnimation, setShowAnimation] = useState(false);
+  const imageUrl = getExerciseImageUrl(exercise, { width: 900, height: 900 });
   const animationUrl = getExerciseAnimationUrl(exercise);
-  const branches = exercise.branches?.length ? exercise.branches : ["general"];
+  const instructions = toArray(exercise.instructions);
   const categories = getExerciseCategories(exercise);
-  const muscleGroup = getPrimaryMuscleGroup(exercise) || "Sin grupo";
-  const bodyRegion = getExerciseBodyRegion(exercise) || "Sin región";
-  const navigationRegion =
-    getExerciseNavigationRegion(exercise) || "Sin navegación";
+  const muscleGroup = getPrimaryMuscleGroup(exercise);
+  const bodyRegion = getExerciseBodyRegion(exercise);
+  const navigationRegion = getExerciseNavigationRegion(exercise);
   const movementPatterns = getExerciseMovementPatterns(exercise);
   const equipment = getExerciseEquipment(exercise);
   const goals = getExerciseGoals(exercise);
-  const sourceLabel =
-    exercise.type === "system" ? "Catalogo global" : "Ejercicio personalizado";
+  const secondaryMuscles = toArray(exercise.secondaryMuscles);
+  const stabilizerMuscles = toArray(exercise.stabilizerMuscles);
+  const mechanics = [
+    exercise.kineticChain,
+    exercise.executionType,
+    exercise.stability,
+  ].filter(Boolean);
 
-  const footer = (
+  const footer = canManage ? (
     <>
-      {canManage ? (
-        <>
-          <button
-            type="button"
-            className="mr-auto inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600 dark:border-red-500/30 dark:text-red-300"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-            Eliminar
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-            Editar
-          </button>
-        </>
-      ) : null}
       <button
         type="button"
-        className="h-10 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
-        onClick={onClose}
+        className="mr-auto inline-flex h-10 items-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-600 dark:border-red-500/30 dark:text-red-300"
+        onClick={onDelete}
       >
-        Cerrar
+        <Trash2 className="h-4 w-4" />
+        Eliminar
+      </button>
+      <button
+        type="button"
+        className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white"
+        onClick={onEdit}
+      >
+        <Pencil className="h-4 w-4" />
+        Editar
       </button>
     </>
-  );
+  ) : null;
 
   return (
     <Modal
-      title={exercise.name}
-      subtitle={sourceLabel}
+      title={capitalizeName(exercise.name)}
+      subtitle={exercise.type === "system" ? "Catálogo global" : "Ejercicio personal"}
       onClose={onClose}
       footer={footer}
       size="wide"
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
-        <div className="space-y-3">
-          <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]">
-            {animationUrl || imageUrl ? (
-              <img
-                src={animationUrl || imageUrl}
-                alt={exercise.name}
-                className="aspect-[4/3] w-full object-cover"
-              />
-            ) : (
-              <div className="grid aspect-[4/3] place-items-center text-sm text-[color:var(--text-muted)]">
-                Sin imagen
-              </div>
-            )}
-          </div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {categories[0] ? <Badge variant="secondary">{categories[0]}</Badge> : null}
+        {bodyRegion ? <Badge>{bodyRegion}</Badge> : null}
+        {muscleGroup ? <Badge>{muscleGroup}</Badge> : null}
+        {exercise.difficulty ? <Badge>{exercise.difficulty}</Badge> : null}
+      </div>
 
-          <DetailBlock title="Descripción técnica">
-            <p className="whitespace-pre-line leading-6 text-[color:var(--text-muted)]">
-              {exercise.description || "Sin descripcion cargada."}
-            </p>
-          </DetailBlock>
+      <div
+        className="mb-4 grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+        role="tablist"
+        aria-label="Información del ejercicio"
+      >
+        {[
+          ["technique", "Técnica"],
+          ["details", "Detalles"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === value}
+            onClick={() => setActiveTab(value)}
+            className={`h-10 rounded-md text-sm font-black transition ${
+              activeTab === value
+                ? "bg-blue-600 text-white shadow-sm"
+                : "text-[color:var(--text-muted)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-          {toArray(exercise.instructions).length ? (
-            <DetailBlock title="Ejecución">
-              <ol className="grid gap-2 pl-5 text-[color:var(--text-muted)]">
-                {toArray(exercise.instructions).map((instruction, index) => (
-                  <li
-                    key={`${index}-${instruction}`}
-                    className="list-decimal leading-6"
-                  >
-                    {instruction}
-                  </li>
-                ))}
-              </ol>
-            </DetailBlock>
-          ) : null}
-
-          {exercise.source?.attribution ? (
-            <p className="px-1 text-xs text-[color:var(--text-muted)]">
-              {exercise.source.attribution}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-4">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {categories[0] || exercise.category || sourceLabel}
-              </Badge>
-              <Badge>{bodyRegion}</Badge>
-              <Badge>{muscleGroup}</Badge>
-              {exercise.difficulty ? (
-                <Badge>{exercise.difficulty}</Badge>
-              ) : null}
+      {activeTab === "technique" ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(300px,0.9fr)_minmax(0,1.1fr)]">
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-black/5 dark:bg-black/20">
+              {showAnimation && animationUrl ? (
+                <img
+                  src={animationUrl}
+                  alt={`Demostración de ${exercise.name}`}
+                  className="aspect-square w-full object-contain"
+                />
+              ) : imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={exercise.name}
+                  className="aspect-square w-full object-contain"
+                />
+              ) : (
+                <div className="grid aspect-square place-items-center text-sm text-[color:var(--text-muted)]">
+                  Sin imagen
+                </div>
+              )}
             </div>
+            {animationUrl ? (
+              <button
+                type="button"
+                onClick={() => setShowAnimation((value) => !value)}
+                aria-pressed={showAnimation}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-black text-[color:var(--text)]"
+              >
+                {showAnimation ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {showAnimation ? "Ver imagen estática" : "Ver animación"}
+              </button>
+            ) : null}
+            {exercise.source?.attribution ? (
+              <p className="px-1 text-xs text-[color:var(--text-muted)]">
+                {exercise.source.attribution}
+              </p>
+            ) : null}
           </div>
 
-          <DetailBlock title="Clasificación">
-            <InfoRow icon={MapPin} label="Región corporal" value={bodyRegion} />
-            <InfoRow
-              icon={Tags}
-              label="Navegación visual"
-              value={navigationRegion}
-            />
-            <InfoRow
-              icon={Dumbbell}
-              label="Grupo principal"
-              value={muscleGroup}
-            />
-          </DetailBlock>
-
-          <DetailBlock title="Músculos">
-            <InfoRow
-              icon={Activity}
-              label="Principales"
-              value={formatList(exercise.primaryMuscles, muscleGroup)}
-            />
-            <InfoRow
-              icon={Activity}
-              label="Secundarios"
-              value={formatList(exercise.secondaryMuscles)}
-            />
-            <InfoRow
-              icon={Activity}
-              label="Estabilizadores"
-              value={formatList(exercise.stabilizerMuscles)}
-            />
-          </DetailBlock>
-
-          <DetailBlock title="Movimiento">
-            <InfoRow
-              icon={Activity}
-              label="Patrón"
-              value={formatList(movementPatterns)}
-            />
-            <InfoRow
-              icon={Activity}
-              label="Tipo"
-              value={getExerciseType(exercise) || "No especificado"}
-            />
-            <InfoRow
-              icon={Activity}
-              label="Lateralidad"
-              value={getExerciseLaterality(exercise)}
-            />
-            <InfoRow
-              icon={Activity}
-              label="Cadena / ejecución / estabilidad"
-              value={
-                [
-                  exercise.kineticChain,
-                  exercise.executionType,
-                  exercise.stability,
-                ]
-                  .filter(Boolean)
-                  .join(" / ") || "No especificado"
-              }
-            />
-            <InfoRow
-              icon={Activity}
-              label="Posición"
-              value={exercise.position || "No especificado"}
-            />
-          </DetailBlock>
-
-          <DetailBlock title="Filtros independientes">
-            <InfoRow
-              icon={Dumbbell}
-              label="Equipamiento"
-              value={formatList(equipment)}
-            />
-            <InfoRow icon={Tags} label="Objetivos" value={formatList(goals)} />
-            <InfoRow
-              icon={MapPin}
-              label="Sedes"
-              value={branches.map(branchLabel).join(" / ")}
-            />
-          </DetailBlock>
-
-          {toArray(exercise.precautions).length ||
-          toArray(exercise.tags).length ? (
-            <DetailBlock title="Notas">
-              {toArray(exercise.precautions).length ? (
+          <div className="space-y-3">
+            {instructions.length ? (
+              <DetailBlock title="Ejecución">
+                <ol className="grid gap-3 pl-5 text-[color:var(--text-muted)]">
+                  {instructions.map((instruction, index) => (
+                    <li key={`${index}-${instruction}`} className="list-decimal leading-6">
+                      {instruction}
+                    </li>
+                  ))}
+                </ol>
+              </DetailBlock>
+            ) : exercise.description ? (
+              <DetailBlock title="Descripción técnica">
+                <p className="whitespace-pre-line leading-6 text-[color:var(--text-muted)]">
+                  {exercise.description}
+                </p>
+              </DetailBlock>
+            ) : (
+              <DetailBlock title="Técnica">
+                <p className="text-[color:var(--text-muted)]">
+                  Este ejercicio todavía no tiene instrucciones cargadas.
+                </p>
+              </DetailBlock>
+            )}
+            {toArray(exercise.precautions).length ? (
+              <DetailBlock title="Precauciones">
                 <InfoRow
                   icon={AlertTriangle}
-                  label="Precauciones"
+                  label="Consideraciones"
                   value={formatList(exercise.precautions)}
                 />
-              ) : null}
-              {toArray(exercise.tags).length ? (
-                <InfoRow
-                  icon={Tags}
-                  label="Tags"
-                  value={formatList(exercise.tags)}
-                />
-              ) : null}
-            </DetailBlock>
-          ) : null}
+              </DetailBlock>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {(bodyRegion || navigationRegion || muscleGroup) && (
+            <DetailBlock title="Clasificación">
+              <InfoRow icon={MapPin} label="Región corporal" value={bodyRegion} />
+              <InfoRow icon={Tags} label="Navegación" value={navigationRegion} />
+              <InfoRow icon={Dumbbell} label="Grupo principal" value={muscleGroup} />
+            </DetailBlock>
+          )}
+          {(hasText(exercise.primaryMuscles) ||
+            secondaryMuscles.length ||
+            stabilizerMuscles.length) && (
+            <DetailBlock title="Músculos">
+              <InfoRow
+                icon={Activity}
+                label="Principales"
+                value={formatList(exercise.primaryMuscles, muscleGroup || "")}
+              />
+              <InfoRow
+                icon={Activity}
+                label="Secundarios"
+                value={secondaryMuscles.length ? formatList(secondaryMuscles) : ""}
+              />
+              <InfoRow
+                icon={Activity}
+                label="Estabilizadores"
+                value={stabilizerMuscles.length ? formatList(stabilizerMuscles) : ""}
+              />
+            </DetailBlock>
+          )}
+          {(movementPatterns.length ||
+            getExerciseType(exercise) ||
+            exercise.laterality ||
+            mechanics.length ||
+            exercise.position) && (
+            <DetailBlock title="Movimiento">
+              <InfoRow
+                icon={Activity}
+                label="Patrón"
+                value={movementPatterns.length ? formatList(movementPatterns) : ""}
+              />
+              <InfoRow icon={Activity} label="Tipo" value={getExerciseType(exercise)} />
+              <InfoRow icon={Activity} label="Lateralidad" value={exercise.laterality} />
+              <InfoRow
+                icon={Activity}
+                label="Cadena, ejecución y estabilidad"
+                value={mechanics.join(" / ")}
+              />
+              <InfoRow icon={Activity} label="Posición" value={exercise.position} />
+            </DetailBlock>
+          )}
+          {(equipment.length || goals.length) && (
+            <DetailBlock title="Uso">
+              <InfoRow
+                icon={Dumbbell}
+                label="Equipamiento"
+                value={equipment.length ? formatList(equipment) : ""}
+              />
+              <InfoRow
+                icon={Tags}
+                label="Objetivos"
+                value={goals.length ? formatList(goals) : ""}
+              />
+            </DetailBlock>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
-
-export default DetailModal;

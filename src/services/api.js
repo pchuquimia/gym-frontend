@@ -115,6 +115,7 @@ export const api = {
       branch: params.branch ?? "",
       muscle: params.muscle ?? "",
       category: params.category ?? "",
+      excludeCategory: params.excludeCategory ?? "",
       bodyRegion: params.bodyRegion ?? "",
       navigationRegion: params.navigationRegion ?? "",
       primaryMuscleGroup: params.primaryMuscleGroup ?? "",
@@ -132,6 +133,7 @@ export const api = {
     }).toString();
     return request(`/api/exercises?${query}`);
   },
+  getExerciseFacets: () => request("/api/exercises/facets"),
   getExercise: (id) => request(`/api/exercises/${id}`),
   createExercise: (payload) =>
     request("/api/exercises", {
