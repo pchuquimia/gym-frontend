@@ -27,7 +27,7 @@ const roleHome = (role) => {
 };
 
 const inputClass =
-  "h-12 w-full rounded-lg border border-white/10 bg-slate-950/50 pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:text-sm";
+  "h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-white/28 hover:border-white/20 focus:border-[#b8ff4f]/70 focus:ring-2 focus:ring-[#b8ff4f]/15 sm:text-sm";
 
 const keepFieldVisible = (event) => {
   const field = event.currentTarget;
@@ -54,7 +54,7 @@ function PasswordToggle({ visible, onToggle }) {
       type="button"
       onClick={onToggle}
       onPointerDown={(event) => event.preventDefault()}
-      className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-blue-100/60 transition hover:bg-white/10 hover:text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
+      className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
       aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
       aria-pressed={visible}
     >
@@ -86,13 +86,7 @@ function LoginForm({ onNavigate }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" aria-busy={submitting}>
-      <div className="text-center lg:hidden">
-        <h1 className="text-2xl font-black text-white">Iniciar sesión</h1>
-        <p className="mt-1 text-sm font-semibold text-blue-50/70">
-          Accede a tu cuenta de entrenamiento.
-        </p>
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting}>
       <AuthField id="login-email" icon={Mail} label="Correo electrónico">
         <input
           id="login-email"
@@ -137,7 +131,7 @@ function LoginForm({ onNavigate }) {
         <button
           type="button"
           onClick={() => onNavigate("recover")}
-          className="text-xs font-bold text-blue-200 transition hover:text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
+          className="text-xs font-bold text-white/65 transition hover:text-[#b8ff4f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
         >
           ¿Olvidaste tu contraseña?
         </button>
@@ -153,7 +147,7 @@ function LoginForm({ onNavigate }) {
       ) : null}
       <Button
         type="submit"
-        className="h-12 w-full rounded-lg text-base font-black"
+        className="h-12 w-full rounded-lg bg-[#b8ff4f] text-base font-black text-[#101709] hover:bg-[#a7ef48] focus-visible:ring-[#b8ff4f]"
         disabled={submitting}
       >
         {submitting ? "Ingresando..." : "Ingresar"}
@@ -462,7 +456,7 @@ export default function Login({
         ? "Verificar cuenta"
         : mode === "recover"
           ? "Recuperar acceso"
-          : "Entrena con control";
+          : "Iniciar sesión";
   const subtitle =
     mode === "reset"
       ? "Crea una contraseña segura para volver a tu cuenta."
@@ -470,26 +464,24 @@ export default function Login({
         ? "Estamos confirmando que este correo te pertenece."
         : mode === "recover"
           ? "Te enviaremos un enlace seguro para restablecer tu contraseña."
-          : "Accede a tus rutinas, métricas y sesiones desde un solo lugar.";
+          : "Continúa con tus rutinas y registra tu próxima sesión.";
 
   return (
     <PremiumAuthLayout
       variant={isLogin ? "login" : "recover"}
       title={title}
       subtitle={subtitle}
-      heroCompact={!isLogin}
-      hideHeroOnMobile={isLogin}
       onBack={!isLogin ? () => navigate("login") : undefined}
       footer={
         isLogin ? (
-          <div className="border-t border-white/10 pt-5 text-center">
-            <p className="text-sm font-semibold text-blue-50/80">
+          <div className="text-center">
+            <p className="text-sm font-semibold text-white/55">
               ¿No tienes cuenta?
             </p>
             <button
               type="button"
               onClick={() => onNavigate("register")}
-              className="mt-1 text-base font-black text-emerald-300 transition hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50"
+              className="mt-1 text-base font-black text-[#b8ff4f] transition hover:text-[#d0ff8c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
             >
               Regístrate gratis
             </button>

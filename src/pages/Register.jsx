@@ -21,7 +21,7 @@ import {
 } from "../utils/authValidation";
 
 const inputClass =
-  "h-11 w-full rounded-lg border border-white/10 bg-slate-950/50 pl-11 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-blue-100/35 focus:border-blue-300/60 focus:ring-2 focus:ring-blue-400/20 sm:h-12";
+  "h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-white/28 hover:border-white/20 focus:border-[#b8ff4f]/70 focus:ring-2 focus:ring-[#b8ff4f]/15 sm:text-sm";
 
 const validateForm = (form) => ({
   name:
@@ -128,14 +128,12 @@ export default function Register({ onNavigate = () => {} }) {
         variant="register"
         title="Revisa tu correo"
         subtitle="Confirma tu dirección para activar la cuenta."
-        heroCompact
-        hideHeroOnMobile
         footer={
           <div className="text-center">
             <button
               type="button"
               onClick={() => onNavigate("login")}
-              className="text-sm font-black text-blue-200"
+              className="text-sm font-black text-[#b8ff4f]"
             >
               Volver a iniciar sesión
             </button>
@@ -159,35 +157,27 @@ export default function Register({ onNavigate = () => {} }) {
   return (
     <PremiumAuthLayout
       variant="register"
-      title="Empieza tu progreso"
-      subtitle="Crea tu cuenta y configura tu entrenamiento en pocos pasos."
-      heroCompact
-      hideHeroOnMobile
+      title="Crea tu cuenta"
+      subtitle="Tu historial de entrenamiento comienza con estos datos."
       footer={
         <div className="pt-1 text-center">
           <button
             type="button"
             onClick={() => onNavigate("login")}
-            className="text-sm font-semibold text-blue-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
+            className="text-sm font-semibold text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
           >
             ¿Ya tienes cuenta?{" "}
-            <span className="font-black text-blue-200">Inicia sesión</span>
+            <span className="font-black text-[#b8ff4f]">Inicia sesión</span>
           </button>
         </div>
       }
     >
       <form
         onSubmit={handleSubmit}
-        className="space-y-3"
+        className="space-y-4"
         noValidate
         aria-busy={submitting}
       >
-        <div className="pb-1 text-center lg:hidden">
-          <h1 className="text-2xl font-black text-white">Crear cuenta</h1>
-          <p className="mt-1 text-xs font-semibold leading-5 text-blue-50/70">
-            Registra tus datos para comenzar.
-          </p>
-        </div>
         <AuthField
           id="register-name"
           icon={User}
@@ -198,7 +188,6 @@ export default function Register({ onNavigate = () => {} }) {
             id="register-name"
             name="name"
             autoComplete="name"
-            autoFocus
             maxLength={80}
             value={form.name}
             onChange={handleChange("name")}
@@ -254,7 +243,7 @@ export default function Register({ onNavigate = () => {} }) {
           <button
             type="button"
             onClick={() => setShowPasswords((value) => !value)}
-            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-blue-100/60 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/50"
+            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
             aria-label={
               showPasswords ? "Ocultar contraseñas" : "Mostrar contraseñas"
             }
@@ -267,16 +256,25 @@ export default function Register({ onNavigate = () => {} }) {
             )}
           </button>
         </AuthField>
-        <p
-          id="register-password-hint"
-          className={`text-[11px] font-semibold ${form.password && !missingPasswordRules.length ? "text-emerald-300" : "text-blue-100/65"}`}
-        >
-          {form.password
-            ? missingPasswordRules.length
-              ? `Falta: ${missingPasswordRules.join(", ")}.`
-              : "La contraseña cumple los requisitos."
-            : "Usa 8 caracteres, mayúscula, minúscula, número y símbolo."}
-        </p>
+        <div id="register-password-hint" className="space-y-2">
+          <div className="grid grid-cols-5 gap-1.5" aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <span
+                key={index}
+                className={`h-1 rounded-full ${index < 5 - missingPasswordRules.length ? "bg-[#b8ff4f]" : "bg-white/10"}`}
+              />
+            ))}
+          </div>
+          <p
+            className={`text-[11px] font-semibold ${form.password && !missingPasswordRules.length ? "text-[#b8ff4f]" : "text-white/45"}`}
+          >
+            {form.password
+              ? missingPasswordRules.length
+                ? `Falta: ${missingPasswordRules.join(", ")}.`
+                : "Contraseña segura."
+              : "8 caracteres, mayúscula, minúscula, número y símbolo."}
+          </p>
+        </div>
         <AuthField
           id="register-confirmPassword"
           icon={Lock}
@@ -307,7 +305,7 @@ export default function Register({ onNavigate = () => {} }) {
         ) : null}
         <Button
           type="submit"
-          className="h-12 w-full rounded-lg text-base font-black"
+          className="h-12 w-full rounded-lg bg-[#b8ff4f] text-base font-black text-[#101709] hover:bg-[#a7ef48] focus-visible:ring-[#b8ff4f]"
           disabled={submitting}
         >
           {submitting ? "Creando cuenta..." : "Crear cuenta"}

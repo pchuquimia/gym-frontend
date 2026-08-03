@@ -1,32 +1,35 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef } from "react";
-import { ChevronLeft, Zap } from "lucide-react";
+import { ArrowLeft, Zap } from "lucide-react";
 
 const images = {
   login:
-    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=900&q=80",
+    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1600&q=85",
   register:
-    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=900&q=80",
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1600&q=85",
   recover:
-    "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80",
+    "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=85",
 };
 
 function PremiumAuthLayout({
   variant = "login",
   title,
   subtitle,
-  eyebrow,
   children,
   footer,
   onBack,
-  heroCompact = false,
-  hideHeroOnMobile = false,
 }) {
-  const image = images[variant] || images.login;
   const layoutRef = useRef(null);
+  const image = images[variant] || images.login;
 
   useEffect(() => {
     const viewport = window.visualViewport;
+    Object.values(images)
+      .filter((url) => url !== image)
+      .forEach((url) => {
+        const asset = new window.Image();
+        asset.src = url;
+      });
     const updateViewportHeight = () => {
       const height = Math.round(viewport?.height || window.innerHeight);
       layoutRef.current?.style.setProperty("--auth-height", `${height}px`);
@@ -38,86 +41,84 @@ function PremiumAuthLayout({
       viewport?.removeEventListener("resize", updateViewportHeight);
       window.removeEventListener("resize", updateViewportHeight);
     };
-  }, []);
+  }, [image]);
 
   return (
     <main
       ref={layoutRef}
       style={{ "--auth-height": "100dvh" }}
-      className="min-h-[var(--auth-height)] w-full overflow-x-hidden bg-[#060b16] text-white lg:p-4 2xl:p-6"
+      className="min-h-[var(--auth-height)] w-full overflow-x-hidden bg-[#090d12] text-white"
     >
-      <div
-        className="fixed inset-0 pointer-events-none opacity-35"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(148,163,184,0.35) 1px, transparent 1px)",
-          backgroundSize: "16px 16px",
-        }}
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto flex min-h-[var(--auth-height)] w-full items-stretch justify-center lg:min-h-[calc(100dvh-2rem)] lg:max-w-[1440px] 2xl:min-h-[calc(100dvh-3rem)] 2xl:max-w-[1680px] 2xl:items-center">
-        <section className="relative min-h-[var(--auth-height)] w-full overflow-x-hidden bg-slate-950 shadow-2xl shadow-black/40 lg:min-h-[max(670px,calc(100dvh-2rem))] lg:overflow-hidden lg:rounded-lg lg:border lg:border-white/15 2xl:min-h-[900px]">
+      <section className="mx-auto flex min-h-[var(--auth-height)] w-full flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(480px,42vw)] xl:grid-cols-[minmax(0,1fr)_38rem] 2xl:grid-cols-[minmax(0,1fr)_42rem]">
+        <div className="relative h-[13rem] shrink-0 overflow-hidden sm:h-[16rem] lg:sticky lg:top-0 lg:h-[var(--auth-height)]">
           <img
             src={image}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover"
+            fetchPriority="high"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-slate-950/72" />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/25 via-slate-950/72 to-slate-950" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.22),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,70,229,0.25),transparent_45%)]" />
+          <div className="absolute inset-0 bg-black/45" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#090d12] to-transparent lg:h-64 lg:from-black/80" />
 
-          <div className="relative flex min-h-[var(--auth-height)] w-full flex-col px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-6 lg:grid lg:min-h-[max(670px,calc(100dvh-2rem))] lg:grid-cols-[minmax(0,1.15fr)_minmax(400px,0.85fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:px-0 lg:py-0 2xl:min-h-[900px] 2xl:grid-cols-[minmax(0,1.2fr)_minmax(460px,0.8fr)]">
-            <div className="flex min-h-10 items-center justify-between lg:px-10 lg:pt-10 2xl:px-12">
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-blue-100 backdrop-blur transition hover:bg-white/15"
-                  aria-label="Volver"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-1 text-sm font-black uppercase text-blue-100">
-                  <Zap className="h-5 w-5 fill-blue-300 text-blue-300" />
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 lg:px-12 lg:pt-10 2xl:px-16">
+            <div className="inline-flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-lg bg-[#b8ff4f] text-[#11180a] shadow-lg shadow-black/20">
+                <Zap className="h-5 w-5 fill-current" />
+              </span>
+              <div>
+                <p className="font-display text-sm font-bold uppercase text-white">
                   Apex Performance
-                </div>
-              )}
-            </div>
-
-            <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-5 py-6 sm:max-w-md lg:contents">
-              <div
-                className={`text-center lg:flex lg:flex-col lg:justify-center lg:px-12 lg:pb-20 lg:text-left 2xl:px-16 ${
-                  hideHeroOnMobile ? "hidden lg:flex" : ""
-                } ${heroCompact ? "mt-8 lg:mt-0" : "mt-10 lg:mt-0"}`}
-              >
-                {eyebrow ? (
-                  <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-lg bg-blue-200 text-blue-950 shadow-lg shadow-blue-500/20 lg:mx-0">
-                    <Zap className="h-7 w-7 fill-blue-600 text-blue-600" />
-                  </div>
-                ) : null}
-                {!eyebrow && variant === "register" ? (
-                  <Zap className="mx-auto mb-4 h-7 w-7 fill-blue-300 text-blue-300 lg:mx-0" />
-                ) : null}
-                <h1 className="text-3xl font-black leading-tight text-white drop-shadow max-[700px]:text-2xl lg:max-w-xl lg:text-5xl 2xl:text-6xl">
-                  {title}
-                </h1>
-                <p className="mx-auto mt-2 max-w-[280px] text-sm font-semibold leading-6 text-blue-50/85 max-[700px]:leading-5 lg:mx-0 lg:mt-4 lg:max-w-md lg:text-base lg:leading-7 2xl:text-lg">
-                  {subtitle}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
+                  Training system
                 </p>
               </div>
-
-              <div className="w-full border-0 bg-transparent p-0 shadow-none sm:rounded-lg sm:border sm:border-white/10 sm:bg-slate-900/70 sm:p-5 sm:shadow-xl sm:shadow-black/25 sm:backdrop-blur-md lg:col-start-2 lg:row-start-1 lg:row-end-3 lg:mx-auto lg:my-16 lg:w-[min(440px,calc(100%-3rem))] lg:self-center lg:p-6 2xl:w-[480px]">
-                {children}
-              </div>
-            </div>
-
-            <div className="mx-auto mt-auto w-full max-w-sm shrink-0 pt-3 sm:max-w-md lg:col-start-2 lg:mx-auto lg:mt-0 lg:w-[min(440px,calc(100%-3rem))] lg:max-w-none lg:pb-7 2xl:w-[480px]">
-              {footer}
             </div>
           </div>
-        </section>
-      </div>
+
+          <div className="absolute bottom-12 left-12 hidden max-w-2xl lg:block 2xl:bottom-16 2xl:left-16">
+            <span className="mb-5 block h-1 w-14 bg-[#b8ff4f]" />
+            <h1 className="font-display text-5xl font-bold leading-[1.06] text-white 2xl:text-6xl">
+              {title}
+            </h1>
+            <p className="mt-5 max-w-lg text-lg font-medium leading-8 text-white/72 2xl:text-xl">
+              {subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex min-h-[calc(var(--auth-height)-13rem)] flex-1 flex-col bg-[#090d12] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:min-h-[calc(var(--auth-height)-16rem)] sm:px-8 lg:h-[var(--auth-height)] lg:min-h-0 lg:overflow-y-auto lg:px-10 lg:pb-8 2xl:px-14">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-7 sm:py-9 lg:my-auto lg:flex-none lg:py-10">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-7 inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-white/10 px-3 text-sm font-bold text-white/75 transition hover:border-white/25 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver
+              </button>
+            ) : null}
+
+            <header className="mb-7 lg:hidden">
+              <span className="mb-4 block h-1 w-10 bg-[#b8ff4f]" />
+              <h1 className="font-display text-3xl font-bold leading-tight text-white">
+                {title}
+              </h1>
+              <p className="mt-2 text-sm font-medium leading-6 text-white/60">
+                {subtitle}
+              </p>
+            </header>
+
+            <div>{children}</div>
+
+            {footer ? (
+              <div className="mt-7 border-t border-white/10 pt-6">{footer}</div>
+            ) : null}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -126,12 +127,9 @@ PremiumAuthLayout.propTypes = {
   variant: PropTypes.oneOf(["login", "register", "recover"]),
   title: PropTypes.string.isRequired,
   subtitle: PropTypes.string.isRequired,
-  eyebrow: PropTypes.bool,
   children: PropTypes.node.isRequired,
   footer: PropTypes.node,
   onBack: PropTypes.func,
-  heroCompact: PropTypes.bool,
-  hideHeroOnMobile: PropTypes.bool,
 };
 
 export default PremiumAuthLayout;
