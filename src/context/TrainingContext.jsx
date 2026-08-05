@@ -119,6 +119,10 @@ export function TrainingProvider({
     () => ["trainings", 120, ownerId || "self"],
     [ownerId],
   );
+  const exercisesKey = useMemo(
+    () => [...EXERCISES_KEY, ownerId || "self"],
+    [ownerId],
+  );
   const photosKey = useMemo(() => ["photos", ownerId || "self"], [ownerId]);
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
   const [locationMode, setLocationMode] = useState("single");
@@ -126,13 +130,14 @@ export function TrainingProvider({
   const [goals, setGoals] = useState(initialGoals);
 
   const exercisesQuery = useQuery({
-    queryKey: EXERCISES_KEY,
+    queryKey: exercisesKey,
     queryFn: async () => {
       const firstPage = await api.getExercises({
         fields: EXERCISE_FIELDS,
         limit: 500,
         page: 1,
         meta: true,
+        ownerId: ownerId || undefined,
       });
       if (Array.isArray(firstPage)) return firstPage.map(normalizeExercise);
       const list = [...(firstPage?.items || [])];
@@ -145,6 +150,7 @@ export function TrainingProvider({
               limit: 500,
               page: index + 2,
               meta: true,
+              ownerId: ownerId || undefined,
             }),
           ),
         );
@@ -154,7 +160,9 @@ export function TrainingProvider({
       }
       return list.map(normalizeExercise);
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
     enabled: loadExercises,
   });
 
@@ -325,7 +333,7 @@ export function TrainingProvider({
       id: saved._id || saved.id || id,
       branches: saved.branches || payload.branches,
     });
-    queryClient.setQueryData(EXERCISES_KEY, (prev = []) => [
+    queryClient.setQueryData(exercisesKey, (prev = []) => [
       ...prev,
       normalized,
     ]);
@@ -352,7 +360,7 @@ export function TrainingProvider({
       id,
       branches: saved.branches || body.branches,
     });
-    queryClient.setQueryData(EXERCISES_KEY, (prev = []) =>
+    queryClient.setQueryData(exercisesKey, (prev = []) =>
       prev.map((ex) => (ex.id === id ? normalized : ex)),
     );
     queryClient.invalidateQueries({ queryKey: ["exercise-library"] });
@@ -362,7 +370,7 @@ export function TrainingProvider({
 
   const deleteExercise = async (id) => {
     await api.deleteExercise(id);
-    queryClient.setQueryData(EXERCISES_KEY, (prev = []) =>
+    queryClient.setQueryData(exercisesKey, (prev = []) =>
       prev.filter((ex) => ex.id !== id),
     );
     queryClient.invalidateQueries({ queryKey: ["exercise-library"] });

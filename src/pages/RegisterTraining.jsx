@@ -2755,6 +2755,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setDurationSeconds(totalSeconds);
       setTimeEvents(fallbackEvents);
       setIsRunning(Boolean(snap.isRunning));
+      setActiveExerciseId(snap.activeExerciseId || "");
       setHasStarted(
         Boolean(snap.hasStarted) || Boolean(snap.isRunning) || totalSeconds > 0,
       );
@@ -2915,6 +2916,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         elapsed: liveDurationSeconds,
         isRunning,
         hasStarted,
+        activeExerciseId,
         lastUpdate: now,
         timeEvents,
         exercises,
@@ -2934,6 +2936,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setupStarted,
     isRunning,
     hasStarted,
+    activeExerciseId,
     timeEvents,
     exercises,
   ]);
@@ -3844,6 +3847,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     const targetEntry = targetSet?.entries?.find(
       (entry) => entry.id === entryId,
     );
+    const completesExercise =
+      targetEntry &&
+      !targetEntry.done &&
+      targetExercise?.sets?.every((set) => {
+        const entries = set.entries || [];
+        return entries.length
+          ? entries.every((entry) => entry.id === entryId || entry.done)
+          : Boolean(set.done);
+      });
     if (targetEntry && !targetEntry.done) {
       handleStartExerciseNow(exerciseId, { silent: true });
     }
@@ -3874,6 +3886,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : ex,
       ),
     );
+    if (completesExercise) {
+      setExpandedExerciseId((current) =>
+        current === exerciseId ? "" : current,
+      );
+    }
   };
 
   const handleRemoveSet = (exerciseId, setId) => {

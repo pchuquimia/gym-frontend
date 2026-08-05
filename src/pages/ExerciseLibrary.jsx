@@ -163,61 +163,58 @@ export default function ExerciseLibrary({ onNavigate }) {
   const [routineDraftMeta] = useState(readRoutineDraftMeta);
 
   const facetsQuery = useQuery({
-    queryKey: ["exercise-facets"],
+    queryKey: ["exercise-facets", user?.id || user?._id || "self"],
     queryFn: api.getExerciseFacets,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
   const facets = facetsQuery.data || {};
   const categoryOptions = useMemo(() => {
     const available = new Map(
       (facets.categories || []).map((item) => [item.value, item.count]),
     );
-    return EXERCISE_CATEGORIES.filter((category) => available.has(category)).map(
-      (category) => ({ value: category, count: available.get(category) }),
-    );
+    return EXERCISE_CATEGORIES.filter((category) =>
+      available.has(category),
+    ).map((category) => ({ value: category, count: available.get(category) }));
   }, [facets.categories]);
   const groups = facets.groupsByRegion?.[selectedBodyRegion] || [];
-  const entryPoints = useMemo(
-    () => {
-      const entryCounts = facets.entryCounts || {};
-      return (
-      [
-        {
-          id: "upper",
-          label: "Tren superior",
-          bodyRegion: "Tren superior",
-          count: entryCounts.upper || 0,
-        },
-        {
-          id: "lower",
-          label: "Tren inferior",
-          bodyRegion: "Tren inferior",
-          count: entryCounts.lower || 0,
-        },
-        {
-          id: "core",
-          label: "Core",
-          bodyRegion: "Zona media",
-          count: entryCounts.core || 0,
-        },
-        {
-          id: "fullBody",
-          label: "Cuerpo completo",
-          bodyRegion: "Cuerpo completo",
-          excludeCategory: "Cardio",
-          count: entryCounts.fullBody || 0,
-        },
-        {
-          id: "cardio",
-          label: "Cardio",
-          category: "Cardio",
-          count: entryCounts.cardio || 0,
-        },
-      ].filter((entry) => entry.count > 0)
-      );
-    },
-    [facets.entryCounts],
-  );
+  const entryPoints = useMemo(() => {
+    const entryCounts = facets.entryCounts || {};
+    return [
+      {
+        id: "upper",
+        label: "Tren superior",
+        bodyRegion: "Tren superior",
+        count: entryCounts.upper || 0,
+      },
+      {
+        id: "lower",
+        label: "Tren inferior",
+        bodyRegion: "Tren inferior",
+        count: entryCounts.lower || 0,
+      },
+      {
+        id: "core",
+        label: "Core",
+        bodyRegion: "Zona media",
+        count: entryCounts.core || 0,
+      },
+      {
+        id: "fullBody",
+        label: "Cuerpo completo",
+        bodyRegion: "Cuerpo completo",
+        excludeCategory: "Cardio",
+        count: entryCounts.fullBody || 0,
+      },
+      {
+        id: "cardio",
+        label: "Cardio",
+        category: "Cardio",
+        count: entryCounts.cardio || 0,
+      },
+    ].filter((entry) => entry.count > 0);
+  }, [facets.entryCounts]);
 
   const showEntryPoints =
     !selectedBodyRegion &&
@@ -234,6 +231,7 @@ export default function ExerciseLibrary({ onNavigate }) {
   const resultsQuery = useInfiniteQuery({
     queryKey: [
       "exercise-library",
+      user?.id || user?._id || "self",
       debouncedSearch,
       selectedCategory,
       selectedBodyRegion,
@@ -241,6 +239,9 @@ export default function ExerciseLibrary({ onNavigate }) {
       filters,
     ],
     enabled: showResults,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
       api.getExercises({
@@ -249,8 +250,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         page: pageParam,
         meta: true,
         q: debouncedSearch,
-        category:
-          selectedCategory === ALL_FILTER_VALUE ? "" : selectedCategory,
+        category: selectedCategory === ALL_FILTER_VALUE ? "" : selectedCategory,
         excludeCategory: fullBodyExcludesCardio ? "Cardio" : "",
         bodyRegion: selectedBodyRegion,
         primaryMuscleGroup: selectedMuscleGroup,
@@ -263,11 +263,8 @@ export default function ExerciseLibrary({ onNavigate }) {
         difficulty:
           filters.difficulty === ALL_FILTER_VALUE ? "" : filters.difficulty,
         exerciseType:
-          filters.exerciseType === ALL_FILTER_VALUE
-            ? ""
-            : filters.exerciseType,
-        position:
-          filters.position === ALL_FILTER_VALUE ? "" : filters.position,
+          filters.exerciseType === ALL_FILTER_VALUE ? "" : filters.exerciseType,
+        position: filters.position === ALL_FILTER_VALUE ? "" : filters.position,
         goal: filters.goal === ALL_FILTER_VALUE ? "" : filters.goal,
       }),
     getNextPageParam: (lastPage) => {
@@ -287,10 +284,10 @@ export default function ExerciseLibrary({ onNavigate }) {
     canWrite && (user?.role === "Admin" || exercise?.type !== "system");
   const hasScope = Boolean(
     selectedBodyRegion ||
-      selectedCategory !== ALL_FILTER_VALUE ||
-      selectedMuscleGroup ||
-      search.trim() ||
-      Object.values(filters).some((value) => value !== ALL_FILTER_VALUE),
+    selectedCategory !== ALL_FILTER_VALUE ||
+    selectedMuscleGroup ||
+    search.trim() ||
+    Object.values(filters).some((value) => value !== ALL_FILTER_VALUE),
   );
 
   const activeTitle =
@@ -490,7 +487,11 @@ export default function ExerciseLibrary({ onNavigate }) {
               aria-label="Ruta de navegación"
               className="flex flex-wrap items-center gap-1 text-xs font-bold text-[color:var(--text-muted)]"
             >
-              <button type="button" onClick={resetScope} className="hover:text-blue-600">
+              <button
+                type="button"
+                onClick={resetScope}
+                className="hover:text-blue-600"
+              >
                 Explorar
               </button>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -547,23 +548,24 @@ export default function ExerciseLibrary({ onNavigate }) {
               role="group"
               aria-label="Categoría de ejercicio"
             >
-              {[{ value: ALL_FILTER_VALUE, count: facets.total }, ...categoryOptions].map(
-                (category) => (
-                  <button
-                    key={category.value}
-                    type="button"
-                    onClick={() => selectCategory(category.value)}
-                    aria-pressed={selectedCategory === category.value}
-                    className={`h-9 rounded-full px-4 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
-                      selectedCategory === category.value
-                        ? "bg-emerald-500 text-slate-950"
-                        : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
-                    }`}
-                  >
-                    {category.value}
-                  </button>
-                ),
-              )}
+              {[
+                { value: ALL_FILTER_VALUE, count: facets.total },
+                ...categoryOptions,
+              ].map((category) => (
+                <button
+                  key={category.value}
+                  type="button"
+                  onClick={() => selectCategory(category.value)}
+                  aria-pressed={selectedCategory === category.value}
+                  className={`h-9 rounded-full px-4 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                    selectedCategory === category.value
+                      ? "bg-emerald-500 text-slate-950"
+                      : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                  }`}
+                >
+                  {category.value}
+                </button>
+              ))}
             </div>
           ) : null}
         </section>

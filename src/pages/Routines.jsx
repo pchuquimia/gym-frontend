@@ -3205,15 +3205,16 @@ function Routines({ onNavigate }) {
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
+  const [workspaceView, setWorkspaceView] = useState("plans");
   const [trainingPlans, setTrainingPlans] = useState([]);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [planDayChoice, setPlanDayChoice] = useState(null);
   const [replacementPlanDay, setReplacementPlanDay] = useState(null);
   const [archivePlanConfirmOpen, setArchivePlanConfirmOpen] = useState(false);
+  const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
-  const [showRoutineLibrary, setShowRoutineLibrary] = useState(false);
   const missingPlanRoutines = useMemo(
     () =>
       (activePlan?.weeklySchedule || []).filter(
@@ -3500,6 +3501,7 @@ function Routines({ onNavigate }) {
     // This effect bridges a navigation intent stored before the page mounted.
     // It runs once per target and immediately clears the marker.
     setSelectedRoutine(target);
+    setWorkspaceView("routines");
     setModalMode("edit");
     setEditTargetRoutineId(null);
     if (typeof localStorage !== "undefined") {
@@ -3681,10 +3683,23 @@ function Routines({ onNavigate }) {
     }
   };
 
+  const deleteCurrentPlan = async () => {
+    if (!activePlan || user?.role !== "Admin") return;
+    try {
+      await api.deleteTrainingPlan(activePlan._id || activePlan.id);
+      setDeletePlanConfirmOpen(false);
+      setActivePlan(null);
+      await Promise.all([refreshPlans(), reloadRoutines({ silent: true })]);
+      toast.success("Planificación eliminada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo eliminar la planificación");
+    }
+  };
+
   const openTrainingPlan = (plan) => {
+    setWorkspaceView("plans");
     setActivePlan(plan);
     setSelectedPlanWeek(getPlanWeekIndex(plan));
-    setShowRoutineLibrary(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -3781,17 +3796,18 @@ function Routines({ onNavigate }) {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
-              {activePlan ? "Detalle de planificación" : "Entrenamiento"}
+              {activePlan
+                ? "Detalle de planificación"
+                : "Gestión de entrenamiento"}
             </p>
             <h1 className="mt-1 text-[26px] font-black leading-none text-[color:var(--text)] sm:text-3xl">
-              {activePlan ? activePlan.name : "Planificaciones"}
+              {activePlan ? activePlan.name : "Rutinas y planificación"}
             </h1>
             {!activePlan ? (
               <p className="mt-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
-                {trainingPlans.length}{" "}
-                {trainingPlans.length === 1
-                  ? "planificación"
-                  : "planificaciones"}
+                {workspaceView === "plans"
+                  ? `${trainingPlans.length} ${trainingPlans.length === 1 ? "planificación" : "planificaciones"}`
+                  : `${routines.length} ${routines.length === 1 ? "rutina" : "rutinas"}`}
               </p>
             ) : null}
           </div>
@@ -3818,16 +3834,58 @@ function Routines({ onNavigate }) {
             ) : !isManagedClient ? (
               <button
                 type="button"
-                onClick={() => setPlanModalOpen(true)}
+                onClick={() =>
+                  workspaceView === "plans"
+                    ? setPlanModalOpen(true)
+                    : openCreate()
+                }
                 className="theme-accent-solid routines-surface inline-flex h-11 items-center justify-center gap-2 border px-4 text-sm font-black shadow-sm transition active:scale-[0.98]"
               >
-                <Plus className="h-4 w-4" /> Nueva
+                <Plus className="h-4 w-4" />
+                {workspaceView === "plans"
+                  ? "Nueva planificación"
+                  : "Nueva rutina"}
               </button>
             ) : null}
           </div>
         </div>
 
-        {!trainingPlans.length && !activePlan ? (
+        {!activePlan ? (
+          <div
+            className="grid grid-cols-2 border-b border-[color:var(--border)]"
+            role="tablist"
+            aria-label="Gestionar rutinas y planificaciones"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceView === "plans"}
+              onClick={() => setWorkspaceView("plans")}
+              className={`inline-flex h-12 items-center justify-center gap-2 border-b-2 text-sm font-black transition ${
+                workspaceView === "plans"
+                  ? "theme-accent-text border-current"
+                  : "border-transparent text-[color:var(--text-muted)]"
+              }`}
+            >
+              <CalendarDays className="h-4 w-4" /> Planificaciones
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceView === "routines"}
+              onClick={() => setWorkspaceView("routines")}
+              className={`inline-flex h-12 items-center justify-center gap-2 border-b-2 text-sm font-black transition ${
+                workspaceView === "routines"
+                  ? "theme-accent-text border-current"
+                  : "border-transparent text-[color:var(--text-muted)]"
+              }`}
+            >
+              <Dumbbell className="h-4 w-4" /> Rutinas
+            </button>
+          </div>
+        ) : null}
+
+        {!trainingPlans.length && !activePlan && workspaceView === "plans" ? (
           <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
             <div className="theme-accent-soft mx-auto grid h-12 w-12 place-items-center rounded-lg border">
               <Layers3 className="h-5 w-5" />
@@ -3855,7 +3913,7 @@ function Routines({ onNavigate }) {
         ) : null}
       </section>
 
-      {!activePlan && trainingPlans.length ? (
+      {!activePlan && workspaceView === "plans" && trainingPlans.length ? (
         <section className="mt-6 space-y-3 pb-24 sm:pb-0">
           <div className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
             <div>
@@ -4015,6 +4073,16 @@ function Routines({ onNavigate }) {
                   <Pencil className="h-4 w-4" />
                 </button>
               ) : null}
+              {user?.role === "Admin" ? (
+                <button
+                  type="button"
+                  onClick={() => setDeletePlanConfirmOpen(true)}
+                  className="grid h-11 w-11 place-items-center rounded-lg border border-red-500/30 text-red-600"
+                  aria-label="Eliminar planificación"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="mt-5 border border-[color:var(--border)] bg-[color:var(--card)] p-4">
@@ -4142,21 +4210,7 @@ function Routines({ onNavigate }) {
         </section>
       ) : null}
 
-      {activePlan && routines.length ? (
-        <button
-          type="button"
-          onClick={() => setShowRoutineLibrary((current) => !current)}
-          className="mt-5 flex h-11 w-full items-center justify-between border-y border-[color:var(--border)] px-1 text-sm font-black"
-          aria-expanded={showRoutineLibrary}
-        >
-          <span>Rutinas guardadas</span>
-          <ChevronDown
-            className={`h-4 w-4 transition ${showRoutineLibrary ? "rotate-180" : ""}`}
-          />
-        </button>
-      ) : null}
-
-      {activePlan && showRoutineLibrary ? (
+      {!activePlan && workspaceView === "routines" ? (
         <RoutineToolbar
           showSearch={showSearch}
           searchTerm={searchTerm}
@@ -4168,7 +4222,7 @@ function Routines({ onNavigate }) {
         />
       ) : null}
 
-      {activePlan && showRoutineLibrary && routines.length ? (
+      {!activePlan && workspaceView === "routines" ? (
         <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
           {groupedRoutineCards.map((routine) => {
             if (routine.groupHeading) {
@@ -4444,6 +4498,35 @@ function Routines({ onNavigate }) {
           <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
             Las rutinas guardadas se conservarán. La planificación dejará de
             aparecer como pendiente.
+          </p>
+        </Modal>
+      ) : null}
+      {deletePlanConfirmOpen ? (
+        <Modal
+          title="Eliminar planificación"
+          subtitle={activePlan?.name}
+          onClose={() => setDeletePlanConfirmOpen(false)}
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeletePlanConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-500/30 text-red-600 hover:border-red-500"
+                onClick={deleteCurrentPlan}
+              >
+                Eliminar
+              </Button>
+            </div>
+          }
+        >
+          <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
+            Se eliminará la planificación. Las rutinas personales utilizadas en
+            ella se conservarán.
           </p>
         </Modal>
       ) : null}

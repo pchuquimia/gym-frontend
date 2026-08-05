@@ -151,6 +151,7 @@ export const api = {
       position: params.position ?? "",
       difficulty: params.difficulty ?? "",
       goal: params.goal ?? "",
+      ownerId: params.ownerId ?? "",
       type: params.type ?? "",
     }).toString();
     return request(`/api/exercises?${query}`);

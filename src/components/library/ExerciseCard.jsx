@@ -58,6 +58,9 @@ export default function ExerciseCard({ exercise, onView }) {
           <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
             {category}
           </span>
+          <span className="shrink-0 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            {sourceLabel}
+          </span>
         </div>
         {supportingText ? (
           <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">

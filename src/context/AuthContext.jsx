@@ -11,6 +11,9 @@ import { api } from "../services/api";
 import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
 
 const AuthContext = createContext(null);
+const ACTIVE_TRAINING_KEY = "active_training_snapshot";
+const scopedTrainingKey = (userId) =>
+  userId ? `${ACTIVE_TRAINING_KEY}:${userId}` : "";
 
 const USER_STORAGE_KEYS = [
   "active_page",
@@ -34,6 +37,61 @@ const clearUserScopedStorage = () => {
     .forEach((key) => window.localStorage.removeItem(key));
 };
 
+const archiveActiveTraining = (userId) => {
+  if (typeof window === "undefined" || !userId) return;
+  const scopedKey = scopedTrainingKey(userId);
+  const raw = window.localStorage.getItem(ACTIVE_TRAINING_KEY);
+  if (!raw) {
+    window.localStorage.removeItem(scopedKey);
+    return;
+  }
+  try {
+    const snapshot = JSON.parse(raw);
+    const now = Date.now();
+    const lastUpdate = Number(snapshot.lastUpdate || now);
+    const durationSeconds =
+      Number(snapshot.durationSeconds ?? snapshot.elapsed ?? 0) +
+      (snapshot.isRunning
+        ? Math.max(0, Math.floor((now - lastUpdate) / 1000))
+        : 0);
+    const timeEvents = Array.isArray(snapshot.timeEvents)
+      ? [...snapshot.timeEvents]
+      : [];
+    if (snapshot.isRunning) {
+      timeEvents.push({
+        type: "session_pause",
+        exerciseId: snapshot.activeExerciseId || null,
+        at: new Date(now).toISOString(),
+      });
+    }
+    window.localStorage.setItem(
+      scopedKey,
+      JSON.stringify({
+        ...snapshot,
+        durationSeconds,
+        elapsed: durationSeconds,
+        isRunning: false,
+        activeExerciseId: "",
+        lastUpdate: now,
+        timeEvents,
+      }),
+    );
+  } catch {
+    window.localStorage.removeItem(scopedKey);
+  }
+};
+
+const restoreActiveTraining = (userId) => {
+  if (typeof window === "undefined" || !userId) return;
+  const scopedKey = scopedTrainingKey(userId);
+  const scoped = window.localStorage.getItem(scopedKey);
+  if (!scoped) return;
+  if (!window.localStorage.getItem(ACTIVE_TRAINING_KEY)) {
+    window.localStorage.setItem(ACTIVE_TRAINING_KEY, scoped);
+  }
+  window.localStorage.removeItem(scopedKey);
+};
+
 const normalizeUser = (payload) => payload?.user || payload || null;
 
 const shouldUseDevAdminLogin = () => {
@@ -55,6 +113,7 @@ export function AuthProvider({ children }) {
       try {
         const data = await api.me();
         const nextUser = normalizeUser(data);
+        restoreActiveTraining(nextUser?.id || nextUser?._id);
         setUser(nextUser);
         return nextUser;
       } catch (_err) {
@@ -63,6 +122,7 @@ export function AuthProvider({ children }) {
             const data = await api.devAdminLogin();
             if (data?.token) setAuthToken(data.token);
             const nextUser = normalizeUser(data);
+            restoreActiveTraining(nextUser?.id || nextUser?._id);
             setUser(nextUser);
             return nextUser;
           } catch {
@@ -109,6 +169,7 @@ export function AuthProvider({ children }) {
     const data = await api.login(payload);
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
+    restoreActiveTraining(nextUser?.id || nextUser?._id);
     setUser(nextUser);
     return nextUser;
   }, []);
@@ -119,6 +180,7 @@ export function AuthProvider({ children }) {
     if (data?.verificationRequired) return data;
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
+    restoreActiveTraining(nextUser?.id || nextUser?._id);
     setUser(nextUser);
     return nextUser;
   }, []);
@@ -128,6 +190,7 @@ export function AuthProvider({ children }) {
     const data = await api.verifyEmail({ token });
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
+    restoreActiveTraining(nextUser?.id || nextUser?._id);
     setUser(nextUser);
     return nextUser;
   }, []);
@@ -142,15 +205,17 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     if (developmentAdminMode) return false;
     try {
+      window.dispatchEvent(new Event("persist-active-training"));
       await api.logout();
     } finally {
+      archiveActiveTraining(user?.id || user?._id);
       setUser(null);
       clearAuthToken();
       queryClient.clear();
       clearUserScopedStorage();
     }
     return true;
-  }, [developmentAdminMode, queryClient]);
+  }, [developmentAdminMode, queryClient, user?.id, user?._id]);
 
   const value = useMemo(
     () => ({
