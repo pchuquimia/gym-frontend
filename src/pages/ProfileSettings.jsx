@@ -67,7 +67,7 @@ const goalLabels = {
 };
 
 const inputClass =
-  "h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/15 disabled:opacity-60";
+  "theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition disabled:opacity-60 dark:rounded-[3px]";
 
 const getInitials = (name = "") =>
   name
@@ -160,7 +160,7 @@ function Section({ title, action, children, className = "" }) {
         </h2>
         {action}
       </div>
-      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px]">
         {children}
       </div>
     </section>
@@ -172,10 +172,10 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
     >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-500/10">
-        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-200" />
+      <span className="theme-accent-soft grid h-9 w-9 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
+        <Icon className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold text-[color:var(--text)]">
@@ -227,8 +227,8 @@ function SettingsSelectRow({ icon: Icon, title, subtitle, value, onChange, disab
 
 function ProfileHero({ user, profile, avatarUrl, stats }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-6 text-center shadow-sm lg:sticky lg:top-6">
-      <div className="mx-auto grid h-24 w-24 place-items-center overflow-hidden rounded-full border-4 border-blue-200 bg-[color:var(--bg)] text-2xl font-black text-blue-700 dark:text-blue-100">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-6 text-center shadow-sm dark:rounded-[4px] lg:sticky lg:top-6">
+      <div className="mx-auto grid h-24 w-24 place-items-center overflow-hidden rounded-full border-4 border-[color:var(--accent)] bg-[color:var(--bg)] text-2xl font-black text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -257,7 +257,7 @@ function ProfileHero({ user, profile, avatarUrl, stats }) {
 function Stat({ value, label }) {
   return (
     <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3 text-center">
-      <p className="text-2xl font-black leading-none text-blue-700 dark:text-blue-100">
+      <p className="font-condensed text-2xl font-bold leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
         {value ?? "--"}
       </p>
       <p className="mt-1.5 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
@@ -296,7 +296,7 @@ function SessionRow({ session }) {
   return (
     <div className="flex min-h-20 items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)]">
-        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-200" />
+        <Icon className="h-5 w-5 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -304,7 +304,7 @@ function SessionRow({ session }) {
             {session.device || "Dispositivo"}
           </p>
           {session.current ? (
-            <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase text-blue-600 dark:text-blue-200">
+            <span className="theme-accent-soft rounded border px-1.5 py-0.5 text-[10px] font-black uppercase">
               Actual
             </span>
           ) : null}
@@ -774,7 +774,7 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (profileLoading) {
     return (
-      <main className="mx-auto grid min-h-[50vh] max-w-5xl place-items-center">
+      <main className="settings-shell mx-auto grid min-h-[50vh] max-w-5xl place-items-center">
         <p role="status" className="text-sm text-[color:var(--text-muted)]">
           Cargando perfil...
         </p>
@@ -784,14 +784,14 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (!profile) {
     return (
-      <main className="mx-auto max-w-lg py-12 text-center">
+      <main className="settings-shell mx-auto max-w-lg py-12 text-center">
         <p role="alert" className="text-sm font-semibold text-red-500">
           {profileError || "No se pudo cargar el perfil."}
         </p>
         <button
           type="button"
           onClick={refreshProfile}
-          className="mt-4 h-10 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white"
+          className="theme-accent-solid mt-4 h-10 rounded-lg px-4 text-sm font-bold dark:rounded-[3px]"
         >
           Reintentar
         </button>
@@ -801,10 +801,10 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "personal" && personalDraft) {
     return (
-      <main className="mx-auto w-full max-w-4xl space-y-5 pb-28">
+      <main className="settings-shell mx-auto w-full max-w-4xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="text-2xl font-black text-[color:var(--text)]">
+          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
             Información personal
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -980,7 +980,7 @@ export default function ProfileSettings({ onNavigate }) {
                   type="button"
                   onClick={() => updatePersonalField("avatarPhotoId", "")}
                   aria-pressed={!personalDraft.avatarPhotoId}
-                  className={`grid aspect-square place-items-center rounded-lg border text-lg font-black ${!personalDraft.avatarPhotoId ? "border-blue-500 bg-blue-500/10" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
+                  className={`grid aspect-square place-items-center rounded-lg border text-lg font-black dark:rounded-[3px] ${!personalDraft.avatarPhotoId ? "theme-accent-soft" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
                 >
                   {getInitials(personalDraft.name)}
                 </button>
@@ -993,7 +993,7 @@ export default function ProfileSettings({ onNavigate }) {
                       onClick={() => updatePersonalField("avatarPhotoId", id)}
                       aria-label="Seleccionar como foto de perfil"
                       aria-pressed={personalDraft.avatarPhotoId === id}
-                      className={`aspect-square overflow-hidden rounded-lg border ${personalDraft.avatarPhotoId === id ? "border-blue-500 ring-2 ring-blue-500/20" : "border-[color:var(--border)]"}`}
+                      className={`aspect-square overflow-hidden rounded-lg border dark:rounded-[3px] ${personalDraft.avatarPhotoId === id ? "border-[color:var(--accent)] ring-2 ring-[color:var(--accent)]/20" : "border-[color:var(--border)]"}`}
                     >
                       <img
                         src={photoUrl(photo)}
@@ -1018,7 +1018,7 @@ export default function ProfileSettings({ onNavigate }) {
             <button
               type="submit"
               disabled={!hasPersonalChanges || personalState.saving}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white disabled:opacity-50"
+              className="theme-accent-solid inline-flex h-11 items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold disabled:opacity-50 dark:rounded-[3px]"
             >
               <Save className="h-4 w-4" />
               {personalState.saving ? "Guardando..." : "Guardar cambios"}
@@ -1033,10 +1033,10 @@ export default function ProfileSettings({ onNavigate }) {
     const missingRules = passwordStatus(passwordForm.password);
     const otherSessions = sessions.filter((session) => !session.current).length;
     return (
-      <main className="mx-auto w-full max-w-3xl space-y-5 pb-28">
+      <main className="settings-shell mx-auto w-full max-w-3xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="text-2xl font-black text-[color:var(--text)]">
+          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
             Contraseña y sesiones
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -1050,8 +1050,8 @@ export default function ProfileSettings({ onNavigate }) {
             aria-expanded={showPasswordForm}
             className="flex min-h-16 w-full items-center gap-3 p-4 text-left"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-500/10">
-              <Lock className="h-5 w-5 text-blue-600 dark:text-blue-200" />
+            <span className="theme-accent-soft grid h-10 w-10 place-items-center rounded-lg border dark:rounded-[3px]">
+              <Lock className="h-5 w-5" />
             </span>
             <span className="flex-1 text-sm font-bold text-[color:var(--text)]">
               Cambiar contraseña
@@ -1150,7 +1150,7 @@ export default function ProfileSettings({ onNavigate }) {
               <button
                 type="submit"
                 disabled={passwordState.saving}
-                className="h-11 w-full rounded-lg bg-blue-600 text-sm font-bold text-white disabled:opacity-50"
+                className="theme-accent-solid h-11 w-full rounded-lg text-sm font-bold disabled:opacity-50 dark:rounded-[3px]"
               >
                 {passwordState.saving ? "Guardando..." : "Guardar contraseña"}
               </button>
@@ -1195,7 +1195,7 @@ export default function ProfileSettings({ onNavigate }) {
               <button
                 type="button"
                 onClick={loadSessions}
-                className="mt-3 text-sm font-bold text-blue-600"
+                className="mt-3 text-sm font-bold text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]"
               >
                 Reintentar
               </button>
@@ -1216,10 +1216,10 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "locations" && locationDraft) {
     return (
-      <main className="mx-auto w-full max-w-2xl space-y-5 pb-28">
+      <main className="settings-shell mx-auto w-full max-w-2xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="text-2xl font-black text-[color:var(--text)]">
+          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
             Lugares de entrenamiento
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -1246,10 +1246,10 @@ export default function ProfileSettings({ onNavigate }) {
                   }))
                 }
                 aria-pressed={selected}
-                className={`flex w-full items-start gap-3 border-b border-[color:var(--border)] p-4 text-left last:border-b-0 ${selected ? "bg-blue-500/10" : ""}`}
+                className={`flex w-full items-start gap-3 border-b border-[color:var(--border)] p-4 text-left last:border-b-0 ${selected ? "bg-[#ff5722]/10 dark:bg-[#e2ff00]/10" : ""}`}
               >
                 <span
-                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${selected ? "border-blue-500 bg-blue-500 text-white" : "border-[color:var(--border)]"}`}
+                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white dark:text-black" : "border-[color:var(--border)]"}`}
                 >
                   {selected ? <Check className="h-3 w-3" /> : null}
                 </span>
@@ -1314,7 +1314,7 @@ export default function ProfileSettings({ onNavigate }) {
             type="button"
             onClick={saveLocations}
             disabled={!hasLocationChanges || locationState.saving}
-            className="h-12 w-full rounded-lg bg-blue-600 text-sm font-bold text-white disabled:opacity-50"
+            className="theme-accent-solid h-12 w-full rounded-lg text-sm font-bold disabled:opacity-50 dark:rounded-[3px]"
           >
             {locationState.saving ? "Guardando..." : "Guardar configuración"}
           </button>
@@ -1332,7 +1332,7 @@ export default function ProfileSettings({ onNavigate }) {
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-7xl gap-6 pb-28 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start lg:gap-8">
+    <main className="settings-shell mx-auto grid w-full max-w-7xl gap-6 pb-28 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start lg:gap-8">
       <div>
         <ProfileHero
           user={user}
@@ -1346,7 +1346,7 @@ export default function ProfileSettings({ onNavigate }) {
             <button
               type="button"
               onClick={loadSummary}
-              className="mt-1 text-xs font-bold text-blue-600"
+              className="mt-1 text-xs font-bold text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]"
             >
               Reintentar resumen
             </button>

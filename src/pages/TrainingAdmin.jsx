@@ -70,7 +70,7 @@ function MetricBox({ label, value, suffix = "", tone = "white" }) {
         : "text-[color:var(--text)]";
 
   return (
-    <div className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-3 text-center sm:px-3">
+    <div className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-3 text-center dark:rounded-[3px] sm:px-3">
       <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)] sm:text-[10px] sm:tracking-[0.14em]">
         {label}
       </p>
@@ -102,6 +102,9 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [durationEditor, setDurationEditor] = useState(null);
   const [savingDuration, setSavingDuration] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12);
   const limit = 5000;
 
   const loadTrainings = async () => {
@@ -152,6 +155,14 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
       return matchesSearch && matchesRoutine;
     });
   }, [routineFilter, search, trainings]);
+  const visibleTrainings = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [from, routineFilter, search, to]);
 
   const clearFilters = () => {
     setFrom("");
@@ -163,21 +174,22 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
 
   const activeFiltersCount = [from, to, routineFilter].filter(Boolean).length;
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    const id = deleteTarget?._id || deleteTarget?.id;
     if (!id) return;
-    const ok = window.confirm(
-      "¿Eliminar este entrenamiento? Esta acción es permanente.",
-    );
-    if (!ok) return;
     try {
+      setDeleting(true);
       await api.deleteTraining(id);
       toast.success("Entrenamiento eliminado");
       setTrainings((prev) =>
         prev.filter((item) => (item._id || item.id) !== id),
       );
       if (expandedId === id) setExpandedId("");
+      setDeleteTarget(null);
     } catch (_err) {
       toast.error("No se pudo eliminar el entrenamiento");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -243,7 +255,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
   };
 
   return (
-    <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
+    <main className="management-shell min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
       <div className="mx-auto w-full max-w-5xl space-y-6 px-0 py-2 pb-24 sm:px-6 sm:py-6 lg:px-10">
         <header className="space-y-3">
           <div className="flex items-end justify-between gap-3 px-1">
@@ -251,17 +263,22 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                 Historial
               </p>
-              <h1 className="mt-1 truncate text-2xl font-black leading-none">
-                Sesiones
+              <h1 className="mt-1 truncate font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+                Historial de sesiones
               </h1>
             </div>
-            <span className="shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-xs font-black text-[color:var(--text-muted)]">
-              {filtered.length}/{trainings.length}
-            </span>
+            <Button
+              type="button"
+              onClick={() => onNavigate("registrar")}
+              className="theme-accent-solid h-10 shrink-0 rounded-lg px-3 dark:rounded-[3px]"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nueva sesion</span>
+            </Button>
           </div>
         </header>
 
-        <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm md:p-4">
+        <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm dark:rounded-[4px] md:p-4">
           <div className="flex items-center gap-2">
             <label className="relative block flex-1">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text-muted)]" />
@@ -270,7 +287,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar rutina o fecha..."
-                className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-12 pr-4 text-sm font-semibold outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                className="theme-accent-focus h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-12 pr-4 text-sm font-semibold outline-none transition placeholder:text-[color:var(--text-muted)] dark:rounded-[3px]"
               />
             </label>
             <button
@@ -278,14 +295,14 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               onClick={() => setFiltersOpen((value) => !value)}
               className={`relative grid h-12 w-12 place-items-center rounded-xl border transition ${
                 filtersOpen || activeFiltersCount
-                  ? "border-blue-400/50 bg-blue-500/10 text-blue-600 dark:text-blue-300"
+                  ? "theme-accent-soft"
                   : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
               }`}
               aria-label="Opciones de filtro"
             >
               <ListFilter className="h-5 w-5" />
               {activeFiltersCount ? (
-                <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-blue-600 px-1 text-[10px] font-black text-white">
+                <span className="theme-accent-solid absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-black">
                   {activeFiltersCount}
                 </span>
               ) : null}
@@ -343,7 +360,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     type="date"
                     value={from}
                     onChange={(event) => setFrom(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm outline-none dark:rounded-[3px]"
                   />
                 </label>
 
@@ -355,7 +372,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     type="date"
                     value={to}
                     onChange={(event) => setTo(event.target.value)}
-                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm outline-none dark:rounded-[3px]"
                   />
                 </label>
               </div>
@@ -367,7 +384,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                 <select
                   value={routineFilter}
                   onChange={(event) => setRoutineFilter(event.target.value)}
-                  className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                  className="theme-accent-focus h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-sm font-semibold outline-none dark:rounded-[3px]"
                 >
                   <option value="">Todas</option>
                   {routinesInData.map((routine) => (
@@ -409,17 +426,22 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
               Historial
             </p>
-            <button
-              type="button"
-              className="text-sm font-semibold text-blue-600 dark:text-blue-300"
-              onClick={loadTrainings}
-            >
-              Ver todo
-            </button>
+            <span className="text-sm font-bold text-[color:var(--text-muted)]">
+              {filtered.length} sesiones
+            </span>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {filtered.map((training) => {
+            {!loading && !filtered.length ? (
+              <div className="col-span-full border border-dashed border-[color:var(--border)] bg-[color:var(--card)] px-5 py-10 text-center">
+                <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
+                <p className="mt-3 text-base font-bold">Sin sesiones para mostrar</p>
+                <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                  Ajusta los filtros o registra un nuevo entrenamiento.
+                </p>
+              </div>
+            ) : null}
+            {visibleTrainings.map((training) => {
               const id = training._id || training.id;
               const totalSets = (training.exercises || []).reduce(
                 (acc, exercise) => acc + (exercise.sets?.length || 0),
@@ -432,7 +454,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               return (
                 <article
                   key={id}
-                  className="min-w-0 rounded-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm"
+                  className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -470,7 +492,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     <button
                       type="button"
                       onClick={() => openDurationEditor(training)}
-                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)] transition hover:border-blue-400/40 hover:text-blue-600 dark:hover:text-blue-300"
+                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--accent)] hover:text-[color:var(--accent-strong)] dark:rounded-[3px] dark:hover:text-[color:var(--accent)]"
                     >
                       <Clock3 className="h-4 w-4" />
                       Editar duración
@@ -499,7 +521,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     <button
                       type="button"
                       className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                      onClick={() => handleDelete(id)}
+                      onClick={() => setDeleteTarget(training)}
                     >
                       <Trash2 className="h-5 w-5 shrink-0" />
                       Eliminar
@@ -507,14 +529,14 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                   </div>
 
                   {expandedId === id ? (
-                    <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                    <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3 dark:rounded-[3px]">
                       <div className="grid gap-3">
                         {(training.exercises || []).map((exercise) => {
                           const sets = exercise.sets || [];
                           return (
                             <div
                               key={exercise.exerciseId || exercise.exerciseName}
-                              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3"
+                              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 dark:rounded-[3px]"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
@@ -555,6 +577,15 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
               );
             })}
           </div>
+          {visibleCount < filtered.length ? (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((current) => current + 12)}
+              className="mt-4 h-11 w-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-bold uppercase text-[color:var(--accent-strong)] hover:border-[color:var(--accent)] dark:text-[color:var(--accent)]"
+            >
+              Mostrar 12 sesiones mas
+            </button>
+          ) : null}
         </section>
       </div>
 
@@ -577,8 +608,8 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
           }
         >
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-blue-400/20 bg-blue-500/10 p-3">
-              <Clock3 className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-300" />
+            <div className="theme-accent-soft flex items-center gap-3 rounded-lg border p-3 dark:rounded-[3px]">
+              <Clock3 className="h-5 w-5 shrink-0" />
               <p className="text-sm font-semibold text-[color:var(--text-muted)]">
                 Este ajuste reemplaza la duración calculada por el cronómetro.
               </p>
@@ -602,7 +633,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                       updateDurationPart(field, event.target.value)
                     }
                     onFocus={(event) => event.currentTarget.select()}
-                    className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-center text-lg font-black tabular-nums outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                    className="theme-accent-focus h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-center text-lg font-black tabular-nums outline-none dark:rounded-[3px]"
                     aria-label={label}
                   />
                 </label>
@@ -612,14 +643,40 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
         </Modal>
       ) : null}
 
-      <button
-        type="button"
-        className="fixed bottom-6 right-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 transition hover:bg-blue-700"
-        onClick={() => onNavigate("registrar")}
-        aria-label="Nueva sesión"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+      {deleteTarget ? (
+        <Modal
+          title="Eliminar entrenamiento"
+          subtitle={deleteTarget.routineName || "Sin nombre"}
+          onClose={() => {
+            if (!deleting) setDeleteTarget(null);
+          }}
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancelar
+              </Button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDelete}
+                className="h-11 rounded-lg bg-red-600 px-4 text-sm font-bold text-white disabled:opacity-60 dark:rounded-[3px]"
+              >
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+            Se eliminaran las series, pesos y volumen registrados en esta
+            sesion. Esta accion no se puede deshacer.
+          </p>
+        </Modal>
+      ) : null}
     </main>
   );
 }

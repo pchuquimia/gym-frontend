@@ -103,7 +103,15 @@ button,
 }
 
 .dark .app-shell {
-  background-color: var(--bg);
+  --bg: #050505;
+  --card: #121212;
+  --border: #303030;
+  --text: #f8f8f4;
+  --text-muted: #b8b8a6;
+  --accent: #e2ff00;
+  --accent-strong: #cbe600;
+  background-color: #050505;
+  color: #f8f8f4;
   background-image: radial-gradient(#242424 0.7px, transparent 0.7px);
   background-size: 14px 14px;
 }
@@ -190,6 +198,29 @@ button,
 .theme-accent-focus:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.settings-shell,
+.management-shell {
+  letter-spacing: 0;
+}
+
+.dark .settings-shell,
+.dark .management-shell {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+}
+
+.settings-shell [class~="text-[9px]"],
+.settings-shell [class~="text-[10px]"],
+.management-shell [class~="text-[9px]"],
+.management-shell [class~="text-[10px]"] {
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+}
+
+.dark .settings-shell .font-black,
+.dark .management-shell .font-black {
+  font-weight: 700;
 }
 
 .routines-surface {

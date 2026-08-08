@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  CheckCircle2,
   Loader2,
   Search,
+  ShieldCheck,
   Trash2,
   UserCog,
   Users,
@@ -23,6 +25,8 @@ export default function CoachManagement() {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [pendingPlanDeleteId, setPendingPlanDeleteId] = useState("");
   const [deletingPlanId, setDeletingPlanId] = useState("");
+  const [activeView, setActiveView] = useState("athletes");
+  const [roleChangeTarget, setRoleChangeTarget] = useState(null);
 
   const loadUsers = async () => {
     try {
@@ -39,10 +43,17 @@ export default function CoachManagement() {
     loadUsers();
   }, []);
 
-  const coaches = useMemo(
+  const availableCoaches = useMemo(
     () => users.filter((user) => user.role === "Entrenador" && user.isActive),
     [users],
   );
+  const coaches = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return availableCoaches.filter(
+      (user) =>
+        !query || `${user.name} ${user.email}`.toLowerCase().includes(query),
+    );
+  }, [availableCoaches, search]);
   const clients = useMemo(() => {
     const query = search.trim().toLowerCase();
     return users.filter(
@@ -51,6 +62,33 @@ export default function CoachManagement() {
         (!query || `${user.name} ${user.email}`.toLowerCase().includes(query)),
     );
   }, [search, users]);
+  const managedClientsCount = useMemo(
+    () =>
+      users.filter(
+        (user) => user.role === "Cliente" && user.assignedTrainerId,
+      ).length,
+    [users],
+  );
+
+  const confirmRoleChange = async () => {
+    if (!roleChangeTarget) return;
+    const id = roleChangeTarget.user._id || roleChangeTarget.user.id;
+    const toCoach = roleChangeTarget.role === "Entrenador";
+    const updated = await updateUser(
+      id,
+      {
+        role: roleChangeTarget.role,
+        assignedTrainerId: null,
+      },
+      {
+        title: toCoach ? "Coach creado" : "Rol actualizado",
+        description: toCoach
+          ? `${roleChangeTarget.user.name} ya tiene acceso al modo Coach.`
+          : `${roleChangeTarget.user.name} ahora es atleta independiente.`,
+      },
+    );
+    if (updated) setRoleChangeTarget(null);
+  };
 
   const updateUser = async (id, payload, message) => {
     try {
@@ -66,8 +104,10 @@ export default function CoachManagement() {
       toast.success(notification.title, {
         description: notification.description,
       });
+      return true;
     } catch (err) {
       toast.error(err.message || "No se pudo actualizar el usuario");
+      return false;
     } finally {
       setSavingId("");
     }
@@ -130,39 +170,79 @@ export default function CoachManagement() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-6xl pb-20">
+    <main className="management-shell mx-auto w-full max-w-6xl pb-24">
       <header className="border-b border-[color:var(--border)] pb-5">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+        <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
           Administración
         </p>
-        <h1 className="mt-1 text-3xl font-black">Coaches y atletas</h1>
-        <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-          Define quién puede entrenar a cada usuario.
+        <h1 className="mt-1 font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+          Coaches y atletas
+        </h1>
+        <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+          Asigna responsables, revisa planes y administra el acceso de cada cuenta.
         </p>
       </header>
+
+      <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          ["Atletas", users.filter((item) => item.role === "Cliente").length, Users],
+          ["Con coach", managedClientsCount, CheckCircle2],
+          ["Coaches", availableCoaches.length, ShieldCheck],
+        ].map(([label, value, Icon]) => (
+          <div key={label} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 dark:rounded-[4px]">
+            <Icon className="h-4 w-4 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
+            <p className="mt-3 font-condensed text-2xl font-bold leading-none">{value}</p>
+            <p className="mt-1 text-[11px] font-bold uppercase text-[color:var(--text-muted)]">{label}</p>
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-[auto_minmax(240px,1fr)]">
+        <div className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--card)] p-1">
+          {[["athletes", "Atletas"], ["coaches", "Coaches"]].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveView(id)}
+              className={`h-10 px-4 text-sm font-bold uppercase ${activeView === id ? "theme-accent-solid" : "text-[color:var(--text-muted)]"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={`Buscar ${activeView === "athletes" ? "atleta" : "coach"}`}
+            className="theme-accent-focus h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold outline-none dark:rounded-[3px]"
+          />
+        </label>
+      </div>
 
       {loading ? (
         <div className="grid min-h-72 place-items-center text-sm font-semibold text-[color:var(--text-muted)]">
           Cargando usuarios...
         </div>
       ) : (
-        <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <section>
+        <div className="mt-5">
+          <section className={activeView === "coaches" ? "" : "hidden"}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-black">
-                <UserCog className="h-5 w-5 text-blue-600" />
+                <UserCog className="h-5 w-5 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
                 Coaches
               </h2>
               <span className="text-xs font-black text-[color:var(--text-muted)]">
                 {coaches.length}
               </span>
             </div>
-            <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
               {coaches.length ? (
                 coaches.map((coach) => (
                   <div
                     key={coach._id || coach.id}
-                    className="flex items-center justify-between gap-3 py-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 dark:rounded-[4px]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black">
@@ -178,14 +258,7 @@ export default function CoachManagement() {
                         size="sm"
                         disabled={savingId === (coach._id || coach.id)}
                         onClick={() =>
-                          updateUser(
-                            coach._id || coach.id,
-                            { role: "Cliente", assignedTrainerId: null },
-                            {
-                              title: "Rol actualizado",
-                              description: `${coach.name} ahora es cliente.`,
-                            },
-                          )
+                          setRoleChangeTarget({ user: coach, role: "Cliente" })
                         }
                       >
                         Quitar rol
@@ -205,38 +278,29 @@ export default function CoachManagement() {
                 ))
               ) : (
                 <p className="py-6 text-sm font-semibold text-[color:var(--text-muted)]">
-                  Todavía no existen cuentas coach.
+                  No hay coaches que coincidan con la búsqueda.
                 </p>
               )}
             </div>
           </section>
 
-          <section>
+          <section className={activeView === "athletes" ? "" : "hidden"}>
             <div className="flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-black">
-                <Users className="h-5 w-5 text-blue-600" />
-                Usuarios
+                <Users className="h-5 w-5 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
+                Atletas
               </h2>
               <span className="text-xs font-black text-[color:var(--text-muted)]">
                 {clients.length}
               </span>
             </div>
-            <label className="relative mt-3 block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar usuario"
-                className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold outline-none focus:border-blue-500"
-              />
-            </label>
-            <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
               {clients.map((client) => {
                 const id = client._id || client.id;
                 return (
                   <div
                     key={id}
-                    className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center"
+                    className="flex flex-col gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 dark:rounded-[4px]"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black">
@@ -250,7 +314,7 @@ export default function CoachManagement() {
                           className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase ${
                             client.trainingMode === "coach_managed" ||
                             client.assignedTrainerId
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"
+                              ? "bg-[#ff5722]/10 text-[#c52d00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]"
                               : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"
                           }`}
                         >
@@ -261,13 +325,13 @@ export default function CoachManagement() {
                         </span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-2 sm:w-96">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
                       <select
                         value={client.assignedTrainerId || ""}
-                        disabled={savingId === id || !coaches.length}
+                        disabled={savingId === id || !client.isActive}
                         onChange={(event) => {
                           const coachId = event.target.value;
-                          const coach = coaches.find(
+                          const coach = availableCoaches.find(
                             (item) => (item._id || item.id) === coachId,
                           );
                           updateUser(
@@ -284,11 +348,11 @@ export default function CoachManagement() {
                                 },
                           );
                         }}
-                        className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-2 text-sm font-bold outline-none"
+                        className="theme-accent-focus col-span-3 h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold outline-none dark:rounded-[3px]"
                         aria-label={`Coach de ${client.name}`}
                       >
-                        <option value="">Sin coach</option>
-                        {coaches.map((coach) => (
+                        <option value="">Sin coach · modo independiente</option>
+                        {availableCoaches.map((coach) => (
                           <option
                             key={coach._id || coach.id}
                             value={coach._id || coach.id}
@@ -302,23 +366,16 @@ export default function CoachManagement() {
                         size="sm"
                         disabled={savingId === id}
                         onClick={() =>
-                          updateUser(
-                            id,
-                            { role: "Entrenador", assignedTrainerId: null },
-                            {
-                              title: "Coach creado",
-                              description: `${client.name} ya tiene acceso al modo Coach.`,
-                            },
-                          )
+                          setRoleChangeTarget({ user: client, role: "Entrenador" })
                         }
                       >
-                        Hacer coach
+                        Convertir en coach
                       </Button>
                       <button
                         type="button"
                         onClick={() => openPlans(client)}
                         disabled={savingId === id}
-                        className="grid h-10 w-10 place-items-center rounded-lg text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:hover:bg-blue-500/10"
+                        className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--accent-strong)] transition hover:bg-[#ff5722]/10 disabled:opacity-50 dark:rounded-[3px] dark:text-[color:var(--accent)] dark:hover:bg-[#e2ff00]/10"
                         aria-label={`Planes de ${client.name}`}
                         title="Gestionar planes"
                       >
@@ -338,10 +395,65 @@ export default function CoachManagement() {
                   </div>
                 );
               })}
+              {!clients.length ? (
+                <p className="border border-dashed border-[color:var(--border)] px-4 py-10 text-center text-sm font-semibold text-[color:var(--text-muted)] lg:col-span-2">
+                  No hay atletas que coincidan con la busqueda.
+                </p>
+              ) : null}
             </div>
           </section>
         </div>
       )}
+
+      {roleChangeTarget ? (
+        <div className="fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4">
+          <div className="w-full rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl sm:max-w-md sm:rounded-lg dark:sm:rounded-[4px]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+                  Cambio de acceso
+                </p>
+                <h2 className="mt-1 text-xl font-bold">
+                  {roleChangeTarget.role === "Entrenador"
+                    ? "Convertir en coach"
+                    : "Convertir en atleta"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRoleChangeTarget(null)}
+                disabled={Boolean(savingId)}
+                className="grid h-10 w-10 place-items-center border border-[color:var(--border)]"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-4 text-sm font-semibold text-[color:var(--text-muted)]">
+              {roleChangeTarget.role === "Entrenador"
+                ? `${roleChangeTarget.user.name} dejara de ser atleta y obtendra acceso para gestionar atletas y planes.`
+                : `${roleChangeTarget.user.name} perdera el modo Coach. Sus atletas quedaran independientes y los planes activos se pausaran.`}
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                disabled={Boolean(savingId)}
+                onClick={() => setRoleChangeTarget(null)}
+              >
+                Cancelar
+              </Button>
+              <button
+                type="button"
+                onClick={confirmRoleChange}
+                disabled={Boolean(savingId)}
+                className="theme-accent-solid h-11 px-4 text-sm font-bold disabled:opacity-60"
+              >
+                {savingId ? "Guardando..." : "Confirmar cambio"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {userToDelete ? (
         <div className="fixed inset-0 z-[90] flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-4">
@@ -400,7 +512,7 @@ export default function CoachManagement() {
           <div className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-lg">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
+                <p className="text-[11px] font-black uppercase text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
                   Administracion de planes
                 </p>
                 <h2 className="mt-1 truncate text-xl font-black">
@@ -420,7 +532,7 @@ export default function CoachManagement() {
             <div className="overflow-y-auto p-4">
               {loadingPlans ? (
                 <div className="grid min-h-40 place-items-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                  <Loader2 className="h-6 w-6 animate-spin text-[color:var(--accent)]" />
                 </div>
               ) : plans.length ? (
                 <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">

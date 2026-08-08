@@ -2351,7 +2351,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       window.setTimeout(() => {
         const target = Array.from(
           document.querySelectorAll("[data-exercise-id]"),
-        ).find((element) => element.dataset.exerciseId === exerciseId);
+        ).find(
+          (element) =>
+            element.dataset.exerciseId === exerciseId &&
+            element.getClientRects().length > 0,
+        );
         target?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
     }
@@ -3944,6 +3948,18 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setExpandedExerciseId((current) =>
         current === exerciseId ? "" : current,
       );
+      if (typeof document !== "undefined") {
+        window.setTimeout(() => {
+          const target = Array.from(
+            document.querySelectorAll("[data-exercise-id]"),
+          ).find(
+            (element) =>
+              element.dataset.exerciseId === exerciseId &&
+              element.getClientRects().length > 0,
+          );
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 280);
+      }
     }
   };
 

@@ -88,9 +88,13 @@ function MainLayout({
 
   return (
     <div
-      className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] flex flex-col transition-colors ${
+      className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] dark:!bg-[#050505] dark:!text-[#f8f8f4] flex flex-col transition-colors ${
         useDashboardChrome ? "dashboard-app-shell" : ""
       }`}
+      style={{
+        backgroundColor: isDark ? "#050505" : "var(--bg)",
+        color: isDark ? "#f8f8f4" : "var(--text)",
+      }}
     >
       {showReturnTraining ? (
         <>
