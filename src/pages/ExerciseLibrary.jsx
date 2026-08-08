@@ -4,10 +4,12 @@ import {
   ArrowLeft,
   ChevronRight,
   Dumbbell,
+  Library,
   Plus,
   RefreshCw,
   Search,
   SlidersHorizontal,
+  UserRound,
 } from "lucide-react";
 import ConfirmModal from "../components/library/ConfirmModal";
 import DetailModal from "../components/library/DetailModal";
@@ -202,6 +204,7 @@ export default function ExerciseLibrary({ onNavigate }) {
   const [selectedBodyLabel, setSelectedBodyLabel] = useState("");
   const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("");
   const [filters, setFilters] = useState(defaultFilters);
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
@@ -299,9 +302,13 @@ export default function ExerciseLibrary({ onNavigate }) {
   const showEntryPoints =
     !selectedBodyRegion &&
     selectedCategory === ALL_FILTER_VALUE &&
+    sourceFilter === "all" &&
     !search.trim();
   const showGroups = Boolean(
-    selectedBodyRegion && !selectedMuscleGroup && !search.trim(),
+    sourceFilter === "all" &&
+      selectedBodyRegion &&
+      !selectedMuscleGroup &&
+      !search.trim(),
   );
   const showResults = !showEntryPoints && !showGroups;
   const fullBodyExcludesCardio =
@@ -316,6 +323,7 @@ export default function ExerciseLibrary({ onNavigate }) {
       selectedCategory,
       selectedBodyRegion,
       selectedMuscleGroup,
+      sourceFilter,
       filters,
     ],
     enabled: showResults,
@@ -334,6 +342,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         excludeCategory: fullBodyExcludesCardio ? "Cardio" : "",
         bodyRegion: selectedBodyRegion,
         primaryMuscleGroup: selectedMuscleGroup,
+        type: sourceFilter === "all" ? "" : sourceFilter,
         equipment:
           filters.equipment === ALL_FILTER_VALUE ? "" : filters.equipment,
         movementPattern:
@@ -366,6 +375,7 @@ export default function ExerciseLibrary({ onNavigate }) {
     selectedBodyRegion ||
     selectedCategory !== ALL_FILTER_VALUE ||
     selectedMuscleGroup ||
+    sourceFilter !== "all" ||
     search.trim() ||
     Object.values(filters).some((value) => value !== ALL_FILTER_VALUE),
   );
@@ -373,6 +383,11 @@ export default function ExerciseLibrary({ onNavigate }) {
   const activeTitle =
     selectedMuscleGroup ||
     selectedBodyLabel ||
+    (sourceFilter === "custom"
+      ? "Mis ejercicios"
+      : sourceFilter === "system"
+        ? "Catálogo"
+        : "") ||
     (selectedCategory !== ALL_FILTER_VALUE
       ? selectedCategory
       : "Explorar ejercicios");
@@ -380,9 +395,13 @@ export default function ExerciseLibrary({ onNavigate }) {
     ? `${selectedBodyLabel || selectedBodyRegion} / ${selectedMuscleGroup}`
     : selectedBodyRegion
       ? "Selecciona un grupo muscular o busca dentro de esta región."
-      : selectedCategory !== ALL_FILTER_VALUE
-        ? "Ejercicios disponibles para esta categoría."
-        : "Busca por nombre o explora una región corporal.";
+      : sourceFilter === "custom"
+        ? "Ejercicios personalizados creados para tu cuenta."
+        : sourceFilter === "system"
+          ? "Ejercicios disponibles en el catálogo general."
+          : selectedCategory !== ALL_FILTER_VALUE
+            ? "Ejercicios disponibles para esta categoría."
+            : "Busca por nombre o explora una región corporal.";
 
   const clearTechnicalFilters = () => setFilters(defaultFilters);
   const resetScope = () => {
@@ -390,6 +409,7 @@ export default function ExerciseLibrary({ onNavigate }) {
     setSelectedBodyRegion("");
     setSelectedBodyLabel("");
     setSelectedMuscleGroup("");
+    setSourceFilter("all");
     setSearch("");
     setFiltersOpen(false);
     clearTechnicalFilters();
@@ -423,6 +443,15 @@ export default function ExerciseLibrary({ onNavigate }) {
   };
   const updateFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
+
+  const selectSource = (source) => {
+    setSourceFilter(source);
+    setSelectedBodyRegion("");
+    setSelectedBodyLabel("");
+    setSelectedMuscleGroup("");
+    setFiltersOpen(false);
+    clearTechnicalFilters();
+  };
 
   const openDetail = async (exercise) => {
     setSelectedExercise(exercise);
@@ -622,6 +651,56 @@ export default function ExerciseLibrary({ onNavigate }) {
             />
           </label>
 
+          <div
+            className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+            role="tablist"
+            aria-label="Origen de los ejercicios"
+          >
+            {[
+              ["all", "Todos", Dumbbell],
+              ["system", "Catálogo", Library],
+              ["custom", "Mis ejercicios", UserRound],
+            ].map(([value, label, Icon]) => {
+              const active = sourceFilter === value;
+              const count = facets.sourceCounts?.[value];
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => selectSource(value)}
+                  className={`flex h-11 min-w-0 items-center justify-center gap-1.5 px-2 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
+                    active
+                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {value === "custom" ? (
+                    <>
+                      <span className="sm:hidden">{"M\u00edos"}</span>
+                      <span className="hidden sm:inline">{label}</span>
+                    </>
+                  ) : (
+                    <span>{label}</span>
+                  )}
+                  {Number.isFinite(count) ? (
+                    <span
+                      className={`hidden text-[10px] sm:inline ${
+                        active
+                          ? "opacity-80"
+                          : "text-[color:var(--text-muted)]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
           {!facetsQuery.isLoading && categoryOptions.length && showResults ? (
             <div
               className="flex flex-wrap gap-2"
@@ -764,12 +843,20 @@ export default function ExerciseLibrary({ onNavigate }) {
               </div>
             ) : exercises.length === 0 ? (
               <section className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center">
-                <Dumbbell className="mx-auto h-9 w-9 text-[color:var(--text-muted)]" />
+                {sourceFilter === "custom" ? (
+                  <UserRound className="mx-auto h-9 w-9 text-[color:var(--text-muted)]" />
+                ) : (
+                  <Dumbbell className="mx-auto h-9 w-9 text-[color:var(--text-muted)]" />
+                )}
                 <h2 className="mt-3 text-base font-semibold text-[color:var(--text)]">
-                  Sin resultados
+                  {sourceFilter === "custom"
+                    ? "Todavía no creaste ejercicios"
+                    : "Sin resultados"}
                 </h2>
                 <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                  Prueba otra búsqueda o restablece los filtros.
+                  {sourceFilter === "custom"
+                    ? "Crea uno adaptado a tu equipo, técnica o variante personal."
+                    : "Prueba otra búsqueda o restablece los filtros."}
                 </p>
                 {canCreate ? (
                   <Button className="mt-4 gap-2" onClick={handleAdd}>

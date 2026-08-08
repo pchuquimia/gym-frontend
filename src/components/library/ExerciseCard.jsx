@@ -1,4 +1,4 @@
-import { ChevronRight, ImageIcon } from "lucide-react";
+import { ChevronRight, ImageIcon, UserRound } from "lucide-react";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 import {
   formatList,
@@ -13,7 +13,7 @@ export default function ExerciseCard({ exercise, onView }) {
     width: 260,
     height: 220,
   });
-  const sourceLabel = exercise.type === "system" ? "Catálogo" : "Personal";
+  const isPersonal = exercise.type === "custom" && Boolean(exercise.ownerId);
   const muscle = getPrimaryMuscleGroup(exercise) || "Sin grupo";
   const category = getExerciseCategories(exercise)[0] || "Ejercicio";
   const pattern = getExerciseMovementPatterns(exercise)[0] || "";
@@ -64,9 +64,10 @@ export default function ExerciseCard({ exercise, onView }) {
             {supportingText}
           </p>
         ) : null}
-        {exercise.type !== "system" ? (
-          <p className="mt-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-            {sourceLabel}
+        {isPersonal ? (
+          <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">
+            <UserRound className="h-3 w-3" />
+            Creado por ti
           </p>
         ) : null}
       </div>

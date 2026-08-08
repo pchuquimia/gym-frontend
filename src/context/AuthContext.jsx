@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,8 +13,31 @@ import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
 
 const AuthContext = createContext(null);
 const ACTIVE_TRAINING_KEY = "active_training_snapshot";
+const USER_CACHE_KEY = "gym_authenticated_user";
 const scopedTrainingKey = (userId) =>
   userId ? `${ACTIVE_TRAINING_KEY}:${userId}` : "";
+
+const readCachedUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(USER_CACHE_KEY)) || null;
+  } catch {
+    return null;
+  }
+};
+
+const cacheUser = (user) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) {
+      window.localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    } else {
+      window.localStorage.removeItem(USER_CACHE_KEY);
+    }
+  } catch {
+    // Authentication still works when persistent storage is unavailable.
+  }
+};
 
 const USER_STORAGE_KEYS = [
   "active_page",
@@ -31,21 +55,22 @@ const USER_STORAGE_KEYS = [
 
 const clearUserScopedStorage = () => {
   if (typeof window === "undefined") return;
-  USER_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
-  Object.keys(window.localStorage)
-    .filter((key) => key.startsWith("exercise_thumb_"))
-    .forEach((key) => window.localStorage.removeItem(key));
+  try {
+    USER_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith("exercise_thumb_"))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Some mobile browsers restrict storage in private mode.
+  }
 };
 
 const archiveActiveTraining = (userId) => {
   if (typeof window === "undefined" || !userId) return;
   const scopedKey = scopedTrainingKey(userId);
-  const raw = window.localStorage.getItem(ACTIVE_TRAINING_KEY);
-  if (!raw) {
-    window.localStorage.removeItem(scopedKey);
-    return;
-  }
   try {
+    const raw = window.localStorage.getItem(ACTIVE_TRAINING_KEY);
+    if (!raw) return;
     const snapshot = JSON.parse(raw);
     const now = Date.now();
     const lastUpdate = Number(snapshot.lastUpdate || now);
@@ -77,22 +102,32 @@ const archiveActiveTraining = (userId) => {
       }),
     );
   } catch {
-    window.localStorage.removeItem(scopedKey);
+    // Keep any previous valid backup when the latest snapshot is unreadable.
   }
 };
 
 const restoreActiveTraining = (userId) => {
   if (typeof window === "undefined" || !userId) return;
-  const scopedKey = scopedTrainingKey(userId);
-  const scoped = window.localStorage.getItem(scopedKey);
-  if (!scoped) return;
-  if (!window.localStorage.getItem(ACTIVE_TRAINING_KEY)) {
-    window.localStorage.setItem(ACTIVE_TRAINING_KEY, scoped);
+  try {
+    const scopedKey = scopedTrainingKey(userId);
+    const scoped = window.localStorage.getItem(scopedKey);
+    if (!scoped) return;
+    if (!window.localStorage.getItem(ACTIVE_TRAINING_KEY)) {
+      window.localStorage.setItem(ACTIVE_TRAINING_KEY, scoped);
+    }
+    window.localStorage.removeItem(scopedKey);
+  } catch {
+    // The next successful login/focus event can retry restoration.
   }
-  window.localStorage.removeItem(scopedKey);
 };
 
 const normalizeUser = (payload) => payload?.user || payload || null;
+
+const preserveActiveTraining = (userId) => {
+  if (typeof window === "undefined" || !userId) return;
+  window.dispatchEvent(new Event("persist-active-training"));
+  archiveActiveTraining(userId);
+};
 
 const shouldUseDevAdminLogin = () => {
   if (!import.meta.env.DEV || typeof window === "undefined") return false;
@@ -102,43 +137,89 @@ const shouldUseDevAdminLogin = () => {
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const developmentAdminMode = shouldUseDevAdminLogin();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(readCachedUser);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const userRef = useRef(user);
+  const refreshInFlightRef = useRef(null);
+  const lastVerifiedAtRef = useRef(0);
+
+  const commitUser = useCallback((nextUser) => {
+    userRef.current = nextUser;
+    if (nextUser) lastVerifiedAtRef.current = Date.now();
+    setUser(nextUser);
+    cacheUser(nextUser);
+  }, []);
 
   const refreshUser = useCallback(
-    async ({ silent = false } = {}) => {
+    ({ silent = false, force = false } = {}) => {
+      if (refreshInFlightRef.current) return refreshInFlightRef.current;
+      if (
+        silent &&
+        !force &&
+        userRef.current &&
+        Date.now() - lastVerifiedAtRef.current < 30_000
+      ) {
+        return Promise.resolve(userRef.current);
+      }
+
       if (!silent) setLoading(true);
       setError("");
-      try {
-        const data = await api.me();
-        const nextUser = normalizeUser(data);
-        restoreActiveTraining(nextUser?.id || nextUser?._id);
-        setUser(nextUser);
-        return nextUser;
-      } catch (_err) {
-        if (shouldUseDevAdminLogin()) {
-          try {
-            const data = await api.devAdminLogin();
-            if (data?.token) setAuthToken(data.token);
-            const nextUser = normalizeUser(data);
-            restoreActiveTraining(nextUser?.id || nextUser?._id);
-            setUser(nextUser);
-            return nextUser;
-          } catch {
-            // Fall through to normal unauthenticated state.
+
+      const operation = (async () => {
+        try {
+          const data = await api.me();
+          const nextUser = normalizeUser(data);
+          restoreActiveTraining(nextUser?.id || nextUser?._id);
+          commitUser(nextUser);
+          return nextUser;
+        } catch (requestError) {
+          if (shouldUseDevAdminLogin()) {
+            try {
+              const data = await api.devAdminLogin();
+              if (data?.token) setAuthToken(data.token);
+              const nextUser = normalizeUser(data);
+              restoreActiveTraining(nextUser?.id || nextUser?._id);
+              commitUser(nextUser);
+              return nextUser;
+            } catch (devError) {
+              if (devError?.status !== 401 && devError?.status !== 403) {
+                return userRef.current;
+              }
+            }
           }
+
+          if (requestError?.status !== 401) {
+            if (!silent) {
+              setError(
+                "No se pudo verificar la sesión. Conservamos tus datos y volveremos a intentarlo.",
+              );
+            }
+            return userRef.current;
+          }
+
+          const currentUser = userRef.current;
+          preserveActiveTraining(currentUser?.id || currentUser?._id);
+          clearAuthToken();
+          clearUserScopedStorage();
+          queryClient.clear();
+          commitUser(null);
+          return null;
+        } finally {
+          if (!silent) setLoading(false);
         }
-        clearAuthToken();
-        clearUserScopedStorage();
-        queryClient.clear();
-        setUser(null);
-        return null;
-      } finally {
-        if (!silent) setLoading(false);
-      }
+      })();
+
+      refreshInFlightRef.current = operation;
+      const clearInFlight = () => {
+        if (refreshInFlightRef.current === operation) {
+          refreshInFlightRef.current = null;
+        }
+      };
+      operation.then(clearInFlight, clearInFlight);
+      return operation;
     },
-    [queryClient],
+    [commitUser, queryClient],
   );
 
   useEffect(() => {
@@ -155,7 +236,7 @@ export function AuthProvider({ children }) {
 
     window.addEventListener("focus", refreshPermissions);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    const intervalId = window.setInterval(refreshPermissions, 60_000);
+    const intervalId = window.setInterval(refreshPermissions, 2 * 60_000);
 
     return () => {
       window.removeEventListener("focus", refreshPermissions);
@@ -170,9 +251,9 @@ export function AuthProvider({ children }) {
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     restoreActiveTraining(nextUser?.id || nextUser?._id);
-    setUser(nextUser);
+    commitUser(nextUser);
     return nextUser;
-  }, []);
+  }, [commitUser]);
 
   const register = useCallback(async (payload) => {
     setError("");
@@ -181,9 +262,9 @@ export function AuthProvider({ children }) {
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     restoreActiveTraining(nextUser?.id || nextUser?._id);
-    setUser(nextUser);
+    commitUser(nextUser);
     return nextUser;
-  }, []);
+  }, [commitUser]);
 
   const verifyEmail = useCallback(async (token) => {
     setError("");
@@ -191,31 +272,31 @@ export function AuthProvider({ children }) {
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
     restoreActiveTraining(nextUser?.id || nextUser?._id);
-    setUser(nextUser);
+    commitUser(nextUser);
     return nextUser;
-  }, []);
+  }, [commitUser]);
 
   const updateAccount = useCallback(async (payload) => {
     const data = await api.updateAccount(payload);
     const nextUser = normalizeUser(data);
-    setUser(nextUser);
+    commitUser(nextUser);
     return data;
-  }, []);
+  }, [commitUser]);
 
   const logout = useCallback(async () => {
     if (developmentAdminMode) return false;
+    const userId = userRef.current?.id || userRef.current?._id;
+    preserveActiveTraining(userId);
     try {
-      window.dispatchEvent(new Event("persist-active-training"));
       await api.logout();
     } finally {
-      archiveActiveTraining(user?.id || user?._id);
-      setUser(null);
       clearAuthToken();
       queryClient.clear();
       clearUserScopedStorage();
+      commitUser(null);
     }
     return true;
-  }, [developmentAdminMode, queryClient, user?.id, user?._id]);
+  }, [commitUser, developmentAdminMode, queryClient]);
 
   const value = useMemo(
     () => ({

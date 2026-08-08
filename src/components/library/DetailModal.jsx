@@ -11,6 +11,7 @@ import {
   Tags,
   Target,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import {
   getExerciseAnimationUrl,
@@ -190,6 +191,7 @@ export default function DetailModal({
     ...aliases,
   ].find((alias) => normalizeText(alias) !== normalizeText(exercise.name));
   const exerciseType = getExerciseType(exercise);
+  const isPersonal = exercise.type === "custom" && Boolean(exercise.ownerId);
   const mechanicsObject =
     exercise.mechanics && typeof exercise.mechanics === "object"
       ? exercise.mechanics
@@ -247,6 +249,12 @@ export default function DetailModal({
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="px-4 pb-4 pt-5 sm:px-6">
+            {isPersonal ? (
+              <div className="mb-4 flex items-center gap-2 border-l-4 border-l-[#ff5722] bg-[#ff5722]/5 px-3 py-2 text-xs font-black uppercase text-[#c52d00] dark:border-l-[#e2ff00] dark:bg-[#e2ff00]/5 dark:text-[#e2ff00]">
+                <UserRound className="h-4 w-4" />
+                Ejercicio personal
+              </div>
+            ) : null}
             {alternateName ? (
               <p className="text-xs font-semibold uppercase text-[color:var(--text-muted)]">
                 {alternateName}

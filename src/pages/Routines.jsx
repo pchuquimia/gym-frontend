@@ -28,7 +28,6 @@ import {
   Settings2,
   Layers3,
   Loader2,
-  MapPin,
   MoreVertical,
   Pause,
   Pencil,
@@ -2882,41 +2881,68 @@ function RoutineToolbar({
     { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
   ];
   return (
-    <section className="mt-5">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <section className="mt-5 space-y-3">
+      <div>
         {showSearch ? (
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text)]" />
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar rutina"
-              className="theme-accent-focus routines-surface h-11 w-full border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+              type="search"
+              inputMode="search"
+              placeholder="Buscar rutina..."
+              className="theme-accent-focus h-12 w-full rounded-none border border-[#ffb9a3] bg-[color:var(--card)] pl-12 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:border-[#3a3a3a] dark:focus:border-[#e2ff00]"
             />
-          </div>
-        ) : (
-          <div />
-        )}
-        {showBranchFilter ? (
-          <div className="routines-surface grid grid-cols-3 gap-1 border border-[color:var(--border)] bg-[color:var(--card)] p-1">
-            {branches.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveBranch(item.id)}
-                className={`h-10 rounded-md px-3 text-xs font-black transition ${
-                  activeBranch === item.id
-                    ? "theme-accent-solid"
-                    : "text-[color:var(--text-muted)]"
-                }`}
-              >
-                {item.label} <span className="opacity-75">{item.count}</span>
-              </button>
-            ))}
           </div>
         ) : null}
       </div>
+      {showBranchFilter ? (
+        <div className="grid grid-cols-3 gap-2" aria-label="Filtrar por sede">
+          {branches.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveBranch(item.id)}
+              aria-pressed={activeBranch === item.id}
+              className={`h-8 min-w-0 border px-2 text-xs font-black uppercase transition ${
+                activeBranch === item.id
+                  ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                  : "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-[#353535] dark:bg-[#202020] dark:text-[#f5f5e8]"
+              }`}
+            >
+              <span className="truncate">{item.label}</span>{" "}
+              <span className="opacity-75">({item.count})</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function RoutinePreviewImage({ item }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!item.url || failed) {
+    return (
+      <div
+        className="grid h-full w-full place-items-center bg-[color:var(--bg)] text-sm font-black text-[color:var(--text-muted)]"
+        aria-label={item.name}
+      >
+        {item.name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={item.url}
+      alt={item.name}
+      className="h-full w-full object-cover"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -3420,18 +3446,28 @@ function Routines({ onNavigate }) {
             });
           }
         });
+        const configuredMinutes = Number(
+          routine.estimatedDuration ??
+            routine.durationMinutes ??
+            routine.duration ??
+            0,
+        );
+        const estimatedMinutes =
+          configuredMinutes > 0
+            ? configuredMinutes
+            : totalSets > 0
+              ? Math.max(20, Math.round((totalSets * 2.5) / 5) * 5)
+              : 20;
 
         return {
           ...routine,
           plan: routinePlanById.get(String(routine.id || routine._id)) || null,
-          exerciseCount: exercises.filter((exercise) => !exercise.isExtra)
-            .length,
-          optionalExerciseCount: exercises.filter(
-            (exercise) => exercise.isExtra,
-          ).length,
+          totalExerciseCount: exercises.length,
           totalSets,
           muscles: Array.from(muscles),
           preview,
+          hiddenPreviewCount: Math.max(0, exercises.length - preview.length),
+          estimatedMinutes,
         };
       })
       .sort(
@@ -3793,7 +3829,9 @@ function Routines({ onNavigate }) {
   return (
     <div className="routines-shell">
       <section className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
+        <div
+          className={`${activePlan ? "flex" : "hidden md:flex"} items-center justify-between gap-3`}
+        >
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {activePlan
@@ -3852,7 +3890,7 @@ function Routines({ onNavigate }) {
 
         {!activePlan ? (
           <div
-            className="grid grid-cols-2 border-b border-[color:var(--border)]"
+            className="grid grid-cols-2 gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b]"
             role="tablist"
             aria-label="Gestionar rutinas y planificaciones"
           >
@@ -3861,26 +3899,26 @@ function Routines({ onNavigate }) {
               role="tab"
               aria-selected={workspaceView === "plans"}
               onClick={() => setWorkspaceView("plans")}
-              className={`inline-flex h-12 items-center justify-center gap-2 border-b-2 text-sm font-black transition ${
+              className={`inline-flex h-10 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "plans"
-                  ? "theme-accent-text border-current"
-                  : "border-transparent text-[color:var(--text-muted)]"
+                  ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              <CalendarDays className="h-4 w-4" /> Planificaciones
+              Planificaciones
             </button>
             <button
               type="button"
               role="tab"
               aria-selected={workspaceView === "routines"}
               onClick={() => setWorkspaceView("routines")}
-              className={`inline-flex h-12 items-center justify-center gap-2 border-b-2 text-sm font-black transition ${
+              className={`inline-flex h-10 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "routines"
-                  ? "theme-accent-text border-current"
-                  : "border-transparent text-[color:var(--text-muted)]"
+                  ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              <Dumbbell className="h-4 w-4" /> Rutinas
+              Rutinas
             </button>
           </div>
         ) : null}
@@ -4235,171 +4273,120 @@ function Routines({ onNavigate }) {
                 </h2>
               );
             }
-            const isSopocachi = normalizeBranch(routine.branch) === "sopocachi";
-            const tone = "theme-accent-text";
-            const badgeTone = isSopocachi
-              ? "border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:text-emerald-300"
-              : "border-blue-300 bg-blue-500/10 text-blue-700 dark:border-blue-400/30 dark:text-blue-300";
+            const isHighlighted = ["active", "scheduled"].includes(
+              routine.plan?.status,
+            );
+            const focusLabel =
+              routine.plan?.goal ||
+              routine.muscles.slice(0, 2).join(" · ") ||
+              "Rutina personalizada";
 
             return (
               <article
                 key={routine.id}
-                className="routines-surface overflow-visible border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+                className={`routines-surface overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
+                  isHighlighted
+                    ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
+                    : "border-t-[#626262] dark:border-t-[#6d6d62]"
+                }`}
               >
-                <div className="p-3 sm:p-4">
+                <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {routine.plan ? (
-                          <span className="theme-accent-soft inline-flex items-center gap-1 rounded border px-2.5 py-1 text-[11px] font-black uppercase">
-                            <CalendarDays className="h-3 w-3" />
-                            {routine.plan.status === "active"
-                              ? "Plan activo"
-                              : routine.plan.status === "scheduled"
-                                ? "Plan programado"
-                                : "En preparación"}
-                          </span>
-                        ) : routine.isAvailableForTraining === false ? (
-                          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-500/10 px-2.5 py-1 text-[11px] font-black uppercase text-amber-700 dark:border-amber-400/30 dark:text-amber-300">
-                            <CalendarDays className="h-3 w-3" />
-                            En preparacion
-                          </span>
-                        ) : null}
-                        {locationMode === "multiple" ? (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded border px-2.5 py-1 text-[11px] font-black uppercase ${badgeTone}`}
-                          >
-                            <MapPin className="h-3 w-3" />
-                            {branchLabel(routine.branch)}
-                          </span>
-                        ) : null}
-                      </div>
-                      <h2 className="mt-2 line-clamp-2 text-lg font-black leading-tight text-[color:var(--text)]">
+                      <h2 className="line-clamp-2 text-[23px] font-black uppercase leading-[0.95] text-[color:var(--text)] sm:text-[25px]">
                         {routine.name}
                       </h2>
+                      <p className="mt-2 truncate text-xs font-black uppercase text-[#9f3518] dark:text-[#e2ff00]">
+                        {focusLabel} · {routine.estimatedMinutes} min
+                      </p>
                     </div>
+                    {!isManagedClient ? (
+                      <details className="relative -mr-2 -mt-2 shrink-0">
+                        <summary
+                          className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] [&::-webkit-details-marker]:hidden"
+                          aria-label={`Opciones de ${routine.name}`}
+                        >
+                          <MoreVertical className="h-5 w-5" />
+                        </summary>
+                        <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.currentTarget
+                                .closest("details")
+                                ?.removeAttribute("open");
+                              handleDuplicateRoutine(routine);
+                            }}
+                            disabled={Boolean(duplicatingRoutineId)}
+                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
+                          >
+                            <Copy className="h-4 w-4" />
+                            {duplicatingRoutineId === routine.id
+                              ? "Duplicando..."
+                              : "Duplicar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.currentTarget
+                                .closest("details")
+                                ?.removeAttribute("open");
+                              requestDeleteRoutine(routine);
+                            }}
+                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar
+                          </button>
+                        </div>
+                      </details>
+                    ) : null}
                   </div>
 
-                  <div className="mt-3 grid grid-cols-[1fr_1fr_1fr] gap-2 sm:mt-4">
+                  <div className="mt-5 flex min-h-14 items-stretch gap-2">
                     {routine.preview.slice(0, 3).map((item, idx) => (
                       <div
                         key={`${routine.id}-preview-${idx}`}
-                        className="aspect-[1.45] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]"
+                        className="h-14 w-14 shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-16 sm:w-16"
                       >
-                        {item.url ? (
-                          <img
-                            src={item.url}
-                            alt={item.name}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="grid h-full w-full place-items-center text-sm font-black text-[color:var(--text-muted)]">
-                            {item.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <RoutinePreviewImage item={item} />
                       </div>
                     ))}
+                    {routine.hiddenPreviewCount > 0 ? (
+                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-16 sm:w-16">
+                        +{routine.hiddenPreviewCount}
+                      </div>
+                    ) : null}
                     {routine.preview.length === 0 ? (
-                      <div className="col-span-3 grid h-20 place-items-center rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)]">
+                      <div className="grid h-14 flex-1 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)] sm:h-16">
                         Sin ejercicios
                       </div>
                     ) : null}
                   </div>
 
-                  <div
-                    className={`mt-3 flex items-center gap-5 text-sm font-black sm:mt-4 ${tone}`}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <Dumbbell className="h-4 w-4" />
-                      {routine.exerciseCount} ejercicios
-                      {routine.optionalExerciseCount
-                        ? ` + ${routine.optionalExerciseCount} ${routine.optionalExerciseCount === 1 ? "opcional" : "opcionales"}`
-                        : ""}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Layers3 className="h-4 w-4" />
-                      {routine.totalSets} series
-                    </span>
-                  </div>
-
-                  <div className="mt-4 hidden min-w-0 flex-wrap gap-1.5 sm:flex">
-                    {routine.muscles.length ? (
-                      routine.muscles.slice(0, 4).map((muscle) => (
-                        <span
-                          key={muscle}
-                          className="max-w-full truncate rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]"
-                        >
-                          {muscle}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]">
-                        Sin grupos
+                  <div className="mt-5 flex min-h-11 items-center justify-between gap-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333]">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs font-black text-[color:var(--text)]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Dumbbell className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                        {routine.totalExerciseCount} ejercicios
                       </span>
-                    )}
-                    {routine.muscles.length > 4 ? (
-                      <span className="rounded bg-[color:var(--bg)] px-2.5 py-1 text-[11px] font-black text-[color:var(--text-muted)]">
-                        +{routine.muscles.length - 4}
+                      <span className="inline-flex items-center gap-1.5">
+                        <Layers3 className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                        {routine.totalSets} series
                       </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
+                    </div>
                     {isManagedClient ? (
-                      <span className="theme-accent-text inline-flex h-11 items-center text-sm font-black">
-                        Asignada por tu coach
+                      <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
+                        Coach
                       </span>
                     ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(routine)}
-                          className="theme-accent-text inline-flex h-11 items-center gap-2 rounded-lg px-3 text-sm font-black transition hover:bg-[color:var(--bg)]"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          Editar
-                        </button>
-                        <details className="relative">
-                          <summary
-                            className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] [&::-webkit-details-marker]:hidden"
-                            aria-label="Opciones de rutina"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </summary>
-                          <div className="absolute bottom-12 right-0 z-20 w-44 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                handleDuplicateRoutine(routine);
-                              }}
-                              disabled={Boolean(duplicatingRoutineId)}
-                              className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
-                            >
-                              <Copy className="h-4 w-4" />
-                              {duplicatingRoutineId === routine.id
-                                ? "Duplicando..."
-                                : "Duplicar"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                requestDeleteRoutine(routine);
-                              }}
-                              className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Eliminar
-                            </button>
-                          </div>
-                        </details>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(routine)}
+                        className="shrink-0 text-xs font-black uppercase text-[#b82f05] transition hover:text-[#ff5722] dark:text-[#e2ff00] dark:hover:text-white"
+                      >
+                        Editar
+                      </button>
                     )}
                   </div>
                 </div>
@@ -4442,6 +4429,21 @@ function Routines({ onNavigate }) {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {!activePlan && !isManagedClient ? (
+        <button
+          type="button"
+          onClick={() =>
+            workspaceView === "plans" ? setPlanModalOpen(true) : openCreate()
+          }
+          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-[#ff5722] text-white shadow-[0_8px_24px_rgba(255,87,34,0.35)] transition active:scale-95 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_8px_24px_rgba(226,255,0,0.2)] md:hidden"
+          aria-label={
+            workspaceView === "plans" ? "Nueva planificaciÃ³n" : "Nueva rutina"
+          }
+        >
+          <Plus className="h-6 w-6" />
+        </button>
       ) : null}
 
       {modalMode && !isManagedClient && (
