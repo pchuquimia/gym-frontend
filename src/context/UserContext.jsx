@@ -16,6 +16,7 @@ const defaultProfile = {
   goal: "mantenimiento",
   calories: 2500,
   units: "metric",
+  language: "es",
   birthDate: "",
   privacy: "público",
   notifications: {

@@ -514,16 +514,19 @@ export default function ExerciseCard({
           )}
         </AnimatePresence>
       </Card>
-      {deleteSheetOpen && (
-        <DeleteExerciseSheet
-          exerciseName={exercise.name}
-          onClose={() => setDeleteSheetOpen(false)}
-          onConfirm={() => {
-            setDeleteSheetOpen(false);
-            onRemoveExercise?.();
-          }}
-        />
-      )}
+      {deleteSheetOpen && typeof document !== "undefined"
+        ? createPortal(
+            <DeleteExerciseSheet
+              exerciseName={exercise.name}
+              onClose={() => setDeleteSheetOpen(false)}
+              onConfirm={() => {
+                setDeleteSheetOpen(false);
+                onRemoveExercise?.();
+              }}
+            />,
+            document.body,
+          )
+        : null}
       {detailExercise && typeof document !== "undefined"
         ? createPortal(
             <DetailModal

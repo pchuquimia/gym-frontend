@@ -261,7 +261,7 @@ export default function Register({ onNavigate = () => {} }) {
             {Array.from({ length: 5 }).map((_, index) => (
               <span
                 key={index}
-                className={`h-1 rounded-full ${index < 5 - missingPasswordRules.length ? "bg-[#b8ff4f]" : "bg-white/10"}`}
+                className={`h-1 rounded-full ${index < Math.min(5, Math.ceil((form.password.length / 6) * 5)) ? "bg-[#b8ff4f]" : "bg-white/10"}`}
               />
             ))}
           </div>
@@ -271,8 +271,8 @@ export default function Register({ onNavigate = () => {} }) {
             {form.password
               ? missingPasswordRules.length
                 ? `Falta: ${missingPasswordRules.join(", ")}.`
-                : "Contraseña segura."
-              : "8 caracteres, mayúscula, minúscula, número y símbolo."}
+                : "Contraseña válida."
+              : "Mínimo 6 caracteres. Puedes usar una contraseña sencilla."}
           </p>
         </div>
         <AuthField

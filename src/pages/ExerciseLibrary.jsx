@@ -28,8 +28,9 @@ import {
   optionMatches,
   toArray,
 } from "../constants/exerciseTaxonomy";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 200;
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const LIBRARY_FIELDS =
   "name,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,difficulty,goals,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,isActive";
@@ -97,12 +98,14 @@ function FilterSelect({ label, value, options, onChange }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+        className="h-11 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
       >
         <option value={ALL_FILTER_VALUE}>{ALL_FILTER_VALUE}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.value} ({option.count})
+            {label === "Equipamiento" && option.value === "Sin equipamiento"
+              ? "Sin equipamiento (incluye peso corporal)"
+              : option.value}
           </option>
         ))}
       </select>
@@ -110,12 +113,54 @@ function FilterSelect({ label, value, options, onChange }) {
   );
 }
 
-function ScopeCard({ label, count, onClick }) {
+function ScopeCard({ label, count, onClick, image, kicker, description }) {
+  const imageSrc = image
+    ? getExerciseImageUrl(image, { width: 720, height: 360 })
+    : "";
+  if (imageSrc) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="group relative min-h-[164px] overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#ff5722] bg-[color:var(--card)] text-left shadow-sm transition hover:border-[#ff5722] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
+      >
+        <img
+          src={imageSrc}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover opacity-35 grayscale transition duration-300 group-hover:scale-[1.03] group-hover:opacity-45 dark:opacity-25 dark:group-hover:opacity-35"
+        />
+        <span className="absolute inset-0 bg-gradient-to-r from-[color:var(--card)] via-[color:var(--card)]/85 to-transparent" />
+        <span className="relative flex min-h-[164px] flex-col justify-end p-4">
+          {kicker ? (
+            <span className="mb-2 w-fit bg-[#1a1a1a] px-2 py-1 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
+              {kicker}
+            </span>
+          ) : null}
+          <span className="flex items-end justify-between gap-4">
+            <span className="min-w-0">
+              <span className="block font-condensed text-2xl font-black uppercase leading-none text-[color:var(--text)]">
+                {label}
+              </span>
+              <span className="mt-2 block max-w-sm text-xs font-semibold text-[color:var(--text-muted)]">
+                {description}
+              </span>
+              <span className="mt-2 block text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                {count} ejercicios
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-[#ff5722] transition group-hover:translate-x-1 dark:text-[#e2ff00]" />
+          </span>
+        </span>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[82px] items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-blue-300/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      className="group flex min-h-[74px] items-center justify-between gap-3 rounded border border-[color:var(--border)] border-t-2 border-t-transparent bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:border-t-[#ff5722] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/30 dark:hover:border-[#e2ff00] dark:hover:border-t-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
     >
       <div className="min-w-0">
         <p className="truncate text-base font-black text-[color:var(--text)]">
@@ -125,7 +170,7 @@ function ScopeCard({ label, count, onClick }) {
           {count} ejercicios
         </p>
       </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-blue-400 transition group-hover:translate-x-0.5" />
+      <ChevronRight className="h-5 w-5 shrink-0 text-[#ff5722] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
     </button>
   );
 }
@@ -186,18 +231,27 @@ export default function ExerciseLibrary({ onNavigate }) {
         id: "upper",
         label: "Tren superior",
         bodyRegion: "Tren superior",
+        kicker: "Fuerza",
+        description: "Pecho, espalda, hombros y brazos",
+        preview: facets.entryPreviews?.upper,
         count: entryCounts.upper || 0,
       },
       {
         id: "lower",
         label: "Tren inferior",
         bodyRegion: "Tren inferior",
+        kicker: "Potencia",
+        description: "Cuádriceps, isquiotibiales, glúteos y pantorrillas",
+        preview: facets.entryPreviews?.lower,
         count: entryCounts.lower || 0,
       },
       {
         id: "core",
         label: "Core",
         bodyRegion: "Zona media",
+        kicker: "Estabilidad",
+        description: "Abdominales, oblicuos y control lumbo-pélvico",
+        preview: facets.entryPreviews?.core,
         count: entryCounts.core || 0,
       },
       {
@@ -205,16 +259,42 @@ export default function ExerciseLibrary({ onNavigate }) {
         label: "Cuerpo completo",
         bodyRegion: "Cuerpo completo",
         excludeCategory: "Cardio",
+        kicker: "Global",
+        description: "Movimientos combinados y levantamientos olímpicos",
+        preview:
+          facets.entryPreviews?.fullBody || facets.entryPreviews?.cardio,
         count: entryCounts.fullBody || 0,
       },
       {
         id: "cardio",
         label: "Cardio",
         category: "Cardio",
+        kicker: "Resistencia",
+        description: "Acondicionamiento y capacidad cardiovascular",
+        preview: facets.entryPreviews?.cardio,
         count: entryCounts.cardio || 0,
       },
+      {
+        id: "mobility",
+        label: "Movilidad",
+        category: "Movilidad",
+        kicker: "Movimiento",
+        description: "Rango articular, control y calidad de movimiento",
+        preview: facets.entryPreviews?.mobility || facets.entryPreviews?.core,
+        count: entryCounts.mobility || 0,
+      },
+      {
+        id: "activation",
+        label: "Activación",
+        category: "Activación",
+        kicker: "Preparación",
+        description: "Preparación muscular antes de la carga principal",
+        preview:
+          facets.entryPreviews?.activation || facets.entryPreviews?.upper,
+        count: entryCounts.activation || 0,
+      },
     ].filter((entry) => entry.count > 0);
-  }, [facets.entryCounts]);
+  }, [facets.entryCounts, facets.entryPreviews]);
 
   const showEntryPoints =
     !selectedBodyRegion &&
@@ -451,14 +531,14 @@ export default function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl space-y-5 pb-24">
+      <div className="mx-auto w-full max-w-6xl space-y-5 pb-24 font-condensed">
         <section className="space-y-4 px-1 pt-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                 Biblioteca
               </p>
-              <h1 className="text-2xl font-black text-[color:var(--text)]">
+              <h1 className="text-2xl font-black uppercase leading-none text-[color:var(--text)] sm:text-3xl">
                 {activeTitle}
               </h1>
               <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
@@ -490,7 +570,7 @@ export default function ExerciseLibrary({ onNavigate }) {
               <button
                 type="button"
                 onClick={resetScope}
-                className="hover:text-blue-600"
+                className="hover:text-[#ff5722] dark:hover:text-[#e2ff00]"
               >
                 Explorar
               </button>
@@ -499,7 +579,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setSelectedMuscleGroup("")}
-                  className="hover:text-blue-600"
+                  className="hover:text-[#ff5722] dark:hover:text-[#e2ff00]"
                 >
                   {selectedBodyLabel || selectedBodyRegion}
                 </button>
@@ -538,11 +618,11 @@ export default function ExerciseLibrary({ onNavigate }) {
               type="search"
               inputMode="search"
               placeholder="Buscar por nombre, músculo o equipo"
-              className="h-12 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
+            className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
             />
           </label>
 
-          {!facetsQuery.isLoading && categoryOptions.length ? (
+          {!facetsQuery.isLoading && categoryOptions.length && showResults ? (
             <div
               className="flex flex-wrap gap-2"
               role="group"
@@ -557,9 +637,9 @@ export default function ExerciseLibrary({ onNavigate }) {
                   type="button"
                   onClick={() => selectCategory(category.value)}
                   aria-pressed={selectedCategory === category.value}
-                  className={`h-9 rounded-full px-4 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                  className={`h-9 rounded px-4 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
                     selectedCategory === category.value
-                      ? "bg-emerald-500 text-slate-950"
+                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
                       : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
                   }`}
                 >
@@ -592,6 +672,9 @@ export default function ExerciseLibrary({ onNavigate }) {
                   key={entry.id}
                   label={entry.label}
                   count={entry.count}
+                  image={entry.preview}
+                  kicker={entry.kicker}
+                  description={entry.description}
                   onClick={() => selectEntryPoint(entry)}
                 />
               ))}
@@ -622,7 +705,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         ) : (
           <section className="space-y-4">
             {technicalFilters.length ? (
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3">
+              <div className="rounded border border-[color:var(--border)] border-t-2 border-t-[#ff5722] bg-[color:var(--card)] p-3 dark:border-t-[#e2ff00]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="h-4 w-4 text-[color:var(--text-muted)]" />
@@ -630,7 +713,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                       Filtros
                     </p>
                     {activeFilterCount ? (
-                      <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-black text-blue-700 dark:text-blue-300">
+                      <span className="rounded bg-[#ff5722]/10 px-2 py-0.5 text-xs font-black text-[#c52d00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
                         {activeFilterCount}
                       </span>
                     ) : null}

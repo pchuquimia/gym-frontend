@@ -1198,6 +1198,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [showAllRoutineOptions, setShowAllRoutineOptions] = useState(false);
   const [exercises, setExercises] = useState([]);
+  const exercisesRef = useRef(exercises);
+  const removedExerciseIdsRef = useRef(new Set());
+  const [removedExerciseIds, setRemovedExerciseIds] = useState([]);
+  exercisesRef.current = exercises;
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isOrderingExercises, setIsOrderingExercises] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
@@ -2129,6 +2133,22 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
   };
 
+  useEffect(() => {
+    if (!removedExerciseIds.length) return;
+    const removed = new Set(removedExerciseIds);
+    setExercises((current) => {
+      const filtered = current.filter(
+        (exercise) => !removed.has(String(exercise.id || "")),
+      );
+      if (filtered.length === current.length) return current;
+      return filtered.map((exercise, index) => ({
+        ...exercise,
+        order: index + 1,
+        actualOrder: index + 1,
+      }));
+    });
+  }, [exercises, removedExerciseIds]);
+
   const mergeRoutineIntoActiveExercises = (currentList = [], routine) => {
     const routineTemplate = buildExercisesForRoutine(
       routine,
@@ -2137,6 +2157,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       historyBestBySet,
       historyRecentBySet,
       historySeriesTypeMap,
+    ).filter(
+      (exercise) =>
+        !removedExerciseIdsRef.current.has(String(exercise.id || "")),
     );
     if (!routineTemplate.length) {
       return {
@@ -2611,13 +2634,22 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     );
     if (!latestRoutine) return;
     const previousRaw = selectedRoutine?.raw;
+    const previousDefinition = previousRaw
+      ? getRoutineDefinitionSignature(previousRaw)
+      : "";
+    const latestDefinition = getRoutineDefinitionSignature(
+      latestRoutine.raw || {},
+    );
     setSelectedRoutine((current) =>
       current?.raw === latestRoutine.raw ? current : latestRoutine,
     );
     const routineExercises = latestRoutine.raw?.exercises || [];
     if (!routineExercises.length) return;
-    if (!exercises.length) return;
-    if (previousRaw === latestRoutine.raw) return;
+    if (!exercisesRef.current.length) return;
+    // Context refreshes can recreate the routine object without changing it.
+    // Only merge a real template edit; otherwise a session-only deletion would
+    // be immediately reinserted when the exercise count changes.
+    if (previousDefinition === latestDefinition) return;
 
     let shouldNotify = false;
     if (typeof localStorage !== "undefined") {
@@ -2657,7 +2689,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       }
       return result.exercises;
     });
-  }, [selectedRoutineId, routineOptions, exercises.length, selectedRoutine]);
+  }, [selectedRoutineId, routineOptions, selectedRoutine]);
 
   useEffect(() => {
     if (historyTrainings.length) return;
@@ -2749,6 +2781,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedRoutineId(snap.selectedRoutineId);
       setSelectedRoutine(routine);
       setSelectedPlanContext(snap.selectedPlanContext || null);
+      removedExerciseIdsRef.current = new Set(
+        Array.isArray(snap.removedExerciseIds)
+          ? snap.removedExerciseIds.map(String)
+          : [],
+      );
+      setRemovedExerciseIds(Array.from(removedExerciseIdsRef.current));
       setSessionDate(snap.sessionDate || todayISO);
       lastUpdateRef.current = now;
       setNowMs(now);
@@ -2920,6 +2958,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         lastUpdate: now,
         timeEvents,
         exercises,
+        removedExerciseIds: Array.from(removedExerciseIdsRef.current),
       };
       lastUpdateRef.current = now;
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
@@ -3277,6 +3316,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const resetState = () => {
     routineLoadRequestRef.current += 1;
     loadedHistoryRoutineRef.current = "";
+    removedExerciseIdsRef.current = new Set();
+    setRemovedExerciseIds([]);
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setTimeEvents([]);
@@ -3333,6 +3374,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
     const requestId = routineLoadRequestRef.current + 1;
     routineLoadRequestRef.current = requestId;
+    removedExerciseIdsRef.current = new Set();
+    setRemovedExerciseIds([]);
     const branch = locationDisabled
       ? ""
       : effectiveBranch || normalizeBranch(found?.location);
@@ -3404,11 +3447,22 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       });
   };
 
-  const handleStartPlanRoutine = (routineId, slotId) => {
+  const handleStartPlanRoutine = (routineId, slotId, selection = {}) => {
     if (!routineId || loadingTraining) return;
+    const scheduleOverride = selection.isScheduleOverride
+      ? {
+          acknowledged: true,
+          scheduledDate: selection.scheduledDate || "",
+          selectedDayIndex: Number(selection.dayIndex) + 1,
+          scheduleMode:
+            selection.scheduleMode || activeTrainingPlan?.scheduleMode || "fixed",
+          acknowledgedAt: new Date().toISOString(),
+        }
+      : null;
     const planContext = {
       planId: String(activeTrainingPlan?._id || activeTrainingPlan?.id || ""),
       slotId: String(slotId || ""),
+      scheduleOverride,
     };
     setSelectedPlanContext(planContext);
     setPendingPlanRoutineId(String(routineId));
@@ -3904,9 +3958,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   };
 
   const handleRemoveExercise = (exerciseId) => {
+    const normalizedExerciseId = String(exerciseId);
+    removedExerciseIdsRef.current.add(normalizedExerciseId);
+    setRemovedExerciseIds((current) =>
+      current.includes(normalizedExerciseId)
+        ? current
+        : [...current, normalizedExerciseId],
+    );
     setExercises((prev) =>
       applyExerciseOrder(prev.filter((ex) => ex.id !== exerciseId)),
     );
+    setExpandedExerciseId((current) =>
+      current === exerciseId ? "" : current,
+    );
+    setActiveExerciseId((current) => (current === exerciseId ? "" : current));
     toast("Ejercicio eliminado solo para hoy");
     if (trackingExerciseId === exerciseId) {
       setShowTracking(false);
@@ -4158,6 +4223,12 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         routineName: selectedRoutine?.name,
         trainingPlanId: selectedPlanContext?.planId || null,
         trainingPlanSlotId: selectedPlanContext?.slotId || null,
+        scheduleOverride: selectedPlanContext?.scheduleOverride
+          ? {
+              ...selectedPlanContext.scheduleOverride,
+              actualDate: dateStr,
+            }
+          : undefined,
         progressScopeId: selectedRoutine?.progressScopeId || "",
         orderSignature: getExerciseOrderSignature(exercises),
         branch: locationDisabled
@@ -5191,8 +5262,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             {items.length} ejercicios
                           </Badge>
                         </div>
-                        <AnimatePresence>
-                          {items.map((ex) => {
+                        {items.map((ex) => {
                             const movementConfig = getRoutineMovementConfig(
                               selectedRoutine?.raw?.exercises || [],
                               ex,
@@ -5258,7 +5328,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               />
                             );
                           })}
-                        </AnimatePresence>
                       </div>
                     ))}
                   </div>
@@ -5280,8 +5349,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             {items.length} ejercicios
                           </Badge>
                         </div>
-                        <AnimatePresence>
-                          {items.map((ex) => {
+                        {items.map((ex) => {
                             const movementConfig = getRoutineMovementConfig(
                               selectedRoutine?.raw?.exercises || [],
                               ex,
@@ -5347,7 +5415,6 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                               />
                             );
                           })}
-                        </AnimatePresence>
                       </div>
                     ))}
                   </div>

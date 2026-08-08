@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BedDouble,
   CalendarDays,
@@ -7,6 +8,7 @@ import {
   Play,
   RotateCcw,
 } from "lucide-react";
+import Modal from "../shared/Modal";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 
@@ -88,6 +90,8 @@ export default function ActivePlanWorkoutPlanner({
   advancing,
   preparingRoutineId,
 }) {
+  const [overrideCandidate, setOverrideCandidate] = useState(null);
+
   if (loading) {
     return (
       <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-5 text-sm font-bold uppercase">
@@ -152,15 +156,24 @@ export default function ActivePlanWorkoutPlanner({
     return date >= isoDate(weekStart) && date <= isoDate(weekEnd);
   });
   const trainingDays = schedule.filter((day) => day.type === "training");
+  const matchesCompletedSlot = (day, index, training) => {
+    const plannedDate = isoDate(getPlanDayDate(plan, selectedWeek, index));
+    const samePlanSlot =
+      training.trainingPlanId &&
+      String(training.trainingPlanId) === String(plan._id || plan.id) &&
+      String(training.trainingPlanSlotId || "") === String(day.slotId || "");
+    return (
+      samePlanSlot ||
+      (String(training.routineId) === String(day.routineId) &&
+        String(training.date).slice(0, 10) === plannedDate)
+    );
+  };
   const completedThisWeek = sequential
     ? 0
     : schedule.filter((day, index) => {
         if (day.type !== "training" || !day.routineId) return false;
-        const date = isoDate(getPlanDayDate(plan, selectedWeek, index));
-        return weekTrainings.some(
-          (training) =>
-            String(training.routineId) === String(day.routineId) &&
-            String(training.date).slice(0, 10) === date,
+        return weekTrainings.some((training) =>
+          matchesCompletedSlot(day, index, training),
         );
       }).length;
   const targetCount = sequential
@@ -170,6 +183,7 @@ export default function ActivePlanWorkoutPlanner({
   const progress = (completedCount / targetCount) * 100;
 
   return (
+    <>
     <section className="training-schedule bg-[#f5f5f5] pb-4 text-[#151515] dark:bg-[#050505] dark:text-white md:border md:border-[color:var(--border)] md:p-6">
       <header className="pb-5">
         <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
@@ -219,14 +233,8 @@ export default function ActivePlanWorkoutPlanner({
             ? routineById.get(String(day.routineId))
             : null;
           const completedTraining = !sequential
-            ? weekTrainings.find(
-                (training) =>
-                  String(training.date).slice(0, 10) === dateValue &&
-                  ((training.trainingPlanId &&
-                    String(training.trainingPlanId) ===
-                      String(plan._id || plan.id) &&
-                    training.trainingPlanSlotId === day.slotId) ||
-                    String(training.routineId) === String(day.routineId)),
+            ? weekTrainings.find((training) =>
+                matchesCompletedSlot(day, index, training),
               )
             : null;
           const rest = day.type !== "training";
@@ -345,7 +353,13 @@ export default function ActivePlanWorkoutPlanner({
               {current && routine ? (
                 <button
                   type="button"
-                  onClick={() => onStart(routine.id || routine._id, day.slotId)}
+                  onClick={() =>
+                    onStart(routine.id || routine._id, day.slotId, {
+                      isScheduleOverride: false,
+                      scheduledDate: dateValue,
+                      dayIndex: index,
+                    })
+                  }
                   disabled={preparing}
                   className="mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black"
                 >
@@ -357,6 +371,24 @@ export default function ActivePlanWorkoutPlanner({
                   {preparing
                     ? "Preparando entrenamiento"
                     : "Iniciar entrenamiento"}
+                </button>
+              ) : null}
+
+              {!current && !completed && !rest && routine ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOverrideCandidate({
+                      routine,
+                      day,
+                      index,
+                      scheduledDate: dateValue,
+                      title,
+                    })
+                  }
+                  className="mt-4 h-11 w-full border border-[#9a9a9a] text-xs font-bold uppercase text-[#444] transition hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
+                >
+                  Elegir este entrenamiento
                 </button>
               ) : null}
 
@@ -375,5 +407,55 @@ export default function ActivePlanWorkoutPlanner({
         })}
       </div>
     </section>
+    {overrideCandidate ? (
+      <Modal
+        title="Entrenar otro día del plan"
+        subtitle={overrideCandidate.title}
+        onClose={() => setOverrideCandidate(null)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setOverrideCandidate(null)}
+              className="h-11 border border-[color:var(--border)] px-4 text-xs font-bold uppercase"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const candidate = overrideCandidate;
+                setOverrideCandidate(null);
+                onStart(
+                  candidate.routine.id || candidate.routine._id,
+                  candidate.day.slotId,
+                  {
+                    isScheduleOverride: true,
+                    scheduledDate: candidate.scheduledDate,
+                    dayIndex: candidate.index,
+                    scheduleMode: plan.scheduleMode,
+                  },
+                );
+              }}
+              className="h-11 bg-[#ff5722] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
+            >
+              Confirmar cambio
+            </button>
+          </>
+        }
+      >
+        <div className="border-l-4 border-[#ff5722] bg-[#ff5722]/5 p-4 dark:border-[#d8ff00] dark:bg-[#d8ff00]/5">
+          <p className="text-sm font-bold text-[color:var(--text)]">
+            Esta sesión quedará registrada como una excepción del plan.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+            {sequential
+              ? "El ciclo continuará desde el bloque posterior al que elegiste."
+              : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}
+          </p>
+        </div>
+      </Modal>
+    ) : null}
+    </>
   );
 }

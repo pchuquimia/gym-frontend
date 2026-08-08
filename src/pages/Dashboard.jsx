@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveBar } from "@nivo/bar";
 import { motion } from "framer-motion";
 import {
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { presets } from "../utils/motion";
 import { useTrainingData } from "../context/TrainingContext";
+import { useRoutines } from "../context/RoutineContext";
+import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
@@ -22,7 +24,17 @@ import MobileMenuButton from "../components/layout/MobileMenuButton";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function toValidDate(value) {
-  const date = value ? new Date(value) : null;
+  const dateOnlyMatch =
+    typeof value === "string" ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+  const date = dateOnlyMatch
+    ? new Date(
+        Number(dateOnlyMatch[1]),
+        Number(dateOnlyMatch[2]) - 1,
+        Number(dateOnlyMatch[3]),
+      )
+    : value
+      ? new Date(value)
+      : null;
   return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 
@@ -31,7 +43,21 @@ function getDateTimestamp(value) {
 }
 
 function getISODateKey(date) {
-  return date.toISOString().slice(0, 10);
+  const validDate = toValidDate(date);
+  if (!validDate) return "";
+  return [
+    validDate.getFullYear(),
+    String(validDate.getMonth() + 1).padStart(2, "0"),
+    String(validDate.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getMondayWeekStart(value) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const mondayOffset = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - mondayOffset);
+  return date;
 }
 
 function titleCase(value = "") {
@@ -211,31 +237,61 @@ function getExerciseMuscleGroup(exercise = {}) {
   );
 }
 
-function getTrainingMuscleLoads(training = {}) {
+function normalizeMuscleKey(value = "") {
+  const key = value
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  const aliases = {
+    bicep: "biceps",
+    cuadricep: "cuadriceps",
+    femoral: "isquiotibiales",
+    femorales: "isquiotibiales",
+    gluteo: "gluteos",
+    hombro: "hombros",
+    isquiotibial: "isquiotibiales",
+    pantorrilla: "pantorrillas",
+    tricep: "triceps",
+  };
+  return aliases[key] || key;
+}
+
+function median(values = []) {
+  const sorted = values
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function getTrainingMuscleMetrics(training = {}) {
   const groups = new Map();
   (training.exercises || []).forEach((exercise) => {
-    const group = getExerciseMuscleGroup(exercise);
-    const current = groups.get(group) || 0;
-    groups.set(group, current + getExerciseVolumeValue(exercise));
+    const muscle = getExerciseMuscleGroup(exercise);
+    const key = normalizeMuscleKey(muscle);
+    if (!key || key === "sin grupo") return;
+    const current = groups.get(key) || { key, muscle, sets: 0, volume: 0 };
+    current.sets += getExerciseSetCount(exercise);
+    current.volume += getExerciseVolumeValue(exercise);
+    groups.set(key, current);
   });
   return groups;
 }
 
-function getRecoveryScoreFromDays(daysSinceLast, weeklyVolume = 0) {
-  let score;
-  if (daysSinceLast == null) score = 96;
-  else if (daysSinceLast <= 0) score = 45;
-  else if (daysSinceLast === 1) score = 58;
-  else if (daysSinceLast === 2) score = 72;
-  else if (daysSinceLast === 3) score = 84;
-  else if (daysSinceLast === 4) score = 90;
-  else score = 95;
-
-  if (weeklyVolume > 5000) score -= 10;
-  else if (weeklyVolume > 3000) score -= 6;
-  else if (weeklyVolume > 1500) score -= 3;
-
-  return Math.max(35, Math.min(98, Math.round(score)));
+function getRoutineMuscles(routine = {}) {
+  const muscles = new Map();
+  (routine.exercises || []).forEach((exercise) => {
+    const muscle = getExerciseMuscleGroup(exercise);
+    const key = normalizeMuscleKey(muscle);
+    if (key && key !== "sin grupo") muscles.set(key, muscle);
+  });
+  return Array.from(muscles, ([key, muscle]) => ({ key, muscle }));
 }
 
 function getRecoveryLabel(value) {
@@ -621,107 +677,132 @@ function WeekStrip({ days }) {
   );
 }
 
-function ActivityThirtyDaysChart({ data, trainedDays, totalVolume, mode }) {
-  const isDark = mode === "dark";
-  const xTickLabels = data
-    .filter(
-      (_, index) =>
-        index === 0 || index === data.length - 1 || (index + 1) % 7 === 0,
-    )
-    .map((item) => item.label);
-  const startLabel = data[0]?.label || "";
-  const endLabel = data[data.length - 1]?.label || "";
+function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
+  const [selectedDay, setSelectedDay] = useState(null);
+  const chartScrollRef = useRef(null);
+
+  const activeVolumes = data
+    .map((day) => Number(day.volume || 0))
+    .filter((volume) => volume > 0);
+  const maxVolume = Math.max(1, ...activeVolumes);
+  const typicalVolume = median(activeVolumes);
+
+  useEffect(() => {
+    const container = chartScrollRef.current;
+    if (!container) return;
+    container.scrollLeft = container.scrollWidth;
+  }, [data.length]);
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text)]">
-            Actividad de 30 dias
+            Actividad de {monthLabel}
           </p>
           <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">
-            Dias con entrenamiento registrado
+            Volumen cargado por día de entrenamiento
           </p>
         </div>
-        <span className="rounded bg-[#1a1a1a] px-2 py-1 text-[10px] font-black uppercase text-[#ff5722] dark:rounded-[3px] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-          {trainedDays}/30 dias
-        </span>
       </div>
 
-      <div className="mt-4 h-40 rounded border border-[#d8d8d8] bg-[#fafafa] p-2 dark:rounded-[3px] dark:border-[#292929] dark:bg-[#080808]">
-        <ResponsiveBar
-          data={data}
-          keys={["active"]}
-          indexBy="label"
-          margin={{ top: 8, right: 4, bottom: 26, left: 4 }}
-          padding={0.24}
-          colors={({ data: item }) =>
-            item.active > 0
-              ? isDark
-                ? "#e2ff00"
-                : "#ff5722"
-              : isDark
-                ? "#242424"
-                : "#dedede"
-          }
-          borderRadius={4}
-          enableLabel={false}
-          axisTop={null}
-          axisRight={null}
-          axisLeft={null}
-          axisBottom={{
-            tickSize: 0,
-            tickPadding: 8,
-            tickRotation: 0,
-            tickValues: xTickLabels,
-          }}
-          enableGridY={false}
-          theme={{
-            text: {
-              fill: isDark ? "#b8b8a6" : "#6f6f6f",
-              fontSize: 11,
-              fontWeight: 700,
-              fontFamily: '"Barlow Condensed", "Arial Narrow", sans-serif',
-            },
-            axis: {
-              ticks: {
-                line: { stroke: "transparent" },
-                text: { fill: isDark ? "#b8b8a6" : "#6f6f6f" },
-              },
-              domain: { line: { stroke: "transparent" } },
-            },
-          }}
-          tooltip={({ data: item }) => (
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs text-[color:var(--text)] shadow-xl">
-              <strong>{item.key}</strong>
-              <p>{item.active > 0 ? "Entrenado" : "Sin entrenamiento"}</p>
-              {item.volume > 0 ? <p>{formatCompact(item.volume)} kg</p> : null}
-            </div>
-          )}
-        />
+      <div className="relative mt-4 h-40 rounded border border-[#d8d8d8] bg-[#fafafa] px-3 pb-2 pt-10 dark:rounded-[3px] dark:border-[#292929] dark:bg-[#080808]">
+        {selectedDay ? (
+          <div
+            className={`absolute top-2 z-10 max-w-[190px] rounded border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1.5 text-[10px] font-bold text-[color:var(--text)] shadow-lg ${selectedDay.dayNumber > 20 ? "right-2" : "left-2"}`}
+          >
+            <span className="font-black">
+              Día {selectedDay.dayNumber} · {selectedDay.dateLabel}
+            </span>
+            <span className="ml-2 text-[color:var(--text-muted)]">
+              {selectedDay.volume > 0
+                ? `${formatCompact(selectedDay.volume)} kg`
+                : "Descanso"}
+            </span>
+            {selectedDay.routine ? (
+              <span
+                className="mt-0.5 block truncate text-[color:var(--text-muted)]"
+                title={selectedDay.routine}
+              >
+                {selectedDay.routine}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div
+          ref={chartScrollRef}
+          className="h-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]"
+        >
+          <div
+            className="grid h-full items-end gap-[2px]"
+            style={{
+              gridTemplateColumns: `repeat(${data.length}, minmax(24px, 1fr))`,
+              minWidth: data.length > 10 ? `${data.length * 28}px` : "100%",
+            }}
+          >
+            {data.map((day) => {
+              const volume = Number(day.volume || 0);
+              const overloaded =
+                volume > 0 &&
+                typicalVolume > 0 &&
+                volume >= typicalVolume * 1.5;
+              const height = volume
+                ? `${Math.max(10, (volume / maxVolume) * 100)}%`
+                : "3px";
+              return (
+                <button
+                  type="button"
+                  key={day.key}
+                  onClick={() => setSelectedDay(day)}
+                  onMouseEnter={() => setSelectedDay(day)}
+                  onMouseLeave={() => setSelectedDay(null)}
+                  className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""} ${day.isToday ? "bg-[#ff5722]/5 dark:bg-[#e2ff00]/5" : ""}`}
+                  aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${volume ? `${formatCompact(volume)} kilogramos` : "sin entrenamiento"}`}
+                >
+                  <span className="flex min-h-0 w-full flex-1 items-end justify-center">
+                    <span
+                      className={`block w-full max-w-6 rounded-t-[3px] transition-[height,opacity] duration-200 md:max-w-8 ${
+                        volume
+                          ? overloaded
+                            ? "bg-[#c52d00] shadow-[0_0_8px_rgba(197,45,0,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
+                            : "bg-[#ff5722] dark:bg-[#b8d000]"
+                          : day.isToday
+                            ? "bg-[#ff5722] dark:bg-[#e2ff00]"
+                            : "bg-[#d8d8d8] dark:bg-[#292929]"
+                      }`}
+                      style={{ height }}
+                    />
+                  </span>
+                  <span
+                    className={`mt-1 grid h-4 min-w-4 place-items-center rounded-[2px] px-0.5 text-[8px] font-black leading-none md:text-[9px] ${
+                      day.isToday
+                        ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                        : "text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    {day.dayNumber}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-        <span>{startLabel}</span>
-        <span className="rounded border border-[#d8d8d8] bg-white px-2 py-0.5 text-[#8e8e93] dark:rounded-[3px] dark:border-0 dark:bg-[#242424] dark:text-[#e2ff00]">
-          30 dias
-        </span>
-        <span>Hoy · {endLabel}</span>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div className="rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[3px] dark:bg-transparent">
+      <div className="mt-3 grid grid-cols-2 border-t border-[color:var(--border)] pt-3">
+        <div className="border-r border-[color:var(--border)] px-3">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-            Dias entrenados
+            Días entrenados
           </p>
           <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
             {trainedDays}
           </p>
           <p className="mt-1 text-[11px] font-bold text-[color:var(--text-muted)]">
-            de 30 dias
+            en {monthLabel}
           </p>
         </div>
-        <div className="rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[3px] dark:bg-transparent">
+        <div className="px-3">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Volumen
           </p>
@@ -887,9 +968,11 @@ function MonthDetailView({ detail, onBack }) {
   );
 }
 
-function Dashboard({ onNavigate = () => {} }) {
+function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const { trainings = [] } = useTrainingData();
+  const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
+  const [activePlan, setActivePlan] = useState(null);
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -904,6 +987,27 @@ function Dashboard({ onNavigate = () => {} }) {
     weeklyLoadModalOpen ||
     weeklySetsModalOpen,
   );
+
+  useEffect(() => {
+    let active = true;
+    const athleteId = coachAthlete?.id || coachAthlete?._id || "";
+    api
+      .getTrainingPlans(athleteId)
+      .then((plans) => {
+        if (!active) return;
+        setActivePlan(
+          (Array.isArray(plans) ? plans : []).find(
+            (plan) => plan.status === "active",
+          ) || null,
+        );
+      })
+      .catch(() => {
+        if (active) setActivePlan(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [coachAthlete]);
 
   useEffect(() => {
     if (!hasOpenModal) return undefined;
@@ -931,10 +1035,10 @@ function Dashboard({ onNavigate = () => {} }) {
   const todayKey = getISODateKey(now);
 
   const weekData = useMemo(() => {
-    const end = new Date(now);
+    const start = getMondayWeekStart(now);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
     end.setHours(23, 59, 59, 999);
-    const start = new Date(end.getTime() - 6 * DAY_MS);
-    start.setHours(0, 0, 0, 0);
     const previousStart = new Date(start.getTime() - 7 * DAY_MS);
     const previousEnd = new Date(start.getTime() - 1);
 
@@ -943,7 +1047,7 @@ function Dashboard({ onNavigate = () => {} }) {
       const date = new Date(start.getTime() + index * DAY_MS);
       dayMap.set(getISODateKey(date), {
         key: getISODateKey(date),
-        label: ["D", "L", "M", "M", "J", "V", "S"][date.getDay()],
+        label: ["D", "L", "M", "X", "J", "V", "S"][date.getDay()],
         routine: "",
         trained: false,
         isToday: getISODateKey(date) === todayKey,
@@ -1018,12 +1122,16 @@ function Dashboard({ onNavigate = () => {} }) {
 
   const monthActivity = useMemo(() => {
     const map = new Map();
-    for (let index = 29; index >= 0; index -= 1) {
-      const date = new Date(now.getTime() - index * DAY_MS);
+    const elapsedDays = now.getDate();
+    for (let index = 0; index < elapsedDays; index += 1) {
+      const date = new Date(now.getFullYear(), now.getMonth(), index + 1);
       const key = getISODateKey(date);
       map.set(key, {
         key,
-        label: `${date.getDate()}/${date.getMonth() + 1}`,
+        dayNumber: index + 1,
+        label: `D${index + 1}`,
+        dateLabel: `${date.getDate()}/${date.getMonth() + 1}`,
+        isToday: key === todayKey,
         sessions: 0,
         volume: 0,
         routine: "",
@@ -1038,22 +1146,23 @@ function Dashboard({ onNavigate = () => {} }) {
       if (!day) return;
       day.sessions += 1;
       day.volume += Number(training.totalVolume || 0);
-      day.routine = clampText(
-        training.routineName || training.routineId?.name || "Sesion",
-        16,
-      );
+      const routineName =
+        training.routineName || training.routineId?.name || "Sesion";
+      day.routine = day.routine
+        ? `${day.routine}, ${routineName}`
+        : routineName;
     });
 
     const days = Array.from(map.values());
-    days.forEach((day) => {
-      day.active = day.sessions > 0 ? 1 : 0;
-    });
     const trainedDays = days.filter((day) => day.sessions > 0).length;
     const totalSessions = days.reduce((sum, day) => sum + day.sessions, 0);
     const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
+    const monthLabel = titleCase(
+      now.toLocaleDateString("es-BO", { month: "long" }),
+    );
 
-    return { days, trainedDays, totalSessions, totalVolume };
-  }, [now, trainings]);
+    return { days, trainedDays, totalSessions, totalVolume, monthLabel };
+  }, [now, todayKey, trainings]);
 
   const threeMonthSummary = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat("es-BO", { month: "short" });
@@ -1294,7 +1403,7 @@ function Dashboard({ onNavigate = () => {} }) {
 
   const recovery = useMemo(() => {
     const todayStart = new Date(todayKey).getTime();
-    const weekStart = todayStart - 6 * DAY_MS;
+    const weekStart = getMondayWeekStart(now).getTime();
     const trainedKeys = new Set(
       orderedTrainings
         .map((training) => toValidDate(training.date))
@@ -1330,126 +1439,89 @@ function Dashboard({ onNavigate = () => {} }) {
       weekData.previousVolume > 0
         ? (weeklyVolume - weekData.previousVolume) / weekData.previousVolume
         : 0;
-    let score = 85;
     const factors = [];
-
-    if (daysSinceLast == null) {
-      score += 6;
-      factors.push({ label: "Sin sesiones recientes", impact: "+6" });
-    } else if (daysSinceLast === 0) {
-      score -= 18;
-      factors.push({ label: "Entrenaste hoy", impact: "-18" });
-    } else if (daysSinceLast === 1) {
-      score -= 10;
-      factors.push({ label: "Entrenaste ayer", impact: "-10" });
-    } else if (daysSinceLast === 2) {
-      score -= 4;
-      factors.push({ label: "Descanso corto", impact: "-4" });
-    } else {
-      score += 6;
-      factors.push({ label: "Descanso suficiente", impact: "+6" });
-    }
-
-    if (weeklyVolume > 12000) {
-      score -= 12;
-      factors.push({ label: "Volumen semanal alto", impact: "-12" });
-    } else if (weeklyVolume > 8000) {
-      score -= 8;
-      factors.push({ label: "Volumen semanal medio-alto", impact: "-8" });
-    } else if (weeklyVolume > 4000) {
-      score -= 4;
-      factors.push({ label: "Volumen semanal moderado", impact: "-4" });
-    }
-
-    if (weeklySeconds > 6 * 3600) {
-      score -= 10;
-      factors.push({ label: "Tiempo acumulado alto", impact: "-10" });
-    } else if (weeklySeconds > 4 * 3600) {
-      score -= 7;
-      factors.push({ label: "Tiempo acumulado medio-alto", impact: "-7" });
-    } else if (weeklySeconds > 2 * 3600) {
-      score -= 3;
-      factors.push({ label: "Tiempo acumulado moderado", impact: "-3" });
-    }
-
-    if (consecutiveDays >= 4) {
-      score -= 12;
-      factors.push({ label: "Muchos dias consecutivos", impact: "-12" });
-    } else if (consecutiveDays === 3) {
-      score -= 8;
-      factors.push({ label: "Tres dias consecutivos", impact: "-8" });
-    } else if (consecutiveDays === 2) {
-      score -= 4;
-      factors.push({ label: "Dos dias consecutivos", impact: "-4" });
-    }
-
-    if (volumeSpike > 0.35) {
-      score -= 10;
-      factors.push({
-        label: "Subida fuerte vs semana anterior",
-        impact: "-10",
-      });
-    } else if (volumeSpike > 0.2) {
-      score -= 6;
-      factors.push({ label: "Carga en aumento", impact: "-6" });
-    }
-
-    const globalValue = Math.max(45, Math.min(96, Math.round(score)));
     const muscleStats = new Map();
-    const routineStats = new Map();
 
     orderedTrainings.forEach((training) => {
       const timestamp = getDateTimestamp(training.date);
       if (!timestamp || timestamp > now.getTime()) return;
-
-      const muscleLoads = getTrainingMuscleLoads(training);
-      muscleLoads.forEach((volume, muscle) => {
-        const current = muscleStats.get(muscle) || {
-          muscle,
-          lastTimestamp: 0,
-          weeklyVolume: 0,
-          sessions: 0,
+      getTrainingMuscleMetrics(training).forEach((metric, key) => {
+        if (!metric.sets && !metric.volume) return;
+        const current = muscleStats.get(key) || {
+          key,
+          muscle: metric.muscle,
+          records: [],
         };
-        if (timestamp >= current.lastTimestamp)
-          current.lastTimestamp = timestamp;
-        if (timestamp >= weekStart) {
-          current.weeklyVolume += volume;
-          current.sessions += 1;
-        }
-        muscleStats.set(muscle, current);
+        current.records.push({
+          timestamp,
+          sets: metric.sets,
+          volume: metric.volume,
+        });
+        muscleStats.set(key, current);
       });
-
-      const routineName = getRoutineName(training);
-      const routine = routineStats.get(routineName) || {
-        name: routineName,
-        muscles: new Set(),
-        lastTimestamp: 0,
-        sessions: 0,
-      };
-      muscleLoads.forEach((_, muscle) => routine.muscles.add(muscle));
-      if (timestamp >= routine.lastTimestamp) routine.lastTimestamp = timestamp;
-      if (timestamp >= weekStart) routine.sessions += 1;
-      routineStats.set(routineName, routine);
     });
 
     const muscleReadiness = Array.from(muscleStats.values())
       .map((item) => {
-        const days = item.lastTimestamp
+        const records = [...item.records].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        );
+        const baselineRecords =
+          records.length > 1 ? records.slice(0, -1).slice(-8) : records;
+        const typicalSets = median(
+          baselineRecords.map((record) => record.sets),
+        );
+        const typicalVolume = median(
+          baselineRecords.map((record) => record.volume),
+        );
+        const recentRecords = records.filter(
+          (record) => now.getTime() - record.timestamp <= 7 * DAY_MS,
+        );
+        let fatigue = 0;
+        recentRecords.forEach((record) => {
+          const ageDays = Math.max(
+            0,
+            (now.getTime() - record.timestamp) / DAY_MS,
+          );
+          const setRatio = typicalSets ? record.sets / typicalSets : 1;
+          const volumeRatio = typicalVolume
+            ? record.volume / typicalVolume
+            : setRatio;
+          const relativeLoad = Math.min(3, setRatio * 0.7 + volumeRatio * 0.3);
+          fatigue += relativeLoad * 0.5 ** (ageDays / 2);
+        });
+        const value = Math.max(
+          10,
+          Math.min(98, Math.round(100 - fatigue * 48)),
+        );
+        const lastRecord = records.at(-1) || null;
+        const days = lastRecord
           ? Math.max(
               0,
-              Math.floor(
-                (todayStart -
-                  new Date(
-                    getISODateKey(new Date(item.lastTimestamp)),
-                  ).getTime()) /
-                  DAY_MS,
-              ),
+              Math.floor((todayStart - lastRecord.timestamp) / DAY_MS),
             )
           : null;
-        const value = getRecoveryScoreFromDays(days, item.weeklyVolume);
+        const latestSetRatio =
+          lastRecord && typicalSets ? lastRecord.sets / typicalSets : 1;
+        const weeklyRecords = records.filter(
+          (record) => record.timestamp >= weekStart,
+        );
         return {
-          ...item,
+          key: item.key,
+          muscle: item.muscle,
+          lastTimestamp: lastRecord?.timestamp || 0,
           daysSinceLast: days,
+          typicalSets: Math.round(typicalSets),
+          latestSets: lastRecord?.sets || 0,
+          latestSetRatio,
+          weeklySets: weeklyRecords.reduce(
+            (sum, record) => sum + record.sets,
+            0,
+          ),
+          weeklyVolume: weeklyRecords.reduce(
+            (sum, record) => sum + record.volume,
+            0,
+          ),
           value,
           label: getRecoveryLabel(value),
         };
@@ -1457,55 +1529,122 @@ function Dashboard({ onNavigate = () => {} }) {
       .sort((a, b) => b.value - a.value || a.muscle.localeCompare(b.muscle));
 
     const muscleReadinessMap = new Map(
-      muscleReadiness.map((item) => [item.muscle, item]),
+      muscleReadiness.map((item) => [item.key, item]),
     );
 
-    const routineReadiness = Array.from(routineStats.values())
-      .map((routine) => {
-        const muscles = Array.from(routine.muscles);
+    const routineById = new Map(
+      routines.map((routine) => [String(routine.id || routine._id), routine]),
+    );
+    const planSchedule = activePlan?.weeklySchedule || [];
+    const seenRoutineIds = new Set();
+    const routineReadiness = planSchedule
+      .filter((day) => day.type === "training" && day.routineId)
+      .map((day) => {
+        const routineId = String(day.routineId);
+        if (seenRoutineIds.has(routineId)) return null;
+        seenRoutineIds.add(routineId);
+        const routine = routineById.get(routineId);
+        if (!routine) return null;
+        const muscleEntries = getRoutineMuscles(routine);
+        const muscles = muscleEntries.map((entry) => entry.muscle);
         const scores = muscles.map(
-          (muscle) => muscleReadinessMap.get(muscle)?.value ?? 96,
+          (_, index) =>
+            muscleReadinessMap.get(muscleEntries[index].key)?.value ?? 96,
         );
-        const min = scores.length ? Math.min(...scores) : globalValue;
+        const min = scores.length ? Math.min(...scores) : 90;
         const avg = scores.length
           ? scores.reduce((sum, value) => sum + value, 0) / scores.length
-          : globalValue;
+          : 90;
         const value = Math.max(
-          35,
+          10,
           Math.min(98, Math.round(avg * 0.55 + min * 0.45)),
         );
-        const lastRoutineDays = routine.lastTimestamp
-          ? Math.max(
-              0,
-              Math.floor(
-                (todayStart -
-                  new Date(
-                    getISODateKey(new Date(routine.lastTimestamp)),
-                  ).getTime()) /
-                  DAY_MS,
-              ),
-            )
-          : null;
-        const limitingMuscle = muscles
-          .map((muscle) => muscleReadinessMap.get(muscle))
+        const limitingMuscle = muscleEntries
+          .map((entry) => muscleReadinessMap.get(entry.key))
           .filter(Boolean)
           .sort((a, b) => a.value - b.value)[0];
 
         return {
-          name: routine.name,
+          id: routineId,
+          name: routine.name || day.focus || "Rutina del plan",
           muscles,
           value,
           label: getRecoveryLabel(value),
-          daysSinceLast: lastRoutineDays,
-          sessions: routine.sessions,
           limitingMuscle,
         };
       })
+      .filter(Boolean)
       .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 
-    const recommended = routineReadiness[0] || null;
+    const globalValue = muscleReadiness.length
+      ? Math.round(
+          muscleReadiness.reduce((sum, item) => sum + item.value, 0) /
+            muscleReadiness.length,
+        )
+      : 96;
+    const mondayIndex = (now.getDay() + 6) % 7;
+    const scheduleIndex =
+      activePlan?.scheduleMode === "fixed"
+        ? planSchedule.findIndex(
+            (day) => Number(day.dayIndex || day.order) === mondayIndex + 1,
+          )
+        : Math.min(
+            Math.max(0, Number(activePlan?.cycleProgress?.currentIndex || 0)),
+            Math.max(0, planSchedule.length - 1),
+          );
+    const scheduledDay = activePlan
+      ? planSchedule[scheduleIndex] || null
+      : null;
+    const scheduledRoutine = scheduledDay?.routineId
+      ? routineReadiness.find(
+          (routine) => routine.id === String(scheduledDay.routineId),
+        ) || null
+      : null;
+    const betterAlternative = scheduledRoutine
+      ? routineReadiness.find(
+          (routine) =>
+            routine.id !== scheduledRoutine.id &&
+            routine.value >= 65 &&
+            routine.value >= scheduledRoutine.value + 12,
+        ) || null
+      : routineReadiness[0] || null;
+    const isPlannedRest =
+      Boolean(activePlan) &&
+      (!scheduledDay || scheduledDay.type !== "training");
+    const recommended = isPlannedRest
+      ? null
+      : scheduledRoutine?.value >= 65
+        ? scheduledRoutine
+        : betterAlternative || scheduledRoutine;
+    const recommendationReason = !activePlan
+      ? "Activa una planificacion para recibir una sugerencia"
+      : isPlannedRest
+        ? scheduledDay?.type === "recovery"
+          ? "Hoy corresponde recuperacion en tu plan"
+          : "Hoy corresponde descanso en tu plan"
+        : betterAlternative && scheduledRoutine?.value < 65
+          ? `${scheduledRoutine.name} esta limitada por ${scheduledRoutine.limitingMuscle?.muscle || "fatiga reciente"}`
+          : scheduledRoutine?.value < 65
+            ? "La rutina prevista presenta fatiga alta; reduce volumen o descansa"
+            : "Rutina prevista y compatible con tu recuperacion";
     const value = recommended?.value ?? globalValue;
-    const label = recommended ? `${recommended.name}` : getRecoveryLabel(value);
+    const label = recommended?.name || recommendationReason;
+
+    const overloadedMuscles = muscleReadiness.filter(
+      (item) => item.latestSetRatio >= 1.5 && item.daysSinceLast <= 3,
+    );
+    overloadedMuscles.slice(0, 2).forEach((item) => {
+      factors.push({
+        label: `${item.muscle}: ${item.latestSets} vs ${item.typicalSets || "-"} sets habituales`,
+        impact: `${Math.round(item.latestSetRatio * 100)}%`,
+      });
+    });
+    if (!overloadedMuscles.length && daysSinceLast != null) {
+      factors.push({
+        label: daysSinceLast <= 1 ? "Sesion reciente" : "Descanso acumulado",
+        impact: daysSinceLast <= 1 ? "Carga" : "+Recuperacion",
+      });
+    }
 
     return {
       value,
@@ -1522,8 +1661,12 @@ function Dashboard({ onNavigate = () => {} }) {
       routineReadiness,
       muscleReadiness,
       recommended,
+      recommendationReason,
+      activePlan,
+      scheduledRoutine,
+      isPlannedRest,
     };
-  }, [now, orderedTrainings, todayKey, weekData]);
+  }, [activePlan, now, orderedTrainings, routines, todayKey, weekData]);
 
   const weeklyLoad = useMemo(() => {
     const current = Number(weekData.totalVolume || 0);
@@ -1738,6 +1881,11 @@ function Dashboard({ onNavigate = () => {} }) {
                 : recovery.label
               : "Registra tu primera sesión"}
           </p>
+          {hasTrainingHistory && recovery.activePlan ? (
+            <p className="mt-1 truncate text-center text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              {recovery.activePlan.name}
+            </p>
+          ) : null}
         </button>
 
         <button
@@ -1778,11 +1926,11 @@ function Dashboard({ onNavigate = () => {} }) {
         </button>
       </div>
 
-      <ActivityThirtyDaysChart
+      <MonthActivityChart
         data={monthActivity.days}
         trainedDays={monthActivity.trainedDays}
         totalVolume={monthActivity.totalVolume}
-        mode={theme}
+        monthLabel={monthActivity.monthLabel}
       />
 
       <CollapsibleSection
@@ -1909,8 +2057,8 @@ function Dashboard({ onNavigate = () => {} }) {
                     : recovery.label}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Estimado por rutina segun los grupos musculares trabajados
-                  recientemente.
+                  {recovery.recommendationReason}. Se comparan sets y volumen
+                  reciente con tu carga habitual por músculo.
                 </p>
               </div>
               <button
@@ -1983,7 +2131,7 @@ function Dashboard({ onNavigate = () => {} }) {
                     Si entrenas hoy
                   </p>
                   <span className="rounded bg-[#fff0eb] px-2 py-1 text-[10px] font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-                    Por rutina
+                    {recovery.activePlan?.name || "Sin plan vigente"}
                   </span>
                 </div>
                 <div className="mt-3 space-y-2">
@@ -2024,7 +2172,9 @@ function Dashboard({ onNavigate = () => {} }) {
                     ))
                   ) : (
                     <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay rutinas suficientes para estimar recuperacion.
+                      {recovery.activePlan
+                        ? "El plan vigente no tiene rutinas disponibles para sugerir."
+                        : "Activa una planificación para recibir sugerencias de rutina."}
                     </p>
                   )}
                 </div>
@@ -2061,6 +2211,10 @@ function Dashboard({ onNavigate = () => {} }) {
                             : muscle.daysSinceLast === 1
                               ? "Entrenado ayer"
                               : `${muscle.daysSinceLast} dias`}
+                        </p>
+                        <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                          Último: {muscle.latestSets} sets · habitual:{" "}
+                          {muscle.typicalSets || "--"}
                         </p>
                       </article>
                     ))

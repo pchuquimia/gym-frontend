@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  Languages,
   Lock,
   LogOut,
   MapPin,
@@ -196,6 +197,34 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
   );
 }
 
+function SettingsSelectRow({ icon: Icon, title, subtitle, value, onChange, disabled }) {
+  return (
+    <div className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#ff5722]/10 dark:bg-[#e2ff00]/10">
+        <Icon className="h-4 w-4 text-[#c52d00] dark:text-[#e2ff00]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <label htmlFor="profile-exercise-language" className="block text-sm font-bold text-[color:var(--text)]">
+          {title}
+        </label>
+        <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+          {subtitle}
+        </span>
+      </span>
+      <select
+        id="profile-exercise-language"
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        className="h-10 min-w-28 rounded border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+      >
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  );
+}
+
 function ProfileHero({ user, profile, avatarUrl, stats }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-6 text-center shadow-sm lg:sticky lg:top-6">
@@ -307,6 +336,7 @@ export default function ProfileSettings({ onNavigate }) {
     loading: profileLoading,
     error: profileError,
     capabilities,
+    updateProfile,
     refreshProfile,
   } = useUserProfile();
   const { isDark, toggleTheme } = useThemeMode();
@@ -354,6 +384,7 @@ export default function ProfileSettings({ onNavigate }) {
     message: "",
     tone: "",
   });
+  const [languageSaving, setLanguageSaving] = useState(false);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -721,6 +752,24 @@ export default function ProfileSettings({ onNavigate }) {
   const handleLogout = async () => {
     const didLogout = await logout();
     if (didLogout) onNavigate?.("login");
+  };
+
+  const handleLanguageChange = async (event) => {
+    const language = event.target.value === "en" ? "en" : "es";
+    if (language === profile.language || languageSaving) return;
+    setLanguageSaving(true);
+    try {
+      await updateProfile({ language });
+      toast.success(
+        language === "es"
+          ? "Los ejercicios se mostrarán en español"
+          : "Exercise names will be shown in English",
+      );
+      window.setTimeout(() => window.location.reload(), 350);
+    } catch (error) {
+      toast.error(error.message || "No se pudo cambiar el idioma");
+      setLanguageSaving(false);
+    }
   };
 
   if (profileLoading) {
@@ -1335,6 +1384,14 @@ export default function ProfileSettings({ onNavigate }) {
             subtitle="Cambia la apariencia de la aplicación"
             value={isDark ? "Oscuro" : "Claro"}
             onClick={toggleTheme}
+          />
+          <SettingsSelectRow
+            icon={Languages}
+            title="Idioma de ejercicios"
+            subtitle="Nombres del catálogo, rutinas e historial"
+            value={profile.language || "es"}
+            onChange={handleLanguageChange}
+            disabled={languageSaving}
           />
         </Section>
         <button
