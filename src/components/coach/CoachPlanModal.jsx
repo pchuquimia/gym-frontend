@@ -76,6 +76,7 @@ const createCycleSchedule = (length = 4) =>
 export default function CoachPlanModal({
   athlete,
   templates = [],
+  planTemplates = [],
   initialData,
   replacingPlan,
   manageRoutinesSeparately = false,
@@ -87,6 +88,9 @@ export default function CoachPlanModal({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(initialData?._id || initialData?.id);
+  const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
+    initialData?.planTemplateId || "",
+  );
   const [name, setName] = useState(
     initialData?.name || "Plan inicial de 8 semanas",
   );
@@ -231,12 +235,36 @@ export default function CoachPlanModal({
     });
   };
 
+  const applyPlanTemplate = (templateId) => {
+    setSelectedPlanTemplateId(templateId);
+    const template = planTemplates.find(
+      (item) => String(item._id || item.id) === String(templateId),
+    );
+    if (!template) return;
+    setName(template.name || "Nueva planificacion");
+    setLevel(template.level || "beginner");
+    setGoal(template.goal || "General");
+    setDurationWeeks(template.durationWeeks || 8);
+    setScheduleMode(template.scheduleMode || "fixed");
+    setSchedule(
+      (template.weeklySchedule || []).map((day, index) => ({
+        dayIndex: index + 1,
+        slotId: `slot_${index + 1}`,
+        order: index + 1,
+        type: day.type || "training",
+        focus: day.focus || "",
+        sourceRoutineId: day.sourceRoutineId || "",
+      })),
+    );
+  };
+
   const submit = async () => {
     if (!name.trim() || !validDuration || !trainingDays || !startDate || saving)
       return;
     setSaving(true);
     try {
       await onSave({
+        planTemplateId: selectedPlanTemplateId || null,
         name: name.trim(),
         level,
         goal,
@@ -288,6 +316,29 @@ export default function CoachPlanModal({
         <div className="overflow-y-auto p-4 sm:p-6">
           {step === 1 ? (
             <div className="space-y-5">
+              {!isEditing && planTemplates.length ? (
+                <label className="block">
+                  <span className="text-xs font-black">Usar como base</span>
+                  <select
+                    value={selectedPlanTemplateId}
+                    onChange={(event) => applyPlanTemplate(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
+                  >
+                    <option value="">Crear desde cero</option>
+                    {planTemplates.map((template) => (
+                      <option
+                        key={template._id || template.id}
+                        value={template._id || template.id}
+                      >
+                        {template.name} · {template.durationWeeks} semanas
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Copia una estructura editable. La plantilla original no cambia.
+                  </span>
+                </label>
+              ) : null}
               <label className="block">
                 <span className="text-xs font-black">Nombre del plan</span>
                 <input
@@ -467,7 +518,7 @@ export default function CoachPlanModal({
                           aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
                           className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
                         />
-                        {isEditing && !manageRoutinesSeparately ? (
+                        {!manageRoutinesSeparately ? (
                           <select
                             value={day.sourceRoutineId}
                             onChange={(event) =>
@@ -510,7 +561,7 @@ export default function CoachPlanModal({
                 ))}
               </div>
 
-              {isEditing && !manageRoutinesSeparately && missingRoutines ? (
+              {!manageRoutinesSeparately && missingRoutines ? (
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="text-xs font-bold">
@@ -570,12 +621,8 @@ export default function CoachPlanModal({
               {saving
                 ? "Guardando..."
                 : isEditing
-                  ? manageRoutinesSeparately
-                    ? "Guardar cambios"
-                    : missingRoutines
-                      ? "Guardar borrador"
-                      : "Guardar y activar"
-                  : "Crear planificacion"}
+                  ? "Guardar cambios"
+                  : "Guardar borrador"}
             </Button>
           )}
         </footer>

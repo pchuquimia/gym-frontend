@@ -117,6 +117,19 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  getPlanTemplates: () => request("/api/plan-templates"),
+  createPlanTemplate: (payload) =>
+    request("/api/plan-templates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updatePlanTemplate: (id, payload) =>
+    request(`/api/plan-templates/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  deletePlanTemplate: (id) =>
+    request(`/api/plan-templates/${id}`, { method: "DELETE" }),
   assignRoutineToPlanSlot: (planId, slotId, routineId) =>
     request(`/api/plans/${planId}/slots/${slotId}/routine`, {
       method: "POST",
@@ -183,6 +196,7 @@ export const api = {
   getRoutines: (params = {}) => {
     const query = new URLSearchParams({
       athleteId: params.athleteId ?? "",
+      ...(params.kind ? { kind: params.kind } : {}),
     }).toString();
     return request(`/api/routines?${query}`);
   },
@@ -266,6 +280,13 @@ export const api = {
   },
   getPhotoSummary: (athleteId = "") =>
     request(`/api/photos/summary${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  getPhotoContent: async (contentUrl, { width, height } = {}) => {
+    const response = await axiosClient.get(contentUrl, {
+      params: { width, height },
+      responseType: "blob",
+    });
+    return response.data;
+  },
   createPhoto: (payload) =>
     request("/api/photos", { method: "POST", body: JSON.stringify(payload) }),
   updatePhoto: (id, payload) =>

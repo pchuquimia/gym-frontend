@@ -3233,6 +3233,7 @@ function Routines({ onNavigate }) {
   const [activePlan, setActivePlan] = useState(null);
   const [workspaceView, setWorkspaceView] = useState("plans");
   const [trainingPlans, setTrainingPlans] = useState([]);
+  const [planTemplates, setPlanTemplates] = useState([]);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [planDayChoice, setPlanDayChoice] = useState(null);
@@ -3290,6 +3291,10 @@ function Routines({ onNavigate }) {
   const refreshPlans = useCallback(async () => {
     const plans = await api.getTrainingPlans();
     setTrainingPlans(plans);
+    api
+      .getPlanTemplates()
+      .then(setPlanTemplates)
+      .catch(() => setPlanTemplates([]));
     setActivePlan((current) =>
       current
         ? plans.find(
@@ -3643,6 +3648,16 @@ function Routines({ onNavigate }) {
   };
 
   const activateTrainingPlan = async () => {
+    if (
+      currentActivePlan &&
+      String(currentActivePlan._id || currentActivePlan.id) !==
+        String(activePlan._id || activePlan.id) &&
+      !window.confirm(
+        `Al activar esta planificacion se pausara ${currentActivePlan.name}. ¿Deseas continuar?`,
+      )
+    ) {
+      return;
+    }
     try {
       const saved = await api.updateTrainingPlanStatus(
         activePlan._id || activePlan.id,
@@ -4284,13 +4299,21 @@ function Routines({ onNavigate }) {
             return (
               <article
                 key={routine.id}
-                className={`routines-surface overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
+                className={`routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
                   isHighlighted
                     ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
                     : "border-t-[#626262] dark:border-t-[#6d6d62]"
-                }`}
+                } ${isManagedClient ? "" : "transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]"}`}
               >
-                <div className="p-4">
+                {!isManagedClient ? (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(routine)}
+                    className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                    aria-label={`Abrir rutina ${routine.name}`}
+                  />
+                ) : null}
+                <div className="pointer-events-none relative z-[1] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="line-clamp-2 text-[23px] font-black uppercase leading-[0.95] text-[color:var(--text)] sm:text-[25px]">
@@ -4301,7 +4324,7 @@ function Routines({ onNavigate }) {
                       </p>
                     </div>
                     {!isManagedClient ? (
-                      <details className="relative -mr-2 -mt-2 shrink-0">
+                      <details className="pointer-events-auto relative -mr-2 -mt-2 shrink-0">
                         <summary
                           className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] [&::-webkit-details-marker]:hidden"
                           aria-label={`Opciones de ${routine.name}`}
@@ -4379,15 +4402,7 @@ function Routines({ onNavigate }) {
                       <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
                         Coach
                       </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openEdit(routine)}
-                        className="shrink-0 text-xs font-black uppercase text-[#b82f05] transition hover:text-[#ff5722] dark:text-[#e2ff00] dark:hover:text-white"
-                      >
-                        Editar
-                      </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </article>
@@ -4536,6 +4551,7 @@ function Routines({ onNavigate }) {
         <CoachPlanModal
           athlete={{ name: user?.name || "Mi planificacion" }}
           templates={[]}
+          planTemplates={planTemplates}
           initialData={editingPlan}
           manageRoutinesSeparately
           onSave={saveTrainingPlan}

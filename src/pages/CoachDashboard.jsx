@@ -12,6 +12,7 @@ import {
   Play,
   RotateCcw,
   Search,
+  Trash2,
   UserRound,
   Users,
   X,
@@ -40,6 +41,75 @@ const formatMetricVolume = (value) => {
   if (amount < 10_000) return `${amount.toLocaleString("es-ES")} kg`;
   return `${(amount / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k kg`;
 };
+
+function PlanTemplateManager({ templates, onCreate, onEdit, onDelete, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4">
+      <div className="flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] sm:max-w-xl sm:rounded-lg">
+        <header className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:px-6">
+          <div>
+            <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Estructuras reutilizables
+            </p>
+            <h2 className="mt-1 text-xl font-black">Planes base</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="overflow-y-auto p-4 sm:p-6">
+          <Button className="h-11 w-full gap-2 rounded-lg" onClick={onCreate}>
+            <CalendarPlus className="h-4 w-4" /> Crear plan base
+          </Button>
+          <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            {templates.map((template) => {
+              const editable = template.visibility !== "system";
+              return (
+                <div
+                  key={template._id || template.id}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black">{template.name}</p>
+                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                      {template.durationWeeks} semanas · {template.goal}
+                      {editable ? " · Propio" : " · Sistema"}
+                    </p>
+                  </div>
+                  {editable ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(template)}
+                        aria-label={`Editar ${template.name}`}
+                        className="grid h-11 w-11 place-items-center"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(template)}
+                        aria-label={`Archivar ${template.name}`}
+                        className="grid h-11 w-11 place-items-center text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const DAY_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const LEVEL_LABELS = {
@@ -184,7 +254,18 @@ export default function CoachDashboard({
   onNavigate = () => {},
   onSelectCoachAthlete = () => {},
 }) {
-  const { routines: templates } = useRoutines();
+  const { routines: availableRoutines } = useRoutines();
+  const templates = useMemo(
+    () =>
+      availableRoutines.filter(
+        (routine) =>
+          routine.kind === "template" ||
+          (!routine.kind &&
+            !routine.trainingPlanId &&
+            !routine.assignedByCoachId),
+      ),
+    [availableRoutines],
+  );
   const [athletes, setAthletes] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [overview, setOverview] = useState(null);
@@ -194,6 +275,10 @@ export default function CoachDashboard({
   const [assigning, setAssigning] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [planTemplates, setPlanTemplates] = useState([]);
+  const [creatingPlanTemplate, setCreatingPlanTemplate] = useState(false);
+  const [editingPlanTemplate, setEditingPlanTemplate] = useState(null);
+  const [planTemplateManagerOpen, setPlanTemplateManagerOpen] = useState(false);
 
   const loadAthletes = async ({ silent = false } = {}) => {
     try {
@@ -208,6 +293,12 @@ export default function CoachDashboard({
 
   useEffect(() => {
     loadAthletes();
+    api
+      .getPlanTemplates()
+      .then(setPlanTemplates)
+      .catch((err) =>
+        toast.error(err.message || "No se pudieron cargar los planes base"),
+      );
   }, []);
 
   useEffect(() => {
@@ -280,13 +371,15 @@ export default function CoachDashboard({
 
   const savePlan = async (payload) => {
     try {
-      const saved = editingPlan
-        ? await api.updateCoachPlan(
-            selectedId,
-            editingPlan._id || editingPlan.id,
-            payload,
-          )
-        : await api.createCoachPlan(selectedId, payload);
+      if (editingPlan) {
+        await api.updateCoachPlan(
+          selectedId,
+          editingPlan._id || editingPlan.id,
+          payload,
+        );
+      } else {
+        await api.createCoachPlan(selectedId, payload);
+      }
       const data = await api.getCoachAthleteOverview(selectedId);
       setOverview(data);
       await loadAthletes({ silent: true });
@@ -295,11 +388,7 @@ export default function CoachDashboard({
       toast.success(editingPlan ? "Plan actualizado" : "Planificacion creada", {
         description: editingPlan
           ? `${payload.name} fue actualizado para ${selectedAthlete?.name}.`
-          : saved.status === "scheduled"
-            ? `${payload.name} comenzara en la fecha programada.`
-            : saved.status === "active"
-              ? `${payload.name} ya esta disponible para entrenar.`
-              : `Ahora completa las rutinas de ${payload.name}.`,
+          : `Revisa ${payload.name} y activalo cuando este completo.`,
       });
     } catch (err) {
       toast.error(err.message || "No se pudo crear el plan");
@@ -307,7 +396,54 @@ export default function CoachDashboard({
     }
   };
 
+  const savePlanTemplate = async (payload) => {
+    try {
+      if (editingPlanTemplate) {
+        await api.updatePlanTemplate(
+          editingPlanTemplate._id || editingPlanTemplate.id,
+          payload,
+        );
+      } else {
+        await api.createPlanTemplate(payload);
+      }
+      setPlanTemplates(await api.getPlanTemplates());
+      setCreatingPlanTemplate(false);
+      setEditingPlanTemplate(null);
+      toast.success(editingPlanTemplate ? "Plan base actualizado" : "Plan base creado", {
+        description: "Puedes reutilizarlo con cualquier atleta.",
+      });
+    } catch (err) {
+      toast.error(err.message || "No se pudo crear el plan base");
+      throw err;
+    }
+  };
+
+  const archivePlanTemplate = async (template) => {
+    if (!window.confirm(`¿Archivar ${template.name}?`)) return;
+    try {
+      await api.deletePlanTemplate(template._id || template.id);
+      setPlanTemplates(await api.getPlanTemplates());
+      toast.success("Plan base archivado");
+    } catch (err) {
+      toast.error(err.message || "No se pudo archivar el plan base");
+    }
+  };
+
   const updatePlanStatus = async (plan, status) => {
+    const currentActive = overview?.plans?.find(
+      (item) => item.status === "active",
+    );
+    if (
+      status === "active" &&
+      currentActive &&
+      String(currentActive._id || currentActive.id) !==
+        String(plan._id || plan.id) &&
+      !window.confirm(
+        `Al activar este plan se pausara ${currentActive.name}. ¿Deseas continuar?`,
+      )
+    ) {
+      return;
+    }
     try {
       const saved = await api.updateCoachPlanStatus(
         selectedId,
@@ -371,9 +507,18 @@ export default function CoachDashboard({
             Selecciona una persona para planificar o dirigir su entrenamiento.
           </p>
         </div>
-        <span className="text-sm font-black text-[color:var(--text-muted)]">
-          {athletes.length} {athletes.length === 1 ? "atleta" : "atletas"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-black text-[color:var(--text-muted)]">
+            {athletes.length} {athletes.length === 1 ? "atleta" : "atletas"}
+          </span>
+          <Button
+            variant="outline"
+            className="h-11 gap-2 rounded-lg"
+            onClick={() => setPlanTemplateManagerOpen(true)}
+          >
+            <CalendarPlus className="h-4 w-4" /> Plan base
+          </Button>
+        </div>
       </header>
 
       {loading ? (
@@ -464,9 +609,7 @@ export default function CoachDashboard({
                   <Button
                     variant="outline"
                     className="h-11 gap-2 rounded-lg"
-                    onClick={() =>
-                      requireTemplates(() => setCreatingPlan(true))
-                    }
+                    onClick={() => setCreatingPlan(true)}
                   >
                     <CalendarPlus className="h-4 w-4" />
                     Plan
@@ -802,6 +945,7 @@ export default function CoachDashboard({
         <CoachPlanModal
           athlete={selectedAthlete}
           templates={templates}
+          planTemplates={planTemplates}
           initialData={editingPlan}
           replacingPlan={editingPlan ? null : activePlan}
           onSave={savePlan}
@@ -809,6 +953,31 @@ export default function CoachDashboard({
             setCreatingPlan(false);
             setEditingPlan(null);
           }}
+        />
+      ) : null}
+      {creatingPlanTemplate ? (
+        <CoachPlanModal
+          athlete={{ name: "Plantilla reutilizable" }}
+          templates={templates}
+          planTemplates={planTemplates}
+          initialData={editingPlanTemplate}
+          onSave={savePlanTemplate}
+          onClose={() => {
+            setCreatingPlanTemplate(false);
+            setEditingPlanTemplate(null);
+          }}
+        />
+      ) : null}
+      {planTemplateManagerOpen && !creatingPlanTemplate ? (
+        <PlanTemplateManager
+          templates={planTemplates}
+          onCreate={() => setCreatingPlanTemplate(true)}
+          onEdit={(template) => {
+            setEditingPlanTemplate(template);
+            setCreatingPlanTemplate(true);
+          }}
+          onDelete={archivePlanTemplate}
+          onClose={() => setPlanTemplateManagerOpen(false)}
         />
       ) : null}
     </main>

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -21,7 +21,6 @@ import Skeleton from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
-import { API_URL } from "../services/axiosConfig";
 
 const PAGE_SIZE = 12;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -68,19 +67,61 @@ const capitalizeFirst = (value) =>
 
 const monthKey = (value) => String(value || "").slice(0, 7) || "sin-fecha";
 
-const photoUrl = (photo, width = 900, height = 1200) => {
-  if (!photo) return "";
-  if (photo.contentUrl) {
-    return `${API_URL}${photo.contentUrl}?width=${width}&height=${height}`;
-  }
-  return photo.url || "";
-};
-
 const normalizePhoto = (photo = {}) => ({
   ...photo,
   id: String(photo._id || photo.id || ""),
   view: photo.view || "front",
 });
+
+function AuthenticatedPhotoImage({ photo, width, height, alt, className }) {
+  const [objectUrl, setObjectUrl] = useState("");
+  const contentUrl = photo?.contentUrl || "";
+  const contentQuery = useQuery({
+    queryKey: ["photo-content", photo?.id, width, height],
+    queryFn: () => api.getPhotoContent(contentUrl, { width, height }),
+    enabled: Boolean(contentUrl && photo?.id),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    retry: 2,
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (!contentQuery.data) {
+      Promise.resolve().then(() => {
+        if (active) setObjectUrl("");
+      });
+      return () => {
+        active = false;
+      };
+    }
+    const nextUrl = URL.createObjectURL(contentQuery.data);
+    Promise.resolve().then(() => {
+      if (active) setObjectUrl(nextUrl);
+    });
+    return () => {
+      active = false;
+      URL.revokeObjectURL(nextUrl);
+    };
+  }, [contentQuery.data]);
+
+  const source = objectUrl || (!contentUrl ? photo?.url || "" : "");
+  if (source) {
+    return <img src={source} alt={alt} className={className} />;
+  }
+  if (contentQuery.isLoading) {
+    return <Skeleton className="h-full w-full rounded-none" />;
+  }
+  return (
+    <div
+      role="img"
+      aria-label={`${alt}. Imagen no disponible`}
+      className="grid h-full w-full place-items-center bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+    >
+      <ImagePlus className="h-6 w-6" />
+    </div>
+  );
+}
 
 function SelectField({ label, value, onChange, options }) {
   return (
@@ -131,10 +172,11 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
       }`}
     >
       <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
-        <img
-          src={photoUrl(photo, 520, 680)}
+        <AuthenticatedPhotoImage
+          photo={photo}
+          width={520}
+          height={680}
           alt={label}
-          loading="lazy"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
         />
       </div>
@@ -331,7 +373,7 @@ export default function PhotosLibrary() {
         sessionId: sessionId || null,
         routineName: sessionId ? trainingMap.get(sessionId) || "" : "",
       });
-      setActivePhoto(saved);
+      setActivePhoto(normalizePhoto(saved));
       setEditing(false);
       toast.success("Datos actualizados");
     } catch (error) {
@@ -562,8 +604,10 @@ export default function PhotosLibrary() {
                 {selectedPhotos.map((photo) => (
                   <figure key={photo.id} className="min-w-0">
                     <div className="aspect-[3/4] overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
-                      <img
-                        src={photoUrl(photo, 900, 1200)}
+                      <AuthenticatedPhotoImage
+                        photo={photo}
+                        width={900}
+                        height={1200}
                         alt={labelFor(photo)}
                         className="h-full w-full object-contain"
                       />
@@ -796,8 +840,10 @@ export default function PhotosLibrary() {
           ) : (
             <div className="space-y-3">
               <div className="overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
-                <img
-                  src={photoUrl(activePhoto, 1600, 1600)}
+                <AuthenticatedPhotoImage
+                  photo={activePhoto}
+                  width={1600}
+                  height={1600}
                   alt={labelFor(activePhoto)}
                   className="max-h-[68vh] w-full object-contain"
                 />
