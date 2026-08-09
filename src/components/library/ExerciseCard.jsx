@@ -9,10 +9,7 @@ import {
 } from "../../constants/exerciseTaxonomy";
 
 export default function ExerciseCard({ exercise, onView }) {
-  const imageSrc = getExerciseImageUrl(exercise, {
-    width: 260,
-    height: 220,
-  });
+  const imageSrc = getExerciseImageUrl(exercise, { preset: "card" });
   const isPersonal = exercise.type === "custom" && Boolean(exercise.ownerId);
   const muscle = getPrimaryMuscleGroup(exercise) || "Sin grupo";
   const category = getExerciseCategories(exercise)[0] || "Ejercicio";

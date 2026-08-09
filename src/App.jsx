@@ -7,6 +7,7 @@ import MainLayout from "./components/layout/MainLayout";
 import RegisterTraining from "./pages/RegisterTraining";
 import ExerciseAnalyticsPage from "./pages/ExerciseAnalyticsPage";
 import SessionSummaryPage from "./pages/SessionSummaryPage";
+import DataIntelligencePage from "./pages/DataIntelligencePage";
 import Routines from "./pages/Routines";
 import ProfileSettings from "./pages/ProfileSettings";
 import PhotosLibrary from "./pages/PhotosLibrary";
@@ -20,6 +21,12 @@ import { useAuth } from "./context/AuthContext";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
 import { UserProvider } from "./context/UserContext";
+import {
+  canAccessActiveTraining,
+  clearActiveTrainingSnapshot,
+  isActiveTrainingSnapshot,
+  readActiveTrainingSnapshot,
+} from "./utils/activeTraining";
 
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
@@ -30,6 +37,10 @@ const PAGES = {
     component: ExerciseAnalyticsPage,
   },
   resumen_sesion: { label: "Resumen de Sesion", component: SessionSummaryPage },
+  data_intelligence: {
+    label: "Inteligencia de datos",
+    component: DataIntelligencePage,
+  },
   rutinas: { label: "Rutinas y Planificacion", component: Routines },
   trainer: { label: "Mis atletas", component: CoachDashboard },
   coach_admin: { label: "Coaches y atletas", component: CoachManagement },
@@ -40,7 +51,7 @@ const PAGES = {
 
 const PAGE_ROLES = {
   admin_sesiones: ["Admin", "Entrenador"],
-  trainer: ["Entrenador"],
+  trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
 };
 
@@ -51,8 +62,16 @@ const COACH_ALLOWED_PAGES = new Set([
   "trainer",
   "rutinas",
   "library",
+  "ejercicio_analitica",
+  "resumen_sesion",
+  "data_intelligence",
   "admin_sesiones",
   "perfil",
+]);
+const COACH_ATHLETE_CONTEXT_PAGES = new Set([
+  "ejercicio_analitica",
+  "resumen_sesion",
+  "data_intelligence",
 ]);
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "dashboard",
@@ -65,6 +84,7 @@ const EXERCISE_CONTEXT_PAGES = new Set([
   "registrar",
   "ejercicio_analitica",
   "resumen_sesion",
+  "data_intelligence",
   "rutinas",
   "admin_sesiones",
 ]);
@@ -102,20 +122,25 @@ const roleHome = (role) => {
 };
 
 const hasActiveTrainingSnapshot = () => {
-  if (typeof localStorage === "undefined") return false;
-  const raw =
-    localStorage.getItem(SNAPSHOT_KEY) ||
-    localStorage.getItem(LEGACY_TRAINING_KEY);
-  if (!raw) return false;
+  return isActiveTrainingSnapshot(readActiveTrainingSnapshot());
+};
+
+const hasAccessibleTrainingSnapshot = (user, coachAthlete) =>
+  canAccessActiveTraining(readActiveTrainingSnapshot(), user, coachAthlete);
+
+const getActiveTrainingOwnerId = () => {
+  if (!hasActiveTrainingSnapshot() || typeof localStorage === "undefined") {
+    return "";
+  }
   try {
-    const snap = JSON.parse(raw);
-    const elapsed = Number(snap?.elapsed ?? snap?.durationSeconds ?? 0) || 0;
-    return Boolean(
-      snap?.selectedRoutineId &&
-      (snap?.hasStarted || snap?.isRunning || elapsed > 0),
+    const snapshot = JSON.parse(
+      localStorage.getItem(SNAPSHOT_KEY) ||
+        localStorage.getItem(LEGACY_TRAINING_KEY) ||
+        "null",
     );
+    return String(snapshot?.ownerId || "");
   } catch {
-    return false;
+    return "";
   }
 };
 
@@ -133,15 +158,49 @@ function App() {
 
   const selectCoachAthlete = (athlete) => {
     const next = athlete?.id ? athlete : null;
+    if (hasAccessibleTrainingSnapshot(user, coachAthlete)) {
+      const activeOwnerId = getActiveTrainingOwnerId() || coachAthlete?.id;
+      if (!next || String(next.id) !== String(activeOwnerId || "")) {
+        return false;
+      }
+    }
     setCoachAthlete(next);
     if (typeof localStorage !== "undefined") {
       if (next) localStorage.setItem(COACH_ATHLETE_KEY, JSON.stringify(next));
       else localStorage.removeItem(COACH_ATHLETE_KEY);
     }
+    return true;
   };
 
-  const handleNavigate = (page) => {
-    if (page === "trainer" && coachAthlete && !hasActiveTrainingSnapshot()) {
+  const handleNavigate = (page, options = {}) => {
+    const snapshot =
+      page === "registrar" ? readActiveTrainingSnapshot() : null;
+    const hasInaccessibleTraining = Boolean(
+      isActiveTrainingSnapshot(snapshot) &&
+        !canAccessActiveTraining(snapshot, user, coachAthlete),
+    );
+    if (hasInaccessibleTraining) {
+      clearActiveTrainingSnapshot();
+      window.dispatchEvent(new Event("active-training-updated"));
+    }
+    if (
+      page === "registrar" &&
+      !options.trainingView &&
+      (!isActiveTrainingSnapshot(snapshot) || hasInaccessibleTraining)
+    ) {
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("view_training_id");
+        localStorage.removeItem("view_training_date");
+        localStorage.removeItem("edit_training_id");
+        localStorage.removeItem("edit_training_date");
+      }
+      window.dispatchEvent(new Event("open-default-training-page"));
+    }
+    if (
+      page === "trainer" &&
+      coachAthlete &&
+      !hasAccessibleTrainingSnapshot(user, coachAthlete)
+    ) {
       selectCoachAthlete(null);
     }
     setActivePage(page);
@@ -162,6 +221,30 @@ function App() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated || activePage !== "registrar") return;
+    const snapshot = readActiveTrainingSnapshot();
+    if (!isActiveTrainingSnapshot(snapshot)) return;
+    if (canAccessActiveTraining(snapshot, user, coachAthlete)) return;
+    clearActiveTrainingSnapshot();
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("view_training_id");
+      localStorage.removeItem("view_training_date");
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+    }
+    window.dispatchEvent(new Event("active-training-updated"));
+    window.dispatchEvent(new Event("open-default-training-page"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activePage,
+    coachAthlete?.id,
+    isAuthenticated,
+    user?.id,
+    user?._id,
+    user?.role,
+  ]);
+
+  useEffect(() => {
     const handlePopState = () => {
       const authPage = authPageFromPath();
       const storedPage = localStorage.getItem("active_page");
@@ -177,6 +260,10 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "Entrenador") return;
+    if (COACH_ATHLETE_CONTEXT_PAGES.has(activePage) && !coachAthlete?.id) {
+      handleNavigate("trainer");
+      return;
+    }
     const isSupervisedTraining = activePage === "registrar" && coachAthlete;
     if (!COACH_ALLOWED_PAGES.has(activePage) && !isSupervisedTraining) {
       handleNavigate("trainer");
@@ -214,7 +301,13 @@ function App() {
   const PageComponent = pageEntry.component;
   const allowedRoles = PAGE_ROLES[activePage] || [];
   const supervisedOwnerId =
-    user?.role === "Entrenador" && activePage === "registrar"
+    ["Admin", "Entrenador"].includes(user?.role) &&
+    [
+      "registrar",
+      "ejercicio_analitica",
+      "resumen_sesion",
+      "data_intelligence",
+    ].includes(activePage)
       ? coachAthlete?.id || ""
       : "";
 
@@ -261,8 +354,8 @@ function App() {
             onNavigate={handleNavigate}
             coachAthlete={supervisedOwnerId ? coachAthlete : null}
             onCoachContextExit={() => {
-              if (hasActiveTrainingSnapshot()) {
-                handleNavigate("registrar");
+              if (hasAccessibleTrainingSnapshot(user, coachAthlete)) {
+                handleNavigate("trainer");
                 return;
               }
               selectCoachAthlete(null);

@@ -3,6 +3,12 @@ const CLOUDINARY_CLOUD_NAME =
   "dsonnxkhz";
 const CLOUDINARY_BASE = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
+export const EXERCISE_IMAGE_PRESETS = Object.freeze({
+  thumbnail: { width: 240, height: 240, crop: "fill", gravity: "auto" },
+  card: { width: 480, height: 480, crop: "fill", gravity: "auto" },
+  detail: { width: 1280, height: 720, crop: "fit", gravity: null },
+});
+
 const buildTransform = ({
   width,
   height,
@@ -45,22 +51,35 @@ const extractPublicId = (url) => {
 
 export const buildCloudinaryUrl = (publicId, opts = {}) => {
   if (!publicId) return "";
-  const transform = buildTransform(opts);
+  const { version, ...transformOptions } = opts;
+  const transform = buildTransform(transformOptions);
+  const versionPath = Number(version) > 0 ? `/v${Number(version)}` : "";
   return transform
-    ? `${CLOUDINARY_BASE}/${transform}/${publicId}`
-    : `${CLOUDINARY_BASE}/${publicId}`;
+    ? `${CLOUDINARY_BASE}/${transform}${versionPath}/${publicId}`
+    : `${CLOUDINARY_BASE}${versionPath}/${publicId}`;
 };
 
 export const getExerciseImageUrl = (exercise, opts = {}) => {
   if (!exercise) return "";
+  const { preset, ...requestedOptions } = opts;
+  const transformOptions = {
+    ...(preset ? EXERCISE_IMAGE_PRESETS[preset] : {}),
+    ...requestedOptions,
+  };
+  const imageAsset = exercise.media?.image;
   const publicId =
-    exercise.media?.image?.publicId ||
+    imageAsset?.publicId ||
     exercise.imagePublicId ||
     exercise.publicId ||
     exercise.cloudinaryPublicId ||
     extractPublicId(exercise.media?.image?.url || exercise.image);
-  if (publicId) return buildCloudinaryUrl(publicId, opts);
-  return exercise.media?.image?.url || exercise.image || "";
+  if (publicId) {
+    return buildCloudinaryUrl(publicId, {
+      ...transformOptions,
+      version: imageAsset?.version || transformOptions.version,
+    });
+  }
+  return imageAsset?.url || exercise.image || "";
 };
 
 export const getExerciseAnimationUrl = (exercise) => {

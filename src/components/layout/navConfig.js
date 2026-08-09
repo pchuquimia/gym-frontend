@@ -1,4 +1,5 @@
 import {
+  BrainCircuit,
   ClipboardList,
   Dumbbell,
   Images,
@@ -27,6 +28,11 @@ export const sections = [
     items: [
       { id: "ejercicio_analitica", label: "Por ejercicio", icon: Layers },
       { id: "resumen_sesion", label: "Resumen de sesion", icon: Layers },
+      {
+        id: "data_intelligence",
+        label: "Inteligencia de datos",
+        icon: BrainCircuit,
+      },
     ],
   },
   {
@@ -36,7 +42,7 @@ export const sections = [
         id: "trainer",
         label: "Mis atletas",
         icon: Users,
-        roles: ["Entrenador"],
+        roles: ["Admin", "Entrenador"],
       },
     ],
   },
@@ -79,6 +85,21 @@ export const coachSections = [
         icon: ClipboardList,
       },
       { id: "library", label: "Biblioteca de ejercicios", icon: Dumbbell },
+      {
+        id: "ejercicio_analitica",
+        label: "Progreso por ejercicio",
+        icon: Layers,
+      },
+      {
+        id: "resumen_sesion",
+        label: "Resumen de sesion",
+        icon: Layers,
+      },
+      {
+        id: "data_intelligence",
+        label: "Inteligencia de datos",
+        icon: BrainCircuit,
+      },
       { id: "admin_sesiones", label: "Historial de atletas", icon: Shield },
     ],
   },

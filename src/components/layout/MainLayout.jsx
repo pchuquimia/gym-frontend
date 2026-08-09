@@ -1,13 +1,15 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { ArrowRight, Timer } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import MobileMenuButton from "./MobileMenuButton";
 import ThemeToggle from "../ThemeToggle";
 import { useThemeMode } from "../../hooks/useThemeMode";
-
-const SNAPSHOT_KEY = "active_training_snapshot";
-const LEGACY_KEY = "active_training";
+import { useAuth } from "../../context/AuthContext";
+import {
+  canAccessActiveTraining,
+  readActiveTrainingSnapshot,
+} from "../../utils/activeTraining";
 
 function MainLayout({
   children,
@@ -20,7 +22,16 @@ function MainLayout({
   const pollRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const { isDark } = useThemeMode();
+  const { user } = useAuth();
   const useDashboardChrome = activePage === "dashboard";
+  const useDashboardBackground =
+    useDashboardChrome ||
+    activePage === "perfil" ||
+    activePage === "fotos" ||
+    activePage === "admin_sesiones" ||
+    activePage === "ejercicio_analitica" ||
+    activePage === "resumen_sesion" ||
+    activePage === "data_intelligence";
   const useTrainingChrome = activePage === "registrar";
 
   const formatDuration = (sec) => {
@@ -33,26 +44,20 @@ function MainLayout({
       .join(":");
   };
 
-  const readSnapshot = () => {
-    if (typeof localStorage === "undefined") return null;
-    const raw =
-      localStorage.getItem(SNAPSHOT_KEY) ?? localStorage.getItem(LEGACY_KEY);
-    if (!raw) return null;
+  const readSnapshot = useCallback(() => {
+    const snap = readActiveTrainingSnapshot();
+    if (!canAccessActiveTraining(snap, user, coachAthlete)) return null;
     try {
-      const snap = JSON.parse(raw);
       let elapsed = Number(snap?.elapsed ?? snap?.durationSeconds ?? 0);
       if (snap?.isRunning && snap?.lastUpdate) {
         elapsed += Math.max(0, (Date.now() - snap.lastUpdate) / 1000);
       }
       const total = Math.max(0, Math.floor(elapsed));
-      const hasSnapshot =
-        snap?.selectedRoutineId &&
-        (total > 0 || snap?.isRunning || snap?.hasStarted);
-      return hasSnapshot ? { ...snap, elapsed: total } : null;
+      return { ...snap, elapsed: total };
     } catch {
       return null;
     }
-  };
+  }, [coachAthlete, user]);
 
   useEffect(() => {
     const loadSnapshot = () => setActiveTraining(readSnapshot());
@@ -65,7 +70,7 @@ function MainLayout({
       window.removeEventListener("active-training-updated", loadSnapshot);
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [readSnapshot]);
 
   useEffect(() => {
     const openMainMenu = () => setShowDrawer(true);
@@ -81,7 +86,7 @@ function MainLayout({
     if (activePage === "registrar" && page !== "registrar") {
       window.dispatchEvent(new Event("persist-active-training"));
     }
-    onNavigate?.(page);
+    onNavigate?.(page, { source: "navigation" });
   };
 
   const showReturnTraining = activePage !== "registrar" && activeTraining;
@@ -89,7 +94,7 @@ function MainLayout({
   return (
     <div
       className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] dark:!bg-[#050505] dark:!text-[#f8f8f4] flex flex-col transition-colors ${
-        useDashboardChrome ? "dashboard-app-shell" : ""
+        useDashboardBackground ? "dashboard-app-shell" : ""
       }`}
       style={{
         backgroundColor: isDark ? "#050505" : "var(--bg)",
@@ -110,7 +115,9 @@ function MainLayout({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-black uppercase leading-none">
-                Entrenamiento en curso
+                {activeTraining.athleteName
+                  ? `Entrenando a ${activeTraining.athleteName}`
+                  : "Entrenamiento en curso"}
               </span>
               <span className="mt-1 block font-mono text-xs font-bold leading-none">
                 {formatDuration(activeTraining.elapsed || 0)}
@@ -125,7 +132,11 @@ function MainLayout({
           <div className="sticky top-0 z-30 hidden w-full border-b border-[color:var(--border)] bg-[color:var(--card)] shadow-sm md:block">
             <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
               <div className="flex items-center gap-1 text-sm text-[color:var(--text-muted)]">
-                <span>Sesión en curso</span>
+                <span>
+                  {activeTraining.athleteName
+                    ? `Sesión de ${activeTraining.athleteName}`
+                    : "Sesión en curso"}
+                </span>
                 <span className="ml-1 font-mono font-semibold text-[color:var(--text)]">
                   {formatDuration(activeTraining.elapsed || 0)}
                 </span>
@@ -146,11 +157,7 @@ function MainLayout({
         </div>
         <div
           className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
-            useDashboardChrome
-              ? "max-md:pb-24 max-md:pt-0"
-              : isDark || useTrainingChrome
-                ? "max-md:pb-24"
-                : ""
+            useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : "max-md:pb-24"
           }`}
         >
           <div
@@ -168,7 +175,11 @@ function MainLayout({
             <ThemeToggle />
           </div>
           {coachAthlete ? (
-            <div className="mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-[#ffb199] bg-[#fff0eb] px-3 py-2 dark:border-[#e2ff00]/25 dark:bg-[#e2ff00]/10">
+            <div
+              className={`mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-[#ffb199] bg-[#fff0eb] px-3 py-2 dark:border-[#e2ff00]/25 dark:bg-[#e2ff00]/10 ${
+                useTrainingChrome ? "max-md:mt-12" : ""
+              }`}
+            >
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#b82f05] dark:text-[#e2ff00]">
                   Sesión supervisada
@@ -180,9 +191,14 @@ function MainLayout({
               <button
                 type="button"
                 onClick={onCoachContextExit}
+                aria-label={
+                  activeTraining
+                    ? "Volver a Mis atletas sin cerrar la sesión"
+                    : "Salir de la sesión supervisada"
+                }
                 className="h-10 shrink-0 rounded-lg border border-[#ff8a66] px-3 text-xs font-black text-[#b82f05] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]"
               >
-                Salir
+                {activeTraining ? "Mis atletas" : "Salir"}
               </button>
             </div>
           ) : null}
@@ -211,13 +227,7 @@ function MainLayout({
         </div>
       )}
 
-      <div
-        className={
-          isDark || useDashboardChrome || useTrainingChrome
-            ? "fixed inset-x-0 bottom-0 z-40 md:hidden"
-            : "hidden"
-        }
-      >
+      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
         <MobileNav activePage={activePage} onNavigate={handleNavigate} />
       </div>
     </div>

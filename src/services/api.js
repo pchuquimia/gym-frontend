@@ -78,6 +78,21 @@ export const api = {
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
   getCoachAthletes: () => request("/api/coach/athletes"),
+  getCoachLinkCode: () => request("/api/coach/link-code"),
+  regenerateCoachLinkCode: () =>
+    request("/api/coach/link-code/regenerate", { method: "POST" }),
+  getCoachRelationship: () => request("/api/coach/relationship"),
+  connectCoach: (coachCode, confirmTransfer = false) =>
+    request("/api/coach/relationship", {
+      method: "POST",
+      body: JSON.stringify({ coachCode, confirmTransfer }),
+    }),
+  disconnectCoach: () =>
+    request("/api/coach/relationship", { method: "DELETE" }),
+  releaseCoachAthlete: (athleteId) =>
+    request(`/api/coach/athletes/${athleteId}/relationship`, {
+      method: "DELETE",
+    }),
   getCoachAthleteOverview: (athleteId) =>
     request(`/api/coach/athletes/${athleteId}/overview`),
   assignCoachRoutine: (athleteId, payload) =>
@@ -191,6 +206,25 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   deleteExercise: (id) => request(`/api/exercises/${id}`, { method: "DELETE" }),
+  getExerciseMigrationCandidates: () =>
+    request("/api/exercises/admin/migrations"),
+  migrateExerciseCatalogData: (payload) =>
+    request("/api/exercises/admin/migrations", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteLegacyExercise: (id) =>
+    request(`/api/exercises/admin/legacy/${id}`, { method: "DELETE" }),
+  replaceExerciseImage: async (id, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await axiosClient.post(
+      `/api/exercises/admin/${id}/image`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  },
   uploadExerciseMedia: async (id, formData) => {
     const response = await axiosClient.post(
       `/api/exercises/${id}/media`,
@@ -273,6 +307,10 @@ export const api = {
     }).toString();
     return request(`/api/trainings/summary?${query}`);
   },
+  getTrainingIntelligence: (athleteId = "") =>
+    request(
+      `/api/analytics/intelligence${athleteId ? `?athleteId=${athleteId}` : ""}`,
+    ),
 
   getPhotos: (params = {}) => {
     const options = typeof params === "string" ? { type: params } : params;

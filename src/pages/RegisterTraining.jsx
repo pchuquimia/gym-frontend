@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowLeft,
   ArrowRight,
   CalendarDays,
   Check,
@@ -14,6 +15,7 @@ import {
   Minimize2,
   MoreVertical,
   Pause,
+  Pencil,
   Play,
   RotateCcw,
   Timer,
@@ -30,10 +32,13 @@ import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPlanner";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
+import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
+import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -434,9 +439,7 @@ const getRoutineDefinitionSignature = (routine = {}) =>
     name: routine.name || "",
     branch: normalizeBranch(routine.branch),
     exerciseOrderMode:
-      routine.exerciseOrderMode === "muscle_blocks"
-        ? "muscle_blocks"
-        : "free",
+      routine.exerciseOrderMode === "muscle_blocks" ? "muscle_blocks" : "free",
     exercises: (routine.exercises || []).map((exercise) => ({
       exerciseId: exercise.exerciseId || exercise.id || "",
       name: exercise.name || "",
@@ -1203,7 +1206,11 @@ function DevTrainingDateControl({ value, onChange }) {
   );
 }
 
-export default function RegisterTraining({ onNavigate = () => {} }) {
+export default function RegisterTraining({
+  onNavigate = () => {},
+  coachAthlete = null,
+}) {
+  const { user: authUser } = useAuth();
   const {
     routines,
     loading: routinesLoading,
@@ -1257,6 +1264,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [loadingExternalHistory, setLoadingExternalHistory] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isHistoryReadOnly, setIsHistoryReadOnly] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState(() =>
     normalizeBranch(userBranch),
   );
@@ -1271,6 +1279,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const [selectedPlanContext, setSelectedPlanContext] = useState(null);
   const [pendingSameDayTraining, setPendingSameDayTraining] = useState(null);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+  const [desktopSessionMenuOpen, setDesktopSessionMenuOpen] = useState(false);
   const initializedTrainingScreen = useRef(false);
   const routineLoadRequestRef = useRef(0);
   const loadedHistoryRoutineRef = useRef("");
@@ -1295,6 +1304,33 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
   const notifyRestCompleteRef = useRef(null);
   const restAudioContextRef = useRef(null);
   const startSetupSessionRef = useRef(null);
+  const resetStateRef = useRef(null);
+  const desktopSessionMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!desktopSessionMenuOpen) return undefined;
+    const closeMenu = (event) => {
+      if (
+        event.type === "keydown" &&
+        event.key !== "Escape"
+      ) {
+        return;
+      }
+      if (
+        event.type === "pointerdown" &&
+        desktopSessionMenuRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+      setDesktopSessionMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeMenu);
+    };
+  }, [desktopSessionMenuOpen]);
 
   const locationDisabled = locationMode === "disabled";
   const requiresBranchSelection = locationMode === "multiple";
@@ -2496,11 +2532,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     }
   };
 
-  const loadTrainingById = async (id) => {
+  const loadTrainingById = async (id, { readOnly = false } = {}) => {
     if (!id) return;
+    const requestId = routineLoadRequestRef.current + 1;
+    routineLoadRequestRef.current = requestId;
     setLoadingTraining(true);
     try {
       const training = await api.getTraining(id);
+      if (requestId !== routineLoadRequestRef.current) return;
       const routineId = training.routineId || allRoutineOptions[0]?.id;
       const routine =
         allRoutineOptions.find((r) => r.id === routineId) ||
@@ -2512,7 +2551,11 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       setSelectedRoutineId(routine.id);
       setSelectedRoutine(routine);
       setIsEditing(true);
-      const hist = await loadHistoryForRoutine(routine.id);
+      setIsHistoryReadOnly(readOnly);
+      const hist = await loadHistoryForRoutine(routine.id, { commit: false });
+      if (requestId !== routineLoadRequestRef.current) return;
+      loadedHistoryRoutineRef.current = routine.id;
+      setHistoryTrainings(hist);
       const matchingHist = filterHistoryByOrderSignature(
         hist,
         getTrainingOrderSignature(training),
@@ -2547,11 +2590,22 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           : buildFallbackTimeEvents(training.durationSeconds),
       );
     } catch (e) {
+      if (requestId !== routineLoadRequestRef.current) return;
       console.warn("No se pudo cargar el entrenamiento a editar", e);
       if (typeof localStorage !== "undefined")
         localStorage.removeItem("edit_training_id");
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("view_training_id");
+        localStorage.removeItem("view_training_date");
+      }
       setEditingId("");
       setIsEditing(false);
+      setIsHistoryReadOnly(false);
+      if (readOnly) {
+        resetStateRef.current?.();
+        toast.error("La sesión consultada ya no está disponible.");
+        return;
+      }
       // fallback: cargar rutina inicial en la fecha actual
       const routine =
         allRoutineOptions.find((r) => r.id === selectedRoutineId) ||
@@ -2561,7 +2615,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         await loadTrainingForDate(sessionDate, routine.id);
       }
     } finally {
-      setLoadingTraining(false);
+      if (requestId === routineLoadRequestRef.current) {
+        setLoadingTraining(false);
+      }
     }
   };
   const loadHistoryForRoutine = async (_routineId, options = {}) => {
@@ -2633,6 +2689,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (!allRoutineOptions.length) return;
     if (initializedTrainingScreen.current) return;
     initializedTrainingScreen.current = true;
+    const viewId =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("view_training_id")
+        : "";
+    const viewDate =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("view_training_date")
+        : "";
     const editId =
       typeof localStorage !== "undefined"
         ? localStorage.getItem("edit_training_id")
@@ -2641,7 +2705,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       typeof localStorage !== "undefined"
         ? localStorage.getItem("edit_training_date")
         : "";
-    if (editId) {
+    if (viewId) {
+      setEditingId(viewId);
+      (async () => {
+        await loadTrainingByIdRef.current?.(viewId, { readOnly: true });
+        if (viewDate) setSessionDate(viewDate);
+      })();
+    } else if (editId) {
       setEditingId(editId);
       (async () => {
         await loadTrainingByIdRef.current?.(editId);
@@ -2649,6 +2719,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       })();
     } else {
       setIsEditing(false);
+      setIsHistoryReadOnly(false);
       // esperar a que el usuario seleccione rutina
       setSelectedRoutineId(null);
       setSelectedRoutine(null);
@@ -2773,7 +2844,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } finally {
       localStorage.removeItem(TRAINING_PLAN_ROUTINE_INTENT_KEY);
     }
-  }, [allRoutineOptions, isEditing, selectedRoutineId]);
+  }, [allRoutineOptions, dataOwnerId, isEditing, selectedRoutineId]);
 
   // Restaurar entrenamiento activo desde snapshot local
   useEffect(() => {
@@ -2786,6 +2857,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     try {
       const snap = JSON.parse(raw);
       if (!snap?.selectedRoutineId) return;
+      if (!canAccessActiveTraining(snap, authUser, coachAthlete)) {
+        toast.error("Este entrenamiento fue iniciado por otro usuario.");
+        return;
+      }
+      if (
+        snap.ownerId &&
+        dataOwnerId &&
+        String(snap.ownerId) !== String(dataOwnerId)
+      ) {
+        toast.error(
+          `Este entrenamiento pertenece a ${snap.athleteName || "otro atleta"}.`,
+        );
+        return;
+      }
       const snapshotElapsed = Number(snap.durationSeconds ?? snap.elapsed ?? 0);
       if (!snap.hasStarted && !snap.isRunning && snapshotElapsed <= 0) {
         localStorage.removeItem(SNAPSHOT_KEY);
@@ -2940,7 +3025,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     } catch (e) {
       console.warn("No se pudo restaurar el entrenamiento activo", e);
     }
-  }, [allRoutineOptions, isEditing, selectedRoutineId]);
+  }, [
+    allRoutineOptions,
+    authUser,
+    coachAthlete,
+    dataOwnerId,
+    isEditing,
+    selectedRoutineId,
+  ]);
 
   useEffect(() => {
     if (!historyTrainings.length) return;
@@ -2984,6 +3076,10 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       const liveTimingSummary = calculateTimingSummary(timeEvents, now);
       const liveDurationSeconds = liveTimingSummary.durationSeconds;
       const snapshot = {
+        ownerId: dataOwnerId || "",
+        athleteName: coachAthlete?.name || "",
+        startedById: getUserId(authUser),
+        startedByName: authUser?.name || authUser?.email || "",
         selectedRoutineId,
         selectedRoutine,
         selectedBranch,
@@ -3017,6 +3113,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     activeExerciseId,
     timeEvents,
     exercises,
+    dataOwnerId,
+    coachAthlete?.name,
+    authUser,
   ]);
 
   // Guardar snapshot local del entrenamiento en curso
@@ -3386,6 +3485,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setSessionDate(todayISO);
     setEditingId("");
     setIsEditing(false);
+    setIsHistoryReadOnly(false);
     setHasStarted(false);
     setSessionMenuOpen(false);
     if (typeof localStorage !== "undefined") {
@@ -3393,9 +3493,25 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
+      localStorage.removeItem("view_training_id");
+      localStorage.removeItem("view_training_date");
       window.dispatchEvent(new Event("active-training-updated"));
     }
   };
+  resetStateRef.current = resetState;
+
+  useEffect(() => {
+    const openDefaultTrainingPage = () => resetStateRef.current?.();
+    window.addEventListener(
+      "open-default-training-page",
+      openDefaultTrainingPage,
+    );
+    return () =>
+      window.removeEventListener(
+        "open-default-training-page",
+        openDefaultTrainingPage,
+      );
+  }, []);
 
   const handleSelectRoutine = (id, planContext = null) => {
     if (!id || id === "sin-rutina") return;
@@ -3494,7 +3610,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           scheduledDate: selection.scheduledDate || "",
           selectedDayIndex: Number(selection.dayIndex) + 1,
           scheduleMode:
-            selection.scheduleMode || activeTrainingPlan?.scheduleMode || "fixed",
+            selection.scheduleMode ||
+            activeTrainingPlan?.scheduleMode ||
+            "fixed",
           acknowledgedAt: new Date().toISOString(),
         }
       : null;
@@ -3598,12 +3716,15 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
+      localStorage.removeItem("view_training_id");
+      localStorage.removeItem("view_training_date");
       localStorage.removeItem(SNAPSHOT_KEY);
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
     }
     if (timerRef.current) clearInterval(timerRef.current);
     setEditingId("");
     setIsEditing(false);
+    setIsHistoryReadOnly(false);
     setHasStarted(false);
     setBranchConfirmed(false);
     setSelectedRoutineId(null);
@@ -3625,6 +3746,30 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setNowMs(Date.now());
+  };
+
+  const handleEnableHistoryEdit = () => {
+    if (!editingId) return;
+    setIsHistoryReadOnly(false);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("view_training_id");
+      localStorage.removeItem("view_training_date");
+      localStorage.setItem("edit_training_id", editingId);
+      localStorage.setItem("edit_training_date", sessionDate);
+    }
+    toast.success("Modo edición activado");
+  };
+
+  const handleExitHistoryView = () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("view_training_id");
+      localStorage.removeItem("view_training_date");
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+    }
+    setIsHistoryReadOnly(false);
+    setIsEditing(false);
+    onNavigate("admin_sesiones");
   };
 
   const handleSeriesTypeChange = (exerciseId, value) => {
@@ -4019,9 +4164,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     setExercises((prev) =>
       applyExerciseOrder(prev.filter((ex) => ex.id !== exerciseId)),
     );
-    setExpandedExerciseId((current) =>
-      current === exerciseId ? "" : current,
-    );
+    setExpandedExerciseId((current) => (current === exerciseId ? "" : current));
     setActiveExerciseId((current) => (current === exerciseId ? "" : current));
     toast("Ejercicio eliminado solo para hoy");
     if (trackingExerciseId === exerciseId) {
@@ -4439,6 +4582,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
   const performCancel = () => {
     setSessionMenuOpen(false);
+    setDesktopSessionMenuOpen(false);
     setCancelConfirmOpen(false);
     if (isEditing) {
       handleExitEdit();
@@ -4484,10 +4628,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     [exercises],
   );
   const showFinishButton =
-    isEditing || hasStarted || isRunning || durationSeconds > 0;
-  const showCancelButton = hasStarted || isRunning || durationSeconds > 0;
-  const showResetButton = hasStarted || durationSeconds > 0;
-  const showMobileTrainingBar = hasStarted || isRunning || durationSeconds > 0;
+    !isHistoryReadOnly &&
+    (isEditing || hasStarted || isRunning || durationSeconds > 0);
+  const showCancelButton =
+    !isHistoryReadOnly && (hasStarted || isRunning || durationSeconds > 0);
+  const showResetButton =
+    !isHistoryReadOnly && (hasStarted || durationSeconds > 0);
+  const showMobileTrainingBar =
+    isHistoryReadOnly || hasStarted || isRunning || durationSeconds > 0;
   const progressPct = totalSets
     ? Math.min(100, Math.round((doneSets / totalSets) * 100))
     : 0;
@@ -4615,53 +4763,84 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden"
           >
             <div className="mx-auto flex max-w-md items-center gap-1.5">
-              <MobileMenuButton />
-              <button
-                type="button"
-                onClick={() => setSessionMenuOpen(true)}
-                className="grid h-10 w-8 shrink-0 place-items-center text-[#ff5722] dark:text-[#e2ff00]"
-                aria-label="Opciones del entrenamiento"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </button>
+              {isHistoryReadOnly ? (
+                <button
+                  type="button"
+                  onClick={handleExitHistoryView}
+                  className="grid h-10 w-10 shrink-0 place-items-center text-[color:var(--text)]"
+                  aria-label="Volver al historial"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+              ) : (
+                <>
+                  <MobileMenuButton />
+                  <button
+                    type="button"
+                    onClick={() => setSessionMenuOpen(true)}
+                    className="grid h-10 w-8 shrink-0 place-items-center text-[#ff5722] dark:text-[#e2ff00]"
+                    aria-label="Opciones del entrenamiento"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </>
+              )}
               <div className="min-w-0 flex-1" />
-              <button
-                type="button"
-                onClick={isRunning ? handlePause : handleStart}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)]"
-                aria-label={`${isRunning ? "Pausar" : "Reanudar"} entrenamiento, ${formatDuration(durationSeconds)}`}
-              >
-                <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
-                {formatDuration(durationSeconds)}
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenRestTimer}
-                className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
-                  restTimerRunning
-                    ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                    : "bg-[color:var(--card)] text-[color:var(--text)]"
-                }`}
-                aria-label="Abrir temporizador de descanso"
-              >
-                <Hourglass className="h-4 w-4" />
-                {restTimerStarted ? (
-                  <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#ff5722] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
-                    {restTimerLabel}
-                  </span>
-                ) : null}
-              </button>
+              {isHistoryReadOnly ? (
+                <div className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)] dark:rounded-[3px]">
+                  <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
+                  {formatDuration(durationSeconds)}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={isRunning ? handlePause : handleStart}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)]"
+                  aria-label={`${isRunning ? "Pausar" : "Reanudar"} entrenamiento, ${formatDuration(durationSeconds)}`}
+                >
+                  <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
+                  {formatDuration(durationSeconds)}
+                </button>
+              )}
+              {!isHistoryReadOnly ? (
+                <button
+                  type="button"
+                  onClick={handleOpenRestTimer}
+                  className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
+                    restTimerRunning
+                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "bg-[color:var(--card)] text-[color:var(--text)]"
+                  }`}
+                  aria-label="Abrir temporizador de descanso"
+                >
+                  <Hourglass className="h-4 w-4" />
+                  {restTimerStarted ? (
+                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#ff5722] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                      {restTimerLabel}
+                    </span>
+                  ) : null}
+                </button>
+              ) : null}
               <ThemeToggle compact />
-              {showFinishButton ? (
+              {isHistoryReadOnly ? (
+                <button
+                  type="button"
+                  onClick={handleEnableHistoryEdit}
+                  className="theme-accent-solid inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black uppercase dark:rounded-[3px]"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar rutina
+                </button>
+              ) : showFinishButton ? (
                 <button
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-1.5 min-[430px]:px-3 dark:bg-[#e2ff00] dark:text-black"
                   aria-label="Finalizar entrenamiento"
                 >
                   <Flag className="h-4 w-4" />
-                  <span className="hidden min-[360px]:inline">Finalizar</span>
+                  <span className="hidden min-[430px]:inline">Finalizar</span>
                 </button>
               ) : null}
             </div>
@@ -4736,7 +4915,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           }`}
         >
           <h1 className="font-condensed text-4xl font-bold uppercase">
-            Registrar entrenamiento
+            {isHistoryReadOnly
+              ? "Entrenamiento registrado"
+              : "Registrar entrenamiento"}
           </h1>
           <div className="flex items-center gap-2">
             {!setupStarted && !isEditing ? (
@@ -4745,7 +4926,26 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                 onChange={handleDevTrainingDateChange}
               />
             ) : null}
-            {isEditing ? (
+            {isHistoryReadOnly ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExitHistoryView}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Historial
+                </Button>
+                <Button
+                  size="sm"
+                  className="theme-accent-solid"
+                  onClick={handleEnableHistoryEdit}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar rutina
+                </Button>
+              </>
+            ) : isEditing ? (
               <Button variant="outline" size="sm" onClick={handleExitEdit}>
                 Salir de edición
               </Button>
@@ -5034,9 +5234,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
 
         {setupStarted || isEditing ? (
           <div className="hidden md:sticky md:top-2 md:z-20 md:block">
-            <Card className="p-3 md:p-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-lg space-y-3">
-              <div className="hidden md:flex flex-wrap items-center gap-3">
-                <div className="flex-1 min-w-[160px]">
+            <Card className="overflow-visible border border-[color:var(--border)] bg-[color:var(--card)]/95 p-0 shadow-lg backdrop-blur">
+              <div className="flex min-h-[76px] items-center gap-5 px-5 py-3">
+                <div className="min-w-[190px] flex-1">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                     Duracion
                   </p>
@@ -5051,7 +5251,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           : "text-[color:var(--text-muted)]"
                       }`}
                     >
-                      En curso
+                      {isHistoryReadOnly ? "Registrado" : "En curso"}
                     </span>
                   </div>
                   {activeExercise && (
@@ -5061,37 +5261,96 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-1 items-center justify-end gap-2 min-w-[200px]">
-                  <Button
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={handleEditRoutineFromTraining}
-                  >
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Editar rutina</span>
-                  </Button>
-                  {showFinishButton && (
-                    <Button
-                      className="rounded-full"
-                      onClick={handleFinish}
-                      disabled={!exercises.length}
-                    >
-                      <Flag className="h-4 w-4" />
-                      <span>Finalizar</span>
-                    </Button>
-                  )}
-                  {showCancelButton && (
+                {!isHistoryReadOnly ? (
+                  <div className="flex shrink-0 items-center gap-2">
                     <Button
                       variant="outline"
-                      className="rounded-full"
-                      onClick={handleCancel}
+                      className="h-10 min-w-[116px] rounded-md px-4"
+                      onClick={isRunning ? handlePause : handleStart}
                     >
-                      Cancelar
+                      {isRunning ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      <span>{isRunning ? "Pausar" : "Reanudar"}</span>
                     </Button>
-                  )}
-                </div>
+                    {showFinishButton ? (
+                      <Button
+                        className="h-10 min-w-[126px] rounded-md px-4"
+                        onClick={handleFinish}
+                        disabled={!exercises.length}
+                      >
+                        <Flag className="h-4 w-4" />
+                        <span>Finalizar</span>
+                      </Button>
+                    ) : null}
+                    <div className="relative" ref={desktopSessionMenuRef}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 rounded-md px-3"
+                        onClick={() =>
+                          setDesktopSessionMenuOpen((current) => !current)
+                        }
+                        aria-expanded={desktopSessionMenuOpen}
+                        aria-haspopup="menu"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="hidden lg:inline">Opciones</span>
+                      </Button>
+                      {desktopSessionMenuOpen ? (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                            onClick={() => {
+                              setDesktopSessionMenuOpen(false);
+                              handleEditRoutineFromTraining();
+                            }}
+                          >
+                            <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
+                            Editar rutina
+                          </button>
+                          {showResetButton ? (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                              onClick={() => {
+                                setDesktopSessionMenuOpen(false);
+                                handleReset();
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 text-[color:var(--text-muted)]" />
+                              Reiniciar cronometro
+                            </button>
+                          ) : null}
+                          {showCancelButton ? (
+                            <>
+                              <div className="my-1 border-t border-[color:var(--border)]" />
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-300"
+                                onClick={handleCancel}
+                              >
+                                <X className="h-4 w-4" />
+                                Cancelar entrenamiento
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--text-muted)]">
+              <div className="flex min-h-11 items-center justify-between gap-4 border-t border-[color:var(--border)] bg-[color:var(--bg)]/55 px-5 py-2 text-xs text-[color:var(--text-muted)]">
                 <button
                   type="button"
                   onClick={() => {
@@ -5103,15 +5362,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       datePickerRef.current.click();
                     }
                   }}
-                  disabled={sessionLocked}
-                  className="relative inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-1.5 text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={sessionLocked || isHistoryReadOnly}
+                  className="relative inline-flex items-center gap-2 font-semibold text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  <CalendarDays className="h-4 w-4 text-[color:var(--text-muted)]" />
                   Fecha: {formatLongDate(sessionDate)}
                   <input
                     ref={datePickerRef}
                     type="date"
                     value={sessionDate}
-                    disabled={sessionLocked}
+                    disabled={sessionLocked || isHistoryReadOnly}
                     onChange={(e) => {
                       const nextDate = e.target.value
                         ? e.target.value.slice(0, 10)
@@ -5122,33 +5382,13 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     aria-label="Seleccionar fecha"
                   />
                 </button>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full px-3 md:hidden"
-                    onClick={handleEditRoutineFromTraining}
-                  >
-                    <ClipboardList className="h-4 w-4" />
-                    <span>Editar</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="rounded-full px-4"
-                    onClick={isRunning ? handlePause : handleStart}
-                  >
-                    {isRunning ? "Pausar" : "Iniciar"}
-                  </Button>
-                  {showResetButton && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full px-3"
-                      onClick={handleReset}
-                    >
-                      Reiniciar
-                    </Button>
-                  )}
+                <div className="flex items-center gap-4">
+                  <span className="font-bold text-[color:var(--text)]">
+                    {completedExercises}/{exercises.length} ejercicios
+                  </span>
+                  <span>
+                    {doneSets}/{totalSets} series completadas
+                  </span>
                 </div>
               </div>
             </Card>
@@ -5160,7 +5400,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 shadow-lg">
               <ClipboardList className="pointer-events-none absolute -right-8 -top-4 h-32 w-32 rotate-[-8deg] text-[#ff5722]/10 dark:text-[#e2ff00]/10" />
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                Rutina activa
+                {isHistoryReadOnly ? "Sesión registrada" : "Rutina activa"}
               </p>
               <h2 className="mt-2 truncate text-2xl font-black leading-none text-[color:var(--accent)]">
                 {selectorRoutine?.name || "Rutina seleccionada"}
@@ -5234,7 +5474,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   <select
                     value={selectedBranch}
                     onChange={(e) => handleBranchChange(e.target.value)}
-                    disabled={sessionLocked}
+                    disabled={sessionLocked || isHistoryReadOnly}
                     className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
                   >
                     {branchOptions.map((b) => (
@@ -5268,7 +5508,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                   }
                   routines={routineOptions}
                   onSelect={handleSelectRoutine}
-                  disabled={sessionLocked}
+                  disabled={sessionLocked || isHistoryReadOnly}
                   showLocation={requiresBranchSelection}
                 />
               </div>
@@ -5279,18 +5519,20 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
             {selectedRoutineId ? (
               <>
                 <div className="min-w-0 max-w-full space-y-4">
-                  <ExerciseOrderPanel
-                    exercises={exercises}
-                    historyCount={orderMatchedHistoryTrainings.length}
-                    active={isOrderingExercises}
-                    onToggle={() =>
-                      setIsOrderingExercises((current) => !current)
-                    }
-                    onReorder={(nextOrder) =>
-                      setExercises(applyExerciseOrder(nextOrder))
-                    }
-                    onMove={handleMoveExercise}
-                  />
+                  {!isHistoryReadOnly ? (
+                    <ExerciseOrderPanel
+                      exercises={exercises}
+                      historyCount={orderMatchedHistoryTrainings.length}
+                      active={isOrderingExercises}
+                      onToggle={() =>
+                        setIsOrderingExercises((current) => !current)
+                      }
+                      onReorder={(nextOrder) =>
+                        setExercises(applyExerciseOrder(nextOrder))
+                      }
+                      onMove={handleMoveExercise}
+                    />
+                  ) : null}
 
                   <div
                     className={`min-w-0 max-w-full space-y-3 ${
@@ -5298,10 +5540,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     }`}
                   >
                     {groupedExercises.map(({ key, muscle, items }) => (
-                      <div
-                        key={key}
-                        className="min-w-0 max-w-full space-y-3"
-                      >
+                      <div key={key} className="min-w-0 max-w-full space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                           <div>
                             <p className="text-xl font-semibold text-[color:var(--text)]">
@@ -5313,71 +5552,71 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           </Badge>
                         </div>
                         {items.map((ex) => {
-                            const movementConfig = getRoutineMovementConfig(
-                              selectedRoutine?.raw?.exercises || [],
-                              ex,
-                            );
-                            return (
-                              <ExerciseCard
-                                key={ex.id}
-                                open={expandedExerciseId === ex.id}
-                                onToggleOpen={() =>
-                                  setExpandedExerciseId((current) =>
-                                    current === ex.id ? "" : ex.id,
-                                  )
-                                }
-                                exercise={{
-                                  ...ex,
-                                  durationSeconds:
-                                    timingSummary.exerciseDurations.get(
-                                      ex.id,
-                                    ) || 0,
-                                  isActive: activeExerciseId === ex.id,
-                                  supportsUnilateral:
-                                    movementConfig.supportsUnilateral,
-                                  movementMode:
-                                    ex.movementMode ||
-                                    movementConfig.movementMode,
-                                }}
-                                onAddSet={() => handleAddSet(ex.id)}
-                                onUpdateEntry={(setId, entryId, field, value) =>
-                                  handleUpdateEntry(
-                                    ex.id,
-                                    setId,
-                                    entryId,
-                                    field,
-                                    value,
-                                  )
-                                }
-                                onToggleEntry={(setId, entryId) =>
-                                  handleToggleEntry(ex.id, setId, entryId)
-                                }
-                                onRemoveSet={(setId) =>
-                                  handleRemoveSet(ex.id, setId)
-                                }
-                                onRemoveExercise={() =>
-                                  handleRemoveExercise(ex.id)
-                                }
-                                onSeriesTypeChange={(value) =>
-                                  handleSeriesTypeChange(ex.id, value)
-                                }
-                                onMovementModeChange={(value) =>
-                                  handleMovementModeChange(ex.id, value)
-                                }
-                                onSetupNoteChange={(value) =>
-                                  handleSetupNoteChange(ex.id, value)
-                                }
-                                onSwapVariant={(direction) =>
-                                  handleSwapVariant(ex.id, direction)
-                                }
-                                onStartNow={() => handleStartExerciseNow(ex.id)}
-                                onViewTracking={() => {
-                                  setTrackingExerciseId(ex.id);
-                                  setShowTracking(true);
-                                }}
-                              />
-                            );
-                          })}
+                          const movementConfig = getRoutineMovementConfig(
+                            selectedRoutine?.raw?.exercises || [],
+                            ex,
+                          );
+                          return (
+                            <ExerciseCard
+                              key={ex.id}
+                              readOnly={isHistoryReadOnly}
+                              open={expandedExerciseId === ex.id}
+                              onToggleOpen={() =>
+                                setExpandedExerciseId((current) =>
+                                  current === ex.id ? "" : ex.id,
+                                )
+                              }
+                              exercise={{
+                                ...ex,
+                                durationSeconds:
+                                  timingSummary.exerciseDurations.get(ex.id) ||
+                                  0,
+                                isActive: activeExerciseId === ex.id,
+                                supportsUnilateral:
+                                  movementConfig.supportsUnilateral,
+                                movementMode:
+                                  ex.movementMode ||
+                                  movementConfig.movementMode,
+                              }}
+                              onAddSet={() => handleAddSet(ex.id)}
+                              onUpdateEntry={(setId, entryId, field, value) =>
+                                handleUpdateEntry(
+                                  ex.id,
+                                  setId,
+                                  entryId,
+                                  field,
+                                  value,
+                                )
+                              }
+                              onToggleEntry={(setId, entryId) =>
+                                handleToggleEntry(ex.id, setId, entryId)
+                              }
+                              onRemoveSet={(setId) =>
+                                handleRemoveSet(ex.id, setId)
+                              }
+                              onRemoveExercise={() =>
+                                handleRemoveExercise(ex.id)
+                              }
+                              onSeriesTypeChange={(value) =>
+                                handleSeriesTypeChange(ex.id, value)
+                              }
+                              onMovementModeChange={(value) =>
+                                handleMovementModeChange(ex.id, value)
+                              }
+                              onSetupNoteChange={(value) =>
+                                handleSetupNoteChange(ex.id, value)
+                              }
+                              onSwapVariant={(direction) =>
+                                handleSwapVariant(ex.id, direction)
+                              }
+                              onStartNow={() => handleStartExerciseNow(ex.id)}
+                              onViewTracking={() => {
+                                setTrackingExerciseId(ex.id);
+                                setShowTracking(true);
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
@@ -5400,76 +5639,76 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                           </Badge>
                         </div>
                         {items.map((ex) => {
-                            const movementConfig = getRoutineMovementConfig(
-                              selectedRoutine?.raw?.exercises || [],
-                              ex,
-                            );
-                            return (
-                              <ExerciseCard
-                                key={ex.id}
-                                open={expandedExerciseId === ex.id}
-                                onToggleOpen={() =>
-                                  setExpandedExerciseId((current) =>
-                                    current === ex.id ? "" : ex.id,
-                                  )
-                                }
-                                exercise={{
-                                  ...ex,
-                                  durationSeconds:
-                                    timingSummary.exerciseDurations.get(
-                                      ex.id,
-                                    ) || 0,
-                                  isActive: activeExerciseId === ex.id,
-                                  supportsUnilateral:
-                                    movementConfig.supportsUnilateral,
-                                  movementMode:
-                                    ex.movementMode ||
-                                    movementConfig.movementMode,
-                                }}
-                                onAddSet={() => handleAddSet(ex.id)}
-                                onUpdateEntry={(setId, entryId, field, value) =>
-                                  handleUpdateEntry(
-                                    ex.id,
-                                    setId,
-                                    entryId,
-                                    field,
-                                    value,
-                                  )
-                                }
-                                onToggleEntry={(setId, entryId) =>
-                                  handleToggleEntry(ex.id, setId, entryId)
-                                }
-                                onRemoveSet={(setId) =>
-                                  handleRemoveSet(ex.id, setId)
-                                }
-                                onRemoveExercise={() =>
-                                  handleRemoveExercise(ex.id)
-                                }
-                                onSeriesTypeChange={(value) =>
-                                  handleSeriesTypeChange(ex.id, value)
-                                }
-                                onMovementModeChange={(value) =>
-                                  handleMovementModeChange(ex.id, value)
-                                }
-                                onSetupNoteChange={(value) =>
-                                  handleSetupNoteChange(ex.id, value)
-                                }
-                                onSwapVariant={(direction) =>
-                                  handleSwapVariant(ex.id, direction)
-                                }
-                                onStartNow={() => handleStartExerciseNow(ex.id)}
-                                onViewTracking={() => {
-                                  setTrackingExerciseId(ex.id);
-                                  setShowTracking(true);
-                                }}
-                              />
-                            );
-                          })}
+                          const movementConfig = getRoutineMovementConfig(
+                            selectedRoutine?.raw?.exercises || [],
+                            ex,
+                          );
+                          return (
+                            <ExerciseCard
+                              key={ex.id}
+                              readOnly={isHistoryReadOnly}
+                              open={expandedExerciseId === ex.id}
+                              onToggleOpen={() =>
+                                setExpandedExerciseId((current) =>
+                                  current === ex.id ? "" : ex.id,
+                                )
+                              }
+                              exercise={{
+                                ...ex,
+                                durationSeconds:
+                                  timingSummary.exerciseDurations.get(ex.id) ||
+                                  0,
+                                isActive: activeExerciseId === ex.id,
+                                supportsUnilateral:
+                                  movementConfig.supportsUnilateral,
+                                movementMode:
+                                  ex.movementMode ||
+                                  movementConfig.movementMode,
+                              }}
+                              onAddSet={() => handleAddSet(ex.id)}
+                              onUpdateEntry={(setId, entryId, field, value) =>
+                                handleUpdateEntry(
+                                  ex.id,
+                                  setId,
+                                  entryId,
+                                  field,
+                                  value,
+                                )
+                              }
+                              onToggleEntry={(setId, entryId) =>
+                                handleToggleEntry(ex.id, setId, entryId)
+                              }
+                              onRemoveSet={(setId) =>
+                                handleRemoveSet(ex.id, setId)
+                              }
+                              onRemoveExercise={() =>
+                                handleRemoveExercise(ex.id)
+                              }
+                              onSeriesTypeChange={(value) =>
+                                handleSeriesTypeChange(ex.id, value)
+                              }
+                              onMovementModeChange={(value) =>
+                                handleMovementModeChange(ex.id, value)
+                              }
+                              onSetupNoteChange={(value) =>
+                                handleSetupNoteChange(ex.id, value)
+                              }
+                              onSwapVariant={(direction) =>
+                                handleSwapVariant(ex.id, direction)
+                              }
+                              onStartNow={() => handleStartExerciseNow(ex.id)}
+                              onViewTracking={() => {
+                                setTrackingExerciseId(ex.id);
+                                setShowTracking(true);
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
 
-                  {extraExerciseOptions.length > 0 && (
+                  {!isHistoryReadOnly && extraExerciseOptions.length > 0 && (
                     <Card className="p-4 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-sm space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -5490,27 +5729,21 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                             (item) => item.id === ex.id,
                           );
                           const extraThumb = getExerciseImageUrl(ex, {
-                            width: 120,
-                            height: 120,
+                            width: 192,
+                            height: 192,
                           });
                           return (
                             <div
                               key={`extra-${ex.id}`}
                               className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
                             >
-                              <div className="h-10 w-10 rounded-lg overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)]">
-                                {extraThumb ? (
-                                  <img
-                                    src={extraThumb}
-                                    alt={ex.name}
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
-                                    {(ex.name || "?").charAt(0).toUpperCase()}
-                                  </div>
-                                )}
+                              <div className="h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
+                                <ExerciseThumbnail
+                                  src={extraThumb}
+                                  alt=""
+                                  fallback={(ex.name || "?").charAt(0).toUpperCase()}
+                                  className="h-full w-full text-xs font-black"
+                                />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-[color:var(--text)] truncate">
@@ -5536,15 +5769,17 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                     </Card>
                   )}
 
-                  <motion.div whileTap={{ scale: 0.97 }}>
-                    <Button
-                      variant="outline"
-                      className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
-                      onClick={handleAddExercise}
-                    >
-                      + Agregar Ejercicio
-                    </Button>
-                  </motion.div>
+                  {!isHistoryReadOnly ? (
+                    <motion.div whileTap={{ scale: 0.97 }}>
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
+                        onClick={handleAddExercise}
+                      >
+                        + Agregar Ejercicio
+                      </Button>
+                    </motion.div>
+                  ) : null}
                 </div>
               </>
             ) : (
@@ -5558,7 +5793,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         </div>
       </div>
 
-      {selectedRoutineId && allSetsDone && (
+      {selectedRoutineId && allSetsDone && !isHistoryReadOnly && (
         <Card className="p-4 md:p-6 border border-[color:var(--border)] bg-[color:var(--card)]/90 backdrop-blur shadow-lg space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -5821,25 +6056,16 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
           <div className="space-y-4">
             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-xl overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
-                  {getExerciseImageUrl(trackingExercise, {
-                    width: 160,
-                    height: 160,
-                  }) ? (
-                    <img
-                      src={getExerciseImageUrl(trackingExercise, {
-                        width: 160,
-                        height: 160,
-                      })}
-                      alt={trackingExercise.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
-                      Sin imagen
-                    </div>
-                  )}
+                <div className="h-20 w-[76px] shrink-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
+                  <ExerciseThumbnail
+                    src={getExerciseImageUrl(trackingExercise, {
+                      width: 240,
+                      height: 240,
+                    })}
+                    alt=""
+                    fallback={(trackingExercise.name || "?").charAt(0).toUpperCase()}
+                    className="h-full w-full text-sm font-black"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-semibold text-[color:var(--text)] truncate">

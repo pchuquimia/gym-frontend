@@ -1,103 +1,97 @@
-﻿import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
-import { ChevronDown } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  Dumbbell,
+  Layers3,
+  ListChecks,
+  TrendingUp,
+} from "lucide-react";
 import {
   compareExercise,
   compareMuscle,
+  formatMuscleGroup,
   summarizeSession,
 } from "../utils/sessionAnalytics";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { getExerciseImageUrl } from "../utils/cloudinary";
+import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 
 const formatDateLong = (iso) =>
   iso
-    ? new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      })
+    ? new Date(`${String(iso).slice(0, 10)}T12:00:00`).toLocaleDateString(
+        "es-BO",
+        { weekday: "short", day: "2-digit", month: "long", year: "numeric" },
+      )
     : "--";
 
-const formatDelta = (value) => {
-  if (value === null || value === undefined || Number.isNaN(value)) return "--";
-  const sign = value > 0 ? "+" : value < 0 ? "" : "";
-  return `${sign}${value.toFixed(1)}%`;
+const compact = (value) => {
+  const number = Number(value) || 0;
+  if (Math.abs(number) >= 1000) return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}k`;
+  return Math.round(number).toLocaleString("es-BO");
 };
 
-const formatNumber = (value, digits = 1) => {
-  if (value === null || value === undefined || Number.isNaN(value)) return "--";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "--";
-  return num.toFixed(digits);
+const percent = (value) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "--";
+  return `${value > 0 ? "+" : ""}${Math.round(value)}%`;
 };
 
-const deltaBadgeClass = (value) => {
-  if (value === null || value === undefined || Number.isNaN(value))
-    return "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]";
-  if (value >= 1)
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300";
-  if (value <= -1)
-    return "border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300";
-  return "border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300";
+const duration = (seconds) => {
+  const minutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
+  if (!minutes) return "--";
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours}h ${rest}m` : `${minutes} min`;
 };
 
-const formatMuscleLabel = (value) => {
-  if (!value) return "Otros";
-  return value.charAt(0).toUpperCase() + value.slice(1);
-};
+const titleCase = (value = "") =>
+  value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(" ");
 
 const flattenSets = (sets = []) =>
   (sets || []).flatMap((set) => {
-    const entries =
-      Array.isArray(set?.entries) && set.entries.length ? set.entries : null;
-    if (!entries) {
-      return [
-        {
-          weightKg: Number(set?.weightKg ?? set?.weight ?? set?.kg ?? 0) || 0,
-          reps: Number(set?.reps ?? 0) || 0,
-        },
-      ];
-    }
-    return entries.map((entry) => ({
-      weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
-      reps: Number(entry?.reps ?? 0) || 0,
-    }));
+    const source = Array.isArray(set?.entries) && set.entries.length
+      ? set.entries
+      : [set];
+    return source
+      .map((entry) => ({
+        weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
+        reps: Number(entry?.reps ?? 0) || 0,
+      }))
+      .filter((entry) => entry.weightKg > 0 && entry.reps > 0);
   });
 
-function SectionTitle({ children }) {
+function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-      <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-        {children}
-      </h2>
-    </div>
+    <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">{label}</p>
+        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+      </div>
+      <p className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}>{value}</p>
+      <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">{detail}</p>
+    </article>
   );
 }
 
-function MetricTile({ label, value, suffix = "", refValue }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-black leading-none text-[color:var(--text)]">
-        {value}
-        {suffix ? (
-          <span className="ml-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-            {suffix}
-          </span>
-        ) : null}
-      </p>
-      <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-        {refValue}
-      </p>
-    </div>
-  );
+function Delta({ value }) {
+  const className = value === null || value === undefined
+    ? "text-[color:var(--text-muted)]"
+    : value >= 1
+      ? "text-emerald-600 dark:text-[#e2ff00]"
+      : value <= -1
+        ? "text-red-500"
+        : "text-[color:var(--text-muted)]";
+  return <span className={`text-xs font-black ${className}`}>{percent(value)}</span>;
 }
 
-function SessionSummaryPage({
+export default function SessionSummaryPage({
   sessions: propSessions = [],
   currentSession: propCurrentSession,
   onViewExerciseAnalytics = null,
@@ -106,532 +100,215 @@ function SessionSummaryPage({
   const { trainings: ctxTrainings = [], exercises: exerciseMeta = [] } =
     useTrainingData();
   const { routines = [] } = useRoutines();
+  const [selectedId, setSelectedId] = useState(() =>
+    typeof localStorage === "undefined"
+      ? ""
+      : localStorage.getItem("last_training_id") || "",
+  );
 
-  const [selectedId, setSelectedId] = useState(() => {
-    if (typeof localStorage !== "undefined")
-      return localStorage.getItem("last_training_id") || null;
-    return null;
-  });
-  const [showList, setShowList] = useState(false);
-  const [menuRoutine, setMenuRoutine] = useState("");
-
-  const routineBranch = useMemo(() => {
+  const routineBranches = useMemo(() => {
     const map = new Map();
-    routines.forEach((r) => map.set(r.id, r.branch || "general"));
+    routines.forEach((routine) => map.set(String(routine.id || routine._id), routine.branch || "general"));
     return map;
   }, [routines]);
 
-  const normalizedCtxSessions = useMemo(() => {
-    if (!ctxTrainings.length) return [];
-    return ctxTrainings
-      .map((t) => ({
-        id: t.id || t._id || `${t.date}-${t.routineId || ""}`,
-        date: t.date,
-        routineName: t.routineName || "Entrenamiento",
-        routineBranch: routineBranch.get(t.routineId) || "general",
-        exercises: (t.exercises || []).map((ex) => ({
-          exerciseId: ex.exerciseId,
-          exerciseName: ex.exerciseName,
-          muscleGroup:
-            ex.muscleGroup ||
-            exerciseMeta.find((m) => m.id === ex.exerciseId)?.muscle ||
-            "Sin grupo",
-          sets: flattenSets(ex.sets || []),
-        })),
-      }))
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [ctxTrainings, exerciseMeta, routineBranch]);
+  const normalizedContextSessions = useMemo(
+    () =>
+      ctxTrainings
+        .map((training) => ({
+          id: String(training.id || training._id || `${training.date}-${training.routineId || ""}`),
+          date: training.date,
+          routineName: training.routineName || "Entrenamiento",
+          routineBranch:
+            training.branch ||
+            routineBranches.get(String(training.routineId || "")) ||
+            "general",
+          durationSeconds: Number(training.durationSeconds) || 0,
+          exercises: (training.exercises || []).map((exercise) => ({
+            exerciseId: exercise.exerciseId,
+            exerciseName: exercise.exerciseName || "Ejercicio",
+            muscleGroup:
+              exercise.muscleGroup ||
+              exerciseMeta.find((item) => item.id === exercise.exerciseId)?.muscle ||
+              "Sin grupo",
+            sets: flattenSets(exercise.sets),
+          })),
+        }))
+        .sort((left, right) => String(right.date).localeCompare(String(left.date))),
+    [ctxTrainings, exerciseMeta, routineBranches],
+  );
 
-  const { currentSummary, currentDate, currentId } = useMemo(() => {
-    const baseSessions = propSessions.length
-      ? propSessions
-      : normalizedCtxSessions;
+  const baseSessions = propSessions.length ? propSessions : normalizedContextSessions;
+  const sortedSessions = useMemo(
+    () => [...baseSessions].sort((left, right) => String(right.date).localeCompare(String(left.date))),
+    [baseSessions],
+  );
+  const currentRaw =
+    propCurrentSession ||
+    sortedSessions.find((session) => String(session.id) === String(selectedId)) ||
+    sortedSessions[0] ||
+    null;
+  const currentSummary = useMemo(
+    () => summarizeSession(currentRaw || {}),
+    [currentRaw],
+  );
+  const historySummaries = useMemo(
+    () => sortedSessions.map((session) => summarizeSession(session)).filter((item) => item.date),
+    [sortedSessions],
+  );
 
-    if (!baseSessions.length)
-      return {
-        currentSummary: summarizeSession({}),
-        currentDate: "",
-        currentId: "",
-      };
+  useEffect(() => {
+    if (!currentRaw?.id || typeof localStorage === "undefined") return;
+    localStorage.setItem("last_training_id", String(currentRaw.id));
+  }, [currentRaw?.id]);
 
-    const sorted = baseSessions
-      .slice()
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    const current =
-      propCurrentSession ||
-      sorted.find((s) => s.id === selectedId) ||
-      sorted[0];
-
+  const totals = useMemo(() => {
+    const exercises = currentSummary.exercises || [];
     return {
-      currentSummary: summarizeSession(current || {}),
-      currentDate: current?.date,
-      currentId: current?.id,
+      volume: exercises.reduce((sum, item) => sum + item.volume, 0),
+      sets: exercises.reduce((sum, item) => sum + item.setsCount, 0),
+      reps: exercises.reduce((sum, item) => sum + item.repsTotal, 0),
+      bestOneRM: exercises.reduce((best, item) => Math.max(best, item.oneRMTop), 0),
+      exercises: exercises.length,
     };
-  }, [propSessions, normalizedCtxSessions, propCurrentSession, selectedId]);
+  }, [currentSummary.exercises]);
 
-  const historySummaries = useMemo(() => {
-    const baseSessions = propSessions.length
-      ? propSessions
-      : normalizedCtxSessions;
-    return baseSessions
-      .map((s) => summarizeSession(s))
-      .filter((s) => s && s.date);
-  }, [propSessions, normalizedCtxSessions]);
+  const sessionReference = useMemo(() => {
+    if (!currentRaw?.date) return { count: 0, volume: 0, sets: 0, volumeDelta: null, setsDelta: null };
+    const references = historySummaries
+      .filter(
+        (item) =>
+          item.date < currentRaw.date &&
+          (!currentRaw.routineName || item.routineName === currentRaw.routineName),
+      )
+      .slice(0, 7);
+    const referenceTotals = references.map((summary) => ({
+      volume: (summary.exercises || []).reduce((sum, item) => sum + item.volume, 0),
+      sets: (summary.exercises || []).reduce((sum, item) => sum + item.setsCount, 0),
+    }));
+    const average = (field) =>
+      referenceTotals.length
+        ? referenceTotals.reduce((sum, item) => sum + item[field], 0) / referenceTotals.length
+        : 0;
+    const volume = average("volume");
+    const sets = average("sets");
+    return {
+      count: references.length,
+      volume,
+      sets,
+      volumeDelta: volume ? ((totals.volume - volume) / volume) * 100 : null,
+      setsDelta: sets ? ((totals.sets - sets) / sets) * 100 : null,
+    };
+  }, [currentRaw, historySummaries, totals]);
 
-  const muscleComparisons = useMemo(() => {
-    const groups = currentSummary.groups || {};
-    return Object.keys(groups)
+  const muscleRows = useMemo(() => {
+    const entries = Object.keys(currentSummary.groups || {})
       .map((key) => compareMuscle(currentSummary, historySummaries, key))
       .filter(Boolean)
       .map((entry) => ({
         ...entry,
-        label: formatMuscleLabel(entry.muscleKey),
+        label: formatMuscleGroup(entry.muscleKey || "Otros"),
       }));
-  }, [currentSummary, historySummaries]);
-
-  const highlightMuscles = useMemo(() => {
-    return muscleComparisons;
-  }, [muscleComparisons]);
-
-  const exerciseComparisons = useMemo(() => {
-    const list = currentSummary.exercises || [];
-    return list
-      .map(
-        (ex) =>
-          compareExercise(currentSummary, historySummaries, ex.exerciseId) || {
-            today: ex,
-            ref: null,
-            delta: null,
-            status: "Sin referencia",
-            refCount: 0,
-          }
-      )
-      .filter(Boolean);
-  }, [currentSummary, historySummaries]);
-
-  const exerciseGroupsBySessionOrder = useMemo(() => {
-    const groups = [];
-    const indexByMuscle = new Map();
-
-    exerciseComparisons.forEach((entry, index) => {
-      const muscleKey = entry.today?.muscleGroup || "Sin grupo";
-      if (!indexByMuscle.has(muscleKey)) {
-        indexByMuscle.set(muscleKey, groups.length);
-        groups.push({
-          key: muscleKey,
-          label: formatMuscleLabel(muscleKey),
-          items: [],
-        });
-      }
-      groups[indexByMuscle.get(muscleKey)].items.push({
+    const maxVolume = Math.max(1, ...entries.map((entry) => entry.today?.volume || 0));
+    return entries
+      .map((entry) => ({
         ...entry,
-        sessionOrder: index + 1,
-      });
-    });
+        share: ((entry.today?.volume || 0) / maxVolume) * 100,
+      }))
+      .sort((left, right) => (right.today?.volume || 0) - (left.today?.volume || 0));
+  }, [currentSummary, historySummaries]);
 
-    return groups;
-  }, [exerciseComparisons]);
+  const exerciseRows = useMemo(
+    () =>
+      (currentSummary.exercises || []).map((exercise, index) => ({
+        ...(compareExercise(currentSummary, historySummaries, exercise.exerciseId) || {
+          today: exercise,
+          ref: null,
+          delta: null,
+          refCount: 0,
+        }),
+        order: index + 1,
+      })),
+    [currentSummary, historySummaries],
+  );
 
-  const handleViewProgress = (exerciseId) => {
+  const handleViewExercise = (exerciseId) => {
+    if (typeof localStorage !== "undefined" && exerciseId) {
+      localStorage.setItem("last_exercise_id", exerciseId);
+    }
     if (onViewExerciseAnalytics) onViewExerciseAnalytics(exerciseId);
-    else if (onNavigate) onNavigate("ejercicio_analitica");
+    else onNavigate?.("ejercicio_analitica");
   };
 
-  const groupedSessions = useMemo(() => {
-    const map = new Map();
-    normalizedCtxSessions.forEach((s) => {
-      const key = s.routineName || "Sin rutina";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(s);
-    });
-    return Array.from(map.entries()).map(([routine, list]) => {
-      const sorted = list
-        .slice()
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-      return [routine, sorted.slice(0, 6)];
-    });
-  }, [normalizedCtxSessions]);
-
-  const selectedRoutineName =
-    propCurrentSession?.routineName ||
-    normalizedCtxSessions.find((s) => s.id === currentId)?.routineName ||
-    "Seleccionar sesión";
+  const sessionInsight = !currentRaw
+    ? "Selecciona una sesion registrada para ver su analisis."
+    : sessionReference.count < 2
+      ? "Todavia no hay suficientes sesiones equivalentes para una comparacion estable."
+      : sessionReference.volumeDelta >= 20
+        ? `Esta sesion tuvo ${Math.round(sessionReference.volumeDelta)}% mas volumen que tu media reciente.`
+        : sessionReference.volumeDelta <= -20
+          ? `Esta sesion tuvo ${Math.abs(Math.round(sessionReference.volumeDelta))}% menos volumen que tu media reciente.`
+          : "La carga total se mantuvo dentro de tu rango reciente.";
 
   return (
-  <div className="mx-auto w-full max-w-5xl space-y-4 pb-24">
-    <header className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-          {formatDateLong(currentDate || "")}
-        </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
-          Últimas 7 sesiones
-        </span>
-      </div>
+    <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
+      <header className="border-b border-[color:var(--border)] pb-4">
+        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Lectura posterior</p>
+        <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen de sesion</h1>
+        <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Compara carga, grupos musculares y ejercicios contra tu propio historial.</p>
+      </header>
 
-      {normalizedCtxSessions.length > 0 && (
-        <section className="relative rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-          <button
-            type="button"
-            onClick={() => setShowList((value) => !value)}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                Sesión reciente
-              </p>
-              <p className="mt-1 truncate text-base font-bold text-[color:var(--text)]">
-                {selectedRoutineName}
-              </p>
-            </div>
-            <ChevronDown
-              className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition ${
-                showList ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {showList && (
-            <>
-              <button
-                type="button"
-                aria-label="Cerrar menú"
-                onClick={() => setShowList(false)}
-                className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px] md:hidden"
-              />
-
-              <div
-                className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-xl md:max-w-[520px]"
-                role="dialog"
-                aria-label="Sesiones recientes"
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--border)]">
-                  <p className="text-sm font-semibold text-[color:var(--text)]">
-                    Seleccionar sesión
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowList(false)}
-                    className="rounded-lg px-2 py-1 text-sm font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-                  <div className="md:border-r border-[color:var(--border)]">
-                    <div className="px-4 pt-3 pb-2">
-                      <p className="text-[11px] font-semibold tracking-wide text-[color:var(--text-muted)] uppercase">
-                        Rutinas
-                      </p>
-                    </div>
-
-                    <div className="max-h-56 md:max-h-80 overflow-auto pb-2">
-                      {groupedSessions.map(([routine]) => {
-                        const active = routine === menuRoutine;
-                        return (
-                          <button
-                            key={routine}
-                            type="button"
-                            onClick={() =>
-                              setMenuRoutine((prev) =>
-                                prev === routine ? "" : routine
-                              )
-                            }
-                            className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                              active
-                                ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"
-                                : "text-[color:var(--text)] hover:bg-[color:var(--bg)]"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-medium">
-                                {routine}
-                              </span>
-                              <span
-                                className={`text-xs ${
-                                  active
-                                    ? "text-blue-700/80 dark:text-blue-300/80"
-                                    : "text-[color:var(--text-muted)]"
-                                }`}
-                              >
-                                ›
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="px-4 pt-3 pb-2">
-                      <p className="text-[11px] font-semibold tracking-wide text-[color:var(--text-muted)] uppercase">
-                        Fechas
-                      </p>
-                    </div>
-
-                    <div className="max-h-56 md:max-h-80 overflow-auto pb-2">
-                      {menuRoutine ? (
-                        (groupedSessions.find(
-                          ([r]) => r === menuRoutine
-                        )?.[1] || []).map((s) => {
-                          const isCurrent = s.id === currentId;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedId(s.id);
-                                setShowList(false);
-                              }}
-                              className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                                isCurrent
-                                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-                                  : "text-[color:var(--text)] hover:bg-[color:var(--bg)]"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-semibold truncate">
-                                    {formatDateLong(s.date)}
-                                  </p>
-                                  <p className="text-xs text-[color:var(--text-muted)] truncate">
-                                    {s.routineName}
-                                  </p>
-                                </div>
-
-                                <span className="shrink-0 inline-flex items-center rounded-full bg-[color:var(--bg)] text-[color:var(--text)] text-[11px] px-2 py-0.5">
-                                  {s.routineBranch || "general"}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="px-4 py-10 text-sm text-[color:var(--text-muted)]">
-                          Selecciona una rutina para ver sus fechas.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+      {sortedSessions.length ? (
+        <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] sm:items-end dark:rounded-[4px] dark:shadow-none">
+          <div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">{formatDateLong(currentRaw?.date)}</p><h2 className="mt-1 truncate text-xl font-black uppercase">{currentRaw?.routineName || "Entrenamiento"}</h2><p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">{titleCase(currentRaw?.routineBranch || "general")} · {totals.exercises} ejercicios</p></div>
+          <label><span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span><select value={currentRaw?.id || ""} onChange={(event) => setSelectedId(event.target.value)} className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none">{sortedSessions.map((session) => <option key={session.id} value={session.id}>{String(session.date).slice(0, 10)} · {session.routineName}</option>)}</select></label>
         </section>
-      )}
-    </header>
+      ) : null}
 
-    <section className="space-y-3">
-      <SectionTitle>Por grupo muscular</SectionTitle>
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <MetricCard label="Volumen" value={totals.volume ? `${compact(totals.volume)} kg` : "--"} detail={sessionReference.count ? `${percent(sessionReference.volumeDelta)} vs media` : "sin referencia"} icon={Dumbbell} accent />
+        <MetricCard label="Series" value={totals.sets || "--"} detail={sessionReference.count ? `${percent(sessionReference.setsDelta)} vs media` : `${totals.reps} repeticiones`} icon={ListChecks} />
+        <MetricCard label="Mejor 1RM" value={totals.bestOneRM ? `${totals.bestOneRM.toFixed(1)} kg` : "--"} detail="mayor estimacion de la sesion" icon={TrendingUp} />
+        <MetricCard label="Duracion" value={duration(currentRaw?.durationSeconds)} detail={`${totals.exercises} ejercicios completados`} icon={Clock3} />
+      </section>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {highlightMuscles.length ? (
-          highlightMuscles.map((muscle) => (
-            <span
-              key={muscle.muscleKey}
-              className={`inline-flex h-9 shrink-0 items-center rounded-lg border px-3 text-[11px] font-black ${deltaBadgeClass(
-                muscle.delta
-              )}`}
-            >
-              {muscle.label} {formatDelta(muscle.delta)}
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-[color:var(--text-muted)]">
-            Sin comparativos recientes.
-          </span>
-        )}
-      </div>
+      <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] px-4 py-3 dark:border-[#e2ff00] dark:bg-[#171900]"><p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">Lectura de la sesion</p><p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">{sessionInsight}</p></section>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {muscleComparisons.length ? (
-          muscleComparisons.map((muscle) => {
-            const today = muscle.today || {};
-            const ref = muscle.ref || {};
-            return (
-              <article
-                key={muscle.muscleKey}
-                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-bold text-[color:var(--text)]">
-                      {muscle.label}
-                    </p>
-                    <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                      Ref: {muscle.refCount || 0} entrenamientos
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${deltaBadgeClass(
-                      muscle.delta
-                    )}`}
-                  >
-                    {formatDelta(muscle.delta)}
-                  </span>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <MetricTile label="Índice fuerza" value={formatNumber(today.strengthIndex, 1)} refValue={`Avg 7: ${formatNumber(ref.strengthIndex, 1)}`} />
-                  <MetricTile label="Volumen" value={`${formatNumber(today.volume, 0)}`} suffix="kg·reps" refValue={`Avg 7: ${formatNumber(ref.volume, 0)}`} />
-                  <MetricTile label="Sets" value={formatNumber(today.setsCount, 0)} refValue={`Avg 7: ${formatNumber(ref.setsCount, 1)}`} />
-                  <MetricTile label="Mejor 1RM" value={formatNumber(today.bestOneRM, 1)} suffix="kg" refValue={`Avg 7: ${formatNumber(ref.bestOneRM, 1)} kg`} />
-                </div>
-              </article>
-            );
-          })
-        ) : (
-          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
-            Aún no hay datos por grupo muscular.
-          </div>
-        )}
-      </div>
-    </section>
-
-    <section className="space-y-3">
-      <SectionTitle>Ejercicios de la sesión</SectionTitle>
-
-      <div className="space-y-4">
-        {exerciseGroupsBySessionOrder.length ? (
-          exerciseGroupsBySessionOrder.map((group) => (
-            <div key={group.key} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black text-[color:var(--text)]">
-                  {group.label}
-                </h3>
-                <span className="rounded-full bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-                  {group.items.length} ejercicios
-                </span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                {group.items.map((entry) => {
-                  const ex = entry.today || {};
-                  const topSet = ex.topSet || {};
-                  const meta = exerciseMeta.find(
-                    (item) => item.id === ex.exerciseId,
-                  );
-                  const imageUrl = meta
-                    ? getExerciseImageUrl(meta, { width: 160, height: 160 })
-                    : "";
-                  return (
-                    <article
-                      key={`${group.key}-${ex.exerciseId}-${entry.sessionOrder}`}
-                      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]"
-                    >
-                      <div className="flex items-start gap-3 p-4">
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
-                          {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt={ex.exerciseName}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center text-[11px] text-[color:var(--text-muted)]">
-                              Sin imagen
-                            </div>
-                          )}
-                          <span className="absolute left-1 top-1 grid h-5 min-w-5 place-items-center rounded bg-slate-950/75 px-1 text-[10px] font-black text-white">
-                            {entry.sessionOrder}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-[color:var(--text)]">
-                            {ex.exerciseName}
-                          </p>
-                          <p className="text-xs text-[color:var(--text-muted)]">
-                            Orden realizado #{entry.sessionOrder}
-                          </p>
-                        </div>
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${deltaBadgeClass(
-                            entry.delta,
-                          )}`}
-                        >
-                          {formatDelta(entry.delta)}
-                        </span>
-                      </div>
-
-                      <div className="mx-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
-                          <span className="h-2 w-2 rounded-full bg-blue-500" />
-                          Hoy
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-2 gap-3">
-                          <div>
-                            <p className="text-[11px] text-[color:var(--text-muted)]">
-                              Top set
-                            </p>
-                            <p className="text-base font-semibold text-[color:var(--text)]">
-                              {formatNumber(topSet.weightKg, 1)} kg x{" "}
-                              {topSet.reps ?? "--"}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[11px] text-[color:var(--text-muted)]">
-                              1RM estimado
-                            </p>
-                            <p className="text-base font-semibold text-[color:var(--text)]">
-                              {formatNumber(ex.oneRMTop, 1)} kg
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[color:var(--border)] pt-3 text-[11px] text-[color:var(--text-muted)]">
-                          <div>
-                            <p className="uppercase tracking-[0.2em]">
-                              Volumen
-                            </p>
-                            <p className="text-sm font-semibold text-[color:var(--text)]">
-                              {formatNumber(ex.volume, 0)} kg·reps
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="uppercase tracking-[0.2em]">
-                              Sets / reps
-                            </p>
-                            <p className="text-sm font-semibold text-[color:var(--text)]">
-                              {ex.setsCount || 0} sets · {ex.repsTotal || 0}{" "}
-                              reps
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleViewProgress(ex.exerciseId)}
-                        className="mt-4 w-full bg-[color:var(--bg)] px-3 py-3 text-xs font-black text-blue-700 transition hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
-                      >
-                        Ver progreso detallado
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
+      <section>
+        <div className="mb-2 flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Distribucion</p><h2 className="mt-1 text-xl font-black uppercase">Por grupo muscular</h2></div><Layers3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" /></div>
+        <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
+          {muscleRows.length ? muscleRows.map((muscle) => (
+            <div key={muscle.muscleKey} className="grid gap-2 px-4 py-3 sm:grid-cols-[160px_minmax(160px,1fr)_100px_80px] sm:items-center">
+              <div><p className="text-sm font-black uppercase">{muscle.label}</p><p className="text-[10px] font-semibold text-[color:var(--text-muted)]">{muscle.today?.setsCount || 0} series · {muscle.refCount || 0} referencias</p></div>
+              <div className="h-2 overflow-hidden bg-[color:var(--border)]"><div className="h-full bg-[#ff5722] dark:bg-[#e2ff00]" style={{ width: `${muscle.share}%` }} /></div>
+              <p className="text-sm font-black sm:text-right">{compact(muscle.today?.volume)} kg</p>
+              <div className="sm:text-right"><Delta value={muscle.delta} /></div>
             </div>
-          ))
-        ) : (
-          <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
-            Aún no hay ejercicios registrados en esta sesión.
-          </div>
-        )}
-      </div>
-    </section>
+          )) : <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">No hay series con carga y repeticiones en esta sesion.</p>}
+        </div>
+      </section>
 
-    {!normalizedCtxSessions.length && (
-      <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-4 text-sm text-[color:var(--text-muted)]">
-        Aún no hay sesiones guardadas para mostrar el resumen.
-      </div>
-    )}
-  </div>
-);
+      <section>
+        <div className="mb-2 flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Detalle</p><h2 className="mt-1 text-xl font-black uppercase">Ejercicios realizados</h2></div><span className="text-[11px] font-bold text-[color:var(--text-muted)]">{exerciseRows.length} ejercicios</span></div>
+        <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
+          {exerciseRows.length ? exerciseRows.map((entry) => {
+            const exercise = entry.today || {};
+            const meta = exerciseMeta.find((item) => item.id === exercise.exerciseId);
+            const image = meta ? getExerciseImageUrl(meta, { width: 240, height: 240 }) : "";
+            return (
+              <button key={`${entry.order}-${exercise.exerciseId}`} type="button" onClick={() => handleViewExercise(exercise.exerciseId)} className="grid w-full grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[#fff5f1] dark:hover:bg-[#171900] sm:grid-cols-[92px_minmax(180px,1fr)_130px_120px_70px_auto]">
+                <span className="relative h-20 w-[76px] border border-[color:var(--border)] sm:h-24 sm:w-[92px]"><ExerciseThumbnail src={image} className="h-full w-full" /><span className="absolute left-0 top-0 grid h-5 min-w-5 place-items-center bg-[#1a1a1a] px-1 text-[9px] font-black text-white dark:bg-[#e2ff00] dark:text-black">{entry.order}</span></span>
+                <span className="min-w-0"><span className="block truncate text-sm font-black uppercase">{exercise.exerciseName}</span><span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)]">{formatMuscleGroup(exercise.muscleGroup || "Sin grupo")} · {exercise.topSet ? `${exercise.topSet.weightKg} kg x ${exercise.topSet.reps}` : `${entry.refCount || 0} referencias`} · {compact(exercise.volume)} kg</span></span>
+                <span className="hidden text-xs font-bold sm:block">{exercise.topSet ? `${exercise.topSet.weightKg} kg × ${exercise.topSet.reps}` : "--"}</span>
+                <span className="hidden text-xs font-bold sm:block">{compact(exercise.volume)} kg</span>
+                <span className="justify-self-end"><Delta value={entry.delta} /></span><ChevronRight className="hidden h-4 w-4 text-[color:var(--text-muted)] sm:block" />
+              </button>
+            );
+          }) : <div className="px-4 py-10 text-center"><CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" /><p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">Aun no hay una sesion guardada para analizar.</p></div>}
+        </div>
+      </section>
+    </main>
+  );
 }
 
 SessionSummaryPage.propTypes = {
@@ -640,7 +317,3 @@ SessionSummaryPage.propTypes = {
   onViewExerciseAnalytics: PropTypes.func,
   onNavigate: PropTypes.func,
 };
-
-export default SessionSummaryPage;
-
-

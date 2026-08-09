@@ -50,6 +50,8 @@ const USER_STORAGE_KEYS = [
   "routine_updated_during_training",
   "edit_training_id",
   "edit_training_date",
+  "view_training_id",
+  "view_training_date",
   "last_training_id",
   "last_exercise_id",
   "coach_athlete_context",
@@ -270,45 +272,57 @@ export function AuthProvider({ children }) {
     };
   }, [refreshUser, user?.id]);
 
-  const login = useCallback(async (payload) => {
-    setError("");
-    setDevAutoLoginDisabled(false);
-    const data = await api.login(payload);
-    if (data?.token) setAuthToken(data.token);
-    const nextUser = normalizeUser(data);
-    restoreActiveTraining(nextUser?.id || nextUser?._id);
-    commitUser(nextUser);
-    return nextUser;
-  }, [commitUser]);
+  const login = useCallback(
+    async (payload) => {
+      setError("");
+      setDevAutoLoginDisabled(false);
+      const data = await api.login(payload);
+      if (data?.token) setAuthToken(data.token);
+      const nextUser = normalizeUser(data);
+      restoreActiveTraining(nextUser?.id || nextUser?._id);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
 
-  const register = useCallback(async (payload) => {
-    setError("");
-    setDevAutoLoginDisabled(false);
-    const data = await api.register(payload);
-    if (data?.verificationRequired) return data;
-    if (data?.token) setAuthToken(data.token);
-    const nextUser = normalizeUser(data);
-    restoreActiveTraining(nextUser?.id || nextUser?._id);
-    commitUser(nextUser);
-    return nextUser;
-  }, [commitUser]);
+  const register = useCallback(
+    async (payload) => {
+      setError("");
+      setDevAutoLoginDisabled(false);
+      const data = await api.register(payload);
+      if (data?.verificationRequired) return data;
+      if (data?.token) setAuthToken(data.token);
+      const nextUser = normalizeUser(data);
+      restoreActiveTraining(nextUser?.id || nextUser?._id);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
 
-  const verifyEmail = useCallback(async (token) => {
-    setError("");
-    const data = await api.verifyEmail({ token });
-    if (data?.token) setAuthToken(data.token);
-    const nextUser = normalizeUser(data);
-    restoreActiveTraining(nextUser?.id || nextUser?._id);
-    commitUser(nextUser);
-    return nextUser;
-  }, [commitUser]);
+  const verifyEmail = useCallback(
+    async (token) => {
+      setError("");
+      const data = await api.verifyEmail({ token });
+      if (data?.token) setAuthToken(data.token);
+      const nextUser = normalizeUser(data);
+      restoreActiveTraining(nextUser?.id || nextUser?._id);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
 
-  const updateAccount = useCallback(async (payload) => {
-    const data = await api.updateAccount(payload);
-    const nextUser = normalizeUser(data);
-    commitUser(nextUser);
-    return data;
-  }, [commitUser]);
+  const updateAccount = useCallback(
+    async (payload) => {
+      const data = await api.updateAccount(payload);
+      const nextUser = normalizeUser(data);
+      commitUser(nextUser);
+      return data;
+    },
+    [commitUser],
+  );
 
   const logout = useCallback(async () => {
     const userId = userRef.current?.id || userRef.current?._id;

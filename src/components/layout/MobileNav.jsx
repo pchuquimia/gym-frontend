@@ -4,9 +4,11 @@ import { useAuth } from "../../context/AuthContext";
 function MobileNav({ activePage, onNavigate }) {
   const { user } = useAuth();
   const itemIds =
-    user?.role === "Entrenador"
+    user?.role === "Admin"
+      ? ["dashboard", "trainer", "coach_admin", "perfil"]
+      : user?.role === "Entrenador"
       ? ["trainer", "rutinas", "library", "perfil"]
-      : user?.trainingMode === "managed"
+      : user?.trainingMode === "coach_managed"
         ? ["dashboard", "registrar", "rutinas", "perfil"]
         : ["dashboard", "registrar", "ejercicio_analitica", "perfil"];
   const items = itemIds
@@ -42,6 +44,8 @@ function MobileNav({ activePage, onNavigate }) {
                     ? "Metricas"
                     : item.id === "trainer"
                       ? "Atletas"
+                      : item.id === "coach_admin"
+                        ? "Gestion"
                       : item.label.split(" ")[0]}
               </span>
             </button>

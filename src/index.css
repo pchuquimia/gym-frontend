@@ -202,20 +202,143 @@ button,
 
 .settings-shell,
 .management-shell {
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
   letter-spacing: 0;
+}
+
+.settings-shell {
+  --text-muted: #68686d;
+  font-stretch: condensed;
 }
 
 .dark .settings-shell,
 .dark .management-shell {
+  --text-muted: #b8b8a6;
   font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+}
+
+.settings-shell p,
+.settings-shell span,
+.settings-shell a,
+.settings-shell label,
+.settings-shell input,
+.settings-shell select,
+.settings-shell textarea {
+  font-family: inherit;
+}
+
+.settings-shell .font-black {
+  font-weight: 700;
+}
+
+.settings-shell .theme-accent-soft {
+  color: #ff5722;
+}
+
+.dark .settings-shell .theme-accent-soft {
+  color: #e2ff00;
+}
+
+.settings-shell h1,
+.settings-shell h2,
+.settings-shell h3,
+.settings-shell h4 {
+  line-height: 1.05;
+}
+
+.settings-shell p {
+  line-height: 1.25;
 }
 
 .settings-shell [class~="text-[9px]"],
 .settings-shell [class~="text-[10px]"],
 .management-shell [class~="text-[9px]"],
 .management-shell [class~="text-[10px]"] {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.settings-shell [class~="text-[11px]"],
+.settings-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+.management-shell p,
+.management-shell span,
+.management-shell a,
+.management-shell label,
+.management-shell input,
+.management-shell select,
+.management-shell textarea {
+  font-family: inherit;
+}
+
+.management-shell .font-black {
+  font-weight: 700;
+}
+
+.management-shell h1,
+.management-shell h2,
+.management-shell h3,
+.management-shell h4 {
+  line-height: 1.05;
+}
+
+.management-shell p {
+  line-height: 1.25;
+}
+
+.management-shell [class~="text-[11px]"],
+.management-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+.photos-shell {
+  --text-muted: #68686d;
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  font-stretch: condensed;
+  letter-spacing: 0;
+}
+
+.dark .photos-shell {
+  --text-muted: #b8b8a6;
+}
+
+.photos-shell p,
+.photos-shell span,
+.photos-shell a,
+.photos-shell label,
+.photos-shell input,
+.photos-shell select,
+.photos-shell textarea {
+  font-family: inherit;
+}
+
+.photos-shell .font-black {
+  font-weight: 700;
+}
+
+.photos-shell h1,
+.photos-shell h2,
+.photos-shell h3,
+.photos-shell h4 {
+  line-height: 1.05;
+}
+
+.photos-shell p {
+  line-height: 1.25;
+}
+
+.photos-shell [class~="text-[10px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.photos-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
 }
 
 .dark .settings-shell .font-black,
@@ -276,6 +399,41 @@ button,
   letter-spacing: 0;
 }
 
+.analytics-shell {
+  --text-muted: #68686d;
+  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
+  letter-spacing: 0;
+}
+
+.dark .analytics-shell {
+  --text-muted: #b8b8a6;
+}
+
+.analytics-shell p,
+.analytics-shell span,
+.analytics-shell label,
+.analytics-shell input,
+.analytics-shell select,
+.analytics-shell table {
+  font-family: inherit;
+}
+
+.analytics-shell .font-black {
+  font-weight: 700;
+}
+
+.analytics-shell [class~="text-[9px]"],
+.analytics-shell [class~="text-[10px]"] {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.analytics-shell [class~="text-[11px]"],
+.analytics-shell [class~="text-xs"] {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
 .dashboard-shell [class~="text-[9px]"],
 .dashboard-shell [class~="text-[10px]"] {
   font-size: 0.75rem;
@@ -323,6 +481,11 @@ button,
 }
 
 @media (max-width: 767px) {
+  .analytics-shell input,
+  .analytics-shell select {
+    font-size: 1rem;
+  }
+
   .training-shell input,
   .training-shell select,
   .training-shell textarea {

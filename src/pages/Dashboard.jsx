@@ -680,7 +680,6 @@ function WeekStrip({ days }) {
 function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
   const [selectedDay, setSelectedDay] = useState(null);
   const chartScrollRef = useRef(null);
-
   const activeVolumes = data
     .map((day) => Number(day.volume || 0))
     .filter((volume) => volume > 0);

@@ -2,9 +2,10 @@ import PropTypes from 'prop-types'
 import { ResponsiveLine } from '@nivo/line'
 import { estimate1RM, toIsoWeek, cleanSets, formatCompactWeekLabel, movingAverage } from '../../utils/trainingMetrics'
 import { nivoTheme } from '../../utils/nivoTheme'
+import ChartSampleState from './ChartSampleState'
 
 const EmptyState = ({ title, description }) => (
-  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+  <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] p-4 text-center text-sm text-[color:var(--text-muted)]">
     <p className="font-semibold text-[color:var(--text)] mb-1">{title}</p>
     <p className="text-[color:var(--text-muted)] text-xs">{description}</p>
   </div>
@@ -74,12 +75,17 @@ const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dar
 
   return (
     <div className="space-y-3">
-      <div className="h-80">
-        {hasData ? (
+      <div className="h-64 sm:h-72">
+        {points.length === 1 ? (
+          <ChartSampleState
+            value={`${points[0].oneRM.toFixed(1)} kg`}
+            detail={points[0].topSet ? `${points[0].topSet.weight} kg x ${points[0].topSet.reps}` : ''}
+          />
+        ) : hasData ? (
           <ResponsiveLine
             data={series}
             theme={nivoTheme(mode)}
-            margin={{ top: 20, right: 20, bottom: 40, left: 50 }}
+            margin={{ top: 16, right: 12, bottom: 38, left: 46 }}
             xScale={{ type: 'point' }}
             yScale={{ type: 'linear', stacked: false, min: 'auto', max: 'auto' }}
             axisBottom={{
@@ -88,9 +94,9 @@ const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dar
               format: (v) => (groupBy === 'week' ? formatCompactWeekLabel(v) : v),
             }}
             axisLeft={{ legend: '1RM (kg)', legendOffset: -40, legendPosition: 'middle', tickPadding: 6 }}
-            colors={['#4fa3ff', '#c084fc']}
+            colors={mode === 'dark' ? ['#e2ff00', '#8e8e93'] : ['#ff5722', '#8e8e93']}
             enablePoints
-            pointSize={8}
+            pointSize={6}
             curve="monotoneX"
             enableGridX={false}
             useMesh
@@ -108,7 +114,7 @@ const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dar
             tooltip={({ point }) => {
               const { data: d } = point
               return (
-                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
+                <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{point.serieId}</p>
                   <p className="text-[color:var(--text-muted)]">{d.xFormatted || d.x}</p>
                   <p>1RM: {d.y ? `${Number(d.y).toFixed(1)} kg` : '—'}</p>

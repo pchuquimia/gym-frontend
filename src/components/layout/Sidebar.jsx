@@ -1,7 +1,9 @@
 import { Check, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useUserProfile } from "../../context/UserContext";
 import Button from "../ui/button";
 import ThemeToggle from "../ThemeToggle";
+import ProfileAvatar from "../profile/ProfileAvatar";
 import { coachSections, managedClientSections, sections } from "./navConfig";
 
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
@@ -15,6 +17,7 @@ const mobileNavOrder = [
   "library",
   "ejercicio_analitica",
   "resumen_sesion",
+  "data_intelligence",
   "admin_sesiones",
   "fotos",
   "perfil",
@@ -29,6 +32,7 @@ const mobileLabels = {
   library: "Ejercicios",
   ejercicio_analitica: "Analitica",
   resumen_sesion: "Resumen Diario",
+  data_intelligence: "Datos",
   admin_sesiones: "Historial",
   fotos: "Fotos",
   perfil: "Perfil",
@@ -48,7 +52,7 @@ const mobileGroups = [
   {
     title: "Rendimiento",
     detail: "Analisis y resumen",
-    ids: ["ejercicio_analitica", "resumen_sesion"],
+    ids: ["ejercicio_analitica", "resumen_sesion", "data_intelligence"],
   },
   {
     title: "Gestion",
@@ -66,7 +70,14 @@ const coachMobileGroups = [
   {
     title: "Herramientas",
     detail: "Planificación y progreso",
-    ids: ["rutinas", "library", "admin_sesiones"],
+    ids: [
+      "rutinas",
+      "library",
+      "ejercicio_analitica",
+      "resumen_sesion",
+      "data_intelligence",
+      "admin_sesiones",
+    ],
   },
   {
     title: "Cuenta",
@@ -90,6 +101,10 @@ const managedClientMobileGroups = [
 
 function Sidebar({ activePage, onNavigate, forceVisible = false }) {
   const { user, logout } = useAuth();
+  const { profile } = useUserProfile();
+  const avatarPhotoId = profile
+    ? profile.avatarPhotoId
+    : user?.profile?.avatarPhotoId;
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
@@ -104,14 +119,6 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
     : isManagedClient
       ? managedClientMobileGroups
       : mobileGroups;
-  const initials =
-    user?.name
-      ?.split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "U";
-
   const handleLogout = async () => {
     const didLogout = await logout();
     if (didLogout) onNavigate?.("login");
@@ -131,10 +138,11 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
           onClick={() => onNavigate?.("perfil")}
         >
           <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#ffb199] bg-[#fff0eb] shadow-md shadow-slate-200/70 dark:border-[#e2ff00]/40 dark:bg-[#252525] dark:shadow-lg dark:shadow-black/20">
-            <img
-              src="https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=160&q=70"
-              alt=""
-              className="h-full w-full object-cover"
+            <ProfileAvatar
+              photoId={avatarPhotoId}
+              name={user?.name}
+              className="h-full w-full"
+              fallbackClassName="bg-[#fff0eb] text-sm font-black text-[#ff5722] dark:bg-[#252525] dark:text-[#e2ff00]"
             />
             <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-white bg-[#ff5722] text-white dark:border-[#121212] dark:bg-[#e2ff00] dark:text-black">
               <Check className="h-2.5 w-2.5 stroke-[4]" />
@@ -142,12 +150,7 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-black leading-tight text-slate-950 dark:text-slate-100">
-              {user?.role === "Admin"
-                ? "Administrador"
-                : user?.name || "Usuario"}
-            </p>
-            <p className="truncate text-lg font-black leading-tight text-slate-950 dark:text-slate-100">
-              Gym
+              {user?.name || "Usuario"}
             </p>
             <p className="mt-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-300">
               {isCoach
@@ -234,9 +237,12 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
           onClick={() => onNavigate?.("perfil")}
         >
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black">
-            {initials}
-          </div>
+          <ProfileAvatar
+            photoId={avatarPhotoId}
+            name={user?.name}
+            className="h-10 w-10 shrink-0 rounded-full"
+            fallbackClassName="bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black"
+          />
           <div className="min-w-0 flex flex-col">
             <p className="truncate text-sm font-semibold text-[color:var(--text)]">
               {user?.name || "Usuario"}

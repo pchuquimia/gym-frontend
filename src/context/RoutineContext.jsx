@@ -47,10 +47,12 @@ export function RoutineProvider({ children, ownerId = "" }) {
       if (document.visibilityState === "visible") refresh();
     };
     window.addEventListener("focus", refresh);
+    window.addEventListener("exercise-catalog-migrated", refresh);
     document.addEventListener("visibilitychange", handleVisibility);
     const intervalId = window.setInterval(refresh, 60_000);
     return () => {
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("exercise-catalog-migrated", refresh);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);
     };

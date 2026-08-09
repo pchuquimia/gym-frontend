@@ -4,9 +4,10 @@ import { ResponsiveBar } from '@nivo/bar'
 import { ResponsiveLine } from '@nivo/line'
 import { cleanSets, toIsoWeek, formatCompactWeekLabel, movingAverage } from '../../utils/trainingMetrics'
 import { nivoTheme } from '../../utils/nivoTheme'
+import ChartSampleState from './ChartSampleState'
 
 const EmptyState = () => (
-  <div className="border border-dashed border-[color:var(--border)] rounded-xl p-4 text-center text-sm text-[color:var(--text-muted)]">
+  <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] p-4 text-center text-sm text-[color:var(--text-muted)]">
     <p className="font-semibold text-[color:var(--text)] mb-1">Sin datos suficientes</p>
     <p className="text-[color:var(--text-muted)] text-xs">Registra al menos 2 semanas para ver progreso</p>
   </div>
@@ -75,16 +76,16 @@ const ExerciseVolumeChart = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="grid w-fit grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1 text-xs">
         <button
-          className={`px-3 py-1 rounded-full border ${view === 'volume' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
+          className={`h-8 px-3 text-[11px] font-black uppercase ${view === 'volume' ? 'theme-accent-solid' : 'text-[color:var(--text-muted)]'}`}
           onClick={() => setView('volume')}
           type="button"
         >
           Volumen
         </button>
         <button
-          className={`px-3 py-1 rounded-full border ${view === 'trend' ? 'border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--bg)]'}`}
+          className={`h-8 px-3 text-[11px] font-black uppercase ${view === 'trend' ? 'theme-accent-solid' : 'text-[color:var(--text-muted)]'}`}
           onClick={() => setView('trend')}
           type="button"
         >
@@ -92,7 +93,7 @@ const ExerciseVolumeChart = ({
         </button>
       </div>
 
-      <div className="h-80">
+      <div className="h-64 sm:h-72">
         {hasData ? (
           view === 'volume' ? (
             <ResponsiveBar
@@ -100,9 +101,9 @@ const ExerciseVolumeChart = ({
               theme={nivoTheme(mode)}
               keys={['volume']}
               indexBy="week"
-              margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+              margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
               padding={0.35}
-              colors={['#4fa3ff']}
+              colors={mode === 'dark' ? ['#e2ff00'] : ['#ff5722']}
               axisBottom={{
                 tickRotation: -25,
                 tickPadding: 8,
@@ -111,12 +112,17 @@ const ExerciseVolumeChart = ({
               axisLeft={{ legend: 'Volumen (kg·reps)', legendPosition: 'middle', legendOffset: -50, tickPadding: 6 }}
               enableGridY
               tooltip={({ data }) => (
-                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
+                <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{formatCompactWeekLabel(data.week)}</p>
                   <p>Volumen: {data.volume} kg·reps</p>
                   <p>Sets: {data.sets}</p>
                 </div>
               )}
+            />
+          ) : points.length === 1 ? (
+            <ChartSampleState
+              value={`${Math.round(points[0].volume)} kg`}
+              detail={`${points[0].sets} series en la primera observacion`}
             />
           ) : (
             <ResponsiveLine
@@ -127,7 +133,7 @@ const ExerciseVolumeChart = ({
                 },
               ]}
               theme={nivoTheme(mode)}
-              margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+              margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
               xScale={{ type: 'point' }}
               yScale={{ type: 'linear', min: 0, max: 'auto', stacked: false }}
               axisBottom={{
@@ -137,12 +143,12 @@ const ExerciseVolumeChart = ({
               }}
               axisLeft={{ legend: 'Volumen (kg·reps)', legendOffset: -50, legendPosition: 'middle', tickPadding: 6 }}
               enablePoints
-              pointSize={8}
+              pointSize={6}
               curve="monotoneX"
-              colors={['#c084fc']}
+              colors={mode === 'dark' ? ['#e2ff00'] : ['#ff5722']}
               useMesh
               tooltip={({ point }) => (
-                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
+                <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{formatCompactWeekLabel(point.data.x)}</p>
                   <p>MA3: {Number(point.data.y).toFixed(1)} kg·reps</p>
                 </div>

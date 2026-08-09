@@ -1,6 +1,6 @@
 const base = {
-  fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-  fontSize: 12,
+  fontFamily: '"Barlow Condensed", "Arial Narrow", Inter, sans-serif',
+  fontSize: 11,
   axis: {
     domain: { line: { strokeWidth: 1 } },
     ticks: { line: { strokeWidth: 1 }, text: { fontSize: 11 } },
@@ -9,8 +9,8 @@ const base = {
   legends: { text: { fontSize: 12 } },
   tooltip: {
     container: {
-      borderRadius: 10,
-      padding: 12,
+      borderRadius: 4,
+      padding: 10,
       boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
     },
   },
@@ -21,30 +21,30 @@ export const nivoTheme = (mode = 'dark') => {
     return {
       ...base,
       background: 'transparent',
-      textColor: '#1f2937',
+      textColor: '#1a1a1a',
       axis: {
         ...base.axis,
-        domain: { line: { stroke: '#e5e7eb', strokeWidth: 1 } },
-        ticks: { line: { stroke: '#e5e7eb', strokeWidth: 1 }, text: { fill: '#4b5563', fontSize: 11 } },
-        legend: { text: { fill: '#111827', fontSize: 12 } },
+        domain: { line: { stroke: '#dedede', strokeWidth: 1 } },
+        ticks: { line: { stroke: '#dedede', strokeWidth: 1 }, text: { fill: '#68686d', fontSize: 11 } },
+        legend: { text: { fill: '#1a1a1a', fontSize: 11 } },
       },
-      grid: { line: { stroke: '#f3f4f6', strokeWidth: 1 } },
-      legends: { text: { fill: '#111827', fontSize: 12 } },
-      tooltip: { container: { ...base.tooltip.container, background: '#ffffff', color: '#111827', border: '1px solid #e5e7eb' } },
+      grid: { line: { stroke: '#e8e8e8', strokeWidth: 1 } },
+      legends: { text: { fill: '#1a1a1a', fontSize: 11 } },
+      tooltip: { container: { ...base.tooltip.container, background: '#ffffff', color: '#1a1a1a', border: '1px solid #dedede' } },
     }
   }
   return {
     ...base,
     background: 'transparent',
-    textColor: '#e5e7eb',
+    textColor: '#f8f8f4',
     axis: {
       ...base.axis,
-      domain: { line: { stroke: '#243447', strokeWidth: 1 } },
-      ticks: { line: { stroke: '#243447', strokeWidth: 1 }, text: { fill: '#94a3b8', fontSize: 11 } },
-      legend: { text: { fill: '#e2e8f0', fontSize: 12 } },
+      domain: { line: { stroke: '#303030', strokeWidth: 1 } },
+      ticks: { line: { stroke: '#303030', strokeWidth: 1 }, text: { fill: '#b8b8a6', fontSize: 11 } },
+      legend: { text: { fill: '#f8f8f4', fontSize: 11 } },
     },
-    grid: { line: { stroke: '#1f2a3c', strokeWidth: 1 } },
-    legends: { text: { fill: '#e2e8f0', fontSize: 12 } },
-    tooltip: { container: { ...base.tooltip.container, background: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b' } },
+    grid: { line: { stroke: '#252525', strokeWidth: 1 } },
+    legends: { text: { fill: '#f8f8f4', fontSize: 11 } },
+    tooltip: { container: { ...base.tooltip.container, background: '#121212', color: '#f8f8f4', border: '1px solid #303030' } },
   }
 }

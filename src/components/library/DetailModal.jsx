@@ -40,8 +40,7 @@ const normalizeInstructionSteps = (value) =>
     if (!step) return steps;
     const previous = steps.at(-1);
     const continuesPrevious =
-      previous &&
-      (!/[.!?]$/.test(previous) || /^[a-záéíóúüñ]/.test(step));
+      previous && (!/[.!?]$/.test(previous) || /^[a-záéíóúüñ]/.test(step));
     if (continuesPrevious) {
       steps[steps.length - 1] = `${previous} ${step}`;
     } else {
@@ -109,7 +108,9 @@ function TechnicalRow({ icon: Icon, label, value }) {
         <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
         </p>
-        <p className="mt-0.5 text-sm leading-5 text-[color:var(--text)]">{value}</p>
+        <p className="mt-0.5 text-sm leading-5 text-[color:var(--text)]">
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -170,7 +171,7 @@ export default function DetailModal({
     };
   }, []);
 
-  const imageUrl = getExerciseImageUrl(exercise, { width: 960, height: 540 });
+  const imageUrl = getExerciseImageUrl(exercise, { preset: "detail" });
   const animationUrl = getExerciseAnimationUrl(exercise);
   const instructions = normalizeInstructionSteps(exercise.instructions);
   const categories = getExerciseCategories(exercise);
@@ -207,9 +208,11 @@ export default function DetailModal({
         value: exercise.position || equipment[0] || "No definido",
         accent: false,
       };
-  const headerTags = [exerciseType, equipment[0], muscleGroup || goals[0]].filter(
-    Boolean,
-  );
+  const headerTags = [
+    exerciseType,
+    equipment[0],
+    muscleGroup || goals[0],
+  ].filter(Boolean);
   const technicalMechanics = [
     exercise.kineticChain,
     exercise.executionType,
@@ -247,7 +250,10 @@ export default function DetailModal({
           <span aria-hidden="true" />
         </header>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
           <div className="px-4 pb-4 pt-5 sm:px-6">
             {isPersonal ? (
               <div className="mb-4 flex items-center gap-2 border-l-4 border-l-[#ff5722] bg-[#ff5722]/5 px-3 py-2 text-xs font-black uppercase text-[#c52d00] dark:border-l-[#e2ff00] dark:bg-[#e2ff00]/5 dark:text-[#e2ff00]">
@@ -302,7 +308,9 @@ export default function DetailModal({
                 onClick={() => setShowAnimation((value) => !value)}
                 aria-pressed={showAnimation}
                 className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-[#ff5722] text-white shadow-xl transition hover:scale-105 dark:bg-[#e2ff00] dark:text-black"
-                aria-label={showAnimation ? "Ver imagen estática" : "Ver animación"}
+                aria-label={
+                  showAnimation ? "Ver imagen estática" : "Ver animación"
+                }
                 title={showAnimation ? "Ver imagen estática" : "Ver animación"}
               >
                 {showAnimation ? (
@@ -315,7 +323,10 @@ export default function DetailModal({
           </div>
 
           <div className="grid grid-cols-2 gap-1 p-1 sm:gap-2 sm:p-2">
-            <Metric label="Dificultad" value={exercise.difficulty || "No definida"} />
+            <Metric
+              label="Dificultad"
+              value={exercise.difficulty || "No definida"}
+            />
             <Metric
               label="Patrón"
               value={forceType || movementPatterns[0] || "No definido"}
@@ -332,7 +343,10 @@ export default function DetailModal({
             <Metric {...fourthMetric} />
           </div>
 
-          {(primaryMuscles.length || muscleGroup || secondaryMuscles.length || stabilizerMuscles.length) ? (
+          {primaryMuscles.length ||
+          muscleGroup ||
+          secondaryMuscles.length ||
+          stabilizerMuscles.length ? (
             <section className="mt-6 border-y border-[color:var(--border)] px-4 py-5 sm:px-6">
               <SectionHeading icon={Target}>Músculos implicados</SectionHeading>
               <div className="mt-4">
@@ -410,7 +424,9 @@ export default function DetailModal({
 
           {precautions.length ? (
             <section className="mt-4 border-l-4 border-l-[#ff5722] bg-[#ff5722]/5 px-4 py-5 dark:border-l-[#e2ff00] dark:bg-[#e2ff00]/5 sm:px-6">
-              <SectionHeading icon={AlertTriangle}>Consejo técnico</SectionHeading>
+              <SectionHeading icon={AlertTriangle}>
+                Consejo técnico
+              </SectionHeading>
               <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
                 {formatList(precautions)}
               </p>
@@ -421,11 +437,17 @@ export default function DetailModal({
             <SectionHeading icon={Tags}>Ficha técnica</SectionHeading>
             <div className="mt-2 grid sm:grid-cols-2 sm:gap-x-6">
               <TechnicalRow icon={MapPin} label="Región" value={bodyRegion} />
-              <TechnicalRow icon={Tags} label="Navegación" value={navigationRegion} />
+              <TechnicalRow
+                icon={Tags}
+                label="Navegación"
+                value={navigationRegion}
+              />
               <TechnicalRow
                 icon={Activity}
                 label="Patrón"
-                value={movementPatterns.length ? formatList(movementPatterns) : ""}
+                value={
+                  movementPatterns.length ? formatList(movementPatterns) : ""
+                }
               />
               <TechnicalRow
                 icon={Dumbbell}

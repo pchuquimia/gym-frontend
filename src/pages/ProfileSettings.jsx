@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
   Eye,
   EyeOff,
   Languages,
+  Link2,
   Lock,
   LogOut,
   MapPin,
@@ -15,8 +17,10 @@ import {
   Save,
   Smartphone,
   Tablet,
+  Unlink,
   Upload,
   User,
+  UserRoundCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
@@ -160,7 +164,7 @@ function Section({ title, action, children, className = "" }) {
         </h2>
         {action}
       </div>
-      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px]">
+      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
         {children}
       </div>
     </section>
@@ -172,7 +176,7 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
+      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#fff4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)] dark:hover:bg-[#161900]"
     >
       <span className="theme-accent-soft grid h-9 w-9 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
         <Icon className="h-4 w-4" />
@@ -197,14 +201,24 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
   );
 }
 
-function SettingsSelectRow({ icon: Icon, title, subtitle, value, onChange, disabled }) {
+function SettingsSelectRow({
+  icon: Icon,
+  title,
+  subtitle,
+  value,
+  onChange,
+  disabled,
+}) {
   return (
     <div className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#ff5722]/10 dark:bg-[#e2ff00]/10">
-        <Icon className="h-4 w-4 text-[#c52d00] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
       </span>
       <span className="min-w-0 flex-1">
-        <label htmlFor="profile-exercise-language" className="block text-sm font-bold text-[color:var(--text)]">
+        <label
+          htmlFor="profile-exercise-language"
+          className="block text-sm font-bold text-[color:var(--text)]"
+        >
           {title}
         </label>
         <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
@@ -216,7 +230,7 @@ function SettingsSelectRow({ icon: Icon, title, subtitle, value, onChange, disab
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className="h-10 min-w-28 rounded border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+        className="h-10 min-w-28 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:rounded-[3px] dark:focus:border-[#e2ff00]"
       >
         <option value="es">Español</option>
         <option value="en">English</option>
@@ -225,28 +239,43 @@ function SettingsSelectRow({ icon: Icon, title, subtitle, value, onChange, disab
   );
 }
 
-function ProfileHero({ user, profile, avatarUrl, stats }) {
+function ProfileHero({ user, profile, avatarUrl, stats, onChangePhoto }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-6 text-center shadow-sm dark:rounded-[4px] lg:sticky lg:top-6">
-      <div className="mx-auto grid h-24 w-24 place-items-center overflow-hidden rounded-full border-4 border-[color:var(--accent)] bg-[color:var(--bg)] text-2xl font-black text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={`Foto de ${user?.name || "perfil"}`}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          getInitials(user?.name)
-        )}
+    <section className="space-y-3 lg:sticky lg:top-6">
+      <div className="flex items-center gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none lg:flex-col lg:px-5 lg:py-6 lg:text-center">
+        <button
+          type="button"
+          onClick={onChangePhoto}
+          aria-label="Cambiar foto de perfil"
+          title="Cambiar foto de perfil"
+          className="group relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-[3px] border-[color:var(--accent)] bg-[color:var(--bg)] text-2xl font-black text-[#ff5722] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 dark:text-[#e2ff00] lg:h-24 lg:w-24"
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`Foto de ${user?.name || "perfil"}`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            getInitials(user?.name)
+          )}
+          <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border-2 border-[color:var(--card)] bg-[#ff5722] text-white transition group-hover:scale-105 dark:bg-[#e2ff00] dark:text-black">
+            <Camera className="h-3.5 w-3.5" />
+          </span>
+        </button>
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-black uppercase text-[color:var(--text)]">
+            {user?.name || "Usuario"}
+          </h1>
+          <p className="mt-1 text-xs font-bold uppercase text-[color:var(--text-muted)]">
+            {roleLabels[user?.role] || user?.role || "Cuenta"}
+            {profile?.goal
+              ? ` · ${goalLabels[profile.goal] || profile.goal}`
+              : ""}
+          </p>
+        </div>
       </div>
-      <h1 className="mt-4 text-xl font-black text-[color:var(--text)]">
-        {user?.name || "Usuario"}
-      </h1>
-      <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">
-        {roleLabels[user?.role] || user?.role || "Cuenta"}
-        {profile?.goal ? ` · ${goalLabels[profile.goal] || profile.goal}` : ""}
-      </p>
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Stat value={stats.workouts} label="Entrenamientos" />
         <Stat value={stats.streak} label="Racha actual" />
       </div>
@@ -256,8 +285,8 @@ function ProfileHero({ user, profile, avatarUrl, stats }) {
 
 function Stat({ value, label }) {
   return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3 text-center">
-      <p className="font-condensed text-2xl font-bold leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-center shadow-sm dark:rounded-[4px] dark:shadow-none">
+      <p className="text-2xl font-black leading-none text-[#ff5722] dark:text-[#e2ff00]">
         {value ?? "--"}
       </p>
       <p className="mt-1.5 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
@@ -296,7 +325,7 @@ function SessionRow({ session }) {
   return (
     <div className="flex min-h-20 items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)]">
-        <Icon className="h-5 w-5 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
+        <Icon className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -322,7 +351,7 @@ function SessionRow({ session }) {
 }
 
 export default function ProfileSettings({ onNavigate }) {
-  const { user, logout, updateAccount } = useAuth();
+  const { user, logout, updateAccount, refreshUser } = useAuth();
   const {
     photos = [],
     branch,
@@ -385,6 +414,13 @@ export default function ProfileSettings({ onNavigate }) {
     tone: "",
   });
   const [languageSaving, setLanguageSaving] = useState(false);
+  const [coachRelationship, setCoachRelationship] = useState({
+    loading: user?.role === "Cliente",
+    connected: false,
+    coach: null,
+  });
+  const [coachCode, setCoachCode] = useState("");
+  const [coachSaving, setCoachSaving] = useState(false);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -405,6 +441,24 @@ export default function ProfileSettings({ onNavigate }) {
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    if (user?.role !== "Cliente") return undefined;
+    let active = true;
+    api
+      .getCoachRelationship()
+      .then((data) => {
+        if (active) setCoachRelationship({ loading: false, ...data });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setCoachRelationship({ loading: false, connected: false, coach: null });
+        toast.error(error.message || "No se pudo consultar tu coach");
+      });
+    return () => {
+      active = false;
+    };
+  }, [user?.role]);
 
   useEffect(() => {
     const handlePopState = () => setView(viewFromUrl());
@@ -464,6 +518,16 @@ export default function ProfileSettings({ onNavigate }) {
     setPersonalState({ saving: false, message: "", tone: "" });
     setPhotoUploadState({ uploading: false, message: "", tone: "" });
     navigateView("personal");
+  };
+
+  const openPersonalPhoto = () => {
+    openPersonal();
+    window.setTimeout(() => {
+      document.getElementById("profile-photo-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
   };
 
   const openLocations = () => {
@@ -772,6 +836,58 @@ export default function ProfileSettings({ onNavigate }) {
     }
   };
 
+  const connectToCoach = async (event) => {
+    event.preventDefault();
+    const normalizedCode = coachCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      toast.error("Ingresa el codigo que te compartio tu coach");
+      return;
+    }
+    const changingCoach =
+      coachRelationship.connected && coachRelationship.coach;
+    if (
+      changingCoach &&
+      !window.confirm(
+        `Actualmente entrenas con ${coachRelationship.coach.name}. Al cambiar, sus planes activos se pausaran. Quieres continuar?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      setCoachSaving(true);
+      const data = await api.connectCoach(normalizedCode, Boolean(changingCoach));
+      setCoachRelationship({ loading: false, ...data });
+      setCoachCode("");
+      await refreshUser({ force: true, silent: true });
+      toast.success(`Ahora entrenas con ${data.coach.name}`);
+    } catch (error) {
+      toast.error(error.message || "No se pudo vincular el coach");
+    } finally {
+      setCoachSaving(false);
+    }
+  };
+
+  const disconnectFromCoach = async () => {
+    if (
+      !window.confirm(
+        "Dejaras la cartera de tu coach. Sus planes se pausaran y tus rutinas quedaran disponibles como personales. Quieres continuar?",
+      )
+    ) {
+      return;
+    }
+    try {
+      setCoachSaving(true);
+      const data = await api.disconnectCoach();
+      setCoachRelationship({ loading: false, ...data });
+      await refreshUser({ force: true, silent: true });
+      toast.success("Ahora entrenas de forma independiente");
+    } catch (error) {
+      toast.error(error.message || "No se pudo quitar el coach");
+    } finally {
+      setCoachSaving(false);
+    }
+  };
+
   if (profileLoading) {
     return (
       <main className="settings-shell mx-auto grid min-h-[50vh] max-w-5xl place-items-center">
@@ -804,7 +920,7 @@ export default function ProfileSettings({ onNavigate }) {
       <main className="settings-shell mx-auto w-full max-w-4xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+          <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Información personal
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -927,85 +1043,87 @@ export default function ProfileSettings({ onNavigate }) {
               </div>
             </div>
           </Section>
-          <Section title="Foto de perfil">
-            <div className="space-y-4 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-lg font-black">
-                    {draftAvatarUrl ? (
-                      <img
-                        src={draftAvatarUrl}
-                        alt="Foto de perfil actual"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getInitials(personalDraft.name)
-                    )}
+          <div id="profile-photo-section" className="scroll-mt-4">
+            <Section title="Foto de perfil">
+              <div className="space-y-4 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-lg font-black">
+                      {draftAvatarUrl ? (
+                        <img
+                          src={draftAvatarUrl}
+                          alt="Foto de perfil actual"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        getInitials(personalDraft.name)
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[color:var(--text)]">
+                        Tu foto
+                      </p>
+                      <p className="text-xs text-[color:var(--text-muted)]">
+                        JPG, PNG o WebP. Maximo 5 MB.
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-[color:var(--text)]">
-                      Tu foto
-                    </p>
-                    <p className="text-xs text-[color:var(--text-muted)]">
-                      JPG, PNG o WebP. Maximo 5 MB.
-                    </p>
-                  </div>
+                  <label
+                    htmlFor="profile-photo-upload"
+                    className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-bold text-[color:var(--text)] transition hover:bg-[color:var(--bg)] ${photoUploadState.uploading ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <Upload className="h-4 w-4" />
+                    {photoUploadState.uploading ? "Subiendo..." : "Subir foto"}
+                  </label>
+                  <input
+                    id="profile-photo-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={photoUploadState.uploading}
+                    onChange={uploadProfilePhoto}
+                  />
                 </div>
-                <label
-                  htmlFor="profile-photo-upload"
-                  className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-bold text-[color:var(--text)] transition hover:bg-[color:var(--bg)] ${photoUploadState.uploading ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  <Upload className="h-4 w-4" />
-                  {photoUploadState.uploading ? "Subiendo..." : "Subir foto"}
-                </label>
-                <input
-                  id="profile-photo-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  disabled={photoUploadState.uploading}
-                  onChange={uploadProfilePhoto}
-                />
+                {photoUploadState.message ? (
+                  <p
+                    role="status"
+                    className={`text-xs font-semibold ${photoUploadState.tone === "error" ? "text-red-500" : "text-emerald-600"}`}
+                  >
+                    {photoUploadState.message}
+                  </p>
+                ) : null}
+                <div className="grid grid-cols-4 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => updatePersonalField("avatarPhotoId", "")}
+                    aria-pressed={!personalDraft.avatarPhotoId}
+                    className={`grid aspect-square place-items-center rounded-lg border text-lg font-black dark:rounded-[3px] ${!personalDraft.avatarPhotoId ? "theme-accent-soft" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
+                  >
+                    {getInitials(personalDraft.name)}
+                  </button>
+                  {ownPhotos.slice(0, 7).map((photo) => {
+                    const id = String(photo.id || photo._id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => updatePersonalField("avatarPhotoId", id)}
+                        aria-label="Seleccionar como foto de perfil"
+                        aria-pressed={personalDraft.avatarPhotoId === id}
+                        className={`aspect-square overflow-hidden rounded-lg border dark:rounded-[3px] ${personalDraft.avatarPhotoId === id ? "border-[color:var(--accent)] ring-2 ring-[color:var(--accent)]/20" : "border-[color:var(--border)]"}`}
+                      >
+                        <img
+                          src={photoUrl(photo)}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              {photoUploadState.message ? (
-                <p
-                  role="status"
-                  className={`text-xs font-semibold ${photoUploadState.tone === "error" ? "text-red-500" : "text-emerald-600"}`}
-                >
-                  {photoUploadState.message}
-                </p>
-              ) : null}
-              <div className="grid grid-cols-4 gap-3">
-                <button
-                  type="button"
-                  onClick={() => updatePersonalField("avatarPhotoId", "")}
-                  aria-pressed={!personalDraft.avatarPhotoId}
-                  className={`grid aspect-square place-items-center rounded-lg border text-lg font-black dark:rounded-[3px] ${!personalDraft.avatarPhotoId ? "theme-accent-soft" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
-                >
-                  {getInitials(personalDraft.name)}
-                </button>
-                {ownPhotos.slice(0, 7).map((photo) => {
-                  const id = String(photo.id || photo._id);
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => updatePersonalField("avatarPhotoId", id)}
-                      aria-label="Seleccionar como foto de perfil"
-                      aria-pressed={personalDraft.avatarPhotoId === id}
-                      className={`aspect-square overflow-hidden rounded-lg border dark:rounded-[3px] ${personalDraft.avatarPhotoId === id ? "border-[color:var(--accent)] ring-2 ring-[color:var(--accent)]/20" : "border-[color:var(--border)]"}`}
-                    >
-                      <img
-                        src={photoUrl(photo)}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </Section>
+            </Section>
+          </div>
           <div className="flex flex-col-reverse gap-3 lg:col-span-2 lg:flex-row lg:items-center lg:justify-end">
             {personalState.message ? (
               <p
@@ -1036,7 +1154,7 @@ export default function ProfileSettings({ onNavigate }) {
       <main className="settings-shell mx-auto w-full max-w-3xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+          <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Contraseña y sesiones
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -1195,7 +1313,7 @@ export default function ProfileSettings({ onNavigate }) {
               <button
                 type="button"
                 onClick={loadSessions}
-                className="mt-3 text-sm font-bold text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]"
+                className="mt-3 text-sm font-bold text-[#ff5722] dark:text-[#e2ff00]"
               >
                 Reintentar
               </button>
@@ -1219,7 +1337,7 @@ export default function ProfileSettings({ onNavigate }) {
       <main className="settings-shell mx-auto w-full max-w-2xl space-y-5 pb-28">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
+          <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Lugares de entrenamiento
           </h1>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -1290,9 +1408,9 @@ export default function ProfileSettings({ onNavigate }) {
                     }))
                   }
                   aria-pressed={selected}
-                  className={`flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 ${selected ? "bg-emerald-500/10" : ""} disabled:cursor-default`}
+                  className={`flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 ${selected ? "bg-[#ff5722]/10 dark:bg-[#e2ff00]/10" : ""} disabled:cursor-default`}
                 >
-                  <Building2 className="h-5 w-5 text-emerald-600" />
+                  <Building2 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
                   <span className="flex-1">
                     <span className="block text-sm font-bold text-[color:var(--text)]">
                       {option.label}
@@ -1302,7 +1420,7 @@ export default function ProfileSettings({ onNavigate }) {
                     </span>
                   </span>
                   {selected ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
+                    <Check className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
                   ) : null}
                 </button>
               );
@@ -1332,13 +1450,14 @@ export default function ProfileSettings({ onNavigate }) {
   }
 
   return (
-    <main className="settings-shell mx-auto grid w-full max-w-7xl gap-6 pb-28 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start lg:gap-8">
+    <main className="settings-shell mx-auto grid w-full max-w-md gap-4 pb-28 text-[color:var(--text)] md:max-w-5xl lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:max-w-6xl 2xl:max-w-[1280px]">
       <div>
         <ProfileHero
           user={user}
           profile={profile}
           avatarUrl={avatarUrl}
           stats={stats}
+          onChangePhoto={openPersonalPhoto}
         />
         {summaryError ? (
           <div className="mt-3 text-center">
@@ -1346,14 +1465,14 @@ export default function ProfileSettings({ onNavigate }) {
             <button
               type="button"
               onClick={loadSummary}
-              className="mt-1 text-xs font-bold text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]"
+              className="mt-1 text-xs font-bold text-[#ff5722] dark:text-[#e2ff00]"
             >
               Reintentar resumen
             </button>
           </div>
         ) : null}
       </div>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <Section title="Cuenta">
           <SettingsRow
             icon={User}
@@ -1368,6 +1487,90 @@ export default function ProfileSettings({ onNavigate }) {
             onClick={() => navigateView("security")}
           />
         </Section>
+        {user?.role === "Cliente" ? (
+          <Section title="Acompanamiento">
+            {coachRelationship.loading ? (
+              <p className="px-4 py-5 text-sm font-semibold text-[color:var(--text-muted)]">
+                Consultando tu modalidad de entrenamiento...
+              </p>
+            ) : (
+              <div>
+                <div className="flex items-start gap-3 p-4">
+                  <span className="theme-accent-soft grid h-10 w-10 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
+                    {coachRelationship.connected ? (
+                      <UserRoundCheck className="h-5 w-5" />
+                    ) : (
+                      <Link2 className="h-5 w-5" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-[color:var(--text)]">
+                      {coachRelationship.connected
+                        ? coachRelationship.coach?.name
+                        : "Entrenamiento independiente"}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                      {coachRelationship.connected
+                        ? `${coachRelationship.coach?.email} · Tu coach puede asignarte planes y supervisar tus sesiones.`
+                        : "Tu cuenta beta inicia con permisos basicos y control de tus propias rutinas. Vincula un coach solo si decides trabajar con uno."}
+                    </p>
+                  </div>
+                  {coachRelationship.connected ? (
+                    <span className="theme-accent-soft shrink-0 rounded border px-2 py-1 text-[9px] font-black uppercase">
+                      Con coach
+                    </span>
+                  ) : null}
+                </div>
+                <form
+                  onSubmit={connectToCoach}
+                  className="grid gap-2 border-t border-[color:var(--border)] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                >
+                  <label className="min-w-0">
+                    <span className="sr-only">Codigo de coach</span>
+                    <input
+                      value={coachCode}
+                      onChange={(event) =>
+                        setCoachCode(event.target.value.toUpperCase())
+                      }
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      spellCheck="false"
+                      maxLength={13}
+                      placeholder={
+                        coachRelationship.connected
+                          ? "Codigo de otro coach"
+                          : "Codigo del coach · APEX-XXXXXXXX"
+                      }
+                      className={`${inputClass} font-mono uppercase`}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={coachSaving || !coachCode.trim()}
+                    className="theme-accent-solid h-11 px-4 text-xs font-black uppercase disabled:opacity-50"
+                  >
+                    {coachSaving
+                      ? "Vinculando..."
+                      : coachRelationship.connected
+                        ? "Cambiar coach"
+                        : "Vincular coach"}
+                  </button>
+                </form>
+                {coachRelationship.connected ? (
+                  <button
+                    type="button"
+                    onClick={disconnectFromCoach}
+                    disabled={coachSaving}
+                    className="flex h-11 w-full items-center justify-center gap-2 border-t border-[color:var(--border)] text-xs font-black uppercase text-red-500 hover:bg-red-500/5 disabled:opacity-50"
+                  >
+                    <Unlink className="h-4 w-4" />
+                    Entrenar sin coach
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </Section>
+        ) : null}
         <Section title="Entrenamiento">
           <SettingsRow
             icon={MapPin}

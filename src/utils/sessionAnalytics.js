@@ -2,19 +2,19 @@
 import { estimate1RM } from './trainingMetrics'
 
 export const muscleGroupConfig = {
-  back: {
+  espalda: {
     label: 'Espalda',
     weights: { pull_up: 0.35, barbell_row: 0.35, lat_pulldown: 0.2, cable_row: 0.1 },
   },
-  chest: {
+  pecho: {
     label: 'Pecho',
     weights: { bench_press: 0.4, incline_bench_press: 0.3, dumbbell_press: 0.2, chest_fly: 0.1 },
   },
-  legs: {
+  piernas: {
     label: 'Pierna',
     weights: { squat: 0.4, leg_press: 0.25, romanian_deadlift: 0.2, lunges: 0.15 },
   },
-  shoulders: {
+  hombros: {
     label: 'Hombro',
     weights: { ohp: 0.35, shoulder_press_machine: 0.3, lateral_raise: 0.2, arnold_press: 0.15 },
   },
@@ -26,6 +26,65 @@ export const muscleGroupConfig = {
     label: 'Bíceps',
     weights: { barbell_curl: 0.35, hammer_curl: 0.25, preacher_curl: 0.2, cable_curl: 0.2 },
   },
+}
+
+const muscleAliases = {
+  back: 'espalda',
+  bicep: 'biceps',
+  biceps: 'biceps',
+  chest: 'pecho',
+  core: 'core',
+  gluteo: 'gluteos',
+  gluteos: 'gluteos',
+  hombro: 'hombros',
+  hombros: 'hombros',
+  leg: 'piernas',
+  legs: 'piernas',
+  pierna: 'piernas',
+  piernas: 'piernas',
+  shoulder: 'hombros',
+  shoulders: 'hombros',
+  tricep: 'triceps',
+  triceps: 'triceps',
+}
+
+const muscleLabels = {
+  abdominales: 'Abdominales',
+  abductores: 'Abductores',
+  aductores: 'Aductores',
+  antebrazos: 'Antebrazos',
+  biceps: 'Bíceps',
+  core: 'Core',
+  cuadriceps: 'Cuádriceps',
+  espalda: 'Espalda',
+  gluteos: 'Glúteos',
+  hombros: 'Hombros',
+  isquiotibiales: 'Isquiotibiales',
+  pantorrillas: 'Pantorrillas',
+  pecho: 'Pecho',
+  piernas: 'Piernas',
+  triceps: 'Tríceps',
+}
+
+export const normalizeMuscleGroup = (value = '') => {
+  const normalized = String(value || 'otros')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  return muscleAliases[normalized] || normalized || 'otros'
+}
+
+export const formatMuscleGroup = (value = '') => {
+  const normalized = normalizeMuscleGroup(value)
+  if (muscleLabels[normalized]) return muscleLabels[normalized]
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ')
 }
 
 const expandSets = (sets = []) =>
@@ -67,7 +126,7 @@ export const summarizeSession = (session) => {
     return {
       exerciseId: ex.exerciseId,
       exerciseName: ex.exerciseName,
-      muscleGroup: ex.muscleGroup,
+      muscleGroup: normalizeMuscleGroup(ex.muscleGroup),
       topSet,
       oneRMTop,
       volume,
@@ -77,7 +136,7 @@ export const summarizeSession = (session) => {
   }).filter(Boolean)
 
   const groups = exercises.reduce((acc, ex) => {
-    const g = ex.muscleGroup || 'otros'
+    const g = normalizeMuscleGroup(ex.muscleGroup)
     if (!acc[g]) acc[g] = { volume: 0, bestOneRM: 0, setsCount: 0, repsTotal: 0, strengthIndex: 0 }
     acc[g].volume += ex.volume
     acc[g].bestOneRM = Math.max(acc[g].bestOneRM, ex.oneRMTop)

@@ -48,6 +48,7 @@ import Badge from "../components/ui/badge";
 import { api } from "../services/api";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
+import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -522,7 +523,7 @@ function ExercisePickerOption({
   onToggle,
   showUsage,
 }) {
-  const thumb = getExerciseImageUrl(option, { width: 96, height: 96 });
+  const thumb = getExerciseImageUrl(option, { width: 192, height: 192 });
   const usageCount =
     option.usageByBranch?.[branch]?.count || option.usageCount || 0;
 
@@ -530,25 +531,19 @@ function ExercisePickerOption({
     <button
       type="button"
       onClick={() => onToggle(option.id)}
-      className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+      className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
         selected
           ? "border-blue-400 bg-blue-500/10"
           : "border-[color:var(--border)] bg-[color:var(--bg)]"
       }`}
     >
-      <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt={option.name}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
-            {(option.name || "?").charAt(0).toUpperCase()}
-          </div>
-        )}
+      <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+        <ExerciseThumbnail
+          src={thumb}
+          alt=""
+          fallback={(option.name || "?").charAt(0).toUpperCase()}
+          className="h-full w-full text-xs font-black"
+        />
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -1886,8 +1881,8 @@ function RoutineModal({
                             >
                               {list.map((ex) => {
                                 const thumb = getExerciseImageUrl(ex, {
-                                  width: 96,
-                                  height: 96,
+                                  width: 192,
+                                  height: 192,
                                 });
                                 const alternativeOptions =
                                   availableExercises.filter(
@@ -1924,22 +1919,14 @@ function RoutineModal({
                                             : ""
                                         }`}
                                       >
-                                        <div className="grid grid-cols-[40px_minmax(0,1fr)_44px_84px] items-center gap-1.5 sm:grid-cols-[48px_minmax(0,1fr)_60px_auto] sm:gap-3">
-                                          <div className="h-10 w-10 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-12 sm:w-12 sm:rounded-xl">
-                                            {thumb ? (
-                                              <img
-                                                src={thumb}
-                                                alt={ex.name}
-                                                className="h-full w-full object-cover"
-                                                loading="lazy"
-                                              />
-                                            ) : (
-                                              <div className="grid h-full w-full place-items-center text-[10px] text-[color:var(--text-muted)]">
-                                                {(ex.name || "?")
-                                                  .charAt(0)
-                                                  .toUpperCase()}
-                                              </div>
-                                            )}
+                                        <div className="grid grid-cols-[64px_minmax(0,1fr)_44px_84px] items-center gap-1.5 sm:grid-cols-[80px_minmax(0,1fr)_60px_auto] sm:gap-3">
+                                          <div className="h-16 w-16 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-20 sm:w-20 sm:rounded-xl">
+                                            <ExerciseThumbnail
+                                              src={thumb}
+                                              alt=""
+                                              fallback={(ex.name || "?").charAt(0).toUpperCase()}
+                                              className="h-full w-full text-xs font-black"
+                                            />
                                           </div>
 
                                           <div className="min-w-0">
@@ -2197,8 +2184,8 @@ function RoutineModal({
                                       option.id,
                                     );
                                     const thumb = getExerciseImageUrl(option, {
-                                      width: 80,
-                                      height: 80,
+                                      width: 160,
+                                      height: 160,
                                     });
                                     return (
                                       <button
@@ -2210,27 +2197,19 @@ function RoutineModal({
                                             option.id,
                                           )
                                         }
-                                        className={`grid grid-cols-[34px_minmax(0,1fr)_22px] items-center gap-2 rounded-xl border p-2 text-left transition ${
+                                        className={`grid grid-cols-[64px_minmax(0,1fr)_22px] items-center gap-2 rounded-xl border p-2 text-left transition ${
                                           selected
                                             ? "border-blue-400 bg-blue-500/10"
                                             : "border-[color:var(--border)] bg-[color:var(--card)]"
                                         }`}
-                                      >
-                                        <div className="h-8 w-8 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
-                                          {thumb ? (
-                                            <img
-                                              src={thumb}
-                                              alt={option.name}
-                                              className="h-full w-full object-cover"
-                                              loading="lazy"
-                                            />
-                                          ) : (
-                                            <div className="grid h-full w-full place-items-center text-[10px] font-black text-[color:var(--text-muted)]">
-                                              {(option.name || "?")
-                                                .charAt(0)
-                                                .toUpperCase()}
-                                            </div>
-                                          )}
+                                        >
+                                        <div className="h-16 w-16 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
+                                          <ExerciseThumbnail
+                                            src={thumb}
+                                            alt=""
+                                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                                            className="h-full w-full text-xs font-black"
+                                          />
                                         </div>
                                         <span className="truncate text-xs font-black text-[color:var(--text)]">
                                           {option.name}
@@ -2324,8 +2303,8 @@ function RoutineModal({
                   extraPickerOptions.map((option) => {
                     const selected = pickerSelectedExtraIds.includes(option.id);
                     const thumb = getExerciseImageUrl(option, {
-                      width: 96,
-                      height: 96,
+                      width: 192,
+                      height: 192,
                     });
                     return (
                       <button
@@ -2334,25 +2313,19 @@ function RoutineModal({
                         onClick={() =>
                           toggleExtraSelection(extraPickerMuscle, option.id)
                         }
-                        className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                        className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                           selected
                             ? "border-blue-400 bg-blue-500/10"
                             : "border-[color:var(--border)] bg-[color:var(--bg)]"
                         }`}
                       >
-                        <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt={option.name}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
-                              {(option.name || "?").charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                        <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                          <ExerciseThumbnail
+                            src={thumb}
+                            alt=""
+                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                            className="h-full w-full text-xs font-black"
+                          />
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -2510,33 +2483,27 @@ function RoutineModal({
                           option.id,
                         );
                         const thumb = getExerciseImageUrl(option, {
-                          width: 96,
-                          height: 96,
+                          width: 192,
+                          height: 192,
                         });
                         return (
                           <button
                             key={option.id}
                             type="button"
                             onClick={() => toggleExerciseSelection(option.id)}
-                            className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                            className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                               selected
                                 ? "border-blue-400 bg-blue-500/10"
                                 : "border-[color:var(--border)] bg-[color:var(--bg)]"
                             }`}
                           >
-                            <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt={option.name}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
-                                  {(option.name || "?").charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                            <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                              <ExerciseThumbnail
+                                src={thumb}
+                                alt=""
+                                fallback={(option.name || "?").charAt(0).toUpperCase()}
+                                className="h-full w-full text-xs font-black"
+                              />
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -2623,33 +2590,27 @@ function RoutineModal({
                   alternativePickerOptions.map((option) => {
                     const selected = selectedAlternativeIds.includes(option.id);
                     const thumb = getExerciseImageUrl(option, {
-                      width: 96,
-                      height: 96,
+                      width: 192,
+                      height: 192,
                     });
                     return (
                       <button
                         key={option.id}
                         type="button"
                         onClick={() => toggleAlternativeSelection(option.id)}
-                        className={`grid grid-cols-[44px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
+                        className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
                           selected
                             ? "border-blue-400 bg-blue-500/10"
                             : "border-[color:var(--border)] bg-[color:var(--bg)]"
                         }`}
                       >
-                        <div className="h-11 w-11 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt={option.name}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center text-xs font-black text-[color:var(--text-muted)]">
-                              {(option.name || "?").charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                        <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+                          <ExerciseThumbnail
+                            src={thumb}
+                            alt=""
+                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                            className="h-full w-full text-xs font-black"
+                          />
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -3643,18 +3604,18 @@ function RoutineDetailsModal({
       <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {exercises.map((exercise, index) => {
           const imageUrl = getExerciseImageUrl(exercise, {
-            width: 144,
-            height: 144,
+            width: 240,
+            height: 240,
           });
           return (
             <div
               key={`${exercise.exerciseId || exercise.name}-${index}`}
-              className="flex min-h-20 items-center gap-3 py-3"
+              className="flex min-h-24 items-center gap-3 py-3"
             >
               <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
                 {index + 1}
               </span>
-              <div className="h-14 w-14 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
+              <div className="h-20 w-[76px] shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
                 <RoutinePreviewImage
                   item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
                 />
@@ -4012,8 +3973,8 @@ function Routines({ onNavigate }) {
             preview.push({
               name: ex.name || meta?.name || "Ejercicio",
               url: getExerciseImageUrl(meta || ex, {
-                width: 120,
-                height: 120,
+                width: 240,
+                height: 240,
               }),
             });
           }
@@ -5118,13 +5079,13 @@ function Routines({ onNavigate }) {
                     {routine.preview.slice(0, 3).map((item, idx) => (
                       <div
                         key={`${routine.id}-preview-${idx}`}
-                        className="h-14 w-14 shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-16 sm:w-16"
+                        className="h-20 w-[76px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
                       >
                         <RoutinePreviewImage item={item} />
                       </div>
                     ))}
                     {routine.hiddenPreviewCount > 0 ? (
-                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-16 sm:w-16">
+                      <div className="grid h-20 w-[76px] shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
                         +{routine.hiddenPreviewCount}
                       </div>
                     ) : null}

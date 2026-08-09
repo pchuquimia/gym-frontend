@@ -20,6 +20,7 @@ import Button from "../components/ui/button";
 import Skeleton from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { useUserProfile } from "../context/UserContext";
 import { api } from "../services/api";
 
 const PAGE_SIZE = 12;
@@ -61,11 +62,6 @@ const formatDate = (value, options = {}) => {
   const date = toDate(value);
   return date ? date.toLocaleDateString("es-BO", options) : "Sin fecha";
 };
-
-const capitalizeFirst = (value) =>
-  value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
-
-const monthKey = (value) => String(value || "").slice(0, 7) || "sin-fecha";
 
 const normalizePhoto = (photo = {}) => ({
   ...photo,
@@ -132,7 +128,7 @@ function SelectField({ label, value, onChange, options }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-semibold text-[color:var(--text)] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
+        className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-semibold text-[color:var(--text)] outline-none dark:rounded-[3px] sm:text-sm"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -165,10 +161,10 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
       onClick={onClick}
       aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
       aria-pressed={selectionMode ? selected : undefined}
-      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
         selected
-          ? "border-blue-500 ring-2 ring-blue-500/20"
-          : "border-[color:var(--border)] hover:border-blue-300"
+          ? "border-[#ff5722] ring-2 ring-[#ff5722]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
+          : "border-[color:var(--border)] hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
       }`}
     >
       <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
@@ -198,7 +194,7 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
         <span
           className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
             selected
-              ? "border-blue-500 bg-blue-600 text-white"
+              ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
               : "border-white/70 bg-black/40 text-transparent"
           }`}
         >
@@ -211,6 +207,7 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
 
 export default function PhotosLibrary() {
   const { updateAccount } = useAuth();
+  const { refreshProfile } = useUserProfile();
   const {
     addPhoto,
     updatePhoto,
@@ -290,15 +287,6 @@ export default function PhotosLibrary() {
     trainingMap.get(String(photo.sessionId || "")) ||
     photo.label ||
     (photo.type === "home" ? "Progreso personal" : "Entrenamiento");
-  const groupedPhotos = useMemo(() => {
-    const groups = new Map();
-    photos.forEach((photo) => {
-      const key = monthKey(photo.date);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(photo);
-    });
-    return Array.from(groups.entries());
-  }, [photos]);
   const selectedPhotos = selectedIds
     .map((id) => photos.find((photo) => photo.id === id))
     .filter(Boolean);
@@ -385,6 +373,7 @@ export default function PhotosLibrary() {
     if (!activePhoto) return;
     try {
       await updateAccount({ avatarPhotoId: activePhoto.id });
+      await refreshProfile();
       toast.success("Foto de perfil actualizada");
     } catch (error) {
       toast.error(error.message || "No se pudo actualizar el perfil");
@@ -392,14 +381,14 @@ export default function PhotosLibrary() {
   };
 
   return (
-    <main className="min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto w-full max-w-6xl space-y-5 px-3 py-4 pb-28 sm:px-6 sm:py-6">
+    <main className="photos-shell mx-auto w-full max-w-md pb-28 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
+      <div className="w-full space-y-4">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
               Progreso visual
             </p>
-            <h1 className="text-2xl font-black sm:text-3xl">
+            <h1 className="text-3xl font-black uppercase leading-none">
               Fotos de progreso
             </h1>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
@@ -409,7 +398,7 @@ export default function PhotosLibrary() {
             </p>
           </div>
           <Button
-            className="gap-2"
+            className="gap-2 text-xs font-black uppercase"
             onClick={() => setUploadOpen((open) => !open)}
           >
             {uploadOpen ? (
@@ -422,7 +411,7 @@ export default function PhotosLibrary() {
         </header>
 
         {uploadOpen ? (
-          <section className="space-y-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm sm:p-5">
+          <section className="space-y-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none sm:p-5">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="block space-y-1.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
@@ -438,7 +427,7 @@ export default function PhotosLibrary() {
                       date: event.target.value,
                     }))
                   }
-                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none focus:border-blue-400 sm:text-sm"
+                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none dark:rounded-[3px] sm:text-sm"
                 />
               </label>
               <SelectField
@@ -494,7 +483,7 @@ export default function PhotosLibrary() {
                   }))
                 }
                 placeholder="Ej. Inicio de definición"
-                className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 sm:text-sm"
+                className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] dark:rounded-[3px] sm:text-sm"
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -532,7 +521,7 @@ export default function PhotosLibrary() {
               onChange={handleUpload}
             />
             {uploading ? (
-              <p role="status" className="text-sm font-bold text-blue-600">
+              <p role="status" className="text-sm font-bold text-[#ff5722] dark:text-[#e2ff00]">
                 Subiendo foto...
               </p>
             ) : null}
@@ -546,7 +535,7 @@ export default function PhotosLibrary() {
 
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
           <div
-            className="flex rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+            className="flex rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 dark:rounded-[4px]"
             role="tablist"
             aria-label="Vista de fotos"
           >
@@ -560,7 +549,7 @@ export default function PhotosLibrary() {
                 role="tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
-                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black ${mode === value ? "bg-blue-600 text-white" : "text-[color:var(--text-muted)]"}`}
+                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
@@ -593,14 +582,14 @@ export default function PhotosLibrary() {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="text-xs font-black text-blue-600"
+                  className="text-xs font-black text-[#ff5722] dark:text-[#e2ff00]"
                 >
                   Limpiar
                 </button>
               ) : null}
             </div>
             {selectedPhotos.length === 2 ? (
-              <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2 sm:gap-4 sm:p-4">
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2 dark:rounded-[4px] sm:gap-4 sm:p-4">
                 {selectedPhotos.map((photo) => (
                   <figure key={photo.id} className="min-w-0">
                     <div className="aspect-[3/4] overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
@@ -635,7 +624,7 @@ export default function PhotosLibrary() {
             ))}
           </div>
         ) : photos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center">
+          <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center dark:rounded-[4px]">
             <ImagePlus className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
             <p className="mt-3 font-black">Aún no hay fotos en esta vista</p>
             <Button className="mt-4 gap-2" onClick={() => setUploadOpen(true)}>
@@ -644,30 +633,18 @@ export default function PhotosLibrary() {
             </Button>
           </div>
         ) : mode === "history" ? (
-          groupedPhotos.map(([key, items]) => (
-            <section key={key} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black sm:text-xl">
-                  {capitalizeFirst(
-                    formatDate(`${key}-01`, { month: "long", year: "numeric" }),
-                  )}
-                </h2>
-                <span className="text-xs font-bold text-[color:var(--text-muted)]">
-                  {items.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {items.map((photo) => (
-                  <PhotoCard
-                    key={photo.id}
-                    photo={photo}
-                    label={labelFor(photo)}
-                    onClick={() => openPhoto(photo)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
+          <section aria-label="Historial cronológico de fotos">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {photos.map((photo) => (
+                <PhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  label={labelFor(photo)}
+                  onClick={() => openPhoto(photo)}
+                />
+              ))}
+            </div>
+          </section>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {photos.map((photo) => (
@@ -775,7 +752,7 @@ export default function PhotosLibrary() {
                       date: event.target.value,
                     }))
                   }
-                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base sm:text-sm"
+                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base outline-none dark:rounded-[3px] sm:text-sm"
                 />
               </label>
               <SelectField
@@ -833,19 +810,19 @@ export default function PhotosLibrary() {
                       label: event.target.value,
                     }))
                   }
-                  className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base sm:text-sm"
+                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base outline-none dark:rounded-[3px] sm:text-sm"
                 />
               </label>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
+              <div className="h-[min(58dvh,560px)] overflow-hidden rounded-lg bg-black/5 dark:rounded-[4px] dark:bg-black/20">
                 <AuthenticatedPhotoImage
                   photo={activePhoto}
                   width={1600}
                   height={1600}
                   alt={labelFor(activePhoto)}
-                  className="max-h-[68vh] w-full object-contain"
+                  className="h-full w-full object-contain"
                 />
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-bold text-[color:var(--text-muted)]">

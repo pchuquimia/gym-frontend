@@ -10,6 +10,7 @@ const MOVE_TOLERANCE_PX = 10;
 export default function SetRow({
   index,
   exerciseName,
+  readOnly = false,
   seriesType = "serie",
   entries = [],
   prSummary = "",
@@ -69,7 +70,8 @@ export default function SetRow({
     Boolean(target.closest("input, button, label, select, textarea, a"));
 
   const handlePointerDown = (event) => {
-    if (!isMobile || !onRemove || isInteractiveTarget(event.target)) return;
+    if (readOnly || !isMobile || !onRemove || isInteractiveTarget(event.target))
+      return;
     clearLongPress();
     holdStartRef.current = { x: event.clientX, y: event.clientY };
     setIsHolding(true);
@@ -230,6 +232,7 @@ export default function SetRow({
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"
                     value={entry.kg ?? ""}
+                    readOnly={readOnly}
                     onFocus={moveCaretToEnd}
                     onClick={moveCaretToEnd}
                     onChange={(e) =>
@@ -253,6 +256,7 @@ export default function SetRow({
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"
                     value={entry.reps ?? ""}
+                    readOnly={readOnly}
                     onFocus={moveCaretToEnd}
                     onClick={moveCaretToEnd}
                     onChange={(e) =>
@@ -273,6 +277,7 @@ export default function SetRow({
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     type="button"
+                    disabled={readOnly}
                     onClick={() => onToggleEntry?.(entry.id)}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
                     aria-label={
@@ -364,6 +369,7 @@ export default function SetRow({
 SetRow.propTypes = {
   index: PropTypes.number.isRequired,
   exerciseName: PropTypes.string.isRequired,
+  readOnly: PropTypes.bool,
   seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
   entries: PropTypes.arrayOf(
     PropTypes.shape({
@@ -388,5 +394,5 @@ SetRow.propTypes = {
   prBranchLabel: PropTypes.string,
   onChangeEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,
-  onRemove: PropTypes.func.isRequired,
+  onRemove: PropTypes.func,
 };

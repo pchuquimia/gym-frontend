@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   ChevronRight,
   Dumbbell,
+  GitMerge,
+  Images,
   Library,
   Plus,
   RefreshCw,
@@ -15,6 +17,8 @@ import ConfirmModal from "../components/library/ConfirmModal";
 import DetailModal from "../components/library/DetailModal";
 import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
+import ExerciseMigrationPanel from "../components/library/ExerciseMigrationPanel";
+import ExerciseImageManager from "../components/library/ExerciseImageManager";
 import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
 import { useAuth } from "../context/AuthContext";
@@ -264,8 +268,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         excludeCategory: "Cardio",
         kicker: "Global",
         description: "Movimientos combinados y levantamientos olímpicos",
-        preview:
-          facets.entryPreviews?.fullBody || facets.entryPreviews?.cardio,
+        preview: facets.entryPreviews?.fullBody || facets.entryPreviews?.cardio,
         count: entryCounts.fullBody || 0,
       },
       {
@@ -306,11 +309,14 @@ export default function ExerciseLibrary({ onNavigate }) {
     !search.trim();
   const showGroups = Boolean(
     sourceFilter === "all" &&
-      selectedBodyRegion &&
-      !selectedMuscleGroup &&
-      !search.trim(),
+    selectedBodyRegion &&
+    !selectedMuscleGroup &&
+    !search.trim(),
   );
-  const showResults = !showEntryPoints && !showGroups;
+  const showMigration = sourceFilter === "migration" && user?.role === "Admin";
+  const showImageManager = sourceFilter === "images" && user?.role === "Admin";
+  const showAdminPanel = showMigration || showImageManager;
+  const showResults = !showAdminPanel && !showEntryPoints && !showGroups;
   const fullBodyExcludesCardio =
     selectedBodyRegion === "Cuerpo completo" &&
     selectedCategory === ALL_FILTER_VALUE;
@@ -381,6 +387,8 @@ export default function ExerciseLibrary({ onNavigate }) {
   );
 
   const activeTitle =
+    (showMigration ? "Migración de catálogo" : "") ||
+    (showImageManager ? "Imágenes de ejercicios" : "") ||
     selectedMuscleGroup ||
     selectedBodyLabel ||
     (sourceFilter === "custom"
@@ -395,13 +403,17 @@ export default function ExerciseLibrary({ onNavigate }) {
     ? `${selectedBodyLabel || selectedBodyRegion} / ${selectedMuscleGroup}`
     : selectedBodyRegion
       ? "Selecciona un grupo muscular o busca dentro de esta región."
-      : sourceFilter === "custom"
-        ? "Ejercicios personalizados creados para tu cuenta."
-        : sourceFilter === "system"
-          ? "Ejercicios disponibles en el catálogo general."
-          : selectedCategory !== ALL_FILTER_VALUE
-            ? "Ejercicios disponibles para esta categoría."
-            : "Busca por nombre o explora una región corporal.";
+      : showMigration
+        ? "Reasigna historial y rutinas al catálogo importado."
+        : showImageManager
+          ? "Reemplaza la imagen maestra y revisa cada formato antes de publicarlo."
+          : sourceFilter === "custom"
+            ? "Ejercicios personalizados creados para tu cuenta."
+            : sourceFilter === "system"
+              ? "Ejercicios disponibles en el catálogo general."
+              : selectedCategory !== ALL_FILTER_VALUE
+                ? "Ejercicios disponibles para esta categoría."
+                : "Busca por nombre o explora una región corporal.";
 
   const clearTechnicalFilters = () => setFilters(defaultFilters);
   const resetScope = () => {
@@ -557,6 +569,37 @@ export default function ExerciseLibrary({ onNavigate }) {
   const activeFilterCount = Object.values(filters).filter(
     (value) => value !== ALL_FILTER_VALUE,
   ).length;
+  const sourceTabs = [
+    { value: "all", label: "Todos", mobileLabel: "Todos", icon: Dumbbell },
+    {
+      value: "system",
+      label: "Catálogo",
+      mobileLabel: "Catálogo",
+      icon: Library,
+    },
+    {
+      value: "custom",
+      label: "Mis ejercicios",
+      mobileLabel: "Míos",
+      icon: UserRound,
+    },
+    ...(user?.role === "Admin"
+      ? [
+          {
+            value: "migration",
+            label: "Migrar catálogo",
+            mobileLabel: "Migrar",
+            icon: GitMerge,
+          },
+          {
+            value: "images",
+            label: "Gestionar imágenes",
+            mobileLabel: "Fotos",
+            icon: Images,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <>
@@ -575,12 +618,12 @@ export default function ExerciseLibrary({ onNavigate }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {hasScope ? (
+              {hasScope && !showAdminPanel ? (
                 <Button variant="outline" size="sm" onClick={resetScope}>
                   Restablecer
                 </Button>
               ) : null}
-              {canCreate ? (
+              {canCreate && !showAdminPanel ? (
                 <Button size="sm" className="gap-2" onClick={handleAdd}>
                   <Plus className="h-4 w-4" />
                   Nuevo
@@ -638,29 +681,29 @@ export default function ExerciseLibrary({ onNavigate }) {
             </button>
           ) : null}
 
-          <label className="relative block">
-            <span className="sr-only">Buscar ejercicios</span>
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              type="search"
-              inputMode="search"
-              placeholder="Buscar por nombre, músculo o equipo"
-            className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
-            />
-          </label>
+          {!showAdminPanel ? (
+            <label className="relative block">
+              <span className="sr-only">Buscar ejercicios</span>
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                type="search"
+                inputMode="search"
+                placeholder="Buscar por nombre, músculo o equipo"
+                className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
+              />
+            </label>
+          ) : null}
 
           <div
-            className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+            className={`grid border border-[color:var(--border)] bg-[color:var(--card)] p-1 ${
+              user?.role === "Admin" ? "grid-cols-5" : "grid-cols-3"
+            }`}
             role="tablist"
             aria-label="Origen de los ejercicios"
           >
-            {[
-              ["all", "Todos", Dumbbell],
-              ["system", "Catálogo", Library],
-              ["custom", "Mis ejercicios", UserRound],
-            ].map(([value, label, Icon]) => {
+            {sourceTabs.map(({ value, label, mobileLabel, icon: Icon }) => {
               const active = sourceFilter === value;
               const count = facets.sourceCounts?.[value];
               return (
@@ -677,20 +720,12 @@ export default function ExerciseLibrary({ onNavigate }) {
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {value === "custom" ? (
-                    <>
-                      <span className="sm:hidden">{"M\u00edos"}</span>
-                      <span className="hidden sm:inline">{label}</span>
-                    </>
-                  ) : (
-                    <span>{label}</span>
-                  )}
+                  <span className="sm:hidden">{mobileLabel}</span>
+                  <span className="hidden sm:inline">{label}</span>
                   {Number.isFinite(count) ? (
                     <span
                       className={`hidden text-[10px] sm:inline ${
-                        active
-                          ? "opacity-80"
-                          : "text-[color:var(--text-muted)]"
+                        active ? "opacity-80" : "text-[color:var(--text-muted)]"
                       }`}
                     >
                       {count}
@@ -729,7 +764,11 @@ export default function ExerciseLibrary({ onNavigate }) {
           ) : null}
         </section>
 
-        {facetsQuery.isError ? (
+        {showImageManager ? (
+          <ExerciseImageManager />
+        ) : showMigration ? (
+          <ExerciseMigrationPanel />
+        ) : facetsQuery.isError ? (
           <ErrorState onRetry={() => facetsQuery.refetch()} />
         ) : facetsQuery.isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

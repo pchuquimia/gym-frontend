@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -18,6 +18,7 @@ import Badge from "../ui/badge";
 import SetRow from "./SetRow";
 import DetailModal from "../library/DetailModal";
 import SlideToConfirm from "../shared/SlideToConfirm";
+import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 
@@ -101,6 +102,7 @@ DeleteExerciseSheet.propTypes = {
 
 export default function ExerciseCard({
   exercise,
+  readOnly = false,
   open = false,
   onToggleOpen,
   onAddSet,
@@ -118,15 +120,16 @@ export default function ExerciseCard({
   const [showOptions, setShowOptions] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [detailExercise, setDetailExercise] = useState(null);
-  const [imageSrc, setImageSrc] = useState(() => {
-    const key = `exercise_thumb_${exercise.id}`;
-    if (typeof localStorage !== "undefined") {
-      const cached = localStorage.getItem(key);
-      if (cached) return cached;
-    }
-    return getExerciseImageUrl(exercise, { width: 240, height: 240 });
+  const currentImageSrc = getExerciseImageUrl(exercise, {
+    preset: "thumbnail",
   });
-  const imgLoaded = useRef(false);
+  const [fetchedImage, setFetchedImage] = useState({
+    exerciseId: "",
+    src: "",
+  });
+  const imageSrc =
+    currentImageSrc ||
+    (fetchedImage.exerciseId === exercise.id ? fetchedImage.src : "");
   const seriesValue =
     exercise.seriesType === "triserie"
       ? "triserie"
@@ -184,24 +187,23 @@ export default function ExerciseCard({
   };
 
   useEffect(() => {
-    if (imageSrc || imgLoaded.current) return;
-    imgLoaded.current = true;
+    if (currentImageSrc) return;
+    let cancelled = false;
     (async () => {
       try {
         const full = await api.getExercise(exercise.id);
-        const nextImg = getExerciseImageUrl(full, { width: 240, height: 240 });
-        if (nextImg) {
-          setImageSrc(nextImg);
-          if (typeof localStorage !== "undefined") {
-            const key = `exercise_thumb_${exercise.id}`;
-            localStorage.setItem(key, nextImg);
-          }
+        const nextImg = getExerciseImageUrl(full, { preset: "thumbnail" });
+        if (nextImg && !cancelled) {
+          setFetchedImage({ exerciseId: exercise.id, src: nextImg });
         }
       } catch (_e) {
         // ignore image errors
       }
     })();
-  }, [exercise.id, imageSrc]);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentImageSrc, exercise.id]);
 
   return (
     <motion.div
@@ -209,14 +211,16 @@ export default function ExerciseCard({
       className="w-full max-w-full overflow-hidden"
       layout
       whileHover={{ y: -2 }}
-      drag={onSwapVariant && hasVariants ? "x" : false}
+      drag={!readOnly && onSwapVariant && hasVariants ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.2}
       dragMomentum={false}
       dragDirectionLock
       onDragEnd={handleDragEnd}
       style={
-        onSwapVariant && hasVariants ? { touchAction: "pan-y" } : undefined
+        !readOnly && onSwapVariant && hasVariants
+          ? { touchAction: "pan-y" }
+          : undefined
       }
     >
       <Card className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur dark:rounded-[4px]">
@@ -225,17 +229,16 @@ export default function ExerciseCard({
             type="button"
             onClick={handleOpenDetails}
             onPointerDown={(event) => event.stopPropagation()}
-            className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] sm:h-[72px] sm:w-[72px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
+            className="group relative h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] sm:h-24 sm:w-[92px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
             aria-label={`Ver técnica de ${exercise.name}`}
             title="Ver técnica"
           >
-            {imageSrc ? (
-              <img
-                src={imageSrc}
-                alt=""
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-            ) : null}
+            <ExerciseThumbnail
+              src={imageSrc}
+              alt=""
+              fallback={(exercise.name || "?").charAt(0).toUpperCase()}
+              className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
+            />
           </button>
           <button
             type="button"
@@ -277,7 +280,7 @@ export default function ExerciseCard({
               className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
             />
           </button>
-          {onStartNow && !isComplete && (
+          {!readOnly && onStartNow && !isComplete && (
             <Button
               size="sm"
               variant={exercise.isActive ? "accentSolid" : "accentOutline"}
@@ -294,7 +297,7 @@ export default function ExerciseCard({
               <span>{actionLabel}</span>
             </Button>
           )}
-          {onStartNow && !isComplete && (
+          {!readOnly && onStartNow && !isComplete && (
             <Button
               size="touchIcon"
               variant={exercise.isActive ? "accentSolid" : "accentOutline"}
@@ -310,7 +313,7 @@ export default function ExerciseCard({
               <ActionIcon className="h-4 w-4" />
             </Button>
           )}
-          {onStartNow && isComplete && (
+          {!readOnly && onStartNow && isComplete && (
             <Button
               size="sm"
               variant="accentSolid"
@@ -320,7 +323,7 @@ export default function ExerciseCard({
               Completado
             </Button>
           )}
-          {onStartNow && isComplete && (
+          {!readOnly && onStartNow && isComplete && (
             <Button
               size="touchIcon"
               variant="accentSolid"
@@ -353,44 +356,48 @@ export default function ExerciseCard({
                       Seguimiento
                     </Button>
                   </motion.div>
-                  <motion.div whileTap={{ scale: 0.97 }}>
+                  {!readOnly ? (
+                    <motion.div whileTap={{ scale: 0.97 }}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`rounded-full px-3 ${
+                          showOptions
+                            ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                            : ""
+                        }`}
+                        onClick={() => setShowOptions((value) => !value)}
+                        title={
+                          exercise.setupNote
+                            ? "Este ejercicio tiene una configuración guardada"
+                            : "Opciones del ejercicio"
+                        }
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Opciones
+                        {exercise.setupNote && (
+                          <span
+                            className="h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
+                            aria-label="Configuración guardada"
+                          />
+                        )}
+                      </Button>
+                    </motion.div>
+                  ) : null}
+                </div>
+                {!readOnly ? (
+                  <div className="flex items-center gap-2">
                     <Button
-                      size="sm"
-                      variant="outline"
-                      className={`rounded-full px-3 ${
-                        showOptions
-                          ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
-                          : ""
-                      }`}
-                      onClick={() => setShowOptions((value) => !value)}
-                      title={
-                        exercise.setupNote
-                          ? "Este ejercicio tiene una configuración guardada"
-                          : "Opciones del ejercicio"
-                      }
+                      size="touchIcon"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={() => setDeleteSheetOpen(true)}
+                      aria-label="Eliminar ejercicio de la sesion"
                     >
-                      <SlidersHorizontal className="h-4 w-4" />
-                      Opciones
-                      {exercise.setupNote && (
-                        <span
-                          className="h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
-                          aria-label="Configuración guardada"
-                        />
-                      )}
+                      <Trash2 className="h-5 w-5" />
                     </Button>
-                  </motion.div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="touchIcon"
-                    variant="ghost"
-                    className="text-red-600"
-                    onClick={() => setDeleteSheetOpen(true)}
-                    aria-label="Eliminar ejercicio de la sesion"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </div>
+                  </div>
+                ) : null}
               </div>
 
               <AnimatePresence initial={false}>
@@ -483,6 +490,7 @@ export default function ExerciseCard({
                     {exercise.sets.map((set, idx) => (
                       <SetRow
                         key={set.id}
+                        readOnly={readOnly}
                         index={idx + 1}
                         exerciseName={exercise.name}
                         seriesType={seriesValue}
@@ -495,20 +503,24 @@ export default function ExerciseCard({
                         onToggleEntry={(entryId) =>
                           onToggleEntry(set.id, entryId)
                         }
-                        onRemove={() => onRemoveSet(set.id)}
+                        onRemove={
+                          readOnly ? undefined : () => onRemoveSet(set.id)
+                        }
                       />
                     ))}
                   </AnimatePresence>
                 </div>
-                <motion.div whileTap={{ scale: 0.97 }}>
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
-                    onClick={onAddSet}
-                  >
-                    + Agregar serie
-                  </Button>
-                </motion.div>
+                {!readOnly ? (
+                  <motion.div whileTap={{ scale: 0.97 }}>
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
+                      onClick={onAddSet}
+                    >
+                      + Agregar serie
+                    </Button>
+                  </motion.div>
+                ) : null}
               </div>
             </motion.div>
           )}
@@ -542,6 +554,7 @@ export default function ExerciseCard({
 }
 
 ExerciseCard.propTypes = {
+  readOnly: PropTypes.bool,
   exercise: PropTypes.shape({
     id: PropTypes.string.isRequired,
     name: PropTypes.string.isRequired,

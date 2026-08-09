@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
   Clock3,
-  Eye,
   ListFilter,
-  Pencil,
+  MoreVertical,
   Plus,
   Search,
   Trash2,
@@ -17,7 +17,13 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
 const formatDate = (iso) =>
-  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("es-ES") : "--";
+  iso
+    ? new Date(`${iso}T00:00:00`).toLocaleDateString("es-BO", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "--";
 
 const formatDuration = (sec = 0) => {
   const total = Number.isFinite(sec) ? Math.max(0, Math.floor(sec)) : 0;
@@ -32,7 +38,17 @@ const formatDuration = (sec = 0) => {
 const formatVolume = (value) => {
   const num = Number(value);
   if (!Number.isFinite(num)) return "0";
-  return num.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toLocaleString("es-BO", {
+      maximumFractionDigits: 1,
+    })}M`;
+  }
+  if (num >= 10_000) {
+    return `${(num / 1_000).toLocaleString("es-BO", {
+      maximumFractionDigits: 1,
+    })}k`;
+  }
+  return num.toLocaleString("es-BO", { maximumFractionDigits: 1 });
 };
 
 const getDurationParts = (seconds = 0) => {
@@ -52,34 +68,45 @@ const branchLabel = (value) => {
 
 const branchPillClass = (value) => {
   const branch = (value || "general").toString().toLowerCase();
-  if (branch === "miraflores") {
-    return "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/20 dark:text-violet-200";
-  }
   if (branch === "sopocachi") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/15 dark:text-emerald-200";
+    return "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#ff5722] dark:bg-[#ff5722] dark:text-white";
   }
-  return "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-400/30 dark:bg-slate-500/10 dark:text-slate-200";
+  if (branch === "miraflores") {
+    return "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-[#f8f8f4] dark:bg-[#f8f8f4] dark:text-black";
+  }
+  return "border-[#9a9a9f] bg-[#eeeeef] text-[#55555a] dark:border-[#66665f] dark:bg-[#252525] dark:text-[#d0d0c5]";
 };
 
-function MetricBox({ label, value, suffix = "", tone = "white" }) {
-  const toneClass =
-    tone === "emerald"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "amber"
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-[color:var(--text)]";
+const monthKeyFromDate = (date) => {
+  const value = String(date || "");
+  return /^\d{4}-\d{2}/.test(value) ? value.slice(0, 7) : "sin-fecha";
+};
 
+const monthLabelFromKey = (key) => {
+  if (key === "sin-fecha") return "Sin fecha";
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("es-BO", {
+    month: "long",
+    year: "numeric",
+  });
+};
+
+function MetricBox({ label, value, suffix = "", accent = false }) {
   return (
-    <div className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-3 text-center dark:rounded-[3px] sm:px-3">
-      <p className="truncate text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)] sm:text-[10px] sm:tracking-[0.14em]">
+    <div className="min-w-0 text-left">
+      <p className="truncate text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
         {label}
       </p>
       <p
-        className={`mt-1 truncate text-base font-black leading-none sm:text-xl ${toneClass}`}
+        className={`mt-0.5 truncate text-base font-black tabular-nums leading-none ${
+          accent
+            ? "text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]"
+            : "text-[color:var(--text)]"
+        }`}
       >
         {value}
         {suffix ? (
-          <span className="ml-0.5 text-[10px] font-bold sm:ml-1 sm:text-[11px]">
+          <span className="ml-1 text-[11px] font-bold text-[color:var(--text-muted)]">
             {suffix}
           </span>
         ) : null}
@@ -88,13 +115,17 @@ function MetricBox({ label, value, suffix = "", tone = "white" }) {
   );
 }
 
-export default function TrainingAdmin({
+export function SessionHistory({
   onNavigate = () => {},
-  coachAthlete = null,
+  ownerId = "",
+  ownerName = "",
+  embedded = false,
+  prepareTrainingContext = () => true,
 }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
-  const isCoach = user?.role === "Entrenador";
+  const isCoach = ["Admin", "Entrenador"].includes(user?.role);
+  const viewingAthlete = Boolean(ownerId);
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -102,21 +133,18 @@ export default function TrainingAdmin({
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
   const [routineFilter, setRoutineFilter] = useState("");
-  const [expandedId, setExpandedId] = useState("");
+  const [actionMenuId, setActionMenuId] = useState("");
+  const [monthVisibility, setMonthVisibility] = useState({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [durationEditor, setDurationEditor] = useState(null);
   const [savingDuration, setSavingDuration] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(12);
+  const requestIdRef = useRef(0);
   const limit = 5000;
 
   const loadTrainings = async () => {
-    if (isCoach && !coachAthlete?.id) {
-      setTrainings([]);
-      setLoading(false);
-      return;
-    }
+    const requestId = ++requestIdRef.current;
     try {
       setLoading(true);
       setError("");
@@ -127,21 +155,23 @@ export default function TrainingAdmin({
         to: to || undefined,
         fields:
           "date,routineId,routineName,durationSeconds,totalVolume,branch,routineBranch,sessionType,supervisedBy,exercises",
-        athleteId: isCoach ? coachAthlete.id : undefined,
+        athleteId: ownerId || undefined,
         meta: true,
       });
+      if (requestId !== requestIdRef.current) return;
       setTrainings(Array.isArray(resp) ? resp : resp?.items || []);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err.message || "Error al cargar entrenamientos");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadTrainings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, coachAthlete?.id]);
+  }, [from, ownerId, to]);
 
   const routinesInData = useMemo(() => {
     const set = new Set();
@@ -165,21 +195,49 @@ export default function TrainingAdmin({
       return matchesSearch && matchesRoutine;
     });
   }, [routineFilter, search, trainings]);
-  const visibleTrainings = useMemo(
-    () => filtered.slice(0, visibleCount),
-    [filtered, visibleCount],
-  );
+  const trainingGroups = useMemo(() => {
+    const groups = new Map();
+    [...filtered]
+      .sort((left, right) =>
+        String(right.date || "").localeCompare(String(left.date || "")),
+      )
+      .forEach((training) => {
+        const key = monthKeyFromDate(training.date);
+        if (!groups.has(key)) {
+          groups.set(key, {
+            key,
+            label: monthLabelFromKey(key),
+            trainings: [],
+          });
+        }
+        groups.get(key).trainings.push(training);
+      });
+    return Array.from(groups.values());
+  }, [filtered]);
 
   useEffect(() => {
-    setVisibleCount(12);
-  }, [from, routineFilter, search, to]);
+    if (!actionMenuId) return undefined;
+    const closeMenu = (event) => {
+      if (!event.target.closest("[data-session-actions]")) {
+        setActionMenuId("");
+      }
+    };
+    const closeMenuWithKeyboard = (event) => {
+      if (event.key === "Escape") setActionMenuId("");
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithKeyboard);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithKeyboard);
+    };
+  }, [actionMenuId]);
 
   const clearFilters = () => {
     setFrom("");
     setTo("");
     setSearch("");
     setRoutineFilter("");
-    loadTrainings();
   };
 
   const activeFiltersCount = [from, to, routineFilter].filter(Boolean).length;
@@ -194,7 +252,6 @@ export default function TrainingAdmin({
       setTrainings((prev) =>
         prev.filter((item) => (item._id || item.id) !== id),
       );
-      if (expandedId === id) setExpandedId("");
       setDeleteTarget(null);
     } catch (_err) {
       toast.error("No se pudo eliminar el entrenamiento");
@@ -203,14 +260,20 @@ export default function TrainingAdmin({
     }
   };
 
-  const handleEdit = (training) => {
+  const handleViewTraining = (training) => {
+    if (prepareTrainingContext(training) === false) {
+      toast.info("Hay una sesiÃ³n activa en otro contexto");
+      return;
+    }
     const id = training._id || training.id;
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("edit_training_id", id);
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+      localStorage.setItem("view_training_id", id);
       if (training.date)
-        localStorage.setItem("edit_training_date", training.date);
+        localStorage.setItem("view_training_date", training.date);
     }
-    onNavigate("registrar");
+    onNavigate("registrar", { trainingView: true });
   };
 
   const openDurationEditor = (training) => {
@@ -264,53 +327,51 @@ export default function TrainingAdmin({
     }
   };
 
-  if (isCoach && !coachAthlete?.id) {
-    return (
-      <main className="management-shell grid min-h-[70dvh] place-items-center text-center">
-        <div className="max-w-sm px-5">
-          <CalendarDays className="theme-accent-text mx-auto h-9 w-9" />
-          <h1 className="mt-4 text-xl font-black uppercase">
-            Selecciona un atleta
-          </h1>
-          <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-            Abre Mis atletas y selecciona a quién deseas consultar. El historial
-            siempre se mantiene separado por atleta.
-          </p>
-          <Button
-            type="button"
-            className="mt-5 h-11"
-            onClick={() => onNavigate("trainer")}
-          >
-            Ir a Mis atletas
-          </Button>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="management-shell min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
-      <div className="mx-auto w-full max-w-5xl space-y-6 px-0 py-2 pb-24 sm:px-6 sm:py-6 lg:px-10">
+    <section
+      className={
+        embedded
+          ? "text-[color:var(--text)]"
+          : "management-shell min-h-screen text-[color:var(--text)]"
+      }
+    >
+      <div
+        className={
+          embedded
+            ? "w-full space-y-4"
+            : "mx-auto w-full max-w-md space-y-4 pb-24 md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]"
+        }
+      >
         <header className="space-y-3">
           <div className="flex items-end justify-between gap-3 px-1">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+              <p className="theme-accent-text text-[10px] font-black uppercase tracking-[0.18em]">
                 Historial
               </p>
-              <h1 className="mt-1 truncate font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
-                {isCoach
-                  ? `Historial de ${coachAthlete.name}`
+              <h1
+                className={`mt-1 truncate font-black uppercase text-[color:var(--text)] ${
+                  embedded ? "text-xl" : "text-2xl sm:text-3xl"
+                }`}
+              >
+                {viewingAthlete && ownerName
+                  ? `Historial de ${ownerName}`
                   : "Historial de sesiones"}
               </h1>
             </div>
-            <Button
-              type="button"
-              onClick={() => onNavigate("registrar")}
-              className="theme-accent-solid h-10 shrink-0 rounded-lg px-3 dark:rounded-[3px]"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Nueva sesion</span>
-            </Button>
+            {!embedded ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (prepareTrainingContext() !== false) {
+                    onNavigate("registrar");
+                  }
+                }}
+                className="theme-accent-solid h-10 shrink-0 rounded-lg px-3 dark:rounded-[3px]"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nueva sesión</span>
+              </Button>
+            ) : null}
           </div>
         </header>
 
@@ -329,7 +390,7 @@ export default function TrainingAdmin({
             <button
               type="button"
               onClick={() => setFiltersOpen((value) => !value)}
-              className={`relative grid h-12 w-12 place-items-center rounded-xl border transition ${
+              className={`relative grid h-12 w-12 place-items-center rounded-lg border transition dark:rounded-[3px] ${
                 filtersOpen || activeFiltersCount
                   ? "theme-accent-soft"
                   : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
@@ -435,13 +496,13 @@ export default function TrainingAdmin({
                 <Button
                   onClick={loadTrainings}
                   disabled={loading}
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-lg dark:rounded-[3px]"
                 >
                   {loading ? "Cargando..." : "Actualizar"}
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-lg dark:rounded-[3px]"
                   onClick={clearFilters}
                 >
                   Limpiar
@@ -452,186 +513,210 @@ export default function TrainingAdmin({
         </section>
 
         {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 dark:rounded-[3px] dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
             {error}
           </div>
         ) : null}
 
-        <section className="space-y-4">
+        <section className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-              Historial
+              Sesiones registradas
             </p>
-            <span className="text-sm font-bold text-[color:var(--text-muted)]">
+            <span className="text-xs font-bold text-[color:var(--text-muted)]">
               {filtered.length} sesiones
             </span>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
             {!loading && !filtered.length ? (
               <div className="col-span-full border border-dashed border-[color:var(--border)] bg-[color:var(--card)] px-5 py-10 text-center">
                 <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
-                <p className="mt-3 text-base font-bold">Sin sesiones para mostrar</p>
+                <p className="mt-3 text-base font-bold">
+                  Sin sesiones para mostrar
+                </p>
                 <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                   Ajusta los filtros o registra un nuevo entrenamiento.
                 </p>
               </div>
             ) : null}
-            {visibleTrainings.map((training) => {
-              const id = training._id || training.id;
-              const canManage =
-                isAdmin ||
-                (isCoach &&
-                  training.sessionType === "supervised" &&
-                  String(training.supervisedBy || "") ===
-                    String(user?.id || user?._id || ""));
-              const totalSets = (training.exercises || []).reduce(
-                (acc, exercise) => acc + (exercise.sets?.length || 0),
-                0,
-              );
-              const branch =
-                training.branch || training.routineBranch || "general";
-              const totalVolume = training.totalVolume ?? 0;
+            {trainingGroups.map((group, groupIndex) => {
+              const isMonthOpen =
+                monthVisibility[group.key] ?? groupIndex === 0;
 
               return (
-                <article
-                  key={id}
-                  className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px]"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-lg font-black leading-tight text-[color:var(--text)]">
-                        {training.routineName || "Sin nombre"}
-                      </h2>
-                      <p className="mt-2 inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
-                        <CalendarDays className="h-5 w-5" />
-                        {formatDate(training.date)}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-black tracking-wide ${branchPillClass(
-                        branch,
-                      )}`}
-                    >
-                      {branchLabel(branch)}
+                <section key={group.key} className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMonthVisibility((current) => ({
+                        ...current,
+                        [group.key]: !isMonthOpen,
+                      }))
+                    }
+                    className={`flex h-11 w-full items-center gap-3 rounded-lg border px-3 text-left transition dark:rounded-[3px] ${
+                      isMonthOpen
+                        ? "border-[color:var(--accent)] bg-[color:var(--card)]"
+                        : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[color:var(--accent)]"
+                    }`}
+                    aria-expanded={isMonthOpen}
+                  >
+                    <CalendarDays className="h-4 w-4 shrink-0 text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-black uppercase text-[color:var(--text)]">
+                      {group.label}
                     </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-                    <MetricBox label="Sets" value={totalSets} tone="emerald" />
-                    <MetricBox
-                      label="Duración"
-                      value={formatDuration(training.durationSeconds || 0)}
+                    <span className="text-xs font-bold text-[color:var(--text-muted)]">
+                      {group.trainings.length}{" "}
+                      {group.trainings.length === 1 ? "sesión" : "sesiones"}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition-transform ${
+                        isMonthOpen ? "rotate-180" : ""
+                      }`}
                     />
-                    <MetricBox
-                      label="Volumen"
-                      value={formatVolume(totalVolume)}
-                      suffix="kg"
-                      tone="amber"
-                    />
-                  </div>
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      onClick={() => openDurationEditor(training)}
-                      className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--accent)] hover:text-[color:var(--accent-strong)] dark:rounded-[3px] dark:hover:text-[color:var(--accent)]"
-                    >
-                      <Clock3 className="h-4 w-4" />
-                      Editar duración
-                    </button>
-                  ) : null}
+                  </button>
 
-                  <div className={`mt-4 grid ${canManage ? "grid-cols-3" : "grid-cols-1"} divide-x divide-[color:var(--border)] border-t border-[color:var(--border)] pt-3`}>
-                    <button
-                      type="button"
-                      className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                      onClick={() =>
-                        setExpandedId((prev) => (prev === id ? "" : id))
-                      }
-                    >
-                      <Eye className="h-5 w-5 shrink-0" />
-                      Ver
-                    </button>
-                    {canManage ? (
-                      <>
-                        <button
-                          type="button"
-                          className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                          onClick={() => handleEdit(training)}
-                        >
-                          <Pencil className="h-5 w-5 shrink-0" />
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                          onClick={() => setDeleteTarget(training)}
-                        >
-                          <Trash2 className="h-5 w-5 shrink-0" />
-                          Eliminar
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
+                  {isMonthOpen ? (
+                    <div className="grid gap-2">
+                      {group.trainings.map((training) => {
+                        const id = training._id || training.id;
+                        const canManage =
+                          !viewingAthlete ||
+                          (isCoach &&
+                            training.sessionType === "supervised" &&
+                            String(training.supervisedBy || "") ===
+                              String(user?.id || user?._id || ""));
+                        const totalSets = (training.exercises || []).reduce(
+                          (acc, exercise) => acc + (exercise.sets?.length || 0),
+                          0,
+                        );
+                        const branch =
+                          training.branch ||
+                          training.routineBranch ||
+                          "general";
+                        const totalVolume = training.totalVolume ?? 0;
 
-                  {expandedId === id ? (
-                    <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3 dark:rounded-[3px]">
-                      <div className="grid gap-3">
-                        {(training.exercises || []).map((exercise) => {
-                          const sets = exercise.sets || [];
-                          return (
-                            <div
-                              key={exercise.exerciseId || exercise.exerciseName}
-                              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 dark:rounded-[3px]"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-bold">
-                                    {exercise.exerciseName}
-                                  </p>
-                                  <p className="truncate text-xs text-[color:var(--text-muted)]">
-                                    {exercise.muscleGroup || "Sin grupo"}
-                                  </p>
-                                </div>
-                                <span className="shrink-0 rounded-full bg-[color:var(--bg)] px-2 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-                                  {sets.length} sets
-                                </span>
+                        return (
+                          <article
+                            key={id}
+                            tabIndex={0}
+                            aria-label={`Abrir rutina de ${training.routineName || "la sesión"}`}
+                            onClick={(event) => {
+                              if (event.target.closest("button")) return;
+                              setActionMenuId("");
+                              handleViewTraining(training);
+                            }}
+                            onKeyDown={(event) => {
+                              if (
+                                event.target !== event.currentTarget ||
+                                !["Enter", " "].includes(event.key)
+                              ) {
+                                return;
+                              }
+                              event.preventDefault();
+                              handleViewTraining(training);
+                            }}
+                            className="grid min-w-0 cursor-pointer grid-cols-1 gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm outline-none transition hover:border-[color:var(--accent)] focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] dark:rounded-[4px] md:grid-cols-[minmax(240px,1.7fr)_72px_120px_120px] md:items-center md:gap-4 md:px-4"
+                          >
+                            <div className="flex min-w-0 items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h2 className="truncate text-lg font-black uppercase text-[color:var(--text)]">
+                                  {training.routineName || "Sin nombre"}
+                                </h2>
+                                <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold capitalize text-[color:var(--text-muted)]">
+                                  <CalendarDays className="h-3.5 w-3.5" />
+                                  {formatDate(training.date)}
+                                </p>
                               </div>
-                              <div className="mt-3 space-y-1">
-                                {sets.map((set, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex min-w-0 items-center justify-between gap-2 rounded-xl bg-[color:var(--bg)] px-3 py-2 text-xs"
-                                  >
-                                    <span className="shrink-0 text-[color:var(--text-muted)]">
-                                      Set {index + 1}
-                                    </span>
-                                    <span className="min-w-0 truncate text-right font-semibold">
-                                      {set.weightKg ?? set.weight ?? 0} kg x{" "}
-                                      {set.reps ?? 0}
-                                    </span>
+                              <div className="relative flex shrink-0 items-center gap-1">
+                                <span
+                                  className={`rounded-[3px] border px-2 py-1 text-[10px] font-black tracking-[0.1em] ${branchPillClass(
+                                    branch,
+                                  )}`}
+                                >
+                                  {branchLabel(branch)}
+                                </span>
+                                {canManage ? (
+                                  <div data-session-actions>
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setActionMenuId((current) =>
+                                          current === id ? "" : id,
+                                        );
+                                      }}
+                                      className="grid h-8 w-8 place-items-center rounded-[3px] text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] hover:text-[color:var(--text)]"
+                                      aria-label="Opciones de la sesión"
+                                      aria-expanded={actionMenuId === id}
+                                      aria-haspopup="menu"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </button>
+                                    {actionMenuId === id ? (
+                                      <div
+                                        role="menu"
+                                        className="absolute right-0 top-9 z-30 w-44 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl dark:rounded-[3px]"
+                                      >
+                                        {isAdmin ? (
+                                          <button
+                                            type="button"
+                                            role="menuitem"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              setActionMenuId("");
+                                              openDurationEditor(training);
+                                            }}
+                                            className="flex h-10 w-full items-center gap-2 rounded-[3px] px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                                          >
+                                            <Clock3 className="h-4 w-4" />
+                                            Editar duración
+                                          </button>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setActionMenuId("");
+                                            setDeleteTarget(training);
+                                          }}
+                                          className="flex h-10 w-full items-center gap-2 rounded-[3px] px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                          Eliminar sesión
+                                        </button>
+                                      </div>
+                                    ) : null}
                                   </div>
-                                ))}
+                                ) : null}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            <div className="grid grid-cols-3 gap-3 border-y border-[color:var(--border)] py-2.5 md:contents">
+                              <MetricBox label="Sets" value={totalSets} />
+                              <MetricBox
+                                label="Duración"
+                                value={formatDuration(
+                                  training.durationSeconds || 0,
+                                )}
+                              />
+                              <MetricBox
+                                label="Volumen"
+                                value={formatVolume(totalVolume)}
+                                suffix="kg"
+                                accent
+                              />
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   ) : null}
-                </article>
+                </section>
               );
             })}
           </div>
-          {visibleCount < filtered.length ? (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((current) => current + 12)}
-              className="mt-4 h-11 w-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-bold uppercase text-[color:var(--accent-strong)] hover:border-[color:var(--accent)] dark:text-[color:var(--accent)]"
-            >
-              Mostrar 12 sesiones mas
-            </button>
-          ) : null}
         </section>
       </div>
 
@@ -645,7 +730,7 @@ export default function TrainingAdmin({
           footer={
             <Button
               type="button"
-              className="h-11 min-w-32 rounded-xl"
+              className="h-11 min-w-32 rounded-lg dark:rounded-[3px]"
               disabled={savingDuration}
               onClick={handleSaveDuration}
             >
@@ -723,6 +808,18 @@ export default function TrainingAdmin({
           </p>
         </Modal>
       ) : null}
-    </main>
+    </section>
+  );
+}
+
+export default function TrainingAdmin({
+  onNavigate = () => {},
+  onSelectCoachAthlete = () => true,
+}) {
+  return (
+    <SessionHistory
+      onNavigate={onNavigate}
+      prepareTrainingContext={() => onSelectCoachAthlete(null)}
+    />
   );
 }

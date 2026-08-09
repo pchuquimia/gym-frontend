@@ -158,7 +158,7 @@ export default function Register({ onNavigate = () => {} }) {
     <PremiumAuthLayout
       variant="register"
       title="Crea tu cuenta"
-      subtitle="Tu historial de entrenamiento comienza con estos datos."
+      subtitle="En beta comenzarás como atleta independiente. Luego podrás vincular un coach desde tu perfil."
       footer={
         <div className="pt-1 text-center">
           <button

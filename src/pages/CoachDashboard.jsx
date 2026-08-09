@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity,
   ArrowLeft,
   BarChart3,
   CalendarPlus,
@@ -10,12 +9,14 @@ import {
   ClipboardList,
   Copy,
   Dumbbell,
+  Link2,
   PauseCircle,
   Pencil,
   Play,
   MoreVertical,
   Search,
   Trash2,
+  UserMinus,
   UserRound,
   Users,
   X,
@@ -23,9 +24,14 @@ import {
 import { toast } from "sonner";
 import Button from "../components/ui/button";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
+import { SessionHistory } from "./TrainingAdmin";
 import { useAuth } from "../context/AuthContext";
 import { useRoutines } from "../context/RoutineContext";
 import { api } from "../services/api";
+import {
+  canAccessActiveTraining,
+  readActiveTrainingSnapshot,
+} from "../utils/activeTraining";
 
 const formatDate = (value) => {
   if (!value) return "Sin entrenamientos";
@@ -38,18 +44,11 @@ const formatDate = (value) => {
       });
 };
 
-const formatVolume = (value) =>
-  `${Math.round(Number(value) || 0).toLocaleString("es-ES")} kg`;
 const formatMetricVolume = (value) => {
   const amount = Math.round(Number(value) || 0);
   if (amount < 10_000) return `${amount.toLocaleString("es-ES")} kg`;
   return `${(amount / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k kg`;
 };
-const formatDuration = (seconds) => {
-  const minutes = Math.round((Number(seconds) || 0) / 60);
-  return minutes ? `${minutes} min` : "Sin tiempo";
-};
-
 const DAY_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const LEVEL_LABELS = {
   beginner: "Principiante",
@@ -73,15 +72,18 @@ const initials = (name = "") =>
     .map((part) => part[0]?.toUpperCase())
     .join("") || "A";
 
-function AthleteRow({ athlete, selected, onClick }) {
+function AthleteRow({ athlete, selected, blocked = false, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-disabled={blocked}
       className={`flex min-h-[72px] w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition dark:rounded-[3px] ${
         selected
           ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10"
-          : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--bg)]"
+          : blocked
+            ? "cursor-not-allowed border-transparent opacity-45"
+            : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--bg)]"
       }`}
     >
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#ff5722] text-sm font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
@@ -236,6 +238,7 @@ function AssignRoutineModal({ athlete, templates, onAssign, onClose }) {
 export default function CoachDashboard({
   onNavigate = () => {},
   onSelectCoachAthlete = () => {},
+  coachAthlete = null,
 }) {
   const { user } = useAuth();
   const { routines: availableRoutines } = useRoutines();
@@ -251,7 +254,16 @@ export default function CoachDashboard({
     [availableRoutines],
   );
   const [athletes, setAthletes] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
+  const activeSession = useMemo(() => {
+    const snapshot = readActiveTrainingSnapshot();
+    return canAccessActiveTraining(snapshot, user, coachAthlete)
+      ? snapshot
+      : null;
+  }, [coachAthlete, user]);
+  const activeAthleteId = String(activeSession?.ownerId || "");
+  const [selectedId, setSelectedId] = useState(
+    activeSession ? activeAthleteId : "",
+  );
   const [overview, setOverview] = useState(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -265,8 +277,11 @@ export default function CoachDashboard({
   const [routineActionId, setRoutineActionId] = useState("");
   const [athleteView, setAthleteView] = useState("plan");
   const [expandedRoutineId, setExpandedRoutineId] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
+  const [linkCodeLoading, setLinkCodeLoading] = useState(true);
 
-  const loadAthletes = async ({ silent = false } = {}) => {
+  const loadAthletes = useCallback(async ({ silent = false } = {}) => {
     try {
       if (!silent) setLoading(true);
       setAthletes(await api.getCoachAthletes());
@@ -275,17 +290,81 @@ export default function CoachDashboard({
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadAthletes();
+    api
+      .getCoachLinkCode()
+      .then(setLinkInfo)
+      .catch((err) =>
+        toast.error(err.message || "No se pudo cargar tu código de coach"),
+      )
+      .finally(() => setLinkCodeLoading(false));
     api
       .getPlanTemplates()
       .then(setPlanTemplates)
       .catch((err) =>
         toast.error(err.message || "No se pudieron cargar los planes base"),
       );
-  }, []);
+  }, [loadAthletes]);
+
+  const copyCoachCode = async () => {
+    if (!linkInfo.coachCode) return;
+    try {
+      await navigator.clipboard.writeText(linkInfo.coachCode);
+      toast.success("Código copiado", {
+        description: "Compártelo con el atleta para que se vincule desde Perfil.",
+      });
+    } catch {
+      toast.error("No se pudo copiar el código");
+    }
+  };
+
+  const regenerateCoachCode = async () => {
+    if (
+      !window.confirm(
+        "El código anterior dejará de funcionar. Los atletas ya vinculados no se verán afectados.",
+      )
+    ) {
+      return;
+    }
+    try {
+      setLinkCodeLoading(true);
+      const data = await api.regenerateCoachLinkCode();
+      setLinkInfo((current) => ({ ...current, coachCode: data.coachCode }));
+      toast.success("Código renovado");
+    } catch (err) {
+      toast.error(err.message || "No se pudo renovar el código");
+    } finally {
+      setLinkCodeLoading(false);
+    }
+  };
+
+  const releaseAthlete = async () => {
+    if (!selectedAthlete || activeSession) return;
+    if (
+      !window.confirm(
+        `${selectedAthlete.name} volverá al modo independiente. Sus datos y rutinas se conservarán.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.releaseCoachAthlete(selectedId);
+      setSelectedId("");
+      setOverview(null);
+      onSelectCoachAthlete(null);
+      await loadAthletes({ silent: true });
+      setLinkInfo((current) => ({
+        ...current,
+        athleteCount: Math.max(0, Number(current.athleteCount || 0) - 1),
+      }));
+      toast.success("Atleta desvinculado");
+    } catch (err) {
+      toast.error(err.message || "No se pudo desvincular al atleta");
+    }
+  };
 
   useEffect(() => {
     if (loading || !selectedId) return;
@@ -324,7 +403,7 @@ export default function CoachDashboard({
     return () => {
       active = false;
     };
-  }, [selectedId]);
+  }, [loadAthletes, onSelectCoachAthlete, selectedId]);
 
   const filteredAthletes = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -564,11 +643,17 @@ export default function CoachDashboard({
 
   const startTraining = () => {
     if (!selectedAthlete || !trainableRoutines.length) return;
-    onSelectCoachAthlete({
+    const selected = onSelectCoachAthlete({
       id: selectedId,
       name: selectedAthlete.name,
       email: selectedAthlete.email,
     });
+    if (selected === false) {
+      toast.info("Ya existe una sesión supervisada en curso", {
+        description: "Finalízala o cancélala antes de cambiar de atleta.",
+      });
+      return;
+    }
     if (recommendedPlanDay?.routineId && typeof localStorage !== "undefined") {
       localStorage.setItem(
         "training_plan_routine_intent",
@@ -597,16 +682,63 @@ export default function CoachDashboard({
             Mis atletas
           </h1>
         </div>
-        <Button
-          variant="outline"
-          className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
-          onClick={() => onNavigate("rutinas")}
-          aria-label="Administrar plantillas"
-        >
-          <CalendarDays className="h-4 w-4" />
-          <span>Plantillas</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
+            onClick={() => setInviteOpen((current) => !current)}
+          >
+            <Link2 className="h-4 w-4" />
+            <span>Invitar</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
+            onClick={() => onNavigate("rutinas")}
+            aria-label="Administrar plantillas"
+          >
+            <CalendarDays className="h-4 w-4" />
+            <span className="hidden sm:inline">Plantillas</span>
+          </Button>
+        </div>
       </header>
+
+      {inviteOpen ? (
+        <section className="mt-4 border border-[#ffb199] bg-[#fff8f5] p-4 dark:border-[#e2ff00]/35 dark:bg-[#161900]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">
+                Código de vinculación
+              </p>
+              <p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">
+                El atleta crea su cuenta básica y luego introduce este código desde Perfil.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="min-w-36 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-center text-sm font-black tracking-[0.08em]">
+                {linkCodeLoading ? "CARGANDO" : linkInfo.coachCode}
+              </code>
+              <button
+                type="button"
+                onClick={copyCoachCode}
+                disabled={linkCodeLoading || !linkInfo.coachCode}
+                className="grid h-10 w-10 place-items-center border border-[color:var(--border)] bg-[color:var(--card)] disabled:opacity-50"
+                aria-label="Copiar código"
+                title="Copiar código"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={regenerateCoachCode}
+                disabled={linkCodeLoading}
+                className="h-10 border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase disabled:opacity-50"
+              >
+                Renovar
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {loading ? (
         <div className="grid min-h-72 place-items-center text-sm font-semibold text-[color:var(--text-muted)]">
@@ -618,9 +750,12 @@ export default function CoachDashboard({
             <Users className="theme-accent-text mx-auto h-10 w-10" />
             <h2 className="mt-4 text-xl font-black">Aún no tienes atletas</h2>
             <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-              Un administrador debe vincular clientes a tu cuenta antes de que
-              puedas consultar o modificar su entrenamiento.
+              Comparte tu código. El atleta decide vincularse desde su perfil y
+              aparecerá aquí automáticamente.
             </p>
+            <Button className="mt-5 gap-2" onClick={() => setInviteOpen(true)}>
+              <Link2 className="h-4 w-4" /> Ver código
+            </Button>
           </div>
         </section>
       ) : (
@@ -651,13 +786,22 @@ export default function CoachDashboard({
                     key={id}
                     athlete={athlete}
                     selected={selectedId === id}
+                    blocked={
+                      Boolean(activeAthleteId) &&
+                      String(id) !== activeAthleteId
+                    }
                     onClick={() => {
+                      if (
+                        activeAthleteId &&
+                        String(id) !== activeAthleteId
+                      ) {
+                        toast.info("Hay una sesión supervisada en curso", {
+                          description:
+                            "Finalízala o cancélala antes de abrir otro atleta.",
+                        });
+                        return;
+                      }
                       setSelectedId(id);
-                      onSelectCoachAthlete({
-                        id,
-                        name: athlete.name,
-                        email: athlete.email,
-                      });
                     }}
                   />
                 );
@@ -695,7 +839,7 @@ export default function CoachDashboard({
                 type="button"
                 onClick={() => {
                   setSelectedId("");
-                  onSelectCoachAthlete(null);
+                  if (!activeSession) onSelectCoachAthlete(null);
                 }}
                 className="mb-3 inline-flex h-10 items-center gap-2 text-xs font-black uppercase text-[color:var(--text-muted)] lg:hidden"
               >
@@ -768,6 +912,22 @@ export default function CoachDashboard({
                     <ClipboardList className="h-4 w-4" />
                     Rutina extra
                   </Button>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={releaseAthlete}
+                    disabled={Boolean(activeSession)}
+                    className="inline-flex h-9 items-center gap-2 px-2 text-[11px] font-black uppercase text-red-600 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
+                    title={
+                      activeSession
+                        ? "Finaliza la sesión supervisada antes de desvincular"
+                        : "Quitar atleta de mi cartera"
+                    }
+                  >
+                    <UserMinus className="h-4 w-4" />
+                    Desvincular atleta
+                  </button>
                 </div>
               </div>
 
@@ -1089,7 +1249,10 @@ export default function CoachDashboard({
                           routine.isArchived !== true;
                         const canManageRoutine =
                           String(routine.assignedByCoachId || "") ===
-                          String(user?.id || user?._id || "");
+                            String(user?.id || user?._id || "") ||
+                          (!routine.assignedByCoachId &&
+                            !routine.trainingPlanId &&
+                            (routine.kind === "personal" || !routine.kind));
                         return (
                           <article key={id} className="py-1">
                             <div className="flex items-center gap-2 py-2">
@@ -1113,6 +1276,9 @@ export default function CoachDashboard({
                                     {available
                                       ? routine.assignmentType === "extra"
                                         ? "Adicional"
+                                        : canManageRoutine &&
+                                            !routine.assignedByCoachId
+                                          ? "Rutina heredada"
                                         : "Disponible"
                                       : routine.trainingPlanId &&
                                           planStatusById.get(
@@ -1198,61 +1364,20 @@ export default function CoachDashboard({
                 ) : null}
 
                 {athleteView === "activity" ? (
-                <section>
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="flex items-center gap-2 text-base font-black">
-                      <Activity className="theme-accent-text h-5 w-5" />
-                      Actividad reciente
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSelectCoachAthlete({
-                          id: selectedId,
-                          name: selectedAthlete.name,
-                          email: selectedAthlete.email,
-                        });
-                        onNavigate("admin_sesiones");
-                      }}
-                      className="inline-flex h-10 items-center gap-2 border border-[color:var(--border)] px-3 text-xs font-black uppercase"
-                    >
-                      <CalendarDays className="h-4 w-4" /> Historial completo
-                    </button>
-                  </div>
-                  <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-                    {overview.recentTrainings.length ? (
-                      overview.recentTrainings.slice(0, 6).map((training) => (
-                        <div
-                          key={training._id || training.id}
-                          className="flex items-center justify-between gap-3 py-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-black">
-                              {training.routineName || "Entrenamiento"}
-                            </p>
-                            <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
-                              {formatDate(training.date)}
-                              {training.sessionType === "supervised"
-                                ? " · Supervisada"
-                                : ""}
-                            </p>
-                            <p className="mt-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                              {(training.exercises || []).length} ejercicios ·{" "}
-                              {formatDuration(training.durationSeconds)}
-                            </p>
-                          </div>
-                          <span className="shrink-0 text-xs font-black text-[color:var(--text-muted)]">
-                            {formatVolume(training.totalVolume)}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="py-6 text-sm font-semibold text-[color:var(--text-muted)]">
-                        Todavía no hay sesiones registradas.
-                      </p>
-                    )}
-                  </div>
-                </section>
+                  <SessionHistory
+                    key={selectedId}
+                    embedded
+                    ownerId={selectedId}
+                    ownerName={selectedAthlete.name}
+                    onNavigate={onNavigate}
+                    prepareTrainingContext={() =>
+                      onSelectCoachAthlete({
+                        id: selectedId,
+                        name: selectedAthlete.name,
+                        email: selectedAthlete.email,
+                      })
+                    }
+                  />
                 ) : null}
               </div>
             </section>
