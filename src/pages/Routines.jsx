@@ -3071,11 +3071,22 @@ function TrainingPlanSchedule({
           return (
             <article
               key={day.slotId || day.dayIndex}
+              onClick={(event) => {
+                if (
+                  isManagedClient ||
+                  isRest ||
+                  !routine ||
+                  event.target.closest("button, a, input, select, textarea")
+                ) {
+                  return;
+                }
+                onEditRoutine(routine);
+              }}
               className={`routines-surface border bg-[color:var(--card)] p-4 ${
                 isCurrent
                   ? "border-[#ff5722] dark:border-[#e2ff00]"
                   : "border-[color:var(--border)]"
-              }`}
+              } ${!isManagedClient && !isRest && routine ? "cursor-pointer transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -3098,7 +3109,18 @@ function TrainingPlanSchedule({
               </div>
 
               <div className="mt-4">
-                <p className="text-[13px] font-black uppercase">{dayTitle}</p>
+                {!isManagedClient && !isRest && routine ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditRoutine(routine)}
+                    className="text-left text-[13px] font-black uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                    aria-label={`Abrir rutina ${routine.name}`}
+                  >
+                    {dayTitle}
+                  </button>
+                ) : (
+                  <p className="text-[13px] font-black uppercase">{dayTitle}</p>
+                )}
                 {isRest || routineSubtitle || !routine ? (
                   <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                     {isRest
@@ -3124,14 +3146,7 @@ function TrainingPlanSchedule({
 
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3">
                 {!isRest && routine && !isManagedClient ? (
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-4">
-                    <button
-                      type="button"
-                      onClick={() => onEditRoutine(routine)}
-                      className="theme-accent-text inline-flex h-11 items-center gap-2 text-xs font-black uppercase"
-                    >
-                      <Pencil className="h-4 w-4" /> Editar
-                    </button>
+                  <div className="flex min-w-0 flex-wrap items-center">
                     <button
                       type="button"
                       onClick={() => onChooseRoutine(day)}
