@@ -47,9 +47,25 @@ import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 import { api } from "../services/api";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
+import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const ROUTINE_GROUPS = [
+  { id: "full_body", label: "Full body" },
+  { id: "upper_lower", label: "Superior / inferior" },
+  { id: "ppl", label: "Empuje / jale / piernas" },
+  { id: "strength", label: "Fuerza" },
+  { id: "return", label: "Retorno" },
+];
+const ROUTINE_GROUP_LABELS = Object.fromEntries(
+  ROUTINE_GROUPS.map((item) => [item.id, item.label]),
+);
+const ROUTINE_LEVEL_LABELS = {
+  beginner: "Principiante",
+  intermediate: "Intermedio",
+  advanced: "Avanzado",
+};
 const formatPlanDate = (value) =>
   value
     ? new Date(value).toLocaleDateString("es-BO", {
@@ -298,8 +314,27 @@ const branchLabel = (value) => {
   return branch.charAt(0).toUpperCase() + branch.slice(1);
 };
 
-const groupByMuscle = (items = []) => {
+const orderByMuscleBlocks = (items = []) => {
+  const groups = new Map();
+  items.forEach((item) => {
+    const muscle = item.muscle || "Sin grupo";
+    if (!groups.has(muscle)) groups.set(muscle, []);
+    groups.get(muscle).push(item);
+  });
+  return Array.from(groups.values()).flat();
+};
+
+const groupByMuscle = (items = [], orderMode = "free") => {
   if (!items.length) return [];
+  if (orderMode === "muscle_blocks") {
+    const groups = new Map();
+    items.forEach((item, idx) => {
+      const muscle = item.muscle || "Sin grupo";
+      if (!groups.has(muscle)) groups.set(muscle, []);
+      groups.get(muscle).push({ ...item, idx });
+    });
+    return Array.from(groups.entries());
+  }
   return [[GLOBAL_ORDER_GROUP, items.map((item, idx) => ({ ...item, idx }))]];
 };
 
@@ -389,6 +424,7 @@ const serializeMovement = (exercise = {}) => {
 const routineDraftSignature = ({
   name,
   branch,
+  exerciseOrderMode,
   progressMode,
   sourceRoutineId,
   exercises,
@@ -396,6 +432,8 @@ const routineDraftSignature = ({
   JSON.stringify({
     name: name || "",
     branch: normalizeBranch(branch),
+    exerciseOrderMode:
+      exerciseOrderMode === "muscle_blocks" ? "muscle_blocks" : "free",
     progressMode: progressMode === "inherit" ? "inherit" : "fresh",
     sourceRoutineId: sourceRoutineId || "",
     exercises: (exercises || []).map((exercise) => ({
@@ -564,6 +602,11 @@ function RoutineModal({
       ? allowedBranches
       : BRANCH_OPTIONS;
   const [routineType, setRoutineType] = useState("");
+  const [exerciseOrderMode, setExerciseOrderMode] = useState(
+    initialData?.exerciseOrderMode === "muscle_blocks"
+      ? "muscle_blocks"
+      : "free",
+  );
   const [selectedSetupMuscles, setSelectedSetupMuscles] = useState(() => {
     const draftMuscles = (initialData?.exercises || [])
       .map((exercise) => exercise.muscle)
@@ -753,7 +796,10 @@ function RoutineModal({
     );
   };
 
-  const groupedSelected = useMemo(() => groupByMuscle(exercises), [exercises]);
+  const groupedSelected = useMemo(
+    () => groupByMuscle(exercises, exerciseOrderMode),
+    [exerciseOrderMode, exercises],
+  );
 
   const progressSourceOptions = useMemo(
     () =>
@@ -818,6 +864,14 @@ function RoutineModal({
       .filter(Boolean);
     setRoutineType(typeId);
     setSelectedSetupMuscles(new Set(defaults));
+  };
+
+  const handleExerciseOrderModeChange = (nextMode) => {
+    const normalized = nextMode === "muscle_blocks" ? nextMode : "free";
+    setExerciseOrderMode(normalized);
+    if (normalized === "muscle_blocks") {
+      setExercises((current) => orderByMuscleBlocks(current));
+    }
   };
 
   const handleBranchChange = (nextBranch) => {
@@ -889,7 +943,11 @@ function RoutineModal({
         exerciseMatchesBranch(exercise, exerciseFilterBranch),
       )
       .map((exercise) => toRoutineExercise(exercise));
-    const nextExercises = [...exercises, ...additions];
+    const combined = [...exercises, ...additions];
+    const nextExercises =
+      exerciseOrderMode === "muscle_blocks"
+        ? orderByMuscleBlocks(combined)
+        : combined;
     setExercises(nextExercises);
     setSelectedExerciseIds([]);
     const nextMuscle = pickerMuscleOptions.find(
@@ -951,7 +1009,10 @@ function RoutineModal({
           alternatives: [],
         }));
 
-      return [...updated, ...additions];
+      const combined = [...updated, ...additions];
+      return exerciseOrderMode === "muscle_blocks"
+        ? orderByMuscleBlocks(combined)
+        : combined;
     });
     setExtraPickerMuscle(null);
   };
@@ -1110,16 +1171,21 @@ function RoutineModal({
     setError("");
     setIsSaving(true);
     try {
+      const orderedExercises =
+        exerciseOrderMode === "muscle_blocks"
+          ? orderByMuscleBlocks(exercises)
+          : exercises;
       await onSave({
         ...initialData,
         id: routineId,
         name: routineName,
         description: `${exercises.length} ejercicios.`,
         branch: normalizeBranch(branch),
+        exerciseOrderMode,
         progressScopeId: initialData?.progressScopeId || undefined,
         progressMode,
         sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
-        exercises: exercises.map((ex) => ({
+        exercises: orderedExercises.map((ex) => ({
           ...ex,
           exerciseId: ex.exerciseId || slugify(ex.name),
           sets: Number(ex.sets) || 1,
@@ -1188,10 +1254,14 @@ function RoutineModal({
     name: draftName,
     description: `${exercises.length} ejercicios.`,
     branch: normalizeBranch(branch),
+    exerciseOrderMode,
     progressScopeId: initialData?.progressScopeId || undefined,
     progressMode,
     sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
-    exercises: exercises.map((ex) => ({
+    exercises: (exerciseOrderMode === "muscle_blocks"
+      ? orderByMuscleBlocks(exercises)
+      : exercises
+    ).map((ex) => ({
       ...ex,
       exerciseId: ex.exerciseId || slugify(ex.name),
       sets: Number(ex.sets) || 1,
@@ -1241,12 +1311,14 @@ function RoutineModal({
           nameEdited ||
           selectedSetupMuscles !== null ||
           branch !== normalizeBranch(initialData?.branch) ||
+          exerciseOrderMode !== "free" ||
           progressMode !== "fresh" ||
           sourceRoutineId,
         )
       : routineDraftSignature({
           name,
           branch,
+          exerciseOrderMode,
           progressMode,
           sourceRoutineId,
           exercises,
@@ -1254,6 +1326,7 @@ function RoutineModal({
         routineDraftSignature({
           name: initialData?.name,
           branch: initialData?.branch,
+          exerciseOrderMode: initialData?.exerciseOrderMode,
           progressMode: initialData?.progressMode,
           sourceRoutineId: initialData?.sourceRoutineId,
           exercises: initialData?.exercises,
@@ -1416,6 +1489,54 @@ function RoutineModal({
                 </div>
               ) : null}
 
+              <div className="mt-5 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                  Secuencia de entrenamiento
+                </span>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Secuencia de entrenamiento">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exerciseOrderMode === "muscle_blocks"}
+                    onClick={() =>
+                      handleExerciseOrderModeChange("muscle_blocks")
+                    }
+                    className={`min-h-20 border p-3 text-left transition ${
+                      exerciseOrderMode === "muscle_blocks"
+                        ? "theme-accent-soft"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <Layers3 className="h-5 w-5" />
+                    <span className="mt-2 block text-sm font-black">
+                      Por bloques
+                    </span>
+                    <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                      Termina un grupo muscular antes del siguiente.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exerciseOrderMode === "free"}
+                    onClick={() => handleExerciseOrderModeChange("free")}
+                    className={`min-h-20 border p-3 text-left transition ${
+                      exerciseOrderMode === "free"
+                        ? "theme-accent-soft"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <GripVertical className="h-5 w-5" />
+                    <span className="mt-2 block text-sm font-black">
+                      Orden libre
+                    </span>
+                    <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                      Permite intercalar músculos en cualquier secuencia.
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               {locationMode === "multiple" ? (
                 <div className="mt-5 space-y-2">
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
@@ -1566,7 +1687,10 @@ function RoutineModal({
                         {name.trim()}
                       </h2>
                       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                        {branchLabel(branch)}
+                        {branchLabel(branch)} Â·{" "}
+                        {exerciseOrderMode === "muscle_blocks"
+                          ? "Por bloques"
+                          : "Orden libre"}
                       </p>
                     </div>
                     <Button
@@ -1634,10 +1758,14 @@ function RoutineModal({
               <div className="flex items-center justify-between gap-2 px-1 pt-1">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    Orden de ejercicios
+                    {exerciseOrderMode === "muscle_blocks"
+                      ? "Bloques musculares"
+                      : "Orden de ejercicios"}
                   </p>
                   <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Arrastra para definir la secuencia de la rutina.
+                    {exerciseOrderMode === "muscle_blocks"
+                      ? "Los ejercicios del mismo grupo se mantienen juntos."
+                      : "Arrastra para definir una secuencia intercalada."}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1663,6 +1791,37 @@ function RoutineModal({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1" role="radiogroup" aria-label="Cambiar secuencia de entrenamiento">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={exerciseOrderMode === "muscle_blocks"}
+                  onClick={() =>
+                    handleExerciseOrderModeChange("muscle_blocks")
+                  }
+                  className={`h-10 text-[10px] font-black uppercase ${
+                    exerciseOrderMode === "muscle_blocks"
+                      ? "theme-accent-solid"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  Por bloques
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={exerciseOrderMode === "free"}
+                  onClick={() => handleExerciseOrderModeChange("free")}
+                  className={`h-10 text-[10px] font-black uppercase ${
+                    exerciseOrderMode === "free"
+                      ? "theme-accent-solid"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  Orden libre
+                </button>
+              </div>
+
               <div className="space-y-2">
                 {groupedSelected.map(([muscle, list]) => {
                   const extraOptions = availableExercises.filter(
@@ -1686,7 +1845,9 @@ function RoutineModal({
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-center gap-2">
                             <p className="truncate text-sm font-black leading-tight text-[color:var(--text)]">
-                              Orden global
+                              {muscle === GLOBAL_ORDER_GROUP
+                                ? "Orden global"
+                                : muscle}
                             </p>
                           </div>
                           <div className="mt-2 flex items-center gap-2">
@@ -2869,16 +3030,28 @@ function RoutineToolbar({
   showSearch,
   searchTerm,
   setSearchTerm,
+  showOriginFilter,
+  routineOrigin,
+  setRoutineOrigin,
+  originCounts,
+  templateGroup,
+  setTemplateGroup,
+  templateGroups,
   showBranchFilter,
   activeBranch,
   setActiveBranch,
   branchCounts,
 }) {
-  if (!showSearch && !showBranchFilter) return null;
+  if (!showSearch && !showOriginFilter && !showBranchFilter) return null;
   const branches = [
     { id: "all", label: "Todas", count: branchCounts.all },
     { id: "sopocachi", label: "Sopocachi", count: branchCounts.sopocachi },
     { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
+  ];
+  const origins = [
+    { id: "all", label: "Todas", count: originCounts.all },
+    { id: "private", label: "Mis rutinas", count: originCounts.private },
+    { id: "system", label: "Base", count: originCounts.system },
   ];
   return (
     <section className="mt-5 space-y-3">
@@ -2897,6 +3070,62 @@ function RoutineToolbar({
           </div>
         ) : null}
       </div>
+      {showOriginFilter ? (
+        <div
+          className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+          aria-label="Filtrar por origen"
+        >
+          {origins.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setRoutineOrigin(item.id);
+                if (item.id !== "system") setTemplateGroup("all");
+              }}
+              aria-pressed={routineOrigin === item.id}
+              className={`h-9 min-w-0 px-2 text-[11px] font-black uppercase transition ${
+                routineOrigin === item.id
+                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                  : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+              }`}
+            >
+              <span className="truncate">{item.label}</span>{" "}
+              <span className="opacity-70">{item.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {routineOrigin !== "private" && templateGroups.length > 1 ? (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Colecciones base
+          </p>
+          <div
+            className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label="Colecciones de rutinas base"
+          >
+            {templateGroups.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setTemplateGroup(item.id);
+                  if (item.id !== "all") setRoutineOrigin("system");
+                }}
+                aria-pressed={templateGroup === item.id}
+                className={`h-9 shrink-0 snap-start border px-3 text-[11px] font-black uppercase transition ${
+                  templateGroup === item.id
+                    ? "border-[#ff5722] bg-[#fff0eb] text-[#a52d0b] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]"
+                    : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                }`}
+              >
+                {item.label} <span className="opacity-65">{item.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {showBranchFilter ? (
         <div className="grid grid-cols-3 gap-2" aria-label="Filtrar por sede">
           {branches.map((item) => (
@@ -2953,7 +3182,10 @@ function TrainingPlanSchedule({
   selectedWeek,
   isManagedClient,
   onChooseRoutine,
-  onEditRoutine,
+  onOpenRoutine,
+  onDuplicateRoutine,
+  onDeleteRoutine,
+  duplicatingRoutineId,
   onStartRoutine,
   onAdvanceCycle,
   advancingCycle,
@@ -3073,20 +3305,21 @@ function TrainingPlanSchedule({
               key={day.slotId || day.dayIndex}
               onClick={(event) => {
                 if (
-                  isManagedClient ||
                   isRest ||
                   !routine ||
-                  event.target.closest("button, a, input, select, textarea")
+                  event.target.closest(
+                    "button, a, input, select, textarea, summary, details",
+                  )
                 ) {
                   return;
                 }
-                onEditRoutine(routine);
+                onOpenRoutine(routine);
               }}
               className={`routines-surface border bg-[color:var(--card)] p-4 ${
                 isCurrent
                   ? "border-[#ff5722] dark:border-[#e2ff00]"
                   : "border-[color:var(--border)]"
-              } ${!isManagedClient && !isRest && routine ? "cursor-pointer transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]" : ""}`}
+              } ${!isRest && routine ? "cursor-pointer transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -3109,12 +3342,12 @@ function TrainingPlanSchedule({
               </div>
 
               <div className="mt-4">
-                {!isManagedClient && !isRest && routine ? (
+                {!isRest && routine ? (
                   <button
                     type="button"
-                    onClick={() => onEditRoutine(routine)}
+                    onClick={() => onOpenRoutine(routine)}
                     className="text-left text-[13px] font-black uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
-                    aria-label={`Abrir rutina ${routine.name}`}
+                    aria-label={`Ver ejercicios de ${routine.name}`}
                   >
                     {dayTitle}
                   </button>
@@ -3146,7 +3379,7 @@ function TrainingPlanSchedule({
 
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3">
                 {!isRest && routine && !isManagedClient ? (
-                  <div className="flex min-w-0 flex-wrap items-center">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onChooseRoutine(day)}
@@ -3154,6 +3387,45 @@ function TrainingPlanSchedule({
                     >
                       <RotateCcw className="h-4 w-4" /> Cambiar rutina
                     </button>
+                    <details className="relative">
+                      <summary
+                        className="grid h-11 w-11 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                        aria-label={`Opciones de ${routine.name}`}
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </summary>
+                      <div className="absolute bottom-11 right-0 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                        <button
+                          type="button"
+                          disabled={Boolean(duplicatingRoutineId)}
+                          onClick={(event) => {
+                            event.currentTarget
+                              .closest("details")
+                              ?.removeAttribute("open");
+                            onDuplicateRoutine(routine);
+                          }}
+                          className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:opacity-50"
+                        >
+                          <Copy className="h-4 w-4" />
+                          {String(duplicatingRoutineId) ===
+                          String(routine.id || routine._id)
+                            ? "Duplicando..."
+                            : "Duplicar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.currentTarget
+                              .closest("details")
+                              ?.removeAttribute("open");
+                            onDeleteRoutine(routine);
+                          }}
+                          className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" /> Eliminar
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 ) : (
                   <span />
@@ -3205,8 +3477,217 @@ function TrainingPlanSchedule({
   );
 }
 
+function PlanTemplateDetailsModal({
+  template,
+  routines,
+  onClose,
+  onOpenRoutine,
+  onEdit,
+  onDuplicate,
+}) {
+  const routinesById = useMemo(
+    () =>
+      new Map(
+        routines.map((routine) => [
+          String(routine.id || routine._id),
+          routine,
+        ]),
+      ),
+    [routines],
+  );
+  const own = template.visibility !== "system";
+  const trainingDays = (template.weeklySchedule || []).filter(
+    (day) => day.type === "training",
+  ).length;
+
+  return (
+    <Modal
+      title={template.name}
+      subtitle={`${ROUTINE_LEVEL_LABELS[template.level] || template.level} · ${template.goal} · ${template.durationWeeks} semanas`}
+      onClose={onClose}
+      footer={
+        <>
+          {own ? (
+            <Button variant="outline" onClick={() => onEdit(template)}>
+              <Pencil className="h-4 w-4" /> Editar
+            </Button>
+          ) : null}
+          <Button onClick={() => onDuplicate(template)}>
+            <Copy className="h-4 w-4" />
+            {own ? "Duplicar" : "Usar como base"}
+          </Button>
+        </>
+      }
+    >
+      {template.description ? (
+        <p className="mb-4 text-sm font-semibold leading-relaxed text-[color:var(--text-muted)]">
+          {template.description}
+        </p>
+      ) : null}
+      <div className="mb-3 flex items-center justify-between border-b border-[color:var(--border)] pb-2">
+        <h4 className="text-xs font-black uppercase">Contenido programado</h4>
+        <span className="text-xs font-black text-[color:var(--text-muted)]">
+          {trainingDays} entrenamientos
+        </span>
+      </div>
+      <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+        {(template.weeklySchedule || []).map((day, index) => {
+          const routine = day.sourceRoutineId
+            ? routinesById.get(String(day.sourceRoutineId))
+            : null;
+          const dayLabel =
+            template.scheduleMode === "fixed"
+              ? PLAN_DAY_NAMES[index]
+              : `Dia ${index + 1}`;
+          const content =
+            day.type === "rest"
+              ? "Descanso"
+              : day.type === "recovery"
+                ? "Recuperacion"
+                : routine?.name || day.focus || "Rutina pendiente";
+          return (
+            <div
+              key={day.slotId || index}
+              className="flex min-h-16 items-center gap-3 py-3"
+            >
+              <span className="grid h-11 w-12 shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--bg)] text-[11px] font-black uppercase">
+                {dayLabel.slice(0, 3)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                  {day.type === "training" ? day.focus || "Entrenamiento" : dayLabel}
+                </p>
+                <p className="mt-1 truncate text-sm font-black uppercase">
+                  {content}
+                </p>
+              </div>
+              {routine ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenRoutine(routine)}
+                  className="grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text-muted)]"
+                  aria-label={`Ver ejercicios de ${routine.name}`}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              ) : day.type === "rest" ? (
+                <Bed className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+function RoutineDetailsModal({
+  routine,
+  onClose,
+  onEdit,
+  onDuplicate,
+  canEdit,
+}) {
+  const exercises = routine.exercises || [];
+  const totalSets = exercises.reduce(
+    (total, exercise) => total + (Number(exercise.sets) || 0),
+    0,
+  );
+  return (
+    <Modal
+      title={routine.name}
+      subtitle={routine.description || `${exercises.length} ejercicios · ${totalSets} series`}
+      onClose={onClose}
+      footer={
+        canEdit ? (
+          <Button onClick={() => onEdit(routine)}>
+            <Pencil className="h-4 w-4" /> Editar rutina
+          </Button>
+        ) : onDuplicate ? (
+          <Button onClick={() => onDuplicate(routine)}>
+            <Copy className="h-4 w-4" /> Duplicar para editar
+          </Button>
+        ) : null
+      }
+    >
+      <div className="mb-4 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-center">
+        <div>
+          <p className="text-lg font-black">{exercises.length}</p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Ejercicios
+          </p>
+        </div>
+        <div className="border-x border-[color:var(--border)]">
+          <p className="text-lg font-black">{totalSets}</p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Series
+          </p>
+        </div>
+        <div>
+          <p className="theme-accent-text truncate px-1 text-sm font-black uppercase">
+            {ROUTINE_LEVEL_LABELS[routine.level] || routine.goal || "Personal"}
+          </p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Nivel
+          </p>
+        </div>
+      </div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h4 className="text-xs font-black uppercase">Ejercicios</h4>
+        <span className="theme-accent-soft border px-2 py-1 text-[9px] font-black uppercase">
+          {routine.exerciseOrderMode === "muscle_blocks"
+            ? "Por bloques"
+            : "Orden libre"}
+        </span>
+      </div>
+      <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+        {exercises.map((exercise, index) => {
+          const imageUrl = getExerciseImageUrl(exercise, {
+            width: 144,
+            height: 144,
+          });
+          return (
+            <div
+              key={`${exercise.exerciseId || exercise.name}-${index}`}
+              className="flex min-h-20 items-center gap-3 py-3"
+            >
+              <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
+                {index + 1}
+              </span>
+              <div className="h-14 w-14 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
+                <RoutinePreviewImage
+                  item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-sm font-black uppercase leading-tight">
+                  {exercise.name}
+                </p>
+                {exercise.muscle ? (
+                  <p className="mt-1 truncate text-[10px] font-bold uppercase text-[color:var(--text-muted)]">
+                    {exercise.muscle}
+                  </p>
+                ) : null}
+              </div>
+              <span className="shrink-0 border border-[color:var(--border)] px-2 py-1 text-xs font-black">
+                {exercise.sets || 0} series
+              </span>
+            </div>
+          );
+        })}
+        {!exercises.length ? (
+          <p className="py-10 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+            Esta rutina todavia no tiene ejercicios.
+          </p>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}
+
 function Routines({ onNavigate }) {
   const { user } = useAuth();
+  const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
   const {
@@ -3238,6 +3719,8 @@ function Routines({ onNavigate }) {
   );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [routineOrigin, setRoutineOrigin] = useState("private");
+  const [templateGroup, setTemplateGroup] = useState("all");
   const [canReturnToTraining, setCanReturnToTraining] =
     useState(hasTrainingReturn);
   const [editTargetRoutineId, setEditTargetRoutineId] = useState(
@@ -3251,12 +3734,15 @@ function Routines({ onNavigate }) {
   const [planTemplates, setPlanTemplates] = useState([]);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [viewingPlanTemplate, setViewingPlanTemplate] = useState(null);
+  const [viewingRoutine, setViewingRoutine] = useState(null);
   const [planDayChoice, setPlanDayChoice] = useState(null);
   const [replacementPlanDay, setReplacementPlanDay] = useState(null);
   const [archivePlanConfirmOpen, setArchivePlanConfirmOpen] = useState(false);
   const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
+  const [templateProcessingId, setTemplateProcessingId] = useState("");
   const missingPlanRoutines = useMemo(
     () =>
       (activePlan?.weeklySchedule || []).filter(
@@ -3274,6 +3760,10 @@ function Routines({ onNavigate }) {
   const configuredPlanRoutines = planTrainingDays - missingPlanRoutines;
   const currentActivePlan = useMemo(
     () => trainingPlans.find((plan) => plan.status === "active") || null,
+    [trainingPlans],
+  );
+  const draftPlanCount = useMemo(
+    () => trainingPlans.filter((plan) => plan.status === "draft").length,
     [trainingPlans],
   );
   const orderedTrainingPlans = useMemo(() => {
@@ -3304,6 +3794,13 @@ function Routines({ onNavigate }) {
   }, [trainingPlans]);
 
   const refreshPlans = useCallback(async () => {
+    if (isCoach) {
+      const templates = await api.getPlanTemplates();
+      setPlanTemplates(templates);
+      setTrainingPlans([]);
+      setActivePlan(null);
+      return [];
+    }
     const plans = await api.getTrainingPlans();
     setTrainingPlans(plans);
     api
@@ -3319,7 +3816,7 @@ function Routines({ onNavigate }) {
         : null,
     );
     return plans;
-  }, []);
+  }, [isCoach]);
 
   useEffect(() => {
     if (!user?.id && !user?._id) return;
@@ -3414,23 +3911,78 @@ function Routines({ onNavigate }) {
   const branchCounts = useMemo(() => {
     const counts = { all: routines.length, sopocachi: 0, miraflores: 0 };
     routines.forEach((routine) => {
+      if (routine.visibility === "system") return;
       const branch = normalizeBranch(routine.branch);
       counts[branch] = (counts[branch] || 0) + 1;
     });
     return counts;
   }, [routines]);
+  const originCounts = useMemo(() => {
+    const system = routines.filter(
+      (routine) => routine.visibility === "system",
+    ).length;
+    return {
+      all: routines.length,
+      system,
+      private: routines.length - system,
+    };
+  }, [routines]);
+  const templateGroups = useMemo(() => {
+    const counts = routines.reduce((result, routine) => {
+      if (routine.visibility !== "system" || !routine.templateGroup) {
+        return result;
+      }
+      result[routine.templateGroup] = (result[routine.templateGroup] || 0) + 1;
+      return result;
+    }, {});
+    return [
+      { id: "all", label: "Todas", count: originCounts.system },
+      ...ROUTINE_GROUPS.filter((item) => counts[item.id]).map((item) => ({
+        ...item,
+        count: counts[item.id],
+      })),
+    ];
+  }, [originCounts.system, routines]);
+  useEffect(() => {
+    if (originCounts.all === 0) return;
+    if (routineOrigin === "private" && originCounts.private === 0) {
+      setRoutineOrigin(originCounts.system ? "system" : "all");
+    }
+    if (routineOrigin === "system" && originCounts.system === 0) {
+      setRoutineOrigin(originCounts.private ? "private" : "all");
+    }
+  }, [originCounts.all, originCounts.private, originCounts.system, routineOrigin]);
   const showSearch = routines.length >= 5;
+  const showOriginFilter = originCounts.system > 0 && originCounts.private > 0;
   const showBranchFilter =
+    routineOrigin === "private" &&
     locationMode === "multiple" &&
     branchCounts.sopocachi > 0 &&
     branchCounts.miraflores > 0;
   const hasActiveRoutineFilters =
-    Boolean(searchTerm.trim()) || (showBranchFilter && activeBranch !== "all");
+    Boolean(searchTerm.trim()) ||
+    routineOrigin !== "all" ||
+    templateGroup !== "all" ||
+    (showBranchFilter && activeBranch !== "all");
 
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return routines
       .filter((routine) => {
+        const isSystem = routine.visibility === "system";
+        if (routineOrigin === "system" && !isSystem) return false;
+        if (routineOrigin === "private" && isSystem) return false;
+        if (
+          isSystem &&
+          templateGroup !== "all" &&
+          routine.templateGroup !== templateGroup
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .filter((routine) => {
+        if (routine.visibility === "system") return true;
         if (locationMode === "disabled") return true;
         if (locationMode === "single") {
           return normalizeBranch(routine.branch) === preferredBranch;
@@ -3501,12 +4053,57 @@ function Routines({ onNavigate }) {
     routines,
     activeBranch,
     searchTerm,
+    routineOrigin,
+    templateGroup,
     exerciseMetaMap,
     locationMode,
     preferredBranch,
     routinePlanById,
   ]);
   const groupedRoutineCards = useMemo(() => {
+    const systemRoutines = routineCards.filter(
+      (routine) => routine.visibility === "system",
+    );
+    if (systemRoutines.length) {
+      const personalRoutines = routineCards.filter(
+        (routine) => routine.visibility !== "system",
+      );
+      const result = [];
+      if (personalRoutines.length) {
+        result.push({
+          id: "__personal_heading",
+          groupHeading: "Tus rutinas",
+          groupCount: personalRoutines.length,
+        });
+        result.push(...personalRoutines);
+      }
+      ROUTINE_GROUPS.forEach((group) => {
+        const matches = systemRoutines.filter(
+          (routine) => routine.templateGroup === group.id,
+        );
+        if (!matches.length) return;
+        result.push({
+          id: `__system_${group.id}`,
+          groupHeading: group.label,
+          groupCount: matches.length,
+          groupEyebrow: "Coleccion base",
+        });
+        result.push(...matches);
+      });
+      const ungrouped = systemRoutines.filter(
+        (routine) => !ROUTINE_GROUP_LABELS[routine.templateGroup],
+      );
+      if (ungrouped.length) {
+        result.push({
+          id: "__system_other",
+          groupHeading: "Otras rutinas base",
+          groupCount: ungrouped.length,
+          groupEyebrow: "Coleccion base",
+        });
+        result.push(...ungrouped);
+      }
+      return result;
+    }
     const planRoutines = routineCards.filter((routine) => routine.plan);
     const otherRoutines = routineCards.filter((routine) => !routine.plan);
     if (!planRoutines.length) return routineCards;
@@ -3542,6 +4139,8 @@ function Routines({ onNavigate }) {
 
   const openEdit = (routine) => {
     if (isManagedClient) return;
+    setViewingRoutine(null);
+    setViewingPlanTemplate(null);
     setSelectedRoutine(routine);
     setModalMode("edit");
   };
@@ -3632,6 +4231,24 @@ function Routines({ onNavigate }) {
 
   const saveTrainingPlan = async (payload) => {
     try {
+      if (isCoach) {
+        if (editingPlan) {
+          await api.updatePlanTemplate(
+            editingPlan._id || editingPlan.id,
+            payload,
+          );
+        } else {
+          await api.createPlanTemplate(payload);
+        }
+        await refreshPlans();
+        setPlanModalOpen(false);
+        setEditingPlan(null);
+        toast.success(
+          editingPlan ? "Plantilla actualizada" : "Plantilla creada",
+          { description: "Ya puede asignarse a cualquier atleta." },
+        );
+        return;
+      }
       const saved = editingPlan
         ? await api.updateTrainingPlan(
             editingPlan._id || editingPlan.id,
@@ -3659,6 +4276,46 @@ function Routines({ onNavigate }) {
     } catch (error) {
       toast.error(error.message || "No se pudo guardar la planificacion");
       throw error;
+    }
+  };
+
+  const duplicatePlanTemplate = async (template) => {
+    const id = String(template._id || template.id);
+    if (templateProcessingId) return;
+    setTemplateProcessingId(id);
+    try {
+      await api.createPlanTemplate({
+        name: `${template.name} (Copia)`,
+        description: template.description || "",
+        level: template.level,
+        goal: template.goal,
+        durationWeeks: template.durationWeeks,
+        scheduleMode: template.scheduleMode,
+        weeklySchedule: template.weeklySchedule,
+        tags: template.tags || [],
+      });
+      await refreshPlans();
+      toast.success("Plantilla duplicada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo duplicar la plantilla");
+    } finally {
+      setTemplateProcessingId("");
+    }
+  };
+
+  const archivePlanTemplate = async (template) => {
+    if (!window.confirm(`¿Eliminar ${template.name} de tus plantillas?`)) return;
+    const id = String(template._id || template.id);
+    if (templateProcessingId) return;
+    setTemplateProcessingId(id);
+    try {
+      await api.deletePlanTemplate(id);
+      await refreshPlans();
+      toast.success("Plantilla eliminada de tu biblioteca");
+    } catch (error) {
+      toast.error(error.message || "No se pudo eliminar la plantilla");
+    } finally {
+      setTemplateProcessingId("");
     }
   };
 
@@ -3822,8 +4479,8 @@ function Routines({ onNavigate }) {
     const target = routineToDelete;
     closeDeleteRoutine();
     try {
-      await deleteRoutine(target.id);
-      if (target.plan) await refreshPlans();
+      await deleteRoutine(target.id || target._id);
+      await refreshPlans();
       toast.success("Rutina eliminada");
     } catch {
       toast.error("No se pudo eliminar la rutina");
@@ -3832,9 +4489,10 @@ function Routines({ onNavigate }) {
 
   const handleDuplicateRoutine = async (routine) => {
     if (!routine || duplicatingRoutineId || isManagedClient) return;
-    setDuplicatingRoutineId(routine.id);
+    const routineId = routine.id || routine._id;
+    setDuplicatingRoutineId(routineId);
     try {
-      await duplicateRoutine(routine.id);
+      await duplicateRoutine(routineId);
       toast.success(`Copia de ${routine.name} creada`);
     } catch {
       toast.error("No se pudo duplicar la rutina");
@@ -3874,7 +4532,9 @@ function Routines({ onNavigate }) {
             {!activePlan ? (
               <p className="mt-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
                 {workspaceView === "plans"
-                  ? `${trainingPlans.length} ${trainingPlans.length === 1 ? "planificación" : "planificaciones"}`
+                  ? isCoach
+                    ? `${planTemplates.length} plantillas de planificación`
+                    : `${trainingPlans.length} ${trainingPlans.length === 1 ? "planificación" : "planificaciones"}`
                   : `${routines.length} ${routines.length === 1 ? "rutina" : "rutinas"}`}
               </p>
             ) : null}
@@ -3894,10 +4554,11 @@ function Routines({ onNavigate }) {
               <button
                 type="button"
                 onClick={() => setActivePlan(null)}
-                className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black"
                 aria-label="Volver a planificaciones"
               >
                 <ArrowLeft className="h-5 w-5" />
+                <span>Todas ({trainingPlans.length})</span>
               </button>
             ) : !isManagedClient ? (
               <button
@@ -3935,7 +4596,12 @@ function Routines({ onNavigate }) {
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              Planificaciones
+              {isCoach ? "Planificaciones base" : "Planificaciones"}
+              {!isCoach && draftPlanCount ? (
+                <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
+                  {draftPlanCount} borradores
+                </span>
+              ) : null}
             </button>
             <button
               type="button"
@@ -3948,12 +4614,15 @@ function Routines({ onNavigate }) {
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              Rutinas
+              {isCoach ? "Rutinas base" : "Rutinas"}
             </button>
           </div>
         ) : null}
 
-        {!trainingPlans.length && !activePlan && workspaceView === "plans" ? (
+        {!isCoach &&
+        !trainingPlans.length &&
+        !activePlan &&
+        workspaceView === "plans" ? (
           <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
             <div className="theme-accent-soft mx-auto grid h-12 w-12 place-items-center rounded-lg border">
               <Layers3 className="h-5 w-5" />
@@ -3981,7 +4650,30 @@ function Routines({ onNavigate }) {
         ) : null}
       </section>
 
-      {!activePlan && workspaceView === "plans" && trainingPlans.length ? (
+      {isCoach && !activePlan && workspaceView === "plans" ? (
+        <CoachPlanTemplates
+          templates={planTemplates}
+          routines={routines}
+          processingId={templateProcessingId}
+          onCreate={() => {
+            setEditingPlan(null);
+            setPlanModalOpen(true);
+          }}
+          onOpen={setViewingPlanTemplate}
+          onEdit={(template) => {
+            setViewingPlanTemplate(null);
+            setEditingPlan(template);
+            setPlanModalOpen(true);
+          }}
+          onDuplicate={duplicatePlanTemplate}
+          onArchive={archivePlanTemplate}
+        />
+      ) : null}
+
+      {!isCoach &&
+      !activePlan &&
+      workspaceView === "plans" &&
+      trainingPlans.length ? (
         <section className="mt-6 space-y-3 pb-24 sm:pb-0">
           <div className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
             <div>
@@ -4208,7 +4900,10 @@ function Routines({ onNavigate }) {
             selectedWeek={selectedPlanWeek}
             isManagedClient={isManagedClient}
             onChooseRoutine={setPlanDayChoice}
-            onEditRoutine={openEdit}
+            onOpenRoutine={setViewingRoutine}
+            onDuplicateRoutine={handleDuplicateRoutine}
+            onDeleteRoutine={requestDeleteRoutine}
+            duplicatingRoutineId={duplicatingRoutineId}
             onStartRoutine={startPlanRoutine}
             onAdvanceCycle={advanceCycle}
             advancingCycle={advancingCycle}
@@ -4283,6 +4978,13 @@ function Routines({ onNavigate }) {
           showSearch={showSearch}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
+          showOriginFilter={showOriginFilter}
+          routineOrigin={routineOrigin}
+          setRoutineOrigin={setRoutineOrigin}
+          originCounts={originCounts}
+          templateGroup={templateGroup}
+          setTemplateGroup={setTemplateGroup}
+          templateGroups={templateGroups}
           showBranchFilter={showBranchFilter}
           activeBranch={activeBranch}
           setActiveBranch={setActiveBranch}
@@ -4297,17 +4999,33 @@ function Routines({ onNavigate }) {
               return (
                 <h2
                   key={routine.id}
-                  className="col-span-full mt-2 text-base font-black text-[color:var(--text)]"
+                  className="col-span-full mt-3 flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-2"
                 >
-                  {routine.groupHeading}
+                  <span>
+                    {routine.groupEyebrow ? (
+                      <span className="mb-1 block text-[10px] font-black uppercase text-[#a93614] dark:text-[#e2ff00]">
+                        {routine.groupEyebrow}
+                      </span>
+                    ) : null}
+                    <span className="block text-base font-black uppercase text-[color:var(--text)]">
+                      {routine.groupHeading}
+                    </span>
+                  </span>
+                  {routine.groupCount ? (
+                    <span className="pb-0.5 text-xs font-black text-[color:var(--text-muted)]">
+                      {routine.groupCount}
+                    </span>
+                  ) : null}
                 </h2>
               );
             }
             const isHighlighted = ["active", "scheduled"].includes(
               routine.plan?.status,
             );
+            const isSystemRoutine = routine.visibility === "system";
             const focusLabel =
               routine.plan?.goal ||
+              routine.goal ||
               routine.muscles.slice(0, 2).join(" · ") ||
               "Rutina personalizada";
 
@@ -4318,16 +5036,14 @@ function Routines({ onNavigate }) {
                   isHighlighted
                     ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
                     : "border-t-[#626262] dark:border-t-[#6d6d62]"
-                } ${isManagedClient ? "" : "transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]"}`}
+                } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
               >
-                {!isManagedClient ? (
-                  <button
-                    type="button"
-                    onClick={() => openEdit(routine)}
-                    className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
-                    aria-label={`Abrir rutina ${routine.name}`}
-                  />
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setViewingRoutine(routine)}
+                  className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                  aria-label={`Ver ejercicios de ${routine.name}`}
+                />
                 <div className="pointer-events-none relative z-[1] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -4347,6 +5063,21 @@ function Routines({ onNavigate }) {
                           <MoreVertical className="h-5 w-5" />
                         </summary>
                         <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                          {!isSystemRoutine ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.removeAttribute("open");
+                                openEdit(routine);
+                              }}
+                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Editar
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={(event) => {
@@ -4363,19 +5094,21 @@ function Routines({ onNavigate }) {
                               ? "Duplicando..."
                               : "Duplicar"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.currentTarget
-                                .closest("details")
-                                ?.removeAttribute("open");
-                              requestDeleteRoutine(routine);
-                            }}
-                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Eliminar
-                          </button>
+                          {!isSystemRoutine ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("details")
+                                  ?.removeAttribute("open");
+                                requestDeleteRoutine(routine);
+                              }}
+                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Eliminar
+                            </button>
+                          ) : null}
                         </div>
                       </details>
                     ) : null}
@@ -4413,7 +5146,11 @@ function Routines({ onNavigate }) {
                         {routine.totalSets} series
                       </span>
                     </div>
-                    {isManagedClient ? (
+                    {isSystemRoutine ? (
+                      <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
+                        {ROUTINE_LEVEL_LABELS[routine.level] || "Base"}
+                      </span>
+                    ) : isManagedClient ? (
                       <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
                         Coach
                       </span>
@@ -4474,6 +5211,42 @@ function Routines({ onNavigate }) {
         >
           <Plus className="h-6 w-6" />
         </button>
+      ) : null}
+
+      {viewingPlanTemplate && !viewingRoutine ? (
+        <PlanTemplateDetailsModal
+          template={viewingPlanTemplate}
+          routines={routines}
+          onClose={() => setViewingPlanTemplate(null)}
+          onOpenRoutine={setViewingRoutine}
+          onEdit={(template) => {
+            setViewingPlanTemplate(null);
+            setEditingPlan(template);
+            setPlanModalOpen(true);
+          }}
+          onDuplicate={async (template) => {
+            await duplicatePlanTemplate(template);
+            setViewingPlanTemplate(null);
+          }}
+        />
+      ) : null}
+      {viewingRoutine ? (
+        <RoutineDetailsModal
+          routine={viewingRoutine}
+          onClose={() => setViewingRoutine(null)}
+          canEdit={
+            !isManagedClient && viewingRoutine.visibility !== "system"
+          }
+          onEdit={openEdit}
+          onDuplicate={
+            !isManagedClient && viewingRoutine.visibility === "system"
+              ? async (routine) => {
+                  await handleDuplicateRoutine(routine);
+                  setViewingRoutine(null);
+                }
+              : null
+          }
+        />
       ) : null}
 
       {modalMode && !isManagedClient && (
@@ -4564,11 +5337,15 @@ function Routines({ onNavigate }) {
       ) : null}
       {planModalOpen && !isManagedClient ? (
         <CoachPlanModal
-          athlete={{ name: user?.name || "Mi planificacion" }}
-          templates={[]}
+          athlete={{
+            name: isCoach
+              ? "Plantilla reutilizable"
+              : user?.name || "Mi planificacion",
+          }}
+          templates={isCoach ? routines : []}
           planTemplates={planTemplates}
           initialData={editingPlan}
-          manageRoutinesSeparately
+          manageRoutinesSeparately={!isCoach}
           onSave={saveTrainingPlan}
           onClose={() => {
             setPlanModalOpen(false);

@@ -1,6 +1,7 @@
-import { Check, LogOut, ShieldCheck } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/button";
+import ThemeToggle from "../ThemeToggle";
 import { coachSections, managedClientSections, sections } from "./navConfig";
 
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
@@ -64,8 +65,8 @@ const coachMobileGroups = [
   },
   {
     title: "Herramientas",
-    detail: "Planificación",
-    ids: ["rutinas", "library"],
+    detail: "Planificación y progreso",
+    ids: ["rutinas", "library", "admin_sesiones"],
   },
   {
     title: "Cuenta",
@@ -88,7 +89,7 @@ const managedClientMobileGroups = [
 ];
 
 function Sidebar({ activePage, onNavigate, forceVisible = false }) {
-  const { user, logout, developmentAdminMode } = useAuth();
+  const { user, logout } = useAuth();
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
@@ -212,22 +213,11 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         <Button
           type="button"
           variant="outline"
-          className={`mt-5 h-12 justify-center gap-2 rounded-xl text-[12px] font-black uppercase tracking-[0.08em] max-[700px]:mt-4 ${
-            developmentAdminMode
-              ? "border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-              : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
-          }`}
+          className="mt-5 h-12 justify-center gap-2 rounded-xl border-red-200 bg-red-50 text-[12px] font-black uppercase tracking-[0.08em] text-red-600 hover:bg-red-100 max-[700px]:mt-4 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
           onClick={handleLogout}
-          disabled={developmentAdminMode}
         >
-          {developmentAdminMode ? (
-            <ShieldCheck className="h-4 w-4" />
-          ) : (
-            <LogOut className="h-4 w-4" />
-          )}
-          <span>
-            {developmentAdminMode ? "Admin de desarrollo" : "Cerrar sesion"}
-          </span>
+          <LogOut className="h-4 w-4" />
+          <span>Cerrar sesion</span>
         </Button>
         <p className="mt-4 text-center text-[10px] font-black uppercase tracking-tight text-slate-400/70 dark:text-slate-400/25">
           Apex Performance v2.4.0
@@ -238,23 +228,26 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
 
   return (
     <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--card)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:flex">
-      <button
-        type="button"
-        className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
-        onClick={() => onNavigate?.("perfil")}
-      >
-        <div className="grid h-10 w-10 place-items-center rounded-full bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black">
-          {initials}
-        </div>
-        <div className="min-w-0 flex flex-col">
-          <p className="truncate text-sm font-semibold text-[color:var(--text)]">
-            {user?.name || "Usuario"}
-          </p>
-          <span className="text-xs text-[color:var(--text-muted)]">
-            {user?.role || "Cliente"}
-          </span>
-        </div>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
+          onClick={() => onNavigate?.("perfil")}
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black">
+            {initials}
+          </div>
+          <div className="min-w-0 flex flex-col">
+            <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+              {user?.name || "Usuario"}
+            </p>
+            <span className="text-xs text-[color:var(--text-muted)]">
+              {user?.role || "Cliente"}
+            </span>
+          </div>
+        </button>
+        <ThemeToggle />
+      </div>
 
       <div className="h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain">
         <nav className="flex flex-col gap-3">
@@ -320,16 +313,9 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
         variant="outline"
         className="mt-auto justify-start gap-2 rounded-xl"
         onClick={handleLogout}
-        disabled={developmentAdminMode}
       >
-        {developmentAdminMode ? (
-          <ShieldCheck className="h-4 w-4" />
-        ) : (
-          <LogOut className="h-4 w-4" />
-        )}
-        <span>
-          {developmentAdminMode ? "Admin de desarrollo" : "Cerrar sesion"}
-        </span>
+        <LogOut className="h-4 w-4" />
+        <span>Cerrar sesion</span>
       </Button>
     </aside>
   );

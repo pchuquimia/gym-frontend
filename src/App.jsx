@@ -51,6 +51,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "trainer",
   "rutinas",
   "library",
+  "admin_sesiones",
   "perfil",
 ]);
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([

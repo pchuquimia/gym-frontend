@@ -14,6 +14,7 @@ import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
 const AuthContext = createContext(null);
 const ACTIVE_TRAINING_KEY = "active_training_snapshot";
 const USER_CACHE_KEY = "gym_authenticated_user";
+const DEV_AUTO_LOGIN_DISABLED_KEY = "gym_dev_auto_login_disabled";
 const scopedTrainingKey = (userId) =>
   userId ? `${ACTIVE_TRAINING_KEY}:${userId}` : "";
 
@@ -51,6 +52,8 @@ const USER_STORAGE_KEYS = [
   "edit_training_date",
   "last_training_id",
   "last_exercise_id",
+  "coach_athlete_context",
+  "training_plan_routine_intent",
 ];
 
 const clearUserScopedStorage = () => {
@@ -134,6 +137,20 @@ const shouldUseDevAdminLogin = () => {
   return ["localhost", "127.0.0.1"].includes(window.location.hostname);
 };
 
+const isDevAutoLoginDisabled = () => {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(DEV_AUTO_LOGIN_DISABLED_KEY) === "true";
+};
+
+const setDevAutoLoginDisabled = (disabled) => {
+  if (typeof window === "undefined") return;
+  if (disabled) {
+    window.sessionStorage.setItem(DEV_AUTO_LOGIN_DISABLED_KEY, "true");
+  } else {
+    window.sessionStorage.removeItem(DEV_AUTO_LOGIN_DISABLED_KEY);
+  }
+};
+
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const developmentAdminMode = shouldUseDevAdminLogin();
@@ -153,6 +170,14 @@ export function AuthProvider({ children }) {
 
   const refreshUser = useCallback(
     ({ silent = false, force = false } = {}) => {
+      if (
+        shouldUseDevAdminLogin() &&
+        isDevAutoLoginDisabled() &&
+        !userRef.current
+      ) {
+        if (!silent) setLoading(false);
+        return Promise.resolve(null);
+      }
       if (refreshInFlightRef.current) return refreshInFlightRef.current;
       if (
         silent &&
@@ -174,7 +199,7 @@ export function AuthProvider({ children }) {
           commitUser(nextUser);
           return nextUser;
         } catch (requestError) {
-          if (shouldUseDevAdminLogin()) {
+          if (shouldUseDevAdminLogin() && !isDevAutoLoginDisabled()) {
             try {
               const data = await api.devAdminLogin();
               if (data?.token) setAuthToken(data.token);
@@ -247,6 +272,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (payload) => {
     setError("");
+    setDevAutoLoginDisabled(false);
     const data = await api.login(payload);
     if (data?.token) setAuthToken(data.token);
     const nextUser = normalizeUser(data);
@@ -257,6 +283,7 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (payload) => {
     setError("");
+    setDevAutoLoginDisabled(false);
     const data = await api.register(payload);
     if (data?.verificationRequired) return data;
     if (data?.token) setAuthToken(data.token);
@@ -284,9 +311,9 @@ export function AuthProvider({ children }) {
   }, [commitUser]);
 
   const logout = useCallback(async () => {
-    if (developmentAdminMode) return false;
     const userId = userRef.current?.id || userRef.current?._id;
     preserveActiveTraining(userId);
+    if (developmentAdminMode) setDevAutoLoginDisabled(true);
     try {
       await api.logout();
     } finally {

@@ -73,8 +73,13 @@ export const coachSections = [
   {
     heading: "Herramientas",
     items: [
-      { id: "rutinas", label: "Plantillas de rutinas", icon: ClipboardList },
+      {
+        id: "rutinas",
+        label: "Rutinas y planificación",
+        icon: ClipboardList,
+      },
       { id: "library", label: "Biblioteca de ejercicios", icon: Dumbbell },
+      { id: "admin_sesiones", label: "Historial de atletas", icon: Shield },
     ],
   },
   {

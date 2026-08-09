@@ -85,6 +85,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  duplicateCoachRoutine: (athleteId, routineId) =>
+    request(
+      `/api/coach/athletes/${athleteId}/routines/${routineId}/duplicate`,
+      { method: "POST" },
+    ),
   createCoachPlan: (athleteId, payload) =>
     request(`/api/coach/athletes/${athleteId}/plans`, {
       method: "POST",
@@ -99,6 +104,10 @@ export const api = {
     request(`/api/coach/athletes/${athleteId}/plans/${planId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
+    }),
+  deleteCoachPlan: (athleteId, planId) =>
+    request(`/api/coach/athletes/${athleteId}/plans/${planId}`, {
+      method: "DELETE",
     }),
   getTrainingPlans: (athleteId = "") =>
     request(`/api/plans${athleteId ? `?athleteId=${athleteId}` : ""}`),

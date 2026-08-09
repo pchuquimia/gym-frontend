@@ -75,11 +75,14 @@ axiosClient.interceptors.request.use((config) => {
 axiosClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    const responseData = error.response?.data;
     const message =
-      error.response?.data?.error ||
-      error.response?.data?.message ||
-      error.message ||
-      "API error";
+      responseData?.error ||
+      responseData?.message ||
+      (typeof responseData === "string" ? responseData : "") ||
+      (error.response?.status === 429
+        ? "Demasiadas solicitudes. Espera un momento e intenta nuevamente."
+        : error.message || "API error");
 
     const normalized = new Error(message);
 

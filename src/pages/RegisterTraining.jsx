@@ -433,6 +433,10 @@ const getRoutineDefinitionSignature = (routine = {}) =>
   JSON.stringify({
     name: routine.name || "",
     branch: normalizeBranch(routine.branch),
+    exerciseOrderMode:
+      routine.exerciseOrderMode === "muscle_blocks"
+        ? "muscle_blocks"
+        : "free",
     exercises: (routine.exercises || []).map((exercise) => ({
       exerciseId: exercise.exerciseId || exercise.id || "",
       name: exercise.name || "",
@@ -444,6 +448,37 @@ const getRoutineDefinitionSignature = (routine = {}) =>
       ),
     })),
   });
+
+const buildExerciseDisplayGroups = (items = [], orderMode = "free") => {
+  if (orderMode === "muscle_blocks") {
+    const groups = new Map();
+    items.forEach((exercise) => {
+      const muscle = exercise.muscle || "Sin grupo";
+      if (!groups.has(muscle)) groups.set(muscle, []);
+      groups.get(muscle).push(exercise);
+    });
+    return Array.from(groups.entries()).map(([muscle, exercises], index) => ({
+      key: `muscle-${muscle}-${index}`,
+      muscle,
+      items: exercises,
+    }));
+  }
+
+  return items.reduce((groups, exercise) => {
+    const muscle = exercise.muscle || "Sin grupo";
+    const current = groups.at(-1);
+    if (current?.muscle === muscle) {
+      current.items.push(exercise);
+      return groups;
+    }
+    groups.push({
+      key: `sequence-${groups.length}-${muscle}`,
+      muscle,
+      items: [exercise],
+    });
+    return groups;
+  }, []);
+};
 
 const getTrainingOrderSignature = (training = {}) =>
   training.orderSignature ||
@@ -1373,7 +1408,7 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
         (r) =>
           r.isAvailableForTraining !== false &&
           (effectiveBranch
-            ? normalizeBranch(r.branch) === effectiveBranch
+            ? [effectiveBranch, "general"].includes(normalizeBranch(r.branch))
             : true),
       ) || [];
     return filtered.map((r) => toRoutineOption(r));
@@ -4457,15 +4492,14 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
     ? Math.min(100, Math.round((doneSets / totalSets) * 100))
     : 0;
   const selectorRoutine = selectedRoutine || null;
-  const groupedExercises = useMemo(() => {
-    const groups = new Map();
-    exercises.forEach((ex) => {
-      const key = ex.muscle || "Sin grupo";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(ex);
-    });
-    return Array.from(groups.entries());
-  }, [exercises]);
+  const groupedExercises = useMemo(
+    () =>
+      buildExerciseDisplayGroups(
+        exercises,
+        selectedRoutine?.raw?.exerciseOrderMode,
+      ),
+    [exercises, selectedRoutine?.raw?.exerciseOrderMode],
+  );
 
   const trackingExercise = useMemo(
     () => exercises.find((ex) => ex.id === trackingExerciseId) || null,
@@ -5263,9 +5297,9 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       isOrderingExercises ? "hidden" : "md:hidden"
                     }`}
                   >
-                    {groupedExercises.map(([muscle, items]) => (
+                    {groupedExercises.map(({ key, muscle, items }) => (
                       <div
-                        key={muscle}
+                        key={key}
                         className="min-w-0 max-w-full space-y-3"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
@@ -5353,8 +5387,8 @@ export default function RegisterTraining({ onNavigate = () => {} }) {
                       isOrderingExercises ? "hidden" : "hidden md:block"
                     }`}
                   >
-                    {groupedExercises.map(([muscle, items]) => (
-                      <div key={muscle} className="space-y-3">
+                    {groupedExercises.map(({ key, muscle, items }) => (
+                      <div key={key} className="space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                           <div>
                             <p className="text-xl font-semibold text-[color:var(--text)]">

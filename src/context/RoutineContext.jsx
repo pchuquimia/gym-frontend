@@ -110,6 +110,9 @@ export function RoutineProvider({ children, ownerId = "" }) {
     delete baseCopy.assignedAt;
     delete baseCopy.isArchived;
     delete baseCopy.isAvailableForTraining;
+    delete baseCopy.visibility;
+    delete baseCopy.kind;
+    delete baseCopy.version;
     const copy = {
       ...baseCopy,
       id: `${id}-copy-${Date.now()}`,

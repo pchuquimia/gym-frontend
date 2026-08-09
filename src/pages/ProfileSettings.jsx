@@ -322,7 +322,7 @@ function SessionRow({ session }) {
 }
 
 export default function ProfileSettings({ onNavigate }) {
-  const { user, logout, updateAccount, developmentAdminMode } = useAuth();
+  const { user, logout, updateAccount } = useAuth();
   const {
     photos = [],
     branch,
@@ -1397,15 +1397,10 @@ export default function ProfileSettings({ onNavigate }) {
         <button
           type="button"
           onClick={handleLogout}
-          disabled={developmentAdminMode}
-          className={`flex h-12 w-full items-center justify-center gap-2 rounded-lg border text-sm font-bold ${
-            developmentAdminMode
-              ? "cursor-not-allowed border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
-              : "border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10"
-          }`}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 text-sm font-bold text-red-500 hover:bg-red-500/10"
         >
           <LogOut className="h-4 w-4" />
-          {developmentAdminMode ? "Admin de desarrollo" : "Cerrar sesión"}
+          Cerrar sesión
         </button>
         <p className="text-center text-xs text-[color:var(--text-muted)]">
           Apex Performance

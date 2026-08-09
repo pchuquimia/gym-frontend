@@ -88,9 +88,13 @@ function MetricBox({ label, value, suffix = "", tone = "white" }) {
   );
 }
 
-export default function TrainingAdmin({ onNavigate = () => {} }) {
+export default function TrainingAdmin({
+  onNavigate = () => {},
+  coachAthlete = null,
+}) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
+  const isCoach = user?.role === "Entrenador";
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -108,6 +112,11 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
   const limit = 5000;
 
   const loadTrainings = async () => {
+    if (isCoach && !coachAthlete?.id) {
+      setTrainings([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError("");
@@ -117,7 +126,8 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
         from: from || undefined,
         to: to || undefined,
         fields:
-          "date,routineId,routineName,durationSeconds,totalVolume,branch,routineBranch,exercises",
+          "date,routineId,routineName,durationSeconds,totalVolume,branch,routineBranch,sessionType,supervisedBy,exercises",
+        athleteId: isCoach ? coachAthlete.id : undefined,
         meta: true,
       });
       setTrainings(Array.isArray(resp) ? resp : resp?.items || []);
@@ -131,7 +141,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
   useEffect(() => {
     loadTrainings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
+  }, [from, to, coachAthlete?.id]);
 
   const routinesInData = useMemo(() => {
     const set = new Set();
@@ -254,6 +264,30 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
     }
   };
 
+  if (isCoach && !coachAthlete?.id) {
+    return (
+      <main className="management-shell grid min-h-[70dvh] place-items-center text-center">
+        <div className="max-w-sm px-5">
+          <CalendarDays className="theme-accent-text mx-auto h-9 w-9" />
+          <h1 className="mt-4 text-xl font-black uppercase">
+            Selecciona un atleta
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+            Abre Mis atletas y selecciona a quién deseas consultar. El historial
+            siempre se mantiene separado por atleta.
+          </p>
+          <Button
+            type="button"
+            className="mt-5 h-11"
+            onClick={() => onNavigate("trainer")}
+          >
+            Ir a Mis atletas
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="management-shell min-h-screen bg-[color:var(--bg)] text-[color:var(--text)]">
       <div className="mx-auto w-full max-w-5xl space-y-6 px-0 py-2 pb-24 sm:px-6 sm:py-6 lg:px-10">
@@ -264,7 +298,9 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                 Historial
               </p>
               <h1 className="mt-1 truncate font-condensed text-3xl font-bold uppercase leading-none text-[color:var(--accent-strong)] dark:text-[color:var(--accent)]">
-                Historial de sesiones
+                {isCoach
+                  ? `Historial de ${coachAthlete.name}`
+                  : "Historial de sesiones"}
               </h1>
             </div>
             <Button
@@ -443,6 +479,12 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
             ) : null}
             {visibleTrainings.map((training) => {
               const id = training._id || training.id;
+              const canManage =
+                isAdmin ||
+                (isCoach &&
+                  training.sessionType === "supervised" &&
+                  String(training.supervisedBy || "") ===
+                    String(user?.id || user?._id || ""));
               const totalSets = (training.exercises || []).reduce(
                 (acc, exercise) => acc + (exercise.sets?.length || 0),
                 0,
@@ -499,7 +541,7 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                     </button>
                   ) : null}
 
-                  <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] border-t border-[color:var(--border)] pt-3">
+                  <div className={`mt-4 grid ${canManage ? "grid-cols-3" : "grid-cols-1"} divide-x divide-[color:var(--border)] border-t border-[color:var(--border)] pt-3`}>
                     <button
                       type="button"
                       className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
@@ -510,22 +552,26 @@ export default function TrainingAdmin({ onNavigate = () => {} }) {
                       <Eye className="h-5 w-5 shrink-0" />
                       Ver
                     </button>
-                    <button
-                      type="button"
-                      className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                      onClick={() => handleEdit(training)}
-                    >
-                      <Pencil className="h-5 w-5 shrink-0" />
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
-                      onClick={() => setDeleteTarget(training)}
-                    >
-                      <Trash2 className="h-5 w-5 shrink-0" />
-                      Eliminar
-                    </button>
+                    {canManage ? (
+                      <>
+                        <button
+                          type="button"
+                          className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
+                          onClick={() => handleEdit(training)}
+                        >
+                          <Pencil className="h-5 w-5 shrink-0" />
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-11 min-w-0 items-center justify-center gap-1 text-xs font-semibold text-[color:var(--text)] sm:gap-2 sm:text-sm"
+                          onClick={() => setDeleteTarget(training)}
+                        >
+                          <Trash2 className="h-5 w-5 shrink-0" />
+                          Eliminar
+                        </button>
+                      </>
+                    ) : null}
                   </div>
 
                   {expandedId === id ? (

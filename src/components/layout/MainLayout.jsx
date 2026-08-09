@@ -158,8 +158,8 @@ function MainLayout({
               useDashboardChrome
                 ? "hidden"
                 : useTrainingChrome
-                  ? "hidden md:flex"
-                  : "flex"
+                  ? "hidden"
+                  : "flex md:hidden"
             }`}
           >
             <MobileMenuButton onClick={() => setShowDrawer(true)} />
