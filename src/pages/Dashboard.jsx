@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveBar } from "@nivo/bar";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
+import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -970,6 +971,7 @@ function MonthDetailView({ detail, onBack }) {
 }
 
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
+  const queryClient = useQueryClient();
   const { trainings = [] } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
@@ -981,6 +983,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
   const [weeklyLoadModalOpen, setWeeklyLoadModalOpen] = useState(false);
   const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
+  const [quickWeightOpen, setQuickWeightOpen] = useState(false);
   const hasOpenModal = Boolean(
     durationModalOpen ||
     performanceModalType ||
@@ -1034,14 +1037,30 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const now = useMemo(() => new Date(), []);
   const todayKey = getISODateKey(now);
+  const todayWeighInKey = ["weigh-ins", "today", "self", todayKey];
   const { data: todayWeighInData } = useQuery({
-    queryKey: ["weigh-ins", "today", "self", todayKey],
+    queryKey: todayWeighInKey,
     queryFn: () =>
       api.getWeighIns({ from: todayKey, to: todayKey, today: todayKey }),
     staleTime: 30 * 1000,
   });
   const needsDailyWeighIn =
     todayWeighInData && !todayWeighInData.summary?.completedToday;
+
+  const saveQuickWeight = async (weightKg) => {
+    const saved = await api.saveWeighIn({ dateKey: todayKey, weightKg });
+    queryClient.setQueryData(todayWeighInKey, (previous = {}) => ({
+      ...previous,
+      entries: [saved],
+      summary: {
+        ...(previous.summary || {}),
+        completedToday: true,
+        latest: saved,
+      },
+    }));
+    queryClient.invalidateQueries({ queryKey: ["weigh-ins"] });
+    return saved;
+  };
 
   const weekData = useMemo(() => {
     const start = getMondayWeekStart(now);
@@ -1768,13 +1787,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           {needsDailyWeighIn ? (
             <button
               type="button"
-              onClick={() => onNavigate("pesajes")}
+              onClick={() => setQuickWeightOpen(true)}
               className="relative grid h-10 w-10 place-items-center rounded-full border border-[#ff5722] bg-[#fff0eb] text-[#ff5722] shadow-sm dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00] dark:shadow-none"
               aria-label="Registrar pesaje de hoy"
               title="Registrar pesaje de hoy"
             >
-              <Weight className="h-5 w-5" />
-              <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722] dark:bg-[#e2ff00]" />
+              <Weight className="h-5 w-5 motion-safe:animate-pulse" />
+              <span
+                aria-hidden="true"
+                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722] dark:bg-[#e2ff00]"
+              />
             </button>
           ) : null}
           <button
@@ -2744,6 +2766,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           </div>
         </div>
       ) : null}
+      <QuickWeightModal
+        open={quickWeightOpen}
+        onClose={() => setQuickWeightOpen(false)}
+        onSave={saveQuickWeight}
+      />
     </motion.div>
   );
 }
