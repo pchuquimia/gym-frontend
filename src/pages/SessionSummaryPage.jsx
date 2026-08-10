@@ -254,8 +254,8 @@ export default function SessionSummaryPage({
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <header className="border-b border-[color:var(--border)] pb-4">
         <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Lectura posterior</p>
-        <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen de sesion</h1>
-        <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Compara carga, grupos musculares y ejercicios contra tu propio historial.</p>
+        <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen diario</h1>
+        <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Revisa la sesión que acabas de completar y compárala con tu historial.</p>
       </header>
 
       {sortedSessions.length ? (

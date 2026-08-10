@@ -4574,8 +4574,14 @@ export default function RegisterTraining({
       } else {
         savedTraining = await addTraining(payload);
       }
+      const savedTrainingId = savedTraining?.id || savedTraining?._id || "";
+      if (!savedTrainingId) {
+        throw new Error("La base de datos no devolvió la sesión guardada");
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("last_training_id", String(savedTrainingId));
+      }
       if (savedTraining && trainingPhotoFile) {
-        const trainingId = savedTraining.id || savedTraining._id;
         const routineLabel = selectedRoutine?.name
           ? `Entrenamiento - ${selectedRoutine.name}`
           : "Foto en entrenamiento";
@@ -4585,20 +4591,20 @@ export default function RegisterTraining({
             date: dateStr,
             label: routineLabel,
             type: "gym",
-            sessionId: trainingId || "",
+            sessionId: String(savedTrainingId),
           });
         } catch (err) {
           console.error("No se pudo subir la foto", err);
           toast.error("No se pudo subir la foto del entrenamiento.");
         }
       }
-      if (savedTraining && typeof localStorage !== "undefined") {
-        const lastId = savedTraining.id || savedTraining._id;
-        if (lastId) localStorage.setItem("last_training_id", lastId);
-      }
       toast.success("Entrenamiento guardado correctamente.");
       resetState();
-      if (typeof onNavigate === "function") onNavigate("resumen_sesion");
+      if (typeof onNavigate === "function") {
+        window.setTimeout(() => {
+          onNavigate("resumen_sesion", { trainingId: savedTrainingId });
+        }, 0);
+      }
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
       releaseFinalization();

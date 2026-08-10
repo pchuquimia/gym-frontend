@@ -37,7 +37,7 @@ const PAGES = {
     label: "Analitica por ejercicio",
     component: ExerciseAnalyticsPage,
   },
-  resumen_sesion: { label: "Resumen de Sesion", component: SessionSummaryPage },
+  resumen_sesion: { label: "Resumen diario", component: SessionSummaryPage },
   data_intelligence: {
     label: "Inteligencia de datos",
     component: DataIntelligencePage,
@@ -371,16 +371,19 @@ function App() {
               handleNavigate("trainer");
             }}
           >
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="sync" initial={false}>
               <motion.div
                 key={activePage}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
+                exit={{
+                  opacity: 0,
+                  y: 6,
+                  transition: { duration: 0.14, ease: [0.4, 0, 1, 1] },
+                }}
                 transition={{
-                  duration: 0.28,
+                  duration: 0.2,
                   ease: [0.2, 0.8, 0.2, 1],
-                  exit: { duration: 0.2, ease: [0.4, 0, 1, 1] },
                 }}
                 className="h-full"
               >

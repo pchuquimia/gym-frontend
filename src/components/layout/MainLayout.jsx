@@ -94,6 +94,7 @@ function MainLayout({
 
   return (
     <div
+      data-active-page={activePage}
       className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] dark:!bg-[#050505] dark:!text-[#f8f8f4] flex flex-col transition-colors ${
         useDashboardBackground ? "dashboard-app-shell" : ""
       }`}
