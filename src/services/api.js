@@ -78,6 +78,7 @@ export const api = {
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
   getCoachAthletes: () => request("/api/coach/athletes"),
+  getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),
   getCoachLinkCode: () => request("/api/coach/link-code"),
   regenerateCoachLinkCode: () =>
     request("/api/coach/link-code/regenerate", { method: "POST" }),
@@ -265,6 +266,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  getWeighIns: (params = {}) => {
+    const query = new URLSearchParams({
+      from: params.from ?? "",
+      to: params.to ?? "",
+      today: params.today ?? "",
+      athleteId: params.athleteId ?? "",
+    }).toString();
+    return request(`/api/weigh-ins?${query}`);
+  },
+  saveWeighIn: (payload) =>
+    request("/api/weigh-ins", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteWeighIn: (id) =>
+    request(`/api/weigh-ins/${id}`, { method: "DELETE" }),
 
   getSessions: () => request("/api/sessions"),
   createSession: (payload) =>

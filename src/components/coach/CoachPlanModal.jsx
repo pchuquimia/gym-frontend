@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Bed,
   CalendarDays,
+  Check,
   Dumbbell,
   Minus,
   Plus,
@@ -87,9 +88,10 @@ export default function CoachPlanModal({
   const onCloseRef = useRef(onClose);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const isEditing = Boolean(initialData?._id || initialData?.id);
   const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
-    initialData?.planTemplateId || "",
+    initialData?.sourcePlanId || initialData?.planTemplateId || "",
   );
   const [name, setName] = useState(
     initialData?.name || "Plan inicial de 8 semanas",
@@ -162,6 +164,14 @@ export default function CoachPlanModal({
   const trainingDays = useMemo(
     () => schedule.filter((day) => day.type === "training").length,
     [schedule],
+  );
+  const selectedPlanTemplate = useMemo(
+    () =>
+      planTemplates.find(
+        (item) =>
+          String(item._id || item.id) === String(selectedPlanTemplateId),
+      ) || null,
+    [planTemplates, selectedPlanTemplateId],
   );
   const missingRoutines = useMemo(() => {
     const templateIds = new Set(
@@ -253,9 +263,15 @@ export default function CoachPlanModal({
         order: index + 1,
         type: day.type || "training",
         focus: day.focus || "",
-        sourceRoutineId: day.sourceRoutineId || "",
+        sourceRoutineId: day.sourceRoutineId || day.routineId || "",
       })),
     );
+    setTemplatePickerOpen(false);
+  };
+
+  const continueWithoutTemplate = () => {
+    setSelectedPlanTemplateId("");
+    setTemplatePickerOpen(false);
   };
 
   const submit = async () => {
@@ -263,8 +279,17 @@ export default function CoachPlanModal({
       return;
     setSaving(true);
     try {
+      const usesCatalogPlan =
+        selectedPlanTemplate?.catalogSource === "training_plan";
       await onSave({
-        planTemplateId: selectedPlanTemplateId || null,
+        planTemplateId:
+          selectedPlanTemplateId && !usesCatalogPlan
+            ? selectedPlanTemplateId
+            : null,
+        sourcePlanId:
+          selectedPlanTemplateId && usesCatalogPlan
+            ? selectedPlanTemplateId
+            : null,
         name: name.trim(),
         level,
         goal,
@@ -292,12 +317,18 @@ export default function CoachPlanModal({
         <header className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:px-6">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
-              Paso {step} de 2 · {athlete.name}
+              {templatePickerOpen
+                ? `Nueva planificación · ${athlete.name}`
+                : `Paso ${step} de 2 · ${athlete.name}`}
             </p>
             <h2 className="mt-1 truncate text-xl font-black">
-              {step === 1 ? "Estructura del plan" : "Orden de entrenamiento"}
+              {templatePickerOpen
+                ? "Elegir estructura"
+                : step === 1
+                  ? "Datos del plan"
+                  : "Organizar días"}
             </h2>
-            {!isEditing && replacingPlan ? (
+            {!templatePickerOpen && !isEditing && replacingPlan ? (
               <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
                 Al activarlo, {replacingPlan.name} quedara pausado.
               </p>
@@ -314,30 +345,93 @@ export default function CoachPlanModal({
         </header>
 
         <div className="overflow-y-auto p-4 sm:p-6">
-          {step === 1 ? (
+          {templatePickerOpen ? (
+            <div className="space-y-5">
+              <button
+                type="button"
+                onClick={continueWithoutTemplate}
+                className="flex min-h-16 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-left transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black">
+                    Continuar sin estructura
+                  </span>
+                  <span className="mt-0.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                    Configura el plan manualmente.
+                  </span>
+                </span>
+                {!selectedPlanTemplateId ? (
+                  <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                ) : null}
+              </button>
+
+              <section aria-labelledby="saved-plan-structures">
+                <p
+                  id="saved-plan-structures"
+                  className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]"
+                >
+                  Catálogo de planificaciones
+                </p>
+                <div className="mt-2 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                  {planTemplates.map((template) => {
+                    const templateId = String(template._id || template.id);
+                    const selected =
+                      String(selectedPlanTemplateId) === templateId;
+                    return (
+                      <button
+                        key={templateId}
+                        type="button"
+                        onClick={() => applyPlanTemplate(templateId)}
+                        aria-pressed={selected}
+                        className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black">
+                            {template.name}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            {template.durationWeeks} semanas ·{" "}
+                            {template.catalogSource === "training_plan"
+                              ? "Plan del administrador"
+                              : "Estructura editable"}
+                          </span>
+                        </span>
+                        {selected ? (
+                          <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                        ) : (
+                          <ArrowRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          ) : step === 1 ? (
             <div className="space-y-5">
               {!isEditing && planTemplates.length ? (
-                <label className="block">
-                  <span className="text-xs font-black">Usar como base</span>
-                  <select
-                    value={selectedPlanTemplateId}
-                    onChange={(event) => applyPlanTemplate(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
+                <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                      {selectedPlanTemplate
+                        ? "Planificación aplicada"
+                        : "Configuración manual"}
+                    </p>
+                    <p className="mt-1 truncate text-sm font-black">
+                      {selectedPlanTemplate?.name || "Plan nuevo"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTemplatePickerOpen(true)}
+                    className="h-10 shrink-0 border border-[#ff5722] px-3 text-xs font-black text-[#b82f05] dark:border-[#e2ff00] dark:text-[#e2ff00]"
                   >
-                    <option value="">Crear desde cero</option>
-                    {planTemplates.map((template) => (
-                      <option
-                        key={template._id || template.id}
-                        value={template._id || template.id}
-                      >
-                        {template.name} · {template.durationWeeks} semanas
-                      </option>
-                    ))}
-                  </select>
-                  <span className="mt-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Copia una estructura editable. La plantilla original no cambia.
-                  </span>
-                </label>
+                    {selectedPlanTemplate ? "Cambiar" : "Usar planificación"}
+                  </button>
+                </div>
               ) : null}
               <label className="block">
                 <span className="text-xs font-black">Nombre del plan</span>
@@ -587,7 +681,15 @@ export default function CoachPlanModal({
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] p-4 sm:px-6">
-          {step === 1 ? (
+          {templatePickerOpen ? (
+            <Button
+              variant="outline"
+              className="h-11 rounded-lg"
+              onClick={() => setTemplatePickerOpen(false)}
+            >
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </Button>
+          ) : step === 1 ? (
             <button
               type="button"
               onClick={onClose}
@@ -604,13 +706,15 @@ export default function CoachPlanModal({
               <ArrowLeft className="h-4 w-4" /> Anterior
             </Button>
           )}
-          {step === 1 ? (
+          {templatePickerOpen ? (
+            <span />
+          ) : step === 1 ? (
             <Button
               className="h-11 rounded-lg"
               disabled={!name.trim() || !validDuration || !startDate}
               onClick={() => setStep(2)}
             >
-              Configurar estructura <ArrowRight className="h-4 w-4" />
+              Continuar <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button
@@ -622,7 +726,7 @@ export default function CoachPlanModal({
                 ? "Guardando..."
                 : isEditing
                   ? "Guardar cambios"
-                  : "Guardar borrador"}
+                  : "Guardar planificación"}
             </Button>
           )}
         </footer>

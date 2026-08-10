@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCenter,
   DndContext,
@@ -54,16 +54,6 @@ import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
-const ROUTINE_GROUPS = [
-  { id: "full_body", label: "Full body" },
-  { id: "upper_lower", label: "Superior / inferior" },
-  { id: "ppl", label: "Empuje / jale / piernas" },
-  { id: "strength", label: "Fuerza" },
-  { id: "return", label: "Retorno" },
-];
-const ROUTINE_GROUP_LABELS = Object.fromEntries(
-  ROUTINE_GROUPS.map((item) => [item.id, item.label]),
-);
 const ROUTINE_LEVEL_LABELS = {
   beginner: "Principiante",
   intermediate: "Intermedio",
@@ -139,8 +129,8 @@ const PLAN_DAY_NAMES = [
 const PLAN_STATUS_LABELS = {
   active: "Vigente",
   scheduled: "Programada",
-  draft: "Borrador",
-  paused: "Pausada",
+  draft: "Inactiva",
+  paused: "Desactivada",
   completed: "Completada",
   cancelled: "Archivada",
 };
@@ -548,7 +538,7 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
             <h3 className="mt-1 truncate text-lg font-black">{routine.name}</h3>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
               {routine.plan
-                ? `Esta rutina pertenece a ${routine.plan.name}. Al eliminarla, la planificación volverá a borrador hasta que asignes un reemplazo.`
+                ? `Esta rutina pertenece a ${routine.plan.name}. Al eliminarla, la planificación quedará inactiva hasta que asignes un reemplazo.`
                 : "Esta accion no se puede deshacer. Desliza hasta el final para confirmar."}
             </p>
           </div>
@@ -3068,6 +3058,7 @@ function RoutineModal({
 
 function PlanRoutineChoiceModal({
   day,
+  scheduleMode,
   routines,
   onCreate,
   onAssign,
@@ -3076,6 +3067,10 @@ function PlanRoutineChoiceModal({
   const [query, setQuery] = useState("");
   const [assigningId, setAssigningId] = useState(null);
   const currentRoutineId = String(day?.routineId || "");
+  const dayLabel =
+    scheduleMode === "fixed"
+      ? PLAN_DAY_NAMES[Number(day?.dayIndex || 1) - 1] || "Día"
+      : `Día ${day?.dayIndex || 1}`;
   const options = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return routines
@@ -3101,24 +3096,11 @@ function PlanRoutineChoiceModal({
 
   return (
     <Modal
-      title={
-        day?.routineId
-          ? "Cambiar rutina"
-          : day?.focus || "Configurar entrenamiento"
-      }
-      subtitle={
-        day?.routineId
-          ? `Selecciona el reemplazo para ${day.focus || "este bloque"}`
-          : "Selecciona una rutina para este bloque"
-      }
+      title={day?.routineId ? "Cambiar rutina" : "Asignar rutina"}
+      subtitle={`${dayLabel}${day?.focus ? ` · ${day.focus}` : ""}`}
       onClose={onClose}
     >
-      <div className="space-y-4 pb-2">
-        <Button className="h-12 w-full gap-2" onClick={onCreate}>
-          <Plus className="h-4 w-4" />
-          Crear una rutina nueva
-        </Button>
-
+      <div className="space-y-3 pb-2">
         {routines.length ? (
           <>
             <div className="relative">
@@ -3131,7 +3113,7 @@ function PlanRoutineChoiceModal({
                 className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm font-semibold outline-none"
               />
             </div>
-            <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            <div className="max-h-[48dvh] divide-y divide-[color:var(--border)] overflow-y-auto border-y border-[color:var(--border)] pr-1">
               {options.length ? (
                 options.map((routine) => {
                   const routineId = String(routine.id || routine._id);
@@ -3178,7 +3160,21 @@ function PlanRoutineChoiceModal({
               )}
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="border-y border-[color:var(--border)] py-8 text-center">
+            <p className="text-sm font-black">No tienes rutinas disponibles</p>
+            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              Crea una para poder asignarla a este día.
+            </p>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onCreate}
+          className="flex h-11 w-full items-center justify-center gap-2 border border-[color:var(--border)] text-xs font-black text-[color:var(--text)] transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+        >
+          <Plus className="h-4 w-4" /> Crear rutina nueva
+        </button>
       </div>
     </Modal>
   );
@@ -3188,28 +3184,16 @@ function RoutineToolbar({
   showSearch,
   searchTerm,
   setSearchTerm,
-  showOriginFilter,
-  routineOrigin,
-  setRoutineOrigin,
-  originCounts,
-  templateGroup,
-  setTemplateGroup,
-  templateGroups,
   showBranchFilter,
   activeBranch,
   setActiveBranch,
   branchCounts,
 }) {
-  if (!showSearch && !showOriginFilter && !showBranchFilter) return null;
+  if (!showSearch && !showBranchFilter) return null;
   const branches = [
     { id: "all", label: "Todas", count: branchCounts.all },
     { id: "sopocachi", label: "Sopocachi", count: branchCounts.sopocachi },
     { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
-  ];
-  const origins = [
-    { id: "all", label: "Todas", count: originCounts.all },
-    { id: "private", label: "Mis rutinas", count: originCounts.private },
-    { id: "system", label: "Base", count: originCounts.system },
   ];
   return (
     <section className="mt-5 space-y-3">
@@ -3228,62 +3212,6 @@ function RoutineToolbar({
           </div>
         ) : null}
       </div>
-      {showOriginFilter ? (
-        <div
-          className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
-          aria-label="Filtrar por origen"
-        >
-          {origins.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setRoutineOrigin(item.id);
-                if (item.id !== "system") setTemplateGroup("all");
-              }}
-              aria-pressed={routineOrigin === item.id}
-              className={`h-9 min-w-0 px-2 text-[11px] font-black uppercase transition ${
-                routineOrigin === item.id
-                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                  : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-              }`}
-            >
-              <span className="truncate">{item.label}</span>{" "}
-              <span className="opacity-70">{item.count}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {routineOrigin !== "private" && templateGroups.length > 1 ? (
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-            Colecciones base
-          </p>
-          <div
-            className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="Colecciones de rutinas base"
-          >
-            {templateGroups.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setTemplateGroup(item.id);
-                  if (item.id !== "all") setRoutineOrigin("system");
-                }}
-                aria-pressed={templateGroup === item.id}
-                className={`h-9 shrink-0 snap-start border px-3 text-[11px] font-black uppercase transition ${
-                  templateGroup === item.id
-                    ? "border-[#ff5722] bg-[#fff0eb] text-[#a52d0b] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]"
-                    : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
-                }`}
-              >
-                {item.label} <span className="opacity-65">{item.count}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
       {showBranchFilter ? (
         <div className="grid grid-cols-3 gap-2" aria-label="Filtrar por sede">
           {branches.map((item) => (
@@ -3380,51 +3308,54 @@ function TrainingPlanSchedule({
   const totalTrainingDays = schedule.filter(
     (day) => day.type === "training",
   ).length;
+  const configuredTrainingDays = schedule.filter(
+    (day) => day.type === "training" && day.routineId,
+  ).length;
+  const isConfiguring = plan.status === "draft";
+  const progressValue = isConfiguring
+    ? configuredTrainingDays
+    : completedTrainingDays;
+  const progressTotal = Math.max(1, totalTrainingDays);
 
   return (
     <div className="mt-5">
-      {!sequential ? (
-        <>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                Cumplimiento semanal
-              </p>
-              <p className="mt-1 text-xs font-bold">
-                {formatPlanDayDate(weekStart)} - {formatPlanDayDate(weekEnd)}
-              </p>
-            </div>
-            <strong className="theme-accent-text text-xs uppercase">
-              {completedTrainingDays} de {totalTrainingDays} completados
-            </strong>
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden bg-[color:var(--border)]">
-            <div
-              className="theme-accent-solid h-full border-0 transition-all"
-              style={{
-                width: `${totalTrainingDays ? (completedTrainingDays / totalTrainingDays) * 100 : 0}%`,
-              }}
-            />
-          </div>
-        </>
-      ) : (
-        <div className="border-b border-[color:var(--border)] pb-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
           <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-            Ciclo secuencial libre
+            {isConfiguring
+              ? "Asignación de rutinas"
+              : sequential
+                ? "Orden del ciclo"
+                : "Semana actual"}
           </p>
-          <div className="mt-1 flex items-end justify-between gap-3">
-            <h3 className="text-xl font-black">Sigue el orden del patrón</h3>
-            <span className="theme-accent-soft rounded px-2.5 py-1 text-xs font-black">
-              Día {currentCycleIndex + 1} de {schedule.length}
-            </span>
-          </div>
-          <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
-            El ciclo avanza al guardar una sesión o confirmar un descanso.
+          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+            {isConfiguring
+              ? sequential
+                ? `${schedule.length} días en orden libre`
+                : "La misma distribución se repite cada semana"
+              : sequential
+                ? "Avanza al completar cada entrenamiento o descanso"
+                : `${formatPlanDayDate(weekStart)} - ${formatPlanDayDate(weekEnd)}`}
           </p>
         </div>
-      )}
+        <strong className="theme-accent-text shrink-0 text-xs uppercase">
+          {isConfiguring
+            ? `${configuredTrainingDays}/${totalTrainingDays} asignadas`
+            : sequential
+              ? `Día ${currentCycleIndex + 1}/${schedule.length}`
+              : `${completedTrainingDays}/${totalTrainingDays} completadas`}
+        </strong>
+      </div>
+      {(!sequential || isConfiguring) && totalTrainingDays ? (
+        <div className="mt-3 h-1.5 overflow-hidden bg-[color:var(--border)]">
+          <div
+            className="theme-accent-solid h-full border-0 transition-all"
+            style={{ width: `${(progressValue / progressTotal) * 100}%` }}
+          />
+        </div>
+      ) : null}
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {schedule.map((day, index) => {
           const date = sequential
             ? null
@@ -3447,17 +3378,29 @@ function TrainingPlanSchedule({
               )
             : null;
           const isRest = day.type !== "training";
-          const dayTitle = isRest
+          const primaryLabel = isRest
             ? day.type === "rest"
               ? "Descanso completo"
               : "Recuperación activa"
-            : day.focus || routine?.name || "Entrenamiento";
-          const routineSubtitle =
-            !isRest &&
-            routine?.name?.trim().toLowerCase() !==
-              dayTitle.trim().toLowerCase()
-              ? routine?.name
-              : "";
+            : routine?.name || day.focus || "Rutina sin asignar";
+          const focusDiffers =
+            routine &&
+            day.focus?.trim().toLowerCase() !==
+              routine.name?.trim().toLowerCase();
+          const secondaryLabel = isRest
+            ? day.type === "rest"
+              ? "Recuperación"
+              : "Movilidad y actividad ligera"
+            : routine
+              ? [
+                  focusDiffers ? day.focus : "",
+                  getRoutineExerciseSummary(routine),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Selecciona una rutina";
+          const canStart =
+            isCurrent && plan.status === "active" && Boolean(routine);
           return (
             <article
               key={day.slotId || day.dayIndex}
@@ -3473,86 +3416,101 @@ function TrainingPlanSchedule({
                 }
                 onOpenRoutine(routine);
               }}
-              className={`routines-surface border bg-[color:var(--card)] p-4 ${
+              className={`relative flex min-h-[72px] items-center gap-3 px-2 py-3 sm:px-3 ${
                 isCurrent
-                  ? "border-[#ff5722] dark:border-[#e2ff00]"
-                  : "border-[color:var(--border)]"
-              } ${!isRest && routine ? "cursor-pointer transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]" : ""}`}
+                  ? "bg-[#fff4ef] dark:bg-[#e2ff00]/[0.06]"
+                  : "bg-[color:var(--card)]"
+              } ${!isRest && routine ? "cursor-pointer transition hover:bg-[color:var(--bg)]" : ""}`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h4
-                    className={`text-lg font-black uppercase ${isCurrent ? "theme-accent-text" : ""}`}
-                  >
-                    {sequential ? `Día ${index + 1}` : PLAN_DAY_NAMES[index]}
-                  </h4>
-                  <p className="mt-0.5 text-[11px] font-bold text-[color:var(--text-muted)]">
-                    {date ? formatPlanDayDate(date) : `Bloque ${index + 1}`}
+              {isCurrent ? (
+                <span className="absolute inset-y-0 left-0 w-0.5 bg-[#ff5722] dark:bg-[#e2ff00]" />
+              ) : null}
+              <div className="w-12 shrink-0 border-r border-[color:var(--border)] pr-3 text-center sm:w-16">
+                <p className={`text-xs font-black uppercase ${isCurrent ? "theme-accent-text" : ""}`}>
+                  {sequential ? `Día ${index + 1}` : PLAN_DAY_NAMES[index].slice(0, 3)}
+                </p>
+                {date ? (
+                  <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                    {formatPlanDayDate(date)}
                   </p>
-                </div>
-                {training ? (
-                  <Check className="theme-accent-text h-5 w-5" />
-                ) : isCurrent ? (
-                  <span className="theme-accent-solid rounded px-2 py-1 text-[10px] font-black uppercase">
-                    Actual
-                  </span>
                 ) : null}
               </div>
-
-              <div className="mt-4">
+              <div className="min-w-0 flex-1">
                 {!isRest && routine ? (
                   <button
                     type="button"
                     onClick={() => onOpenRoutine(routine)}
-                    className="text-left text-[13px] font-black uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                    className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
                     aria-label={`Ver ejercicios de ${routine.name}`}
                   >
-                    {dayTitle}
+                    {primaryLabel}
                   </button>
                 ) : (
-                  <p className="text-[13px] font-black uppercase">{dayTitle}</p>
-                )}
-                {isRest || routineSubtitle || !routine ? (
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    {isRest
-                      ? day.type === "rest"
-                        ? "Recupera antes del siguiente bloque"
-                        : "Movilidad y actividad ligera"
-                      : routineSubtitle || "Rutina pendiente de configurar"}
+                  <p className={`truncate text-sm font-black ${!routine && !isRest ? "text-[color:var(--text-muted)]" : ""}`}>
+                    {primaryLabel}
                   </p>
-                ) : null}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {isRest ? (
-                    <span className="border border-[color:var(--border)] px-2 py-1 text-[10px] font-black uppercase">
-                      Recuperación
-                    </span>
-                  ) : null}
-                  {!isRest && routine ? (
-                    <span className="border border-[color:var(--border)] px-2 py-1 text-[10px] font-black uppercase">
-                      {getRoutineExerciseSummary(routine)}
-                    </span>
-                  ) : null}
-                </div>
+                )}
+                <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  {secondaryLabel}
+                  {training
+                    ? ` · ${Math.round(Number(training.totalVolume || 0)).toLocaleString("es-BO")} kg`
+                    : ""}
+                </p>
               </div>
-
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3">
-                {!isRest && routine && !isManagedClient ? (
-                  <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
+                {training ? (
+                  <Check className="theme-accent-text h-4 w-4" aria-label="Completada" />
+                ) : null}
+                {day.type === "training" && !routine && !isManagedClient ? (
+                  <button
+                    type="button"
+                    onClick={() => onChooseRoutine(day)}
+                    className="theme-accent-soft inline-flex h-10 items-center gap-1.5 border px-2.5 text-xs font-black"
+                  >
+                    <Plus className="h-4 w-4" /> Asignar
+                  </button>
+                ) : null}
+                {!isRest && routine && !isManagedClient && !canStart ? (
                     <button
                       type="button"
                       onClick={() => onChooseRoutine(day)}
-                      className="inline-flex h-11 items-center gap-2 text-xs font-black uppercase text-[color:var(--text)]"
+                      className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-black text-[color:var(--text)]"
+                      aria-label={`Cambiar rutina de ${sequential ? `día ${index + 1}` : PLAN_DAY_NAMES[index]}`}
                     >
-                      <RotateCcw className="h-4 w-4" /> Cambiar rutina
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="hidden sm:inline">Cambiar</span>
                     </button>
+                ) : null}
+                {canStart ? (
+                  <button
+                    type="button"
+                    onClick={() => onStartRoutine(day)}
+                    className="theme-accent-solid inline-flex h-10 items-center gap-1.5 border-0 px-3 text-xs font-black"
+                  >
+                    <Play className="h-4 w-4" /> Iniciar
+                  </button>
+                ) : null}
+                {!isRest && routine && !isManagedClient ? (
                     <details className="relative">
                       <summary
-                        className="grid h-11 w-11 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                        className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
                         aria-label={`Opciones de ${routine.name}`}
                       >
                         <MoreVertical className="h-5 w-5" />
                       </summary>
-                      <div className="absolute bottom-11 right-0 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                      <div className="absolute bottom-10 right-0 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                        {canStart ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.currentTarget.closest("details")?.removeAttribute("open");
+                              onChooseRoutine(day);
+                            }}
+                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                          >
+                            <RotateCcw className="h-4 w-4" /> Cambiar
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           disabled={Boolean(duplicatingRoutineId)}
@@ -3584,49 +3542,19 @@ function TrainingPlanSchedule({
                         </button>
                       </div>
                     </details>
-                  </div>
-                ) : (
-                  <span />
-                )}
-                {training ? (
-                  <span className="text-xs font-black text-[color:var(--text-muted)]">
-                    {Math.round(
-                      Number(training.totalVolume || 0),
-                    ).toLocaleString("es-BO")}{" "}
-                    kg
-                  </span>
                 ) : null}
-              </div>
-
-              {day.type === "training" && !routine && !isManagedClient ? (
-                <button
-                  type="button"
-                  onClick={() => onChooseRoutine(day)}
-                  className="theme-accent-soft mt-3 flex h-11 w-full items-center justify-center border text-xs font-black uppercase"
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Configurar rutina
-                </button>
-              ) : null}
-              {isCurrent && plan.status === "active" && routine ? (
-                <button
-                  type="button"
-                  onClick={() => onStartRoutine(day)}
-                  className="theme-accent-solid mt-3 flex h-12 w-full items-center justify-center gap-2 border-0 text-xs font-black uppercase"
-                >
-                  <Play className="h-4 w-4" /> Iniciar sesión
-                </button>
-              ) : null}
               {sequential && isCurrent && plan.status === "active" && isRest ? (
                 <button
                   type="button"
                   disabled={advancingCycle}
                   onClick={onAdvanceCycle}
-                  className="theme-accent-soft mt-3 flex h-12 w-full items-center justify-center gap-2 border text-xs font-black uppercase disabled:opacity-50"
+                  className="theme-accent-soft inline-flex h-10 items-center gap-1.5 border px-2.5 text-xs font-black disabled:opacity-50"
                 >
-                  <Bed className="h-4 w-4" />{" "}
-                  {advancingCycle ? "Actualizando..." : "Completar y continuar"}
+                  <Bed className="h-4 w-4" />
+                  {advancingCycle ? "..." : "Continuar"}
                 </button>
               ) : null}
+              </div>
             </article>
           );
         })}
@@ -3650,7 +3578,6 @@ function PlanTemplateDetailsModal({
       ),
     [routines],
   );
-  const own = template.visibility !== "system";
   const trainingDays = (template.weeklySchedule || []).filter(
     (day) => day.type === "training",
   ).length;
@@ -3662,14 +3589,12 @@ function PlanTemplateDetailsModal({
       onClose={onClose}
       footer={
         <>
-          {own ? (
-            <Button variant="outline" onClick={() => onEdit(template)}>
-              <Pencil className="h-4 w-4" /> Editar
-            </Button>
-          ) : null}
+          <Button variant="outline" onClick={() => onEdit(template)}>
+            <Pencil className="h-4 w-4" /> Editar
+          </Button>
           <Button onClick={() => onDuplicate(template)}>
             <Copy className="h-4 w-4" />
-            {own ? "Duplicar" : "Usar como base"}
+            Duplicar
           </Button>
         </>
       }
@@ -3852,6 +3777,8 @@ function Routines({ onNavigate }) {
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
   const {
     routines,
+    loading: routinesLoading,
+    error: routinesError,
     addRoutine,
     updateRoutine,
     deleteRoutine,
@@ -3879,8 +3806,6 @@ function Routines({ onNavigate }) {
   );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [routineOrigin, setRoutineOrigin] = useState("private");
-  const [templateGroup, setTemplateGroup] = useState("all");
   const [canReturnToTraining, setCanReturnToTraining] =
     useState(hasTrainingReturn);
   const [editTargetRoutineId, setEditTargetRoutineId] = useState(
@@ -3889,9 +3814,15 @@ function Routines({ onNavigate }) {
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
-  const [workspaceView, setWorkspaceView] = useState("plans");
+  const [workspaceView, setWorkspaceView] = useState(() =>
+    isCoach ? "routines" : "plans",
+  );
   const [trainingPlans, setTrainingPlans] = useState([]);
   const [planTemplates, setPlanTemplates] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState("");
+  const planRequestInFlightRef = useRef(null);
+  const hadRoutinesOnEntryRef = useRef(Boolean(routines.length));
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [viewingPlanTemplate, setViewingPlanTemplate] = useState(null);
@@ -3917,14 +3848,6 @@ function Routines({ onNavigate }) {
       ).length,
     [activePlan],
   );
-  const planTrainingDays = useMemo(
-    () =>
-      (activePlan?.weeklySchedule || []).filter(
-        (day) => day.type === "training",
-      ).length,
-    [activePlan],
-  );
-  const configuredPlanRoutines = planTrainingDays - missingPlanRoutines;
   const currentActivePlan = useMemo(
     () => trainingPlans.find((plan) => plan.status === "active") || null,
     [trainingPlans],
@@ -3960,55 +3883,96 @@ function Routines({ onNavigate }) {
     return map;
   }, [trainingPlans]);
 
-  const refreshPlans = useCallback(async () => {
-    if (isCoach) {
-      const templates = await api.getPlanTemplates();
-      setPlanTemplates(templates);
-      setTrainingPlans([]);
-      setActivePlan(null);
-      return [];
-    }
-    const plans = await api.getTrainingPlans();
-    setTrainingPlans(plans);
-    api
-      .getPlanTemplates()
-      .then(setPlanTemplates)
-      .catch(() => setPlanTemplates([]));
-    setActivePlan((current) =>
-      current
-        ? plans.find(
-            (plan) =>
-              String(plan._id || plan.id) === String(current._id || current.id),
-          ) || null
-        : null,
-    );
-    return plans;
-  }, [isCoach]);
+  const refreshPlans = useCallback(
+    ({ silent = false } = {}) => {
+      if (planRequestInFlightRef.current) {
+        return planRequestInFlightRef.current;
+      }
+
+      if (!silent) setPlansLoading(true);
+
+      const operation = (async () => {
+        if (isCoach) {
+          setPlanTemplates([]);
+          setTrainingPlans([]);
+          setActivePlan(null);
+          return [];
+        }
+
+        const [plans, templates] = await Promise.all([
+          api.getTrainingPlans(),
+          api.getPlanTemplates().catch(() => []),
+        ]);
+        setTrainingPlans(plans);
+        setPlanTemplates(templates);
+        setActivePlan((current) =>
+          current
+            ? plans.find(
+                (plan) =>
+                  String(plan._id || plan.id) ===
+                  String(current._id || current.id),
+              ) || null
+            : null,
+        );
+        return plans;
+      })()
+        .then((plans) => {
+          setPlansError("");
+          return plans;
+        })
+        .catch((error) => {
+          setPlansError(
+            error?.message || "No se pudieron cargar las planificaciones.",
+          );
+          throw error;
+        })
+        .finally(() => {
+          if (planRequestInFlightRef.current === operation) {
+            planRequestInFlightRef.current = null;
+          }
+          if (!silent) setPlansLoading(false);
+        });
+
+      planRequestInFlightRef.current = operation;
+      return operation;
+    },
+    [isCoach],
+  );
 
   useEffect(() => {
     if (!user?.id && !user?._id) return;
-    let active = true;
-    const loadPlan = () =>
-      refreshPlans().catch(() => {
-        if (active) {
-          setTrainingPlans([]);
-          setActivePlan(null);
-        }
-      });
+    const loadPlan = () => refreshPlans().catch(() => {});
+    const revalidatePlan = () =>
+      refreshPlans({ silent: true }).catch(() => {});
     const handleVisibility = () => {
-      if (document.visibilityState === "visible") loadPlan();
+      if (document.visibilityState === "visible") revalidatePlan();
     };
+    const handlePageShow = () => revalidatePlan();
+
     loadPlan();
-    window.addEventListener("focus", loadPlan);
+    window.addEventListener("focus", revalidatePlan);
+    window.addEventListener("online", revalidatePlan);
+    window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibility);
-    const intervalId = window.setInterval(loadPlan, 60_000);
+    const intervalId = window.setInterval(revalidatePlan, 120_000);
     return () => {
-      active = false;
-      window.removeEventListener("focus", loadPlan);
+      window.removeEventListener("focus", revalidatePlan);
+      window.removeEventListener("online", revalidatePlan);
+      window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);
     };
   }, [refreshPlans, user?.id, user?._id]);
+
+  useEffect(() => {
+    if (isCoach && workspaceView !== "routines") {
+      setWorkspaceView("routines");
+    }
+  }, [isCoach, workspaceView]);
+
+  useEffect(() => {
+    reloadRoutines({ silent: hadRoutinesOnEntryRef.current });
+  }, [reloadRoutines]);
 
   const availableExercises = useMemo(() => {
     const usage = new Map();
@@ -4089,83 +4053,24 @@ function Routines({ onNavigate }) {
   const branchCounts = useMemo(() => {
     const counts = { all: routines.length, sopocachi: 0, miraflores: 0 };
     routines.forEach((routine) => {
-      if (routine.visibility === "system") return;
       const branch = normalizeBranch(routine.branch);
       counts[branch] = (counts[branch] || 0) + 1;
     });
     return counts;
   }, [routines]);
-  const originCounts = useMemo(() => {
-    const system = routines.filter(
-      (routine) => routine.visibility === "system",
-    ).length;
-    return {
-      all: routines.length,
-      system,
-      private: routines.length - system,
-    };
-  }, [routines]);
-  const templateGroups = useMemo(() => {
-    const counts = routines.reduce((result, routine) => {
-      if (routine.visibility !== "system" || !routine.templateGroup) {
-        return result;
-      }
-      result[routine.templateGroup] = (result[routine.templateGroup] || 0) + 1;
-      return result;
-    }, {});
-    return [
-      { id: "all", label: "Todas", count: originCounts.system },
-      ...ROUTINE_GROUPS.filter((item) => counts[item.id]).map((item) => ({
-        ...item,
-        count: counts[item.id],
-      })),
-    ];
-  }, [originCounts.system, routines]);
-  useEffect(() => {
-    if (originCounts.all === 0) return;
-    if (routineOrigin === "private" && originCounts.private === 0) {
-      setRoutineOrigin(originCounts.system ? "system" : "all");
-    }
-    if (routineOrigin === "system" && originCounts.system === 0) {
-      setRoutineOrigin(originCounts.private ? "private" : "all");
-    }
-  }, [
-    originCounts.all,
-    originCounts.private,
-    originCounts.system,
-    routineOrigin,
-  ]);
   const showSearch = routines.length >= 5;
-  const showOriginFilter = originCounts.system > 0 && originCounts.private > 0;
   const showBranchFilter =
-    routineOrigin === "private" &&
     locationMode === "multiple" &&
     branchCounts.sopocachi > 0 &&
     branchCounts.miraflores > 0;
   const hasActiveRoutineFilters =
     Boolean(searchTerm.trim()) ||
-    routineOrigin !== "all" ||
-    templateGroup !== "all" ||
     (showBranchFilter && activeBranch !== "all");
 
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return routines
       .filter((routine) => {
-        const isSystem = routine.visibility === "system";
-        if (routineOrigin === "system" && !isSystem) return false;
-        if (routineOrigin === "private" && isSystem) return false;
-        if (
-          isSystem &&
-          templateGroup !== "all" &&
-          routine.templateGroup !== templateGroup
-        ) {
-          return false;
-        }
-        return true;
-      })
-      .filter((routine) => {
-        if (routine.visibility === "system") return true;
         if (locationMode === "disabled") return true;
         if (locationMode === "single") {
           return normalizeBranch(routine.branch) === preferredBranch;
@@ -4238,8 +4143,6 @@ function Routines({ onNavigate }) {
     routines,
     activeBranch,
     searchTerm,
-    routineOrigin,
-    templateGroup,
     exerciseMetaMap,
     locationMode,
     preferredBranch,
@@ -4280,9 +4183,7 @@ function Routines({ onNavigate }) {
           groupHeading: plan.name,
           groupCount: matches.length,
           groupEyebrow: isCoach
-            ? plan.visibility === "system"
-              ? "Planificación del sistema"
-              : "Planificación base"
+            ? "Planificación"
             : PLAN_STATUS_LABELS[plan.status] || "Planificación",
           groupMeta: `${plan.goal || "Objetivo general"} · ${plan.durationWeeks || 1} ${Number(plan.durationWeeks || 1) === 1 ? "semana" : "semanas"} · ${matches.length} ${matches.length === 1 ? "rutina" : "rutinas"}`,
           groupStatus: plan.status,
@@ -4315,49 +4216,6 @@ function Routines({ onNavigate }) {
       ];
     }
 
-    const systemRoutines = remainingRoutineCards.filter(
-      (routine) => routine.visibility === "system",
-    );
-    if (systemRoutines.length) {
-      const personalRoutines = remainingRoutineCards.filter(
-        (routine) => routine.visibility !== "system",
-      );
-      const result = [];
-      if (personalRoutines.length) {
-        result.push({
-          id: "__personal_heading",
-          groupHeading: "Tus rutinas",
-          groupCount: personalRoutines.length,
-        });
-        result.push(...personalRoutines);
-      }
-      ROUTINE_GROUPS.forEach((group) => {
-        const matches = systemRoutines.filter(
-          (routine) => routine.templateGroup === group.id,
-        );
-        if (!matches.length) return;
-        result.push({
-          id: `__system_${group.id}`,
-          groupHeading: group.label,
-          groupCount: matches.length,
-          groupEyebrow: "Coleccion base",
-        });
-        result.push(...matches);
-      });
-      const ungrouped = systemRoutines.filter(
-        (routine) => !ROUTINE_GROUP_LABELS[routine.templateGroup],
-      );
-      if (ungrouped.length) {
-        result.push({
-          id: "__system_other",
-          groupHeading: "Otras rutinas base",
-          groupCount: ungrouped.length,
-          groupEyebrow: "Coleccion base",
-        });
-        result.push(...ungrouped);
-      }
-      return result;
-    }
     return remainingRoutineCards;
   }, [isCoach, orderedTrainingPlans, planTemplates, routineCards]);
 
@@ -4629,7 +4487,7 @@ function Routines({ onNavigate }) {
     }
   };
 
-  const pauseTrainingPlan = async () => {
+  const deactivateTrainingPlan = async () => {
     try {
       const saved = await api.updateTrainingPlanStatus(
         activePlan._id || activePlan.id,
@@ -4638,9 +4496,9 @@ function Routines({ onNavigate }) {
       setActivePlan(saved);
       await refreshPlans();
       await reloadRoutines({ silent: true });
-      toast.success("Planificación pausada");
+      toast.success("Planificación desactivada");
     } catch (error) {
-      toast.error(error.message || "No se pudo pausar la planificación");
+      toast.error(error.message || "No se pudo desactivar la planificación");
     }
   };
 
@@ -4681,9 +4539,9 @@ function Routines({ onNavigate }) {
       setActivePlan(null);
       await refreshPlans();
       await reloadRoutines({ silent: true });
-      toast.success("Borrador archivado");
+      toast.success("Planificación archivada");
     } catch (error) {
-      toast.error(error.message || "No se pudo archivar el borrador");
+      toast.error(error.message || "No se pudo archivar la planificación");
     }
   };
 
@@ -4794,6 +4652,30 @@ function Routines({ onNavigate }) {
   const activePlanTimeProgress = activePlan
     ? getPlanTimeProgress(activePlan)
     : null;
+  const visiblePlans = isCoach ? planTemplates : trainingPlans;
+  const workspaceLoading =
+    !activePlan &&
+    (workspaceView === "plans"
+      ? plansLoading && visiblePlans.length === 0
+      : routinesLoading && routines.length === 0);
+  const workspaceError =
+    !activePlan &&
+    (workspaceView === "plans"
+      ? visiblePlans.length === 0
+        ? plansError
+        : ""
+      : routines.length === 0
+        ? routinesError
+        : "");
+  const workspaceReady = !workspaceLoading && !workspaceError;
+
+  const retryWorkspace = () => {
+    if (workspaceView === "plans") {
+      refreshPlans().catch(() => {});
+      return;
+    }
+    reloadRoutines();
+  };
 
   return (
     <div className="routines-shell">
@@ -4860,7 +4742,7 @@ function Routines({ onNavigate }) {
           </div>
         </div>
 
-        {!activePlan ? (
+        {!activePlan && !isCoach ? (
           <div
             className="grid grid-cols-2 gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b]"
             role="tablist"
@@ -4877,10 +4759,10 @@ function Routines({ onNavigate }) {
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              {isCoach ? "Planificaciones base" : "Planificaciones"}
+              Planificaciones
               {!isCoach && draftPlanCount ? (
                 <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
-                  {draftPlanCount} borradores
+                  {draftPlanCount} inactivas
                 </span>
               ) : null}
             </button>
@@ -4895,12 +4777,49 @@ function Routines({ onNavigate }) {
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
-              {isCoach ? "Rutinas base" : "Rutinas"}
+              Rutinas
             </button>
           </div>
         ) : null}
 
+        {!activePlan && workspaceLoading ? (
+          <div
+            className="flex min-h-52 flex-col items-center justify-center border-y border-[color:var(--border)] py-12 text-center"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="theme-accent-text h-7 w-7 animate-spin" />
+            <p className="mt-4 text-sm font-black text-[color:var(--text)]">
+              {workspaceView === "plans"
+                ? "Cargando planificaciones"
+                : "Cargando rutinas"}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              Sincronizando tus datos...
+            </p>
+          </div>
+        ) : null}
+
+        {!activePlan && !workspaceLoading && workspaceError ? (
+          <div
+            className="border-y border-[color:var(--border)] py-12 text-center"
+            role="alert"
+          >
+            <RotateCcw className="theme-accent-text mx-auto h-6 w-6" />
+            <h2 className="mt-3 text-base font-black text-[color:var(--text)]">
+              No pudimos cargar esta seccion
+            </h2>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-[color:var(--text-muted)]">
+              Revisa tu conexion e intenta nuevamente.
+            </p>
+            <Button className="mt-4 h-11" onClick={retryWorkspace}>
+              Reintentar
+            </Button>
+          </div>
+        ) : null}
+
         {!isCoach &&
+        workspaceReady &&
         !trainingPlans.length &&
         !activePlan &&
         workspaceView === "plans" ? (
@@ -4931,7 +4850,10 @@ function Routines({ onNavigate }) {
         ) : null}
       </section>
 
-      {isCoach && !activePlan && workspaceView === "plans" ? (
+      {isCoach &&
+      workspaceReady &&
+      !activePlan &&
+      workspaceView === "plans" ? (
         <CoachPlanTemplates
           templates={planTemplates}
           routines={routines}
@@ -4952,6 +4874,7 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {!isCoach &&
+      workspaceReady &&
       !activePlan &&
       workspaceView === "plans" &&
       trainingPlans.length ? (
@@ -5079,69 +5002,117 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {activePlan ? (
-        <section className="mt-5 border-y border-[color:var(--border)] py-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+        <section className="mt-4 border-y border-[color:var(--border)] py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
                 {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
               </p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs font-black uppercase">
-                <span className="border border-[color:var(--border)] px-2 py-1">
-                  {activePlan.goal}
-                </span>
-                <span className="border border-[color:var(--border)] px-2 py-1">
-                  {activePlan.durationWeeks} semanas
-                </span>
-                <span className="border border-[color:var(--border)] px-2 py-1">
-                  {activePlan.scheduleMode === "fixed"
-                    ? "Semana recurrente"
-                    : "Ciclo libre"}
-                </span>
-              </div>
+              <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                {activePlan.goal} · {activePlan.durationWeeks} semanas ·{" "}
+                {activePlan.scheduleMode === "fixed"
+                  ? "Semana recurrente"
+                  : "Ciclo libre"}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              {!isManagedClient &&
-              !["completed", "cancelled"].includes(activePlan.status) ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingPlan(activePlan);
-                    setPlanModalOpen(true);
-                  }}
-                  className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)]"
-                  aria-label="Editar planificacion"
+            {!isManagedClient || user?.role === "Admin" ? (
+              <details className="relative shrink-0">
+                <summary
+                  className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                  aria-label="Opciones de la planificación"
                 >
-                  <Pencil className="h-4 w-4" />
-                </button>
-              ) : null}
-              {user?.role === "Admin" ? (
-                <button
-                  type="button"
-                  onClick={() => setDeletePlanConfirmOpen(true)}
-                  className="grid h-11 w-11 place-items-center rounded-lg border border-red-500/30 text-red-600"
-                  aria-label="Eliminar planificación"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
+                  <MoreVertical className="h-5 w-5" />
+                </summary>
+                <div className="absolute right-0 top-11 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                  {!isManagedClient &&
+                  !["completed", "cancelled"].includes(activePlan.status) ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setEditingPlan(activePlan);
+                        setPlanModalOpen(true);
+                      }}
+                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                    >
+                      <Pencil className="h-4 w-4" /> Editar planificación
+                    </button>
+                  ) : null}
+                  {!isManagedClient &&
+                  ["draft", "paused"].includes(activePlan.status) ? (
+                    <button
+                      type="button"
+                      disabled={missingPlanRoutines > 0}
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        activateTrainingPlan();
+                      }}
+                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Play className="h-4 w-4" />
+                      {missingPlanRoutines
+                        ? "Completa las rutinas"
+                        : "Activar planificación"}
+                    </button>
+                  ) : null}
+                  {!isManagedClient &&
+                  ["active", "scheduled"].includes(activePlan.status) ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        deactivateTrainingPlan();
+                      }}
+                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                    >
+                      <Pause className="h-4 w-4" /> Desactivar planificación
+                    </button>
+                  ) : null}
+                  {!isManagedClient && activePlan.status === "draft" ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setArchivePlanConfirmOpen(true);
+                      }}
+                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                    >
+                      <Archive className="h-4 w-4" /> Archivar planificación
+                    </button>
+                  ) : null}
+                  {user?.role === "Admin" ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                        setDeletePlanConfirmOpen(true);
+                      }}
+                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    >
+                      <Trash2 className="h-4 w-4" /> Eliminar planificación
+                    </button>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
           </div>
-          <div className="mt-5 border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                  Progreso del periodo
-                </p>
-                <p className="mt-1 text-sm font-black">
-                  {activePlanTimeProgress.message}
-                </p>
-              </div>
-              <strong className="theme-accent-text text-2xl font-black tabular-nums">
-                {activePlanTimeProgress.percentage}%
-              </strong>
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+              <span className="truncate text-[color:var(--text-muted)]">
+                {formatPlanDate(activePlan.startDate)} -{" "}
+                {formatPlanDate(getPlanEndDate(activePlan))}
+              </span>
+              <span className="shrink-0">
+                {activePlanTimeProgress.message} ·{" "}
+                <strong className="theme-accent-text">
+                  {activePlanTimeProgress.percentage}%
+                </strong>
+              </span>
             </div>
             <div
-              className="mt-3 h-2 overflow-hidden bg-[color:var(--border)]"
+              className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
               role="progressbar"
               aria-label="Progreso temporal de la planificación"
               aria-valuemin="0"
@@ -5150,28 +5121,8 @@ function Routines({ onNavigate }) {
             >
               <div
                 className="theme-accent-solid h-full border-0 transition-all"
-                style={{
-                  width: `${activePlanTimeProgress.percentage}%`,
-                }}
+                style={{ width: `${activePlanTimeProgress.percentage}%` }}
               />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <span className="block font-bold uppercase text-[color:var(--text-muted)]">
-                  Inicio
-                </span>
-                <strong className="mt-0.5 block font-black">
-                  {formatPlanDate(activePlan.startDate)}
-                </strong>
-              </div>
-              <div className="text-right">
-                <span className="block font-bold uppercase text-[color:var(--text-muted)]">
-                  Finalización
-                </span>
-                <strong className="mt-0.5 block font-black">
-                  {formatPlanDate(getPlanEndDate(activePlan))}
-                </strong>
-              </div>
             </div>
           </div>
           <TrainingPlanSchedule
@@ -5194,78 +5145,14 @@ function Routines({ onNavigate }) {
               {activePlan.notes}
             </p>
           ) : null}
-          {!isManagedClient && activePlan.status === "draft" ? (
-            missingPlanRoutines ? (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex h-11 items-center gap-2 rounded-lg border border-amber-300 bg-amber-500/10 px-4 text-xs font-black text-amber-800 dark:border-amber-400/30 dark:text-amber-200">
-                  <CalendarDays className="h-4 w-4" />
-                  {configuredPlanRoutines} de {planTrainingDays} rutinas
-                  configuradas
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setArchivePlanConfirmOpen(true)}
-                  className="inline-flex h-11 items-center gap-2 px-3 text-sm font-black text-[color:var(--text-muted)]"
-                >
-                  <Archive className="h-4 w-4" />
-                  Archivar borrador
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Button className="h-11 gap-2" onClick={activateTrainingPlan}>
-                  <Play className="h-4 w-4" />
-                  Activar planificación
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setArchivePlanConfirmOpen(true)}
-                  className="inline-flex h-11 items-center gap-2 px-3 text-sm font-black text-[color:var(--text-muted)]"
-                >
-                  <Archive className="h-4 w-4" />
-                  Archivar
-                </button>
-              </div>
-            )
-          ) : null}
-          {!isManagedClient && activePlan.status === "paused" ? (
-            <Button className="mt-4 h-11 gap-2" onClick={activateTrainingPlan}>
-              <Play className="h-4 w-4" /> Activar planificación
-            </Button>
-          ) : null}
-          {!isManagedClient && activePlan.status === "scheduled" ? (
-            <button
-              type="button"
-              onClick={pauseTrainingPlan}
-              className="mt-4 inline-flex h-11 items-center gap-2 text-sm font-black text-[color:var(--text-muted)]"
-            >
-              <Pause className="h-4 w-4" /> Pausar programación
-            </button>
-          ) : null}
-          {!isManagedClient && activePlan.status === "active" ? (
-            <button
-              type="button"
-              onClick={pauseTrainingPlan}
-              className="mt-4 inline-flex h-11 items-center gap-2 text-sm font-black text-[color:var(--text-muted)]"
-            >
-              <Pause className="h-4 w-4" /> Pausar planificación
-            </button>
-          ) : null}
         </section>
       ) : null}
 
-      {!activePlan && workspaceView === "routines" ? (
+      {!activePlan && workspaceReady && workspaceView === "routines" ? (
         <RoutineToolbar
           showSearch={showSearch}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
-          showOriginFilter={showOriginFilter}
-          routineOrigin={routineOrigin}
-          setRoutineOrigin={setRoutineOrigin}
-          originCounts={originCounts}
-          templateGroup={templateGroup}
-          setTemplateGroup={setTemplateGroup}
-          templateGroups={templateGroups}
           showBranchFilter={showBranchFilter}
           activeBranch={activeBranch}
           setActiveBranch={setActiveBranch}
@@ -5273,7 +5160,7 @@ function Routines({ onNavigate }) {
         />
       ) : null}
 
-      {!activePlan && workspaceView === "routines" ? (
+      {!activePlan && workspaceReady && workspaceView === "routines" ? (
         <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
           {groupedRoutineCards.map((routine) => {
             if (routine.groupHeading) {
@@ -5390,7 +5277,6 @@ function Routines({ onNavigate }) {
             const isHighlighted = ["active", "scheduled"].includes(
               routine.plan?.status,
             );
-            const isSystemRoutine = routine.visibility === "system";
             const focusLabel =
               routine.plan?.goal ||
               routine.goal ||
@@ -5439,21 +5325,19 @@ function Routines({ onNavigate }) {
                           <MoreVertical className="h-5 w-5" />
                         </summary>
                         <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                          {!isSystemRoutine ? (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                openEdit(routine);
-                              }}
-                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
-                            >
-                              <Pencil className="h-4 w-4" />
-                              Editar
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.currentTarget
+                                .closest("details")
+                                ?.removeAttribute("open");
+                              openEdit(routine);
+                            }}
+                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Editar
+                          </button>
                           <button
                             type="button"
                             onClick={(event) => {
@@ -5470,21 +5354,19 @@ function Routines({ onNavigate }) {
                               ? "Duplicando..."
                               : "Duplicar"}
                           </button>
-                          {!isSystemRoutine ? (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                requestDeleteRoutine(routine);
-                              }}
-                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Eliminar
-                            </button>
-                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.currentTarget
+                                .closest("details")
+                                ?.removeAttribute("open");
+                              requestDeleteRoutine(routine);
+                            }}
+                            className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar
+                          </button>
                         </div>
                       </details>
                     ) : null}
@@ -5529,11 +5411,7 @@ function Routines({ onNavigate }) {
                           : "entrenamientos"}
                       </span>
                     </div>
-                    {isSystemRoutine ? (
-                      <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
-                        {ROUTINE_LEVEL_LABELS[routine.level] || "Base"}
-                      </span>
-                    ) : isManagedClient ? (
+                    {isManagedClient ? (
                       <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
                         Coach
                       </span>
@@ -5581,7 +5459,7 @@ function Routines({ onNavigate }) {
         </section>
       ) : null}
 
-      {!activePlan && !isManagedClient ? (
+      {!activePlan && workspaceReady && !isManagedClient ? (
         <button
           type="button"
           onClick={() =>
@@ -5617,16 +5495,9 @@ function Routines({ onNavigate }) {
         <RoutineDetailsModal
           routine={viewingRoutine}
           onClose={() => setViewingRoutine(null)}
-          canEdit={!isManagedClient && viewingRoutine.visibility !== "system"}
+          canEdit={!isManagedClient}
           onEdit={openEdit}
-          onDuplicate={
-            !isManagedClient && viewingRoutine.visibility === "system"
-              ? async (routine) => {
-                  await handleDuplicateRoutine(routine);
-                  setViewingRoutine(null);
-                }
-              : null
-          }
+          onDuplicate={null}
         />
       ) : null}
 
@@ -5655,6 +5526,7 @@ function Routines({ onNavigate }) {
       {planDayChoice && !isManagedClient ? (
         <PlanRoutineChoiceModal
           day={planDayChoice}
+          scheduleMode={activePlan?.scheduleMode}
           routines={routines}
           onAssign={assignExistingRoutine}
           onCreate={() => {
@@ -5667,7 +5539,7 @@ function Routines({ onNavigate }) {
       ) : null}
       {archivePlanConfirmOpen ? (
         <Modal
-          title="Archivar borrador"
+          title="Archivar planificación"
           subtitle={activePlan?.name}
           onClose={() => setArchivePlanConfirmOpen(false)}
           footer={
@@ -5684,7 +5556,7 @@ function Routines({ onNavigate }) {
         >
           <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
             Las rutinas guardadas se conservarán. La planificación dejará de
-            aparecer como pendiente.
+            aparecer entre las opciones disponibles.
           </p>
         </Modal>
       ) : null}

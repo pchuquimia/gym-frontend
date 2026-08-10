@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { api } from "../services/api";
@@ -20,25 +21,47 @@ export function RoutineProvider({ children, ownerId = "" }) {
   const [routines, setRoutines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestInFlightRef = useRef(null);
 
   const loadRoutines = useCallback(
-    async ({ silent = false } = {}) => {
-      try {
-        if (!silent) setLoading(true);
-        const data = await api.getRoutines({ athleteId: ownerId });
-        setRoutines(data.map((r) => ({ ...r, id: r._id || r.id })));
-        setError(null);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        if (!silent) setLoading(false);
-      }
+    ({ silent = false } = {}) => {
+      if (requestInFlightRef.current) return requestInFlightRef.current;
+      if (!silent) setLoading(true);
+
+      const operation = api
+        .getRoutines({ athleteId: ownerId })
+        .then((data) => {
+          const normalized = data.map((routine) => ({
+            ...routine,
+            id: routine._id || routine.id,
+          }));
+          setRoutines(normalized);
+          setError(null);
+          return normalized;
+        })
+        .catch((requestError) => {
+          setError(requestError.message);
+          return null;
+        })
+        .finally(() => {
+          if (requestInFlightRef.current === operation) {
+            requestInFlightRef.current = null;
+          }
+          if (!silent) setLoading(false);
+        });
+
+      requestInFlightRef.current = operation;
+      return operation;
     },
     [ownerId],
   );
 
   useEffect(() => {
-    loadRoutines();
+    const timeoutId = window.setTimeout(
+      () => loadRoutines(),
+      0,
+    );
+    return () => window.clearTimeout(timeoutId);
   }, [loadRoutines]);
 
   useEffect(() => {
@@ -46,12 +69,17 @@ export function RoutineProvider({ children, ownerId = "" }) {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    const handlePageShow = () => refresh();
     window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    window.addEventListener("pageshow", handlePageShow);
     window.addEventListener("exercise-catalog-migrated", refresh);
     document.addEventListener("visibilitychange", handleVisibility);
-    const intervalId = window.setInterval(refresh, 60_000);
+    const intervalId = window.setInterval(refresh, 2 * 60_000);
     return () => {
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("pageshow", handlePageShow);
       window.removeEventListener("exercise-catalog-migrated", refresh);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);

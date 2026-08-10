@@ -33,7 +33,7 @@ export default function CoachPlanTemplates({
     return (
       <section className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
         <CalendarDays className="theme-accent-text mx-auto h-8 w-8" />
-        <h2 className="mt-4 text-lg font-black">Crea tu primer plan base</h2>
+        <h2 className="mt-4 text-lg font-black">Crea tu primera planificacion</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
           Define la estructura y las rutinas una sola vez para reutilizarla con tus atletas.
         </p>
@@ -48,7 +48,6 @@ export default function CoachPlanTemplates({
     <section className="mt-5 grid gap-3 pb-24 sm:grid-cols-[repeat(auto-fit,minmax(300px,1fr))] sm:gap-4 sm:pb-0">
       {templates.map((template) => {
         const id = String(template._id || template.id);
-        const own = template.visibility !== "system";
         const trainingDays = (template.weeklySchedule || []).filter(
           (day) => day.type === "training",
         );
@@ -58,11 +57,7 @@ export default function CoachPlanTemplates({
         return (
           <article
             key={id}
-            className={`routines-surface relative border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] p-4 shadow-sm ${
-              own
-                ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
-                : "border-t-[#626262] dark:border-t-[#6d6d62]"
-            }`}
+            className="routines-surface relative border border-[color:var(--border)] border-t-[3px] border-t-[#ff5722] bg-[color:var(--card)] p-4 shadow-sm dark:border-t-[#e2ff00]"
           >
             <button
               type="button"
@@ -73,7 +68,7 @@ export default function CoachPlanTemplates({
             <div className="pointer-events-none relative z-[1] flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1 text-left">
                 <span className="block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                  {own ? "Plantilla propia" : "Plantilla del sistema"}
+                  Planificacion
                 </span>
                 <span className="mt-2 line-clamp-2 block text-xl font-black uppercase leading-tight">
                   {template.name}
@@ -90,18 +85,16 @@ export default function CoachPlanTemplates({
                   <MoreVertical className="h-5 w-5" />
                 </summary>
                 <div className="absolute right-0 top-10 z-30 w-48 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                  {own ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        onEdit(template);
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <Pencil className="h-4 w-4" /> Editar
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onEdit(template);
+                    }}
+                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                  >
+                    <Pencil className="h-4 w-4" /> Editar
+                  </button>
                   <button
                     type="button"
                     disabled={Boolean(processingId)}
@@ -112,21 +105,19 @@ export default function CoachPlanTemplates({
                     className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:opacity-50"
                   >
                     <Copy className="h-4 w-4" />
-                    {processingId === id ? "Duplicando..." : own ? "Duplicar" : "Usar como base"}
+                    {processingId === id ? "Duplicando..." : "Duplicar"}
                   </button>
-                  {own ? (
-                    <button
-                      type="button"
-                      disabled={Boolean(processingId)}
-                      onClick={(event) => {
-                        event.currentTarget.closest("details")?.removeAttribute("open");
-                        onArchive(template);
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-4 w-4" /> Eliminar
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    disabled={Boolean(processingId)}
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onArchive(template);
+                    }}
+                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
+                  >
+                    <Trash2 className="h-4 w-4" /> Eliminar
+                  </button>
                 </div>
               </details>
             </div>

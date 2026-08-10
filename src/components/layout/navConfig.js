@@ -6,6 +6,7 @@ import {
   Layers,
   LayoutDashboard,
   Shield,
+  Weight,
   Users,
   User,
 } from "lucide-react";
@@ -33,6 +34,7 @@ export const sections = [
         label: "Inteligencia de datos",
         icon: BrainCircuit,
       },
+      { id: "pesajes", label: "Seguimiento de peso", icon: Weight },
     ],
   },
   {
@@ -100,6 +102,7 @@ export const coachSections = [
         label: "Inteligencia de datos",
         icon: BrainCircuit,
       },
+      { id: "pesajes", label: "Seguimiento de peso", icon: Weight },
       { id: "admin_sesiones", label: "Historial de atletas", icon: Shield },
     ],
   },
@@ -116,6 +119,33 @@ export const managedClientSections = [
       { id: "dashboard", label: "Inicio", icon: LayoutDashboard },
       { id: "registrar", label: "Entrenar", icon: Dumbbell },
       { id: "rutinas", label: "Mis rutinas", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Progreso",
+    items: [
+      {
+        id: "ejercicio_analitica",
+        label: "Analítica por ejercicio",
+        icon: Layers,
+      },
+      {
+        id: "resumen_sesion",
+        label: "Resumen de sesión",
+        icon: ClipboardList,
+      },
+      { id: "pesajes", label: "Mis pesajes", icon: Weight },
+    ],
+  },
+  {
+    heading: "Historial",
+    items: [
+      {
+        id: "admin_sesiones",
+        label: "Historial de sesiones",
+        icon: Shield,
+      },
+      { id: "fotos", label: "Biblioteca de fotos", icon: Images },
     ],
   },
   {

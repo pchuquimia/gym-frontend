@@ -18,6 +18,7 @@ const mobileNavOrder = [
   "ejercicio_analitica",
   "resumen_sesion",
   "data_intelligence",
+  "pesajes",
   "admin_sesiones",
   "fotos",
   "perfil",
@@ -33,6 +34,7 @@ const mobileLabels = {
   ejercicio_analitica: "Analitica",
   resumen_sesion: "Resumen Diario",
   data_intelligence: "Datos",
+  pesajes: "Pesajes",
   admin_sesiones: "Historial",
   fotos: "Fotos",
   perfil: "Perfil",
@@ -52,7 +54,12 @@ const mobileGroups = [
   {
     title: "Rendimiento",
     detail: "Analisis y resumen",
-    ids: ["ejercicio_analitica", "resumen_sesion", "data_intelligence"],
+    ids: [
+      "ejercicio_analitica",
+      "resumen_sesion",
+      "data_intelligence",
+      "pesajes",
+    ],
   },
   {
     title: "Gestion",
@@ -76,6 +83,7 @@ const coachMobileGroups = [
       "ejercicio_analitica",
       "resumen_sesion",
       "data_intelligence",
+      "pesajes",
       "admin_sesiones",
     ],
   },
@@ -91,6 +99,16 @@ const managedClientMobileGroups = [
     title: "Entrenamiento",
     detail: "Plan de tu coach",
     ids: ["dashboard", "registrar", "rutinas"],
+  },
+  {
+    title: "Progreso",
+    detail: "Resultados personales",
+    ids: ["ejercicio_analitica", "resumen_sesion", "pesajes"],
+  },
+  {
+    title: "Historial",
+    detail: "Sesiones y fotos",
+    ids: ["admin_sesiones", "fotos"],
   },
   {
     title: "Cuenta",
@@ -125,10 +143,33 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
   };
 
   if (forceVisible) {
-    const availableItems = mobileNavOrder
-      .map((id) => visibleItems.find((item) => item.id === id))
-      .filter((item) => item && canSeeItem(item, user?.role));
+    const mobileOrderById = new Map(
+      mobileNavOrder.map((id, index) => [id, index]),
+    );
+    const availableItems = visibleItems
+      .filter((item) => canSeeItem(item, user?.role))
+      .sort(
+        (left, right) =>
+          (mobileOrderById.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+          (mobileOrderById.get(right.id) ?? Number.MAX_SAFE_INTEGER),
+      );
     const getMobileItem = (id) => availableItems.find((item) => item.id === id);
+    const groupedItemIds = new Set(
+      visibleMobileGroups.flatMap((group) => group.ids),
+    );
+    const ungroupedItems = availableItems.filter(
+      (item) => !groupedItemIds.has(item.id),
+    );
+    const drawerGroups = ungroupedItems.length
+      ? [
+          ...visibleMobileGroups,
+          {
+            title: "Mas",
+            detail: "Otras herramientas",
+            ids: ungroupedItems.map((item) => item.id),
+          },
+        ]
+      : visibleMobileGroups;
 
     return (
       <aside className="flex h-dvh w-[276px] flex-col overflow-hidden border-r border-slate-200 bg-white px-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-5 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#121212] dark:text-white">
@@ -162,9 +203,9 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
           </div>
         </button>
 
-        <nav className="mt-8 min-h-0 flex-1 overflow-hidden max-[700px]:mt-6">
-          <div className="mt-6 space-y-6 max-[700px]:mt-4 max-[700px]:space-y-4">
-            {visibleMobileGroups.map((group) => {
+        <nav className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable] max-[700px]:mt-4">
+          <div className="space-y-6 pb-3 max-[700px]:space-y-4">
+            {drawerGroups.map((group) => {
               const groupItems = group.ids.map(getMobileItem).filter(Boolean);
               if (!groupItems.length) return null;
               return (

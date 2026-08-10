@@ -31,7 +31,8 @@ function MainLayout({
     activePage === "admin_sesiones" ||
     activePage === "ejercicio_analitica" ||
     activePage === "resumen_sesion" ||
-    activePage === "data_intelligence";
+    activePage === "data_intelligence" ||
+    activePage === "pesajes";
   const useTrainingChrome = activePage === "registrar";
 
   const formatDuration = (sec) => {

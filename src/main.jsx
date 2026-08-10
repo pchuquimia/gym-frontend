@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import "./index.css";
 import App from "./App.jsx";
+import MobileQueryLifecycle from "./components/system/MobileQueryLifecycle.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 
 const queryClient = new QueryClient({
@@ -11,6 +12,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnMount: true,
+      refetchOnReconnect: true,
       staleTime: 60 * 1000,
     },
   },
@@ -19,6 +22,7 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <MobileQueryLifecycle />
       <AuthProvider>
         <App />
         <Toaster

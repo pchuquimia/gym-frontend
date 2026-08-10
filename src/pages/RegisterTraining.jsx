@@ -11,6 +11,7 @@ import {
   Dumbbell,
   Flag,
   Hourglass,
+  LoaderCircle,
   MapPin,
   Minimize2,
   MoreVertical,
@@ -67,6 +68,10 @@ const MAX_TRAINING_PHOTO_BYTES = 5 * 1024 * 1024;
 const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const createTrainingRequestId = () => {
+  const id = globalThis.crypto?.randomUUID?.();
+  return `training_${id || `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
+};
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
 
@@ -1257,6 +1262,7 @@ export default function RegisterTraining({
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
@@ -1306,6 +1312,8 @@ export default function RegisterTraining({
   const startSetupSessionRef = useRef(null);
   const resetStateRef = useRef(null);
   const desktopSessionMenuRef = useRef(null);
+  const finalizingRef = useRef(false);
+  const trainingRequestIdRef = useRef("");
 
   useEffect(() => {
     if (!desktopSessionMenuOpen) return undefined;
@@ -2880,6 +2888,8 @@ export default function RegisterTraining({
         (r) => r.id === snap.selectedRoutineId,
       );
       if (!routine) return;
+      trainingRequestIdRef.current =
+        snap.trainingRequestId || createTrainingRequestId();
       const now = Date.now();
       const baseSeconds =
         Number(snap.durationSeconds ?? snap.elapsed ?? 0) || 0;
@@ -3073,6 +3083,9 @@ export default function RegisterTraining({
     }
     try {
       const now = Date.now();
+      if (!trainingRequestIdRef.current) {
+        trainingRequestIdRef.current = createTrainingRequestId();
+      }
       const liveTimingSummary = calculateTimingSummary(timeEvents, now);
       const liveDurationSeconds = liveTimingSummary.durationSeconds;
       const snapshot = {
@@ -3080,6 +3093,7 @@ export default function RegisterTraining({
         athleteName: coachAthlete?.name || "",
         startedById: getUserId(authUser),
         startedByName: authUser?.name || authUser?.email || "",
+        trainingRequestId: trainingRequestIdRef.current,
         selectedRoutineId,
         selectedRoutine,
         selectedBranch,
@@ -3419,6 +3433,9 @@ export default function RegisterTraining({
       toast.error("La rutina todavía no tiene ejercicios disponibles.");
       return;
     }
+    if (!trainingRequestIdRef.current) {
+      trainingRequestIdRef.current = createTrainingRequestId();
+    }
     setSetupStarted(true);
     if (!isRunning) handleStart();
   };
@@ -3482,6 +3499,9 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    finalizingRef.current = false;
+    trainingRequestIdRef.current = "";
+    setIsFinalizing(false);
     setSessionDate(todayISO);
     setEditingId("");
     setIsEditing(false);
@@ -4379,8 +4399,17 @@ export default function RegisterTraining({
     });
 
   const confirmFinishTraining = async () => {
+    if (finalizingRef.current) return;
+    finalizingRef.current = true;
+    setIsFinalizing(true);
     setFinishWarningOpen(false);
     setFinishWarningExercises([]);
+    setSessionMenuOpen(false);
+    setDesktopSessionMenuOpen(false);
+    const releaseFinalization = () => {
+      finalizingRef.current = false;
+      setIsFinalizing(false);
+    };
     const finishAt = Date.now();
     const lastCompletedAt = getLastCompletedEntryTime();
     const effectiveFinishAt =
@@ -4408,10 +4437,15 @@ export default function RegisterTraining({
     try {
       if (!selectedRoutineId || !selectedRoutine) {
         toast.error("Selecciona una rutina antes de guardar.");
+        releaseFinalization();
         return;
+      }
+      if (!editingId && !trainingRequestIdRef.current) {
+        trainingRequestIdRef.current = createTrainingRequestId();
       }
       const dateStr = sessionDate || getLocalISODate();
       const payload = {
+        id: editingId ? undefined : trainingRequestIdRef.current,
         date: dateStr,
         routineId: selectedRoutine?.id,
         routineName: selectedRoutine?.name,
@@ -4522,7 +4556,10 @@ export default function RegisterTraining({
           const proceed = window.confirm(
             "Ya existe un entrenamiento para esta rutina en esa fecha. ¿Deseas reemplazarlo?",
           );
-          if (!proceed) return;
+          if (!proceed) {
+            releaseFinalization();
+            return;
+          }
           duplicateTrainingId = dup._id || dup.id;
         }
       }
@@ -4564,6 +4601,7 @@ export default function RegisterTraining({
       if (typeof onNavigate === "function") onNavigate("resumen_sesion");
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
+      releaseFinalization();
       toast.error(
         "No se pudo guardar el entrenamiento. Revisa tu conexión o intenta de nuevo.",
       );
@@ -4571,6 +4609,7 @@ export default function RegisterTraining({
   };
 
   const handleFinish = async () => {
+    if (finalizingRef.current) return;
     const incompleteExercises = getIncompleteExercisesForFinish();
     if (incompleteExercises.length) {
       setFinishWarningExercises(incompleteExercises);
@@ -4835,12 +4874,22 @@ export default function RegisterTraining({
                 <button
                   type="button"
                   onClick={handleFinish}
-                  disabled={!exercises.length}
+                  disabled={!exercises.length || isFinalizing}
                   className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-1.5 min-[430px]:px-3 dark:bg-[#e2ff00] dark:text-black"
-                  aria-label="Finalizar entrenamiento"
+                  aria-label={
+                    isFinalizing
+                      ? "Finalizando entrenamiento"
+                      : "Finalizar entrenamiento"
+                  }
                 >
-                  <Flag className="h-4 w-4" />
-                  <span className="hidden min-[430px]:inline">Finalizar</span>
+                  {isFinalizing ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Flag className="h-4 w-4" />
+                  )}
+                  <span className="hidden min-[430px]:inline">
+                    {isFinalizing ? "Finalizando" : "Finalizar"}
+                  </span>
                 </button>
               ) : null}
             </div>
@@ -5279,10 +5328,16 @@ export default function RegisterTraining({
                       <Button
                         className="h-10 min-w-[126px] rounded-md px-4"
                         onClick={handleFinish}
-                        disabled={!exercises.length}
+                        disabled={!exercises.length || isFinalizing}
                       >
-                        <Flag className="h-4 w-4" />
-                        <span>Finalizar</span>
+                        {isFinalizing ? (
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Flag className="h-4 w-4" />
+                        )}
+                        <span>
+                          {isFinalizing ? "Finalizando" : "Finalizar"}
+                        </span>
                       </Button>
                     ) : null}
                     <div className="relative" ref={desktopSessionMenuRef}>
@@ -6239,6 +6294,61 @@ export default function RegisterTraining({
           </div>
         </Modal>
       )}
+
+      <AnimatePresence>
+        {isFinalizing ? (
+          <motion.div
+            className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finalizing-training-title"
+            aria-describedby="finalizing-training-description"
+          >
+            <motion.div
+              initial={{ y: 16, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 10, opacity: 0, scale: 0.98 }}
+              className="w-full max-w-sm border border-[color:var(--border)] bg-[color:var(--card)] px-6 py-8 text-center text-[color:var(--text)] shadow-2xl"
+            >
+              <span className="theme-accent-soft mx-auto grid h-16 w-16 place-items-center rounded-full border">
+                <LoaderCircle className="h-8 w-8 animate-spin" />
+              </span>
+              <h2
+                id="finalizing-training-title"
+                className="mt-5 text-xl font-black uppercase leading-tight"
+              >
+                Finalizando entrenamiento
+              </h2>
+              <p
+                id="finalizing-training-description"
+                className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]"
+              >
+                Guardando series, tiempos y progreso en tu historial.
+              </p>
+              <div className="mt-6 flex justify-center gap-2" aria-hidden="true">
+                {[0, 1, 2].map((index) => (
+                  <motion.span
+                    key={index}
+                    className="theme-accent-solid h-1.5 w-10 border-0"
+                    animate={{
+                      opacity: [0.25, 1, 0.25],
+                      scaleX: [0.75, 1, 0.75],
+                    }}
+                    transition={{
+                      duration: 1.2,
+                      repeat: Infinity,
+                      delay: index * 0.18,
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {finishWarningOpen ? (

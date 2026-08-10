@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveBar } from "@nivo/bar";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -9,6 +10,7 @@ import {
   Clock3,
   ListChecks,
   Play,
+  Weight,
   TrendingUp,
   X,
   Zap,
@@ -1032,6 +1034,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const now = useMemo(() => new Date(), []);
   const todayKey = getISODateKey(now);
+  const { data: todayWeighInData } = useQuery({
+    queryKey: ["weigh-ins", "today", "self", todayKey],
+    queryFn: () =>
+      api.getWeighIns({ from: todayKey, to: todayKey, today: todayKey }),
+    staleTime: 30 * 1000,
+  });
+  const needsDailyWeighIn =
+    todayWeighInData && !todayWeighInData.summary?.completedToday;
 
   const weekData = useMemo(() => {
     const start = getMondayWeekStart(now);
@@ -1755,6 +1765,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
 
         <div className="flex items-center gap-2">
+          {needsDailyWeighIn ? (
+            <button
+              type="button"
+              onClick={() => onNavigate("pesajes")}
+              className="relative grid h-10 w-10 place-items-center rounded-full border border-[#ff5722] bg-[#fff0eb] text-[#ff5722] shadow-sm dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00] dark:shadow-none"
+              aria-label="Registrar pesaje de hoy"
+              title="Registrar pesaje de hoy"
+            >
+              <Weight className="h-5 w-5" />
+              <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722] dark:bg-[#e2ff00]" />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => onNavigate("registrar")}

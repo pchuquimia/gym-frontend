@@ -14,6 +14,7 @@ import PhotosLibrary from "./pages/PhotosLibrary";
 import TrainingAdmin from "./pages/TrainingAdmin";
 import CoachDashboard from "./pages/CoachDashboard";
 import CoachManagement from "./pages/CoachManagement";
+import WeightTracking from "./pages/WeightTracking";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
@@ -47,10 +48,11 @@ const PAGES = {
   admin_sesiones: { label: "Historial de sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
+  pesajes: { label: "Seguimiento de peso", component: WeightTracking },
 };
 
 const PAGE_ROLES = {
-  admin_sesiones: ["Admin", "Entrenador"],
+  admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
 };
@@ -66,6 +68,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "resumen_sesion",
   "data_intelligence",
   "admin_sesiones",
+  "pesajes",
   "perfil",
 ]);
 const COACH_ATHLETE_CONTEXT_PAGES = new Set([
@@ -76,7 +79,12 @@ const COACH_ATHLETE_CONTEXT_PAGES = new Set([
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "dashboard",
   "registrar",
+  "ejercicio_analitica",
+  "resumen_sesion",
   "rutinas",
+  "pesajes",
+  "admin_sesiones",
+  "fotos",
   "perfil",
 ]);
 const EXERCISE_CONTEXT_PAGES = new Set([
@@ -307,6 +315,7 @@ function App() {
       "ejercicio_analitica",
       "resumen_sesion",
       "data_intelligence",
+      "pesajes",
     ].includes(activePage)
       ? coachAthlete?.id || ""
       : "";

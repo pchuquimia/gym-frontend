@@ -6,9 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  ClipboardList,
   Copy,
-  Dumbbell,
   Link2,
   PauseCircle,
   Pencil,
@@ -19,7 +17,6 @@ import {
   UserMinus,
   UserRound,
   Users,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Button from "../components/ui/button";
@@ -44,24 +41,60 @@ const formatDate = (value) => {
       });
 };
 
-const formatMetricVolume = (value) => {
-  const amount = Math.round(Number(value) || 0);
-  if (amount < 10_000) return `${amount.toLocaleString("es-ES")} kg`;
-  return `${(amount / 1000).toLocaleString("es-ES", { maximumFractionDigits: 1 })}k kg`;
+const getPlanEndDate = (plan) => {
+  if (plan?.endDate) return plan.endDate;
+  if (!plan?.startDate) return "";
+  const end = new Date(plan.startDate);
+  end.setUTCDate(end.getUTCDate() + Number(plan.durationWeeks || 1) * 7 - 1);
+  return end;
+};
+const getPlanTimeProgress = (plan, now = new Date()) => {
+  if (!plan?.startDate) {
+    return { percentage: 0, message: "Sin fecha de inicio" };
+  }
+  const start = new Date(plan.startDate);
+  const end = new Date(getPlanEndDate(plan));
+  start.setUTCHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
+  const endExclusive = new Date(end);
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const totalMs = Math.max(1, endExclusive.getTime() - start.getTime());
+  const elapsedMs = Math.min(
+    totalMs,
+    Math.max(0, now.getTime() - start.getTime()),
+  );
+  const percentage = Math.round((elapsedMs / totalMs) * 100);
+
+  if (now < start) {
+    const days = Math.max(
+      1,
+      Math.ceil((start.getTime() - now.getTime()) / 86400000),
+    );
+    return {
+      percentage,
+      message: `Comienza en ${days} ${days === 1 ? "dia" : "dias"}`,
+    };
+  }
+  if (now >= endExclusive) {
+    return { percentage: 100, message: "Periodo finalizado" };
+  }
+  const days = Math.max(
+    1,
+    Math.ceil((endExclusive.getTime() - now.getTime()) / 86400000),
+  );
+  return {
+    percentage,
+    message: `${days} ${days === 1 ? "dia restante" : "dias restantes"}`,
+  };
 };
 const DAY_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
-const LEVEL_LABELS = {
-  beginner: "Principiante",
-  intermediate: "Intermedio",
-  advanced: "Avanzado",
-};
 const PLAN_STATUS_LABELS = {
-  active: "Plan activo",
-  scheduled: "Plan programado",
-  draft: "Borrador en preparacion",
-  paused: "Plan pausado",
-  completed: "Plan finalizado",
-  cancelled: "Plan archivado",
+  active: "En curso",
+  scheduled: "Programado",
+  draft: "Inactiva",
+  paused: "Desactivada",
+  completed: "Finalizado",
+  cancelled: "Archivado",
 };
 
 const initials = (name = "") =>
@@ -104,137 +137,6 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
   );
 }
 
-function AssignRoutineModal({ athlete, templates, onAssign, onClose }) {
-  const [sourceRoutineId, setSourceRoutineId] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState("");
-  const filteredTemplates = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return [...templates]
-      .filter((routine) =>
-        normalized
-          ? `${routine.name} ${routine.goal || ""}`
-              .toLowerCase()
-              .includes(normalized)
-          : true,
-      )
-      .sort(
-        (a, b) =>
-          Number(a.visibility === "system") -
-            Number(b.visibility === "system") ||
-          String(a.name).localeCompare(String(b.name)),
-      );
-  }, [query, templates]);
-
-  const submit = async () => {
-    if (!sourceRoutineId || saving) return;
-    setSaving(true);
-    try {
-      await onAssign(sourceRoutineId);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="routines-shell fixed inset-0 z-[80] flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-4">
-      <div className="max-h-[88dvh] w-full overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-md dark:sm:rounded-[3px]">
-        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
-          <div>
-            <p className="text-[10px] font-black uppercase text-[#ae3512] dark:text-[#e2ff00]">
-              {athlete.name}
-            </p>
-            <h2 className="mt-1 text-xl font-black uppercase">Asignar rutina extra</h2>
-            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Quedará disponible fuera del calendario y en cualquier sucursal.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border)]"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="border-b border-[color:var(--border)] p-4">
-          <label className="relative block">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar rutina base..."
-              className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm font-semibold outline-none"
-            />
-          </label>
-        </div>
-        <div className="max-h-[50dvh] space-y-2 overflow-y-auto p-4">
-          {filteredTemplates.length ? (
-            filteredTemplates.map((routine) => {
-              const id = routine.id || routine._id;
-              const selected = sourceRoutineId === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setSourceRoutineId(id)}
-                  className={`flex min-h-16 w-full items-center gap-3 border p-3 text-left ${
-                    selected
-                      ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10"
-                      : "border-[color:var(--border)]"
-                  }`}
-                >
-                  <Dumbbell className="theme-accent-text h-5 w-5 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black">
-                      {routine.name}
-                    </span>
-                    <span className="mt-1 block text-xs font-semibold text-[color:var(--text-muted)]">
-                      {(routine.exercises || []).length} ejercicios ·{" "}
-                      {routine.visibility === "system" ? "Base" : "Propia"}
-                    </span>
-                  </span>
-                  <span
-                    className={`h-5 w-5 rounded-full border-2 ${
-                      selected
-                        ? "border-[6px] border-[#ff5722] dark:border-[#e2ff00]"
-                        : "border-[color:var(--border)]"
-                    }`}
-                  />
-                </button>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center">
-              <ClipboardList className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
-              <p className="mt-3 text-sm font-black">
-                {query ? "No hay coincidencias" : "No tienes plantillas"}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                {query
-                  ? "Prueba con otro nombre u objetivo."
-                  : "Crea una rutina propia antes de asignarla."}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-[color:var(--border)] p-4">
-          <Button
-            className="h-12 w-full rounded-lg"
-            disabled={!sourceRoutineId || saving}
-            onClick={submit}
-          >
-            {saving ? "Asignando..." : "Agregar rutina adicional"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function CoachDashboard({
   onNavigate = () => {},
   onSelectCoachAthlete = () => {},
@@ -242,17 +144,32 @@ export default function CoachDashboard({
 }) {
   const { user } = useAuth();
   const { routines: availableRoutines } = useRoutines();
-  const templates = useMemo(
-    () =>
-      availableRoutines.filter(
-        (routine) =>
+  const [planCatalog, setPlanCatalog] = useState({ plans: [], routines: [] });
+  const templates = useMemo(() => {
+    const userId = String(user?.id || user?._id || "");
+    const candidates = [
+      ...availableRoutines.filter((routine) => {
+        if (user?.role === "Admin") {
+          return String(routine.ownerId || userId) === userId;
+        }
+        return (
           routine.kind === "template" ||
           (!routine.kind &&
             !routine.trainingPlanId &&
-            !routine.assignedByCoachId),
-      ),
-    [availableRoutines],
-  );
+            !routine.assignedByCoachId)
+        );
+      }),
+      ...(planCatalog.routines || []),
+    ];
+    return [
+      ...new Map(
+        candidates.map((routine) => [
+          String(routine.id || routine._id),
+          routine,
+        ]),
+      ).values(),
+    ];
+  }, [availableRoutines, planCatalog.routines, user]);
   const [athletes, setAthletes] = useState([]);
   const activeSession = useMemo(() => {
     const snapshot = readActiveTrainingSnapshot();
@@ -268,15 +185,11 @@ export default function CoachDashboard({
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingOverview, setLoadingOverview] = useState(false);
-  const [assigning, setAssigning] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [planTemplates, setPlanTemplates] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [planActionId, setPlanActionId] = useState("");
-  const [routineActionId, setRoutineActionId] = useState("");
   const [athleteView, setAthleteView] = useState("plan");
-  const [expandedRoutineId, setExpandedRoutineId] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
   const [linkCodeLoading, setLinkCodeLoading] = useState(true);
@@ -301,20 +214,34 @@ export default function CoachDashboard({
         toast.error(err.message || "No se pudo cargar tu código de coach"),
       )
       .finally(() => setLinkCodeLoading(false));
-    api
-      .getPlanTemplates()
-      .then(setPlanTemplates)
-      .catch((err) =>
-        toast.error(err.message || "No se pudieron cargar los planes base"),
-      );
-  }, [loadAthletes]);
+    if (user?.role === "Admin") {
+      api
+        .getCoachPlanCatalog()
+        .then((catalog) =>
+          setPlanCatalog({
+            plans: Array.isArray(catalog?.plans) ? catalog.plans : [],
+            routines: Array.isArray(catalog?.routines)
+              ? catalog.routines
+              : [],
+          }),
+        )
+        .catch((err) =>
+          toast.error(
+            err.message || "No se pudo cargar tu catálogo de planificaciones",
+          ),
+        );
+    } else {
+      setPlanCatalog({ plans: [], routines: [] });
+    }
+  }, [loadAthletes, user?.role]);
 
   const copyCoachCode = async () => {
     if (!linkInfo.coachCode) return;
     try {
       await navigator.clipboard.writeText(linkInfo.coachCode);
       toast.success("Código copiado", {
-        description: "Compártelo con el atleta para que se vincule desde Perfil.",
+        description:
+          "Compártelo con el atleta para que se vincule desde Perfil.",
       });
     } catch {
       toast.error("No se pudo copiar el código");
@@ -384,7 +311,6 @@ export default function CoachDashboard({
       return;
     }
     setAthleteView("plan");
-    setExpandedRoutineId("");
     setSelectedPlanId("");
     let active = true;
     setLoadingOverview(true);
@@ -416,14 +342,33 @@ export default function CoachDashboard({
   const selectedAthlete = athletes.find(
     (athlete) => (athlete.id || athlete._id) === selectedId,
   );
+  const selectedPlan = overview?.plans?.find(
+    (plan) => String(plan._id || plan.id) === String(selectedPlanId),
+  );
+  const orderedPlans = [...(overview?.plans || [])].sort((a, b) => {
+    const statusOrder = {
+      active: 0,
+      scheduled: 1,
+      draft: 2,
+      paused: 3,
+      completed: 4,
+      cancelled: 5,
+    };
+    return (
+      (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99) ||
+      new Date(b.startDate || 0).getTime() -
+        new Date(a.startDate || 0).getTime()
+    );
+  });
   const activePlan =
-    overview?.plans?.find(
-      (plan) => String(plan._id || plan.id) === String(selectedPlanId),
-    ) ||
+    selectedPlan ||
     overview?.plans?.find((plan) => plan.status === "active") ||
     overview?.plans?.find((plan) => plan.status === "scheduled") ||
     overview?.plans?.find((plan) => plan.status === "draft") ||
     overview?.plans?.[0];
+  const activePlanTimeProgress = activePlan
+    ? getPlanTimeProgress(activePlan)
+    : null;
   const activeTrainingPlan = overview?.plans?.find(
     (plan) => plan.status === "active",
   );
@@ -442,9 +387,9 @@ export default function CoachDashboard({
             day.type === "training" &&
             day.routineId,
         )
-      : (activeTrainingPlan.weeklySchedule || [])[Number(
-          activeTrainingPlan.cycleProgress?.currentIndex || 0,
-        )]
+      : (activeTrainingPlan.weeklySchedule || [])[
+          Number(activeTrainingPlan.cycleProgress?.currentIndex || 0)
+        ]
     : null;
   const routineNameById = new Map(
     (overview?.routines || []).map((routine) => [
@@ -452,88 +397,19 @@ export default function CoachDashboard({
       routine.name,
     ]),
   );
-  const planStatusById = new Map(
-    (overview?.plans || []).map((plan) => [
-      String(plan._id || plan.id),
-      plan.status,
-    ]),
-  );
   const trainableRoutines = (overview?.routines || []).filter(
     (routine) =>
       routine.isAvailableForTraining !== false && routine.isArchived !== true,
   );
-  const orderedAthleteRoutines = [...(overview?.routines || [])].sort(
-    (a, b) =>
-      Number(b.isAvailableForTraining !== false && b.isArchived !== true) -
-        Number(a.isAvailableForTraining !== false && a.isArchived !== true) ||
-      String(a.name || "").localeCompare(String(b.name || "")),
-  );
-
-  const assignRoutine = async (sourceRoutineId) => {
-    try {
-      const template = templates.find(
-        (routine) => (routine.id || routine._id) === sourceRoutineId,
-      );
-      await api.assignCoachRoutine(selectedId, {
-        sourceRoutineId,
-        branch: "general",
-      });
-      const data = await api.getCoachAthleteOverview(selectedId);
-      setOverview(data);
-      await loadAthletes({ silent: true });
-      setAssigning(false);
-      toast.success("Rutina adicional asignada", {
-        description: `${template?.name || "La rutina"} fue asignada a ${selectedAthlete?.name}.`,
-      });
-    } catch (err) {
-      toast.error(err.message || "No se pudo asignar la rutina");
-    }
-  };
-
-  const duplicateAssignedRoutine = async (routine) => {
-    const routineId = String(routine._id || routine.id);
-    if (routineActionId) return;
-    setRoutineActionId(routineId);
-    try {
-      await api.duplicateCoachRoutine(selectedId, routineId);
-      setOverview(await api.getCoachAthleteOverview(selectedId));
-      toast.success("Rutina duplicada", {
-        description: "La copia quedo disponible como rutina adicional.",
-      });
-    } catch (err) {
-      toast.error(err.message || "No se pudo duplicar la rutina");
-    } finally {
-      setRoutineActionId("");
-    }
-  };
-
-  const deleteAssignedRoutine = async (routine) => {
-    const message = routine.trainingPlanId
-      ? `Eliminar ${routine.name} liberara su bloque y devolvera el plan a borrador. ¿Continuar?`
-      : `¿Eliminar ${routine.name} del atleta?`;
-    if (!window.confirm(message)) return;
-    const routineId = String(routine._id || routine.id);
-    if (routineActionId) return;
-    setRoutineActionId(routineId);
-    try {
-      await api.deleteRoutine(routineId);
-      setOverview(await api.getCoachAthleteOverview(selectedId));
-      toast.success("Rutina eliminada");
-    } catch (err) {
-      toast.error(err.message || "No se pudo eliminar la rutina");
-    } finally {
-      setRoutineActionId("");
-    }
-  };
 
   const savePlan = async (payload) => {
     try {
       const saved = editingPlan
         ? await api.updateCoachPlan(
-          selectedId,
-          editingPlan._id || editingPlan.id,
-          { ...payload, branch: "general" },
-        )
+            selectedId,
+            editingPlan._id || editingPlan.id,
+            { ...payload, branch: "general" },
+          )
         : await api.createCoachPlan(selectedId, {
             ...payload,
             branch: "general",
@@ -583,10 +459,10 @@ export default function CoachDashboard({
         status === "active"
           ? saved.status === "scheduled"
             ? "Plan programado"
-            : "Plan reactivado"
+            : "Plan activado"
           : status === "completed"
             ? "Plan finalizado"
-            : "Plan pausado",
+            : "Plan desactivado",
       );
     } catch (err) {
       toast.error(err.message || "No se pudo actualizar el plan");
@@ -598,7 +474,7 @@ export default function CoachDashboard({
     if (planActionId) return;
     const deletesPermanently = plan.status === "draft";
     const confirmation = deletesPermanently
-      ? `Eliminar definitivamente el borrador ${plan.name}? Sus rutinas sin historial tambien se eliminaran.`
+      ? `¿Eliminar definitivamente ${plan.name}? Sus rutinas sin historial también se eliminarán.`
       : `Archivar ${plan.name}? Dejara de aparecer entre las planificaciones disponibles.`;
     if (!window.confirm(confirmation)) return;
 
@@ -610,12 +486,12 @@ export default function CoachDashboard({
       await loadAthletes({ silent: true });
       toast.success(
         result.disposition === "deleted"
-          ? "Borrador eliminado"
+          ? "Planificación eliminada"
           : "Plan archivado",
         {
           description:
             result.disposition === "deleted"
-              ? "El borrador vacio y sus rutinas asociadas fueron eliminados."
+              ? "La planificación inactiva y sus rutinas asociadas fueron eliminadas."
               : "El historial registrado se mantiene disponible.",
         },
       );
@@ -624,21 +500,6 @@ export default function CoachDashboard({
     } finally {
       setPlanActionId("");
     }
-  };
-
-  const requireTemplates = (open) => {
-    if (templates.length) {
-      open();
-      return;
-    }
-    toast.info("Primero crea una plantilla de rutina", {
-      description:
-        "El plan necesita ejercicios definidos para poder activarse.",
-      action: {
-        label: "Ir a plantillas",
-        onClick: () => onNavigate("rutinas"),
-      },
-    });
   };
 
   const startTraining = () => {
@@ -672,11 +533,12 @@ export default function CoachDashboard({
   };
 
   return (
-    <main className="routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
+    <main className="dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
       <header className="flex items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4">
         <div>
           <p className="text-[10px] font-black uppercase text-[#ae3512] dark:text-[#e2ff00]">
-            Coach · {athletes.length} {athletes.length === 1 ? "atleta" : "atletas"}
+            Coach · {athletes.length}{" "}
+            {athletes.length === 1 ? "atleta" : "atletas"}
           </p>
           <h1 className="mt-1 text-[28px] font-black uppercase leading-none sm:text-[32px]">
             Mis atletas
@@ -684,20 +546,13 @@ export default function CoachDashboard({
         </div>
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
             className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
             onClick={() => setInviteOpen((current) => !current)}
           >
             <Link2 className="h-4 w-4" />
-            <span>Invitar</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
-            onClick={() => onNavigate("rutinas")}
-            aria-label="Administrar plantillas"
-          >
-            <CalendarDays className="h-4 w-4" />
-            <span className="hidden sm:inline">Plantillas</span>
+            <span className="sm:hidden">Invitar</span>
+            <span className="hidden sm:inline">Invitar atleta</span>
           </Button>
         </div>
       </header>
@@ -710,7 +565,8 @@ export default function CoachDashboard({
                 Código de vinculación
               </p>
               <p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">
-                El atleta crea su cuenta básica y luego introduce este código desde Perfil.
+                El atleta crea su cuenta básica y luego introduce este código
+                desde Perfil.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -767,7 +623,9 @@ export default function CoachDashboard({
               <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
                 Seleccionar atleta
               </p>
-              <span className="text-xs font-black">{filteredAthletes.length}</span>
+              <span className="text-xs font-black">
+                {filteredAthletes.length}
+              </span>
             </div>
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
@@ -787,14 +645,10 @@ export default function CoachDashboard({
                     athlete={athlete}
                     selected={selectedId === id}
                     blocked={
-                      Boolean(activeAthleteId) &&
-                      String(id) !== activeAthleteId
+                      Boolean(activeAthleteId) && String(id) !== activeAthleteId
                     }
                     onClick={() => {
-                      if (
-                        activeAthleteId &&
-                        String(id) !== activeAthleteId
-                      ) {
+                      if (activeAthleteId && String(id) !== activeAthleteId) {
                         toast.info("Hay una sesión supervisada en curso", {
                           description:
                             "Finalízala o cancélala antes de abrir otro atleta.",
@@ -850,122 +704,90 @@ export default function CoachDashboard({
                   <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#ff5722] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
                     {initials(overview.athlete.name)}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-black uppercase text-[#ae3512] dark:text-[#e2ff00]">
                       {overview.athlete.profile?.goal || "Objetivo sin definir"}
                     </p>
-                    <h2 className="mt-1 truncate text-[24px] font-black uppercase leading-none sm:text-[28px]">
+                    <h2 className="mt-1 line-clamp-2 break-words text-[22px] font-black uppercase leading-none sm:text-[28px]">
                       {overview.athlete.name}
                     </h2>
                     <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
                       {overview.athlete.email}
                     </p>
                   </div>
+                  <details className="relative shrink-0 self-center">
+                    <summary
+                      className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden dark:rounded-[3px]"
+                      aria-label="Opciones del atleta"
+                      title="Opciones del atleta"
+                    >
+                      <MoreVertical className="h-5 w-5" />
+                    </summary>
+                    <div className="absolute right-0 top-12 z-30 w-56 border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          releaseAthlete();
+                        }}
+                        disabled={Boolean(activeSession)}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-500/10"
+                        title={
+                          activeSession
+                            ? "Finaliza la sesión supervisada antes de desvincular"
+                            : "Quitar atleta de mi cartera"
+                        }
+                      >
+                        <UserMinus className="h-4 w-4" />
+                        Desvincular atleta
+                      </button>
+                    </div>
+                  </details>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                  <Button
-                    className="col-span-2 h-12 gap-2 rounded-md text-xs font-black uppercase dark:rounded-[3px] sm:col-span-1"
-                    disabled={
-                      !trainableRoutines.length && !missingPlanRoutineCount
-                    }
-                    onClick={() => {
-                      if (!trainableRoutines.length && missingPlanRoutineCount) {
-                        setEditingPlan(activePlan);
-                        return;
+                {trainableRoutines.length || missingPlanRoutineCount ? (
+                  <div className="mt-4 flex items-center gap-2">
+                    <Button
+                      className="h-12 min-w-0 flex-1 gap-2 rounded-md px-4 text-xs font-black uppercase dark:rounded-[3px] sm:max-w-sm"
+                      onClick={() => {
+                        if (
+                          !trainableRoutines.length &&
+                          missingPlanRoutineCount
+                        ) {
+                          setEditingPlan(activePlan);
+                          return;
+                        }
+                        startTraining();
+                      }}
+                      title={
+                        trainableRoutines.length
+                          ? "Iniciar entrenamiento supervisado"
+                          : "Completar las rutinas pendientes del plan"
                       }
-                      startTraining();
-                    }}
-                    title={
-                      trainableRoutines.length
-                        ? "Iniciar entrenamiento supervisado"
-                        : missingPlanRoutineCount
-                          ? "Completar las rutinas pendientes del plan"
-                          : "Activa un plan o asigna una rutina adicional"
-                    }
-                  >
-                    {trainableRoutines.length ? (
-                      <Play className="h-4 w-4" />
-                    ) : (
-                      <Pencil className="h-4 w-4" />
-                    )}
-                    {trainableRoutines.length
-                      ? recommendedPlanDay?.routineId
-                        ? "Entrenar sesión de hoy"
-                        : "Elegir entrenamiento"
-                      : missingPlanRoutineCount
-                        ? `Completar plan · ${missingPlanRoutineCount} pendientes`
-                        : "Sin rutina disponible"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 gap-2 rounded-md text-xs font-black uppercase dark:rounded-[3px]"
-                    onClick={() => setCreatingPlan(true)}
-                  >
-                    <CalendarPlus className="h-4 w-4" />
-                    Nuevo plan
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 gap-2 rounded-md text-xs font-black uppercase dark:rounded-[3px]"
-                    onClick={() => requireTemplates(() => setAssigning(true))}
-                  >
-                    <ClipboardList className="h-4 w-4" />
-                    Rutina extra
-                  </Button>
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={releaseAthlete}
-                    disabled={Boolean(activeSession)}
-                    className="inline-flex h-9 items-center gap-2 px-2 text-[11px] font-black uppercase text-red-600 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
-                    title={
-                      activeSession
-                        ? "Finaliza la sesión supervisada antes de desvincular"
-                        : "Quitar atleta de mi cartera"
-                    }
-                  >
-                    <UserMinus className="h-4 w-4" />
-                    Desvincular atleta
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 border-b border-[color:var(--border)] py-4">
-                <div>
-                  <p className="text-2xl font-black">
-                    {trainableRoutines.length}
-                  </p>
-                  <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                    Disponibles
-                  </p>
-                </div>
-                <div className="border-x border-[color:var(--border)] px-3">
-                  <p className="text-2xl font-black">
-                    {overview.metrics.sessions}
-                  </p>
-                  <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                    Últ. 12 sesiones
-                  </p>
-                </div>
-                <div className="pl-3">
-                  <p className="truncate text-xl font-black sm:text-2xl">
-                    {formatMetricVolume(overview.metrics.recentVolume)}
-                  </p>
-                  <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                    Vol. últimas 12
-                  </p>
-                </div>
+                    >
+                      {trainableRoutines.length ? (
+                        <Play className="h-4 w-4" />
+                      ) : (
+                        <Pencil className="h-4 w-4" />
+                      )}
+                      {trainableRoutines.length
+                        ? recommendedPlanDay?.routineId
+                          ? "Entrenar sesión de hoy"
+                          : "Elegir entrenamiento"
+                        : `Completar plan · ${missingPlanRoutineCount} pendientes`}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               <div
-                className="mt-4 grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+                className="mt-4 grid grid-cols-2 border-b border-[color:var(--border)]"
                 role="tablist"
                 aria-label="Informacion del atleta"
               >
                 {[
-                  { id: "plan", label: "Plan", icon: CalendarDays },
-                  { id: "routines", label: "Rutinas", icon: Dumbbell },
+                  { id: "plan", label: "Planificación", icon: CalendarDays },
                   { id: "activity", label: "Actividad", icon: BarChart3 },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -976,10 +798,10 @@ export default function CoachDashboard({
                       role="tab"
                       aria-selected={athleteView === item.id}
                       onClick={() => setAthleteView(item.id)}
-                      className={`flex h-10 items-center justify-center gap-2 text-[11px] font-black uppercase ${
+                      className={`relative flex h-12 items-center justify-center gap-2 border-b-2 text-[11px] font-black uppercase transition ${
                         athleteView === item.id
-                          ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                          : "text-[color:var(--text-muted)]"
+                          ? "border-[#ff5722] text-[#b53612] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                          : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                       }`}
                     >
                       <Icon className="h-4 w-4" /> {item.label}
@@ -990,394 +812,387 @@ export default function CoachDashboard({
 
               {athleteView === "plan" ? (
                 <>
-              {(overview.plans || []).length > 1 ? (
-                <section className="mt-5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      Planificaciones del atleta
-                    </p>
-                    <span className="text-xs font-black">
-                      {overview.plans.length}
-                    </span>
-                  </div>
-                  <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {overview.plans.map((plan) => {
-                      const id = String(plan._id || plan.id);
-                      const selected =
-                        id === String(activePlan?._id || activePlan?.id);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setSelectedPlanId(id)}
-                          className={`min-w-40 shrink-0 border px-3 py-2 text-left transition ${
-                            selected
-                              ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10"
-                              : "border-[color:var(--border)] bg-[color:var(--card)]"
-                          }`}
-                        >
-                          <span className="block truncate text-xs font-black uppercase">
-                            {plan.name}
-                          </span>
-                          <span className="mt-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                            {plan.status === "active"
-                              ? "Activo"
-                              : plan.status === "draft"
-                                ? "Borrador"
-                                : plan.status === "scheduled"
-                                  ? "Programado"
-                                  : plan.status === "completed"
-                                    ? "Finalizado"
-                                    : "Pausado"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : null}
-
-              {activePlan ? (
-                <section className="mt-7 border-y border-[color:var(--border)] py-5">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                          Detalle del plan seleccionado
-                        </p>
-                        <span className="border border-[#ff5722] px-1.5 py-0.5 text-[9px] font-black uppercase text-[#ae3512] dark:border-[#e2ff00] dark:text-[#e2ff00]">
-                          {PLAN_STATUS_LABELS[activePlan.status] || activePlan.status}
-                        </span>
-                      </div>
-                      <h3 className="mt-1 text-lg font-black">
-                        {activePlan.name}
+                  <section className="mt-5 flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+                    <div className="min-w-0">
+                      <p className="theme-accent-text text-[11px] font-black uppercase">
+                        {selectedPlanId
+                          ? "Detalle de planificación"
+                          : "Programas del atleta"}
+                      </p>
+                      <h3 className="mt-1 truncate text-xl font-black">
+                        {selectedPlanId ? activePlan?.name : "Planificaciones"}
                       </h3>
-                      <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                        {formatDate(activePlan.startDate)} al{" "}
-                        {formatDate(activePlan.endDate)}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                        {activePlan.durationWeeks} semanas ·{" "}
-                        {LEVEL_LABELS[activePlan.level] || activePlan.level} ·{" "}
-                        {activePlan.goal}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="theme-accent-text text-xs font-black">
-                        {activePlanTrainingDays.length - missingPlanRoutineCount}/
-                        {activePlanTrainingDays.length} rutinas
-                      </span>
-                      {!["completed", "cancelled"].includes(activePlan.status) ? (
-                        <button
-                          type="button"
-                          onClick={() => setEditingPlan(activePlan)}
-                          title="Editar plan"
-                          aria-label="Editar plan"
-                          className="grid h-10 w-10 place-items-center rounded-md border border-[color:var(--border)] theme-accent-text dark:rounded-[3px]"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      {["draft", "paused"].includes(activePlan.status) ? (
-                        <button
-                          type="button"
-                          disabled={missingPlanRoutineCount > 0}
-                          onClick={() => updatePlanStatus(activePlan, "active")}
-                          title={
-                            missingPlanRoutineCount
-                              ? "Completa las rutinas pendientes antes de activar"
-                              : "Activar plan"
-                          }
-                          aria-label="Activar plan"
-                          className="theme-accent-solid grid h-10 w-10 place-items-center border-0 disabled:cursor-not-allowed disabled:opacity-35"
-                        >
-                          <Play className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      {["active", "scheduled"].includes(activePlan.status) ? (
-                        <button
-                          type="button"
-                          onClick={() => updatePlanStatus(activePlan, "paused")}
-                          title="Pausar plan"
-                          aria-label="Pausar plan"
-                          className="grid h-10 w-10 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] dark:rounded-[3px]"
-                        >
-                          <PauseCircle className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      {activePlan.status === "active" ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updatePlanStatus(activePlan, "completed")
-                          }
-                          title="Finalizar plan"
-                          aria-label="Finalizar plan"
-                          className="grid h-10 w-10 place-items-center rounded-md border border-[color:var(--border)] text-emerald-600 dark:rounded-[3px]"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      {["draft", "scheduled", "paused"].includes(
-                        activePlan.status,
-                      ) ? (
-                        <button
-                          type="button"
-                          disabled={Boolean(planActionId)}
-                          onClick={() => removeCoachPlan(activePlan)}
-                          title={
-                            activePlan.status === "draft"
-                              ? "Eliminar borrador"
-                              : "Archivar plan"
-                          }
-                          aria-label={
-                            activePlan.status === "draft"
-                              ? "Eliminar borrador"
-                              : "Archivar plan"
-                          }
-                          className="grid h-10 w-10 place-items-center rounded-md border border-red-200 text-red-600 disabled:opacity-50 dark:rounded-[3px] dark:border-red-500/40"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                  {activePlanTrainingDays.length ? (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                        <span>Configuración del plan</span>
-                        <span>
-                          {missingPlanRoutineCount
-                            ? `${missingPlanRoutineCount} pendientes`
-                            : "Completo"}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]">
-                        <div
-                          className="h-full bg-[#ff5722] transition-all dark:bg-[#e2ff00]"
-                          style={{
-                            width: `${Math.round(
-                              ((activePlanTrainingDays.length -
-                                missingPlanRoutineCount) /
-                                activePlanTrainingDays.length) *
-                                100,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-                    {(activePlan.weeklySchedule || []).map((day, index) => (
-                      <div
-                        key={day.dayIndex}
-                        className={`${day.type === "training" ? "min-h-20" : "min-h-16"} ${index === (activePlan.weeklySchedule || []).length - 1 && (activePlan.weeklySchedule || []).length % 2 ? "col-span-2 sm:col-span-1" : ""} bg-[color:var(--card)] p-3`}
-                      >
-                        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                          {activePlan.scheduleMode !== "fixed"
-                            ? `Bloque ${index + 1}`
-                            : DAY_NAMES[index]}
-                        </p>
-                        <p
-                          className={`mt-2 text-xs font-black ${day.type === "training" ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
-                        >
-                          {day.type === "rest"
-                            ? "Descanso"
-                            : day.type === "recovery"
-                              ? "Recuperacion"
-                              : day.focus || "Entrenamiento"}
-                        </p>
-                        {day.routineId &&
-                        routineNameById.get(String(day.routineId)) ? (
-                          <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                            {routineNameById.get(String(day.routineId))}
-                          </p>
-                        ) : day.type === "training" ? (
-                          <p className="mt-1 text-[10px] font-bold text-amber-600 dark:text-amber-300">
-                            Rutina pendiente
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                  {activePlan.notes ? (
-                    <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
-                      {activePlan.notes}
-                    </p>
-                  ) : null}
-                </section>
-              ) : (
-                <section className="mt-7 flex flex-col gap-3 border-y border-[color:var(--border)] py-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-black">Sin plan activo</h3>
+                  {!selectedPlanId && orderedPlans.length ? (
                     <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                      Organiza semanas, descansos y rutinas en una sola
-                      planificacion.
+                      {orderedPlans.length} {orderedPlans.length === 1 ? "planificación" : "planificaciones"}
                     </p>
-                  </div>
-                  <Button
-                    className="h-11 rounded-md text-xs font-black uppercase dark:rounded-[3px]"
-                    onClick={() => setCreatingPlan(true)}
-                  >
-                    <CalendarPlus className="h-4 w-4" /> Crear plan
-                  </Button>
-                </section>
-              )}
+                  ) : null}
+                    </div>
+                    {selectedPlanId ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlanId("")}
+                        className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase dark:rounded-[3px]"
+                      >
+                        <ArrowLeft className="h-4 w-4" /> Todas
+                      </button>
+                    ) : (
+                      <Button
+                        className="h-11 shrink-0 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
+                        onClick={() => setCreatingPlan(true)}
+                      >
+                        <CalendarPlus className="h-4 w-4" /> Nueva
+                      </Button>
+                    )}
+                  </section>
 
+                  {!selectedPlanId && orderedPlans.length ? (
+                    <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {orderedPlans.map((plan) => {
+                        const id = String(plan._id || plan.id);
+                        const trainingDays = (plan.weeklySchedule || []).filter(
+                          (day) => day.type === "training",
+                        );
+                        const configured = trainingDays.filter(
+                          (day) => day.routineId,
+                        ).length;
+                        const isCurrent = plan.status === "active";
+                        const progress = getPlanTimeProgress(plan);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setSelectedPlanId(id)}
+                            className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
+                              isCurrent
+                                ? "border-[#ff5722] dark:border-[#e2ff00]"
+                                : "border-[color:var(--border)]"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <span
+                                className={`rounded px-2 py-1 text-[11px] font-black uppercase ${
+                                  isCurrent
+                                    ? "theme-accent-solid"
+                                    : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                {PLAN_STATUS_LABELS[plan.status] || plan.status}
+                              </span>
+                              <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+                            </div>
+                            <h4 className="mt-4 line-clamp-2 text-lg font-black leading-tight">
+                              {plan.name}
+                            </h4>
+                            <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                              {plan.scheduleMode === "fixed"
+                                ? "Rutina semanal fija"
+                                : `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`}
+                            </p>
+                            <div className="mt-4">
+                              <div className="flex items-center justify-between text-[11px] font-black uppercase">
+                                <span className="text-[color:var(--text-muted)]">
+                                  Progreso
+                                </span>
+                                <span
+                                  className={
+                                    isCurrent ? "theme-accent-text" : ""
+                                  }
+                                >
+                                  {progress.percentage}%
+                                </span>
+                              </div>
+                              <div className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]">
+                                <div
+                                  className={
+                                    isCurrent
+                                      ? "theme-accent-solid h-full border-0"
+                                      : "h-full bg-[color:var(--text-muted)]"
+                                  }
+                                  style={{ width: `${progress.percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs font-black">
+                              <span>{plan.durationWeeks} semanas</span>
+                              <span
+                                className={
+                                  configured === trainingDays.length
+                                    ? "theme-accent-text"
+                                    : "text-[color:var(--text-muted)]"
+                                }
+                              >
+                                {configured}/{trainingDays.length} rutinas
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </section>
+                  ) : null}
+
+                  {activePlan && selectedPlanId ? (
+                    <section className="mt-4 border-y border-[color:var(--border)] py-5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="theme-accent-text text-[11px] font-black uppercase">
+                            {PLAN_STATUS_LABELS[activePlan.status] ||
+                              activePlan.status}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                            {activePlan.goal} · {activePlan.durationWeeks}{" "}
+                            semanas ·{" "}
+                            {activePlan.scheduleMode === "fixed"
+                              ? "Semana recurrente"
+                              : "Ciclo libre"}
+                          </p>
+                        </div>
+                        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+                          <span className="theme-accent-text text-xs font-black">
+                            {activePlanTrainingDays.length -
+                              missingPlanRoutineCount}
+                            /{activePlanTrainingDays.length} rutinas
+                          </span>
+                          <details className="relative shrink-0">
+                            <summary
+                              className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden dark:rounded-[3px]"
+                              aria-label="Opciones del plan"
+                              title="Opciones del plan"
+                            >
+                              <MoreVertical className="h-5 w-5" />
+                            </summary>
+                            <div className="absolute right-0 top-12 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                              {!["completed", "cancelled"].includes(
+                                activePlan.status,
+                              ) ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.currentTarget
+                                      .closest("details")
+                                      ?.removeAttribute("open");
+                                    setEditingPlan(activePlan);
+                                  }}
+                                  className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                                >
+                                  <Pencil className="h-4 w-4" /> Editar plan
+                                </button>
+                              ) : null}
+                              {["draft", "paused"].includes(
+                                activePlan.status,
+                              ) ? (
+                                <button
+                                  type="button"
+                                  disabled={missingPlanRoutineCount > 0}
+                                  onClick={(event) => {
+                                    event.currentTarget
+                                      .closest("details")
+                                      ?.removeAttribute("open");
+                                    updatePlanStatus(activePlan, "active");
+                                  }}
+                                  className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <Play className="h-4 w-4" />
+                                  {missingPlanRoutineCount
+                                    ? "Completa las rutinas"
+                                    : "Activar planificación"}
+                                </button>
+                              ) : null}
+                              {["active", "scheduled"].includes(
+                                activePlan.status,
+                              ) ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.currentTarget
+                                      .closest("details")
+                                      ?.removeAttribute("open");
+                                    updatePlanStatus(activePlan, "paused");
+                                  }}
+                                  className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                                >
+                                  <PauseCircle className="h-4 w-4" />
+                                  Desactivar planificación
+                                </button>
+                              ) : null}
+                              {activePlan.status === "active" ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.currentTarget
+                                      .closest("details")
+                                      ?.removeAttribute("open");
+                                    updatePlanStatus(activePlan, "completed");
+                                  }}
+                                  className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                >
+                                  <CheckCircle2 className="h-4 w-4" /> Finalizar
+                                  plan
+                                </button>
+                              ) : null}
+                              {["draft", "scheduled", "paused"].includes(
+                                activePlan.status,
+                              ) ? (
+                                <button
+                                  type="button"
+                                  disabled={Boolean(planActionId)}
+                                  onClick={(event) => {
+                                    event.currentTarget
+                                      .closest("details")
+                                      ?.removeAttribute("open");
+                                    removeCoachPlan(activePlan);
+                                  }}
+                                  className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {activePlan.status === "draft"
+                                    ? "Eliminar planificación"
+                                    : "Archivar plan"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+                          <span className="truncate text-[color:var(--text-muted)]">
+                            {formatDate(activePlan.startDate)} -{" "}
+                            {formatDate(getPlanEndDate(activePlan))}
+                          </span>
+                          <span className="shrink-0">
+                            {activePlanTimeProgress.message} ·{" "}
+                            <strong className="theme-accent-text">
+                              {activePlanTimeProgress.percentage}%
+                            </strong>
+                          </span>
+                        </div>
+                        <div
+                          className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
+                          role="progressbar"
+                          aria-label="Progreso temporal de la planificación"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          aria-valuenow={activePlanTimeProgress.percentage}
+                        >
+                          <div
+                            className="theme-accent-solid h-full border-0 transition-all"
+                            style={{
+                              width: `${activePlanTimeProgress.percentage}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {activePlanTrainingDays.length ? (
+                        <div className="mt-4">
+                          <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                            <span>Configuración del plan</span>
+                            <span>
+                              {missingPlanRoutineCount
+                                ? `${missingPlanRoutineCount} pendientes`
+                                : "Completo"}
+                            </span>
+                          </div>
+                          <div className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]">
+                            <div
+                              className="h-full bg-[#ff5722] transition-all dark:bg-[#e2ff00]"
+                              style={{
+                                width: `${Math.round(
+                                  ((activePlanTrainingDays.length -
+                                    missingPlanRoutineCount) /
+                                    activePlanTrainingDays.length) *
+                                    100,
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                        {(activePlan.weeklySchedule || []).map((day, index) => (
+                          <article
+                            key={day.slotId || day.dayIndex || index}
+                            className="flex min-h-[72px] items-center gap-3 bg-[color:var(--card)] px-2 py-3 sm:px-3"
+                          >
+                            <div className="w-14 shrink-0 border-r border-[color:var(--border)] pr-3 text-center">
+                              <p className="text-xs font-black uppercase text-[color:var(--text-muted)]">
+                                {activePlan.scheduleMode !== "fixed"
+                                  ? `Día ${index + 1}`
+                                  : DAY_NAMES[index]}
+                              </p>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={`truncate text-sm font-black ${day.type === "training" ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
+                              >
+                                {day.type === "rest"
+                                  ? "Descanso completo"
+                                  : day.type === "recovery"
+                                    ? "Recuperación activa"
+                                    : routineNameById.get(
+                                        String(day.routineId),
+                                      ) ||
+                                      day.focus ||
+                                      "Rutina sin asignar"}
+                              </p>
+                              <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
+                                {day.type === "rest"
+                                  ? "Recuperación"
+                                  : day.type === "recovery"
+                                    ? "Movilidad y actividad ligera"
+                                    : day.routineId
+                                      ? day.focus || "Entrenamiento"
+                                      : "Edita la planificación para asignar una rutina"}
+                              </p>
+                            </div>
+                            {day.type === "training" && !day.routineId ? (
+                              <span className="shrink-0 text-[11px] font-black uppercase text-amber-600 dark:text-amber-300">
+                                Pendiente
+                              </span>
+                            ) : null}
+                          </article>
+                        ))}
+                      </div>
+                      {activePlan.notes ? (
+                        <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                          {activePlan.notes}
+                        </p>
+                      ) : null}
+                    </section>
+                  ) : !orderedPlans.length ? (
+                    <section className="mt-4 border-y border-[color:var(--border)] py-8 text-center">
+                      <div>
+                        <h3 className="text-sm font-black">
+                          Aún no tiene una planificación
+                        </h3>
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                          Crea una planificación para organizar sus días y
+                          rutinas.
+                        </p>
+                      </div>
+                    </section>
+                  ) : null}
                 </>
               ) : null}
 
               <div className="mt-6">
-                {athleteView === "routines" ? (
-                <section>
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="flex items-center gap-2 text-base font-black">
-                      <Dumbbell className="theme-accent-text h-5 w-5" />
-                      Rutinas asignadas
-                    </h3>
-                    <span className="text-xs font-bold text-[color:var(--text-muted)]">
-                      {overview.routines.length}
-                    </span>
-                  </div>
-                  <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-                    {orderedAthleteRoutines.length ? (
-                      orderedAthleteRoutines.map((routine) => {
-                        const id = String(routine._id || routine.id);
-                        const expanded = expandedRoutineId === id;
-                        const available =
-                          routine.isAvailableForTraining !== false &&
-                          routine.isArchived !== true;
-                        const canManageRoutine =
-                          String(routine.assignedByCoachId || "") ===
-                            String(user?.id || user?._id || "") ||
-                          (!routine.assignedByCoachId &&
-                            !routine.trainingPlanId &&
-                            (routine.kind === "personal" || !routine.kind));
-                        return (
-                          <article key={id} className="py-1">
-                            <div className="flex items-center gap-2 py-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedRoutineId(expanded ? "" : id)
-                                }
-                                className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                                aria-expanded={expanded}
-                              >
-                                <span className={`grid h-10 w-10 shrink-0 place-items-center border ${available ? "border-[#ff5722] text-[#b53612] dark:border-[#e2ff00] dark:text-[#e2ff00]" : "border-[color:var(--border)] text-[color:var(--text-muted)]"}`}>
-                                  <Dumbbell className="h-4 w-4" />
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-black uppercase">
-                                    {routine.name}
-                                  </span>
-                                  <span className="mt-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                                    {(routine.exercises || []).length} ejercicios ·{" "}
-                                    {available
-                                      ? routine.assignmentType === "extra"
-                                        ? "Adicional"
-                                        : canManageRoutine &&
-                                            !routine.assignedByCoachId
-                                          ? "Rutina heredada"
-                                        : "Disponible"
-                                      : routine.trainingPlanId &&
-                                          planStatusById.get(
-                                            String(routine.trainingPlanId),
-                                          ) === "completed"
-                                        ? "Historial"
-                                        : "En preparacion"}
-                                  </span>
-                                </span>
-                                <ChevronRight
-                                  className={`h-4 w-4 shrink-0 transition ${expanded ? "rotate-90" : ""}`}
-                                />
-                              </button>
-                              {canManageRoutine ? (
-                              <details className="relative shrink-0">
-                                <summary
-                                  className="grid h-11 w-11 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
-                                  aria-label={`Opciones de ${routine.name}`}
-                                >
-                                  <MoreVertical className="h-5 w-5" />
-                                </summary>
-                                <div className="absolute right-0 top-11 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                                  <button
-                                    type="button"
-                                    disabled={Boolean(routineActionId)}
-                                    onClick={(event) => {
-                                      event.currentTarget
-                                        .closest("details")
-                                        ?.removeAttribute("open");
-                                      duplicateAssignedRoutine(routine);
-                                    }}
-                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:opacity-50"
-                                  >
-                                    <Copy className="h-4 w-4" />
-                                    {routineActionId === id
-                                      ? "Procesando..."
-                                      : "Duplicar"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={Boolean(routineActionId)}
-                                    onClick={(event) => {
-                                      event.currentTarget
-                                        .closest("details")
-                                        ?.removeAttribute("open");
-                                      deleteAssignedRoutine(routine);
-                                    }}
-                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
-                                  >
-                                    <Trash2 className="h-4 w-4" /> Eliminar
-                                  </button>
-                                </div>
-                              </details>
-                              ) : null}
-                            </div>
-                            {expanded ? (
-                              <div className="mb-2 ml-12 border-l border-[color:var(--border)] pl-3">
-                                {(routine.exercises || []).map((exercise, index) => (
-                                  <div
-                                    key={`${exercise.exerciseId || exercise.name}-${index}`}
-                                    className="flex min-h-10 items-center justify-between gap-3 border-b border-[color:var(--border)] py-2 last:border-0"
-                                  >
-                                    <span className="min-w-0 truncate text-xs font-bold">
-                                      {index + 1}. {exercise.name}
-                                    </span>
-                                    <span className="shrink-0 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                                      {exercise.sets || 0} series
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <p className="py-6 text-sm font-semibold text-[color:var(--text-muted)]">
-                        Asigna una rutina antes de iniciar el entrenamiento.
-                      </p>
-                    )}
-                  </div>
-                </section>
-                ) : null}
-
                 {athleteView === "activity" ? (
-                  <SessionHistory
-                    key={selectedId}
-                    embedded
-                    ownerId={selectedId}
-                    ownerName={selectedAthlete.name}
-                    onNavigate={onNavigate}
-                    prepareTrainingContext={() =>
-                      onSelectCoachAthlete({
-                        id: selectedId,
-                        name: selectedAthlete.name,
-                        email: selectedAthlete.email,
-                      })
-                    }
-                  />
+                  <>
+                    <SessionHistory
+                      key={selectedId}
+                      embedded
+                      ownerId={selectedId}
+                      ownerName={selectedAthlete.name}
+                      onNavigate={onNavigate}
+                      prepareTrainingContext={() =>
+                        onSelectCoachAthlete({
+                          id: selectedId,
+                          name: selectedAthlete.name,
+                          email: selectedAthlete.email,
+                        })
+                      }
+                    />
+                  </>
                 ) : null}
               </div>
             </section>
@@ -1385,19 +1200,11 @@ export default function CoachDashboard({
         </div>
       )}
 
-      {assigning && selectedAthlete ? (
-        <AssignRoutineModal
-          athlete={selectedAthlete}
-          templates={templates}
-          onAssign={assignRoutine}
-          onClose={() => setAssigning(false)}
-        />
-      ) : null}
       {(creatingPlan || editingPlan) && selectedAthlete ? (
         <CoachPlanModal
           athlete={selectedAthlete}
           templates={templates}
-          planTemplates={planTemplates}
+          planTemplates={planCatalog.plans}
           initialData={editingPlan}
           replacingPlan={editingPlan ? null : activePlan}
           onSave={savePlan}
