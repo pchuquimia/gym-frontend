@@ -39,7 +39,7 @@ import { getExerciseImageUrl } from "../utils/cloudinary";
 const PAGE_SIZE = 200;
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const LIBRARY_FIELDS =
-  "name,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,difficulty,goals,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,isActive";
+  "name,localizedNames,nameSpanish,nameEnglish,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,difficulty,goals,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,isActive";
 
 const slugify = (text = "") =>
   text

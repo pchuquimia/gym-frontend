@@ -46,7 +46,7 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, "");
 
 const EXERCISE_FIELDS =
-  "name,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,laterality,difficulty,goals,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive,updatedAt";
+  "name,localizedNames,nameSpanish,nameEnglish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,exerciseType,laterality,difficulty,goals,tags,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive,updatedAt";
 
 const normalizeExercise = (exercise) => {
   const primaryMuscleGroup = getPrimaryMuscleGroup(exercise);
@@ -104,7 +104,7 @@ const localDateString = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-const EXERCISES_KEY = ["exercises", "taxonomy-v4", "all-active"];
+const EXERCISES_KEY = ["exercises", "taxonomy-v5", "all-active"];
 const SESSIONS_KEY = ["sessions"];
 const PREFS_KEY = ["preferences"];
 
@@ -298,6 +298,7 @@ export function TrainingProvider({
       normalized,
       ...prev,
     ]);
+    queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
     return normalized;
   };
 
@@ -310,6 +311,7 @@ export function TrainingProvider({
         t.id === normalized.id || t._id === normalized.id ? normalized : t,
       ),
     );
+    queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
     return normalized;
   };
 

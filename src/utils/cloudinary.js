@@ -6,7 +6,7 @@ const CLOUDINARY_BASE = `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/ima
 export const EXERCISE_IMAGE_PRESETS = Object.freeze({
   thumbnail: { width: 240, height: 240, crop: "fill", gravity: "auto" },
   card: { width: 480, height: 480, crop: "fill", gravity: "auto" },
-  detail: { width: 1280, height: 720, crop: "fit", gravity: null },
+  detail: { width: 1280, height: 720, crop: "fill", gravity: "auto" },
 });
 
 const buildTransform = ({

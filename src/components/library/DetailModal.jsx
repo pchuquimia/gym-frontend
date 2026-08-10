@@ -295,7 +295,7 @@ export default function DetailModal({
               <img
                 src={imageUrl}
                 alt={exercise.name}
-                className="aspect-video w-full object-contain"
+                className="aspect-video w-full object-cover"
               />
             ) : (
               <div className="grid aspect-video place-items-center font-condensed text-sm font-bold uppercase text-[color:var(--text-muted)]">

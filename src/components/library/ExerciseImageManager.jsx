@@ -5,6 +5,7 @@ import {
   ImageIcon,
   LoaderCircle,
   Search,
+  Sparkles,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import {
 import { toast } from "sonner";
 import Button from "../ui/button";
 import Skeleton from "../ui/skeleton";
+import ExerciseAiImageGenerator from "./ExerciseAiImageGenerator";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 
@@ -94,7 +96,7 @@ function ExerciseImageRow({ exercise, selected, onSelect }) {
   );
 }
 
-function Preview({ label, size, source, fit = false }) {
+function Preview({ label, size, source, wide = false }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -107,15 +109,11 @@ function Preview({ label, size, source, fit = false }) {
       </div>
       <div
         className={`overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] ${
-          fit ? "aspect-video" : "aspect-square"
+          wide ? "aspect-video" : "aspect-square"
         }`}
       >
         {source ? (
-          <img
-            src={source}
-            alt=""
-            className={`h-full w-full ${fit ? "object-contain" : "object-cover"}`}
-          />
+          <img src={source} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="grid h-full place-items-center text-[color:var(--text-muted)]">
             <ImageIcon className="h-6 w-6" />
@@ -134,6 +132,7 @@ export default function ExerciseImageManager() {
   const [selected, setSelected] = useState(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [editorMode, setEditorMode] = useState("manual");
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setQuery(search.trim()), 300);
@@ -183,6 +182,7 @@ export default function ExerciseImageManager() {
 
   const selectExercise = (exercise) => {
     resetFile();
+    setEditorMode("manual");
     setSelected(exercise);
   };
 
@@ -210,7 +210,8 @@ export default function ExerciseImageManager() {
   };
 
   const replaceMutation = useMutation({
-    mutationFn: () => api.replaceExerciseImage(selected.id, file),
+    mutationFn: (replacementFile) =>
+      api.replaceExerciseImage(selected.id, replacementFile || file),
     onSuccess: async (response) => {
       const updated = normalizeExercise(response.exercise);
       setSelected(updated);
@@ -253,8 +254,8 @@ export default function ExerciseImageManager() {
               Una imagen maestra
             </h2>
             <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-              Recomendado: 1600 x 1600 px, JPG o WebP, maximo 10 MB. El sujeto
-              debe quedar centrado.
+              Recomendado: 1600 x 1600 px, JPG, PNG o WebP, maximo 10 MB. Se
+              convertira a WebP conservando la proporcion.
             </p>
           </div>
         </div>
@@ -283,33 +284,37 @@ export default function ExerciseImageManager() {
               {total}
             </span>
           </div>
-          {exercisesQuery.isLoading
-            ? Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-[88px] w-full rounded" />
-              ))
-            : exercises.map((exercise) => (
-                <ExerciseImageRow
-                  key={exercise.id}
-                  exercise={exercise}
-                  selected={selected?.id === exercise.id}
-                  onSelect={selectExercise}
-                />
-              ))}
-          {!exercisesQuery.isLoading && exercises.length === 0 ? (
-            <div className="border border-dashed border-[color:var(--border)] p-6 text-center text-sm font-bold text-[color:var(--text-muted)]">
-              No se encontraron ejercicios.
-            </div>
-          ) : null}
-          {exercisesQuery.hasNextPage ? (
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={exercisesQuery.isFetchingNextPage}
-              onClick={() => exercisesQuery.fetchNextPage()}
-            >
-              {exercisesQuery.isFetchingNextPage ? "Cargando..." : "Cargar mas"}
-            </Button>
-          ) : null}
+          <div className="space-y-2 lg:max-h-[calc(100dvh-16rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-width:thin]">
+            {exercisesQuery.isLoading
+              ? Array.from({ length: 5 }).map((_, index) => (
+                  <Skeleton key={index} className="h-[88px] w-full rounded" />
+                ))
+              : exercises.map((exercise) => (
+                  <ExerciseImageRow
+                    key={exercise.id}
+                    exercise={exercise}
+                    selected={selected?.id === exercise.id}
+                    onSelect={selectExercise}
+                  />
+                ))}
+            {!exercisesQuery.isLoading && exercises.length === 0 ? (
+              <div className="border border-dashed border-[color:var(--border)] p-6 text-center text-sm font-bold text-[color:var(--text-muted)]">
+                No se encontraron ejercicios.
+              </div>
+            ) : null}
+            {exercisesQuery.hasNextPage ? (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={exercisesQuery.isFetchingNextPage}
+                onClick={() => exercisesQuery.fetchNextPage()}
+              >
+                {exercisesQuery.isFetchingNextPage
+                  ? "Cargando..."
+                  : "Cargar mas"}
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div
@@ -349,69 +354,121 @@ export default function ExerciseImageManager() {
                 </button>
               </div>
 
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                onChange={(event) => handleFile(event.target.files?.[0])}
-              />
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  handleFile(event.dataTransfer.files?.[0]);
-                }}
-                className="grid min-h-28 w-full place-items-center border-2 border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+              <div
+                className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+                role="tablist"
+                aria-label="Origen de la nueva imagen"
               >
-                <span>
-                  <UploadCloud className="mx-auto h-6 w-6 text-[#ff5722] dark:text-[#e2ff00]" />
-                  <span className="mt-2 block text-sm font-black uppercase text-[color:var(--text)]">
-                    {file ? file.name : "Seleccionar nueva imagen"}
-                  </span>
-                  {preview ? (
-                    <span className="mt-1 block text-xs font-bold text-[color:var(--text-muted)]">
-                      {preview.width} x {preview.height} px
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                <Preview
-                  label="Miniatura"
-                  size="240 x 240"
-                  source={preview?.url || currentSources.thumbnail}
-                />
-                <Preview
-                  label="Tarjeta"
-                  size="480 x 480"
-                  source={preview?.url || currentSources.card}
-                />
-                <Preview
-                  label="Detalle"
-                  size="1280 x 720"
-                  source={preview?.url || currentSources.detail}
-                  fit
-                />
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={editorMode === "manual"}
+                  onClick={() => setEditorMode("manual")}
+                  className={`flex h-10 items-center justify-center gap-2 text-xs font-black uppercase ${
+                    editorMode === "manual"
+                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  <UploadCloud className="h-4 w-4" />
+                  Carga manual
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={editorMode === "ai"}
+                  onClick={() => {
+                    resetFile();
+                    setEditorMode("ai");
+                  }}
+                  className={`flex h-10 items-center justify-center gap-2 text-xs font-black uppercase ${
+                    editorMode === "ai"
+                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generar con IA
+                </button>
               </div>
 
-              <Button
-                className="w-full gap-2 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!file || replaceMutation.isPending}
-                onClick={() => replaceMutation.mutate()}
-              >
-                {replaceMutation.isPending ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
-                {replaceMutation.isPending
-                  ? "Reemplazando..."
-                  : "Reemplazar imagen"}
-              </Button>
+              {editorMode === "manual" ? (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) => handleFile(event.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      handleFile(event.dataTransfer.files?.[0]);
+                    }}
+                    className="grid min-h-28 w-full place-items-center border-2 border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+                  >
+                    <span>
+                      <UploadCloud className="mx-auto h-6 w-6 text-[#ff5722] dark:text-[#e2ff00]" />
+                      <span className="mt-2 block text-sm font-black uppercase text-[color:var(--text)]">
+                        {file ? file.name : "Seleccionar nueva imagen"}
+                      </span>
+                      {preview ? (
+                        <span className="mt-1 block text-xs font-bold text-[color:var(--text-muted)]">
+                          {preview.width} x {preview.height} px
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                    <Preview
+                      label="Miniatura"
+                      size="240 x 240"
+                      source={preview?.url || currentSources.thumbnail}
+                    />
+                    <Preview
+                      label="Tarjeta"
+                      size="480 x 480"
+                      source={preview?.url || currentSources.card}
+                    />
+                    <Preview
+                      label="Detalle"
+                      size="1280 x 720"
+                      source={preview?.url || currentSources.detail}
+                      wide
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={!file || replaceMutation.isPending}
+                    onClick={() => replaceMutation.mutate(file)}
+                  >
+                    {replaceMutation.isPending ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    {replaceMutation.isPending
+                      ? "Reemplazando..."
+                      : "Reemplazar imagen"}
+                  </Button>
+                </>
+              ) : (
+                <ExerciseAiImageGenerator
+                  key={selected.id}
+                  exercise={selected}
+                  currentImage={currentSources.card}
+                  replacing={replaceMutation.isPending}
+                  onUse={(generatedFile) =>
+                    replaceMutation.mutateAsync(generatedFile)
+                  }
+                />
+              )}
             </div>
           ) : (
             <div className="grid min-h-72 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center">

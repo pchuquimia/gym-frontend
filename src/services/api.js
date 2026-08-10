@@ -215,6 +215,13 @@ export const api = {
     }),
   deleteLegacyExercise: (id) =>
     request(`/api/exercises/admin/legacy/${id}`, { method: "DELETE" }),
+  getExerciseAiImageStatus: () =>
+    request("/api/exercises/admin/ai-image/status"),
+  generateExerciseAiImage: (id, prompt) =>
+    request(`/api/exercises/admin/${id}/ai-image`, {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
   replaceExerciseImage: async (id, file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -307,6 +314,10 @@ export const api = {
     }).toString();
     return request(`/api/trainings/summary?${query}`);
   },
+  getRoutineTrainingCounts: (athleteId = "") =>
+    request(
+      `/api/trainings/routine-counts${athleteId ? `?athleteId=${athleteId}` : ""}`,
+    ),
   getTrainingIntelligence: (athleteId = "") =>
     request(
       `/api/analytics/intelligence${athleteId ? `?athleteId=${athleteId}` : ""}`,

@@ -13,6 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -25,6 +26,7 @@ import {
   Copy,
   Dumbbell,
   GripVertical,
+  History,
   Settings2,
   Layers3,
   Loader2,
@@ -67,6 +69,9 @@ const ROUTINE_LEVEL_LABELS = {
   intermediate: "Intermedio",
   advanced: "Avanzado",
 };
+const ROUTINE_EXERCISE_SEARCH_FIELDS =
+  "name,localizedNames,nameSpanish,nameEnglish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,exerciseType,laterality,difficulty,goals,tags,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive";
+const getEntityId = (value) => String(value?._id || value?.id || value || "");
 const formatPlanDate = (value) =>
   value
     ? new Date(value).toLocaleDateString("es-BO", {
@@ -280,6 +285,59 @@ const normalizeTextKey = (text = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/s$/, "");
+
+const normalizeSearchText = (text = "") =>
+  text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const toSearchArray = (value) =>
+  Array.isArray(value) ? value : value ? [value] : [];
+
+const getExerciseSearchRank = (exercise, query) => {
+  if (!query) return 0;
+  const name = normalizeSearchText(exercise.name);
+  const localizedNames = [
+    exercise.localizedNames?.es,
+    exercise.localizedNames?.en,
+    exercise.nameSpanish,
+    exercise.nameEnglish,
+  ]
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  const aliases = toSearchArray(exercise.aliases)
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  if (name === query || localizedNames.includes(query)) return 0;
+  if (
+    name.startsWith(query) ||
+    localizedNames.some((value) => value.startsWith(query))
+  ) {
+    return 1;
+  }
+  if (aliases.includes(query)) return 2;
+  if (
+    name.includes(query) ||
+    localizedNames.some((value) => value.includes(query)) ||
+    aliases.some((value) => value.includes(query))
+  ) {
+    return 3;
+  }
+  return 4;
+};
+
+const useDebouncedValue = (value, delay = 300) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [delay, value]);
+  return debounced;
+};
 
 const resolveMuscleOption = (target, options = []) => {
   const key = normalizeTextKey(target);
@@ -579,6 +637,7 @@ function RoutineModal({
   libraryLoading = false,
   libraryError = null,
   onRetryLibrary,
+  searchScopeKey = "self",
   locationMode = "single",
   defaultBranch = "sopocachi",
   allowedBranches = BRANCH_OPTIONS,
@@ -613,6 +672,24 @@ function RoutineModal({
     availableExercises?.[0]?.muscle || "Pecho",
   );
   const [search, setSearch] = useState("");
+  const debouncedExerciseSearch = useDebouncedValue(search.trim());
+  const remoteExerciseSearch = useQuery({
+    queryKey: [
+      "routine-exercise-search",
+      searchScopeKey,
+      debouncedExerciseSearch,
+    ],
+    queryFn: () =>
+      api.getExercises({
+        fields: ROUTINE_EXERCISE_SEARCH_FIELDS,
+        limit: 200,
+        page: 1,
+        meta: true,
+        q: debouncedExerciseSearch,
+      }),
+    enabled: Boolean(debouncedExerciseSearch),
+    staleTime: 30 * 1000,
+  });
   const [error, setError] = useState("");
   const [setupComplete, setSetupComplete] = useState(mode !== "create");
   const [progressMode, setProgressMode] = useState(
@@ -708,31 +785,82 @@ function RoutineModal({
   const effectiveRoutineName =
     nameEdited || name.trim() ? name : suggestedRoutineName;
 
+  const availableExerciseById = useMemo(
+    () =>
+      new Map(
+        availableExercises.map((exercise) => [String(exercise.id), exercise]),
+      ),
+    [availableExercises],
+  );
+
+  const remoteExerciseOptions = useMemo(() => {
+    const items = Array.isArray(remoteExerciseSearch.data)
+      ? remoteExerciseSearch.data
+      : remoteExerciseSearch.data?.items || [];
+    return items.map((exercise) => {
+      const id = exercise._id || exercise.id;
+      const existing = availableExerciseById.get(String(id));
+      return {
+        ...exercise,
+        ...existing,
+        id,
+        name: exercise.name || existing?.name || "Ejercicio",
+        localizedNames:
+          exercise.localizedNames || existing?.localizedNames || {},
+        aliases: Array.from(
+          new Set([
+            ...toSearchArray(exercise.aliases),
+            ...toSearchArray(existing?.aliases),
+          ]),
+        ),
+        muscle:
+          exercise.primaryMuscleGroup ||
+          exercise.primaryMuscle ||
+          exercise.muscle ||
+          existing?.muscle ||
+          "Sin grupo",
+        image:
+          exercise.media?.image?.url || exercise.image || existing?.image || "",
+        imagePublicId:
+          exercise.media?.image?.publicId ||
+          exercise.imagePublicId ||
+          existing?.imagePublicId ||
+          "",
+        branches: exercise.branches?.length
+          ? exercise.branches
+          : existing?.branches || ["general"],
+        supportsUnilateral: Boolean(
+          exercise.supportsUnilateral || existing?.supportsUnilateral,
+        ),
+      };
+    });
+  }, [availableExerciseById, remoteExerciseSearch.data]);
+
   const exercisePickerOptions = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeSearchText(search);
+    const debouncedQuery = normalizeSearchText(debouncedExerciseSearch);
+    const sourceExercises = query
+      ? query === debouncedQuery
+        ? remoteExerciseOptions
+        : []
+      : availableExercises;
     const currentIds = new Set(
       exercises.map((exercise) => exercise.exerciseId),
     );
-    const sortedOptions = availableExercises
+    const sortedOptions = sourceExercises
       .filter((ex) => exerciseMatchesBranch(ex, exerciseFilterBranch))
-      .filter((ex) => !selectedMuscle || ex.muscle === selectedMuscle)
+      .filter((ex) => query || !selectedMuscle || ex.muscle === selectedMuscle)
       .filter((ex) => !currentIds.has(ex.id))
-      .filter(
-        (ex) =>
-          !query ||
-          ex.name.toLowerCase().includes(query) ||
-          (ex.aliases || []).some((alias) =>
-            alias.toLowerCase().includes(query),
-          ),
-      )
       .sort(
         (a, b) =>
+          getExerciseSearchRank(a, query) - getExerciseSearchRank(b, query) ||
           (b.usageByBranch?.[exerciseFilterBranch]?.count || 0) -
             (a.usageByBranch?.[exerciseFilterBranch]?.count || 0) ||
           (b.usageCount || 0) - (a.usageCount || 0) ||
           (b.lastUsedAt || 0) - (a.lastUsedAt || 0) ||
           a.name.localeCompare(b.name),
       );
+    if (query) return sortedOptions.slice(0, 200);
     const seenNames = new Set();
     return sortedOptions
       .filter((exercise) => {
@@ -744,8 +872,10 @@ function RoutineModal({
       .slice(0, 80);
   }, [
     availableExercises,
+    debouncedExerciseSearch,
     exerciseFilterBranch,
     exercises,
+    remoteExerciseOptions,
     selectedMuscle,
     search,
   ]);
@@ -770,6 +900,14 @@ function RoutineModal({
       (exercise) => !frequentIds.has(exercise.id),
     );
   }, [exercisePickerOptions, frequentExerciseOptions]);
+
+  const isExerciseSearchActive = Boolean(normalizeSearchText(search));
+  const isExerciseSearchPending = Boolean(
+    isExerciseSearchActive &&
+    (normalizeSearchText(search) !==
+      normalizeSearchText(debouncedExerciseSearch) ||
+      remoteExerciseSearch.isFetching),
+  );
 
   const allFrequentSelected =
     frequentExerciseOptions.length > 0 &&
@@ -1488,7 +1626,11 @@ function RoutineModal({
                 <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                   Secuencia de entrenamiento
                 </span>
-                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Secuencia de entrenamiento">
+                <div
+                  className="grid grid-cols-2 gap-2"
+                  role="radiogroup"
+                  aria-label="Secuencia de entrenamiento"
+                >
                   <button
                     type="button"
                     role="radio"
@@ -1786,14 +1928,16 @@ function RoutineModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1" role="radiogroup" aria-label="Cambiar secuencia de entrenamiento">
+              <div
+                className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+                role="radiogroup"
+                aria-label="Cambiar secuencia de entrenamiento"
+              >
                 <button
                   type="button"
                   role="radio"
                   aria-checked={exerciseOrderMode === "muscle_blocks"}
-                  onClick={() =>
-                    handleExerciseOrderModeChange("muscle_blocks")
-                  }
+                  onClick={() => handleExerciseOrderModeChange("muscle_blocks")}
                   className={`h-10 text-[10px] font-black uppercase ${
                     exerciseOrderMode === "muscle_blocks"
                       ? "theme-accent-solid"
@@ -1924,7 +2068,9 @@ function RoutineModal({
                                             <ExerciseThumbnail
                                               src={thumb}
                                               alt=""
-                                              fallback={(ex.name || "?").charAt(0).toUpperCase()}
+                                              fallback={(ex.name || "?")
+                                                .charAt(0)
+                                                .toUpperCase()}
                                               className="h-full w-full text-xs font-black"
                                             />
                                           </div>
@@ -2202,12 +2348,14 @@ function RoutineModal({
                                             ? "border-blue-400 bg-blue-500/10"
                                             : "border-[color:var(--border)] bg-[color:var(--card)]"
                                         }`}
-                                        >
+                                      >
                                         <div className="h-16 w-16 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)]">
                                           <ExerciseThumbnail
                                             src={thumb}
                                             alt=""
-                                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                                            fallback={(option.name || "?")
+                                              .charAt(0)
+                                              .toUpperCase()}
                                             className="h-full w-full text-xs font-black"
                                           />
                                         </div>
@@ -2323,7 +2471,9 @@ function RoutineModal({
                           <ExerciseThumbnail
                             src={thumb}
                             alt=""
-                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                            fallback={(option.name || "?")
+                              .charAt(0)
+                              .toUpperCase()}
                             className="h-full w-full text-xs font-black"
                           />
                         </div>
@@ -2406,13 +2556,18 @@ function RoutineModal({
                     const selectedCount = exercises.filter(
                       (exercise) => exercise.muscle === muscle,
                     ).length;
+                    const isActive =
+                      !isExerciseSearchActive && selectedMuscle === muscle;
                     return (
                       <button
                         key={muscle}
                         type="button"
-                        onClick={() => setSelectedMuscle(muscle)}
+                        onClick={() => {
+                          setSelectedMuscle(muscle);
+                          setSearch("");
+                        }}
                         className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-black transition ${
-                          selectedMuscle === muscle
+                          isActive
                             ? "border-blue-400 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
                             : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                         }`}
@@ -2426,16 +2581,52 @@ function RoutineModal({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                   <input
+                    type="search"
+                    autoComplete="off"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar ejercicio"
+                    placeholder="Buscar en todos los ejercicios"
                     className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
 
               <div className="max-h-[46vh] overflow-y-auto p-4">
-                {exercisePickerOptions.length ? (
+                {isExerciseSearchActive ? (
+                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-2">
+                    <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                      Resultados en todos los grupos
+                    </p>
+                    <span className="theme-accent-text text-xs font-black tabular-nums">
+                      {isExerciseSearchPending
+                        ? "..."
+                        : exercisePickerOptions.length}
+                    </span>
+                  </div>
+                ) : null}
+                {isExerciseSearchPending ? (
+                  <div className="grid min-h-32 place-items-center border border-dashed border-[color:var(--border)] text-center text-[color:var(--text-muted)]">
+                    <span>
+                      <Loader2 className="theme-accent-text mx-auto h-5 w-5 animate-spin" />
+                      <span className="mt-2 block text-xs font-black uppercase">
+                        Buscando ejercicios
+                      </span>
+                    </span>
+                  </div>
+                ) : isExerciseSearchActive && remoteExerciseSearch.isError ? (
+                  <div className="border border-dashed border-red-400/50 p-4 text-center">
+                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                      No se pudo consultar el catálogo.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => remoteExerciseSearch.refetch()}
+                      className="theme-accent-text mt-3 text-xs font-black uppercase"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : exercisePickerOptions.length ? (
                   <>
                     {frequentExerciseOptions.length ? (
                       <section className="mb-4">
@@ -2501,7 +2692,9 @@ function RoutineModal({
                               <ExerciseThumbnail
                                 src={thumb}
                                 alt=""
-                                fallback={(option.name || "?").charAt(0).toUpperCase()}
+                                fallback={(option.name || "?")
+                                  .charAt(0)
+                                  .toUpperCase()}
                                 className="h-full w-full text-xs font-black"
                               />
                             </div>
@@ -2529,7 +2722,9 @@ function RoutineModal({
                   </>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                    No hay ejercicios disponibles con este filtro.
+                    {isExerciseSearchActive
+                      ? `No encontramos “${search.trim()}”. Prueba con otro nombre, alias o grupo muscular.`
+                      : "No hay ejercicios disponibles con este filtro."}
                   </div>
                 )}
               </div>
@@ -2608,7 +2803,9 @@ function RoutineModal({
                           <ExerciseThumbnail
                             src={thumb}
                             alt=""
-                            fallback={(option.name || "?").charAt(0).toUpperCase()}
+                            fallback={(option.name || "?")
+                              .charAt(0)
+                              .toUpperCase()}
                             className="h-full w-full text-xs font-black"
                           />
                         </div>
@@ -3449,10 +3646,7 @@ function PlanTemplateDetailsModal({
   const routinesById = useMemo(
     () =>
       new Map(
-        routines.map((routine) => [
-          String(routine.id || routine._id),
-          routine,
-        ]),
+        routines.map((routine) => [String(routine.id || routine._id), routine]),
       ),
     [routines],
   );
@@ -3516,7 +3710,9 @@ function PlanTemplateDetailsModal({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                  {day.type === "training" ? day.focus || "Entrenamiento" : dayLabel}
+                  {day.type === "training"
+                    ? day.focus || "Entrenamiento"
+                    : dayLabel}
                 </p>
                 <p className="mt-1 truncate text-sm font-black uppercase">
                   {content}
@@ -3557,7 +3753,10 @@ function RoutineDetailsModal({
   return (
     <Modal
       title={routine.name}
-      subtitle={routine.description || `${exercises.length} ejercicios · ${totalSets} series`}
+      subtitle={
+        routine.description ||
+        `${exercises.length} ejercicios · ${totalSets} series`
+      }
       onClose={onClose}
       footer={
         canEdit ? (
@@ -3704,6 +3903,13 @@ function Routines({ onNavigate }) {
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
+  const [expandedRoutineGroups, setExpandedRoutineGroups] = useState(null);
+  const { data: routineTrainingCounts = [] } = useQuery({
+    queryKey: ["routine-training-counts", user?.id || user?._id || "self"],
+    queryFn: () => api.getRoutineTrainingCounts(),
+    enabled: Boolean(user?.id || user?._id),
+    staleTime: 30 * 1000,
+  });
   const missingPlanRoutines = useMemo(
     () =>
       (activePlan?.weeklySchedule || []).filter(
@@ -3869,6 +4075,17 @@ function Routines({ onNavigate }) {
     return map;
   }, [availableExercises]);
 
+  const routineTrainingCountMap = useMemo(
+    () =>
+      new Map(
+        routineTrainingCounts.map((item) => [
+          String(item.routineId),
+          Number(item.count) || 0,
+        ]),
+      ),
+    [routineTrainingCounts],
+  );
+
   const branchCounts = useMemo(() => {
     const counts = { all: routines.length, sopocachi: 0, miraflores: 0 };
     routines.forEach((routine) => {
@@ -3912,7 +4129,12 @@ function Routines({ onNavigate }) {
     if (routineOrigin === "system" && originCounts.system === 0) {
       setRoutineOrigin(originCounts.private ? "private" : "all");
     }
-  }, [originCounts.all, originCounts.private, originCounts.system, routineOrigin]);
+  }, [
+    originCounts.all,
+    originCounts.private,
+    originCounts.system,
+    routineOrigin,
+  ]);
   const showSearch = routines.length >= 5;
   const showOriginFilter = originCounts.system > 0 && originCounts.private > 0;
   const showBranchFilter =
@@ -3995,6 +4217,8 @@ function Routines({ onNavigate }) {
         return {
           ...routine,
           plan: routinePlanById.get(String(routine.id || routine._id)) || null,
+          trainingCount:
+            routineTrainingCountMap.get(String(routine.id || routine._id)) || 0,
           totalExerciseCount: exercises.length,
           totalSets,
           muscles: Array.from(muscles),
@@ -4020,13 +4244,82 @@ function Routines({ onNavigate }) {
     locationMode,
     preferredBranch,
     routinePlanById,
+    routineTrainingCountMap,
   ]);
   const groupedRoutineCards = useMemo(() => {
-    const systemRoutines = routineCards.filter(
+    const planningSources = isCoach ? planTemplates : orderedTrainingPlans;
+    const groupedRoutineIds = new Set();
+    const planningGroups = planningSources.flatMap((plan) => {
+      const routineIds = Array.from(
+        new Set(
+          (plan.weeklySchedule || [])
+            .filter((day) => day.type === "training")
+            .map((day) =>
+              getEntityId(
+                (isCoach ? day.sourceRoutineId : day.routineId) ||
+                  day.sourceRoutineId ||
+                  "",
+              ),
+            )
+            .filter(Boolean),
+        ),
+      );
+      const matches = routineIds
+        .map((id) =>
+          routineCards.find((routine) => getEntityId(routine) === id),
+        )
+        .filter(Boolean);
+      if (!matches.length) return [];
+
+      const groupId = `plan-${plan._id || plan.id}`;
+      matches.forEach((routine) => groupedRoutineIds.add(getEntityId(routine)));
+      return [
+        {
+          id: `__${groupId}`,
+          groupId,
+          groupHeading: plan.name,
+          groupCount: matches.length,
+          groupEyebrow: isCoach
+            ? plan.visibility === "system"
+              ? "Planificación del sistema"
+              : "Planificación base"
+            : PLAN_STATUS_LABELS[plan.status] || "Planificación",
+          groupMeta: `${plan.goal || "Objetivo general"} · ${plan.durationWeeks || 1} ${Number(plan.durationWeeks || 1) === 1 ? "semana" : "semanas"} · ${matches.length} ${matches.length === 1 ? "rutina" : "rutinas"}`,
+          groupStatus: plan.status,
+          collapsible: true,
+        },
+        ...matches.map((routine) => ({
+          ...routine,
+          plan,
+          routineGroupId: groupId,
+        })),
+      ];
+    });
+
+    const remainingRoutineCards = routineCards.filter(
+      (routine) => !groupedRoutineIds.has(getEntityId(routine)),
+    );
+    if (planningGroups.length) {
+      return [
+        ...planningGroups,
+        ...(remainingRoutineCards.length
+          ? [
+              {
+                id: "__other_heading",
+                groupHeading: "Rutinas sin planificación",
+                groupCount: remainingRoutineCards.length,
+              },
+              ...remainingRoutineCards,
+            ]
+          : []),
+      ];
+    }
+
+    const systemRoutines = remainingRoutineCards.filter(
       (routine) => routine.visibility === "system",
     );
     if (systemRoutines.length) {
-      const personalRoutines = routineCards.filter(
+      const personalRoutines = remainingRoutineCards.filter(
         (routine) => routine.visibility !== "system",
       );
       const result = [];
@@ -4065,18 +4358,44 @@ function Routines({ onNavigate }) {
       }
       return result;
     }
-    const planRoutines = routineCards.filter((routine) => routine.plan);
-    const otherRoutines = routineCards.filter((routine) => !routine.plan);
-    if (!planRoutines.length) return routineCards;
-    return [
-      { id: "__plan_heading", groupHeading: "Rutinas de la planificación" },
-      ...planRoutines,
-      ...(otherRoutines.length
-        ? [{ id: "__other_heading", groupHeading: "Otras rutinas" }]
-        : []),
-      ...otherRoutines,
-    ];
-  }, [routineCards]);
+    return remainingRoutineCards;
+  }, [isCoach, orderedTrainingPlans, planTemplates, routineCards]);
+
+  const routineGroupOptions = useMemo(
+    () =>
+      groupedRoutineCards.filter(
+        (item) => item.groupHeading && item.collapsible,
+      ),
+    [groupedRoutineCards],
+  );
+
+  useEffect(() => {
+    if (!routineGroupOptions.length) {
+      setExpandedRoutineGroups(null);
+      return;
+    }
+    setExpandedRoutineGroups((current) => {
+      const availableIds = new Set(
+        routineGroupOptions.map((group) => group.groupId),
+      );
+      if (current === null) {
+        const preferred =
+          routineGroupOptions.find((group) => group.groupStatus === "active") ||
+          routineGroupOptions[0];
+        return new Set(preferred ? [preferred.groupId] : []);
+      }
+      return new Set([...current].filter((id) => availableIds.has(id)));
+    });
+  }, [routineGroupOptions]);
+
+  const toggleRoutineGroup = (groupId) => {
+    setExpandedRoutineGroups((current) => {
+      const next = new Set(current || []);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   const openCreate = (planDay = null, { replacing = false } = {}) => {
     if (isManagedClient) return;
@@ -4265,7 +4584,8 @@ function Routines({ onNavigate }) {
   };
 
   const archivePlanTemplate = async (template) => {
-    if (!window.confirm(`¿Eliminar ${template.name} de tus plantillas?`)) return;
+    if (!window.confirm(`¿Eliminar ${template.name} de tus plantillas?`))
+      return;
     const id = String(template._id || template.id);
     if (templateProcessingId) return;
     setTemplateProcessingId(id);
@@ -4957,6 +5277,87 @@ function Routines({ onNavigate }) {
         <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
           {groupedRoutineCards.map((routine) => {
             if (routine.groupHeading) {
+              if (routine.collapsible) {
+                const isExpanded = expandedRoutineGroups?.has(routine.groupId);
+                return (
+                  <button
+                    key={routine.id}
+                    type="button"
+                    onClick={() => toggleRoutineGroup(routine.groupId)}
+                    aria-expanded={Boolean(isExpanded)}
+                    className={`routines-surface col-span-full mt-3 flex min-h-[76px] w-full items-center justify-between gap-3 border px-4 py-3 text-left transition ${
+                      isExpanded
+                        ? "theme-accent-solid border-transparent shadow-[0_8px_20px_rgba(255,87,34,0.18)] dark:shadow-[0_8px_20px_rgba(226,255,0,0.1)]"
+                        : routine.groupStatus === "active"
+                          ? "border-[#ff5722] border-l-4 bg-[color:var(--card)] dark:border-[#e2ff00]"
+                          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff8a66] dark:hover:border-[#e2ff00]"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`grid h-11 w-11 shrink-0 place-items-center border ${
+                          isExpanded
+                            ? "border-white/35 bg-white/15 text-white dark:border-black/30 dark:bg-black/10 dark:text-black"
+                            : "theme-accent-soft"
+                        }`}
+                      >
+                        <CalendarDays className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={`block text-[10px] font-black uppercase tracking-[0.12em] ${
+                            isExpanded
+                              ? "text-white/75 dark:text-black/65"
+                              : "text-[#a93614] dark:text-[#e2ff00]"
+                          }`}
+                        >
+                          {routine.groupEyebrow}
+                        </span>
+                        <span
+                          className={`mt-1 line-clamp-2 block text-base font-black uppercase leading-tight sm:text-lg ${
+                            isExpanded
+                              ? "text-white dark:text-black"
+                              : "text-[color:var(--text)]"
+                          }`}
+                        >
+                          {routine.groupHeading}
+                        </span>
+                        <span
+                          className={`mt-1 block truncate text-[11px] font-semibold ${
+                            isExpanded
+                              ? "text-white/80 dark:text-black/70"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          {routine.groupMeta}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`hidden text-right font-black sm:block ${
+                          isExpanded
+                            ? "text-white dark:text-black"
+                            : "text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        <span className="block text-xs">
+                          {routine.groupCount}{" "}
+                          {routine.groupCount === 1 ? "rutina" : "rutinas"}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] uppercase opacity-75">
+                          {isExpanded ? "Ocultar" : "Ver rutinas"}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`h-5 w-5 transition-transform duration-200 ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </span>
+                  </button>
+                );
+              }
               return (
                 <h2
                   key={routine.id}
@@ -4980,6 +5381,12 @@ function Routines({ onNavigate }) {
                 </h2>
               );
             }
+            if (
+              routine.routineGroupId &&
+              !expandedRoutineGroups?.has(routine.routineGroupId)
+            ) {
+              return null;
+            }
             const isHighlighted = ["active", "scheduled"].includes(
               routine.plan?.status,
             );
@@ -4992,11 +5399,19 @@ function Routines({ onNavigate }) {
 
             return (
               <article
-                key={routine.id}
+                key={
+                  routine.routineGroupId
+                    ? `${routine.routineGroupId}-${routine.id || routine._id}`
+                    : routine.id || routine._id
+                }
                 className={`routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
                   isHighlighted
                     ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
                     : "border-t-[#626262] dark:border-t-[#6d6d62]"
+                } ${
+                  routine.routineGroupId
+                    ? "border-l-[3px] border-l-[#ff5722]/45 dark:border-l-[#e2ff00]/45"
+                    : ""
                 } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
               >
                 <button
@@ -5106,6 +5521,13 @@ function Routines({ onNavigate }) {
                         <Layers3 className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
                         {routine.totalSets} series
                       </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <History className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                        {routine.trainingCount}{" "}
+                        {routine.trainingCount === 1
+                          ? "entrenamiento"
+                          : "entrenamientos"}
+                      </span>
                     </div>
                     {isSystemRoutine ? (
                       <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
@@ -5195,9 +5617,7 @@ function Routines({ onNavigate }) {
         <RoutineDetailsModal
           routine={viewingRoutine}
           onClose={() => setViewingRoutine(null)}
-          canEdit={
-            !isManagedClient && viewingRoutine.visibility !== "system"
-          }
+          canEdit={!isManagedClient && viewingRoutine.visibility !== "system"}
           onEdit={openEdit}
           onDuplicate={
             !isManagedClient && viewingRoutine.visibility === "system"
@@ -5218,6 +5638,7 @@ function Routines({ onNavigate }) {
           existingRoutines={routines}
           libraryLoading={trainingDataLoading && !libraryExercises.length}
           libraryError={!libraryExercises.length ? trainingDataError : null}
+          searchScopeKey={user?.id || user?._id || "self"}
           locationMode={locationMode}
           defaultBranch={preferredBranch}
           allowedBranches={allowedBranches}
