@@ -12,6 +12,7 @@ import {
 import AuthField from "../components/auth/AuthField";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
+import OperationLoader from "../components/system/OperationLoader";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -311,6 +312,12 @@ export default function Register({ onNavigate = () => {} }) {
           {submitting ? "Creando cuenta..." : "Crear cuenta"}
           {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
+        <OperationLoader
+          active={submitting}
+          delayMs={500}
+          title="Creando tu cuenta"
+          description="Guardando tus datos y preparando el acceso inicial."
+        />
       </form>
     </PremiumAuthLayout>
   );

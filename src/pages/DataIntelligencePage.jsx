@@ -7,13 +7,13 @@ import {
   Cloud,
   Database,
   Layers3,
-  Loader2,
   Sigma,
   TrendingUp,
 } from "lucide-react";
 import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { nivoTheme } from "../utils/nivoTheme";
+import OperationLoader from "../components/system/OperationLoader";
 
 const compact = (value) => {
   const number = Number(value) || 0;
@@ -172,11 +172,8 @@ export default function DataIntelligencePage({ coachAthlete = null }) {
       </nav>
 
       {loading ? (
-        <div className="grid min-h-72 place-items-center border border-[color:var(--border)] bg-[color:var(--card)]">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[#ff5722] dark:text-[#e2ff00]" />
-            Procesando historial
-          </span>
+        <div className="min-h-72 border border-[color:var(--border)] bg-[color:var(--card)]">
+          <OperationLoader active delayMs={0} mode="inline" title="Procesando historial" description="Preparando metricas, tendencias y modelos analiticos." />
         </div>
       ) : error ? (
         <div className="border border-red-500/30 bg-red-500/5 p-5">

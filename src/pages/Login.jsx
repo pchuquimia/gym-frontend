@@ -12,6 +12,7 @@ import {
 import AuthField from "../components/auth/AuthField";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
+import OperationLoader from "../components/system/OperationLoader";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import {
@@ -153,6 +154,12 @@ function LoginForm({ onNavigate }) {
         {submitting ? "Ingresando..." : "Ingresar"}
         {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
       </Button>
+      <OperationLoader
+        active={submitting}
+        delayMs={500}
+        title="Iniciando sesion"
+        description="Verificando tus credenciales con el servidor."
+      />
     </form>
   );
 }
@@ -246,6 +253,12 @@ function RecoverForm({ onNavigate }) {
           </Button>
         </>
       )}
+      <OperationLoader
+        active={submitting}
+        delayMs={500}
+        title="Enviando enlace"
+        description="Estamos procesando la solicitud de recuperacion."
+      />
     </form>
   );
 }
@@ -394,6 +407,12 @@ function ResetForm({ token, onNavigate }) {
       >
         {submitting ? "Guardando..." : "Guardar contraseña"}
       </Button>
+      <OperationLoader
+        active={submitting}
+        delayMs={500}
+        title="Actualizando contrasena"
+        description="Guardando tus nuevas credenciales de acceso."
+      />
     </form>
   );
 }
@@ -429,11 +448,12 @@ function VerifyEmail({ token, onNavigate }) {
   }
 
   return (
-    <div className="py-3 text-center" role="status" aria-live="polite">
-      <p className="text-sm font-semibold text-blue-50/80">
-        Verificando tu correo...
-      </p>
-    </div>
+    <OperationLoader
+      active
+      delayMs={250}
+      title="Verificando tu correo"
+      description="Validando el enlace y activando tu cuenta."
+    />
   );
 }
 

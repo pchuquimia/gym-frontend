@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import Button from "../components/ui/button";
+import OperationLoader from "../components/system/OperationLoader";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 
@@ -217,11 +218,8 @@ export default function CoachManagement({ onNavigate }) {
       </nav>
 
       {loading ? (
-        <div className="mt-4 grid min-h-64 place-items-center border border-[color:var(--border)] bg-[color:var(--card)]">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[#ff5722] dark:text-[#e2ff00]" />
-            Cargando plataforma
-          </span>
+        <div className="mt-4 min-h-64 border border-[color:var(--border)] bg-[color:var(--card)]">
+          <OperationLoader active delayMs={0} mode="inline" title="Cargando plataforma" description="Sincronizando usuarios, coaches y vinculaciones." />
         </div>
       ) : activeView === "overview" ? (
         <div className="mt-4 space-y-6">

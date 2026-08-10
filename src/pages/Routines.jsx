@@ -51,6 +51,7 @@ import { api } from "../services/api";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
+import OperationLoader from "../components/system/OperationLoader";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -4784,19 +4785,19 @@ function Routines({ onNavigate }) {
 
         {!activePlan && workspaceLoading ? (
           <div
-            className="flex min-h-52 flex-col items-center justify-center border-y border-[color:var(--border)] py-12 text-center"
-            role="status"
-            aria-live="polite"
+            className="min-h-52 border-y border-[color:var(--border)]"
           >
-            <Loader2 className="theme-accent-text h-7 w-7 animate-spin" />
-            <p className="mt-4 text-sm font-black text-[color:var(--text)]">
-              {workspaceView === "plans"
-                ? "Cargando planificaciones"
-                : "Cargando rutinas"}
-            </p>
-            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Sincronizando tus datos...
-            </p>
+            <OperationLoader
+              active
+              delayMs={0}
+              mode="inline"
+              title={
+                workspaceView === "plans"
+                  ? "Cargando planificaciones"
+                  : "Cargando rutinas"
+              }
+              description="Sincronizando tus datos con el servidor."
+            />
           </div>
         ) : null}
 

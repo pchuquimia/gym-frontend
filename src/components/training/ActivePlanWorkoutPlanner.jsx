@@ -9,6 +9,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Modal from "../shared/Modal";
+import OperationLoader from "../system/OperationLoader";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 
@@ -94,8 +95,14 @@ export default function ActivePlanWorkoutPlanner({
 
   if (loading) {
     return (
-      <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-5 text-sm font-bold uppercase">
-        Cargando entrenamiento...
+      <div className="border border-[color:var(--border)] bg-[color:var(--card)]">
+        <OperationLoader
+          active
+          delayMs={0}
+          mode="inline"
+          title="Cargando entrenamiento"
+          description="Sincronizando tu plan vigente y las rutinas disponibles."
+        />
       </div>
     );
   }

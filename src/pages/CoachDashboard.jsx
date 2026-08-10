@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Button from "../components/ui/button";
+import OperationLoader from "../components/system/OperationLoader";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import { SessionHistory } from "./TrainingAdmin";
 import { useAuth } from "../context/AuthContext";
@@ -597,8 +598,8 @@ export default function CoachDashboard({
       ) : null}
 
       {loading ? (
-        <div className="grid min-h-72 place-items-center text-sm font-semibold text-[color:var(--text-muted)]">
-          Cargando atletas...
+        <div className="min-h-72 border-y border-[color:var(--border)]">
+          <OperationLoader active delayMs={0} mode="inline" title="Cargando atletas" description="Sincronizando atletas vinculados y asignaciones." />
         </div>
       ) : !athletes.length ? (
         <section className="grid min-h-96 place-items-center text-center">
@@ -684,8 +685,8 @@ export default function CoachDashboard({
               </div>
             </section>
           ) : loadingOverview || !overview ? (
-            <div className="grid min-h-96 place-items-center text-sm font-semibold text-[color:var(--text-muted)]">
-              Cargando progreso...
+            <div className="min-h-96 border-y border-[color:var(--border)]">
+              <OperationLoader active delayMs={0} mode="inline" title="Cargando progreso" description="Consultando planificacion, actividad y metricas del atleta." />
             </div>
           ) : (
             <section className="min-w-0">

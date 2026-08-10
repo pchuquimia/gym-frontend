@@ -35,6 +35,7 @@ import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPl
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
+import OperationLoader from "../components/system/OperationLoader";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
@@ -6305,60 +6306,19 @@ export default function RegisterTraining({
         </Modal>
       ) : null}
 
-      <AnimatePresence>
-        {isFinalizing ? (
-          <motion.div
-            className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-6 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="finalizing-training-title"
-            aria-describedby="finalizing-training-description"
-          >
-            <motion.div
-              initial={{ y: 16, opacity: 0, scale: 0.98 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 10, opacity: 0, scale: 0.98 }}
-              className="w-full max-w-sm border border-[color:var(--border)] bg-[color:var(--card)] px-6 py-8 text-center text-[color:var(--text)] shadow-2xl"
-            >
-              <span className="theme-accent-soft mx-auto grid h-16 w-16 place-items-center rounded-full border">
-                <LoaderCircle className="h-8 w-8 animate-spin" />
-              </span>
-              <h2
-                id="finalizing-training-title"
-                className="mt-5 text-xl font-black uppercase leading-tight"
-              >
-                Finalizando entrenamiento
-              </h2>
-              <p
-                id="finalizing-training-description"
-                className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]"
-              >
-                Guardando series, tiempos y progreso en tu historial.
-              </p>
-              <div className="mt-6 flex justify-center gap-2" aria-hidden="true">
-                {[0, 1, 2].map((index) => (
-                  <motion.span
-                    key={index}
-                    className="theme-accent-solid h-1.5 w-10 border-0"
-                    animate={{
-                      opacity: [0.25, 1, 0.25],
-                      scaleX: [0.75, 1, 0.75],
-                    }}
-                    transition={{
-                      duration: 1.2,
-                      repeat: Infinity,
-                      delay: index * 0.18,
-                    }}
-                  />
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <OperationLoader
+        active={loadingTraining && Boolean(selectedRoutineId)}
+        delayMs={450}
+        title="Preparando entrenamiento"
+        description="Cargando rutina, historial de pesos y configuracion de la sesion."
+      />
+
+      <OperationLoader
+        active={isFinalizing}
+        delayMs={0}
+        title="Finalizando entrenamiento"
+        description="Guardando series, tiempos y progreso en tu historial."
+      />
 
       <AnimatePresence>
         {finishWarningOpen ? (

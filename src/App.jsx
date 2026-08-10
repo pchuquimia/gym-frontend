@@ -19,6 +19,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 import PageErrorBoundary from "./components/system/PageErrorBoundary";
+import OperationLoader from "./components/system/OperationLoader";
 import { useAuth } from "./context/AuthContext";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
@@ -323,11 +324,12 @@ function App() {
 
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[color:var(--bg)] text-[color:var(--text)]">
-        <div className="text-sm text-[color:var(--text-muted)]">
-          Cargando sesion...
-        </div>
-      </div>
+      <OperationLoader
+        active
+        delayMs={250}
+        title="Conectando con el servidor"
+        description="Estamos verificando tu sesion y preparando la aplicacion."
+      />
     );
   }
 

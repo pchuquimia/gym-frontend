@@ -29,6 +29,7 @@ import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
 import { buildCloudinaryUrl } from "../utils/cloudinary";
 import { toast } from "sonner";
+import OperationLoader from "../components/system/OperationLoader";
 import {
   passwordStatus,
   validateEmail,
@@ -890,10 +891,8 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (profileLoading) {
     return (
-      <main className="settings-shell mx-auto grid min-h-[50vh] max-w-5xl place-items-center">
-        <p role="status" className="text-sm text-[color:var(--text-muted)]">
-          Cargando perfil...
-        </p>
+      <main className="settings-shell mx-auto min-h-[50vh] w-full max-w-5xl border-y border-[color:var(--border)]">
+        <OperationLoader active delayMs={0} mode="inline" title="Cargando perfil" description="Sincronizando tus preferencias y datos de cuenta." />
       </main>
     );
   }
@@ -1299,12 +1298,7 @@ export default function ProfileSettings({ onNavigate }) {
           }
         >
           {sessionsState.loading ? (
-            <p
-              role="status"
-              className="px-4 py-6 text-sm text-[color:var(--text-muted)]"
-            >
-              Cargando sesiones...
-            </p>
+            <OperationLoader active delayMs={0} mode="inline" title="Cargando sesiones" description="Consultando los dispositivos con acceso activo." />
           ) : sessionsState.error ? (
             <div className="p-4">
               <p role="alert" className="text-sm font-semibold text-red-500">
