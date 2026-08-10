@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CalendarDays,
@@ -3412,6 +3413,20 @@ export default function RegisterTraining({
     setPendingSameDayTraining(null);
   };
 
+  const handleCloseSameDayWarning = () => {
+    routineLoadRequestRef.current += 1;
+    loadedHistoryRoutineRef.current = "";
+    setPendingSameDayTraining(null);
+    setPendingPlanRoutineId("");
+    setSelectedRoutineId(null);
+    setSelectedRoutine(null);
+    setSelectedPlanContext(null);
+    setHistoryTrainings([]);
+    setExercises([]);
+    setDurationSeconds(0);
+    setTimeEvents([]);
+  };
+
   const handleStartSetupSession = () => {
     if (!branchReady) {
       toast.message("Selecciona una sucursal para continuar.");
@@ -5083,34 +5098,6 @@ export default function RegisterTraining({
                 />
               ) : null}
 
-              {branchReady && pendingSameDayTraining ? (
-                <div className="border-2 border-[#d9a927] bg-[#fff7d8] p-4 text-[#24271f] dark:border-[#e2ff00]/50 dark:bg-[#1b1b1b] dark:text-white">
-                  <p className="text-sm font-bold uppercase">
-                    Ya registraste esta rutina hoy
-                  </p>
-                  <p className="mt-1 text-xs font-semibold text-[#6e6751] dark:text-[#a8a8a8]">
-                    Continúa donde quedaste o reinicia los datos de hoy.
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 rounded-none dark:border-[#5a5a5a] dark:bg-[#252525] dark:text-white"
-                      onClick={() => handleSameDayTrainingChoice(false)}
-                    >
-                      <RotateCcw className="h-4 w-4" /> Reiniciar
-                    </Button>
-                    <Button
-                      type="button"
-                      className="h-11 rounded-none dark:!bg-[#e2ff00] dark:text-black"
-                      onClick={() => handleSameDayTrainingChoice(true)}
-                    >
-                      <Play className="h-4 w-4" /> Continuar
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
               {branchReady &&
               import.meta.env.VITE_SHOW_LEGACY_ROUTINE_PICKER === "true" ? (
                 <div className="space-y-5 bg-[#f5f5f5] p-4 text-[#1a1a1a] shadow-sm dark:bg-black dark:text-white md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
@@ -5225,37 +5212,6 @@ export default function RegisterTraining({
                     {loadingTraining ? (
                       <div className="border border-[#ff8a65] bg-[#fff0eb] p-4 text-sm font-bold text-[#852300] dark:border-[#e2ff00]/40 dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
                         Preparando rutina e historial...
-                      </div>
-                    ) : null}
-                    {pendingSameDayTraining ? (
-                      <div className="space-y-3 border-2 border-[#d9a927] bg-[#fff7d8] p-4 dark:border-[#e2ff00]/50 dark:bg-[#1b1b1b]">
-                        <div>
-                          <p className="text-sm font-black text-[#24271f] dark:text-white">
-                            Ya registraste esta rutina hoy
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-[#6e6751] dark:text-[#a8a8a8]">
-                            Continúa donde quedaste o reinicia los datos de hoy.
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-11 rounded-none dark:border-[#5a5a5a] dark:bg-[#252525] dark:text-white"
-                            onClick={() => handleSameDayTrainingChoice(false)}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                            Reiniciar
-                          </Button>
-                          <Button
-                            type="button"
-                            className="h-11 rounded-none dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
-                            onClick={() => handleSameDayTrainingChoice(true)}
-                          >
-                            <Play className="h-4 w-4" />
-                            Continuar
-                          </Button>
-                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -6300,6 +6256,54 @@ export default function RegisterTraining({
           </div>
         </Modal>
       )}
+
+      {pendingSameDayTraining ? (
+        <Modal
+          title="Rutina ya registrada hoy"
+          subtitle={`${formatLongDate(sessionDate)} · ${pendingSameDayTraining.routine?.name || selectedRoutine?.name || "Entrenamiento"}`}
+          onClose={handleCloseSameDayWarning}
+          footer={
+            <div className="grid w-full gap-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 gap-2 rounded-lg border-[#ff5722]/40 font-black uppercase text-[#c52d00] hover:bg-[#fff0eb] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00] dark:hover:bg-[#e2ff00]/10"
+                onClick={() => handleSameDayTrainingChoice(false)}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reiniciar datos
+              </Button>
+              <Button
+                type="button"
+                className="h-12 gap-2 rounded-lg !bg-[#ff5722] font-black uppercase text-white hover:!bg-[#df3f0d] dark:rounded-[4px] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                onClick={() => handleSameDayTrainingChoice(true)}
+              >
+                <Play className="h-4 w-4" />
+                Continuar sesion
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex gap-3 border-l-2 border-[#ff5722] bg-[#fff5f1] p-4 dark:border-[#e2ff00] dark:bg-[#171900]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-black uppercase">
+                Encontramos una sesion de hoy
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
+                Continuar recupera las series, pesos y tiempo registrados.
+                Reiniciar comienza vacio y reemplazara esta sesion cuando
+                finalices el entrenamiento.
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
+            Cierra esta ventana para volver y elegir otra rutina.
+          </p>
+        </Modal>
+      ) : null}
 
       <AnimatePresence>
         {isFinalizing ? (
