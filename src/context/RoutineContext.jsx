@@ -22,35 +22,46 @@ export function RoutineProvider({ children, ownerId = "" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const requestInFlightRef = useRef(null);
+  const requestVersionRef = useRef(0);
 
   const loadRoutines = useCallback(
     ({ silent = false } = {}) => {
-      if (requestInFlightRef.current) return requestInFlightRef.current;
+      const requestOwnerId = String(ownerId || "");
+      if (requestInFlightRef.current?.ownerId === requestOwnerId) {
+        return requestInFlightRef.current.promise;
+      }
+      const requestVersion = ++requestVersionRef.current;
       if (!silent) setLoading(true);
 
       const operation = api
         .getRoutines({ athleteId: ownerId })
         .then((data) => {
-          const normalized = data.map((routine) => ({
+          const normalized = (Array.isArray(data) ? data : []).map((routine) => ({
             ...routine,
             id: routine._id || routine.id,
           }));
-          setRoutines(normalized);
-          setError(null);
+          if (requestVersion === requestVersionRef.current) {
+            setRoutines(normalized);
+            setError(null);
+          }
           return normalized;
         })
         .catch((requestError) => {
-          setError(requestError.message);
+          if (requestVersion === requestVersionRef.current) {
+            setError(requestError.message);
+          }
           return null;
         })
         .finally(() => {
-          if (requestInFlightRef.current === operation) {
+          if (requestInFlightRef.current?.promise === operation) {
             requestInFlightRef.current = null;
           }
-          if (!silent) setLoading(false);
+          if (!silent && requestVersion === requestVersionRef.current) {
+            setLoading(false);
+          }
         });
 
-      requestInFlightRef.current = operation;
+      requestInFlightRef.current = { ownerId: requestOwnerId, promise: operation };
       return operation;
     },
     [ownerId],

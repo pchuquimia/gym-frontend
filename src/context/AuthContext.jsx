@@ -157,7 +157,7 @@ export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const developmentAdminMode = shouldUseDevAdminLogin();
   const [user, setUser] = useState(readCachedUser);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !readCachedUser());
   const [error, setError] = useState("");
   const userRef = useRef(user);
   const refreshInFlightRef = useRef(null);
@@ -250,7 +250,7 @@ export function AuthProvider({ children }) {
   );
 
   useEffect(() => {
-    refreshUser();
+    refreshUser({ silent: Boolean(userRef.current) });
   }, [refreshUser]);
 
   useEffect(() => {

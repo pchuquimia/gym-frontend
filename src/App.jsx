@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import "./App.css";
 import Dashboard from "./pages/Dashboard";
 import ExerciseLibrary from "./pages/ExerciseLibrary";
@@ -18,6 +18,7 @@ import WeightTracking from "./pages/WeightTracking";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
+import PageErrorBoundary from "./components/system/PageErrorBoundary";
 import { useAuth } from "./context/AuthContext";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
@@ -356,7 +357,10 @@ function App() {
       loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
       loadPhotos={activePage !== "fotos"}
     >
-      <RoutineProvider ownerId={supervisedOwnerId}>
+      <RoutineProvider
+        key={supervisedOwnerId || "self"}
+        ownerId={supervisedOwnerId}
+      >
         <UserProvider>
           <MainLayout
             activePage={activePage}
@@ -371,21 +375,24 @@ function App() {
               handleNavigate("trainer");
             }}
           >
-            <AnimatePresence mode="sync" initial={false}>
-              <motion.div
-                key={activePage}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{
-                  opacity: 0,
-                  y: 6,
-                  transition: { duration: 0.14, ease: [0.4, 0, 1, 1] },
-                }}
-                transition={{
-                  duration: 0.2,
-                  ease: [0.2, 0.8, 0.2, 1],
-                }}
-                className="h-full"
+            <motion.div
+              key={activePage}
+              data-page-view={activePage}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.16,
+                ease: [0.2, 0.8, 0.2, 1],
+              }}
+              className="h-full"
+            >
+              <PageErrorBoundary
+                resetKey={activePage}
+                onGoHome={() =>
+                  handleNavigate(
+                    user?.role === "Entrenador" ? "trainer" : "dashboard",
+                  )
+                }
               >
                 <RoleBasedRoute roles={allowedRoles}>
                   <PageComponent
@@ -395,8 +402,8 @@ function App() {
                     onSelectCoachAthlete={selectCoachAthlete}
                   />
                 </RoleBasedRoute>
-              </motion.div>
-            </AnimatePresence>
+              </PageErrorBoundary>
+            </motion.div>
           </MainLayout>
         </UserProvider>
       </RoutineProvider>

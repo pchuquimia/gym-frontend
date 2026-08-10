@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   ChevronRight,
   Clock3,
   Dumbbell,
   Layers3,
   ListChecks,
   TrendingUp,
+  X,
 } from "lucide-react";
 import {
   compareExercise,
@@ -55,7 +59,7 @@ const titleCase = (value = "") =>
     .join(" ");
 
 const flattenSets = (sets = []) =>
-  (sets || []).flatMap((set) => {
+  (Array.isArray(sets) ? sets : []).flatMap((set) => {
     const source = Array.isArray(set?.entries) && set.entries.length
       ? set.entries
       : [set];
@@ -66,6 +70,69 @@ const flattenSets = (sets = []) =>
       }))
       .filter((entry) => entry.weightKg > 0 && entry.reps > 0);
   });
+
+const safeArray = (value) => (Array.isArray(value) ? value : []);
+
+function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] sm:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-session-picker-title">
+      <button type="button" aria-label="Cerrar selector de sesiones" onClick={onClose} className="absolute inset-0 bg-black/55" />
+      <section className="absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--card)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
+        <header className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+          <div>
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Historial</p>
+            <h2 id="mobile-session-picker-title" className="mt-0.5 text-lg font-black uppercase">Selecciona una sesion</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="grid h-10 w-10 shrink-0 place-items-center border border-[color:var(--border)]">
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+          {sessions.map((session) => {
+            const id = String(session.id || session._id || "");
+            const isSelected = id === String(currentId || "");
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => onSelect(id)}
+                className={`flex min-h-14 w-full items-center gap-3 border-b border-[color:var(--border)] px-3 py-2 text-left ${isSelected ? "bg-[#fff0eb] dark:bg-[#e2ff00]/10" : ""}`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">{String(session.date || "").slice(0, 10) || "Sin fecha"}</span>
+                  <span className="mt-0.5 block truncate text-sm font-black uppercase">{session.routineName || "Entrenamiento"}</span>
+                </span>
+                {isSelected ? <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" /> : <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+MobileSessionPicker.propTypes = {
+  currentId: PropTypes.string,
+  onClose: PropTypes.func.isRequired,
+  onSelect: PropTypes.func.isRequired,
+  sessions: PropTypes.arrayOf(PropTypes.object).isRequired,
+};
 
 function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
   return (
@@ -100,6 +167,7 @@ export default function SessionSummaryPage({
   const { trainings: ctxTrainings = [], exercises: exerciseMeta = [] } =
     useTrainingData();
   const { routines = [] } = useRoutines();
+  const [isSessionPickerOpen, setIsSessionPickerOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(() =>
     typeof localStorage === "undefined"
       ? ""
@@ -114,7 +182,7 @@ export default function SessionSummaryPage({
 
   const normalizedContextSessions = useMemo(
     () =>
-      ctxTrainings
+      safeArray(ctxTrainings)
         .map((training) => ({
           id: String(training.id || training._id || `${training.date}-${training.routineId || ""}`),
           date: training.date,
@@ -124,7 +192,7 @@ export default function SessionSummaryPage({
             routineBranches.get(String(training.routineId || "")) ||
             "general",
           durationSeconds: Number(training.durationSeconds) || 0,
-          exercises: (training.exercises || []).map((exercise) => ({
+          exercises: safeArray(training.exercises).map((exercise) => ({
             exerciseId: exercise.exerciseId,
             exerciseName: exercise.exerciseName || "Ejercicio",
             muscleGroup:
@@ -138,7 +206,9 @@ export default function SessionSummaryPage({
     [ctxTrainings, exerciseMeta, routineBranches],
   );
 
-  const baseSessions = propSessions.length ? propSessions : normalizedContextSessions;
+  const baseSessions = safeArray(propSessions).length
+    ? safeArray(propSessions)
+    : normalizedContextSessions;
   const sortedSessions = useMemo(
     () => [...baseSessions].sort((left, right) => String(right.date).localeCompare(String(left.date))),
     [baseSessions],
@@ -161,6 +231,11 @@ export default function SessionSummaryPage({
     if (!currentRaw?.id || typeof localStorage === "undefined") return;
     localStorage.setItem("last_training_id", String(currentRaw.id));
   }, [currentRaw?.id]);
+
+  const selectSession = (id) => {
+    setSelectedId(String(id || ""));
+    setIsSessionPickerOpen(false);
+  };
 
   const totals = useMemo(() => {
     const exercises = currentSummary.exercises || [];
@@ -261,8 +336,29 @@ export default function SessionSummaryPage({
       {sortedSessions.length ? (
         <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] sm:items-end dark:rounded-[4px] dark:shadow-none">
           <div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">{formatDateLong(currentRaw?.date)}</p><h2 className="mt-1 truncate text-xl font-black uppercase">{currentRaw?.routineName || "Entrenamiento"}</h2><p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">{titleCase(currentRaw?.routineBranch || "general")} · {totals.exercises} ejercicios</p></div>
-          <label><span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span><select value={currentRaw?.id || ""} onChange={(event) => setSelectedId(event.target.value)} className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none">{sortedSessions.map((session) => <option key={session.id} value={session.id}>{String(session.date).slice(0, 10)} · {session.routineName}</option>)}</select></label>
+          <label className="hidden sm:block"><span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span><select value={currentRaw?.id || ""} onChange={(event) => selectSession(event.target.value)} className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none">{sortedSessions.map((session) => <option key={session.id} value={session.id}>{String(session.date).slice(0, 10)} · {session.routineName}</option>)}</select></label>
+          <div className="sm:hidden">
+            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span>
+            <button
+              type="button"
+              onClick={() => setIsSessionPickerOpen(true)}
+              aria-haspopup="dialog"
+              className="flex h-11 w-full items-center justify-between gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-left text-sm font-bold"
+            >
+              <span className="truncate">{String(currentRaw?.date || "").slice(0, 10)} · {currentRaw?.routineName || "Entrenamiento"}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+            </button>
+          </div>
         </section>
+      ) : null}
+
+      {isSessionPickerOpen ? (
+        <MobileSessionPicker
+          currentId={String(currentRaw?.id || "")}
+          sessions={sortedSessions}
+          onClose={() => setIsSessionPickerOpen(false)}
+          onSelect={selectSession}
+        />
       ) : null}
 
       <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">

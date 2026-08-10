@@ -10,6 +10,7 @@ async function request(path, options = {}) {
     method,
     data: body ? JSON.parse(body) : undefined,
     headers,
+    timeout: config.timeout ?? (method === "GET" ? 20_000 : 45_000),
     ...config,
   });
   return response.data;

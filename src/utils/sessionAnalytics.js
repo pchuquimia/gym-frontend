@@ -87,8 +87,10 @@ export const formatMuscleGroup = (value = '') => {
     .join(' ')
 }
 
+const asArray = (value) => (Array.isArray(value) ? value : [])
+
 const expandSets = (sets = []) =>
-  sets.flatMap((set) => {
+  asArray(sets).flatMap((set) => {
     const entries = Array.isArray(set?.entries) && set.entries.length ? set.entries : null
     if (!entries) {
       return [
@@ -116,7 +118,7 @@ const selectTopSet = (sets = []) =>
   })[0]
 
 export const summarizeSession = (session) => {
-  const exercises = (session?.exercises || []).map((ex) => {
+  const exercises = asArray(session?.exercises).map((ex) => {
     const validSets = cleanSets(ex.sets || [])
     if (!validSets.length) return null
     const topSet = selectTopSet(validSets)

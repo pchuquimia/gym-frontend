@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+} from "react";
 import { ArrowRight, Timer } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
@@ -34,6 +40,26 @@ function MainLayout({
     activePage === "data_intelligence" ||
     activePage === "pesajes";
   const useTrainingChrome = activePage === "registrar";
+
+  useLayoutEffect(() => {
+    let secondFrame = 0;
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetScroll();
+    const firstFrame = window.requestAnimationFrame(() => {
+      resetScroll();
+      secondFrame = window.requestAnimationFrame(resetScroll);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [activePage]);
 
   const formatDuration = (sec) => {
     const total = Math.max(0, Math.floor(sec || 0));
