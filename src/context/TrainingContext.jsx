@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { API_URL } from "../services/axiosConfig";
+import { useAuth } from "./AuthContext";
 import {
   getExerciseBodyRegion,
   getExerciseCategories,
@@ -115,15 +116,26 @@ export function TrainingProvider({
   loadPhotos = true,
 }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const requesterId = String(user?.id || user?._id || "anonymous");
+  const dataScopeId = String(ownerId || requesterId);
   const trainingsKey = useMemo(
-    () => ["trainings", 120, ownerId || "self"],
-    [ownerId],
+    () => ["trainings", 120, dataScopeId],
+    [dataScopeId],
   );
   const exercisesKey = useMemo(
-    () => [...EXERCISES_KEY, ownerId || "self"],
-    [ownerId],
+    () => [...EXERCISES_KEY, dataScopeId],
+    [dataScopeId],
   );
-  const photosKey = useMemo(() => ["photos", ownerId || "self"], [ownerId]);
+  const photosKey = useMemo(() => ["photos", dataScopeId], [dataScopeId]);
+  const sessionsKey = useMemo(
+    () => [...SESSIONS_KEY, requesterId],
+    [requesterId],
+  );
+  const prefsKey = useMemo(
+    () => [...PREFS_KEY, requesterId],
+    [requesterId],
+  );
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
   const [locationMode, setLocationMode] = useState("single");
   const [allowedBranches, setAllowedBranches] = useState([DEFAULT_BRANCH]);
@@ -167,7 +179,7 @@ export function TrainingProvider({
   });
 
   const sessionsQuery = useQuery({
-    queryKey: SESSIONS_KEY,
+    queryKey: sessionsKey,
     queryFn: async () => {
       const list = await api.getSessions();
       return (list || []).map(normalizeSession);
@@ -200,10 +212,12 @@ export function TrainingProvider({
       return list.map(normalizeTraining);
     },
     staleTime: 60 * 1000,
+    retry: (failureCount, requestError) =>
+      requestError?.status !== 401 && failureCount < 2,
   });
 
   const prefsQuery = useQuery({
-    queryKey: PREFS_KEY,
+    queryKey: prefsKey,
     queryFn: async () => api.getPreference(),
     staleTime: 5 * 60 * 1000,
   });
@@ -279,7 +293,7 @@ export function TrainingProvider({
     };
     const saved = await api.createSession(payload);
     const normalized = normalizeSession(saved);
-    queryClient.setQueryData(SESSIONS_KEY, (prev = []) => [
+    queryClient.setQueryData(sessionsKey, (prev = []) => [
       normalized,
       ...prev,
     ]);
@@ -382,7 +396,7 @@ export function TrainingProvider({
   const updatePreferences = useMutation({
     mutationFn: (payload) => api.setPreference(payload),
     onSuccess: (saved) => {
-      queryClient.setQueryData(PREFS_KEY, saved);
+      queryClient.setQueryData(prefsKey, saved);
       if (saved?.branch) {
         const nextBranch = normalizeBranch(saved.branch);
         const nextMode = normalizeLocationMode(saved.locationMode);
@@ -425,7 +439,7 @@ export function TrainingProvider({
       branch,
     });
     setGoals(saved?.goals || nextGoals);
-    queryClient.invalidateQueries({ queryKey: PREFS_KEY });
+    queryClient.invalidateQueries({ queryKey: prefsKey });
     queryClient.invalidateQueries({
       predicate: (q) =>
         Array.isArray(q.queryKey) && q.queryKey[0] === "dashboardSummary",
@@ -492,7 +506,7 @@ export function TrainingProvider({
 
   const setGoalsState = (nextGoals) => {
     setGoals(nextGoals);
-    queryClient.setQueryData(PREFS_KEY, (prev = {}) => ({
+    queryClient.setQueryData(prefsKey, (prev = {}) => ({
       ...prev,
       goals: nextGoals,
     }));
@@ -521,6 +535,10 @@ export function TrainingProvider({
     exercises,
     photos,
     trainings,
+    trainingsLoading: trainingsQuery.isLoading,
+    trainingsFetching: trainingsQuery.isFetching,
+    trainingsError: trainingsQuery.error?.message || null,
+    reloadTrainings: trainingsQuery.refetch,
     loading,
     error,
     branch,

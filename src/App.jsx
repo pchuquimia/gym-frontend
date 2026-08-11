@@ -321,6 +321,8 @@ function App() {
     ].includes(activePage)
       ? coachAthlete?.id || ""
       : "";
+  const authenticatedUserId = String(user?.id || user?._id || "anonymous");
+  const providerScopeKey = `${authenticatedUserId}:${supervisedOwnerId || "self"}`;
 
   if (loading) {
     return (
@@ -355,12 +357,13 @@ function App() {
 
   return (
     <TrainingProvider
+      key={providerScopeKey}
       ownerId={supervisedOwnerId}
       loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
       loadPhotos={activePage !== "fotos"}
     >
       <RoutineProvider
-        key={supervisedOwnerId || "self"}
+        key={providerScopeKey}
         ownerId={supervisedOwnerId}
       >
         <UserProvider>

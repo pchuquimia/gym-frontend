@@ -278,12 +278,13 @@ export function AuthProvider({ children }) {
       setDevAutoLoginDisabled(false);
       const data = await api.login(payload);
       if (data?.token) setAuthToken(data.token);
+      queryClient.clear();
       const nextUser = normalizeUser(data);
       restoreActiveTraining(nextUser?.id || nextUser?._id);
       commitUser(nextUser);
       return nextUser;
     },
-    [commitUser],
+    [commitUser, queryClient],
   );
 
   const loginDemo = useCallback(
@@ -308,12 +309,13 @@ export function AuthProvider({ children }) {
       const data = await api.register(payload);
       if (data?.verificationRequired) return data;
       if (data?.token) setAuthToken(data.token);
+      queryClient.clear();
       const nextUser = normalizeUser(data);
       restoreActiveTraining(nextUser?.id || nextUser?._id);
       commitUser(nextUser);
       return nextUser;
     },
-    [commitUser],
+    [commitUser, queryClient],
   );
 
   const verifyEmail = useCallback(
@@ -321,12 +323,13 @@ export function AuthProvider({ children }) {
       setError("");
       const data = await api.verifyEmail({ token });
       if (data?.token) setAuthToken(data.token);
+      queryClient.clear();
       const nextUser = normalizeUser(data);
       restoreActiveTraining(nextUser?.id || nextUser?._id);
       commitUser(nextUser);
       return nextUser;
     },
-    [commitUser],
+    [commitUser, queryClient],
   );
 
   const updateAccount = useCallback(

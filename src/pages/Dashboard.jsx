@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
+  AlertTriangle,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
   Play,
   Weight,
   TrendingUp,
+  RotateCcw,
   X,
   Zap,
 } from "lucide-react";
@@ -21,6 +23,7 @@ import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
+import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import {
   buildScopedPeriodComparison,
@@ -1014,8 +1017,13 @@ function MonthDetailView({ detail, onBack }) {
 
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const queryClient = useQueryClient();
-  const { trainings = [], exercises: catalogExercises = [] } =
-    useTrainingData();
+  const {
+    trainings = [],
+    exercises: catalogExercises = [],
+    trainingsLoading,
+    trainingsError,
+    reloadTrainings,
+  } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
   const [activePlan, setActivePlan] = useState(null);
@@ -1944,6 +1952,48 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
+
+  if (trainingsLoading) {
+    return (
+      <OperationLoader
+        active
+        delayMs={0}
+        mode="inline"
+        title="Cargando tu actividad"
+        description="Sincronizando entrenamientos y metricas del dashboard."
+      />
+    );
+  }
+
+  if (trainingsError && !hasTrainingHistory) {
+    return (
+      <section
+        role="alert"
+        className="mx-auto grid min-h-[55dvh] w-full max-w-md place-items-center px-3 py-10 text-center"
+      >
+        <div className="w-full border border-[color:var(--border)] bg-[color:var(--card)] p-6 shadow-sm dark:shadow-none">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#fff0eb] text-[#ff5722] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+            <AlertTriangle className="h-6 w-6" />
+          </span>
+          <h1 className="mt-4 text-xl font-black uppercase">
+            No pudimos cargar tu actividad
+          </h1>
+          <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+            Tu historial sigue guardado. Reintenta la sincronizacion con el
+            servidor.
+          </p>
+          <button
+            type="button"
+            onClick={() => reloadTrainings()}
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#ff5722] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reintentar
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <motion.div

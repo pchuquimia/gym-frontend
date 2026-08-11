@@ -311,7 +311,7 @@ export const api = {
       athleteId: params.athleteId ?? "",
       meta: params.meta ?? false,
     }).toString();
-    return request(`/api/trainings?${query}`);
+    return request(`/api/trainings?${query}`, { timeout: 45_000 });
   },
   getTraining: (id) => request(`/api/trainings/${id}`),
   updateTraining: (id, payload) =>
