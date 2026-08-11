@@ -476,7 +476,7 @@ const buildExerciseDisplayGroups = (items = [], orderMode = "free") => {
 
   return items.reduce((groups, exercise) => {
     const muscle = exercise.muscle || "Sin grupo";
-    const current = groups.at(-1);
+    const current = groups[groups.length - 1];
     if (current?.muscle === muscle) {
       current.items.push(exercise);
       return groups;

@@ -38,7 +38,7 @@ const normalizeInstructionSteps = (value) =>
   toArray(value).reduce((steps, rawStep) => {
     const step = rawStep.trim();
     if (!step) return steps;
-    const previous = steps.at(-1);
+    const previous = steps[steps.length - 1];
     const continuesPrevious =
       previous && (!/[.!?]$/.test(previous) || /^[a-záéíóúüñ]/.test(step));
     if (continuesPrevious) {

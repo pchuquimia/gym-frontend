@@ -1522,7 +1522,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           10,
           Math.min(98, Math.round(100 - fatigue * 48)),
         );
-        const lastRecord = records.at(-1) || null;
+        const lastRecord = records[records.length - 1] || null;
         const days = lastRecord
           ? Math.max(
               0,
