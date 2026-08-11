@@ -136,7 +136,13 @@ const preserveActiveTraining = (userId) => {
 
 const shouldUseDevAdminLogin = () => {
   if (!import.meta.env.DEV || typeof window === "undefined") return false;
-  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const host = window.location.hostname;
+  return (
+    ["localhost", "127.0.0.1"].includes(host) ||
+    /^192\.168\./.test(host) ||
+    /^10\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  );
 };
 
 const isDevAutoLoginDisabled = () => {

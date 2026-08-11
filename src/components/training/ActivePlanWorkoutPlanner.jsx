@@ -255,7 +255,7 @@ export default function ActivePlanWorkoutPlanner({
             ? day.type === "rest"
               ? "Descanso completo"
               : "Recuperacion activa"
-            : day.focus || routine?.name || "Entrenamiento";
+            : routine?.name || day.focus || "Entrenamiento";
 
           return (
             <article
