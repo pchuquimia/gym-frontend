@@ -162,36 +162,77 @@ const normalizeTimeEvents = (events = []) =>
     }))
     .sort((a, b) => getEventTime(a) - getEventTime(b));
 
+const hasOpenRestInterval = (events = []) => {
+  let open = false;
+  normalizeTimeEvents(events).forEach((event) => {
+    if (event.type === "rest_start") open = true;
+    if (
+      event.type === "rest_end" ||
+      event.type === "session_pause" ||
+      event.type === "session_end"
+    ) {
+      open = false;
+    }
+  });
+  return open;
+};
+
 const calculateTimingSummary = (events = [], nowMs = Date.now()) => {
   let running = false;
+  let resting = false;
   let activeExerciseId = null;
   let lastAt = null;
+  let pauseStartedAt = null;
   let durationSeconds = 0;
+  let restSeconds = 0;
+  let pauseSeconds = 0;
   const exerciseDurations = new Map();
+  const exerciseRestDurations = new Map();
+  const normalizedEvents = normalizeTimeEvents(events);
+  const hasRestEvents = normalizedEvents.some((event) =>
+    ["rest_start", "rest_end"].includes(event.type),
+  );
 
   const accrue = (nextAt) => {
     if (!running || lastAt == null || nextAt <= lastAt) return;
     const delta = Math.floor((nextAt - lastAt) / 1000);
     if (delta <= 0) return;
     durationSeconds += delta;
+    if (resting) restSeconds += delta;
     if (activeExerciseId) {
       exerciseDurations.set(
         activeExerciseId,
         (exerciseDurations.get(activeExerciseId) || 0) + delta,
       );
+      if (resting) {
+        exerciseRestDurations.set(
+          activeExerciseId,
+          (exerciseRestDurations.get(activeExerciseId) || 0) + delta,
+        );
+      }
     }
   };
 
-  normalizeTimeEvents(events).forEach((event) => {
+  normalizedEvents.forEach((event) => {
     const at = getEventTime(event);
     accrue(at);
     if (event.type === "session_start" || event.type === "session_resume") {
+      if (pauseStartedAt != null && at > pauseStartedAt) {
+        pauseSeconds += Math.floor((at - pauseStartedAt) / 1000);
+      }
       running = true;
+      resting = false;
+      pauseStartedAt = null;
       lastAt = at;
       return;
     }
     if (event.type === "session_pause" || event.type === "session_end") {
+      if (pauseStartedAt != null && at > pauseStartedAt) {
+        pauseSeconds += Math.floor((at - pauseStartedAt) / 1000);
+      }
       running = false;
+      resting = false;
+      pauseStartedAt = event.type === "session_pause" ? at : null;
       lastAt = at;
       return;
     }
@@ -199,20 +240,47 @@ const calculateTimingSummary = (events = [], nowMs = Date.now()) => {
       if (!running) running = true;
       activeExerciseId = event.exerciseId || null;
       lastAt = at;
+      return;
+    }
+    if (event.type === "rest_start" && running) {
+      resting = true;
+      lastAt = at;
+      return;
+    }
+    if (event.type === "rest_end") {
+      resting = false;
+      lastAt = at;
     }
   });
 
-  accrue(nowMs);
+  if (running) accrue(nowMs);
+  else if (pauseStartedAt != null && nowMs > pauseStartedAt) {
+    pauseSeconds += Math.floor((nowMs - pauseStartedAt) / 1000);
+  }
 
   return {
     durationSeconds,
+    workSeconds: hasRestEvents
+      ? Math.max(0, durationSeconds - restSeconds)
+      : null,
+    restSeconds: hasRestEvents ? restSeconds : null,
+    pauseSeconds,
+    hasRestEvents,
     activeExerciseId: running ? activeExerciseId : "",
     exerciseDurations,
     exerciseDurationsPayload: Array.from(exerciseDurations.entries()).map(
-      ([exerciseId, seconds]) => ({
-        exerciseId,
-        durationSeconds: seconds,
-      }),
+      ([exerciseId, seconds]) => {
+        const exerciseRestSeconds =
+          exerciseRestDurations.get(exerciseId) || 0;
+        return {
+          exerciseId,
+          durationSeconds: seconds,
+          workSeconds: hasRestEvents
+            ? Math.max(0, seconds - exerciseRestSeconds)
+            : null,
+          restSeconds: hasRestEvents ? exerciseRestSeconds : null,
+        };
+      },
     ),
   };
 };
@@ -1299,6 +1367,7 @@ export default function RegisterTraining({
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
   const restTimerRef = useRef(null);
+  const restEventOpenRef = useRef(false);
   const [restTimerOpen, setRestTimerOpen] = useState(false);
   const [restTimerMinimized, setRestTimerMinimized] = useState(true);
   const [restMinutesInput, setRestMinutesInput] = useState(2);
@@ -2414,8 +2483,15 @@ export default function RegisterTraining({
       });
       return applyExerciseOrder(executionOrder);
     });
+    const wasResting = restEventOpenRef.current;
+    restEventOpenRef.current = false;
+    if (wasResting) {
+      setRestTimerRunning(false);
+      setRestDeadlineMs(null);
+    }
     setTimeEvents((prev) => [
       ...prev,
+      ...(wasResting ? [createTimeEvent("rest_end", null, now)] : []),
       ...(!isRunning
         ? [
             createTimeEvent(
@@ -2914,6 +2990,32 @@ export default function RegisterTraining({
                 ? []
                 : [createTimeEvent("session_pause", null, now)]),
             ];
+      const restoredRestDuration = Math.max(
+        1,
+        Number(snap.restDurationSeconds) || 120,
+      );
+      const restoredRestDeadline = Number(snap.restDeadlineMs) || null;
+      const shouldResumeRest = Boolean(
+        snap.restTimerRunning &&
+          snap.isRunning &&
+          restoredRestDeadline &&
+          restoredRestDeadline > now,
+      );
+      const restWasOpen = hasOpenRestInterval(fallbackEvents);
+      const restoredTimeEvents =
+        restWasOpen && !shouldResumeRest
+          ? normalizeTimeEvents([
+              ...fallbackEvents,
+              createTimeEvent(
+                "rest_end",
+                null,
+                restoredRestDeadline && restoredRestDeadline <= now
+                  ? restoredRestDeadline
+                  : now,
+              ),
+            ])
+          : fallbackEvents;
+      restEventOpenRef.current = shouldResumeRest && restWasOpen;
       setSelectedBranch(
         normalizeBranch(snap.selectedBranch || routine.location),
       );
@@ -2931,7 +3033,7 @@ export default function RegisterTraining({
       lastUpdateRef.current = now;
       setNowMs(now);
       setDurationSeconds(totalSeconds);
-      setTimeEvents(fallbackEvents);
+      setTimeEvents(restoredTimeEvents);
       setIsRunning(Boolean(snap.isRunning));
       setActiveExerciseId(snap.activeExerciseId || "");
       setHasStarted(
@@ -2940,6 +3042,19 @@ export default function RegisterTraining({
       if (snap.hasStarted || snap.isRunning || totalSeconds > 0) {
         setSetupStarted(true);
       }
+      setRestDurationSeconds(restoredRestDuration);
+      setRestMinutesInput(Math.max(1, restoredRestDuration / 60));
+      setRestTimerStarted(Boolean(snap.restTimerStarted));
+      setRestTimerRunning(shouldResumeRest);
+      setRestDeadlineMs(shouldResumeRest ? restoredRestDeadline : null);
+      setRestRemainingSeconds(
+        shouldResumeRest
+          ? Math.max(1, Math.ceil((restoredRestDeadline - now) / 1000))
+          : Math.max(
+              0,
+              Number(snap.restRemainingSeconds) || restoredRestDuration,
+            ),
+      );
       if (Array.isArray(snap.exercises)) {
         const restoredExercises = snap.exercises.map((ex) => {
           const seriesType = normalizeSeriesType(ex.seriesType);
@@ -3112,6 +3227,11 @@ export default function RegisterTraining({
         activeExerciseId,
         lastUpdate: now,
         timeEvents,
+        restTimerRunning,
+        restTimerStarted,
+        restDurationSeconds,
+        restRemainingSeconds,
+        restDeadlineMs,
         exercises,
         removedExerciseIds: Array.from(removedExerciseIdsRef.current),
       };
@@ -3132,6 +3252,11 @@ export default function RegisterTraining({
     hasStarted,
     activeExerciseId,
     timeEvents,
+    restTimerRunning,
+    restTimerStarted,
+    restDurationSeconds,
+    restRemainingSeconds,
+    restDeadlineMs,
     exercises,
     dataOwnerId,
     coachAthlete?.name,
@@ -3275,6 +3400,13 @@ export default function RegisterTraining({
       if (remaining <= 0) {
         clearInterval(restTimerRef.current);
         setRestTimerRunning(false);
+        if (restEventOpenRef.current) {
+          restEventOpenRef.current = false;
+          setTimeEvents((prev) => [
+            ...prev,
+            createTimeEvent("rest_end", null, restDeadlineMs),
+          ]);
+        }
         notifyRestCompleteRef.current?.();
       }
     };
@@ -3294,6 +3426,13 @@ export default function RegisterTraining({
       setRestRemainingSeconds(remaining);
       if (remaining <= 0) {
         setRestTimerRunning(false);
+        if (restEventOpenRef.current) {
+          restEventOpenRef.current = false;
+          setTimeEvents((prev) => [
+            ...prev,
+            createTimeEvent("rest_end", null, restDeadlineMs),
+          ]);
+        }
         notifyRestCompleteRef.current?.();
       }
     };
@@ -3318,7 +3457,18 @@ export default function RegisterTraining({
     setRestMinutesInput(parsedMinutes);
     setRestDurationSeconds(seconds);
     setRestRemainingSeconds(seconds);
-    setRestDeadlineMs(Date.now() + seconds * 1000);
+    const now = Date.now();
+    const nextDeadline = now + seconds * 1000;
+    const wasResting = restEventOpenRef.current;
+    restEventOpenRef.current = isRunning;
+    if (wasResting || isRunning) {
+      setTimeEvents((prev) => [
+        ...prev,
+        ...(wasResting ? [createTimeEvent("rest_end", null, now)] : []),
+        ...(isRunning ? [createTimeEvent("rest_start", null, now)] : []),
+      ]);
+    }
+    setRestDeadlineMs(nextDeadline);
     setRestTimerStarted(true);
     setRestTimerRunning(true);
     setRestTimerOpen(true);
@@ -3335,16 +3485,40 @@ export default function RegisterTraining({
       return;
     }
     if (restTimerRunning) {
+      const now = Date.now();
+      if (restEventOpenRef.current) {
+        restEventOpenRef.current = false;
+        setTimeEvents((prev) => [
+          ...prev,
+          createTimeEvent("rest_end", null, now),
+        ]);
+      }
       setRestTimerRunning(false);
       setRestDeadlineMs(null);
       return;
     }
     ensureRestAudioContext();
-    setRestDeadlineMs(Date.now() + restRemainingSeconds * 1000);
+    const now = Date.now();
+    if (isRunning && !restEventOpenRef.current) {
+      restEventOpenRef.current = true;
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("rest_start", null, now),
+      ]);
+    }
+    setRestDeadlineMs(now + restRemainingSeconds * 1000);
     setRestTimerRunning(true);
   };
 
   const handleResetRestTimer = () => {
+    const now = Date.now();
+    if (restEventOpenRef.current) {
+      restEventOpenRef.current = false;
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("rest_end", null, now),
+      ]);
+    }
     const seconds = Math.max(1, Number(restMinutesInput) || 1) * 60;
     setRestDurationSeconds(seconds);
     setRestRemainingSeconds(seconds);
@@ -3355,6 +3529,14 @@ export default function RegisterTraining({
   };
 
   const handleCloseRestTimer = () => {
+    const now = Date.now();
+    if (restEventOpenRef.current) {
+      restEventOpenRef.current = false;
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("rest_end", null, now),
+      ]);
+    }
     setRestTimerOpen(false);
     setRestTimerMinimized(true);
     setRestTimerRunning(false);
@@ -3466,11 +3648,16 @@ export default function RegisterTraining({
     lastUpdateRef.current = now;
     setNowMs(now);
     if (isRunning) {
+      const wasResting = restEventOpenRef.current;
+      restEventOpenRef.current = false;
       setTimeEvents((prev) => [
         ...prev,
+        ...(wasResting ? [createTimeEvent("rest_end", null, now)] : []),
         createTimeEvent("session_pause", null, now),
       ]);
     }
+    setRestTimerRunning(false);
+    setRestDeadlineMs(null);
     setIsRunning(false);
   };
 
@@ -3481,6 +3668,10 @@ export default function RegisterTraining({
     setIsRunning(false);
     setDurationSeconds(0);
     setTimeEvents([]);
+    restEventOpenRef.current = false;
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+    setRestDeadlineMs(null);
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setHasStarted(false);
@@ -3496,6 +3687,10 @@ export default function RegisterTraining({
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setTimeEvents([]);
+    restEventOpenRef.current = false;
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+    setRestDeadlineMs(null);
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setNowMs(Date.now());
@@ -4440,8 +4635,13 @@ export default function RegisterTraining({
       const eventTime = getEventTime(event);
       return eventTime != null && eventTime <= effectiveFinishAt;
     });
+    const effectiveRestWasOpen = hasOpenRestInterval(effectiveEvents);
+    restEventOpenRef.current = false;
     const finalTimeEvents = normalizeTimeEvents([
       ...effectiveEvents,
+      ...(effectiveRestWasOpen
+        ? [createTimeEvent("rest_end", null, effectiveFinishAt)]
+        : []),
       ...(timeEvents.length
         ? [createTimeEvent("session_end", null, effectiveFinishAt)]
         : []),
@@ -4451,6 +4651,9 @@ export default function RegisterTraining({
       effectiveFinishAt,
     );
     setIsRunning(false);
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+    setRestDeadlineMs(null);
     setTimeEvents(finalTimeEvents);
     setNowMs(effectiveFinishAt);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -4483,6 +4686,9 @@ export default function RegisterTraining({
           ? null
           : normalizeBranch(effectiveBranch || selectedRoutine?.location),
         durationSeconds: finalTimingSummary.durationSeconds || durationSeconds,
+        workSeconds: finalTimingSummary.workSeconds,
+        restSeconds: finalTimingSummary.restSeconds,
+        pauseSeconds: finalTimingSummary.pauseSeconds,
         timeEvents: finalTimeEvents,
         exerciseDurations: finalTimingSummary.exerciseDurationsPayload,
         exercises: exercises

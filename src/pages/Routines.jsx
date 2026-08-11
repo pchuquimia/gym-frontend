@@ -1704,13 +1704,14 @@ function RoutineModal({
               {progressSourceOptions.length ? (
                 <div className="mt-5 space-y-2">
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    Pesos anteriores
+                    Historial de progreso
                   </span>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => {
                         setProgressMode("fresh");
+                        setSourceRoutineId("");
                         setError("");
                       }}
                       className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
@@ -1722,10 +1723,10 @@ function RoutineModal({
                       <RotateCcw className="mt-0.5 h-5 w-5 shrink-0" />
                       <span>
                         <span className="block text-sm font-black">
-                          Empezar desde cero
+                          Nuevo ciclo
                         </span>
                         <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                          Nuevas marcas y PR para esta rutina.
+                          Pesos, comparaciones y PR desde cero.
                         </span>
                       </span>
                     </button>
@@ -1750,10 +1751,10 @@ function RoutineModal({
                       <Layers3 className="mt-0.5 h-5 w-5 shrink-0" />
                       <span>
                         <span className="block text-sm font-black">
-                          Continuar marcas
+                          Continuar historial
                         </span>
                         <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                          Usa una rutina anterior compatible.
+                          Conserva pesos, comparaciones y PR anteriores.
                         </span>
                       </span>
                     </button>
@@ -3816,6 +3817,8 @@ function Routines({ onNavigate }) {
     readTrainingRoutineEditTarget,
   );
   const [routineToDelete, setRoutineToDelete] = useState(null);
+  const [routineToDuplicate, setRoutineToDuplicate] = useState(null);
+  const [duplicateProgressMode, setDuplicateProgressMode] = useState("fresh");
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
   const [workspaceView, setWorkspaceView] = useState(() =>
@@ -4630,13 +4633,27 @@ function Routines({ onNavigate }) {
     }
   };
 
-  const handleDuplicateRoutine = async (routine) => {
+  const handleDuplicateRoutine = (routine) => {
     if (!routine || duplicatingRoutineId || isManagedClient) return;
+    setDuplicateProgressMode("fresh");
+    setRoutineToDuplicate(routine);
+  };
+
+  const confirmDuplicateRoutine = async () => {
+    if (!routineToDuplicate || duplicatingRoutineId || isManagedClient) return;
+    const routine = routineToDuplicate;
     const routineId = routine.id || routine._id;
     setDuplicatingRoutineId(routineId);
     try {
-      await duplicateRoutine(routineId);
-      toast.success(`Copia de ${routine.name} creada`);
+      await duplicateRoutine(routineId, {
+        progressMode: duplicateProgressMode,
+      });
+      setRoutineToDuplicate(null);
+      toast.success(
+        duplicateProgressMode === "inherit"
+          ? `Copia de ${routine.name} creada con su historial`
+          : `Copia de ${routine.name} creada como nuevo ciclo`,
+      );
     } catch {
       toast.error("No se pudo duplicar la rutina");
     } finally {
@@ -5610,6 +5627,73 @@ function Routines({ onNavigate }) {
             setEditingPlan(null);
           }}
         />
+      ) : null}
+      {routineToDuplicate && !isManagedClient ? (
+        <Modal
+          title="Duplicar rutina"
+          subtitle={routineToDuplicate.name}
+          onClose={() =>
+            !duplicatingRoutineId && setRoutineToDuplicate(null)
+          }
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setRoutineToDuplicate(null)}
+                disabled={Boolean(duplicatingRoutineId)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={confirmDuplicateRoutine}
+                disabled={Boolean(duplicatingRoutineId)}
+              >
+                {duplicatingRoutineId ? "Duplicando..." : "Crear copia"}
+              </Button>
+            </div>
+          }
+        >
+          <div className="grid gap-2 py-2 sm:grid-cols-2" role="radiogroup">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={duplicateProgressMode === "fresh"}
+              onClick={() => setDuplicateProgressMode("fresh")}
+              className={`min-h-28 border p-4 text-left transition ${
+                duplicateProgressMode === "fresh"
+                  ? "theme-accent-soft"
+                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+              }`}
+            >
+              <RotateCcw className="h-5 w-5" />
+              <span className="mt-3 block text-sm font-black uppercase">
+                Nuevo ciclo
+              </span>
+              <span className="mt-1 block text-xs font-semibold leading-snug text-[color:var(--text-muted)]">
+                Empieza pesos, comparaciones y PR desde cero.
+              </span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={duplicateProgressMode === "inherit"}
+              onClick={() => setDuplicateProgressMode("inherit")}
+              className={`min-h-28 border p-4 text-left transition ${
+                duplicateProgressMode === "inherit"
+                  ? "theme-accent-soft"
+                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+              }`}
+            >
+              <History className="h-5 w-5" />
+              <span className="mt-3 block text-sm font-black uppercase">
+                Continuar historial
+              </span>
+              <span className="mt-1 block text-xs font-semibold leading-snug text-[color:var(--text-muted)]">
+                Conserva pesos, comparaciones y PR de la rutina original.
+              </span>
+            </button>
+          </div>
+        </Modal>
       ) : null}
       {!isManagedClient ? (
         <DeleteRoutineSheet

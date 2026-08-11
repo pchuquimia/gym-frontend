@@ -102,10 +102,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  duplicateCoachRoutine: (athleteId, routineId) =>
+  duplicateCoachRoutine: (athleteId, routineId, payload = {}) =>
     request(
       `/api/coach/athletes/${athleteId}/routines/${routineId}/duplicate`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify(payload) },
     ),
   createCoachPlan: (athleteId, payload) =>
     request(`/api/coach/athletes/${athleteId}/plans`, {
@@ -296,7 +296,7 @@ export const api = {
       limit: params.limit ?? 120,
       fields:
         params.fields ??
-        "date,routineId,routineName,progressScopeId,orderSignature,branch,durationSeconds,timeEvents,exerciseDurations,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
+        "date,createdAt,routineId,routineName,progressScopeId,orderSignature,branch,durationSeconds,durationOverrideSeconds,workSeconds,restSeconds,pauseSeconds,timeEvents,exerciseDurations.exerciseId,exerciseDurations.durationSeconds,exerciseDurations.durationOverrideSeconds,exerciseDurations.workSeconds,exerciseDurations.restSeconds,totalVolume,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
       from: params.from ?? "",
       to: params.to ?? "",
       routineId: params.routineId ?? "",

@@ -23,6 +23,11 @@ import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
+import {
+  buildScopedPeriodComparison,
+  getScopedExerciseKey,
+  getTrainingProgressScopeKey,
+} from "../utils/progressScope";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -173,6 +178,13 @@ function calculateDurationUntil(events = [], endTimestamp) {
 }
 
 function getEffectiveDurationSeconds(training = {}) {
+  if (
+    training.durationOverrideSeconds !== null &&
+    training.durationOverrideSeconds !== undefined &&
+    Number.isFinite(Number(training.durationOverrideSeconds))
+  ) {
+    return Math.max(0, Number(training.durationOverrideSeconds));
+  }
   const stored = Math.max(0, Number(training.durationSeconds || 0));
   const lastCompletedAt = getLastCompletedEntryTimestamp(training);
   if (
@@ -188,6 +200,69 @@ function getEffectiveDurationSeconds(training = {}) {
   );
   if (effective <= 0) return stored;
   return stored > 0 ? Math.min(stored, effective) : effective;
+}
+
+function getPauseSeconds(training = {}) {
+  if (
+    training.pauseSeconds !== null &&
+    training.pauseSeconds !== undefined &&
+    Number.isFinite(Number(training.pauseSeconds))
+  ) {
+    return Math.max(0, Number(training.pauseSeconds));
+  }
+
+  let pauseStartedAt = null;
+  let pauseSeconds = 0;
+  const events = (Array.isArray(training.timeEvents)
+    ? training.timeEvents
+    : []
+  )
+    .map((event) => ({ ...event, timestamp: parseEventTime(event.at) }))
+    .filter((event) => Number.isFinite(event.timestamp))
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  events.forEach((event) => {
+    if (event.type === "session_pause") {
+      pauseStartedAt = event.timestamp;
+      return;
+    }
+    if (
+      pauseStartedAt !== null &&
+      (event.type === "session_resume" || event.type === "session_end")
+    ) {
+      pauseSeconds += Math.max(
+        0,
+        Math.floor((event.timestamp - pauseStartedAt) / 1000),
+      );
+      pauseStartedAt = null;
+    }
+  });
+
+  return pauseSeconds;
+}
+
+function getTimingBreakdown(training = {}) {
+  const sessionSeconds = getEffectiveDurationSeconds(training);
+  const hasRestTracking =
+    training.restSeconds !== null &&
+    training.restSeconds !== undefined &&
+    Number.isFinite(Number(training.restSeconds));
+  const restSeconds = hasRestTracking
+    ? Math.min(sessionSeconds, Math.max(0, Number(training.restSeconds)))
+    : null;
+
+  return {
+    sessionSeconds,
+    workSeconds: hasRestTracking
+      ? Math.max(0, sessionSeconds - restSeconds)
+      : null,
+    restSeconds,
+    pauseSeconds: getPauseSeconds(training),
+    hasRestTracking,
+    adjusted:
+      training.durationOverrideSeconds !== null &&
+      training.durationOverrideSeconds !== undefined,
+  };
 }
 
 function getSetVolumeValue(set = {}) {
@@ -316,6 +391,70 @@ function formatSignedCount(value, sign) {
   return count ? `${sign}${count}` : "0";
 }
 
+function getWeeklyComparisonSummary(comparison, formatValue, unit) {
+  const current = Number(comparison?.currentTotal || 0);
+  const comparableCurrent = Number(comparison?.currentComparable || 0);
+  const previous = Number(comparison?.previousComparable || 0);
+  const excluded = Number(comparison?.excludedCurrent || 0);
+  const hasCurrentScopes = Number(comparison?.currentScopeCount || 0) > 0;
+  const hasReference =
+    Number(comparison?.comparableScopeCount || 0) > 0 && previous > 0;
+  const isPartial = hasReference && Number(comparison?.newScopeCount || 0) > 0;
+  const change = hasReference ? (comparableCurrent - previous) / previous : 0;
+
+  if (!hasCurrentScopes) {
+    return {
+      current,
+      comparableCurrent,
+      previous,
+      excluded,
+      change: 0,
+      hasReference: false,
+      isPartial: false,
+      changeLabel: "Sin carga esta semana",
+      label: "Sin datos semanales",
+      description: "Registra una sesion para comenzar la comparacion semanal.",
+    };
+  }
+
+  if (!hasReference) {
+    return {
+      current,
+      comparableCurrent,
+      previous,
+      excluded,
+      change: 0,
+      hasReference: false,
+      isPartial: false,
+      changeLabel: "Sin referencia semanal",
+      label: "Nuevo ciclo",
+      description:
+        "Los ciclos entrenados aun no tienen una semana anterior comparable.",
+    };
+  }
+
+  const label =
+    change > 0.2
+      ? "Carga en aumento"
+      : change < -0.2
+        ? "Carga reducida"
+        : "Carga estable";
+  return {
+    current,
+    comparableCurrent,
+    previous,
+    excluded,
+    change,
+    hasReference: true,
+    isPartial,
+    changeLabel: `${formatPercentChange(comparableCurrent, previous)} vs anterior`,
+    label,
+    description: isPartial
+      ? `${formatValue(excluded)} ${unit} pertenecen a ciclos nuevos y no alteran el porcentaje.`
+      : "Comparacion realizada con los mismos ciclos de progreso.",
+  };
+}
+
 function getExerciseKey(exercise = {}) {
   return (
     exercise.exerciseId ||
@@ -363,9 +502,12 @@ function formatCompact(value = 0) {
   return Math.round(number).toString();
 }
 
-function extractExercisePerformances(training) {
-  return (training.exercises || []).flatMap((exercise) => {
-    const key = getExerciseKey(exercise);
+function extractBestExercisePerformances(training) {
+  const bestByExercise = new Map();
+
+  (training.exercises || []).forEach((exercise) => {
+    const exerciseKey = getExerciseKey(exercise);
+    const key = getScopedExerciseKey(training, exerciseKey);
     const exerciseName =
       exercise.exerciseName || exercise.name || exercise.label || "Ejercicio";
     const muscleGroup =
@@ -373,217 +515,99 @@ function extractExercisePerformances(training) {
       exercise.muscle ||
       exercise.primaryMuscle ||
       "Sin grupo";
-    return (exercise.sets || [])
+    const performances = (exercise.sets || [])
       .flatMap((set, setIndex) =>
         getSetPerformances(set).map((performance) => ({
           ...performance,
           setIndex,
         })),
-      )
-      .map((performance) => ({
-        ...performance,
+      );
+    const best = performances.reduce(
+      (currentBest, performance) =>
+        !currentBest || isBetter(performance, currentBest)
+          ? performance
+          : currentBest,
+      null,
+    );
+    if (!best) return;
+
+    const current = bestByExercise.get(key);
+    if (!current || isBetter(best, current)) {
+      bestByExercise.set(key, {
+        ...best,
         key,
+        exerciseKey,
         exerciseName,
         muscleGroup,
         date: training.date,
-      }));
+      });
+    }
   });
+
+  return Array.from(bestByExercise.values());
 }
 
-function createExerciseStats() {
+function getPerformanceChange(current, previous) {
+  if (!current || !previous || previous.score <= 0) return null;
+  const tolerance = Math.max(0.05, previous.score * 0.005);
+  const difference = current.score - previous.score;
+  if (Math.abs(difference) <= tolerance) return null;
+
+  const type =
+    current.weight === previous.weight
+      ? "Repeticiones"
+      : current.reps === previous.reps
+        ? "Peso"
+        : "Rendimiento estimado";
   return {
-    maxWeight: 0,
-    maxReps: 0,
-    maxVolume: 0,
-    bestRepsByWeight: new Map(),
+    direction: difference > 0 ? "improvement" : "decline",
+    type,
+    previousValue: `${previous.weight}kg x ${previous.reps}`,
+    currentValue: `${current.weight}kg x ${current.reps}`,
   };
-}
-
-function cloneExerciseStats(stats) {
-  if (!stats) return createExerciseStats();
-  return {
-    maxWeight: stats.maxWeight || 0,
-    maxReps: stats.maxReps || 0,
-    maxVolume: stats.maxVolume || 0,
-    bestRepsByWeight: new Map(stats.bestRepsByWeight || []),
-  };
-}
-
-function updateExerciseStats(stats, performance) {
-  const next = cloneExerciseStats(stats);
-  next.maxWeight = Math.max(next.maxWeight, performance.weight);
-  next.maxReps = Math.max(next.maxReps, performance.reps);
-  next.maxVolume = Math.max(next.maxVolume, performance.volume);
-  const weightKey = String(performance.weight);
-  next.bestRepsByWeight.set(
-    weightKey,
-    Math.max(next.bestRepsByWeight.get(weightKey) || 0, performance.reps),
-  );
-  return next;
-}
-
-function getImprovementAgainstStats(performance, stats) {
-  if (!stats) {
-    return {
-      type: "Primer registro",
-      previousValue: null,
-      currentValue: `${performance.weight}kg x ${performance.reps}`,
-    };
-  }
-
-  if (performance.weight > (stats.maxWeight || 0)) {
-    return {
-      type: "Peso",
-      previousValue: `${stats.maxWeight}kg`,
-      currentValue: `${performance.weight}kg`,
-    };
-  }
-
-  const previousRepsAtWeight =
-    stats.bestRepsByWeight?.get(String(performance.weight)) || 0;
-  if (previousRepsAtWeight > 0 && performance.reps > previousRepsAtWeight) {
-    return {
-      type: "Repeticiones",
-      previousValue: `${previousRepsAtWeight} reps con ${performance.weight}kg`,
-      currentValue: `${performance.reps} reps con ${performance.weight}kg`,
-    };
-  }
-
-  if (performance.volume > (stats.maxVolume || 0)) {
-    return {
-      type: "Volumen de serie",
-      previousValue: `${formatCompact(stats.maxVolume)} kg-reps`,
-      currentValue: `${formatCompact(performance.volume)} kg-reps`,
-    };
-  }
-
-  return null;
-}
-
-function getDeclineAgainstStats(currentStats, previousStats) {
-  if (!currentStats || !previousStats) return null;
-
-  if (
-    previousStats.maxWeight > 0 &&
-    currentStats.maxWeight > 0 &&
-    currentStats.maxWeight < previousStats.maxWeight
-  ) {
-    return {
-      type: "Peso",
-      previousValue: `${previousStats.maxWeight}kg`,
-      currentValue: `${currentStats.maxWeight}kg`,
-    };
-  }
-
-  const previousWeightKey = String(previousStats.maxWeight || "");
-  const previousRepsAtMax =
-    previousStats.bestRepsByWeight?.get(previousWeightKey) || 0;
-  const currentRepsAtMax =
-    currentStats.bestRepsByWeight?.get(previousWeightKey) || 0;
-  if (
-    previousStats.maxWeight > 0 &&
-    previousRepsAtMax > 0 &&
-    currentRepsAtMax > 0 &&
-    currentRepsAtMax < previousRepsAtMax
-  ) {
-    return {
-      type: "Repeticiones",
-      previousValue: `${previousRepsAtMax} reps con ${previousStats.maxWeight}kg`,
-      currentValue: `${currentRepsAtMax} reps con ${previousStats.maxWeight}kg`,
-    };
-  }
-
-  if (
-    previousStats.maxVolume > 0 &&
-    currentStats.maxVolume > 0 &&
-    currentStats.maxVolume < previousStats.maxVolume
-  ) {
-    return {
-      type: "Volumen de serie",
-      previousValue: `${formatCompact(previousStats.maxVolume)} kg-reps`,
-      currentValue: `${formatCompact(currentStats.maxVolume)} kg-reps`,
-    };
-  }
-
-  return null;
 }
 
 function collectPerformanceChangesInRange(trainings, startDate, endDate) {
   const start = startDate.getTime();
   const end = endDate.getTime();
-  const statsByExercise = new Map();
-  const improvementsByExercise = new Map();
-  const currentStatsByExercise = new Map();
-  const currentBestByExercise = new Map();
+  const previousByExercise = new Map();
+  const latestChangeByExercise = new Map();
+  const ordered = [...trainings].sort((left, right) => {
+    const dateDifference =
+      getDateTimestamp(left.date) - getDateTimestamp(right.date);
+    if (dateDifference) return dateDifference;
+    return (
+      getDateTimestamp(left.createdAt) - getDateTimestamp(right.createdAt)
+    );
+  });
 
-  trainings.forEach((training) => {
+  ordered.forEach((training) => {
     const timestamp = getDateTimestamp(training.date);
     if (!timestamp) return;
 
-    extractExercisePerformances(training).forEach((performance) => {
-      const previousStats = statsByExercise.get(performance.key);
+    extractBestExercisePerformances(training).forEach((performance) => {
       const current = { ...performance, timestamp };
-
-      if (timestamp < start) {
-        statsByExercise.set(
+      const previous = previousByExercise.get(performance.key);
+      if (timestamp >= start && timestamp <= end) {
+        const change = getPerformanceChange(current, previous);
+        latestChangeByExercise.set(
           performance.key,
-          updateExerciseStats(previousStats, current),
+          change
+            ? {
+                ...current,
+                changeType: change.type,
+                direction: change.direction,
+                previousValue: change.previousValue,
+                currentValue: change.currentValue,
+              }
+            : null,
         );
-        return;
       }
-
-      if (timestamp > end) return;
-
-      currentStatsByExercise.set(
-        performance.key,
-        updateExerciseStats(
-          currentStatsByExercise.get(performance.key),
-          current,
-        ),
-      );
-      const currentBest = currentBestByExercise.get(performance.key);
-      if (!currentBest || isBetter(current, currentBest)) {
-        currentBestByExercise.set(performance.key, current);
-      }
-
-      const improvementMeta = getImprovementAgainstStats(
-        current,
-        previousStats,
-      );
-      if (improvementMeta) {
-        const existing = improvementsByExercise.get(performance.key);
-        const improvement = {
-          ...current,
-          improvementType: improvementMeta.type,
-          previousValue: improvementMeta.previousValue,
-          currentValue: improvementMeta.currentValue,
-        };
-        if (!existing || isBetter(current, existing)) {
-          improvementsByExercise.set(performance.key, improvement);
-        }
-      }
-      statsByExercise.set(
-        performance.key,
-        updateExerciseStats(previousStats, current),
-      );
+      previousByExercise.set(performance.key, current);
     });
   });
 
-  const declines = Array.from(currentStatsByExercise.entries())
-    .map(([key, currentStats]) => {
-      if (improvementsByExercise.has(key)) return null;
-      const previousStats = statsByExercise.get(key);
-      const declineMeta = getDeclineAgainstStats(currentStats, previousStats);
-      const best = currentBestByExercise.get(key);
-      if (!declineMeta || !best) return null;
-      return {
-        ...best,
-        declineType: declineMeta.type,
-        previousValue: declineMeta.previousValue,
-        currentValue: declineMeta.currentValue,
-      };
-    })
-    .filter(Boolean);
+  const changes = Array.from(latestChangeByExercise.values()).filter(Boolean);
 
   const sortByDate = (a, b) =>
     getDateTimestamp(b.date) - getDateTimestamp(a.date) ||
@@ -591,8 +615,14 @@ function collectPerformanceChangesInRange(trainings, startDate, endDate) {
     a.exerciseName.localeCompare(b.exerciseName);
 
   return {
-    improvements: Array.from(improvementsByExercise.values()).sort(sortByDate),
-    declines: declines.sort(sortByDate),
+    improvements: changes
+      .filter((item) => item.direction === "improvement")
+      .map((item) => ({ ...item, improvementType: item.changeType }))
+      .sort(sortByDate),
+    declines: changes
+      .filter((item) => item.direction === "decline")
+      .map((item) => ({ ...item, declineType: item.changeType }))
+      .sort(sortByDate),
   };
 }
 
@@ -1093,6 +1123,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         timestamp <= previousEnd.getTime()
       );
     });
+    const volumeComparison = buildScopedPeriodComparison(
+      currentTrainings,
+      previousTrainings,
+      (training) => Number(training.totalVolume || 0),
+    );
+    const setsComparison = buildScopedPeriodComparison(
+      currentTrainings,
+      previousTrainings,
+      getTrainingSetCount,
+    );
 
     currentTrainings.forEach((training) => {
       const key = getISODateKey(toValidDate(training.date) || now);
@@ -1120,11 +1160,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         (sum, training) => sum + getEffectiveDurationSeconds(training),
         0,
       ),
-      totalVolume: currentTrainings.reduce(
-        (sum, training) => sum + Number(training.totalVolume || 0),
-        0,
-      ),
-      previousVolume: previousTrainings.reduce(
+      totalVolume: volumeComparison.currentTotal,
+      previousTotalVolume: previousTrainings.reduce(
         (sum, training) => sum + Number(training.totalVolume || 0),
         0,
       ),
@@ -1132,14 +1169,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         (sum, training) => sum + getEffectiveDurationSeconds(training),
         0,
       ),
-      totalSets: currentTrainings.reduce(
-        (sum, training) => sum + getTrainingSetCount(training),
-        0,
-      ),
-      previousSets: previousTrainings.reduce(
-        (sum, training) => sum + getTrainingSetCount(training),
-        0,
-      ),
+      totalSets: setsComparison.currentTotal,
+      volumeComparison,
+      setsComparison,
       currentTrainings,
       previousTrainings,
       improvements: performanceChanges.improvements,
@@ -1314,31 +1346,65 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const durationRows = useMemo(
     () =>
-      [...orderedTrainings]
+      [...(weekData.currentTrainings || [])]
         .sort((a, b) => getDateTimestamp(b.date) - getDateTimestamp(a.date))
-        .map((training) => ({
-          id:
-            training.id ||
-            training._id ||
-            `${training.date}-${getRoutineName(training)}`,
-          date: training.date,
-          routine: getRoutineName(training),
-          branch: training.branch || training.routineBranch || "",
-          seconds: getEffectiveDurationSeconds(training),
-        })),
-    [orderedTrainings],
+        .map((training) => {
+          const timing = getTimingBreakdown(training);
+          return {
+            id:
+              training.id ||
+              training._id ||
+              `${training.date}-${getRoutineName(training)}`,
+            date: training.date,
+            routine: getRoutineName(training),
+            branch: training.branch || training.routineBranch || "",
+            seconds: timing.sessionSeconds,
+            ...timing,
+          };
+        }),
+    [weekData.currentTrainings],
   );
+
+  const durationSummary = useMemo(() => {
+    const trackedRows = durationRows.filter((row) => row.hasRestTracking);
+    return {
+      sessionSeconds: durationRows.reduce(
+        (sum, row) => sum + row.sessionSeconds,
+        0,
+      ),
+      workSeconds: trackedRows.reduce(
+        (sum, row) => sum + row.workSeconds,
+        0,
+      ),
+      restSeconds: trackedRows.reduce(
+        (sum, row) => sum + row.restSeconds,
+        0,
+      ),
+      pauseSeconds: durationRows.reduce(
+        (sum, row) => sum + row.pauseSeconds,
+        0,
+      ),
+      trackedCount: trackedRows.length,
+    };
+  }, [durationRows]);
 
   const weeklySets = useMemo(() => {
     const byMuscle = new Map();
     const byRoutine = new Map();
+    const comparableScopes = new Set(
+      weekData.setsComparison?.comparableScopeKeys || [],
+    );
 
     (weekData.currentTrainings || []).forEach((training) => {
       const routineName = getRoutineName(training);
-      const routine = byRoutine.get(routineName) || {
+      const scopeKey = getTrainingProgressScopeKey(training);
+      const routineKey = `${scopeKey}::${routineName}`;
+      const routine = byRoutine.get(routineKey) || {
+        key: routineKey,
         name: routineName,
         sets: 0,
         sessions: 0,
+        hasReference: comparableScopes.has(scopeKey),
       };
       routine.sessions += 1;
 
@@ -1352,15 +1418,29 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         routine.sets += sets;
       });
 
-      byRoutine.set(routineName, routine);
+      byRoutine.set(routineKey, routine);
     });
 
-    const diff = weekData.totalSets - weekData.previousSets;
+    const comparison = getWeeklyComparisonSummary(
+      weekData.setsComparison,
+      (value) => Math.round(value),
+      "sets",
+    );
+    const diff = comparison.hasReference
+      ? comparison.comparableCurrent - comparison.previous
+      : 0;
     return {
       total: weekData.totalSets,
-      previous: weekData.previousSets,
+      comparableCurrent: comparison.comparableCurrent,
+      previous: comparison.previous,
+      excluded: comparison.excluded,
+      hasReference: comparison.hasReference,
+      isPartial: comparison.isPartial,
+      description: comparison.description,
       diff,
-      diffLabel: `${diff >= 0 ? "+" : ""}${diff} vs anterior`,
+      diffLabel: comparison.hasReference
+        ? `${diff >= 0 ? "+" : ""}${diff} vs anterior`
+        : comparison.changeLabel,
       byMuscle: Array.from(byMuscle.values()).sort((a, b) => b.sets - a.sets),
       byRoutine: Array.from(byRoutine.values()).sort((a, b) => b.sets - a.sets),
     };
@@ -1408,7 +1488,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           eyebrow: "Vs anterior",
           title: "Donde bajamos",
           description:
-            "Ejercicios donde el rendimiento quedo por debajo de tus registros anteriores.",
+            "Mejor set de esta semana frente a la ejecucion inmediatamente anterior del ejercicio.",
           label: "Bajamos",
           count: weekData.declines?.length || 0,
           groups: declinesByMuscle,
@@ -1418,15 +1498,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }
       : {
           eyebrow: "Vs anterior",
-          title: "Donde mejoramos",
+          title: "Donde subimos",
           description:
-            "Ejercicios donde subiste peso, repeticiones o volumen frente a tus registros anteriores.",
-          label: "Mejoras",
+            "Mejor set de esta semana frente a la ejecucion inmediatamente anterior del ejercicio.",
+          label: "Subimos",
           count: weekData.improvements?.length || 0,
           groups: improvementsByMuscle,
           tone: "emerald",
           typeKey: "improvementType",
-          empty: "No se detectaron mejoras en esta semana activa.",
+          empty: "No se detectaron subidas en esta semana activa.",
         };
 
   const recovery = useMemo(() => {
@@ -1464,8 +1544,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const weeklyVolume = Number(weekData.totalVolume || 0);
     const weeklySeconds = Number(weekData.totalSeconds || 0);
     const volumeSpike =
-      weekData.previousVolume > 0
-        ? (weeklyVolume - weekData.previousVolume) / weekData.previousVolume
+      weekData.previousTotalVolume > 0
+        ? (weeklyVolume - weekData.previousTotalVolume) /
+          weekData.previousTotalVolume
         : 0;
     const factors = [];
     const muscleStats = new Map();
@@ -1697,22 +1778,27 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   }, [activePlan, now, orderedTrainings, routines, todayKey, weekData]);
 
   const weeklyLoad = useMemo(() => {
-    const current = Number(weekData.totalVolume || 0);
-    const previous = Number(weekData.previousVolume || 0);
-    const change = previous
-      ? (current - previous) / previous
-      : current > 0
-        ? 1
-        : 0;
+    const comparison = getWeeklyComparisonSummary(
+      weekData.volumeComparison,
+      formatCompact,
+      "kg",
+    );
     const byMuscle = new Map();
     const byRoutine = new Map();
+    const comparableScopes = new Set(
+      weekData.volumeComparison?.comparableScopeKeys || [],
+    );
 
     (weekData.currentTrainings || []).forEach((training) => {
       const routineName = getRoutineName(training);
-      const routine = byRoutine.get(routineName) || {
+      const scopeKey = getTrainingProgressScopeKey(training);
+      const routineKey = `${scopeKey}::${routineName}`;
+      const routine = byRoutine.get(routineKey) || {
+        key: routineKey,
         name: routineName,
         volume: 0,
         sessions: 0,
+        hasReference: comparableScopes.has(scopeKey),
       };
       routine.sessions += 1;
 
@@ -1736,22 +1822,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         routine.volume += volume;
       });
 
-      byRoutine.set(routineName, routine);
+      byRoutine.set(routineKey, routine);
     });
 
-    const label =
-      change > 0.2
-        ? "Carga en aumento"
-        : change < -0.2
-          ? "Carga reducida"
-          : "Carga estable";
-
     return {
-      current,
-      previous,
-      change,
-      changeLabel: formatPercentChange(current, previous),
-      label,
+      ...comparison,
       byMuscle: Array.from(byMuscle.values()).sort(
         (a, b) => b.volume - a.volume,
       ),
@@ -1838,7 +1913,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           tone="blue"
         />
         <StatCard
-          label="Tiempo total"
+          label="Tiempo de sesión"
           value={formatDashboardDuration(weekData.totalSeconds)}
           icon={Clock3}
           tone="amber"
@@ -1870,7 +1945,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               className="px-2.5 py-2 text-left transition hover:bg-[#ff5722]/10 active:bg-[#ff5722]/15 dark:hover:bg-[#e2ff00]/10 dark:active:bg-[#e2ff00]/15"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
-                Mejoras
+                Subimos
               </p>
               <p className="mt-1 text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
                 {formatSignedCount(weekData.improvements?.length, "+")}
@@ -1946,7 +2021,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             {formatCompact(weeklyLoad.current)} kg
           </p>
           <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {weeklyLoad.changeLabel} vs anterior
+            {weeklyLoad.changeLabel}
           </p>
         </button>
         <button
@@ -2328,7 +2403,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   {weeklyLoad.changeLabel}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {weeklyLoad.label} frente a la semana anterior.
+                  {weeklyLoad.description}
                 </p>
               </div>
               <button
@@ -2342,10 +2417,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Esta semana
+                    Total
                   </p>
                   <p className="mt-2 text-xl font-black text-[color:var(--text)]">
                     {formatCompact(weeklyLoad.current)} kg
@@ -2353,7 +2428,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Semana anterior
+                    Comparable
+                  </p>
+                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
+                    {formatCompact(weeklyLoad.comparableCurrent)} kg
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Anterior
                   </p>
                   <p className="mt-2 text-xl font-black text-[color:var(--text)]">
                     {formatCompact(weeklyLoad.previous)} kg
@@ -2411,7 +2494,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   {weeklyLoad.byRoutine.length ? (
                     weeklyLoad.byRoutine.map((item) => (
                       <div
-                        key={item.name}
+                        key={item.key}
                         className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
                       >
                         <div className="min-w-0">
@@ -2420,6 +2503,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           </p>
                           <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
                             {item.sessions} sesion(es)
+                            {!item.hasReference
+                              ? " / ciclo sin referencia"
+                              : ""}
                           </p>
                         </div>
                         <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
@@ -2460,7 +2546,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   {weeklySets.total} sets - {weeklySets.diffLabel}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Series con datos registrados durante la semana activa.
+                  {weeklySets.description}
                 </p>
               </div>
               <button
@@ -2474,10 +2560,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Esta semana
+                    Total
                   </p>
                   <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
                     {weeklySets.total}
@@ -2485,7 +2571,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Semana anterior
+                    Comparable
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
+                    {weeklySets.comparableCurrent}
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Anterior
                   </p>
                   <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
                     {weeklySets.previous}
@@ -2528,7 +2622,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   {weeklySets.byRoutine.length ? (
                     weeklySets.byRoutine.map((item) => (
                       <div
-                        key={item.name}
+                        key={item.key}
                         className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
                       >
                         <div className="min-w-0">
@@ -2537,6 +2631,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           </p>
                           <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
                             {item.sessions} sesion(es)
+                            {!item.hasReference
+                              ? " / ciclo sin referencia"
+                              : ""}
                           </p>
                         </div>
                         <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
@@ -2571,13 +2668,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Tiempo total
+                  Semana activa
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  Duracion por entrenamiento
+                  Tiempo de sesión
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Calculado hasta la ultima serie completada.
+                  Incluye los descansos medidos. Las pausas quedan fuera del
+                  total.
                 </p>
               </div>
               <button
@@ -2591,6 +2689,51 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                {[
+                  {
+                    label: "Sesión",
+                    value: formatSessionMinutes(
+                      durationSummary.sessionSeconds,
+                    ),
+                  },
+                  {
+                    label: "Trabajo est.",
+                    value: durationSummary.trackedCount
+                      ? formatSessionMinutes(durationSummary.workSeconds)
+                      : "--",
+                  },
+                  {
+                    label: "Descanso",
+                    value: durationSummary.trackedCount
+                      ? formatSessionMinutes(durationSummary.restSeconds)
+                      : "--",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-3 text-center"
+                  >
+                    <p className="truncate text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mb-4 flex items-center justify-between gap-3 border-y border-[color:var(--border)] py-2 text-xs font-bold text-[color:var(--text-muted)]">
+                <span>Pausas excluidas</span>
+                <span className="text-[color:var(--text)]">
+                  {formatSessionMinutes(durationSummary.pauseSeconds)}
+                </span>
+              </div>
+              {durationSummary.trackedCount < durationRows.length ? (
+                <p className="mb-3 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  El descanso no fue medido en algunas sesiones anteriores.
+                </p>
+              ) : null}
               {durationRows.length ? (
                 <div className="space-y-2">
                   {durationRows.map((row) => (
@@ -2606,6 +2749,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           {formatLongDate(row.date)}
                           {row.branch ? ` · ${titleCase(row.branch)}` : ""}
                         </p>
+                        <p className="mt-1 text-[11px] font-bold text-[color:var(--text-muted)]">
+                          {row.hasRestTracking
+                            ? `Trabajo est. ${formatSessionMinutes(row.workSeconds)} · Descanso ${formatSessionMinutes(row.restSeconds)}`
+                            : "Descanso no medido"}
+                          {row.pauseSeconds
+                            ? ` · Pausa ${formatSessionMinutes(row.pauseSeconds)}`
+                            : ""}
+                          {row.adjusted ? " · Ajustado" : ""}
+                        </p>
                       </div>
                       <span className="shrink-0 rounded bg-[#fff0eb] px-3 py-2 text-sm font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
                         {formatSessionMinutes(row.seconds)}
@@ -2615,7 +2767,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                  No hay entrenamientos registrados.
+                  No hay entrenamientos registrados esta semana.
                 </div>
               )}
             </div>

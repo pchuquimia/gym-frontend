@@ -139,9 +139,11 @@ export function RoutineProvider({ children, ownerId = "" }) {
     setRoutines((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const duplicateRoutine = async (id) => {
+  const duplicateRoutine = async (id, options = {}) => {
     const found = routines.find((r) => r._id === id || r.id === id);
     if (!found) return;
+    const progressMode =
+      options.progressMode === "inherit" ? "inherit" : "fresh";
     const baseCopy = { ...found };
     const sourceRoutineId = found.id || found._id || id;
     delete baseCopy._id;
@@ -160,7 +162,7 @@ export function RoutineProvider({ children, ownerId = "" }) {
       id: `${id}-copy-${Date.now()}`,
       name: `${found.name} (Copia)`,
       branch: normalizeBranch(found.branch),
-      progressMode: "fresh",
+      progressMode,
       sourceRoutineId,
       assignmentType: "personal",
       isArchived: false,

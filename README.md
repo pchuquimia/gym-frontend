@@ -1,117 +1,234 @@
-# Apex Performance - Frontend
+Apex Performance - Frontend
 
-Aplicación web para gestionar entrenamientos, rutinas, planificaciones, progreso y seguimiento de atletas. La interfaz está diseñada para funcionar en escritorio y móvil, con temas claro y oscuro y permisos adaptados al tipo de usuario.
+Apex Performance is a responsive workout tracking and coaching platform built for athletes, coaches, and administrators. It combines workout planning, live session logging, exercise analytics, progress tracking, and role-based coaching workflows in a single web application.
 
-## Funcionalidades principales
+The project was designed and developed independently as a full-stack portfolio product and has been tested by more than 10 beta users in a real gym environment.
 
-- Registro de entrenamientos con series, repeticiones, carga, descansos y notas de configuración.
-- Rutinas y planificaciones semanales o cíclicas.
-- Biblioteca de ejercicios con filtros, imágenes, videos y ejercicios personalizados.
-- Dashboard con carga semanal, recuperación, actividad y pesajes.
-- Historial y resumen de sesiones.
-- Analítica por ejercicio e inteligencia de datos.
-- Gestión de atletas para entrenadores.
-- Administración de usuarios, coaches y catálogo.
-- Fotografías de progreso y avatar de perfil.
+Live demo
 
-## Roles
+Application: gym-frontend-t65c.onrender.com
 
-- **Cliente independiente:** gestiona sus rutinas, entrenamientos y progreso.
-- **Cliente con coach:** accede al entrenamiento y seguimiento asignado por su entrenador.
-- **Entrenador:** administra sus atletas, planificaciones y sesiones supervisadas.
-- **Administrador:** dispone de las funciones de coach y de las herramientas globales de administración.
+API: gym-backend-1fod.onrender.com
 
-## Tecnologías
+Demo account: available for product evaluation.
 
-- React 18 y Vite 7.
-- Tailwind CSS.
-- TanStack Query para estado remoto y caché.
-- Axios para comunicación con la API.
-- Framer Motion para transiciones.
-- Nivo para visualizaciones.
-- Lucide React para iconografía.
-- Playwright para validación de interfaz.
+Product highlights
 
-## Requisitos
+Athlete experience
 
-- Node.js 22 recomendado.
-- npm 10 o posterior.
-- Backend de Apex Performance disponible.
+Create routines and organize exercises, sets, repetitions, rest periods, and training days.
 
-## Configuración local
+Log active workouts with session recovery and mobile-friendly set controls.
 
-1. Instala las dependencias:
+Review workout history, session summaries, exercise volume, intensity, and estimated one-repetition maximum trends.
 
-   ```powershell
-   npm install
-   ```
+Track body weight, progress photos, goals, and recent achievements.
 
-2. Crea el archivo local de configuración:
+Browse and filter a bilingual exercise catalog containing approximately 1,300 exercises.
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+Coach experience
 
-3. Revisa las variables:
+Link athletes to a coach account through controlled assignment flows.
 
-   | Variable | Descripción |
-   | --- | --- |
-   | `VITE_API_URL` | URL pública del backend. En local: `http://localhost:4000`. |
-   | `VITE_AUTH_TOKEN_STORAGE` | Persistencia del token cuando la API lo expone. |
-   | `VITE_CLOUDINARY_CLOUD_NAME` | Cloud name público, si una vista necesita construir URLs de Cloudinary. |
+Review athlete summaries, training history, and progress indicators.
 
-   Las variables `VITE_*` son visibles en el navegador. Nunca coloques claves privadas en ellas.
+Create and assign routines, reusable plan templates, and scheduled training plans.
 
-4. Inicia el servidor:
+Manage plan status, training cycles, rest days, and recovery days.
 
-   ```powershell
-   npm run dev
-   ```
+Administration
 
-   La aplicación queda disponible normalmente en `http://localhost:5173`.
+Manage users and role-based permissions for administrators, coaches, and clients.
 
-## Scripts
+Curate system and custom exercises with structured classification data.
 
-| Comando | Uso |
-| --- | --- |
-| `npm run dev` | Inicia Vite en desarrollo. |
-| `npm run build` | Genera el bundle de producción en `dist/`. |
-| `npm run preview` | Sirve localmente el bundle compilado. |
-| `npm run lint` | Ejecuta ESLint sobre el proyecto. |
+Manage exercise media, catalog migrations, duplicate records, and AI-assisted exercise image generation.
 
-## Estructura
+Exercise catalog
 
-```text
-src/
-├── components/   Componentes por dominio y componentes compartidos
-├── context/      Autenticación, rutinas, entrenamientos y usuarios
-├── hooks/        Hooks de interfaz y tema
-├── pages/        Pantallas principales de la aplicación
-├── services/     Cliente HTTP y persistencia de autenticación
-├── styles/       Estilos globales y temas
-└── utils/        Cálculos, normalización y utilidades de sesión
-```
+The catalog supports structured exercise metadata, including:
 
-La navegación principal se coordina desde `src/App.jsx`. Los permisos visibles del menú se definen en `src/components/layout/navConfig.js`, pero la autorización definitiva siempre debe ejecutarse en el backend.
+Spanish and English names, aliases, categories, and body regions.
 
-## Autenticación y estado
+Primary, secondary, and stabilizer muscles.
 
-- La API puede autenticar mediante cookie HTTP-only y, cuando está habilitado, token Bearer.
-- TanStack Query gestiona la caché de datos remotos.
-- El entrenamiento activo mantiene un snapshot local para sobrevivir recargas y navegación accidental.
-- Al cerrar sesión se limpian los contextos y datos locales sensibles del usuario.
+Movement patterns, equipment, laterality, kinetic chain, mechanics, and force type.
 
-## Producción
+Difficulty, goals, instructions, common mistakes, and precautions.
 
-Ejecuta antes de desplegar:
+Images, thumbnails, animations, videos, attribution, and taxonomy versioning.
 
-```powershell
-npm run lint
+Large datasets are handled through server-side pagination, incremental loading, indexed MongoDB queries, and cached client requests.
+
+Frontend engineering
+
+Responsive layouts for desktop, Android, and iPhone browsers.
+
+Role-based navigation and protected application areas.
+
+Server-state caching, request invalidation, and infinite queries with TanStack React Query.
+
+Centralized API communication and error normalization with Axios.
+
+Reusable interface components and shared application contexts.
+
+Interactive charts for training volume, intensity, estimated 1RM, and muscle-group progress.
+
+Optimized Cloudinary images, thumbnails, and lazy-loaded media.
+
+Drag-and-drop exercise ordering and animated interface transitions.
+
+Light and dark themes with mobile-specific interaction patterns.
+
+Technology stack
+
+Area
+
+Technologies
+
+UI
+
+React, JavaScript, HTML5, CSS3, Tailwind CSS
+
+Build tooling
+
+Vite, ESLint, Prettier
+
+Server state and API
+
+TanStack React Query, Axios
+
+Data visualization
+
+Nivo
+
+Interaction and motion
+
+dnd-kit, Framer Motion, Radix UI
+
+Media delivery
+
+Cloudinary
+
+Backend
+
+Node.js, Express, MongoDB, Mongoose
+
+Deployment
+
+Render
+
+Screenshots
+
+Exercise details
+
+Mobile routine workflow
+
+Architecture
+
+React application
+-> Axios API client
+-> Node.js and Express REST API
+-> MongoDB Atlas
+-> Cloudinary media storage
+-> OpenAI Images API for administrative image workflows
+
+The frontend uses TanStack React Query for server state and React Context for authentication, current-user data, routines, and active training state.
+
+Local development
+
+Requirements
+
+Node.js 22 recommended.
+
+npm 10 or later.
+
+A running instance of the related backend.
+
+Installation
+
+git clone https://github.com/pchuquimia/gym-frontend.git
+cd gym-frontend
+npm install
+
+Create a local .env file when you need to override the default API configuration:
+
+VITE_API_URL=http://localhost:4000
+VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
+VITE_AUTH_TOKEN_STORAGE=localStorage
+
+Start the development server:
+
+npm run dev
+
+Additional commands:
+
+Command
+
+Purpose
+
 npm run build
-```
 
-Configura `VITE_API_URL` con la URL HTTPS del backend y asegúrate de que ese origen esté permitido por CORS. El contenido de `dist/` puede publicarse en un servicio de hosting estático.
+Create a production build.
 
-## Repositorio relacionado
+npm run lint
 
-Backend: [pchuquimia/gym-backend](https://github.com/pchuquimia/gym-backend)
+Run the ESLint checks.
+
+npm run preview
+
+Preview the production build locally.
+
+Validation
+
+The current version has been manually validated on:
+
+Chrome on desktop.
+
+Chrome on Android.
+
+Safari on iPhone.
+
+Real gym workflows with more than 10 beta users.
+
+Feedback from beta testing has been used to improve mobile navigation, set logging, routine creation, loading behavior, button clarity, and error handling.
+
+AI features in development
+
+An advanced local development version extends the product with:
+
+A contextual workout assistant using authenticated user data.
+
+OpenAI and Anthropic model integrations.
+
+Function calling and structured outputs for validated routine generation.
+
+Retrieval-augmented generation and embeddings for semantic exercise retrieval.
+
+Automated progress summaries and personalized recommendations.
+
+These features are under active development and are not yet included in the public demo or the current main branch.
+
+Roadmap
+
+Publish and deploy the advanced AI assistant.
+
+Add automated end-to-end coverage with Playwright.
+
+Complete the email verification flow.
+
+Establish Lighthouse and Core Web Vitals performance baselines.
+
+Expand accessibility validation and automated quality checks.
+
+Related repository
+
+Backend API: pchuquimia/gym-backend
+
+Author
+
+Pablo Iván Chuquimia Huanca
+
+GitHub: @pchuquimia
+
+LinkedIn: linkedin.com/in/pchuquimia
