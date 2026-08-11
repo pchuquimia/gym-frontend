@@ -5,9 +5,12 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Dumbbell,
   Lock,
   Mail,
   Send,
+  ShieldCheck,
+  UsersRound,
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
@@ -161,6 +164,127 @@ function LoginForm({ onNavigate }) {
         description="Verificando tus credenciales con el servidor."
       />
     </form>
+  );
+}
+
+const demoRoles = [
+  {
+    id: "athlete",
+    label: "Atleta",
+    description: "Entrena y revisa tu progreso",
+    icon: Dumbbell,
+  },
+  {
+    id: "coach",
+    label: "Coach",
+    description: "Gestiona un atleta y su plan",
+    icon: UsersRound,
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    description: "Explora la gestion protegida",
+    icon: ShieldCheck,
+  },
+];
+
+function DemoAccess({ onNavigate }) {
+  const { loginDemo } = useAuth();
+  const [enabled, setEnabled] = useState(false);
+  const [loadingRole, setLoadingRole] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getDemoStatus()
+      .then((data) => {
+        if (active) setEnabled(Boolean(data?.enabled));
+      })
+      .catch(() => {
+        if (active) setEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!enabled) return null;
+
+  const handleDemoLogin = async (role) => {
+    if (loadingRole) return;
+    setLoadingRole(role);
+    setError("");
+    try {
+      const user = await loginDemo(role);
+      onNavigate(user?.role === "Entrenador" ? "trainer" : "dashboard");
+    } catch (requestError) {
+      setError(
+        requestError?.status === 429
+          ? "Hay demasiados accesos demo. Intenta nuevamente en unos minutos."
+          : "No pudimos preparar la demo en este momento.",
+      );
+    } finally {
+      setLoadingRole("");
+    }
+  };
+
+  return (
+    <section
+      className="mt-7 border-t border-white/10 pt-6"
+      aria-label="Acceso de demostracion"
+    >
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#b8ff4f]">
+            Probar la demo
+          </p>
+          <p className="mt-1 text-xs font-semibold text-white/45">
+            Datos ficticios y temporales
+          </p>
+        </div>
+        <span className="border border-[#b8ff4f]/30 px-2 py-1 text-[10px] font-black uppercase text-[#b8ff4f]">
+          Sin registro
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {demoRoles.map((role) => {
+          const Icon = role.icon;
+          const isLoading = loadingRole === role.id;
+          return (
+            <button
+              key={role.id}
+              type="button"
+              aria-label={`Abrir demo como ${role.label}`}
+              disabled={Boolean(loadingRole)}
+              onClick={() => handleDemoLogin(role.id)}
+              className="group flex min-h-20 items-center gap-3 border border-white/12 bg-white/[0.035] px-3 py-3 text-left transition hover:border-[#b8ff4f]/55 hover:bg-[#b8ff4f]/[0.07] disabled:cursor-wait disabled:opacity-55 sm:flex-col sm:items-start sm:gap-2"
+            >
+              <Icon className="h-5 w-5 shrink-0 text-[#b8ff4f]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-black text-white">
+                  {isLoading ? "Preparando..." : role.label}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-semibold leading-4 text-white/42">
+                  {role.description}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {error ? (
+        <p role="alert" className="mt-3 text-xs font-bold text-red-300">
+          {error}
+        </p>
+      ) : null}
+      <OperationLoader
+        active={Boolean(loadingRole)}
+        delayMs={250}
+        title="Preparando tu demo"
+        description="Creando un espacio aislado con datos de ejemplo."
+      />
+    </section>
   );
 }
 
@@ -516,7 +640,10 @@ export default function Login({
       ) : mode === "reset" ? (
         <ResetForm token={token} onNavigate={navigate} />
       ) : (
-        <LoginForm onNavigate={onNavigate} />
+        <>
+          <LoginForm onNavigate={onNavigate} />
+          <DemoAccess onNavigate={onNavigate} />
+        </>
       )}
     </PremiumAuthLayout>
   );
@@ -528,6 +655,7 @@ Login.propTypes = {
 };
 
 LoginForm.propTypes = { onNavigate: PropTypes.func.isRequired };
+DemoAccess.propTypes = { onNavigate: PropTypes.func.isRequired };
 RecoverForm.propTypes = { onNavigate: PropTypes.func.isRequired };
 ResetForm.propTypes = {
   token: PropTypes.string.isRequired,

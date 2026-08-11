@@ -286,6 +286,21 @@ export function AuthProvider({ children }) {
     [commitUser],
   );
 
+  const loginDemo = useCallback(
+    async (role) => {
+      setError("");
+      setDevAutoLoginDisabled(false);
+      const data = await api.demoLogin(role);
+      if (data?.token) setAuthToken(data.token);
+      queryClient.clear();
+      clearUserScopedStorage();
+      const nextUser = normalizeUser(data);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser, queryClient],
+  );
+
   const register = useCallback(
     async (payload) => {
       setError("");
@@ -347,6 +362,7 @@ export function AuthProvider({ children }) {
       error,
       setError,
       login,
+      loginDemo,
       register,
       verifyEmail,
       updateAccount,
@@ -359,6 +375,7 @@ export function AuthProvider({ children }) {
       loading,
       error,
       login,
+      loginDemo,
       register,
       verifyEmail,
       updateAccount,

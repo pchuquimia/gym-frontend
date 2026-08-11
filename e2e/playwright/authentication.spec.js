@@ -26,8 +26,47 @@ test("el login es visible y no desborda el viewport", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
   }));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(
+    dimensions.clientWidth + 1,
+  );
   expect(runtimeErrors).toEqual([]);
+});
+
+test("el acceso demo presenta los tres recorridos sin desbordar", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/demo/status", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: true,
+        roles: ["athlete", "coach", "admin"],
+      }),
+    }),
+  );
+  await page.goto("/");
+
+  const demo = page.getByRole("region", {
+    name: "Acceso de demostracion",
+  });
+  await expect(
+    demo.getByRole("button", { name: "Abrir demo como Atleta" }),
+  ).toBeVisible();
+  await expect(
+    demo.getByRole("button", { name: "Abrir demo como Coach" }),
+  ).toBeVisible();
+  await expect(
+    demo.getByRole("button", { name: "Abrir demo como Admin" }),
+  ).toBeVisible();
+
+  const dimensions = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(
+    dimensions.clientWidth + 1,
+  );
 });
 
 test("un rechazo de autenticacion mantiene los datos y muestra feedback", async ({

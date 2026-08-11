@@ -5,7 +5,7 @@ import {
   useState,
   useRef,
 } from "react";
-import { ArrowRight, Timer } from "lucide-react";
+import { ArrowRight, ShieldCheck, Timer } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import MobileMenuButton from "./MobileMenuButton";
@@ -129,6 +129,24 @@ function MainLayout({
         color: isDark ? "#f8f8f4" : "var(--text)",
       }}
     >
+      {user?.isDemo ? (
+        <div
+          data-demo-banner
+          className="flex min-h-9 w-full items-center justify-center gap-2 border-b border-[#ff5722]/35 bg-[#fff0eb] px-3 py-2 text-center text-[10px] font-black uppercase text-[#9f2c09] dark:border-[#e2ff00]/25 dark:bg-[#161900] dark:text-[#e2ff00]"
+        >
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Demo{" "}
+            {user.role === "Entrenador"
+              ? "coach"
+              : user.role === "Cliente"
+                ? "atleta"
+                : "admin"}
+            <span className="mx-2 text-current/40">|</span>
+            Datos temporales, cuentas e imagenes protegidas
+          </span>
+        </div>
+      ) : null}
       {showReturnTraining ? (
         <>
           <button

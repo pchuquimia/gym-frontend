@@ -8,7 +8,9 @@ The project was designed and developed independently as a full-stack portfolio p
 
 - Application: [gym-frontend-t65c.onrender.com](https://gym-frontend-t65c.onrender.com/)
 - API: [gym-backend-1fod.onrender.com](https://gym-backend-1fod.onrender.com/)
-- Demo account: available for product evaluation.
+- Demo access: choose Athlete, Coach, or Admin from the login screen; no credentials required.
+
+Every demo visit receives an isolated workspace with fictitious routines, plans, sessions, analytics, and weigh-ins. Account administration, shared exercise media, and catalog mutations remain protected. Demo data expires automatically according to the backend deployment configuration.
 
 ## Product highlights
 
@@ -59,16 +61,16 @@ Large datasets are handled through server-side pagination, incremental loading, 
 
 ## Technology stack
 
-| Area | Technologies |
-| --- | --- |
-| UI | React, JavaScript, HTML5, CSS3, Tailwind CSS |
-| Build tooling | Vite, ESLint, Prettier |
-| Server state and API | TanStack React Query, Axios |
-| Data visualization | Nivo |
-| Interaction and motion | dnd-kit, Framer Motion, Radix UI |
-| Media delivery | Cloudinary |
-| Backend | Node.js, Express, MongoDB, Mongoose |
-| Deployment | Render |
+| Area                   | Technologies                                 |
+| ---------------------- | -------------------------------------------- |
+| UI                     | React, JavaScript, HTML5, CSS3, Tailwind CSS |
+| Build tooling          | Vite, ESLint, Prettier                       |
+| Server state and API   | TanStack React Query, Axios                  |
+| Data visualization     | Nivo                                         |
+| Interaction and motion | dnd-kit, Framer Motion, Radix UI             |
+| Media delivery         | Cloudinary                                   |
+| Backend                | Node.js, Express, MongoDB, Mongoose          |
+| Deployment             | Render                                       |
 
 ## Screenshots
 
@@ -125,14 +127,14 @@ npm run dev
 
 Additional commands:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run build` | Create a production build. |
-| `npm run lint` | Run the ESLint checks. |
-| `npm run preview` | Preview the production build locally. |
-| `npm test` | Run Vitest unit and React Testing Library component tests. |
-| `npm run test:playwright` | Run responsive desktop and mobile browser tests. |
-| `npm run test:cypress` | Run functional authentication tests in Cypress. |
+| Command                   | Purpose                                                    |
+| ------------------------- | ---------------------------------------------------------- |
+| `npm run build`           | Create a production build.                                 |
+| `npm run lint`            | Run the ESLint checks.                                     |
+| `npm run preview`         | Preview the production build locally.                      |
+| `npm test`                | Run Vitest unit and React Testing Library component tests. |
+| `npm run test:playwright` | Run responsive desktop and mobile browser tests.           |
+| `npm run test:cypress`    | Run functional authentication tests in Cypress.            |
 
 ## Automated testing
 

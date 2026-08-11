@@ -27,6 +27,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  getDemoStatus: () => request("/api/auth/demo/status"),
+  demoLogin: (role) =>
+    request("/api/auth/demo", {
+      method: "POST",
+      body: JSON.stringify({ role }),
+      timeout: 60_000,
+    }),
   forgotPassword: (payload) =>
     request("/api/auth/forgot-password", {
       method: "POST",
