@@ -31,9 +31,16 @@ const roleHome = (role) => {
 };
 
 const isDedicatedDemoFrontend = () => {
-  if (import.meta.env.VITE_PUBLIC_DEMO === "true") return true;
   if (typeof window === "undefined") return false;
-  if (window.location.hostname.toLowerCase().startsWith("demo.")) return true;
+  const hostname = window.location.hostname.toLowerCase();
+  try {
+    const mainHostname = new URL(mainApplicationUrl).hostname.toLowerCase();
+    if (hostname === mainHostname) return false;
+  } catch {
+    // An invalid optional URL must not enable the demo on its own.
+  }
+  if (hostname.startsWith("demo.")) return true;
+  if (import.meta.env.VITE_PUBLIC_DEMO === "true") return true;
   return (
     import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get("demo") === "1"
