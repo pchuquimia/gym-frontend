@@ -30,6 +30,19 @@ const roleHome = (role) => {
   return "perfil";
 };
 
+const isDedicatedDemoFrontend = () => {
+  if (import.meta.env.VITE_PUBLIC_DEMO === "true") return true;
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname.toLowerCase().startsWith("demo.")) return true;
+  return (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get("demo") === "1"
+  );
+};
+
+const mainApplicationUrl =
+  import.meta.env.VITE_MAIN_APP_URL || "https://gym-frontend-t65c.onrender.com";
+
 const inputClass =
   "h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-white/28 hover:border-white/20 focus:border-[#b8ff4f]/70 focus:ring-2 focus:ring-[#b8ff4f]/15 sm:text-sm";
 
@@ -190,7 +203,7 @@ const demoRoles = [
 
 function DemoAccess({ onNavigate }) {
   const { loginDemo } = useAuth();
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(null);
   const [loadingRole, setLoadingRole] = useState("");
   const [error, setError] = useState("");
 
@@ -209,7 +222,29 @@ function DemoAccess({ onNavigate }) {
     };
   }, []);
 
-  if (!enabled) return null;
+  if (enabled === null) {
+    return (
+      <div className="border border-white/10 bg-white/[0.035] px-4 py-5 text-sm font-bold text-white/55">
+        Preparando el acceso demo...
+      </div>
+    );
+  }
+
+  if (!enabled) {
+    return (
+      <div
+        role="alert"
+        className="border border-amber-300/20 bg-amber-300/[0.06] px-4 py-5"
+      >
+        <p className="text-sm font-black text-amber-100">
+          La demo no esta disponible temporalmente
+        </p>
+        <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
+          El sitio demo no esta autorizado o el servidor se encuentra iniciando.
+        </p>
+      </div>
+    );
+  }
 
   const handleDemoLogin = async (role) => {
     if (loadingRole) return;
@@ -586,6 +621,7 @@ export default function Login({
   onNavigate = () => {},
 }) {
   const mode = initialMode;
+  const dedicatedDemo = isDedicatedDemoFrontend();
   const token = new URLSearchParams(window.location.search).get("token") || "";
 
   const navigate = (nextMode) => {
@@ -593,7 +629,7 @@ export default function Login({
   };
 
   const isLogin = mode === "login";
-  const title =
+  const accountTitle =
     mode === "reset"
       ? "Nueva contraseña"
       : mode === "verify"
@@ -601,7 +637,7 @@ export default function Login({
         : mode === "recover"
           ? "Recuperar acceso"
           : "Iniciar sesión";
-  const subtitle =
+  const accountSubtitle =
     mode === "reset"
       ? "Crea una contraseña segura para volver a tu cuenta."
       : mode === "verify"
@@ -610,14 +646,31 @@ export default function Login({
           ? "Te enviaremos un enlace seguro para restablecer tu contraseña."
           : "Continúa con tus rutinas y registra tu próxima sesión.";
 
+  const title = dedicatedDemo ? "Explora Apex Performance" : accountTitle;
+  const subtitle = dedicatedDemo
+    ? "Elige un perfil y recorre la aplicacion con datos ficticios y aislados."
+    : accountSubtitle;
+
   return (
     <PremiumAuthLayout
       variant={isLogin ? "login" : "recover"}
       title={title}
       subtitle={subtitle}
-      onBack={!isLogin ? () => navigate("login") : undefined}
+      onBack={!dedicatedDemo && !isLogin ? () => navigate("login") : undefined}
       footer={
-        isLogin ? (
+        dedicatedDemo ? (
+          <div className="text-center">
+            <p className="text-xs font-semibold text-white/45">
+              Â¿Ya utilizas Apex Performance?
+            </p>
+            <a
+              href={mainApplicationUrl}
+              className="mt-2 inline-flex text-sm font-black text-[#b8ff4f] transition hover:text-[#d0ff8c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+            >
+              Ir a la aplicacion
+            </a>
+          </div>
+        ) : isLogin ? (
           <div className="text-center">
             <p className="text-sm font-semibold text-white/55">
               ¿No tienes cuenta?
@@ -633,17 +686,16 @@ export default function Login({
         ) : null
       }
     >
-      {mode === "recover" ? (
+      {dedicatedDemo ? (
+        <DemoAccess onNavigate={onNavigate} />
+      ) : mode === "recover" ? (
         <RecoverForm onNavigate={navigate} />
       ) : mode === "verify" ? (
         <VerifyEmail token={token} onNavigate={navigate} />
       ) : mode === "reset" ? (
         <ResetForm token={token} onNavigate={navigate} />
       ) : (
-        <>
-          <LoginForm onNavigate={onNavigate} />
-          <DemoAccess onNavigate={onNavigate} />
-        </>
+        <LoginForm onNavigate={onNavigate} />
       )}
     </PremiumAuthLayout>
   );

@@ -12,6 +12,8 @@ The project was designed and developed independently as a full-stack portfolio p
 
 Every demo visit receives an isolated workspace with fictitious routines, plans, sessions, analytics, and weigh-ins. Account administration, shared exercise media, and catalog mutations remain protected. Demo data expires automatically according to the backend deployment configuration.
 
+The public demo uses a separate frontend deployment. Set `VITE_PUBLIC_DEMO=true`, `VITE_API_URL` to the production API, and `VITE_MAIN_APP_URL` to the regular application. The regular deployment must keep `VITE_PUBLIC_DEMO=false`, so existing users only see login and registration.
+
 ## Product highlights
 
 ### Athlete experience

@@ -22,6 +22,9 @@ test("el login es visible y no desborda el viewport", async ({ page }) => {
 
   await expect(page.locator('input[name="email"]')).toBeVisible();
   await expect(page.locator('input[name="password"]')).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Acceso de demostracion" }),
+  ).toHaveCount(0);
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -45,7 +48,7 @@ test("el acceso demo presenta los tres recorridos sin desbordar", async ({
       }),
     }),
   );
-  await page.goto("/");
+  await page.goto("/?demo=1");
 
   const demo = page.getByRole("region", {
     name: "Acceso de demostracion",
