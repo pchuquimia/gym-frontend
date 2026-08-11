@@ -1,4 +1,5 @@
 const TOKEN_KEY = "gym_auth_token";
+let memoryToken = "";
 
 const getStorage = (name) => {
   if (typeof window === "undefined") return null;
@@ -12,13 +13,14 @@ const configuredStorage =
 
 export const getAuthToken = () => {
   try {
-    return getStorage(configuredStorage)?.getItem(TOKEN_KEY) || "";
+    return getStorage(configuredStorage)?.getItem(TOKEN_KEY) || memoryToken;
   } catch (_err) {
-    return "";
+    return memoryToken;
   }
 };
 
 export const setAuthToken = (token) => {
+  memoryToken = token || "";
   try {
     const storage = getStorage(configuredStorage);
     if (!storage || !token) return;
@@ -29,6 +31,7 @@ export const setAuthToken = (token) => {
 };
 
 export const clearAuthToken = () => {
+  memoryToken = "";
   try {
     window.localStorage?.removeItem(TOKEN_KEY);
     window.sessionStorage?.removeItem(TOKEN_KEY);
