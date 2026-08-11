@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import "./App.css";
 import Dashboard from "./pages/Dashboard";
 import ExerciseLibrary from "./pages/ExerciseLibrary";
@@ -156,6 +156,7 @@ const getActiveTrainingOwnerId = () => {
 
 function App() {
   const { user, isAuthenticated, loading } = useAuth();
+  const reduceMotion = useReducedMotion();
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "login";
     const authPage = authPageFromPath();
@@ -183,11 +184,10 @@ function App() {
   };
 
   const handleNavigate = (page, options = {}) => {
-    const snapshot =
-      page === "registrar" ? readActiveTrainingSnapshot() : null;
+    const snapshot = page === "registrar" ? readActiveTrainingSnapshot() : null;
     const hasInaccessibleTraining = Boolean(
       isActiveTrainingSnapshot(snapshot) &&
-        !canAccessActiveTraining(snapshot, user, coachAthlete),
+      !canAccessActiveTraining(snapshot, user, coachAthlete),
     );
     if (hasInaccessibleTraining) {
       clearActiveTrainingSnapshot();
@@ -380,10 +380,10 @@ function App() {
             <motion.div
               key={activePage}
               data-page-view={activePage}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{
-                duration: 0.16,
+                duration: reduceMotion ? 0 : 0.16,
                 ease: [0.2, 0.8, 0.2, 1],
               }}
               className="h-full"

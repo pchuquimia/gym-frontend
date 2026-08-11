@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveBar } from "@nivo/bar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   BarChart3,
@@ -15,7 +15,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { presets } from "../utils/motion";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { api } from "../services/api";
@@ -28,6 +27,13 @@ import {
   getScopedExerciseKey,
   getTrainingProgressScopeKey,
 } from "../utils/progressScope";
+import {
+  buildExerciseCatalogIndex,
+  getExerciseLoadMetrics,
+  getExerciseMuscleExposure,
+  getExerciseMuscleWeights,
+  getTrainingLoadMetrics,
+} from "../utils/trainingLoad";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -213,10 +219,7 @@ function getPauseSeconds(training = {}) {
 
   let pauseStartedAt = null;
   let pauseSeconds = 0;
-  const events = (Array.isArray(training.timeEvents)
-    ? training.timeEvents
-    : []
-  )
+  const events = (Array.isArray(training.timeEvents) ? training.timeEvents : [])
     .map((event) => ({ ...event, timestamp: parseEventTime(event.at) }))
     .filter((event) => Number.isFinite(event.timestamp))
     .sort((a, b) => a.timestamp - b.timestamp);
@@ -265,75 +268,33 @@ function getTimingBreakdown(training = {}) {
   };
 }
 
-function getSetVolumeValue(set = {}) {
-  const entries =
-    Array.isArray(set.entries) && set.entries.length ? set.entries : [set];
-  return entries.reduce((sum, entry) => {
-    const weight = Number(entry.weightKg ?? entry.weight ?? entry.kg ?? 0);
-    const reps = Number(entry.reps ?? 0);
-    return (
-      sum +
-      (Number.isFinite(weight) && Number.isFinite(reps) ? weight * reps : 0)
-    );
-  }, 0);
+function getTrainingSetCount(training = {}, catalogIndex = new Map()) {
+  return getTrainingLoadMetrics(training, catalogIndex).completedSets;
 }
 
-function isValidTrainingSet(set = {}) {
-  const entries =
-    Array.isArray(set.entries) && set.entries.length ? set.entries : [set];
-  return entries.some((entry) => {
-    const weight = Number(entry.weightKg ?? entry.weight ?? entry.kg ?? 0);
-    const reps = Number(entry.reps ?? entry.repetitions ?? 0);
-    return entry.done || weight > 0 || reps > 0;
-  });
-}
-
-function getExerciseSetCount(exercise = {}) {
-  return (exercise.sets || []).filter(isValidTrainingSet).length;
-}
-
-function getTrainingSetCount(training = {}) {
-  return (training.exercises || []).reduce(
-    (sum, exercise) => sum + getExerciseSetCount(exercise),
-    0,
-  );
-}
-
-function getExerciseVolumeValue(exercise = {}) {
-  return (exercise.sets || []).reduce(
-    (sum, set) => sum + getSetVolumeValue(set),
-    0,
-  );
-}
-
-function getExerciseMuscleGroup(exercise = {}) {
-  return titleCase(
-    exercise.muscleGroup ||
-      exercise.muscle ||
-      exercise.primaryMuscle ||
-      "Sin grupo",
-  );
-}
-
-function normalizeMuscleKey(value = "") {
-  const key = value
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-  const aliases = {
-    bicep: "biceps",
-    cuadricep: "cuadriceps",
-    femoral: "isquiotibiales",
-    femorales: "isquiotibiales",
-    gluteo: "gluteos",
-    hombro: "hombros",
-    isquiotibial: "isquiotibiales",
-    pantorrilla: "pantorrillas",
-    tricep: "triceps",
+function sumTrainingLoadMetrics(trainings = [], catalogIndex = new Map()) {
+  const total = {
+    recordedSets: 0,
+    completedSets: 0,
+    incompleteSets: 0,
+    externalKg: 0,
+    machineKg: 0,
+    unknownKg: 0,
+    assistanceKg: 0,
+    bodyweightSets: 0,
+    assistedSets: 0,
+    machineSets: 0,
+    cardioSets: 0,
+    unknownSets: 0,
+    recordedKg: 0,
   };
-  return aliases[key] || key;
+  trainings.forEach((training) => {
+    const metrics = getTrainingLoadMetrics(training, catalogIndex);
+    Object.keys(total).forEach((key) => {
+      total[key] += Number(metrics[key] || 0);
+    });
+  });
+  return total;
 }
 
 function median(values = []) {
@@ -348,28 +309,38 @@ function median(values = []) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function getTrainingMuscleMetrics(training = {}) {
+function getTrainingMuscleMetrics(training = {}, catalogIndex = new Map()) {
   const groups = new Map();
   (training.exercises || []).forEach((exercise) => {
-    const muscle = getExerciseMuscleGroup(exercise);
-    const key = normalizeMuscleKey(muscle);
-    if (!key || key === "sin grupo") return;
-    const current = groups.get(key) || { key, muscle, sets: 0, volume: 0 };
-    current.sets += getExerciseSetCount(exercise);
-    current.volume += getExerciseVolumeValue(exercise);
-    groups.set(key, current);
+    getExerciseMuscleExposure(exercise, catalogIndex).forEach((exposure) => {
+      const key = exposure.group
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      const current = groups.get(key) || {
+        key,
+        muscle: exposure.group,
+        sets: 0,
+      };
+      current.sets += exposure.equivalentSets;
+      groups.set(key, current);
+    });
   });
   return groups;
 }
 
-function getRoutineMuscles(routine = {}) {
+function getRoutineMuscles(routine = {}, catalogIndex = new Map()) {
   const muscles = new Map();
   (routine.exercises || []).forEach((exercise) => {
-    const muscle = getExerciseMuscleGroup(exercise);
-    const key = normalizeMuscleKey(muscle);
-    if (key && key !== "sin grupo") muscles.set(key, muscle);
+    getExerciseMuscleWeights(exercise, catalogIndex).forEach((entry) => {
+      const key = entry.group
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      muscles.set(key, { key, muscle: entry.group, weight: entry.weight });
+    });
   });
-  return Array.from(muscles, ([key, muscle]) => ({ key, muscle }));
+  return Array.from(muscles.values());
 }
 
 function getRecoveryLabel(value) {
@@ -502,6 +473,21 @@ function formatCompact(value = 0) {
   return Math.round(number).toString();
 }
 
+function formatSeriesCount(value = 0) {
+  const number = Number(value) || 0;
+  return Number.isInteger(number) ? String(number) : number.toFixed(1);
+}
+
+function formatEquivalentSeries(value = 0) {
+  const number = Number(value) || 0;
+  return `${formatSeriesCount(number)} ${number === 1 ? "equivalente" : "equivalentes"}`;
+}
+
+function formatSessionCount(value = 0) {
+  const number = Math.max(0, Number(value) || 0);
+  return `${number} ${number === 1 ? "sesión" : "sesiones"}`;
+}
+
 function extractBestExercisePerformances(training) {
   const bestByExercise = new Map();
 
@@ -515,13 +501,12 @@ function extractBestExercisePerformances(training) {
       exercise.muscle ||
       exercise.primaryMuscle ||
       "Sin grupo";
-    const performances = (exercise.sets || [])
-      .flatMap((set, setIndex) =>
-        getSetPerformances(set).map((performance) => ({
-          ...performance,
-          setIndex,
-        })),
-      );
+    const performances = (exercise.sets || []).flatMap((set, setIndex) =>
+      getSetPerformances(set).map((performance) => ({
+        ...performance,
+        setIndex,
+      })),
+    );
     const best = performances.reduce(
       (currentBest, performance) =>
         !currentBest || isBetter(performance, currentBest)
@@ -576,9 +561,7 @@ function collectPerformanceChangesInRange(trainings, startDate, endDate) {
     const dateDifference =
       getDateTimestamp(left.date) - getDateTimestamp(right.date);
     if (dateDifference) return dateDifference;
-    return (
-      getDateTimestamp(left.createdAt) - getDateTimestamp(right.createdAt)
-    );
+    return getDateTimestamp(left.createdAt) - getDateTimestamp(right.createdAt);
   });
 
   ordered.forEach((training) => {
@@ -710,14 +693,15 @@ function WeekStrip({ days }) {
   );
 }
 
-function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
+function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
+  const reduceMotion = useReducedMotion();
   const [selectedDay, setSelectedDay] = useState(null);
   const chartScrollRef = useRef(null);
-  const activeVolumes = data
-    .map((day) => Number(day.volume || 0))
-    .filter((volume) => volume > 0);
-  const maxVolume = Math.max(1, ...activeVolumes);
-  const typicalVolume = median(activeVolumes);
+  const activeSetCounts = data
+    .map((day) => Number(day.sets || 0))
+    .filter((sets) => sets > 0);
+  const maxSets = Math.max(1, ...activeSetCounts);
+  const typicalSets = median(activeSetCounts);
 
   useEffect(() => {
     const container = chartScrollRef.current;
@@ -733,7 +717,7 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
             Actividad de {monthLabel}
           </p>
           <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">
-            Volumen cargado por día de entrenamiento
+            Series completadas por día de entrenamiento
           </p>
         </div>
       </div>
@@ -747,16 +731,36 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
               Día {selectedDay.dayNumber} · {selectedDay.dateLabel}
             </span>
             <span className="ml-2 text-[color:var(--text-muted)]">
-              {selectedDay.volume > 0
-                ? `${formatCompact(selectedDay.volume)} kg`
-                : "Descanso"}
+              {selectedDay.sets > 0
+                ? `${formatSeriesCount(selectedDay.sets)} series`
+                : selectedDay.sessions > 0
+                  ? "Sin series completadas"
+                  : "Descanso"}
             </span>
+            {selectedDay.incompleteSets > 0 ? (
+              <span className="ml-1 text-[#c52d00] dark:text-[#e2ff00]">
+                · {selectedDay.incompleteSets}{" "}
+                {selectedDay.incompleteSets === 1 ? "pendiente" : "pendientes"}
+              </span>
+            ) : null}
             {selectedDay.routine ? (
               <span
                 className="mt-0.5 block truncate text-[color:var(--text-muted)]"
                 title={selectedDay.routine}
               >
                 {selectedDay.routine}
+              </span>
+            ) : null}
+            {selectedDay.sets > 0 ? (
+              <span className="mt-0.5 block text-[color:var(--text-muted)]">
+                Libre {formatCompact(selectedDay.externalKg)} kg · Máquina{" "}
+                {formatCompact(selectedDay.machineKg)} kg
+                {selectedDay.assistedSets
+                  ? ` · Asistido ${selectedDay.assistedSets} series`
+                  : ""}
+                {selectedDay.bodyweightSets
+                  ? ` · Corporal ${selectedDay.bodyweightSets} series`
+                  : ""}
               </span>
             ) : null}
           </div>
@@ -774,13 +778,11 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
             }}
           >
             {data.map((day) => {
-              const volume = Number(day.volume || 0);
+              const sets = Number(day.sets || 0);
               const overloaded =
-                volume > 0 &&
-                typicalVolume > 0 &&
-                volume >= typicalVolume * 1.5;
-              const height = volume
-                ? `${Math.max(10, (volume / maxVolume) * 100)}%`
+                sets > 0 && typicalSets > 0 && sets >= typicalSets * 1.5;
+              const height = sets
+                ? `${Math.max(10, (sets / maxSets) * 100)}%`
                 : "3px";
               return (
                 <button
@@ -790,12 +792,12 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
                   onMouseEnter={() => setSelectedDay(day)}
                   onMouseLeave={() => setSelectedDay(null)}
                   className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""} ${day.isToday ? "bg-[#ff5722]/5 dark:bg-[#e2ff00]/5" : ""}`}
-                  aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${volume ? `${formatCompact(volume)} kilogramos` : "sin entrenamiento"}`}
+                  aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${sets ? `${formatSeriesCount(sets)} series completadas` : day.sessions ? "sesión sin series completadas" : "sin entrenamiento"}`}
                 >
                   <span className="flex min-h-0 w-full flex-1 items-end justify-center">
-                    <span
+                    <motion.span
                       className={`block w-full max-w-6 rounded-t-[3px] transition-[height,opacity] duration-200 md:max-w-8 ${
-                        volume
+                        sets
                           ? overloaded
                             ? "bg-[#c52d00] shadow-[0_0_8px_rgba(197,45,0,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
                             : "bg-[#ff5722] dark:bg-[#b8d000]"
@@ -803,7 +805,17 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
                             ? "bg-[#ff5722] dark:bg-[#e2ff00]"
                             : "bg-[#d8d8d8] dark:bg-[#292929]"
                       }`}
-                      style={{ height }}
+                      initial={
+                        reduceMotion ? false : { height: "3px", opacity: 0.45 }
+                      }
+                      animate={{ height, opacity: 1 }}
+                      transition={{
+                        duration: reduceMotion ? 0 : 0.45,
+                        delay: reduceMotion
+                          ? 0
+                          : Math.min(day.dayNumber * 0.025, 0.3),
+                        ease: [0.2, 0.8, 0.2, 1],
+                      }}
                     />
                   </span>
                   <span
@@ -836,13 +848,13 @@ function MonthActivityChart({ data, trainedDays, totalVolume, monthLabel }) {
         </div>
         <div className="px-3">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-            Volumen
+            Series completadas
           </p>
           <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-            {formatCompact(totalVolume)} kg
+            {formatSeriesCount(totalSets)}
           </p>
           <p className="mt-1 text-[11px] font-bold text-[color:var(--text-muted)]">
-            acumulado
+            completadas
           </p>
         </div>
       </div>
@@ -1002,7 +1014,8 @@ function MonthDetailView({ detail, onBack }) {
 
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const queryClient = useQueryClient();
-  const { trainings = [] } = useTrainingData();
+  const { trainings = [], exercises: catalogExercises = [] } =
+    useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
   const [activePlan, setActivePlan] = useState(null);
@@ -1063,6 +1076,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         (a, b) => getDateTimestamp(a.date) - getDateTimestamp(b.date),
       ),
     [trainings],
+  );
+  const catalogIndex = useMemo(
+    () => buildExerciseCatalogIndex(catalogExercises),
+    [catalogExercises],
   );
 
   const now = useMemo(() => new Date(), []);
@@ -1126,12 +1143,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const volumeComparison = buildScopedPeriodComparison(
       currentTrainings,
       previousTrainings,
-      (training) => Number(training.totalVolume || 0),
+      (training) => getTrainingLoadMetrics(training, catalogIndex).externalKg,
     );
     const setsComparison = buildScopedPeriodComparison(
       currentTrainings,
       previousTrainings,
-      getTrainingSetCount,
+      (training) => getTrainingSetCount(training, catalogIndex),
+    );
+    const loadMetrics = sumTrainingLoadMetrics(currentTrainings, catalogIndex);
+    const previousLoadMetrics = sumTrainingLoadMetrics(
+      previousTrainings,
+      catalogIndex,
     );
 
     currentTrainings.forEach((training) => {
@@ -1160,11 +1182,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         (sum, training) => sum + getEffectiveDurationSeconds(training),
         0,
       ),
-      totalVolume: volumeComparison.currentTotal,
-      previousTotalVolume: previousTrainings.reduce(
-        (sum, training) => sum + Number(training.totalVolume || 0),
-        0,
-      ),
+      totalVolume: loadMetrics.recordedKg,
+      previousTotalVolume: previousLoadMetrics.recordedKg,
+      loadMetrics,
+      previousLoadMetrics,
       previousSeconds: previousTrainings.reduce(
         (sum, training) => sum + getEffectiveDurationSeconds(training),
         0,
@@ -1178,7 +1199,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       declines: performanceChanges.declines,
       previousSessions: previousTrainings.length,
     };
-  }, [now, orderedTrainings, todayKey]);
+  }, [catalogIndex, now, orderedTrainings, todayKey]);
 
   const monthActivity = useMemo(() => {
     const map = new Map();
@@ -1193,7 +1214,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         dateLabel: `${date.getDate()}/${date.getMonth() + 1}`,
         isToday: key === todayKey,
         sessions: 0,
-        volume: 0,
+        sets: 0,
+        incompleteSets: 0,
+        externalKg: 0,
+        machineKg: 0,
+        unknownKg: 0,
+        assistanceKg: 0,
+        bodyweightSets: 0,
+        assistedSets: 0,
         routine: "",
       });
     }
@@ -1204,8 +1232,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       const key = getISODateKey(date);
       const day = map.get(key);
       if (!day) return;
+      const metrics = getTrainingLoadMetrics(training, catalogIndex);
       day.sessions += 1;
-      day.volume += Number(training.totalVolume || 0);
+      day.sets += metrics.completedSets;
+      day.incompleteSets += metrics.incompleteSets;
+      day.externalKg += metrics.externalKg;
+      day.machineKg += metrics.machineKg;
+      day.unknownKg += metrics.unknownKg;
+      day.assistanceKg += metrics.assistanceKg;
+      day.bodyweightSets += metrics.bodyweightSets;
+      day.assistedSets += metrics.assistedSets;
       const routineName =
         training.routineName || training.routineId?.name || "Sesion";
       day.routine = day.routine
@@ -1216,13 +1252,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const days = Array.from(map.values());
     const trainedDays = days.filter((day) => day.sessions > 0).length;
     const totalSessions = days.reduce((sum, day) => sum + day.sessions, 0);
-    const totalVolume = days.reduce((sum, day) => sum + day.volume, 0);
+    const totalSets = days.reduce((sum, day) => sum + day.sets, 0);
     const monthLabel = titleCase(
       now.toLocaleDateString("es-BO", { month: "long" }),
     );
 
-    return { days, trainedDays, totalSessions, totalVolume, monthLabel };
-  }, [now, todayKey, trainings]);
+    return { days, trainedDays, totalSessions, totalSets, monthLabel };
+  }, [catalogIndex, now, todayKey, trainings]);
 
   const threeMonthSummary = useMemo(() => {
     const monthFormatter = new Intl.DateTimeFormat("es-BO", { month: "short" });
@@ -1249,12 +1285,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       const month = map.get(key);
       if (!month) return;
       month.sessions += 1;
-      month.volume += Number(training.totalVolume || 0);
+      month.volume += getTrainingLoadMetrics(training, catalogIndex).externalKg;
       month.minutes += Math.round(getEffectiveDurationSeconds(training) / 60);
     });
 
     return Array.from(map.values());
-  }, [now, trainings]);
+  }, [catalogIndex, now, trainings]);
 
   const selectedMonthDetail = useMemo(() => {
     const selected = threeMonthSummary.find(
@@ -1302,7 +1338,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       if (!day) return;
 
       const routineName = getRoutineName(training);
-      const volume = Number(training.totalVolume || 0);
+      const volume = getTrainingLoadMetrics(training, catalogIndex).externalKg;
       const seconds = getEffectiveDurationSeconds(training);
 
       day.active = true;
@@ -1342,7 +1378,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           minutes: formatSessionMinutes(routine.seconds),
         })),
     };
-  }, [selectedMonthKey, threeMonthSummary, trainings]);
+  }, [catalogIndex, selectedMonthKey, threeMonthSummary, trainings]);
 
   const durationRows = useMemo(
     () =>
@@ -1372,14 +1408,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         (sum, row) => sum + row.sessionSeconds,
         0,
       ),
-      workSeconds: trackedRows.reduce(
-        (sum, row) => sum + row.workSeconds,
-        0,
-      ),
-      restSeconds: trackedRows.reduce(
-        (sum, row) => sum + row.restSeconds,
-        0,
-      ),
+      workSeconds: trackedRows.reduce((sum, row) => sum + row.workSeconds, 0),
+      restSeconds: trackedRows.reduce((sum, row) => sum + row.restSeconds, 0),
       pauseSeconds: durationRows.reduce(
         (sum, row) => sum + row.pauseSeconds,
         0,
@@ -1403,19 +1433,30 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         key: routineKey,
         name: routineName,
         sets: 0,
+        recordedSets: 0,
+        incompleteSets: 0,
         sessions: 0,
         hasReference: comparableScopes.has(scopeKey),
       };
       routine.sessions += 1;
 
       (training.exercises || []).forEach((exercise) => {
-        const sets = getExerciseSetCount(exercise);
+        const metrics = getExerciseLoadMetrics(exercise, catalogIndex);
+        const sets = metrics.completedSets;
+        routine.recordedSets += metrics.recordedSets;
+        routine.incompleteSets += metrics.incompleteSets;
         if (!sets) return;
-        const muscle = getExerciseMuscleGroup(exercise);
-        const muscleRow = byMuscle.get(muscle) || { name: muscle, sets: 0 };
-        muscleRow.sets += sets;
-        byMuscle.set(muscle, muscleRow);
         routine.sets += sets;
+        getExerciseMuscleExposure(exercise, catalogIndex).forEach(
+          (exposure) => {
+            const muscleRow = byMuscle.get(exposure.group) || {
+              name: exposure.group,
+              sets: 0,
+            };
+            muscleRow.sets += exposure.equivalentSets;
+            byMuscle.set(exposure.group, muscleRow);
+          },
+        );
       });
 
       byRoutine.set(routineKey, routine);
@@ -1424,27 +1465,37 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const comparison = getWeeklyComparisonSummary(
       weekData.setsComparison,
       (value) => Math.round(value),
-      "sets",
+      "series",
     );
-    const diff = comparison.hasReference
-      ? comparison.comparableCurrent - comparison.previous
-      : 0;
+    const previousTotal = weekData.previousLoadMetrics.completedSets;
+    const diff = weekData.totalSets - previousTotal;
     return {
       total: weekData.totalSets,
+      recorded: weekData.loadMetrics.recordedSets,
+      incomplete: weekData.loadMetrics.incompleteSets,
       comparableCurrent: comparison.comparableCurrent,
       previous: comparison.previous,
+      previousTotal,
       excluded: comparison.excluded,
-      hasReference: comparison.hasReference,
+      hasReference: previousTotal > 0,
+      hasProgressionReference: comparison.hasReference,
       isPartial: comparison.isPartial,
-      description: comparison.description,
+      description:
+        "Solo se cuentan series marcadas como completadas. La comparacion principal incluye toda la semana.",
       diff,
-      diffLabel: comparison.hasReference
-        ? `${diff >= 0 ? "+" : ""}${diff} vs anterior`
-        : comparison.changeLabel,
+      diffLabel:
+        previousTotal > 0
+          ? `${diff >= 0 ? "+" : ""}${diff} vs anterior`
+          : "Sin referencia semanal",
+      statusLabel: weekData.loadMetrics.incompleteSets
+        ? `${weekData.loadMetrics.incompleteSets} ${weekData.loadMetrics.incompleteSets === 1 ? "pendiente" : "pendientes"}`
+        : "Sin pendientes",
+      progressionDescription: comparison.description,
+      progressionLabel: comparison.changeLabel,
       byMuscle: Array.from(byMuscle.values()).sort((a, b) => b.sets - a.sets),
       byRoutine: Array.from(byRoutine.values()).sort((a, b) => b.sets - a.sets),
     };
-  }, [weekData]);
+  }, [catalogIndex, weekData]);
 
   const improvementsByMuscle = useMemo(() => {
     const groups = new Map();
@@ -1488,7 +1539,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           eyebrow: "Vs anterior",
           title: "Donde bajamos",
           description:
-            "Mejor set de esta semana frente a la ejecucion inmediatamente anterior del ejercicio.",
+            "Mejor serie de esta semana frente a la ejecución inmediatamente anterior del ejercicio.",
           label: "Bajamos",
           count: weekData.declines?.length || 0,
           groups: declinesByMuscle,
@@ -1500,7 +1551,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           eyebrow: "Vs anterior",
           title: "Donde subimos",
           description:
-            "Mejor set de esta semana frente a la ejecucion inmediatamente anterior del ejercicio.",
+            "Mejor serie de esta semana frente a la ejecución inmediatamente anterior del ejercicio.",
           label: "Subimos",
           count: weekData.improvements?.length || 0,
           groups: improvementsByMuscle,
@@ -1541,33 +1592,42 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       }
     }
 
-    const weeklyVolume = Number(weekData.totalVolume || 0);
+    const weeklySets = Number(weekData.loadMetrics.completedSets || 0);
+    const previousWeeklySets = Number(
+      weekData.previousLoadMetrics.completedSets || 0,
+    );
     const weeklySeconds = Number(weekData.totalSeconds || 0);
-    const volumeSpike =
-      weekData.previousTotalVolume > 0
-        ? (weeklyVolume - weekData.previousTotalVolume) /
-          weekData.previousTotalVolume
+    const loadSpike =
+      previousWeeklySets > 0
+        ? (weeklySets - previousWeeklySets) / previousWeeklySets
         : 0;
+    const weeklyLoadAdjustment =
+      loadSpike >= 0.2
+        ? -Math.min(12, Math.round(loadSpike * 10))
+        : loadSpike <= -0.2
+          ? Math.min(4, Math.round(Math.abs(loadSpike) * 5))
+          : 0;
     const factors = [];
     const muscleStats = new Map();
 
     orderedTrainings.forEach((training) => {
       const timestamp = getDateTimestamp(training.date);
       if (!timestamp || timestamp > now.getTime()) return;
-      getTrainingMuscleMetrics(training).forEach((metric, key) => {
-        if (!metric.sets && !metric.volume) return;
-        const current = muscleStats.get(key) || {
-          key,
-          muscle: metric.muscle,
-          records: [],
-        };
-        current.records.push({
-          timestamp,
-          sets: metric.sets,
-          volume: metric.volume,
-        });
-        muscleStats.set(key, current);
-      });
+      getTrainingMuscleMetrics(training, catalogIndex).forEach(
+        (metric, key) => {
+          if (!metric.sets) return;
+          const current = muscleStats.get(key) || {
+            key,
+            muscle: metric.muscle,
+            records: [],
+          };
+          current.records.push({
+            timestamp,
+            sets: metric.sets,
+          });
+          muscleStats.set(key, current);
+        },
+      );
     });
 
     const muscleReadiness = Array.from(muscleStats.values())
@@ -1580,9 +1640,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         const typicalSets = median(
           baselineRecords.map((record) => record.sets),
         );
-        const typicalVolume = median(
-          baselineRecords.map((record) => record.volume),
-        );
         const recentRecords = records.filter(
           (record) => now.getTime() - record.timestamp <= 7 * DAY_MS,
         );
@@ -1593,10 +1650,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             (now.getTime() - record.timestamp) / DAY_MS,
           );
           const setRatio = typicalSets ? record.sets / typicalSets : 1;
-          const volumeRatio = typicalVolume
-            ? record.volume / typicalVolume
-            : setRatio;
-          const relativeLoad = Math.min(3, setRatio * 0.7 + volumeRatio * 0.3);
+          const relativeLoad = Math.min(3, setRatio);
           fatigue += relativeLoad * 0.5 ** (ageDays / 2);
         });
         const value = Math.max(
@@ -1627,10 +1681,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             (sum, record) => sum + record.sets,
             0,
           ),
-          weeklyVolume: weeklyRecords.reduce(
-            (sum, record) => sum + record.volume,
-            0,
-          ),
           value,
           label: getRecoveryLabel(value),
         };
@@ -1654,19 +1704,30 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         seenRoutineIds.add(routineId);
         const routine = routineById.get(routineId);
         if (!routine) return null;
-        const muscleEntries = getRoutineMuscles(routine);
+        const muscleEntries = getRoutineMuscles(routine, catalogIndex);
         const muscles = muscleEntries.map((entry) => entry.muscle);
-        const scores = muscles.map(
-          (_, index) =>
-            muscleReadinessMap.get(muscleEntries[index].key)?.value ?? 96,
+        const scores = muscleEntries.map((entry) => ({
+          value: muscleReadinessMap.get(entry.key)?.value ?? 96,
+          weight: entry.weight,
+        }));
+        const limitingScores = scores.filter((score) => score.weight >= 0.5);
+        const min = limitingScores.length
+          ? Math.min(...limitingScores.map((score) => score.value))
+          : 90;
+        const totalWeight = scores.reduce(
+          (sum, score) => sum + score.weight,
+          0,
         );
-        const min = scores.length ? Math.min(...scores) : 90;
-        const avg = scores.length
-          ? scores.reduce((sum, value) => sum + value, 0) / scores.length
+        const avg = totalWeight
+          ? scores.reduce((sum, score) => sum + score.value * score.weight, 0) /
+            totalWeight
           : 90;
         const value = Math.max(
           10,
-          Math.min(98, Math.round(avg * 0.55 + min * 0.45)),
+          Math.min(
+            98,
+            Math.round(avg * 0.55 + min * 0.45 + weeklyLoadAdjustment),
+          ),
         );
         const limitingMuscle = muscleEntries
           .map((entry) => muscleReadinessMap.get(entry.key))
@@ -1685,12 +1746,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       .filter(Boolean)
       .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 
-    const globalValue = muscleReadiness.length
-      ? Math.round(
-          muscleReadiness.reduce((sum, item) => sum + item.value, 0) /
-            muscleReadiness.length,
-        )
-      : 96;
+    const globalValue = Math.max(
+      10,
+      Math.min(
+        98,
+        (muscleReadiness.length
+          ? Math.round(
+              muscleReadiness.reduce((sum, item) => sum + item.value, 0) /
+                muscleReadiness.length,
+            )
+          : 96) + weeklyLoadAdjustment,
+      ),
+    );
     const mondayIndex = (now.getDay() + 6) % 7;
     const scheduleIndex =
       activePlan?.scheduleMode === "fixed"
@@ -1744,7 +1811,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     );
     overloadedMuscles.slice(0, 2).forEach((item) => {
       factors.push({
-        label: `${item.muscle}: ${item.latestSets} vs ${item.typicalSets || "-"} sets habituales`,
+        label: `${item.muscle}: ${formatEquivalentSeries(item.latestSets)} vs ${formatEquivalentSeries(item.typicalSets || 0)} habituales`,
         impact: `${Math.round(item.latestSetRatio * 100)}%`,
       });
     });
@@ -1752,6 +1819,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       factors.push({
         label: daysSinceLast <= 1 ? "Sesion reciente" : "Descanso acumulado",
         impact: daysSinceLast <= 1 ? "Carga" : "+Recuperacion",
+      });
+    }
+    if (previousWeeklySets > 0 && Math.abs(loadSpike) >= 0.2) {
+      factors.push({
+        label: `Series semanales: ${weeklySets} vs ${previousWeeklySets}`,
+        impact: `${weeklyLoadAdjustment >= 0 ? "+" : ""}${weeklyLoadAdjustment} rec.`,
       });
     }
 
@@ -1762,9 +1835,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       globalLabel: getRecoveryLabel(globalValue),
       daysSinceLast,
       consecutiveDays,
-      weeklyVolume,
+      weeklySets,
+      previousWeeklySets,
       weeklySeconds,
-      volumeSpike,
+      loadSpike,
       factors,
       lastTraining,
       routineReadiness,
@@ -1775,10 +1849,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       scheduledRoutine,
       isPlannedRest,
     };
-  }, [activePlan, now, orderedTrainings, routines, todayKey, weekData]);
+  }, [
+    activePlan,
+    catalogIndex,
+    now,
+    orderedTrainings,
+    routines,
+    todayKey,
+    weekData,
+  ]);
 
   const weeklyLoad = useMemo(() => {
-    const comparison = getWeeklyComparisonSummary(
+    const progression = getWeeklyComparisonSummary(
       weekData.volumeComparison,
       formatCompact,
       "kg",
@@ -1796,52 +1878,76 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       const routine = byRoutine.get(routineKey) || {
         key: routineKey,
         name: routineName,
-        volume: 0,
+        completedSets: 0,
+        externalKg: 0,
+        machineKg: 0,
+        unknownKg: 0,
+        assistanceKg: 0,
+        bodyweightSets: 0,
+        assistedSets: 0,
+        machineSets: 0,
         sessions: 0,
         hasReference: comparableScopes.has(scopeKey),
       };
       routine.sessions += 1;
 
       (training.exercises || []).forEach((exercise) => {
-        const volume = getExerciseVolumeValue(exercise);
-        if (volume <= 0) return;
-        const muscle = titleCase(
-          exercise.muscleGroup ||
-            exercise.muscle ||
-            exercise.primaryMuscle ||
-            "Sin grupo",
+        const metrics = getExerciseLoadMetrics(exercise, catalogIndex);
+        routine.completedSets += metrics.completedSets;
+        routine.externalKg += metrics.externalKg;
+        routine.machineKg += metrics.machineKg;
+        routine.unknownKg += metrics.unknownKg;
+        routine.assistanceKg += metrics.assistanceKg;
+        routine.bodyweightSets += metrics.bodyweightSets;
+        routine.assistedSets += metrics.assistedSets;
+        routine.machineSets += metrics.machineSets;
+        getExerciseMuscleExposure(exercise, catalogIndex).forEach(
+          (exposure) => {
+            const muscleRow = byMuscle.get(exposure.group) || {
+              muscle: exposure.group,
+              equivalentSets: 0,
+            };
+            muscleRow.equivalentSets += exposure.equivalentSets;
+            byMuscle.set(exposure.group, muscleRow);
+          },
         );
-        const muscleRow = byMuscle.get(muscle) || {
-          muscle,
-          volume: 0,
-          exercises: 0,
-        };
-        muscleRow.volume += volume;
-        muscleRow.exercises += 1;
-        byMuscle.set(muscle, muscleRow);
-        routine.volume += volume;
       });
 
       byRoutine.set(routineKey, routine);
     });
 
+    const current = weekData.loadMetrics.externalKg;
+    const previousTotal = weekData.previousLoadMetrics.externalKg;
     return {
-      ...comparison,
+      current,
+      previousTotal,
+      changeLabel:
+        previousTotal > 0
+          ? `${formatPercentChange(current, previousTotal)} vs semana anterior`
+          : "Sin referencia semanal",
+      description:
+        "Peso externo por repeticiones en series completadas. Maquinas, asistencia y peso corporal se muestran por separado.",
+      comparableCurrent: progression.comparableCurrent,
+      previous: progression.previous,
+      progressionChangeLabel: progression.changeLabel,
+      progressionDescription: progression.description,
+      hasProgressionReference: progression.hasReference,
+      loadMetrics: weekData.loadMetrics,
       byMuscle: Array.from(byMuscle.values()).sort(
-        (a, b) => b.volume - a.volume,
+        (a, b) => b.equivalentSets - a.equivalentSets,
       ),
       byRoutine: Array.from(byRoutine.values()).sort(
-        (a, b) => b.volume - a.volume,
+        (a, b) => b.completedSets - a.completedSets,
       ),
     };
-  }, [weekData]);
+  }, [catalogIndex, weekData]);
 
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
 
   return (
     <motion.div
-      {...presets.fadeUp}
+      initial={false}
       className="dashboard-shell mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
       <header className="flex items-center justify-between gap-3 border-b border-transparent pb-1 dark:border-[#252525] dark:pb-4">
@@ -2013,7 +2119,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Carga semanal
+              Tonelaje libre
             </p>
             <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
@@ -2031,7 +2137,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Sets semana
+              Series completadas
             </p>
             <ListChecks className="h-3.5 w-3.5 text-[#5f5f5f] dark:text-[#e2ff00]" />
           </div>
@@ -2039,7 +2145,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             {weeklySets.total}
           </p>
           <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {weeklySets.diffLabel}
+            {weeklySets.statusLabel} · {weeklySets.diffLabel}
           </p>
         </button>
       </div>
@@ -2047,7 +2153,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       <MonthActivityChart
         data={monthActivity.days}
         trainedDays={monthActivity.trainedDays}
-        totalVolume={monthActivity.totalVolume}
+        totalSets={monthActivity.totalSets}
         monthLabel={monthActivity.monthLabel}
       />
 
@@ -2175,8 +2281,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     : recovery.label}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {recovery.recommendationReason}. Se comparan sets y volumen
-                  reciente con tu carga habitual por músculo.
+                  {recovery.recommendationReason}. Se compara la exposición
+                  muscular reciente con tu carga habitual.
                 </p>
               </div>
               <button
@@ -2221,13 +2327,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Volumen semanal
+                    Series completadas
                   </p>
                   <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatCompact(recovery.weeklyVolume)} kg
+                    {formatSeriesCount(recovery.weeklySets)}
                   </p>
                   <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    carga registrada
+                    semana activa
                   </p>
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
@@ -2331,8 +2437,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                               : `${muscle.daysSinceLast} dias`}
                         </p>
                         <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-                          Último: {muscle.latestSets} sets · habitual:{" "}
-                          {muscle.typicalSets || "--"}
+                          Último: {formatEquivalentSeries(muscle.latestSets)} ·
+                          habitual:{" "}
+                          {muscle.typicalSets
+                            ? formatEquivalentSeries(muscle.typicalSets)
+                            : "--"}
                         </p>
                       </article>
                     ))
@@ -2386,7 +2495,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Detalle de carga semanal"
+          aria-label="Detalle de tonelaje libre semanal"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget)
               setWeeklyLoadModalOpen(false);
@@ -2396,7 +2505,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Carga semanal
+                  Tonelaje libre semanal
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
                   {formatCompact(weeklyLoad.current)} kg ·{" "}
@@ -2420,10 +2529,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <div className="grid grid-cols-3 gap-2">
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Total
+                    Esta semana
                   </p>
                   <p className="mt-2 text-xl font-black text-[color:var(--text)]">
                     {formatCompact(weeklyLoad.current)} kg
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Semana anterior
+                  </p>
+                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
+                    {formatCompact(weeklyLoad.previousTotal)} kg
                   </p>
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
@@ -2434,19 +2551,61 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     {formatCompact(weeklyLoad.comparableCurrent)} kg
                   </p>
                 </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Anterior
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatCompact(weeklyLoad.previous)} kg
-                  </p>
-                </article>
               </div>
+
+              <p className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                Progresión comparable: {weeklyLoad.progressionChangeLabel}
+                {weeklyLoad.hasProgressionReference
+                  ? ` · base ${formatCompact(weeklyLoad.previous)} kg`
+                  : ""}
+              </p>
 
               <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Por grupo muscular
+                  Otras modalidades
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <article className="rounded-xl bg-[color:var(--card)] p-3">
+                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                      Máquinas
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
+                      {formatCompact(weeklyLoad.loadMetrics.machineKg)} kg ·{" "}
+                      {weeklyLoad.loadMetrics.machineSets} series
+                    </p>
+                  </article>
+                  <article className="rounded-xl bg-[color:var(--card)] p-3">
+                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                      Peso corporal
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
+                      {weeklyLoad.loadMetrics.bodyweightSets} series
+                    </p>
+                  </article>
+                  <article className="rounded-xl bg-[color:var(--card)] p-3">
+                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                      Asistencia
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
+                      {weeklyLoad.loadMetrics.assistedSets} series ·{" "}
+                      {formatCompact(weeklyLoad.loadMetrics.assistanceKg)} kg
+                    </p>
+                  </article>
+                  <article className="rounded-xl bg-[color:var(--card)] p-3">
+                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                      Sin clasificar
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
+                      {weeklyLoad.loadMetrics.unknownSets} series ·{" "}
+                      {formatCompact(weeklyLoad.loadMetrics.unknownKg)} kg
+                    </p>
+                  </article>
+                </div>
+              </section>
+
+              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  Exposición muscular estimada
                 </p>
                 <div className="mt-3 space-y-2">
                   {weeklyLoad.byMuscle.length ? (
@@ -2460,7 +2619,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                             {item.muscle}
                           </p>
                           <p className="text-sm font-black text-[#ff5722] dark:text-[#e2ff00]">
-                            {formatCompact(item.volume)} kg
+                            {formatEquivalentSeries(item.equivalentSets)}
                           </p>
                         </div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e5e5e5] dark:bg-[#292929]">
@@ -2469,8 +2628,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                             style={{
                               width: `${Math.min(
                                 100,
-                                weeklyLoad.current
-                                  ? (item.volume / weeklyLoad.current) * 100
+                                weeklyLoad.byMuscle[0]?.equivalentSets
+                                  ? (item.equivalentSets /
+                                      weeklyLoad.byMuscle[0].equivalentSets) *
+                                      100
                                   : 0,
                               )}%`,
                             }}
@@ -2480,7 +2641,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     ))
                   ) : (
                     <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay volumen registrado esta semana.
+                      No hay series completadas esta semana.
                     </p>
                   )}
                 </div>
@@ -2502,14 +2663,25 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                             {item.name}
                           </p>
                           <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {item.sessions} sesion(es)
+                            {formatSessionCount(item.sessions)} ·{" "}
+                            {item.completedSets} series
                             {!item.hasReference
                               ? " / ciclo sin referencia"
                               : ""}
                           </p>
+                          <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                            Libre {formatCompact(item.externalKg)} kg · Máquina{" "}
+                            {formatCompact(item.machineKg)} kg
+                            {item.bodyweightSets
+                              ? ` · Corporal ${item.bodyweightSets} series`
+                              : ""}
+                            {item.assistedSets
+                              ? ` · Asistido ${item.assistedSets} series`
+                              : ""}
+                          </p>
                         </div>
                         <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
-                          {formatCompact(item.volume)} kg
+                          {item.completedSets}
                         </span>
                       </div>
                     ))
@@ -2540,10 +2712,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Sets semana
+                  Series completadas
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  {weeklySets.total} sets - {weeklySets.diffLabel}
+                  {weeklySets.total} series · {weeklySets.diffLabel}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                   {weeklySets.description}
@@ -2571,25 +2743,32 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Comparable
+                    Pendientes
                   </p>
                   <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-                    {weeklySets.comparableCurrent}
+                    {weeklySets.incomplete}
                   </p>
                 </article>
                 <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Anterior
+                    Semana anterior
                   </p>
                   <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-                    {weeklySets.previous}
+                    {weeklySets.previousTotal}
                   </p>
                 </article>
               </div>
 
+              <p className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                Progresión comparable:{" "}
+                {weeklySets.hasProgressionReference
+                  ? `${weeklySets.comparableCurrent} series · ${weeklySets.progressionLabel}`
+                  : "sin ciclo anterior comparable"}
+              </p>
+
               <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Por grupo muscular
+                  Series equivalentes por músculo
                 </p>
                 <div className="mt-3 space-y-2">
                   {weeklySets.byMuscle.length ? (
@@ -2602,13 +2781,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           {item.name}
                         </p>
                         <span className="shrink-0 rounded bg-[#fff0eb] px-2 py-1 text-xs font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-                          {item.sets} sets
+                          {formatEquivalentSeries(item.sets)}
                         </span>
                       </div>
                     ))
                   ) : (
                     <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay sets registrados esta semana.
+                      No hay series completadas esta semana.
                     </p>
                   )}
                 </div>
@@ -2630,14 +2809,22 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                             {item.name}
                           </p>
                           <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {item.sessions} sesion(es)
+                            {formatSessionCount(item.sessions)}
                             {!item.hasReference
                               ? " / ciclo sin referencia"
                               : ""}
                           </p>
+                          {item.incompleteSets ? (
+                            <p className="mt-1 text-[10px] font-bold text-[#c52d00] dark:text-[#e2ff00]">
+                              {item.incompleteSets}{" "}
+                              {item.incompleteSets === 1
+                                ? "serie pendiente"
+                                : "series pendientes"}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
-                          {item.sets} sets
+                          {item.sets}/{item.recordedSets}
                         </span>
                       </div>
                     ))
@@ -2693,9 +2880,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 {[
                   {
                     label: "Sesión",
-                    value: formatSessionMinutes(
-                      durationSummary.sessionSeconds,
-                    ),
+                    value: formatSessionMinutes(durationSummary.sessionSeconds),
                   },
                   {
                     label: "Trabajo est.",

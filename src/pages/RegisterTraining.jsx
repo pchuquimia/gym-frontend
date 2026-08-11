@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -42,6 +42,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
+import { findAutoFlowDestination } from "../utils/autoWorkoutFlow";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -270,8 +271,7 @@ const calculateTimingSummary = (events = [], nowMs = Date.now()) => {
     exerciseDurations,
     exerciseDurationsPayload: Array.from(exerciseDurations.entries()).map(
       ([exerciseId, seconds]) => {
-        const exerciseRestSeconds =
-          exerciseRestDurations.get(exerciseId) || 0;
+        const exerciseRestSeconds = exerciseRestDurations.get(exerciseId) || 0;
         return {
           exerciseId,
           durationSeconds: seconds,
@@ -1285,11 +1285,79 @@ function DevTrainingDateControl({ value, onChange }) {
   );
 }
 
+function AdminAutoFlowControl({
+  enabled,
+  durationSeconds,
+  onToggle,
+  onDurationChange,
+}) {
+  return (
+    <div className="border border-[color:var(--border)] bg-[color:var(--bg)] p-3 dark:bg-[#171717]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Timer className="h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-[color:var(--text)]">
+                Flujo automatico
+              </span>
+              <span className="bg-[#ff5722] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
+                Beta
+              </span>
+            </div>
+            <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+              Descanso y siguiente paso
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Activar flujo automatico beta"
+          onClick={() => onToggle(!enabled)}
+          className={`relative h-7 w-12 shrink-0 border transition-colors ${
+            enabled
+              ? "border-[#ff5722] bg-[#ff5722] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
+              : "border-[color:var(--border)] bg-[color:var(--card)]"
+          }`}
+        >
+          <span
+            className={`absolute top-1 h-[18px] w-[18px] bg-white shadow transition-transform dark:bg-black ${
+              enabled ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+      {enabled ? (
+        <div className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Duracion del descanso">
+          {[60, 90, 120, 180].map((seconds) => (
+            <button
+              key={seconds}
+              type="button"
+              onClick={() => onDurationChange(seconds)}
+              className={`h-8 border text-xs font-black tabular-nums transition-colors ${
+                durationSeconds === seconds
+                  ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                  : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+              }`}
+            >
+              {seconds}s
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function RegisterTraining({
   onNavigate = () => {},
   coachAthlete = null,
 }) {
+  const reduceMotion = useReducedMotion();
   const { user: authUser } = useAuth();
+  const isAdmin = authUser?.role === "Admin";
   const {
     routines,
     loading: routinesLoading,
@@ -1376,7 +1444,26 @@ export default function RegisterTraining({
   const [restTimerRunning, setRestTimerRunning] = useState(false);
   const [restTimerStarted, setRestTimerStarted] = useState(false);
   const [restDeadlineMs, setRestDeadlineMs] = useState(null);
+  const [autoFlowEnabled, setAutoFlowEnabled] = useState(false);
+  const [autoFlowTarget, setAutoFlowTarget] = useState(null);
+  const [autoFlowPrompt, setAutoFlowPrompt] = useState(null);
   const restVibratedRef = useRef(false);
+  const autoFlowEnabledRef = useRef(false);
+  const autoFlowTargetRef = useRef(null);
+  const autoFlowPromptRef = useRef(null);
+  const completeAutoFlowRef = useRef(null);
+  autoFlowEnabledRef.current = isAdmin && autoFlowEnabled;
+  autoFlowTargetRef.current = autoFlowTarget;
+  autoFlowPromptRef.current = autoFlowPrompt;
+
+  const updateAutoFlowTarget = (target) => {
+    autoFlowTargetRef.current = target;
+    setAutoFlowTarget(target);
+  };
+  const updateAutoFlowPrompt = (prompt) => {
+    autoFlowPromptRef.current = prompt;
+    setAutoFlowPrompt(prompt);
+  };
   const loadTrainingByIdRef = useRef(null);
   const loadHistoryForRoutineRef = useRef(null);
   const mergeRoutineIntoActiveExercisesRef = useRef(null);
@@ -1393,10 +1480,7 @@ export default function RegisterTraining({
   useEffect(() => {
     if (!desktopSessionMenuOpen) return undefined;
     const closeMenu = (event) => {
-      if (
-        event.type === "keydown" &&
-        event.key !== "Escape"
-      ) {
+      if (event.type === "keydown" && event.key !== "Escape") {
         return;
       }
       if (
@@ -2044,6 +2128,19 @@ export default function RegisterTraining({
           meta.muscle ||
           meta.muscleGroup ||
           "Sin grupo",
+        primaryMuscleGroup:
+          trainingEx?.primaryMuscleGroup ||
+          meta.primaryMuscleGroup ||
+          ex.muscleGroup ||
+          ex.muscle ||
+          "",
+        primaryMuscles: trainingEx?.primaryMuscles || meta.primaryMuscles || [],
+        secondaryMuscles:
+          trainingEx?.secondaryMuscles || meta.secondaryMuscles || [],
+        stabilizerMuscles:
+          trainingEx?.stabilizerMuscles || meta.stabilizerMuscles || [],
+        equipment: trainingEx?.equipment || meta.equipment || [],
+        loadType: trainingEx?.loadType || meta.loadType || "",
         isExtra: Boolean(ex.isExtra ?? routineSlot?.isExtra),
         supportsUnilateral,
         movementMode,
@@ -2445,6 +2542,10 @@ export default function RegisterTraining({
       if (!silent) toast.message("Este ejercicio ya esta en curso.");
       return;
     }
+    if (autoFlowTargetRef.current || autoFlowPromptRef.current) {
+      updateAutoFlowTarget(null);
+      updateAutoFlowPrompt(null);
+    }
     setExercises((prev) => {
       const current = prev.find((ex) => ex.id === exerciseId);
       if (!current) return prev;
@@ -2488,6 +2589,7 @@ export default function RegisterTraining({
     if (wasResting) {
       setRestTimerRunning(false);
       setRestDeadlineMs(null);
+      updateAutoFlowTarget(null);
     }
     setTimeEvents((prev) => [
       ...prev,
@@ -2520,6 +2622,106 @@ export default function RegisterTraining({
         target?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
     }
+  };
+
+  const completeAutoFlow = () => {
+    const pendingTarget = autoFlowTargetRef.current;
+    if (!pendingTarget || autoFlowPromptRef.current) return;
+    if (!isAdmin || !autoFlowEnabledRef.current) return;
+
+    const destination = findAutoFlowDestination(
+      exercisesRef.current,
+      pendingTarget.exerciseId,
+    );
+    if (!destination) return;
+    const destinationExercise = exercisesRef.current.find(
+      (exercise) =>
+        String(exercise.id) === String(destination.exerciseId || ""),
+    );
+    const destinationSetIndex =
+      destination.type === "set"
+        ? (destinationExercise?.sets || []).findIndex(
+            (set) => String(set.id) === String(destination.setId),
+          )
+        : -1;
+    updateAutoFlowPrompt({
+      ...destination,
+      exerciseName: destinationExercise?.name || "Siguiente ejercicio",
+      setNumber: destinationSetIndex >= 0 ? destinationSetIndex + 1 : null,
+    });
+    setRestTimerOpen(true);
+    setRestTimerMinimized(false);
+  };
+  completeAutoFlowRef.current = completeAutoFlow;
+
+  const handleConfirmAutoFlowAdvance = () => {
+    const destination = autoFlowPromptRef.current;
+    if (!destination) return;
+    updateAutoFlowPrompt(null);
+    updateAutoFlowTarget(null);
+    setRestTimerOpen(false);
+    setRestTimerMinimized(true);
+    setRestTimerStarted(false);
+    setRestRemainingSeconds(restDurationSeconds);
+    setRestDeadlineMs(null);
+
+    if (destination.type === "complete") {
+      toast.success("Todas las series de la rutina estan completas.");
+      return;
+    }
+
+    if (destination.type === "exercise") {
+      handleStartExerciseNow(destination.exerciseId, { silent: true });
+      toast.success("Siguiente ejercicio iniciado.");
+    } else {
+      setExpandedExerciseId(destination.exerciseId);
+      toast.success("Siguiente serie preparada.");
+    }
+
+    if (typeof document === "undefined") return;
+    window.setTimeout(() => {
+      const exerciseElement = Array.from(
+        document.querySelectorAll("[data-exercise-id]"),
+      ).find(
+        (element) =>
+          String(element.dataset.exerciseId) ===
+            String(destination.exerciseId) &&
+          element.getClientRects().length > 0,
+      );
+      const targetElement =
+        destination.type === "set"
+          ? Array.from(
+              exerciseElement?.querySelectorAll("[data-set-id]") || [],
+            ).find(
+              (element) =>
+                String(element.dataset.setId) === String(destination.setId),
+            )
+          : exerciseElement;
+      targetElement?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
+      if (!reduceMotion && typeof targetElement?.animate === "function") {
+        targetElement.animate(
+          [
+            { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+            { boxShadow: "0 0 0 3px rgba(255,87,34,0.45)" },
+            { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+          ],
+          { duration: 850, easing: "ease-out" },
+        );
+      }
+    }, destination.type === "exercise" ? 140 : 80);
+  };
+
+  const handleDismissAutoFlowAdvance = () => {
+    updateAutoFlowPrompt(null);
+    updateAutoFlowTarget(null);
+    setRestTimerOpen(false);
+    setRestTimerMinimized(true);
+    setRestTimerStarted(false);
+    setRestRemainingSeconds(restDurationSeconds);
+    setRestDeadlineMs(null);
   };
 
   const loadTrainingForDate = async (
@@ -2995,11 +3197,16 @@ export default function RegisterTraining({
         Number(snap.restDurationSeconds) || 120,
       );
       const restoredRestDeadline = Number(snap.restDeadlineMs) || null;
+      const restoredAutoFlowEnabled = isAdmin && Boolean(snap.autoFlowEnabled);
+      const restoredAutoFlowTarget =
+        restoredAutoFlowEnabled && snap.autoFlowTarget
+          ? snap.autoFlowTarget
+          : null;
       const shouldResumeRest = Boolean(
         snap.restTimerRunning &&
-          snap.isRunning &&
-          restoredRestDeadline &&
-          restoredRestDeadline > now,
+        snap.isRunning &&
+        restoredRestDeadline &&
+        restoredRestDeadline > now,
       );
       const restWasOpen = hasOpenRestInterval(fallbackEvents);
       const restoredTimeEvents =
@@ -3044,6 +3251,10 @@ export default function RegisterTraining({
       }
       setRestDurationSeconds(restoredRestDuration);
       setRestMinutesInput(Math.max(1, restoredRestDuration / 60));
+      setAutoFlowEnabled(restoredAutoFlowEnabled);
+      autoFlowEnabledRef.current = restoredAutoFlowEnabled;
+      updateAutoFlowPrompt(null);
+      updateAutoFlowTarget(restoredAutoFlowTarget);
       setRestTimerStarted(Boolean(snap.restTimerStarted));
       setRestTimerRunning(shouldResumeRest);
       setRestDeadlineMs(shouldResumeRest ? restoredRestDeadline : null);
@@ -3052,7 +3263,11 @@ export default function RegisterTraining({
           ? Math.max(1, Math.ceil((restoredRestDeadline - now) / 1000))
           : Math.max(
               0,
-              Number(snap.restRemainingSeconds) || restoredRestDuration,
+              restoredAutoFlowTarget &&
+                restoredRestDeadline &&
+                restoredRestDeadline <= now
+                ? 0
+                : Number(snap.restRemainingSeconds) || restoredRestDuration,
             ),
       );
       if (Array.isArray(snap.exercises)) {
@@ -3131,7 +3346,16 @@ export default function RegisterTraining({
           nextExercises = mergeResult.exercises;
           localStorage.removeItem(ROUTINE_UPDATED_DURING_TRAINING_KEY);
         }
+        exercisesRef.current = nextExercises;
         setExercises(nextExercises);
+
+        if (
+          restoredAutoFlowTarget &&
+          restoredRestDeadline &&
+          restoredRestDeadline <= now
+        ) {
+          window.setTimeout(() => completeAutoFlowRef.current?.(), 0);
+        }
 
         if (mergeResult) {
           const details = [];
@@ -3161,6 +3385,7 @@ export default function RegisterTraining({
     authUser,
     coachAthlete,
     dataOwnerId,
+    isAdmin,
     isEditing,
     selectedRoutineId,
   ]);
@@ -3232,6 +3457,8 @@ export default function RegisterTraining({
         restDurationSeconds,
         restRemainingSeconds,
         restDeadlineMs,
+        autoFlowEnabled: isAdmin && autoFlowEnabled,
+        autoFlowTarget: isAdmin && autoFlowEnabled ? autoFlowTarget : null,
         exercises,
         removedExerciseIds: Array.from(removedExerciseIdsRef.current),
       };
@@ -3257,7 +3484,10 @@ export default function RegisterTraining({
     restDurationSeconds,
     restRemainingSeconds,
     restDeadlineMs,
+    autoFlowEnabled,
+    autoFlowTarget,
     exercises,
+    isAdmin,
     dataOwnerId,
     coachAthlete?.name,
     authUser,
@@ -3408,6 +3638,7 @@ export default function RegisterTraining({
           ]);
         }
         notifyRestCompleteRef.current?.();
+        completeAutoFlowRef.current?.();
       }
     };
 
@@ -3434,6 +3665,7 @@ export default function RegisterTraining({
           ]);
         }
         notifyRestCompleteRef.current?.();
+        completeAutoFlowRef.current?.();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -3449,9 +3681,13 @@ export default function RegisterTraining({
     setRestTimerMinimized(false);
   };
 
-  const handleStartRestTimer = (minutes = restMinutesInput) => {
+  const handleStartRestTimer = (
+    minutes = restMinutesInput,
+    { minimized = false } = {},
+  ) => {
     const parsedMinutes = Math.max(1, Number(minutes) || 1);
     const seconds = parsedMinutes * 60;
+    updateAutoFlowPrompt(null);
     restVibratedRef.current = false;
     ensureRestAudioContext();
     setRestMinutesInput(parsedMinutes);
@@ -3472,7 +3708,32 @@ export default function RegisterTraining({
     setRestTimerStarted(true);
     setRestTimerRunning(true);
     setRestTimerOpen(true);
-    setRestTimerMinimized(false);
+    setRestTimerMinimized(minimized);
+  };
+
+  const handleAutoFlowToggle = (enabled) => {
+    if (!isAdmin) return;
+    setAutoFlowEnabled(enabled);
+    autoFlowEnabledRef.current = enabled;
+    if (!enabled) {
+      updateAutoFlowTarget(null);
+      updateAutoFlowPrompt(null);
+    }
+    toast.success(
+      enabled
+        ? "Flujo automatico beta activado."
+        : "Flujo automatico desactivado.",
+    );
+  };
+
+  const handleAutoFlowDurationChange = (seconds) => {
+    if (!isAdmin) return;
+    const safeSeconds = [60, 90, 120, 180].includes(Number(seconds))
+      ? Number(seconds)
+      : 120;
+    setRestDurationSeconds(safeSeconds);
+    setRestMinutesInput(safeSeconds / 60);
+    if (!restTimerRunning) setRestRemainingSeconds(safeSeconds);
   };
 
   const handleToggleRestTimer = () => {
@@ -3525,6 +3786,8 @@ export default function RegisterTraining({
     setRestTimerRunning(false);
     setRestTimerStarted(false);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
     restVibratedRef.current = false;
   };
 
@@ -3543,6 +3806,8 @@ export default function RegisterTraining({
     setRestTimerStarted(false);
     setRestRemainingSeconds(restDurationSeconds);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
     restVibratedRef.current = false;
   };
 
@@ -3658,6 +3923,8 @@ export default function RegisterTraining({
     }
     setRestTimerRunning(false);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
     setIsRunning(false);
   };
 
@@ -3672,6 +3939,8 @@ export default function RegisterTraining({
     setRestTimerRunning(false);
     setRestTimerStarted(false);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setHasStarted(false);
@@ -3691,6 +3960,10 @@ export default function RegisterTraining({
     setRestTimerRunning(false);
     setRestTimerStarted(false);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
+    setAutoFlowEnabled(false);
+    autoFlowEnabledRef.current = false;
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setNowMs(Date.now());
@@ -4320,6 +4593,12 @@ export default function RegisterTraining({
     const targetEntry = targetSet?.entries?.find(
       (entry) => entry.id === entryId,
     );
+    const completesSet =
+      targetEntry &&
+      !targetEntry.done &&
+      (targetSet?.entries || []).every(
+        (entry) => entry.id === entryId || entry.done,
+      );
     const completesExercise =
       targetEntry &&
       !targetEntry.done &&
@@ -4331,6 +4610,12 @@ export default function RegisterTraining({
       });
     if (targetEntry && !targetEntry.done) {
       handleStartExerciseNow(exerciseId, { silent: true });
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.vibrate === "function"
+      ) {
+        navigator.vibrate(completesExercise ? [18, 24, 18] : 12);
+      }
     }
     const completedAt = new Date().toISOString();
     setExercises((prev) =>
@@ -4359,6 +4644,10 @@ export default function RegisterTraining({
           : ex,
       ),
     );
+    if (isAdmin && autoFlowEnabled && completesSet) {
+      updateAutoFlowTarget({ exerciseId, setId });
+      handleStartRestTimer(restDurationSeconds / 60, { minimized: false });
+    }
     if (completesExercise) {
       setExpandedExerciseId((current) =>
         current === exerciseId ? "" : current,
@@ -4372,7 +4661,10 @@ export default function RegisterTraining({
               element.dataset.exerciseId === exerciseId &&
               element.getClientRects().length > 0,
           );
-          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+          target?.scrollIntoView({
+            behavior: reduceMotion ? "auto" : "smooth",
+            block: "center",
+          });
         }, 280);
       }
     }
@@ -4531,6 +4823,13 @@ export default function RegisterTraining({
           image: exercise.image || "",
           imagePublicId: exercise.imagePublicId || "",
           muscle: exercise.muscle || exercise.muscleGroup || "Sin grupo",
+          primaryMuscleGroup:
+            exercise.primaryMuscleGroup || exercise.muscle || "",
+          primaryMuscles: exercise.primaryMuscles || [],
+          secondaryMuscles: exercise.secondaryMuscles || [],
+          stabilizerMuscles: exercise.stabilizerMuscles || [],
+          equipment: exercise.equipment || [],
+          loadType: exercise.loadType || "",
           supportsUnilateral,
           movementMode,
           seriesType,
@@ -4654,6 +4953,8 @@ export default function RegisterTraining({
     setRestTimerRunning(false);
     setRestTimerStarted(false);
     setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
     setTimeEvents(finalTimeEvents);
     setNowMs(effectiveFinishAt);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -4745,6 +5046,12 @@ export default function RegisterTraining({
               exerciseId: ex.id,
               exerciseName: ex.name,
               muscleGroup: ex.muscle,
+              primaryMuscleGroup: ex.primaryMuscleGroup || ex.muscle || "",
+              primaryMuscles: ex.primaryMuscles || [],
+              secondaryMuscles: ex.secondaryMuscles || [],
+              stabilizerMuscles: ex.stabilizerMuscles || [],
+              equipment: ex.equipment || [],
+              loadType: ex.loadType || "",
               order: ex.startedOrder || ex.actualOrder || exIdx + 1,
               plannedOrder: getPlannedExerciseOrder(ex, exIdx),
               actualOrder: ex.startedOrder || ex.actualOrder || exIdx + 1,
@@ -5139,6 +5446,14 @@ export default function RegisterTraining({
             <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl">
               <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)]" />
               <div className="space-y-2">
+                {isAdmin ? (
+                  <AdminAutoFlowControl
+                    enabled={autoFlowEnabled}
+                    durationSeconds={restDurationSeconds}
+                    onToggle={handleAutoFlowToggle}
+                    onDurationChange={handleAutoFlowDurationChange}
+                  />
+                ) : null}
                 <button
                   type="button"
                   className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
@@ -5486,6 +5801,17 @@ export default function RegisterTraining({
                 {!isHistoryReadOnly ? (
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
+                      type="button"
+                      variant={restTimerRunning ? "accentSolid" : "outline"}
+                      className="h-10 min-w-[112px] rounded-md px-3"
+                      onClick={handleOpenRestTimer}
+                    >
+                      <Hourglass className="h-4 w-4" />
+                      <span>
+                        {restTimerStarted ? restTimerLabel : "Descanso"}
+                      </span>
+                    </Button>
+                    <Button
                       variant="outline"
                       className="h-10 min-w-[116px] rounded-md px-4"
                       onClick={isRunning ? handlePause : handleStart}
@@ -5532,6 +5858,16 @@ export default function RegisterTraining({
                           role="menu"
                           className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl"
                         >
+                          {isAdmin ? (
+                            <div className="mb-1.5">
+                              <AdminAutoFlowControl
+                                enabled={autoFlowEnabled}
+                                durationSeconds={restDurationSeconds}
+                                onToggle={handleAutoFlowToggle}
+                                onDurationChange={handleAutoFlowDurationChange}
+                              />
+                            </div>
+                          ) : null}
                           <button
                             type="button"
                             role="menuitem"
@@ -5969,7 +6305,9 @@ export default function RegisterTraining({
                                 <ExerciseThumbnail
                                   src={extraThumb}
                                   alt=""
-                                  fallback={(ex.name || "?").charAt(0).toUpperCase()}
+                                  fallback={(ex.name || "?")
+                                    .charAt(0)
+                                    .toUpperCase()}
                                   className="h-full w-full text-xs font-black"
                                 />
                               </div>
@@ -6291,7 +6629,9 @@ export default function RegisterTraining({
                       height: 240,
                     })}
                     alt=""
-                    fallback={(trackingExercise.name || "?").charAt(0).toUpperCase()}
+                    fallback={(trackingExercise.name || "?")
+                      .charAt(0)
+                      .toUpperCase()}
                     className="h-full w-full text-sm font-black"
                   />
                 </div>
@@ -6681,9 +7021,9 @@ export default function RegisterTraining({
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
-            className="fixed inset-0 z-50 md:hidden bg-[color:var(--bg)] text-[color:var(--text)]"
+            className="fixed inset-0 z-50 bg-[color:var(--bg)] text-[color:var(--text)] md:grid md:place-items-center md:bg-black/60 md:p-6"
           >
-            <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5">
+            <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 md:min-h-0 md:w-full md:max-w-md md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-6 md:shadow-2xl">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
@@ -6719,16 +7059,28 @@ export default function RegisterTraining({
                 </div>
               </div>
 
-              <div className="flex flex-1 flex-col items-center justify-center gap-8">
+              <div
+                className={`flex flex-1 flex-col items-center justify-center ${
+                  autoFlowPrompt ? "gap-5" : "gap-8"
+                }`}
+              >
                 <div
-                  className="grid h-72 w-72 place-items-center rounded-full p-4 shadow-2xl"
+                  className={`grid place-items-center rounded-full shadow-2xl transition-[width,height,padding] duration-300 ${
+                    autoFlowPrompt
+                      ? "h-36 w-36 p-2.5"
+                      : "h-72 w-72 p-4"
+                  }`}
                   style={{
                     background: `conic-gradient(var(--accent) ${restProgressPct}%, rgba(148,163,184,0.22) ${restProgressPct}% 100%)`,
                   }}
                 >
                   <div className="grid h-full w-full place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-center">
                     <div>
-                      <p className="font-mono text-6xl font-bold tracking-normal">
+                      <p
+                        className={`font-mono font-bold tracking-normal ${
+                          autoFlowPrompt ? "text-4xl" : "text-6xl"
+                        }`}
+                      >
                         {restTimerLabel}
                       </p>
                       <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
@@ -6741,7 +7093,84 @@ export default function RegisterTraining({
                 </div>
 
                 <div className="w-full max-w-sm space-y-4">
-                  <div className="grid grid-cols-4 gap-2">
+                  {autoFlowPrompt ? (
+                    <motion.div
+                      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border-2 border-[#ff5722] bg-[#fff4f0] p-4 shadow-[0_14px_35px_rgba(255,87,34,0.18)] dark:border-[#e2ff00] dark:bg-[#1b1e0b] dark:shadow-[0_14px_40px_rgba(226,255,0,0.12)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 stroke-[3] text-[#ff5722] dark:text-[#e2ff00]" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d33b0b] dark:text-[#e2ff00]">
+                          {autoFlowPrompt.type === "complete"
+                            ? "Rutina completada"
+                            : "Sigue ahora"}
+                        </p>
+                      </div>
+
+                      {autoFlowPrompt.type === "set" ? (
+                        <div className="mt-3 border-l-[5px] border-[#ff5722] bg-white/75 px-4 py-3 dark:border-[#e2ff00] dark:bg-black/25">
+                          <p className="font-condensed text-[44px] font-black uppercase leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                            Serie {autoFlowPrompt.setNumber}
+                          </p>
+                          <h3 className="mt-2 font-condensed text-2xl font-black uppercase leading-tight text-[color:var(--text)]">
+                            {autoFlowPrompt.exerciseName}
+                          </h3>
+                        </div>
+                      ) : autoFlowPrompt.type === "exercise" ? (
+                        <div className="mt-3 border-l-[5px] border-[#ff5722] bg-white/75 px-4 py-3 dark:border-[#e2ff00] dark:bg-black/25">
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                            Siguiente ejercicio
+                          </p>
+                          <h3 className="mt-1 font-condensed text-[34px] font-black uppercase leading-[0.95] text-[#ff5722] dark:text-[#e2ff00]">
+                            {autoFlowPrompt.exerciseName}
+                          </h3>
+                        </div>
+                      ) : (
+                        <div className="mt-3 bg-white/75 px-4 py-4 text-center dark:bg-black/25">
+                          <h3 className="font-condensed text-3xl font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                            Buen trabajo
+                          </h3>
+                          <p className="mt-1 text-sm font-bold text-[color:var(--text-muted)]">
+                            No quedan series pendientes.
+                          </p>
+                        </div>
+                      )}
+
+                      <div
+                        className={`mt-4 grid gap-2 ${
+                          autoFlowPrompt.type === "complete"
+                            ? "grid-cols-1"
+                            : "grid-cols-2"
+                        }`}
+                      >
+                        {autoFlowPrompt.type !== "complete" ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-12 rounded-none"
+                            onClick={handleDismissAutoFlowAdvance}
+                          >
+                            Ahora no
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          className="h-12 rounded-none bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                          onClick={handleConfirmAutoFlowAdvance}
+                        >
+                          {autoFlowPrompt.type === "complete"
+                            ? "Cerrar"
+                            : "Avanzar"}
+                          {autoFlowPrompt.type !== "complete" ? (
+                            <ArrowRight className="h-4 w-4" />
+                          ) : null}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-4 gap-2">
                     {[1, 2, 3, 5].map((minutes) => (
                       <Button
                         key={minutes}
@@ -6804,6 +7233,8 @@ export default function RegisterTraining({
                       Reiniciar cronómetro
                     </Button>
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

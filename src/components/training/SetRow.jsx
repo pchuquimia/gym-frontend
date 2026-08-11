@@ -1,13 +1,14 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Check, Trash2, X } from "lucide-react";
 
 const LONG_PRESS_MS = 650;
 const MOVE_TOLERANCE_PX = 10;
 
 export default function SetRow({
+  setId,
   index,
   exerciseName,
   readOnly = false,
@@ -19,6 +20,7 @@ export default function SetRow({
   onToggleEntry,
   onRemove,
 }) {
+  const reduceMotion = useReducedMotion();
   const safeEntries = Array.isArray(entries) ? entries : [];
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
@@ -100,8 +102,21 @@ export default function SetRow({
   );
 
   return (
-    <div
+    <motion.div
       data-set-row
+      data-set-id={setId}
+      layout={!reduceMotion}
+      initial={reduceMotion ? false : { opacity: 0, height: 0, scale: 0.98 }}
+      animate={{ opacity: 1, height: "auto", scale: 1 }}
+      exit={
+        reduceMotion
+          ? { opacity: 0 }
+          : { opacity: 0, height: 0, scale: 0.98, marginTop: 0 }
+      }
+      transition={{
+        duration: reduceMotion ? 0 : 0.2,
+        ease: [0.2, 0.8, 0.2, 1],
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={clearLongPress}
@@ -116,6 +131,17 @@ export default function SetRow({
         isHolding ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45" : ""
       }`}
     >
+      <AnimatePresence>
+        {isHolding ? (
+          <motion.span
+            className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 origin-left bg-[#ff5722] dark:bg-[#e2ff00]"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: LONG_PRESS_MS / 1000, ease: "linear" }}
+          />
+        ) : null}
+      </AnimatePresence>
       <div data-set-content className={`${baseClasses} ${stateClasses}`}>
         <div className="flex min-w-0 items-center justify-between gap-2 px-1 sm:px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -293,7 +319,26 @@ export default function SetRow({
                           : "border-[color:var(--border)] text-[color:var(--text-muted)]"
                       }`}
                     >
-                      {entryDone ? <Check className="h-4 w-4" /> : null}
+                      <AnimatePresence mode="wait" initial={false}>
+                        {entryDone ? (
+                          <motion.span
+                            key="completed"
+                            initial={
+                              reduceMotion
+                                ? { opacity: 0 }
+                                : { opacity: 0, scale: 0.45, rotate: -12 }
+                            }
+                            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                            exit={{ opacity: 0, scale: 0.6 }}
+                            transition={{
+                              duration: reduceMotion ? 0 : 0.18,
+                              ease: [0.16, 1, 0.3, 1],
+                            }}
+                          >
+                            <Check className="h-4 w-4" />
+                          </motion.span>
+                        ) : null}
+                      </AnimatePresence>
                     </span>
                   </motion.button>
                 </div>
@@ -304,17 +349,27 @@ export default function SetRow({
       </div>
       {deleteConfirmOpen && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[95] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+            <motion.div
+              className="fixed inset-0 z-[95] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
               <button
                 type="button"
                 className="absolute inset-0"
                 onClick={() => setDeleteConfirmOpen(false)}
                 aria-label="Cancelar eliminacion de serie"
               />
-              <section
+              <motion.section
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={`delete-set-${index}`}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.22,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
                 className="relative w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl sm:max-w-sm sm:rounded-2xl sm:pb-4"
               >
                 <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
@@ -357,16 +412,17 @@ export default function SetRow({
                     Eliminar
                   </button>
                 </div>
-              </section>
-            </div>,
+              </motion.section>
+            </motion.div>,
             document.body,
           )
         : null}
-    </div>
+    </motion.div>
   );
 }
 
 SetRow.propTypes = {
+  setId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   index: PropTypes.number.isRequired,
   exerciseName: PropTypes.string.isRequired,
   readOnly: PropTypes.bool,

@@ -56,6 +56,9 @@ export function getCatalogExercise(exercise = {}, catalogIndex = new Map()) {
 
 export function classifyExerciseLoad(exercise = {}, catalog = null) {
   const merged = { ...(catalog || {}), ...exercise };
+  if (!asArray(exercise.equipment).length && catalog?.equipment) {
+    merged.equipment = catalog.equipment;
+  }
   const explicit = normalizeText(merged.loadType);
   if (LOAD_TYPES.has(explicit)) return explicit;
 
@@ -153,6 +156,21 @@ export function isCompletedSet(set = {}) {
   return set.done === true;
 }
 
+export function hasRecordedSetData(set = {}) {
+  const entries =
+    Array.isArray(set.entries) && set.entries.length ? set.entries : [set];
+  return entries.some((entry) => {
+    const weight = entry.weightKg ?? entry.weight ?? entry.kg;
+    const reps = entry.reps ?? entry.repetitions;
+    return (
+      entry.done === true ||
+      Boolean(entry.completedAt) ||
+      (weight !== null && weight !== undefined && weight !== "") ||
+      (reps !== null && reps !== undefined && reps !== "")
+    );
+  });
+}
+
 function getCompletedSetVolume(set = {}) {
   if (!isCompletedSet(set)) return 0;
   const entries =
@@ -162,24 +180,33 @@ function getCompletedSetVolume(set = {}) {
     const reps = Number(entry.reps ?? entry.repetitions ?? 0);
     return (
       sum +
-      (Number.isFinite(weight) && Number.isFinite(reps) && weight > 0 && reps > 0
+      (Number.isFinite(weight) &&
+      Number.isFinite(reps) &&
+      weight > 0 &&
+      reps > 0
         ? weight * reps
         : 0)
     );
   }, 0);
 }
 
-export function getExerciseLoadMetrics(exercise = {}, catalogIndex = new Map()) {
+export function getExerciseLoadMetrics(
+  exercise = {},
+  catalogIndex = new Map(),
+) {
   const catalog = getCatalogExercise(exercise, catalogIndex);
   const loadType = classifyExerciseLoad(exercise, catalog);
-  const completedSets = (exercise.sets || []).filter(isCompletedSet);
+  const recordedSets = (exercise.sets || []).filter(hasRecordedSetData);
+  const completedSets = recordedSets.filter(isCompletedSet);
   const recordedKg = completedSets.reduce(
     (sum, set) => sum + getCompletedSetVolume(set),
     0,
   );
   const metrics = {
     loadType,
+    recordedSets: recordedSets.length,
     completedSets: completedSets.length,
+    incompleteSets: recordedSets.length - completedSets.length,
     externalKg: 0,
     machineKg: 0,
     unknownKg: 0,
@@ -210,9 +237,14 @@ export function getExerciseLoadMetrics(exercise = {}, catalogIndex = new Map()) 
   return metrics;
 }
 
-export function getTrainingLoadMetrics(training = {}, catalogIndex = new Map()) {
+export function getTrainingLoadMetrics(
+  training = {},
+  catalogIndex = new Map(),
+) {
   const total = {
+    recordedSets: 0,
     completedSets: 0,
+    incompleteSets: 0,
     externalKg: 0,
     machineKg: 0,
     unknownKg: 0,
@@ -238,7 +270,19 @@ export function toMuscleGroup(value = "") {
   if (!key) return "";
   const groups = [
     [["pectoral", "pecho", "chest"], "Pecho"],
-    [["dorsal", "latiss", "espalda", "trapec", "romboid", "back"], "Espalda"],
+    [
+      [
+        "dorsal",
+        "latiss",
+        "espalda",
+        "trapec",
+        "trap",
+        "romboid",
+        "rhomboid",
+        "back",
+      ],
+      "Espalda",
+    ],
     [["deltoid", "hombro", "rotador", "shoulder"], "Hombros"],
     [["bicep"], "Bíceps"],
     [["tricep"], "Tríceps"],
@@ -248,9 +292,9 @@ export function toMuscleGroup(value = "") {
     [["glute"], "Glúteos"],
     [["aductor", "adductor"], "Aductores"],
     [["abductor"], "Abductores"],
-    [["pantorr", "gemelo", "soleo", "calf"], "Pantorrillas"],
+    [["pantorr", "gemelo", "soleo", "calf", "calv"], "Pantorrillas"],
     [["tibial"], "Tibial anterior"],
-    [["oblic"], "Oblicuos"],
+    [["oblic", "obliq"], "Oblicuos"],
     [["transvers"], "Transverso abdominal"],
     [["erector", "lumbar"], "Erectores espinales"],
     [["abdominal", "core", "zona media"], "Core"],
@@ -270,19 +314,27 @@ export function getExerciseMuscleWeights(
     const key = normalizeText(group);
     if (!key || key === "sin grupo") return;
     const current = weights.get(key);
-    if (!current || current.weight < weight) weights.set(key, { group, weight });
+    if (!current || current.weight < weight)
+      weights.set(key, { group, weight });
   };
 
   const primaryGroup =
     merged.primaryMuscleGroup || merged.muscleGroup || merged.muscle;
   if (primaryGroup) add(primaryGroup, 1);
   else {
-    asArray(merged.primaryMuscles || merged.primaryMuscle).forEach((muscle) =>
-      add(muscle, 1),
-    );
+    const primaryMuscles = asArray(exercise.primaryMuscles).length
+      ? exercise.primaryMuscles
+      : catalog.primaryMuscles || merged.primaryMuscle;
+    asArray(primaryMuscles).forEach((muscle) => add(muscle, 1));
   }
-  asArray(merged.secondaryMuscles).forEach((muscle) => add(muscle, 0.5));
-  asArray(merged.stabilizerMuscles).forEach((muscle) => add(muscle, 0.25));
+  const secondaryMuscles = asArray(exercise.secondaryMuscles).length
+    ? exercise.secondaryMuscles
+    : catalog.secondaryMuscles;
+  const stabilizerMuscles = asArray(exercise.stabilizerMuscles).length
+    ? exercise.stabilizerMuscles
+    : catalog.stabilizerMuscles;
+  asArray(secondaryMuscles).forEach((muscle) => add(muscle, 0.5));
+  asArray(stabilizerMuscles).forEach((muscle) => add(muscle, 0.25));
   if (!weights.size) add("Sin grupo", 1);
   return Array.from(weights.values());
 }
@@ -291,9 +343,12 @@ export function getExerciseMuscleExposure(
   exercise = {},
   catalogIndex = new Map(),
 ) {
-  const completedSets = getExerciseLoadMetrics(exercise, catalogIndex).completedSets;
+  const completedSets = getExerciseLoadMetrics(
+    exercise,
+    catalogIndex,
+  ).completedSets;
   return getExerciseMuscleWeights(exercise, catalogIndex).map((muscle) => ({
     ...muscle,
-    effectiveSets: completedSets * muscle.weight,
+    equivalentSets: completedSets * muscle.weight,
   }));
 }

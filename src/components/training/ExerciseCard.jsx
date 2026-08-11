@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
   Check,
@@ -55,9 +55,22 @@ const getReferenceDateLabel = (exercise = {}) => {
 };
 
 function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <div className="fixed inset-0 z-[90] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
-      <div className="w-full rounded-t-3xl border border-red-500/20 bg-[color:var(--card)] p-4 text-[color:var(--text)] shadow-2xl sm:max-w-md sm:rounded-3xl">
+    <motion.div
+      className="fixed inset-0 z-[90] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <motion.div
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.22,
+          ease: [0.16, 1, 0.3, 1],
+        }}
+        className="w-full rounded-t-3xl border border-red-500/20 bg-[color:var(--card)] p-4 text-[color:var(--text)] shadow-2xl sm:max-w-md sm:rounded-3xl"
+      >
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
@@ -89,8 +102,8 @@ function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
         >
           Cancelar
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -117,6 +130,7 @@ export default function ExerciseCard({
   onSwapVariant = null,
   onStartNow = null,
 }) {
+  const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [detailExercise, setDetailExercise] = useState(null);
@@ -208,9 +222,10 @@ export default function ExerciseCard({
   return (
     <motion.div
       data-exercise-id={exercise.id}
-      className="w-full max-w-full overflow-hidden"
+      className="relative w-full max-w-full overflow-hidden"
       layout
-      whileHover={{ y: -2 }}
+      initial={false}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
       drag={!readOnly && onSwapVariant && hasVariants ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.2}
@@ -223,6 +238,17 @@ export default function ExerciseCard({
           : undefined
       }
     >
+      <AnimatePresence initial={false}>
+        {isComplete && !reduceMotion ? (
+          <motion.span
+            className="pointer-events-none absolute inset-0 z-20 border-2 border-[#ff5722] dark:border-[#e2ff00]"
+            initial={{ opacity: 0.65 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+          />
+        ) : null}
+      </AnimatePresence>
       <Card className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur dark:rounded-[4px]">
         <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
           <button
@@ -255,11 +281,23 @@ export default function ExerciseCard({
                     En curso
                   </Badge>
                 )}
-                {isComplete && (
-                  <Badge variant="completed" className="shrink-0">
-                    Completado
-                  </Badge>
-                )}
+                <AnimatePresence initial={false}>
+                  {isComplete ? (
+                    <motion.span
+                      initial={
+                        reduceMotion
+                          ? { opacity: 0 }
+                          : { opacity: 0, scale: 0.8, x: -4 }
+                      }
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                    >
+                      <Badge variant="completed" className="shrink-0">
+                        Completado
+                      </Badge>
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
                 {hasVariants && (
                   <span
                     className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 text-xs font-black text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
@@ -486,10 +524,11 @@ export default function ExerciseCard({
 
               <div className="space-y-2 px-2 pb-3 sm:px-3">
                 <div className="space-y-2">
-                  <AnimatePresence>
+                  <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
                       <SetRow
                         key={set.id}
+                        setId={set.id}
                         readOnly={readOnly}
                         index={idx + 1}
                         exerciseName={exercise.name}
