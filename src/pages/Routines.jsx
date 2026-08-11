@@ -258,8 +258,11 @@ const slugify = (text) =>
     .replace(/(^-|-$)+/g, "");
 
 const createRoutineId = (name = "rutina") => {
+  const browserCrypto = typeof window !== "undefined" ? window.crypto : null;
   const uniquePart =
-    globalThis.crypto?.randomUUID?.() || Date.now().toString(36);
+    browserCrypto && typeof browserCrypto.randomUUID === "function"
+      ? browserCrypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   return `${slugify(name) || "rutina"}-${uniquePart}`;
 };
 

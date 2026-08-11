@@ -19,6 +19,10 @@ const queryClient = new QueryClient({
   },
 });
 
+document.documentElement.lang = "es";
+document.documentElement.setAttribute("translate", "no");
+document.body.classList.add("notranslate");
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

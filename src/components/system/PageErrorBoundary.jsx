@@ -2,6 +2,15 @@ import { Component } from "react";
 import PropTypes from "prop-types";
 import { AlertTriangle, House, RotateCcw } from "lucide-react";
 
+const getErrorCode = (error) => {
+  const source = `${error?.name || "Error"}:${error?.message || "unknown"}`;
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
+  }
+  return `APX-${hash.toString(16).toUpperCase().padStart(6, "0").slice(-6)}`;
+};
+
 export default class PageErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -14,6 +23,20 @@ export default class PageErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error("No se pudo mostrar la pagina activa", error, info);
+    try {
+      window.localStorage.setItem(
+        "last_page_error",
+        JSON.stringify({
+          code: getErrorCode(error),
+          message: error?.message || "Error desconocido",
+          page: this.props.resetKey,
+          occurredAt: new Date().toISOString(),
+          userAgent: window.navigator.userAgent,
+        }),
+      );
+    } catch {
+      // The fallback remains usable when browser storage is unavailable.
+    }
   }
 
   componentDidUpdate(previousProps) {
@@ -32,6 +55,7 @@ export default class PageErrorBoundary extends Component {
 
   render() {
     if (!this.state.error) return this.props.children;
+    const errorCode = getErrorCode(this.state.error);
 
     return (
       <section
@@ -48,6 +72,14 @@ export default class PageErrorBoundary extends Component {
           <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
             Tus datos siguen guardados. Reintenta la carga o vuelve a Inicio.
           </p>
+          <details className="mt-4 border border-[color:var(--border)] px-3 py-2 text-left">
+            <summary className="cursor-pointer text-xs font-black uppercase text-[color:var(--text-muted)]">
+              Diagnostico {errorCode}
+            </summary>
+            <p className="mt-2 break-words text-xs font-semibold text-[color:var(--text-muted)]">
+              {this.state.error?.message || "Error desconocido"}
+            </p>
+          </details>
           <div className="mt-5 grid grid-cols-2 gap-2">
             <button
               type="button"

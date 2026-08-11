@@ -13,9 +13,10 @@ const DEFAULT_BRANCH = "sopocachi";
 const normalizeBranch = (value) =>
   value === "miraflores" || value === "sopocachi" ? value : DEFAULT_BRANCH;
 const compactObject = (value) =>
-  Object.fromEntries(
-    Object.entries(value).filter(([, item]) => item !== undefined),
-  );
+  Object.entries(value).reduce((result, [key, item]) => {
+    if (item !== undefined) result[key] = item;
+    return result;
+  }, {});
 
 export function RoutineProvider({ children, ownerId = "" }) {
   const [routines, setRoutines] = useState([]);

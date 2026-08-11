@@ -71,7 +71,11 @@ const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const createTrainingRequestId = () => {
-  const id = globalThis.crypto?.randomUUID?.();
+  const browserCrypto = typeof window !== "undefined" ? window.crypto : null;
+  const id =
+    browserCrypto && typeof browserCrypto.randomUUID === "function"
+      ? browserCrypto.randomUUID()
+      : "";
   return `training_${id || `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
 };
 const normalizeBranch = (value) =>
