@@ -130,6 +130,20 @@ Additional commands:
 | `npm run build` | Create a production build. |
 | `npm run lint` | Run the ESLint checks. |
 | `npm run preview` | Preview the production build locally. |
+| `npm test` | Run Vitest unit and React Testing Library component tests. |
+| `npm run test:playwright` | Run responsive desktop and mobile browser tests. |
+| `npm run test:cypress` | Run functional authentication tests in Cypress. |
+
+## Automated testing
+
+The frontend uses complementary testing layers:
+
+- **Vitest** validates pure UI logic such as the automatic workout flow.
+- **React Testing Library** validates set inputs, read-only states, and user actions.
+- **Playwright** validates responsive behavior and browser feedback on desktop and mobile.
+- **Cypress** validates complete functional interactions in a real browser runner.
+
+Playwright starts or reuses the Vite server automatically. Cypress expects the frontend server at `http://127.0.0.1:5173`; override it with `CYPRESS_BASE_URL` when necessary. On Windows, Cypress is launched through `scripts/runCypress.js`, which isolates Electron from an IDE-provided `ELECTRON_RUN_AS_NODE` variable.
 
 ## Validation
 
@@ -157,7 +171,7 @@ These features are under active development and are not yet included in the publ
 ## Roadmap
 
 - Publish and deploy the advanced AI assistant.
-- Add automated end-to-end coverage with Playwright.
+- Expand automated end-to-end coverage to active workout and planning flows.
 - Complete the email verification flow.
 - Establish Lighthouse and Core Web Vitals performance baselines.
 - Expand accessibility validation and automated quality checks.

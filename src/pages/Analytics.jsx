@@ -1,5 +1,5 @@
 import { ResponsiveLine } from '@nivo/line'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import TopBar from '../components/layout/TopBar'
 import { useTrainingData } from '../context/TrainingContext'
 
@@ -58,6 +58,13 @@ function Analytics() {
   }, [exercises, sessions])
 
   const [selectedExercises, setSelectedExercises] = useState(() => exercisesWithSessions.slice(0, 2).map((e) => e.id))
+  const activeSelectedExercises = useMemo(
+    () =>
+      selectedExercises.length
+        ? selectedExercises
+        : exercisesWithSessions.slice(0, 1).map((exercise) => exercise.id),
+    [selectedExercises, exercisesWithSessions],
+  )
   const [metric, setMetric] = useState('volume')
   const [showPRs, setShowPRs] = useState(true)
   const [showTrendColors, setShowTrendColors] = useState(true)
@@ -71,12 +78,6 @@ function Analytics() {
   const [fromMonth, setFromMonth] = useState(initialFrom)
   const [toMonth, setToMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [addExerciseId, setAddExerciseId] = useState('')
-
-  useEffect(() => {
-    if (!selectedExercises.length && exercisesWithSessions.length) {
-      setSelectedExercises([exercisesWithSessions[0].id])
-    }
-  }, [exercisesWithSessions, selectedExercises.length])
 
   const applyQuickRange = (value) => {
     const now = new Date()
@@ -114,7 +115,7 @@ function Analytics() {
   }, [fromMonth, toMonth, sessions])
 
   const selectedData = useMemo(() => {
-    return selectedExercises.slice(0, 4).map((exerciseId, idx) => {
+    return activeSelectedExercises.slice(0, 4).map((exerciseId, idx) => {
       const exercise = exercisesWithSessions.find((e) => e.id === exerciseId)
       const filtered = dateFilteredSessions
         .filter((s) => s.exerciseId === exerciseId)
@@ -144,7 +145,7 @@ function Analytics() {
         totalDuration,
       }
     })
-  }, [selectedExercises, exercisesWithSessions, dateFilteredSessions, metric])
+  }, [activeSelectedExercises, exercisesWithSessions, dateFilteredSessions, metric])
 
   const mergedDates = useMemo(() => {
     const dates = new Set()
@@ -200,9 +201,9 @@ function Analytics() {
 
   const addExerciseToSelection = () => {
     if (!addExerciseId) return
-    if (selectedExercises.includes(addExerciseId)) return
-    if (selectedExercises.length >= 4) return
-    setSelectedExercises((prev) => [...prev, addExerciseId])
+    if (activeSelectedExercises.includes(addExerciseId)) return
+    if (activeSelectedExercises.length >= 4) return
+    setSelectedExercises([...activeSelectedExercises, addExerciseId])
     setAddExerciseId('')
   }
 
@@ -256,18 +257,18 @@ function Analytics() {
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Seleccionar Ejercicios (hasta 4)</p>
           <div className="flex flex-wrap gap-2">
-            {selectedExercises.map((id) => {
+            {activeSelectedExercises.map((id) => {
               const ex = exercisesWithSessions.find((e) => e.id === id)
               if (!ex) return null
               return (
                 <span
                   key={id}
                   className="flex items-center gap-2 rounded-full px-3 py-2 text-sm border border-border-soft bg-white/5"
-                  style={{ borderColor: `${colors[selectedExercises.indexOf(id) % colors.length]}55` }}
+                  style={{ borderColor: `${colors[activeSelectedExercises.indexOf(id) % colors.length]}55` }}
                 >
                   <span
                     className="w-3 h-3 rounded-full"
-                    style={{ background: colors[selectedExercises.indexOf(id) % colors.length] }}
+                    style={{ background: colors[activeSelectedExercises.indexOf(id) % colors.length] }}
                   />
                   {ex.name}
                   <button
@@ -289,7 +290,7 @@ function Analytics() {
               >
                 <option value="">Añadir Ejercicio</option>
                 {exercisesWithSessions
-                  .filter((e) => !selectedExercises.includes(e.id))
+                  .filter((e) => !activeSelectedExercises.includes(e.id))
                   .map((ex) => (
                     <option key={ex.id} value={ex.id}>
                       {ex.name}

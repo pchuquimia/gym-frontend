@@ -1,5 +1,5 @@
 import { ResponsiveLine } from "@nivo/line";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import TopBar from "../components/layout/TopBar";
 import Modal from "../components/shared/Modal";
 import { useTrainingData } from "../context/TrainingContext";
@@ -67,7 +67,18 @@ function ProgressHistory() {
       .filter(Boolean);
   }, [exercises, sessions]);
 
-  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [selectedExerciseId, setSelectedExerciseId] = useState(() =>
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("last_exercise_id") || ""
+      : "",
+  );
+  const selectedExercise = useMemo(
+    () =>
+      availableExercises.find((exercise) => exercise.id === selectedExerciseId) ||
+      availableExercises[0] ||
+      null,
+    [availableExercises, selectedExerciseId],
+  );
   const [range, setRange] = useState("1 mes");
   const [fromMonth, setFromMonth] = useState(() => {
     const now = new Date();
@@ -85,20 +96,6 @@ function ProgressHistory() {
     equipment: "",
   });
   const [metricView, setMetricView] = useState("peso");
-
-  useEffect(() => {
-    if (availableExercises.length && !selectedExercise) {
-      const last =
-        typeof localStorage !== "undefined"
-          ? localStorage.getItem("last_exercise_id")
-          : null;
-      const initial =
-        availableExercises.find((ex) => ex.id === last) ||
-        availableExercises[0];
-      setSelectedExercise(initial);
-      setEditForm(initial);
-    }
-  }, [availableExercises, selectedExercise]);
 
   const applyQuickRange = (value) => {
     const now = new Date();
@@ -184,8 +181,17 @@ function ProgressHistory() {
   const handleExerciseChange = (id) => {
     const found =
       availableExercises.find((ex) => ex.id === id) || availableExercises[0];
-    setSelectedExercise(found);
+    setSelectedExerciseId(found?.id || "");
+    if (typeof localStorage !== "undefined" && found?.id) {
+      localStorage.setItem("last_exercise_id", found.id);
+    }
     setEditForm(found);
+  };
+
+  const handleOpenEdit = () => {
+    if (!selectedExercise) return;
+    setEditForm(selectedExercise);
+    setIsEditOpen(true);
   };
 
   const saveEdit = () => {
@@ -193,7 +199,6 @@ function ProgressHistory() {
       ...editForm,
       equipment: toArray(editForm.equipment),
     });
-    setSelectedExercise((prev) => ({ ...prev, ...editForm }));
     setIsEditOpen(false);
   };
 
@@ -223,7 +228,7 @@ function ProgressHistory() {
               <button
                 type="button"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-accent"
-                onClick={() => setIsEditOpen(true)}
+                onClick={handleOpenEdit}
               >
                 ✏️
               </button>

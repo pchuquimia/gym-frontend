@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+coverage/
+playwright-report/
+test-results/
+cypress/screenshots/
+cypress/videos/
 
 # Environment files
 .env

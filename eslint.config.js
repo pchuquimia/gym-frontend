@@ -6,7 +6,14 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist"]),
+  globalIgnores([
+    "dist",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "cypress/screenshots",
+    "cypress/videos",
+  ]),
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     extends: [
@@ -36,6 +43,36 @@ export default defineConfig([
           caughtErrorsIgnorePattern: "^[A-Z_]",
         },
       ],
+    },
+  },
+  {
+    files: [
+      "vite.config.js",
+      "vitest.config.js",
+      "cypress.config.js",
+      "playwright.config.js",
+      "scripts/**/*.js",
+    ],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["src/**/*.test.{js,jsx}"],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.vitest },
+    },
+  },
+  {
+    files: ["cypress/**/*.js"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        cy: "readonly",
+        Cypress: "readonly",
+        expect: "readonly",
+        describe: "readonly",
+        it: "readonly",
+        beforeEach: "readonly",
+      },
     },
   },
 ]);
