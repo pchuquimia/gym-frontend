@@ -16,6 +16,7 @@ export default function SetRow({
   entries = [],
   prSummary = "",
   prBranchLabel = "",
+  weightUnitLabel = "kg",
   onChangeEntry,
   onToggleEntry,
   onRemove,
@@ -271,8 +272,8 @@ export default function SetRow({
                     placeholder="0"
                     aria-label={`Peso en kilogramos, ${exerciseName}, serie ${index}`}
                   />
-                  <span className="ml-1 w-4 shrink-0 text-left text-xs font-black text-[color:var(--text-muted)]">
-                    kg
+                  <span className="ml-1 min-w-4 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                    {weightUnitLabel}
                   </span>
                 </label>
                 <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
@@ -448,6 +449,7 @@ SetRow.propTypes = {
   ),
   prSummary: PropTypes.string,
   prBranchLabel: PropTypes.string,
+  weightUnitLabel: PropTypes.string,
   onChangeEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,
   onRemove: PropTypes.func,

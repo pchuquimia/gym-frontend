@@ -21,6 +21,12 @@ import SlideToConfirm from "../shared/SlideToConfirm";
 import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
+import {
+  getEffectiveWeightKg,
+  getWeightBasisLabel,
+  getWeightUnitLabel,
+  normalizeWeightBasis,
+} from "../../utils/weightConfig";
 
 const formatShortDate = (value) => {
   if (!value) return "";
@@ -126,6 +132,7 @@ export default function ExerciseCard({
   onSeriesTypeChange = () => {},
   onMovementModeChange = () => {},
   onSetupNoteChange = () => {},
+  onWeightConfigChange = () => {},
   onViewTracking = null,
   onSwapVariant = null,
   onStartNow = null,
@@ -153,6 +160,20 @@ export default function ExerciseCard({
   const supportsUnilateral = Boolean(exercise.supportsUnilateral);
   const movementMode =
     exercise.movementMode === "unilateral" ? "unilateral" : "bilateral";
+  const weightBasis = normalizeWeightBasis(exercise.weightBasis, "total");
+  const weightConfig = {
+    weightBasis,
+    barWeightKg: Number(exercise.barWeightKg || 0),
+    implementCount: Math.max(1, Number(exercise.implementCount || 1)),
+  };
+  const firstEnteredWeight = (exercise.sets || [])
+    .flatMap((set) => set.entries || [])
+    .map((entry) => entry.kg)
+    .find((value) => value !== "" && value !== null && value !== undefined);
+  const effectiveWeight = getEffectiveWeightKg(
+    firstEnteredWeight,
+    weightConfig,
+  );
   const hasVariants =
     Array.isArray(exercise.variants) && exercise.variants.length > 1;
   const variantTotal = hasVariants ? exercise.variants.length : 0;
@@ -191,8 +212,13 @@ export default function ExerciseCard({
     try {
       const fullExercise = await api.getExercise(exercise.id);
       setDetailExercise({
-        ...exercise,
         ...fullExercise,
+        ...exercise,
+        weightConfig: {
+          basis: exercise.weightBasis,
+          barWeightKg: exercise.barWeightKg,
+          implementCount: exercise.implementCount,
+        },
         id: fullExercise._id || fullExercise.id || exercise.id,
       });
     } catch {
@@ -498,6 +524,84 @@ export default function ExerciseCard({
                           </div>
                         </div>
                       )}
+                      <div className="border-t border-[color:var(--border)] pt-3">
+                        <label className="block">
+                          <span className="mb-1.5 block text-[13px] font-semibold text-[color:var(--text-muted)]">
+                            Cómo registrar el peso
+                          </span>
+                          <select
+                            value={weightBasis}
+                            onChange={(event) =>
+                              onWeightConfigChange({
+                                weightBasis: event.target.value,
+                              })
+                            }
+                            className="h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+                          >
+                            {weightBasis === "legacy" ? (
+                              <option value="legacy">
+                                Registro anterior (sin conversión)
+                              </option>
+                            ) : null}
+                            <option value="total">Peso total (incluye barra)</option>
+                            <option value="per_side">Peso por lado</option>
+                            <option value="per_implement">Peso por mancuerna / implemento</option>
+                            <option value="machine">Valor indicado por máquina</option>
+                            <option value="additional">Carga adicional</option>
+                            <option value="assistance">Asistencia indicada</option>
+                          </select>
+                        </label>
+                        {weightBasis === "per_side" ? (
+                          <label className="mt-2 block">
+                            <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                              Peso de la barra
+                            </span>
+                            <div className="flex h-11 items-center border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min="0"
+                                step="0.5"
+                                value={weightConfig.barWeightKg}
+                                onChange={(event) =>
+                                  onWeightConfigChange({
+                                    barWeightKg: Math.max(
+                                      0,
+                                      Number(event.target.value || 0),
+                                    ),
+                                  })
+                                }
+                                className="min-w-0 flex-1 bg-transparent text-right text-sm font-bold outline-none"
+                                aria-label={`Peso de la barra para ${exercise.name}`}
+                              />
+                              <span className="ml-2 text-xs font-black text-[color:var(--text-muted)]">kg</span>
+                            </div>
+                          </label>
+                        ) : null}
+                        {weightBasis === "per_implement" &&
+                        movementMode !== "unilateral" ? (
+                          <label className="mt-2 block">
+                            <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                              Cantidad de implementos
+                            </span>
+                            <select
+                              value={weightConfig.implementCount}
+                              onChange={(event) =>
+                                onWeightConfigChange({
+                                  implementCount: Number(event.target.value),
+                                })
+                              }
+                              className="h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold"
+                            >
+                              {[1, 2, 3, 4].map((count) => (
+                                <option key={count} value={count}>
+                                  {count} {count === 1 ? "implemento" : "implementos"}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                      </div>
                       <label className="block border-t border-[color:var(--border)] pt-3">
                         <span className="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
                           <Settings2 className="h-3.5 w-3.5" />
@@ -523,6 +627,15 @@ export default function ExerciseCard({
               </AnimatePresence>
 
               <div className="space-y-2 px-2 pb-3 sm:px-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-[color:var(--text-muted)]">
+                  <span>{getWeightBasisLabel(weightConfig)}</span>
+                  {firstEnteredWeight !== undefined &&
+                  ["per_side", "per_implement"].includes(weightBasis) ? (
+                    <span className="text-[#c52d00] dark:text-[#e2ff00]">
+                      Carga efectiva: {effectiveWeight} kg
+                    </span>
+                  ) : null}
+                </div>
                 <div className="space-y-2">
                   <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
@@ -536,6 +649,7 @@ export default function ExerciseCard({
                         entries={set.entries}
                         prSummary={set.prSummary}
                         prBranchLabel={set.prBranchLabel}
+                        weightUnitLabel={getWeightUnitLabel(weightConfig)}
                         onChangeEntry={(entryId, field, value) =>
                           onUpdateEntry(set.id, entryId, field, value)
                         }
@@ -583,6 +697,7 @@ export default function ExerciseCard({
             <DetailModal
               exercise={detailExercise}
               canManage={false}
+              recordingContext
               onClose={() => setDetailExercise(null)}
             />,
             document.body,
@@ -605,6 +720,17 @@ ExerciseCard.propTypes = {
     supportsUnilateral: PropTypes.bool,
     movementMode: PropTypes.oneOf(["bilateral", "unilateral"]),
     setupNote: PropTypes.string,
+    weightBasis: PropTypes.oneOf([
+      "legacy",
+      "total",
+      "per_side",
+      "per_implement",
+      "machine",
+      "additional",
+      "assistance",
+    ]),
+    barWeightKg: PropTypes.number,
+    implementCount: PropTypes.number,
     seriesType: PropTypes.oneOf(["serie", "biserie", "triserie"]),
     plannedOrder: PropTypes.number,
     actualOrder: PropTypes.number,
@@ -651,6 +777,7 @@ ExerciseCard.propTypes = {
   onSeriesTypeChange: PropTypes.func,
   onMovementModeChange: PropTypes.func,
   onSetupNoteChange: PropTypes.func,
+  onWeightConfigChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onSwapVariant: PropTypes.func,
   onStartNow: PropTypes.func,

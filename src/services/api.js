@@ -1,7 +1,7 @@
 import { API_URL, axiosClient } from "./axiosConfig";
 
 const EXERCISE_FIELDS =
-  "name,localizedNames,nameEnglish,nameSpanish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,loadType,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
+  "name,localizedNames,nameEnglish,nameSpanish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,loadType,weightConfig,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
 
 async function request(path, options = {}) {
   const { method = "GET", body, headers, ...config } = options;
@@ -302,7 +302,7 @@ export const api = {
       limit: params.limit ?? 120,
       fields:
         params.fields ??
-        "date,createdAt,routineId,routineName,progressScopeId,orderSignature,branch,durationSeconds,durationOverrideSeconds,workSeconds,restSeconds,pauseSeconds,timeEvents,exerciseDurations.exerciseId,exerciseDurations.durationSeconds,exerciseDurations.durationOverrideSeconds,exerciseDurations.workSeconds,exerciseDurations.restSeconds,totalVolume,volumeBreakdown,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.primaryMuscleGroup,exercises.primaryMuscles,exercises.secondaryMuscles,exercises.stabilizerMuscles,exercises.equipment,exercises.loadType,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
+        "date,createdAt,routineId,routineName,progressScopeId,orderSignature,branch,durationSeconds,durationOverrideSeconds,workSeconds,restSeconds,pauseSeconds,timeEvents,exerciseDurations.exerciseId,exerciseDurations.durationSeconds,exerciseDurations.durationOverrideSeconds,exerciseDurations.workSeconds,exerciseDurations.restSeconds,totalVolume,volumeBreakdown,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.primaryMuscleGroup,exercises.primaryMuscles,exercises.secondaryMuscles,exercises.stabilizerMuscles,exercises.equipment,exercises.loadType,exercises.weightBasis,exercises.barWeightKg,exercises.implementCount,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.sets",
       from: params.from ?? "",
       to: params.to ?? "",
       routineId: params.routineId ?? "",

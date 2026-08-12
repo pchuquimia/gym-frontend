@@ -1,5 +1,6 @@
 // Helpers para resumen y comparativos de sesiones (sin TypeScript)
 import { estimate1RM } from './trainingMetrics'
+import { getEffectiveWeightKg } from './weightConfig'
 
 export const muscleGroupConfig = {
   espalda: {
@@ -89,25 +90,31 @@ export const formatMuscleGroup = (value = '') => {
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
 
-const expandSets = (sets = []) =>
+const expandSets = (sets = [], weightConfig = {}) =>
   asArray(sets).flatMap((set) => {
     const entries = Array.isArray(set?.entries) && set.entries.length ? set.entries : null
     if (!entries) {
       return [
         {
-          weightKg: Number(set?.weightKg ?? set?.weight ?? set?.kg ?? 0),
+          weightKg: getEffectiveWeightKg(
+            set?.weightKg ?? set?.weight ?? set?.kg,
+            weightConfig,
+          ),
           reps: Number(set?.reps ?? 0),
         },
       ]
     }
     return entries.map((entry) => ({
-      weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0),
+      weightKg: getEffectiveWeightKg(
+        entry?.weightKg ?? entry?.weight ?? entry?.kg,
+        weightConfig,
+      ),
       reps: Number(entry?.reps ?? 0),
     }))
   })
 
-const cleanSets = (sets = []) =>
-  expandSets(sets).filter(
+const cleanSets = (sets = [], weightConfig = {}) =>
+  expandSets(sets, weightConfig).filter(
     (s) => Number(s?.weightKg) > 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.weightKg)),
   )
 
@@ -119,7 +126,7 @@ const selectTopSet = (sets = []) =>
 
 export const summarizeSession = (session) => {
   const exercises = asArray(session?.exercises).map((ex) => {
-    const validSets = cleanSets(ex.sets || [])
+    const validSets = cleanSets(ex.sets || [], ex)
     if (!validSets.length) return null
     const topSet = selectTopSet(validSets)
     const oneRMTop = estimate1RM(topSet.weightKg, topSet.reps)

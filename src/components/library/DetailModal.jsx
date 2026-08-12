@@ -12,6 +12,7 @@ import {
   Target,
   Trash2,
   UserRound,
+  Scale,
 } from "lucide-react";
 import {
   getExerciseAnimationUrl,
@@ -30,6 +31,11 @@ import {
   normalizeText,
   toArray,
 } from "../../constants/exerciseTaxonomy";
+import {
+  getWeightBasisLabel,
+  getWeightUnitLabel,
+  inferWeightConfig,
+} from "../../utils/weightConfig";
 
 const capitalizeName = (value = "") =>
   value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Ejercicio";
@@ -116,12 +122,79 @@ function TechnicalRow({ icon: Icon, label, value }) {
   );
 }
 
+const getWeightRecordingDetails = (config, movementMode) => {
+  const basis = config.weightBasis;
+  if (basis === "per_side") {
+    const bar = Number(config.barWeightKg || 0);
+    return {
+      input: "El peso colocado en un solo lado de la barra o máquina.",
+      calculation: `La app multiplica el valor por 2 y suma ${bar} kg de barra.`,
+      example: `10 kg por lado equivalen a ${10 * 2 + bar} kg efectivos.`,
+    };
+  }
+  if (basis === "per_implement") {
+    if (movementMode === "unilateral") {
+      return {
+        input: "El peso del implemento utilizado en cada lado.",
+        calculation:
+          "Izquierda y derecha se registran por separado; cada entrada cuenta una sola vez.",
+        example:
+          "Mancuerna de 20 kg: registra 20 kg en izquierda y 20 kg en derecha.",
+      };
+    }
+    const count = Math.max(1, Number(config.implementCount || 1));
+    return {
+      input: "El peso de una sola mancuerna, kettlebell o implemento.",
+      calculation: `La app multiplica el valor por ${count} ${count === 1 ? "implemento" : "implementos"}.`,
+      example:
+        count === 2
+          ? "Dos mancuernas de 20 kg: registra 20 kg; la carga efectiva es 40 kg."
+          : "Registra el peso indicado en el único implemento utilizado.",
+    };
+  }
+  if (basis === "machine") {
+    return {
+      input: "El valor indicado por el selector o pantalla de la máquina.",
+      calculation: "La app conserva ese valor sin multiplicarlo.",
+      example: "Selector en 45 kg: registra 45 kg.",
+    };
+  }
+  if (basis === "additional") {
+    return {
+      input: "Solamente el lastre añadido a tu peso corporal.",
+      calculation:
+        "La app contabiliza el lastre como carga externa y conserva las repeticiones corporales.",
+      example: "Dominada con 10 kg de lastre: registra 10 kg.",
+    };
+  }
+  if (basis === "assistance") {
+    return {
+      input: "El nivel de ayuda indicado por la máquina o banda.",
+      calculation: "Menos asistencia representa una ejecución más exigente.",
+      example: "Máquina con 30 kg de ayuda: registra 30 kg.",
+    };
+  }
+  if (basis === "legacy") {
+    return {
+      input: "El peso usando el mismo criterio de tus registros anteriores.",
+      calculation: "La app no transforma este valor histórico.",
+      example: "Mantén el criterio anterior para conservar la comparación.",
+    };
+  }
+  return {
+    input: "La carga completa, incluyendo la barra y todos los discos.",
+    calculation: "La app usa directamente el valor ingresado.",
+    example: "Barra de 20 kg más 10 kg por lado: registra 40 kg.",
+  };
+};
+
 export default function DetailModal({
   exercise,
   onClose,
   onEdit,
   onDelete,
   canManage = false,
+  recordingContext = false,
 }) {
   const [showAnimation, setShowAnimation] = useState(false);
   const dialogRef = useRef(null);
@@ -180,6 +253,13 @@ export default function DetailModal({
   const navigationRegion = getExerciseNavigationRegion(exercise);
   const movementPatterns = getExerciseMovementPatterns(exercise);
   const equipment = getExerciseEquipment(exercise);
+  const weightConfig = inferWeightConfig(exercise);
+  const movementMode =
+    exercise.movementMode === "unilateral" ? "unilateral" : "bilateral";
+  const weightRecording = getWeightRecordingDetails(
+    weightConfig,
+    movementMode,
+  );
   const goals = getExerciseGoals(exercise);
   const primaryMuscles = toArray(exercise.primaryMuscles);
   const secondaryMuscles = toArray(exercise.secondaryMuscles);
@@ -343,6 +423,48 @@ export default function DetailModal({
             <Metric {...fourthMetric} />
           </div>
 
+          {recordingContext ? (
+            <section className="mt-4 border-y border-[color:var(--border)] bg-[color:var(--bg)]/45 px-4 py-5 sm:px-6">
+              <SectionHeading icon={Scale}>
+                Cómo registrar este ejercicio
+              </SectionHeading>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                <TaxonomyTag accent>
+                  {getWeightBasisLabel(weightConfig)}
+                </TaxonomyTag>
+                <TaxonomyTag>
+                  {movementMode === "unilateral" ? "Unilateral" : "Bilateral"}
+                </TaxonomyTag>
+                <TaxonomyTag>{getWeightUnitLabel(weightConfig)}</TaxonomyTag>
+              </div>
+              <dl className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                {[
+                  ["Qué ingresar", weightRecording.input],
+                  ["Cálculo", weightRecording.calculation],
+                  ["Ejemplo", weightRecording.example],
+                ].map(([label, value], index) => (
+                  <div
+                    key={label}
+                    className="grid gap-1 py-3 sm:grid-cols-[130px_1fr] sm:gap-4"
+                  >
+                    <dt className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+                      {label}
+                    </dt>
+                    <dd
+                      className={`text-sm leading-5 ${
+                        index === 2
+                          ? "font-semibold text-[#c52d00] dark:text-[#e2ff00]"
+                          : "text-[color:var(--text)]"
+                      }`}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+
           {primaryMuscles.length ||
           muscleGroup ||
           secondaryMuscles.length ||
@@ -453,6 +575,11 @@ export default function DetailModal({
                 icon={Dumbbell}
                 label="Equipamiento"
                 value={equipment.length ? formatList(equipment) : ""}
+              />
+              <TechnicalRow
+                icon={Dumbbell}
+                label="Registro de peso"
+                value={getWeightBasisLabel(weightConfig)}
               />
               <TechnicalRow
                 icon={Activity}

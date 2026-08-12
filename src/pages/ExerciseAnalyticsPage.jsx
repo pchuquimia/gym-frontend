@@ -15,6 +15,7 @@ import { useTrainingData } from "../context/TrainingContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { estimate1RM } from "../utils/trainingMetrics";
+import { getEffectiveWeightKg } from "../utils/weightConfig";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,14 +58,17 @@ const formatDuration = (seconds) => {
   return value >= 60 ? `${Math.round(value / 60)} min` : `${Math.round(value)} s`;
 };
 
-const flattenSets = (sets = []) =>
+const flattenSets = (sets = [], weightConfig = {}) =>
   (sets || []).flatMap((set) => {
     const entries = Array.isArray(set?.entries) && set.entries.length
       ? set.entries
       : [set];
     return entries
       .map((entry) => ({
-        weight: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
+        weight: getEffectiveWeightKg(
+          entry?.weightKg ?? entry?.weight ?? entry?.kg,
+          weightConfig,
+        ),
         reps: Number(entry?.reps ?? 0) || 0,
       }))
       .filter((entry) => entry.weight > 0 && entry.reps > 0);
@@ -117,7 +121,7 @@ export default function ExerciseAnalyticsPage() {
           .map((exercise) => ({
             exerciseId: exercise.exerciseId || slugify(exercise.exerciseName),
             date: training.date,
-            sets: flattenSets(exercise.sets),
+            sets: flattenSets(exercise.sets, exercise),
           })),
       ),
     ],

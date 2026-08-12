@@ -31,6 +31,7 @@ import {
   optionMatches,
   toArray,
 } from "../../constants/exerciseTaxonomy";
+import { inferWeightConfig } from "../../utils/weightConfig";
 
 const defaultTaxonomy = makeDefaultExerciseTaxonomy("Pecho");
 
@@ -50,6 +51,12 @@ const defaultForm = {
   movementPatterns: [],
   movementPattern: "",
   equipment: [],
+  loadType: "",
+  weightConfig: {
+    basis: "total",
+    barWeightKg: 0,
+    implementCount: 1,
+  },
   exerciseType: "",
   laterality: "",
   kineticChain: "",
@@ -174,6 +181,15 @@ const slugify = (text = "") =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
+const getCatalogWeightConfig = (exercise = {}) => {
+  const inferred = inferWeightConfig(exercise);
+  return {
+    basis: inferred.weightBasis,
+    barWeightKg: inferred.barWeightKg,
+    implementCount: inferred.implementCount,
+  };
+};
+
 function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
@@ -185,6 +201,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [weightConfigEdited, setWeightConfigEdited] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -212,6 +229,8 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
         movementPattern:
           initialData.movementPattern || movementPatterns[0] || "",
         equipment,
+        loadType: initialData.loadType || "",
+        weightConfig: getCatalogWeightConfig(initialData),
         exerciseType: getExerciseType(initialData) || "",
         laterality: initialData.laterality || "",
         kineticChain: initialData.kineticChain || "",
@@ -233,11 +252,16 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       });
       setPreview(initialData.media?.image?.url || initialData.image || "");
     } else {
-      setForm({ ...defaultForm, type: isAdmin ? "system" : "custom" });
+      setForm({
+        ...defaultForm,
+        weightConfig: { ...defaultForm.weightConfig },
+        type: isAdmin ? "system" : "custom",
+      });
       setPreview("");
     }
     setImageFile(null);
     setAdvancedOpen(false);
+    setWeightConfigEdited(Boolean(initialData?.weightConfig?.basis));
   }, [initialData, isAdmin]);
 
   const movementOptions = useMemo(
@@ -338,7 +362,7 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
       const next = exists
         ? current.filter((item) => !optionMatches(item, value))
         : [...current, value];
-      return {
+      const nextForm = {
         ...prev,
         [field]: next,
         ...(field === "categories" ? { category: next[0] || "" } : {}),
@@ -346,7 +370,26 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
           ? { movementPattern: next[0] || "" }
           : {}),
       };
+      if (field === "equipment" && !weightConfigEdited) {
+        nextForm.weightConfig = getCatalogWeightConfig({
+          ...nextForm,
+          weightConfig: undefined,
+          weightBasis: undefined,
+        });
+      }
+      return nextForm;
     });
+  };
+
+  const updateWeightConfig = (updates) => {
+    setWeightConfigEdited(true);
+    setForm((prev) => ({
+      ...prev,
+      weightConfig: {
+        ...prev.weightConfig,
+        ...updates,
+      },
+    }));
   };
 
   const toggleBranch = (value) => {
@@ -532,6 +575,74 @@ function ExerciseModal({ mode = "add", initialData, onSave, onClose }) {
           selected={form.equipment}
           onToggle={(value) => toggleListValue("equipment", value)}
         />
+
+        <section className="space-y-3">
+          <SectionTitle>Registro de carga</SectionTitle>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Criterio de peso">
+              <select
+                className={inputClass}
+                value={form.weightConfig.basis}
+                onChange={(event) =>
+                  updateWeightConfig({ basis: event.target.value })
+                }
+              >
+                <option value="total">Peso total</option>
+                <option value="per_side">Peso por lado</option>
+                <option value="per_implement">Peso por implemento</option>
+                <option value="machine">Valor indicado por máquina</option>
+                <option value="additional">Carga adicional</option>
+                <option value="assistance">Asistencia indicada</option>
+              </select>
+            </Field>
+
+            {form.weightConfig.basis === "per_side" ? (
+              <Field label="Peso de la barra">
+                <div className="flex h-12 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.5"
+                    value={form.weightConfig.barWeightKg}
+                    onChange={(event) =>
+                      updateWeightConfig({
+                        barWeightKg: Math.max(
+                          0,
+                          Number(event.target.value || 0),
+                        ),
+                      })
+                    }
+                    className="min-w-0 flex-1 bg-transparent text-right text-base font-bold outline-none sm:text-sm"
+                  />
+                  <span className="ml-2 text-xs font-black text-[color:var(--text-muted)]">
+                    kg
+                  </span>
+                </div>
+              </Field>
+            ) : null}
+
+            {form.weightConfig.basis === "per_implement" ? (
+              <Field label="Cantidad de implementos">
+                <select
+                  className={inputClass}
+                  value={form.weightConfig.implementCount}
+                  onChange={(event) =>
+                    updateWeightConfig({
+                      implementCount: Number(event.target.value),
+                    })
+                  }
+                >
+                  {[1, 2, 3, 4].map((count) => (
+                    <option key={count} value={count}>
+                      {count} {count === 1 ? "implemento" : "implementos"}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+          </div>
+        </section>
 
         <Field label="Descripción técnica">
           <textarea
