@@ -35,14 +35,14 @@
 html {
   min-height: 100%;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   overscroll-behavior-x: none;
 }
 
 body {
   min-height: 100%;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   font-family:
     Inter,
     ui-sans-serif,

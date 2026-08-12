@@ -34,6 +34,8 @@ import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPlanner";
 import AutoRestCountdownModal from "../components/training/AutoRestCountdownModal";
 import AutoRestCompleteModal from "../components/training/AutoRestCompleteModal";
+import TrainingCompletionPanel from "../components/training/TrainingCompletionPanel";
+import TrainingCompleteModal from "../components/training/TrainingCompleteModal";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
@@ -1417,6 +1419,7 @@ export default function RegisterTraining({
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [loadingTraining, setLoadingTraining] = useState(false);
@@ -1448,6 +1451,10 @@ export default function RegisterTraining({
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
   const restTimerRef = useRef(null);
+  const exerciseFocusTimerRef = useRef(null);
+  const completionFocusTimerRef = useRef(null);
+  const completionAnnouncedRef = useRef(false);
+  const resumedAfterCompletionRef = useRef(false);
   const restEventOpenRef = useRef(false);
   const [restTimerOpen, setRestTimerOpen] = useState(false);
   const [restTimerMinimized, setRestTimerMinimized] = useState(true);
@@ -2587,6 +2594,118 @@ export default function RegisterTraining({
     });
   };
 
+  const focusExerciseBelowToolbar = useCallback(
+    (exerciseId, { delay = 320, setId = "", highlight = false } = {}) => {
+      if (typeof document === "undefined" || typeof window === "undefined") {
+        return;
+      }
+      if (exerciseFocusTimerRef.current) {
+        window.clearTimeout(exerciseFocusTimerRef.current);
+      }
+      exerciseFocusTimerRef.current = window.setTimeout(() => {
+        exerciseFocusTimerRef.current = null;
+        const exerciseElement = Array.from(
+          document.querySelectorAll("[data-exercise-id]"),
+        ).find(
+          (element) =>
+            String(element.dataset.exerciseId) === String(exerciseId) &&
+            element.getClientRects().length > 0,
+        );
+        if (!exerciseElement) return;
+
+        const setElement = setId
+          ? Array.from(
+              exerciseElement.querySelectorAll("[data-set-id]"),
+            ).find(
+              (element) => String(element.dataset.setId) === String(setId),
+            )
+          : null;
+        const target = setElement || exerciseElement;
+        const visibleToolbar = [
+          document.querySelector("[data-training-header]"),
+          document.querySelector("[data-training-session-bar]"),
+        ].find(
+          (element) => {
+            if (
+              !element ||
+              element.getClientRects().length === 0 ||
+              window.getComputedStyle(element).visibility === "hidden"
+            ) {
+              return false;
+            }
+            const rect = element.getBoundingClientRect();
+            return rect.bottom > 0 && rect.top < window.innerHeight;
+          },
+        );
+        const toolbarRect = visibleToolbar?.getBoundingClientRect();
+        const toolbarStyle = visibleToolbar
+          ? window.getComputedStyle(visibleToolbar)
+          : null;
+        const toolbarBottom = toolbarRect
+          ? toolbarStyle?.position === "sticky"
+            ? Math.max(
+                0,
+                (Number.parseFloat(toolbarStyle.top) || 0) +
+                  toolbarRect.height,
+              )
+            : Math.max(0, toolbarRect.bottom)
+          : 0;
+        const topGap = window.matchMedia("(min-width: 768px)").matches
+          ? 18
+          : 12;
+        const targetTop =
+          target.getBoundingClientRect().top +
+          window.scrollY -
+          toolbarBottom -
+          topGap;
+
+        window.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: reduceMotion ? "auto" : "smooth",
+        });
+
+        if (
+          highlight &&
+          !reduceMotion &&
+          typeof target.animate === "function"
+        ) {
+          target.animate(
+            [
+              { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+              { boxShadow: "0 0 0 3px rgba(255,87,34,0.38)" },
+              { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+            ],
+            { duration: 700, easing: "ease-out" },
+          );
+        }
+      }, reduceMotion ? Math.min(delay, 80) : delay);
+    },
+    [reduceMotion],
+  );
+
+  const handleToggleExercise = useCallback(
+    (exerciseId) => {
+      const willOpen = expandedExerciseId !== exerciseId;
+      setExpandedExerciseId(willOpen ? exerciseId : "");
+      if (willOpen) {
+        focusExerciseBelowToolbar(exerciseId, { delay: 340 });
+      } else if (exerciseFocusTimerRef.current) {
+        window.clearTimeout(exerciseFocusTimerRef.current);
+        exerciseFocusTimerRef.current = null;
+      }
+    },
+    [expandedExerciseId, focusExerciseBelowToolbar],
+  );
+
+  useEffect(
+    () => () => {
+      if (exerciseFocusTimerRef.current) {
+        window.clearTimeout(exerciseFocusTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const handleStartExerciseNow = (exerciseId, { silent = false } = {}) => {
     const now = Date.now();
     if (activeExerciseId === exerciseId && isRunning) {
@@ -2661,17 +2780,11 @@ export default function RegisterTraining({
     setIsRunning(true);
     setHasStarted(true);
     setExpandedExerciseId(exerciseId);
-    if (!silent && typeof document !== "undefined") {
-      window.setTimeout(() => {
-        const target = Array.from(
-          document.querySelectorAll("[data-exercise-id]"),
-        ).find(
-          (element) =>
-            element.dataset.exerciseId === exerciseId &&
-            element.getClientRects().length > 0,
-        );
-        target?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 80);
+    if (!silent) {
+      focusExerciseBelowToolbar(exerciseId, {
+        delay: 360,
+        highlight: true,
+      });
     }
   };
 
@@ -2729,40 +2842,11 @@ export default function RegisterTraining({
       toast.success("Siguiente serie preparada.");
     }
 
-    if (typeof document === "undefined") return;
-    window.setTimeout(() => {
-      const exerciseElement = Array.from(
-        document.querySelectorAll("[data-exercise-id]"),
-      ).find(
-        (element) =>
-          String(element.dataset.exerciseId) ===
-            String(destination.exerciseId) &&
-          element.getClientRects().length > 0,
-      );
-      const targetElement =
-        destination.type === "set"
-          ? Array.from(
-              exerciseElement?.querySelectorAll("[data-set-id]") || [],
-            ).find(
-              (element) =>
-                String(element.dataset.setId) === String(destination.setId),
-            )
-          : exerciseElement;
-      targetElement?.scrollIntoView({
-        behavior: reduceMotion ? "auto" : "smooth",
-        block: "center",
-      });
-      if (!reduceMotion && typeof targetElement?.animate === "function") {
-        targetElement.animate(
-          [
-            { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
-            { boxShadow: "0 0 0 3px rgba(255,87,34,0.45)" },
-            { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
-          ],
-          { duration: 850, easing: "ease-out" },
-        );
-      }
-    }, destination.type === "exercise" ? 140 : 80);
+    focusExerciseBelowToolbar(destination.exerciseId, {
+      delay: destination.type === "exercise" ? 380 : 340,
+      setId: destination.type === "set" ? destination.setId : "",
+      highlight: true,
+    });
   };
 
   const loadTrainingForDate = async (
@@ -3969,6 +4053,36 @@ export default function RegisterTraining({
     setIsRunning(false);
   };
 
+  const pauseForRoutineCompletion = () => {
+    const now = Date.now();
+    const wasResting = restEventOpenRef.current;
+    restEventOpenRef.current = false;
+    lastUpdateRef.current = now;
+    setNowMs(now);
+    setTimeEvents((prev) => [
+      ...prev,
+      ...(wasResting ? [createTimeEvent("rest_end", null, now)] : []),
+      createTimeEvent("session_pause", null, now),
+    ]);
+    setIsRunning(false);
+    setRestTimerOpen(false);
+    setRestTimerMinimized(true);
+    setRestTimerRunning(false);
+    setRestTimerStarted(false);
+    setRestDeadlineMs(null);
+    updateAutoFlowTarget(null);
+    updateAutoFlowPrompt(null);
+    resumedAfterCompletionRef.current = false;
+    setCompletionModalOpen(true);
+  };
+
+  const handleDismissCompletionModal = () => {
+    if (finalizingRef.current) return;
+    setCompletionModalOpen(false);
+    resumedAfterCompletionRef.current = true;
+    handleStart();
+  };
+
   const handleReset = () => {
     const now = Date.now();
     lastUpdateRef.current = now;
@@ -4028,6 +4142,8 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    setCompletionModalOpen(false);
+    resumedAfterCompletionRef.current = false;
     finalizingRef.current = false;
     trainingRequestIdRef.current = "";
     setIsFinalizing(false);
@@ -4699,6 +4815,12 @@ export default function RegisterTraining({
           ? entries.every((entry) => entry.id === entryId || entry.done)
           : Boolean(set.done);
       });
+    const completesRoutine =
+      completesExercise &&
+      exercises.every((exercise) => {
+        if (exercise.id === exerciseId) return true;
+        return (exercise.sets || []).every((set) => isSetDone(set));
+      });
     if (targetEntry && !targetEntry.done) {
       handleStartExerciseNow(exerciseId, { silent: true });
       if (
@@ -4735,9 +4857,12 @@ export default function RegisterTraining({
           : ex,
       ),
     );
-    if (isAdmin && autoFlowEnabled && completesSet) {
+    if (isAdmin && autoFlowEnabled && completesSet && !completesRoutine) {
       updateAutoFlowTarget({ exerciseId, setId });
       handleStartRestTimer(restDurationSeconds / 60, { minimized: false });
+    }
+    if (completesRoutine && !isEditing && !isHistoryReadOnly) {
+      pauseForRoutineCompletion();
     }
     if (completesExercise) {
       setExpandedExerciseId((current) =>
@@ -5019,7 +5144,9 @@ export default function RegisterTraining({
     const finishAt = Date.now();
     const lastCompletedAt = getLastCompletedEntryTime();
     const effectiveFinishAt =
-      lastCompletedAt && lastCompletedAt <= finishAt
+      !resumedAfterCompletionRef.current &&
+      lastCompletedAt &&
+      lastCompletedAt <= finishAt
         ? lastCompletedAt
         : finishAt;
     const effectiveEvents = timeEvents.filter((event) => {
@@ -5306,6 +5433,9 @@ export default function RegisterTraining({
       ),
     [exercises],
   );
+  const sessionComplete = Boolean(
+    selectedRoutineId && allSetsDone && !isHistoryReadOnly,
+  );
   const showFinishButton =
     !isHistoryReadOnly &&
     (isEditing || hasStarted || isRunning || durationSeconds > 0);
@@ -5339,6 +5469,45 @@ export default function RegisterTraining({
   const activeExerciseDuration = activeExerciseId
     ? timingSummary.exerciseDurations.get(activeExerciseId) || 0
     : 0;
+
+  useEffect(() => {
+    if (!sessionComplete) {
+      completionAnnouncedRef.current = false;
+      resumedAfterCompletionRef.current = false;
+      setCompletionModalOpen(false);
+      if (completionFocusTimerRef.current) {
+        window.clearTimeout(completionFocusTimerRef.current);
+        completionFocusTimerRef.current = null;
+      }
+      return undefined;
+    }
+    if (completionAnnouncedRef.current) return undefined;
+    completionAnnouncedRef.current = true;
+    completionFocusTimerRef.current = window.setTimeout(() => {
+      completionFocusTimerRef.current = null;
+      const panel = document.querySelector("[data-training-completion]");
+      if (!panel) return;
+      const toolbar = document.querySelector(
+        window.matchMedia("(min-width: 768px)").matches
+          ? "[data-training-session-bar]"
+          : "[data-training-header]",
+      );
+      const toolbarBottom = toolbar?.getBoundingClientRect().bottom || 0;
+      const targetTop =
+        panel.getBoundingClientRect().top + window.scrollY - toolbarBottom - 14;
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    }, reduceMotion ? 100 : 720);
+
+    return () => {
+      if (completionFocusTimerRef.current) {
+        window.clearTimeout(completionFocusTimerRef.current);
+        completionFocusTimerRef.current = null;
+      }
+    };
+  }, [reduceMotion, sessionComplete]);
 
   useEffect(() => {
     if (!showTracking || !trackingExercise || !selectedProgressScopeId) {
@@ -5446,10 +5615,14 @@ export default function RegisterTraining({
   );
 
   return (
-    <main className="training-shell relative min-h-0 w-full max-w-full overflow-x-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
+    <main className="training-shell relative min-h-0 w-full max-w-full overflow-x-clip bg-[color:var(--bg)] text-[color:var(--text)]">
       <div
-        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-hidden md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
-          showMobileTrainingBar ? "pt-14 md:pt-4" : "pt-4"
+        className={`relative mx-auto w-full max-w-full min-w-0 overflow-x-clip md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px] space-y-4 ${
+          showMobileTrainingBar
+            ? sessionComplete
+              ? "pt-[7.75rem] md:pt-4"
+              : "pt-14 md:pt-4"
+            : "pt-4"
         } ${!setupStarted && !isEditing ? "pb-0" : "pb-28"}`}
       >
         {showMobileTrainingBar && (
@@ -5497,7 +5670,7 @@ export default function RegisterTraining({
                   {formatDuration(durationSeconds)}
                 </button>
               )}
-              {!isHistoryReadOnly ? (
+              {!isHistoryReadOnly && !sessionComplete ? (
                 <button
                   type="button"
                   onClick={handleOpenRestTimer}
@@ -5527,11 +5700,22 @@ export default function RegisterTraining({
                   Editar rutina
                 </button>
               ) : showFinishButton ? (
-                <button
+                <motion.button
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length || isFinalizing}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-1.5 min-[430px]:px-3 dark:bg-[#e2ff00] dark:text-black"
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-1.5 min-[430px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
+                    sessionComplete
+                      ? "shadow-[0_0_0_4px_rgba(255,87,34,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
+                      : ""
+                  }`}
+                  initial={false}
+                  animate={
+                    sessionComplete && !reduceMotion
+                      ? { scale: [1, 1.12, 1] }
+                      : { scale: 1 }
+                  }
+                  transition={{ duration: 0.65, delay: 0.18 }}
                   aria-label={
                     isFinalizing
                       ? "Finalizando entrenamiento"
@@ -5546,9 +5730,46 @@ export default function RegisterTraining({
                   <span className="hidden min-[430px]:inline">
                     {isFinalizing ? "Finalizando" : "Finalizar"}
                   </span>
-                </button>
+                </motion.button>
               ) : null}
             </div>
+            <AnimatePresence initial={false}>
+              {sessionComplete ? (
+                <motion.div
+                  data-training-complete-summary
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.3 }}
+                  className="mx-auto mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto_auto] items-center border-t border-[#ff5722]/25 pt-2 dark:border-[#e2ff00]/25"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="font-condensed text-[9px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
+                      Rutina activa
+                    </p>
+                    <p className="truncate font-condensed text-[15px] font-black uppercase leading-none">
+                      {selectorRoutine?.name || "Rutina completada"}
+                    </p>
+                  </div>
+                  <div className="border-l border-[color:var(--border)] px-3 text-center">
+                    <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                      Completado
+                    </p>
+                    <p className="font-condensed text-base font-black leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                      {completedExercises}/{exercises.length}
+                    </p>
+                  </div>
+                  <div className="border-l border-[color:var(--border)] pl-3 text-center">
+                    <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                      Total series
+                    </p>
+                    <p className="font-condensed text-base font-black leading-none">
+                      {totalSets}
+                    </p>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         )}
 
@@ -5887,62 +6108,118 @@ export default function RegisterTraining({
         ) : null}
 
         {setupStarted || isEditing ? (
-          <div className="hidden md:sticky md:top-2 md:z-20 md:block">
-            <Card className="overflow-visible border border-[color:var(--border)] bg-[color:var(--card)]/95 p-0 shadow-lg backdrop-blur">
+          <div
+            data-training-session-bar
+            className="hidden md:sticky md:top-2 md:z-20 md:block"
+          >
+            <Card
+              className={`overflow-visible border bg-[color:var(--card)]/95 p-0 backdrop-blur transition-[border-color,box-shadow] ${
+                sessionComplete
+                  ? "border-[#ff5722]/60 shadow-[0_12px_32px_rgba(255,87,34,0.14)] dark:border-[#e2ff00]/55 dark:shadow-[0_12px_34px_rgba(226,255,0,0.09)]"
+                  : "border-[color:var(--border)] shadow-lg"
+              }`}
+            >
               <div className="flex min-h-[76px] items-center gap-5 px-5 py-3">
                 <div className="min-w-[190px] flex-1">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                    Duracion
-                  </p>
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[28px] leading-none text-[color:var(--text)]">
-                      {formatDuration(durationSeconds)}
-                    </span>
-                    <span
-                      className={`text-[11px] font-semibold uppercase ${
-                        isRunning
-                          ? "text-[color:var(--accent)]"
-                          : "text-[color:var(--text-muted)]"
-                      }`}
-                    >
-                      {isHistoryReadOnly ? "Registrado" : "En curso"}
-                    </span>
-                  </div>
-                  {activeExercise && (
-                    <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
-                      Actual: {activeExercise.name} ·{" "}
-                      {formatDuration(activeExerciseDuration)}
-                    </p>
+                  {sessionComplete ? (
+                    <div className="flex items-center gap-3">
+                      <motion.span
+                        aria-hidden="true"
+                        initial={reduceMotion ? false : { scale: 0.6 }}
+                        animate={{ scale: 1 }}
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      >
+                        <Check className="h-5 w-5 stroke-[3]" />
+                      </motion.span>
+                      <div className="min-w-0">
+                        <p className="font-condensed text-[10px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
+                          Rutina activa
+                        </p>
+                        <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                          <p className="truncate font-condensed text-xl font-black uppercase leading-none">
+                            {selectorRoutine?.name || "Rutina completada"}
+                          </p>
+                          <Badge variant="completed">Completada</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
+                        Duracion
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[28px] leading-none text-[color:var(--text)]">
+                          {formatDuration(durationSeconds)}
+                        </span>
+                        <Badge
+                          variant={
+                            isHistoryReadOnly
+                              ? "completed"
+                              : isRunning
+                                ? "active"
+                                : "paused"
+                          }
+                        >
+                          {isHistoryReadOnly
+                            ? "Registrado"
+                            : isRunning
+                              ? "En curso"
+                              : "Pausado"}
+                        </Badge>
+                      </div>
+                      {activeExercise && (
+                        <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                          Actual: {activeExercise.name} ·{" "}
+                          {formatDuration(activeExerciseDuration)}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 {!isHistoryReadOnly ? (
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant={restTimerRunning ? "accentSolid" : "outline"}
-                      className="h-10 min-w-[112px] rounded-md px-3"
-                      onClick={handleOpenRestTimer}
-                    >
-                      <Hourglass className="h-4 w-4" />
-                      <span>
-                        {restTimerStarted ? restTimerLabel : "Descanso"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 min-w-[116px] rounded-md px-4"
-                      onClick={isRunning ? handlePause : handleStart}
-                    >
-                      {isRunning ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                      <span>{isRunning ? "Pausar" : "Reanudar"}</span>
-                    </Button>
+                    {!sessionComplete ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant={restTimerRunning ? "accentSolid" : "outline"}
+                          className="h-10 min-w-[112px] rounded-md px-3"
+                          onClick={handleOpenRestTimer}
+                        >
+                          <Hourglass className="h-4 w-4" />
+                          <span>
+                            {restTimerStarted ? restTimerLabel : "Descanso"}
+                          </span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-10 min-w-[116px] rounded-md px-4"
+                          onClick={isRunning ? handlePause : handleStart}
+                        >
+                          {isRunning ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                          <span>{isRunning ? "Pausar" : "Reanudar"}</span>
+                        </Button>
+                      </>
+                    ) : null}
                     {showFinishButton ? (
-                      <Button
-                        className="h-10 min-w-[126px] rounded-md px-4"
+                      <motion.div
+                        initial={false}
+                        animate={
+                          sessionComplete && !reduceMotion
+                            ? { scale: [1, 1.035, 1] }
+                            : { scale: 1 }
+                        }
+                        transition={{ duration: 0.7, delay: 0.2 }}
+                      >
+                        <Button
+                        className={`h-10 rounded-md px-4 ${
+                          sessionComplete ? "min-w-[190px]" : "min-w-[126px]"
+                        }`}
                         onClick={handleFinish}
                         disabled={!exercises.length || isFinalizing}
                       >
@@ -5952,9 +6229,14 @@ export default function RegisterTraining({
                           <Flag className="h-4 w-4" />
                         )}
                         <span>
-                          {isFinalizing ? "Finalizando" : "Finalizar"}
+                          {isFinalizing
+                            ? "Finalizando"
+                            : sessionComplete
+                              ? "Finalizar entrenamiento"
+                              : "Finalizar"}
                         </span>
                       </Button>
+                      </motion.div>
                     ) : null}
                     <div className="relative" ref={desktopSessionMenuRef}>
                       <Button
@@ -6032,6 +6314,35 @@ export default function RegisterTraining({
                 ) : null}
               </div>
               <div className="flex min-h-11 items-center justify-between gap-4 border-t border-[color:var(--border)] bg-[color:var(--bg)]/55 px-5 py-2 text-xs text-[color:var(--text-muted)]">
+                {sessionComplete ? (
+                  <div className="grid w-full grid-cols-3 divide-x divide-[color:var(--border)]">
+                    <div className="pr-4">
+                      <span className="font-condensed text-[10px] font-black uppercase">
+                        Completado
+                      </span>
+                      <strong className="ml-2 text-sm text-[#ff5722] dark:text-[#e2ff00]">
+                        {completedExercises}/{exercises.length} ejercicios
+                      </strong>
+                    </div>
+                    <div className="px-4">
+                      <span className="font-condensed text-[10px] font-black uppercase">
+                        Total series
+                      </span>
+                      <strong className="ml-2 text-sm text-[color:var(--text)]">
+                        {totalSets}
+                      </strong>
+                    </div>
+                    <div className="pl-4">
+                      <span className="font-condensed text-[10px] font-black uppercase">
+                        Tiempo
+                      </span>
+                      <strong className="ml-2 font-mono text-sm text-[color:var(--text)]">
+                        {formatDuration(durationSeconds)}
+                      </strong>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                 <button
                   type="button"
                   onClick={() => {
@@ -6071,6 +6382,8 @@ export default function RegisterTraining({
                     {doneSets}/{totalSets} series completadas
                   </span>
                 </div>
+                  </>
+                )}
               </div>
             </Card>
           </div>
@@ -6242,11 +6555,7 @@ export default function RegisterTraining({
                               key={ex.id}
                               readOnly={isHistoryReadOnly}
                               open={expandedExerciseId === ex.id}
-                              onToggleOpen={() =>
-                                setExpandedExerciseId((current) =>
-                                  current === ex.id ? "" : ex.id,
-                                )
-                              }
+                              onToggleOpen={() => handleToggleExercise(ex.id)}
                               exercise={{
                                 ...ex,
                                 durationSeconds:
@@ -6332,11 +6641,7 @@ export default function RegisterTraining({
                               key={ex.id}
                               readOnly={isHistoryReadOnly}
                               open={expandedExerciseId === ex.id}
-                              onToggleOpen={() =>
-                                setExpandedExerciseId((current) =>
-                                  current === ex.id ? "" : ex.id,
-                                )
-                              }
+                              onToggleOpen={() => handleToggleExercise(ex.id)}
                               exercise={{
                                 ...ex,
                                 durationSeconds:
@@ -6482,85 +6787,23 @@ export default function RegisterTraining({
         </div>
       </div>
 
-      {selectedRoutineId && allSetsDone && !isHistoryReadOnly && (
-        <Card className="p-4 md:p-6 border border-[color:var(--border)] bg-[color:var(--card)]/90 backdrop-blur shadow-lg space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                Cierre del entrenamiento
-              </p>
-              <h3 className="text-lg font-semibold text-[color:var(--text)]">
-                Foto final de la sesion
-              </h3>
-              <p className="text-xs text-[color:var(--text-muted)]">
-                Se guardara en tu biblioteca al finalizar.
-              </p>
-            </div>
-            <Badge variant="secondary" className="text-[11px]">
-              Opcional
-            </Badge>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-[1fr,200px] items-start">
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-xs text-[color:var(--text-muted)]">
-                Consejo: toma la foto con buena luz y la misma distancia para
-                comparar tu progreso.
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full"
-                    asChild
-                  >
-                    <span>
-                      {trainingPhotoFile ? "Cambiar foto" : "Tomar foto"}
-                    </span>
-                  </Button>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handleTrainingPhotoChange}
-                  />
-                </label>
-                {trainingPhotoFile && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={clearTrainingPhoto}
-                  >
-                    Quitar
-                  </Button>
-                )}
-              </div>
-              {trainingPhotoError && (
-                <p className="text-xs text-red-500">{trainingPhotoError}</p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] overflow-hidden">
-              <div className="aspect-[4/5] w-full">
-                {trainingPhotoPreview ? (
-                  <img
-                    src={trainingPhotoPreview}
-                    alt="Vista previa"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full grid place-items-center text-xs text-[color:var(--text-muted)]">
-                    Sin foto
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
+      {sessionComplete ? (
+        <div className="mx-auto w-full max-w-full px-0 pb-28 md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px]">
+          <TrainingCompletionPanel
+            routineName={selectorRoutine?.name || "Entrenamiento"}
+            completedExercises={completedExercises}
+            totalExercises={exercises.length}
+            totalSets={totalSets}
+            durationLabel={formatDuration(durationSeconds)}
+            photoPreview={trainingPhotoPreview}
+            photoError={trainingPhotoError}
+            onPhotoChange={handleTrainingPhotoChange}
+            onClearPhoto={clearTrainingPhoto}
+            onFinish={handleFinish}
+            isFinalizing={isFinalizing}
+          />
+        </div>
+      ) : null}
 
       {showExercisePicker && (
         <Modal
@@ -6978,6 +7221,21 @@ export default function RegisterTraining({
           </p>
         </Modal>
       ) : null}
+
+      <AnimatePresence>
+        {completionModalOpen && sessionComplete ? (
+          <TrainingCompleteModal
+            routineName={selectorRoutine?.name || "Entrenamiento"}
+            completedExercises={completedExercises}
+            totalExercises={exercises.length}
+            totalSets={totalSets}
+            durationLabel={formatDuration(durationSeconds)}
+            isFinalizing={isFinalizing}
+            onFinish={handleFinish}
+            onDismiss={handleDismissCompletionModal}
+          />
+        ) : null}
+      </AnimatePresence>
 
       <OperationLoader
         active={loadingTraining && Boolean(selectedRoutineId)}

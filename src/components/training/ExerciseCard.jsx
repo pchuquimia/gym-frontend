@@ -1,10 +1,8 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  Activity,
-  Check,
   ChevronDown,
   Play,
   Repeat2,
@@ -17,7 +15,6 @@ import Button from "../ui/button";
 import Badge from "../ui/badge";
 import SetRow from "./SetRow";
 import DetailModal from "../library/DetailModal";
-import SlideToConfirm from "../shared/SlideToConfirm";
 import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
@@ -27,6 +24,9 @@ import {
   getWeightUnitLabel,
   normalizeWeightBasis,
 } from "../../utils/weightConfig";
+
+const LONG_PRESS_MS = 650;
+const MOVE_TOLERANCE_PX = 10;
 
 const formatShortDate = (value) => {
   if (!value) return "";
@@ -64,51 +64,65 @@ function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      className="fixed inset-0 z-[90] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      className="fixed inset-0 z-[95] flex items-end bg-black/55 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
-      <motion.div
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Cancelar eliminacion de ejercicio"
+      />
+      <motion.section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-exercise-title"
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
           duration: reduceMotion ? 0 : 0.22,
           ease: [0.16, 1, 0.3, 1],
         }}
-        className="w-full rounded-t-3xl border border-red-500/20 bg-[color:var(--card)] p-4 text-[color:var(--text)] shadow-2xl sm:max-w-md sm:rounded-3xl"
+        className="relative w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl sm:max-w-sm sm:rounded-2xl sm:pb-4"
       >
-        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
+        <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
         <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-600">
             <Trash2 className="h-5 w-5" />
-          </div>
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
+            <p className="text-xs font-black uppercase text-red-600">
               Eliminar ejercicio
             </p>
-            <h3 className="mt-1 truncate text-lg font-black">{exerciseName}</h3>
+            <h3
+              id="delete-exercise-title"
+              className="mt-1 truncate text-xl font-black"
+            >
+              {exerciseName}
+            </h3>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-              Esta accion no se puede deshacer en la sesion actual.
+              Se eliminarán sus series, pesos y repeticiones de esta sesión.
             </p>
           </div>
         </div>
-
-        <div className="mt-5">
-          <SlideToConfirm
-            label="Desliza para eliminar"
-            ariaLabel="Deslizar para confirmar eliminacion"
-            onConfirm={onConfirm}
-          />
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            className="h-12 rounded-xl border border-[color:var(--border)] font-black text-[color:var(--text)]"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="h-12 rounded-xl bg-red-600 font-black text-white hover:bg-red-700"
+            onClick={onConfirm}
+          >
+            Eliminar
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] text-sm font-black text-[color:var(--text)]"
-        >
-          Cancelar
-        </button>
-      </motion.div>
+      </motion.section>
     </motion.div>
   );
 }
@@ -140,6 +154,10 @@ export default function ExerciseCard({
   const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const [isHoldingExercise, setIsHoldingExercise] = useState(false);
+  const exerciseHoldTimerRef = useRef(null);
+  const exerciseHoldStartRef = useRef({ x: 0, y: 0 });
+  const exerciseHoldTriggeredRef = useRef(false);
   const [detailExercise, setDetailExercise] = useState(null);
   const currentImageSrc = getExerciseImageUrl(exercise, {
     preset: "thumbnail",
@@ -191,9 +209,6 @@ export default function ExerciseCard({
         ? set.entries.every((entry) => entry.done)
         : Boolean(set.done),
     );
-  const actionLabel = exercise.isActive ? "En curso" : "Empezar";
-  const ActionIcon = exercise.isActive ? Activity : Play;
-
   const handleDragEnd = (_, info) => {
     if (!onSwapVariant || !hasVariants) return;
     const offsetX = info.offset?.x ?? 0;
@@ -202,10 +217,63 @@ export default function ExerciseCard({
     if (offsetX < -70 || velocityX < -700) onSwapVariant(-1);
   };
 
-  const handleToggleOpen = () => {
+  const clearExerciseLongPress = () => {
+    if (exerciseHoldTimerRef.current) {
+      window.clearTimeout(exerciseHoldTimerRef.current);
+      exerciseHoldTimerRef.current = null;
+    }
+    setIsHoldingExercise(false);
+  };
+
+  const handleExercisePointerDown = (event) => {
+    if (readOnly || !onRemoveExercise || event.button !== 0) return;
+    clearExerciseLongPress();
+    exerciseHoldTriggeredRef.current = false;
+    exerciseHoldStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+    setIsHoldingExercise(true);
+    exerciseHoldTimerRef.current = window.setTimeout(() => {
+      exerciseHoldTimerRef.current = null;
+      exerciseHoldTriggeredRef.current = true;
+      setIsHoldingExercise(false);
+      if (typeof navigator.vibrate === "function") navigator.vibrate(35);
+      setDeleteSheetOpen(true);
+    }, LONG_PRESS_MS);
+  };
+
+  const handleExercisePointerMove = (event) => {
+    if (!exerciseHoldTimerRef.current) return;
+    const deltaX = Math.abs(
+      event.clientX - exerciseHoldStartRef.current.x,
+    );
+    const deltaY = Math.abs(
+      event.clientY - exerciseHoldStartRef.current.y,
+    );
+    if (deltaX > MOVE_TOLERANCE_PX || deltaY > MOVE_TOLERANCE_PX) {
+      clearExerciseLongPress();
+    }
+  };
+
+  const handleToggleOpen = (event) => {
+    if (exerciseHoldTriggeredRef.current) {
+      event?.preventDefault();
+      exerciseHoldTriggeredRef.current = false;
+      return;
+    }
     if (open) setShowOptions(false);
     onToggleOpen?.();
   };
+
+  useEffect(
+    () => () => {
+      if (exerciseHoldTimerRef.current) {
+        window.clearTimeout(exerciseHoldTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleOpenDetails = async () => {
     setDetailExercise(exercise);
@@ -248,7 +316,11 @@ export default function ExerciseCard({
   return (
     <motion.div
       data-exercise-id={exercise.id}
-      className="relative w-full max-w-full overflow-hidden"
+      className={`relative w-full max-w-full overflow-hidden transition-shadow ${
+        isHoldingExercise
+          ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45"
+          : ""
+      }`}
       layout
       initial={false}
       whileHover={reduceMotion ? undefined : { y: -2 }}
@@ -264,6 +336,17 @@ export default function ExerciseCard({
           : undefined
       }
     >
+      <AnimatePresence>
+        {isHoldingExercise ? (
+          <motion.span
+            className="pointer-events-none absolute inset-x-1 top-0 z-30 h-0.5 origin-left bg-[#ff5722] dark:bg-[#e2ff00]"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: LONG_PRESS_MS / 1000, ease: "linear" }}
+          />
+        ) : null}
+      </AnimatePresence>
       <AnimatePresence initial={false}>
         {isComplete && !reduceMotion ? (
           <motion.span
@@ -275,7 +358,13 @@ export default function ExerciseCard({
           />
         ) : null}
       </AnimatePresence>
-      <Card className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]/90 shadow-lg backdrop-blur dark:rounded-[4px]">
+      <Card
+        className={`overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
+          exercise.isActive && !isComplete
+            ? "border-[#ff5722]/65 shadow-[0_8px_24px_rgba(255,87,34,0.12)] dark:border-[#e2ff00]/55 dark:shadow-[0_8px_26px_rgba(226,255,0,0.08)]"
+            : "border-[color:var(--border)] shadow-lg"
+        }`}
+      >
         <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
           <button
             type="button"
@@ -295,6 +384,14 @@ export default function ExerciseCard({
           <button
             type="button"
             onClick={handleToggleOpen}
+            onPointerDown={handleExercisePointerDown}
+            onPointerMove={handleExercisePointerMove}
+            onPointerUp={clearExerciseLongPress}
+            onPointerCancel={clearExerciseLongPress}
+            onPointerLeave={clearExerciseLongPress}
+            onContextMenu={(event) => {
+              if (!readOnly && onRemoveExercise) event.preventDefault();
+            }}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
           >
             <div className="min-w-0 flex-1">
@@ -344,58 +441,27 @@ export default function ExerciseCard({
               className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
             />
           </button>
-          {!readOnly && onStartNow && !isComplete && (
+          {!readOnly && onStartNow && !isComplete && !exercise.isActive && (
             <Button
               size="sm"
-              variant={exercise.isActive ? "accentSolid" : "accentOutline"}
-              className="hidden shrink-0 rounded-full px-3 disabled:cursor-default sm:inline-flex"
-              onClick={exercise.isActive ? undefined : onStartNow}
-              disabled={exercise.isActive}
-              aria-label={
-                exercise.isActive
-                  ? `${exercise.name} en curso`
-                  : `Empezar ${exercise.name}`
-              }
+              variant="accentOutline"
+              className="hidden shrink-0 rounded-md px-3 sm:inline-flex dark:rounded-[3px]"
+              onClick={onStartNow}
+              aria-label={`Empezar ${exercise.name}`}
             >
-              <ActionIcon className="h-4 w-4" />
-              <span>{actionLabel}</span>
+              <Play className="h-4 w-4" />
+              <span>Empezar</span>
             </Button>
           )}
-          {!readOnly && onStartNow && !isComplete && (
+          {!readOnly && onStartNow && !isComplete && !exercise.isActive && (
             <Button
               size="touchIcon"
-              variant={exercise.isActive ? "accentSolid" : "accentOutline"}
-              className="shrink-0 rounded-full disabled:cursor-default sm:hidden"
-              onClick={exercise.isActive ? undefined : onStartNow}
-              disabled={exercise.isActive}
-              aria-label={
-                exercise.isActive
-                  ? `${exercise.name} en curso`
-                  : `Empezar ${exercise.name}`
-              }
+              variant="accentOutline"
+              className="shrink-0 rounded-md sm:hidden dark:rounded-[3px]"
+              onClick={onStartNow}
+              aria-label={`Empezar ${exercise.name}`}
             >
-              <ActionIcon className="h-4 w-4" />
-            </Button>
-          )}
-          {!readOnly && onStartNow && isComplete && (
-            <Button
-              size="sm"
-              variant="accentSolid"
-              className="hidden shrink-0 rounded-full px-3 disabled:cursor-default sm:inline-flex"
-              disabled
-            >
-              Completado
-            </Button>
-          )}
-          {!readOnly && onStartNow && isComplete && (
-            <Button
-              size="touchIcon"
-              variant="accentSolid"
-              className="shrink-0 rounded-full disabled:cursor-default sm:hidden"
-              disabled
-              aria-label="Ejercicio completado"
-            >
-              <Check className="h-4 w-4" />
+              <Play className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -408,7 +474,7 @@ export default function ExerciseCard({
               exit={{ opacity: 0, height: 0 }}
               className="border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
-              <div className="flex items-center justify-between px-4 py-3 gap-2">
+              <div className="flex items-center px-4 py-3">
                 <div className="flex gap-2 flex-wrap">
                   <motion.div whileTap={{ scale: 0.97 }}>
                     <Button
@@ -449,19 +515,6 @@ export default function ExerciseCard({
                     </motion.div>
                   ) : null}
                 </div>
-                {!readOnly ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="touchIcon"
-                      variant="ghost"
-                      className="text-red-600"
-                      onClick={() => setDeleteSheetOpen(true)}
-                      aria-label="Eliminar ejercicio de la sesion"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : null}
               </div>
 
               <AnimatePresence initial={false}>

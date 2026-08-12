@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
+import Badge from "../components/ui/badge";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
 import { useAuth } from "../context/AuthContext";
@@ -277,7 +278,9 @@ export default function CoachManagement({ onNavigate }) {
                         <div className="h-1.5 flex-1 overflow-hidden bg-[color:var(--border)]">
                           <div className="h-full bg-[#ff5722] dark:bg-[#e2ff00]" style={{ width: `${loadPercent}%` }} />
                         </div>
-                        <span className="text-[10px] font-black text-[color:var(--text-muted)]">{coach.isActive ? "Activo" : "Inactivo"}</span>
+                        <Badge variant={coach.isActive ? "enabled" : "inactive"}>
+                          {coach.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
                       </div>
                       <p className="text-[22px] font-black leading-none md:text-right">{coach.athleteCount}</p>
                     </div>
@@ -336,7 +339,12 @@ export default function CoachManagement({ onNavigate }) {
                     <p className="col-span-2 text-[11px] font-semibold text-[color:var(--text-muted)] md:col-span-1">
                       {item.role === "Cliente" ? (linked ? "Vinculado a un coach" : "Atleta independiente") : "Gestiona su propia cartera"}
                     </p>
-                    <span className={`hidden w-fit px-2 py-1 text-[9px] font-black uppercase md:block ${item.isActive ? "theme-accent-soft" : "border border-[color:var(--border)] text-[color:var(--text-muted)]"}`}>{item.isActive ? "Activo" : "Inactivo"}</span>
+                    <Badge
+                      className="hidden w-fit md:inline-flex"
+                      variant={item.isActive ? "enabled" : "inactive"}
+                    >
+                      {item.isActive ? "Activo" : "Inactivo"}
+                    </Badge>
                     <div className="justify-self-end" data-user-actions>
                       {isCurrentAdmin ? (
                         <span className="px-2 text-[10px] font-black uppercase text-[color:var(--text-muted)]">Tu cuenta</span>
