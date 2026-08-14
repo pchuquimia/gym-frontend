@@ -173,7 +173,7 @@ export const api = {
   deleteTrainingPlan: (planId) =>
     request(`/api/plans/${planId}`, { method: "DELETE" }),
 
-  getExercises: (params = {}) => {
+  getExercises: (params = {}, options = {}) => {
     const query = new URLSearchParams({
       limit: params.limit ?? 1000,
       fields: params.fields ?? EXERCISE_FIELDS,
@@ -200,9 +200,10 @@ export const api = {
       ownerId: params.ownerId ?? "",
       type: params.type ?? "",
     }).toString();
-    return request(`/api/exercises?${query}`);
+    return request(`/api/exercises?${query}`, options);
   },
-  getExerciseFacets: () => request("/api/exercises/facets"),
+  getExerciseFacets: (options = {}) =>
+    request("/api/exercises/facets", options),
   getExercise: (id) => request(`/api/exercises/${id}`),
   createExercise: (payload) =>
     request("/api/exercises", {
@@ -291,7 +292,12 @@ export const api = {
     }),
   deleteWeighIn: (id) => request(`/api/weigh-ins/${id}`, { method: "DELETE" }),
 
-  getSessions: () => request("/api/sessions"),
+  getSessions: (params = {}) => {
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+    }).toString();
+    return request(`/api/sessions?${query}`);
+  },
   createSession: (payload) =>
     request("/api/sessions", { method: "POST", body: JSON.stringify(payload) }),
   deleteSession: (id) => request(`/api/sessions/${id}`, { method: "DELETE" }),
@@ -307,6 +313,7 @@ export const api = {
       to: params.to ?? "",
       routineId: params.routineId ?? "",
       progressScopeId: params.progressScopeId ?? "",
+      includeTrainingPlanId: params.includeTrainingPlanId ?? "",
       excludeProgressScopeId: params.excludeProgressScopeId ?? "",
       athleteId: params.athleteId ?? "",
       meta: params.meta ?? false,
@@ -314,6 +321,24 @@ export const api = {
     return request(`/api/trainings?${query}`, { timeout: 45_000 });
   },
   getTraining: (id) => request(`/api/trainings/${id}`),
+  getExerciseHistory: (params = {}) => {
+    const query = new URLSearchParams({
+      exerciseId: params.exerciseId ?? "",
+      exerciseName: params.exerciseName ?? "",
+      athleteId: params.athleteId ?? "",
+    }).toString();
+    return request(`/api/trainings/exercise-history?${query}`, {
+      timeout: 45_000,
+    });
+  },
+  getExerciseHistoryCounts: (params = {}) => {
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+    }).toString();
+    return request(`/api/trainings/exercise-counts?${query}`, {
+      timeout: 45_000,
+    });
+  },
   updateTraining: (id, payload) =>
     request(`/api/trainings/${id}`, {
       method: "PUT",
@@ -323,6 +348,19 @@ export const api = {
     request(`/api/trainings/${id}/duration`, {
       method: "PATCH",
       body: JSON.stringify({ durationSeconds }),
+    }),
+  updateTrainingExerciseConfig: (trainingId, exerciseId, payload) =>
+    request(
+      `/api/trainings/${trainingId}/exercises/${encodeURIComponent(exerciseId)}/config`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    ),
+  updateSessionExerciseConfig: (sessionId, payload) =>
+    request(`/api/sessions/${sessionId}/config`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
     }),
   createTraining: (payload) =>
     request("/api/trainings", {

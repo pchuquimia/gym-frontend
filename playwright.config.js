@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e/playwright",
   fullyParallel: true,
+  workers: process.env.LIVE_ADMIN_TEST === "true" ? 1 : undefined,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["line"], ["html", { open: "never" }]] : "line",
   use: {

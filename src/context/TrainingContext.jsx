@@ -14,6 +14,12 @@ import {
   getExerciseType,
   getPrimaryMuscleGroup,
 } from "../constants/exerciseTaxonomy";
+import {
+  TRAINING_LIST_CACHE_VERSION,
+  TRAINING_LIST_FIELDS,
+  TRAINING_SUMMARY_CACHE_VERSION,
+  TRAINING_SUMMARY_FIELDS,
+} from "../utils/trainingListFields";
 
 const TrainingContext = createContext(null);
 
@@ -120,7 +126,11 @@ export function TrainingProvider({
   const requesterId = String(user?.id || user?._id || "anonymous");
   const dataScopeId = String(ownerId || requesterId);
   const trainingsKey = useMemo(
-    () => ["trainings", 120, dataScopeId],
+    () => ["trainings", TRAINING_LIST_CACHE_VERSION, 120, dataScopeId],
+    [dataScopeId],
+  );
+  const trainingSummariesKey = useMemo(
+    () => ["trainings", TRAINING_SUMMARY_CACHE_VERSION, 120, dataScopeId],
     [dataScopeId],
   );
   const exercisesKey = useMemo(
@@ -201,12 +211,13 @@ export function TrainingProvider({
     enabled: loadPhotos,
   });
 
-  const trainingsQuery = useQuery({
-    queryKey: trainingsKey,
+  const trainingSummariesQuery = useQuery({
+    queryKey: trainingSummariesKey,
     queryFn: async () => {
       const trResp = await api.getTrainings({
         limit: 120,
         athleteId: ownerId,
+        fields: TRAINING_SUMMARY_FIELDS,
       });
       const list = Array.isArray(trResp) ? trResp : trResp?.items || [];
       return list.map(normalizeTraining);
@@ -214,6 +225,23 @@ export function TrainingProvider({
     staleTime: 60 * 1000,
     retry: (failureCount, requestError) =>
       requestError?.status !== 401 && failureCount < 2,
+  });
+
+  const trainingsQuery = useQuery({
+    queryKey: trainingsKey,
+    queryFn: async () => {
+      const trResp = await api.getTrainings({
+        limit: 120,
+        athleteId: ownerId,
+        fields: TRAINING_LIST_FIELDS,
+      });
+      const list = Array.isArray(trResp) ? trResp : trResp?.items || [];
+      return list.map(normalizeTraining);
+    },
+    staleTime: 60 * 1000,
+    retry: (failureCount, requestError) =>
+      requestError?.status !== 401 && failureCount < 2,
+    enabled: trainingSummariesQuery.isSuccess,
   });
 
   const prefsQuery = useQuery({
@@ -308,10 +336,12 @@ export function TrainingProvider({
     };
     const saved = await api.createTraining(payload);
     const normalized = normalizeTraining(saved);
-    queryClient.setQueryData(trainingsKey, (prev = []) => [
-      normalized,
-      ...prev,
-    ]);
+    [trainingsKey, trainingSummariesKey].forEach((queryKey) => {
+      queryClient.setQueryData(queryKey, (prev = []) => [
+        normalized,
+        ...prev,
+      ]);
+    });
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
     return normalized;
   };
@@ -320,11 +350,13 @@ export function TrainingProvider({
     const payload = { ...training, id: undefined, _id: undefined };
     const saved = await api.updateTraining(id, payload);
     const normalized = normalizeTraining(saved);
-    queryClient.setQueryData(trainingsKey, (prev = []) =>
-      prev.map((t) =>
-        t.id === normalized.id || t._id === normalized.id ? normalized : t,
-      ),
-    );
+    [trainingsKey, trainingSummariesKey].forEach((queryKey) => {
+      queryClient.setQueryData(queryKey, (prev = []) =>
+        prev.map((t) =>
+          t.id === normalized.id || t._id === normalized.id ? normalized : t,
+        ),
+      );
+    });
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
     return normalized;
   };
@@ -499,9 +531,11 @@ export function TrainingProvider({
   };
 
   const setTrainings = (updater) => {
-    queryClient.setQueryData(trainingsKey, (prev = []) =>
-      typeof updater === "function" ? updater(prev) : updater,
-    );
+    [trainingsKey, trainingSummariesKey].forEach((queryKey) => {
+      queryClient.setQueryData(queryKey, (prev = []) =>
+        typeof updater === "function" ? updater(prev) : updater,
+      );
+    });
   };
 
   const setGoalsState = (nextGoals) => {
@@ -515,18 +549,19 @@ export function TrainingProvider({
   const exercises = exercisesQuery.data || [];
   const sessions = sessionsQuery.data || [];
   const photos = photosQuery.data || [];
-  const trainings = trainingsQuery.data || [];
+  const trainings =
+    trainingsQuery.data || trainingSummariesQuery.data || [];
   const loading =
     (loadExercises && exercisesQuery.isLoading) ||
     sessionsQuery.isLoading ||
     (loadPhotos && photosQuery.isLoading) ||
-    trainingsQuery.isLoading ||
+    trainingSummariesQuery.isLoading ||
     prefsQuery.isLoading;
   const error =
     exercisesQuery.error?.message ||
     sessionsQuery.error?.message ||
     photosQuery.error?.message ||
-    trainingsQuery.error?.message ||
+    trainingSummariesQuery.error?.message ||
     prefsQuery.error?.message ||
     null;
 
@@ -535,10 +570,18 @@ export function TrainingProvider({
     exercises,
     photos,
     trainings,
-    trainingsLoading: trainingsQuery.isLoading,
-    trainingsFetching: trainingsQuery.isFetching,
-    trainingsError: trainingsQuery.error?.message || null,
-    reloadTrainings: trainingsQuery.refetch,
+    trainingsLoading: trainingSummariesQuery.isLoading,
+    trainingsFetching:
+      trainingSummariesQuery.isFetching || trainingsQuery.isFetching,
+    trainingsError:
+      trainingSummariesQuery.error?.message ||
+      trainingsQuery.error?.message ||
+      null,
+    reloadTrainings: () =>
+      Promise.all([
+        trainingSummariesQuery.refetch(),
+        trainingsQuery.refetch(),
+      ]),
     loading,
     error,
     branch,

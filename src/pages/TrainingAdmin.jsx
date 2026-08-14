@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   ChevronDown,
   Clock3,
   ListFilter,
+  Loader2,
   MoreVertical,
   Plus,
   Search,
@@ -15,6 +17,12 @@ import Button from "../components/ui/button";
 import Modal from "../components/shared/Modal";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import {
+  getSessionSetCount,
+  SESSION_HISTORY_FIELDS,
+} from "../utils/trainingListFields";
+
+const EMPTY_TRAININGS = [];
 
 const formatDate = (iso) =>
   iso
@@ -122,13 +130,11 @@ export function SessionHistory({
   embedded = false,
   prepareTrainingContext = () => true,
 }) {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
   const isCoach = ["Admin", "Entrenador"].includes(user?.role);
   const viewingAthlete = Boolean(ownerId);
-  const [trainings, setTrainings] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
@@ -140,38 +146,33 @@ export function SessionHistory({
   const [savingDuration, setSavingDuration] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const requestIdRef = useRef(0);
   const limit = 5000;
-
-  const loadTrainings = async () => {
-    const requestId = ++requestIdRef.current;
-    try {
-      setLoading(true);
-      setError("");
-      const resp = await api.getTrainings({
+  const historyScope = String(ownerId || user?.id || user?._id || "self");
+  const historyQueryKey = useMemo(
+    () => ["session-history", historyScope, from || "all", to || "all"],
+    [from, historyScope, to],
+  );
+  const historyQuery = useQuery({
+    queryKey: historyQueryKey,
+    queryFn: async () => {
+      const response = await api.getTrainings({
         page: 1,
         limit,
         from: from || undefined,
         to: to || undefined,
-        fields:
-          "date,routineId,routineName,durationSeconds,totalVolume,branch,routineBranch,sessionType,supervisedBy,exercises",
+        fields: SESSION_HISTORY_FIELDS,
         athleteId: ownerId || undefined,
-        meta: true,
       });
-      if (requestId !== requestIdRef.current) return;
-      setTrainings(Array.isArray(resp) ? resp : resp?.items || []);
-    } catch (err) {
-      if (requestId !== requestIdRef.current) return;
-      setError(err.message || "Error al cargar entrenamientos");
-    } finally {
-      if (requestId === requestIdRef.current) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTrainings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, ownerId, to]);
+      return Array.isArray(response) ? response : response?.items || [];
+    },
+    staleTime: 30 * 1000,
+    retry: (failureCount, requestError) =>
+      requestError?.status !== 401 && failureCount < 2,
+  });
+  const trainings = historyQuery.data ?? EMPTY_TRAININGS;
+  const loading = historyQuery.isPending;
+  const refreshing = historyQuery.isFetching;
+  const error = historyQuery.error?.message || "";
 
   const routinesInData = useMemo(() => {
     const set = new Set();
@@ -249,9 +250,19 @@ export function SessionHistory({
       setDeleting(true);
       await api.deleteTraining(id);
       toast.success("Entrenamiento eliminado");
-      setTrainings((prev) =>
-        prev.filter((item) => (item._id || item.id) !== id),
+      queryClient.setQueriesData(
+        { queryKey: ["session-history", historyScope] },
+        (current = []) =>
+          Array.isArray(current)
+            ? current.filter((item) => (item._id || item.id) !== id)
+            : current,
       );
+      queryClient.setQueriesData({ queryKey: ["trainings"] }, (current = []) =>
+        Array.isArray(current)
+          ? current.filter((item) => (item._id || item.id) !== id)
+          : current,
+      );
+      queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
       setDeleteTarget(null);
     } catch (_err) {
       toast.error("No se pudo eliminar el entrenamiento");
@@ -311,12 +322,21 @@ export function SessionHistory({
         durationEditor.id,
         durationSeconds,
       );
-      setTrainings((current) =>
-        current.map((training) =>
-          (training._id || training.id) === durationEditor.id
-            ? { ...training, durationSeconds: updated.durationSeconds }
-            : training,
-        ),
+      const applyUpdatedDuration = (current = []) =>
+        Array.isArray(current)
+          ? current.map((training) =>
+              (training._id || training.id) === durationEditor.id
+                ? { ...training, durationSeconds: updated.durationSeconds }
+                : training,
+            )
+          : current;
+      queryClient.setQueriesData(
+        { queryKey: ["session-history", historyScope] },
+        applyUpdatedDuration,
+      );
+      queryClient.setQueriesData(
+        { queryKey: ["trainings"] },
+        applyUpdatedDuration,
       );
       setDurationEditor(null);
       toast.success("Duración actualizada.");
@@ -494,11 +514,11 @@ export function SessionHistory({
 
               <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={loadTrainings}
-                  disabled={loading}
+                  onClick={() => historyQuery.refetch()}
+                  disabled={refreshing}
                   className="h-11 rounded-lg dark:rounded-[3px]"
                 >
-                  {loading ? "Cargando..." : "Actualizar"}
+                  {refreshing ? "Cargando..." : "Actualizar"}
                 </Button>
                 <Button
                   variant="outline"
@@ -529,6 +549,15 @@ export function SessionHistory({
           </div>
 
           <div className="space-y-3">
+            {loading ? (
+              <div
+                role="status"
+                className="flex items-center justify-center gap-2 border border-dashed border-[color:var(--border)] bg-[color:var(--card)] px-5 py-10 text-sm font-bold text-[color:var(--text-muted)]"
+              >
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Cargando historial...
+              </div>
+            ) : null}
             {!loading && !filtered.length ? (
               <div className="col-span-full border border-dashed border-[color:var(--border)] bg-[color:var(--card)] px-5 py-10 text-center">
                 <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
@@ -586,10 +615,7 @@ export function SessionHistory({
                             training.sessionType === "supervised" &&
                             String(training.supervisedBy || "") ===
                               String(user?.id || user?._id || ""));
-                        const totalSets = (training.exercises || []).reduce(
-                          (acc, exercise) => acc + (exercise.sets?.length || 0),
-                          0,
-                        );
+                        const totalSets = getSessionSetCount(training);
                         const branch =
                           training.branch ||
                           training.routineBranch ||

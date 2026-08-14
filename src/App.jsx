@@ -6,6 +6,7 @@ import ExerciseLibrary from "./pages/ExerciseLibrary";
 import MainLayout from "./components/layout/MainLayout";
 import RegisterTraining from "./pages/RegisterTraining";
 import ExerciseAnalyticsPage from "./pages/ExerciseAnalyticsPage";
+import ExerciseHistoryEditor from "./pages/ExerciseHistoryEditor";
 import SessionSummaryPage from "./pages/SessionSummaryPage";
 import DataIntelligencePage from "./pages/DataIntelligencePage";
 import Routines from "./pages/Routines";
@@ -39,6 +40,10 @@ const PAGES = {
     label: "Analitica por ejercicio",
     component: ExerciseAnalyticsPage,
   },
+  editor_historial: {
+    label: "Editor de historial",
+    component: ExerciseHistoryEditor,
+  },
   resumen_sesion: { label: "Resumen diario", component: SessionSummaryPage },
   data_intelligence: {
     label: "Inteligencia de datos",
@@ -54,6 +59,7 @@ const PAGES = {
 };
 
 const PAGE_ROLES = {
+  editor_historial: ["Admin"],
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
@@ -67,6 +73,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "rutinas",
   "library",
   "ejercicio_analitica",
+  "editor_historial",
   "resumen_sesion",
   "data_intelligence",
   "admin_sesiones",
@@ -75,6 +82,7 @@ const COACH_ALLOWED_PAGES = new Set([
 ]);
 const COACH_ATHLETE_CONTEXT_PAGES = new Set([
   "ejercicio_analitica",
+  "editor_historial",
   "resumen_sesion",
   "data_intelligence",
 ]);
@@ -93,6 +101,7 @@ const EXERCISE_CONTEXT_PAGES = new Set([
   "dashboard",
   "registrar",
   "ejercicio_analitica",
+  "editor_historial",
   "resumen_sesion",
   "data_intelligence",
   "rutinas",
@@ -315,6 +324,7 @@ function App() {
     [
       "registrar",
       "ejercicio_analitica",
+      "editor_historial",
       "resumen_sesion",
       "data_intelligence",
       "pesajes",
@@ -362,10 +372,7 @@ function App() {
       loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
       loadPhotos={activePage !== "fotos"}
     >
-      <RoutineProvider
-        key={providerScopeKey}
-        ownerId={supervisedOwnerId}
-      >
+      <RoutineProvider key={providerScopeKey} ownerId={supervisedOwnerId}>
         <UserProvider>
           <MainLayout
             activePage={activePage}

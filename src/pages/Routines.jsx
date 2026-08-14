@@ -43,6 +43,8 @@ import {
 import Modal from "../components/shared/Modal";
 import SlideToConfirm from "../components/shared/SlideToConfirm";
 import { getExerciseImageUrl } from "../utils/cloudinary";
+import { buildRoutineExerciseOptionMap } from "../utils/routineExerciseOptions";
+import { planStartsInFuture } from "../utils/trainingPlanDates";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
@@ -831,6 +833,15 @@ function RoutineModal({
     });
   }, [availableExerciseById, remoteExerciseSearch.data]);
 
+  const selectableExerciseById = useMemo(
+    () =>
+      buildRoutineExerciseOptionMap(
+        availableExercises,
+        remoteExerciseOptions,
+      ),
+    [availableExercises, remoteExerciseOptions],
+  );
+
   const exercisePickerOptions = useMemo(() => {
     const query = normalizeSearchText(search);
     const debouncedQuery = normalizeSearchText(debouncedExerciseSearch);
@@ -1063,9 +1074,7 @@ function RoutineModal({
 
   const addSelectedExercises = () => {
     const additions = selectedExerciseIds
-      .map((exerciseId) =>
-        availableExercises.find((exercise) => exercise.id === exerciseId),
-      )
+      .map((exerciseId) => selectableExerciseById.get(String(exerciseId)))
       .filter(Boolean)
       .filter((exercise) =>
         exerciseMatchesBranch(exercise, exerciseFilterBranch),
@@ -1820,7 +1829,7 @@ function RoutineModal({
                         {name.trim()}
                       </h2>
                       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                        {branchLabel(branch)} Â·{" "}
+                        {branchLabel(branch)} ·{" "}
                         {exerciseOrderMode === "muscle_blocks"
                           ? "Por bloques"
                           : "Orden libre"}
@@ -3267,7 +3276,7 @@ function RoutinePreviewImage({ item }) {
   );
 }
 
-function TrainingPlanSchedule({
+export function TrainingPlanSchedule({
   plan,
   routines,
   trainings,
@@ -3318,6 +3327,9 @@ function TrainingPlanSchedule({
     (day) => day.type === "training" && day.routineId,
   ).length;
   const isConfiguring = plan.status === "draft";
+  const isEditable = ["draft", "scheduled", "active", "paused"].includes(
+    plan.status,
+  );
   const progressValue = isConfiguring
     ? configuredTrainingDays
     : completedTrainingDays;
@@ -3476,7 +3488,10 @@ function TrainingPlanSchedule({
                     aria-label="Completada"
                   />
                 ) : null}
-                {day.type === "training" && !routine && !isManagedClient ? (
+                {day.type === "training" &&
+                !routine &&
+                !isManagedClient &&
+                isEditable ? (
                   <button
                     type="button"
                     onClick={() => onChooseRoutine(day)}
@@ -3485,7 +3500,11 @@ function TrainingPlanSchedule({
                     <Plus className="h-4 w-4" /> Asignar
                   </button>
                 ) : null}
-                {!isRest && routine && !isManagedClient && !canStart ? (
+                {!isRest &&
+                routine &&
+                !isManagedClient &&
+                isEditable &&
+                !canStart ? (
                   <button
                     type="button"
                     onClick={() => onChooseRoutine(day)}
@@ -3505,7 +3524,7 @@ function TrainingPlanSchedule({
                     <Play className="h-4 w-4" /> Iniciar
                   </button>
                 ) : null}
-                {!isRest && routine && !isManagedClient ? (
+                {!isRest && routine && !isManagedClient && isEditable ? (
                   <details className="relative">
                     <summary
                       className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
@@ -4479,8 +4498,10 @@ function Routines({ onNavigate }) {
   };
 
   const activateTrainingPlan = async () => {
+    const startsInFuture = planStartsInFuture(activePlan?.startDate);
     if (
       currentActivePlan &&
+      !startsInFuture &&
       String(currentActivePlan._id || currentActivePlan.id) !==
         String(activePlan._id || activePlan.id) &&
       !window.confirm(
@@ -4686,6 +4707,7 @@ function Routines({ onNavigate }) {
   const activePlanTimeProgress = activePlan
     ? getPlanTimeProgress(activePlan)
     : null;
+  const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
   const visiblePlans = isCoach ? planTemplates : trainingPlans;
   const workspaceLoading =
     !activePlan &&
@@ -5079,7 +5101,9 @@ function Routines({ onNavigate }) {
                       <Play className="h-4 w-4" />
                       {missingPlanRoutines
                         ? "Completa las rutinas"
-                        : "Activar planificación"}
+                        : activePlanStartsInFuture
+                          ? "Programar planificación"
+                          : "Activar planificación"}
                     </button>
                   ) : null}
                   {!isManagedClient &&
@@ -5509,7 +5533,7 @@ function Routines({ onNavigate }) {
           }
           className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-[#ff5722] text-white shadow-[0_8px_24px_rgba(255,87,34,0.35)] transition active:scale-95 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_8px_24px_rgba(226,255,0,0.2)] md:hidden"
           aria-label={
-            workspaceView === "plans" ? "Nueva planificaciÃ³n" : "Nueva rutina"
+            workspaceView === "plans" ? "Nueva planificación" : "Nueva rutina"
           }
         >
           <Plus className="h-6 w-6" />

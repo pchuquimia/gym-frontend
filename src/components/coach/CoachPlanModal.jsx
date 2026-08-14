@@ -74,6 +74,36 @@ const createCycleSchedule = (length = 4) =>
     sourceRoutineId: "",
   }));
 
+const planDraftSignature = ({
+  selectedPlanTemplateId,
+  name,
+  level,
+  goal,
+  durationWeeks,
+  startDate,
+  scheduleMode,
+  notes,
+  schedule,
+}) =>
+  JSON.stringify({
+    selectedPlanTemplateId: String(selectedPlanTemplateId || ""),
+    name: String(name || ""),
+    level,
+    goal,
+    durationWeeks: String(durationWeeks || ""),
+    startDate,
+    scheduleMode,
+    notes: String(notes || ""),
+    schedule: (schedule || []).map((day) => ({
+      dayIndex: day.dayIndex,
+      slotId: day.slotId,
+      order: day.order,
+      type: day.type,
+      focus: day.focus,
+      sourceRoutineId: day.sourceRoutineId || "",
+    })),
+  });
+
 export default function CoachPlanModal({
   athlete,
   templates = [],
@@ -86,6 +116,9 @@ export default function CoachPlanModal({
 }) {
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const hasUnsavedChangesRef = useRef(false);
+  const initialDraftSignatureRef = useRef("");
+  const slotSequenceRef = useRef(0);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -124,10 +157,6 @@ export default function CoachPlanModal({
         }))
       : createSchedule(PRESETS.ppl),
   );
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -197,6 +226,52 @@ export default function CoachPlanModal({
     });
   }, [durationWeeks, startDate, validDuration]);
 
+  const draftSignature = planDraftSignature({
+    selectedPlanTemplateId,
+    name,
+    level,
+    goal,
+    durationWeeks,
+    startDate,
+    scheduleMode,
+    notes,
+    schedule,
+  });
+  if (!initialDraftSignatureRef.current) {
+    initialDraftSignatureRef.current = draftSignature;
+  }
+  hasUnsavedChangesRef.current =
+    draftSignature !== initialDraftSignatureRef.current;
+
+  useEffect(() => {
+    onCloseRef.current = () => {
+      if (saving) return;
+      if (
+        hasUnsavedChangesRef.current &&
+        !window.confirm(
+          "Tienes cambios sin guardar. ¿Deseas cerrar la planificación?",
+        )
+      ) {
+        return;
+      }
+      onClose();
+    };
+  }, [onClose, saving]);
+
+  const createEditorSlotId = (mode) => {
+    slotSequenceRef.current += 1;
+    return `slot_${mode}_${Date.now().toString(36)}_${slotSequenceRef.current}`;
+  };
+
+  const resetScheduleSlots = (items, mode) =>
+    items.map((day, index) => ({
+      ...day,
+      dayIndex: index + 1,
+      order: index + 1,
+      slotId: createEditorSlotId(mode),
+      sourceRoutineId: "",
+    }));
+
   const updateDay = (index, changes) => {
     setSchedule((current) =>
       current.map((day, dayIndex) =>
@@ -214,15 +289,13 @@ export default function CoachPlanModal({
   };
 
   const changeScheduleMode = (mode) => {
+    if (mode === scheduleMode) return;
     setScheduleMode(mode);
-    setSchedule((current) => {
+    setSchedule(() => {
       if (mode === "fixed") {
-        return current.length === 7 ? current : createSchedule(PRESETS.ppl);
+        return resetScheduleSlots(createSchedule(PRESETS.ppl), mode);
       }
-      if (scheduleMode === "fixed") return createCycleSchedule();
-      return current.length >= 2 && current.length <= 28
-        ? current
-        : createCycleSchedule();
+      return resetScheduleSlots(createCycleSchedule(), mode);
     });
   };
 
@@ -237,7 +310,7 @@ export default function CoachPlanModal({
           dayIndex: current.length + index + 1,
           type: "training",
           focus: "Entrenamiento",
-          slotId: `slot_${current.length + index + 1}`,
+          slotId: createEditorSlotId(scheduleMode),
           order: current.length + index + 1,
           sourceRoutineId: "",
         })),
@@ -336,7 +409,7 @@ export default function CoachPlanModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current?.()}
             aria-label="Cerrar"
             className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border)]"
           >
@@ -692,7 +765,7 @@ export default function CoachPlanModal({
           ) : step === 1 ? (
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => onCloseRef.current?.()}
               className="h-11 px-3 text-sm font-black text-[color:var(--text-muted)]"
             >
               Cancelar

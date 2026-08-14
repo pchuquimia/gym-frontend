@@ -65,17 +65,21 @@ function SearchableExerciseList({
     const normalized = normalizeSearch(query);
     const terms = normalized
       .split(/\s+/)
-      .filter((term) => term.length > 1 && !["de", "del", "con", "en", "el", "la"].includes(term));
+      .filter(
+        (term) =>
+          term.length > 1 &&
+          !["de", "del", "con", "en", "el", "la"].includes(term),
+      );
     const matches = items.filter((item) => {
-        if (!terms.length) return true;
-        const equipment = Array.isArray(item.equipment)
-          ? item.equipment.join(" ")
-          : String(item.equipment || "");
-        const haystack = normalizeSearch(
-          `${item.name} ${item.nameEnglish} ${item.muscle} ${equipment}`,
-        );
-        return terms.every((term) => haystack.includes(term));
-      });
+      if (!terms.length) return true;
+      const equipment = Array.isArray(item.equipment)
+        ? item.equipment.join(" ")
+        : String(item.equipment || "");
+      const haystack = normalizeSearch(
+        `${item.name} ${item.nameEnglish} ${item.muscle} ${equipment}`,
+      );
+      return terms.every((term) => haystack.includes(term));
+    });
     if (!legacy) return matches;
     return [...matches].sort((left, right) => {
       const referenceDifference =
@@ -164,7 +168,9 @@ function SearchableExerciseList({
       <div className="flex min-h-10 items-center justify-between gap-3 border-t border-[color:var(--border)] px-3 py-2">
         <p className="text-[10px] font-bold text-[color:var(--text-muted)]">
           {visibleItems.length} de {matchingItems.length} coincidencias
-          {matchingItems.length !== items.length ? ` · ${items.length} en total` : ""}
+          {matchingItems.length !== items.length
+            ? ` · ${items.length} en total`
+            : ""}
         </p>
         {visibleItems.length < matchingItems.length ? (
           <button
@@ -191,7 +197,14 @@ SearchableExerciseList.propTypes = {
   legacy: PropTypes.bool,
 };
 
-function ConfirmationDialog({ action, source, target, onCancel, onConfirm, busy }) {
+function ConfirmationDialog({
+  action,
+  source,
+  target,
+  onCancel,
+  onConfirm,
+  busy,
+}) {
   if (!action || !source) return null;
   const migration = action === "migrate";
   return (
@@ -207,7 +220,10 @@ function ConfirmationDialog({ action, source, target, onCancel, onConfirm, busy 
             <p className="text-[10px] font-black uppercase text-red-500">
               Confirmación administrativa
             </p>
-            <h2 id="exercise-migration-confirm-title" className="mt-1 text-2xl font-black uppercase">
+            <h2
+              id="exercise-migration-confirm-title"
+              className="mt-1 text-2xl font-black uppercase"
+            >
               {migration ? "Migrar y eliminar" : "Eliminar ejercicio antiguo"}
             </h2>
           </div>
@@ -224,12 +240,16 @@ function ConfirmationDialog({ action, source, target, onCancel, onConfirm, busy 
         {migration ? (
           <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-y border-[color:var(--border)] py-4">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">Origen</p>
+              <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                Origen
+              </p>
               <p className="mt-1 truncate text-sm font-black">{source.name}</p>
             </div>
             <ArrowRight className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
             <div className="min-w-0 text-right">
-              <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">Destino</p>
+              <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                Destino
+              </p>
               <p className="mt-1 truncate text-sm font-black">{target?.name}</p>
             </div>
           </div>
@@ -245,7 +265,12 @@ function ConfirmationDialog({ action, source, target, onCancel, onConfirm, busy 
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11" onClick={onCancel} disabled={busy}>
+          <Button
+            variant="outline"
+            className="h-11"
+            onClick={onCancel}
+            disabled={busy}
+          >
             Cancelar
           </Button>
           <Button
@@ -282,8 +307,9 @@ export default function ExerciseMigrationPanel() {
   const candidatesQuery = useQuery({
     queryKey: ["exercise-migration-candidates"],
     queryFn: api.getExerciseMigrationCandidates,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const data = candidatesQuery.data || {};
   const legacy = data.legacy || [];
@@ -293,7 +319,9 @@ export default function ExerciseMigrationPanel() {
 
   const refreshRelatedData = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["exercise-migration-candidates"] }),
+      queryClient.invalidateQueries({
+        queryKey: ["exercise-migration-candidates"],
+      }),
       queryClient.invalidateQueries({ queryKey: ["exercise-library"] }),
       queryClient.invalidateQueries({ queryKey: ["exercise-facets"] }),
       queryClient.invalidateQueries({ queryKey: ["exercises"] }),
@@ -367,9 +395,14 @@ export default function ExerciseMigrationPanel() {
     return (
       <div className="border border-red-500/30 bg-red-500/5 p-5">
         <p className="text-sm font-bold text-red-500">
-          {candidatesQuery.error?.message || "No se pudo cargar el catálogo anterior"}
+          {candidatesQuery.error?.message ||
+            "No se pudo cargar el catálogo anterior"}
         </p>
-        <Button variant="outline" className="mt-3 gap-2" onClick={() => candidatesQuery.refetch()}>
+        <Button
+          variant="outline"
+          className="mt-3 gap-2"
+          onClick={() => candidatesQuery.refetch()}
+        >
           <RefreshCw className="h-4 w-4" />
           Reintentar
         </Button>
@@ -382,15 +415,23 @@ export default function ExerciseMigrationPanel() {
       <section className="grid grid-cols-3 divide-x divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)] py-3 text-center">
         <div>
           <p className="text-2xl font-black">{data.summary?.legacy || 0}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">Antiguos</p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Antiguos
+          </p>
         </div>
         <div>
-          <p className="text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">{data.summary?.withReferences || 0}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">Por migrar</p>
+          <p className="text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+            {data.summary?.withReferences || 0}
+          </p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Por migrar
+          </p>
         </div>
         <div>
           <p className="text-2xl font-black">{data.summary?.targets || 0}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">Nuevos</p>
+          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            Nuevos
+          </p>
         </div>
       </section>
 
@@ -429,7 +470,9 @@ export default function ExerciseMigrationPanel() {
                   Impacto
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">
-                  {selectedLegacy ? selectedLegacy.name : "Selecciona un ejercicio antiguo"}
+                  {selectedLegacy
+                    ? selectedLegacy.name
+                    : "Selecciona un ejercicio antiguo"}
                 </h2>
               </div>
               {selectedLegacy?.mergedIntoExerciseId ? (
@@ -440,9 +483,24 @@ export default function ExerciseMigrationPanel() {
             </div>
 
             <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] border-y border-[color:var(--border)] py-3 text-center">
-              <div><p className="text-xl font-black">{references.routines}</p><p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">Rutinas</p></div>
-              <div><p className="text-xl font-black">{references.trainings}</p><p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">Entrenamientos</p></div>
-              <div><p className="text-xl font-black">{references.sessions}</p><p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">Sesiones</p></div>
+              <div>
+                <p className="text-xl font-black">{references.routines}</p>
+                <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                  Rutinas
+                </p>
+              </div>
+              <div>
+                <p className="text-xl font-black">{references.trainings}</p>
+                <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                  Entrenamientos
+                </p>
+              </div>
+              <div>
+                <p className="text-xl font-black">{references.sessions}</p>
+                <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                  Sesiones
+                </p>
+              </div>
             </div>
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -450,7 +508,11 @@ export default function ExerciseMigrationPanel() {
                 variant="outline"
                 className="h-11 gap-2 border-red-500/40 text-red-500"
                 disabled={!selectedLegacy || references.total > 0 || busy}
-                title={references.total > 0 ? "Migra las referencias antes de eliminar" : "Eliminar ficha antigua"}
+                title={
+                  references.total > 0
+                    ? "Migra las referencias antes de eliminar"
+                    : "Eliminar ficha antigua"
+                }
                 onClick={() => setConfirmation("delete")}
               >
                 <Trash2 className="h-4 w-4" />
@@ -472,7 +534,9 @@ export default function ExerciseMigrationPanel() {
         <section className="grid min-h-64 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center">
           <div>
             <Check className="mx-auto h-8 w-8 text-[#ff5722] dark:text-[#e2ff00]" />
-            <h2 className="mt-3 text-xl font-black uppercase">Catálogo anterior limpio</h2>
+            <h2 className="mt-3 text-xl font-black uppercase">
+              Catálogo anterior limpio
+            </h2>
             <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
               No quedan ejercicios antiguos pendientes.
             </p>
@@ -488,13 +552,18 @@ export default function ExerciseMigrationPanel() {
           </summary>
           <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
             {data.recent.map((item) => (
-              <div key={item.id} className="grid gap-1 px-4 py-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-center sm:gap-3">
+              <div
+                key={item.id}
+                className="grid gap-1 px-4 py-3 sm:grid-cols-[110px_minmax(0,1fr)_auto] sm:items-center sm:gap-3"
+              >
                 <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
                   {new Date(item.createdAt).toLocaleDateString("es-BO")}
                 </p>
                 <p className="truncate text-sm font-bold">
                   {item.sourceExercise.name}
-                  {item.targetExercise?.name ? ` → ${item.targetExercise.name}` : ""}
+                  {item.targetExercise?.name
+                    ? ` → ${item.targetExercise.name}`
+                    : ""}
                 </p>
                 <span className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
                   {item.operation === "migrate" ? "Migrado" : "Eliminado"}

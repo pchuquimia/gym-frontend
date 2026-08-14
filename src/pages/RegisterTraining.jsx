@@ -47,10 +47,13 @@ import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
 import { findAutoFlowDestination } from "../utils/autoWorkoutFlow";
+import { inferWeightConfig, normalizeWeightBasis } from "../utils/weightConfig";
 import {
-  inferWeightConfig,
-  normalizeWeightBasis,
-} from "../utils/weightConfig";
+  computeCompatibleRecentBySet,
+  getCompatibleExerciseHistoryKeys,
+  getLatestCompatibleReference,
+} from "../utils/historyCompatibility";
+import { buildExerciseTrackingRows } from "../utils/exerciseTracking";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -1345,7 +1348,10 @@ function AdminAutoFlowControl({
         </button>
       </div>
       {enabled ? (
-        <div className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Duracion del descanso">
+        <div
+          className="mt-3 grid grid-cols-4 gap-1.5"
+          aria-label="Duracion del descanso"
+        >
           {durationOptions.map(({ seconds, label }) => (
             <button
               key={seconds}
@@ -1413,6 +1419,7 @@ export default function RegisterTraining({
   const [expandedExerciseId, setExpandedExerciseId] = useState("");
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
+  const [historyViewScope, setHistoryViewScope] = useState("routine");
   const [sessionDate, setSessionDate] = useState(todayISO);
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
@@ -1424,8 +1431,11 @@ export default function RegisterTraining({
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [loadingTraining, setLoadingTraining] = useState(false);
   const [historyTrainings, setHistoryTrainings] = useState([]);
-  const [externalHistoryTrainings, setExternalHistoryTrainings] = useState([]);
-  const [loadingExternalHistory, setLoadingExternalHistory] = useState(false);
+  const [planHistoryTrainings, setPlanHistoryTrainings] = useState([]);
+  const [generalHistoryTrainings, setGeneralHistoryTrainings] = useState([]);
+  const [loadingGeneralHistory, setLoadingGeneralHistory] = useState(false);
+  const [generalHistoryError, setGeneralHistoryError] = useState("");
+  const [generalHistoryReloadKey, setGeneralHistoryReloadKey] = useState(0);
   const [editingId, setEditingId] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isHistoryReadOnly, setIsHistoryReadOnly] = useState(false);
@@ -1656,6 +1666,26 @@ export default function RegisterTraining({
     selectedRoutine?.progressScopeId ||
     selectedRoutine?.raw?.progressScopeId ||
     "";
+  const resolveHistoryPlanId = useCallback(
+    (routine, planContext = null) => {
+      const explicitPlanId = String(planContext?.planId || "");
+      if (explicitPlanId) return explicitPlanId;
+      const assignedPlanId = String(routine?.raw?.trainingPlanId || "");
+      if (assignedPlanId) return assignedPlanId;
+      const routineId = String(routine?.id || routine?.raw?._id || "");
+      const belongsToActivePlan = (
+        activeTrainingPlan?.weeklySchedule || []
+      ).some((day) => String(day.routineId || "") === routineId);
+      return belongsToActivePlan
+        ? String(activeTrainingPlan?._id || activeTrainingPlan?.id || "")
+        : "";
+    },
+    [activeTrainingPlan],
+  );
+  const selectedHistoryPlanId = resolveHistoryPlanId(
+    selectedRoutine,
+    selectedPlanContext,
+  );
   const libraryExerciseOptions = useMemo(() => {
     const seen = new Set();
     return (libraryExercises || [])
@@ -1717,6 +1747,24 @@ export default function RegisterTraining({
       filterHistoryByMuscleSequences(historyTrainings, activeOrderExercises),
     [historyTrainings, activeOrderExercises],
   );
+  const referenceHistoryTrainings = useMemo(() => {
+    const unique = new Map();
+    [...historyTrainings, ...planHistoryTrainings].forEach((training) => {
+      const key = String(
+        training?._id ||
+          `${training?.date || ""}:${training?.routineId || ""}:${training?.trainingPlanSlotId || ""}`,
+      );
+      unique.set(key, training);
+    });
+    return Array.from(unique.values());
+  }, [historyTrainings, planHistoryTrainings]);
+  const historyCompatibleRecentBySet = useMemo(
+    () =>
+      computeCompatibleRecentBySet(referenceHistoryTrainings, {
+        branch: historyBranchFilter || "",
+      }),
+    [referenceHistoryTrainings, historyBranchFilter],
+  );
   const historyBest = useMemo(
     () =>
       computeBestFromHistory(orderMatchedHistoryTrainings, historyBranchFilter),
@@ -1760,39 +1808,6 @@ export default function RegisterTraining({
     [orderMatchedHistoryTrainings, historyBranchFilter],
   );
 
-  const buildTrackingRowsForExercise = useCallback(
-    (exercise, sourceTrainings) => {
-      if (!exercise) return [];
-      const keys = getMovementHistoryKeys(exercise);
-      if (!keys.length) return [];
-      const keySet = new Set(keys);
-      const rows = [];
-      (sourceTrainings || []).forEach((tr) => {
-        const date = tr.date || tr.createdAt;
-        const exMatch = (tr.exercises || []).find((ex) =>
-          getMovementHistoryKeys(ex).some((key) => keySet.has(key)),
-        );
-        if (!exMatch) return;
-        const sets = (exMatch.sets || []).map((set) => {
-          if (Array.isArray(set.entries) && set.entries.length) {
-            return set.entries;
-          }
-          return [set];
-        });
-        rows.push({
-          date: date ? String(date).slice(0, 10) : "",
-          ts: getDateTimestamp(date),
-          routineName: tr.routineName || "",
-          branch: tr.branch || "",
-          sets,
-        });
-      });
-      return rows
-        .filter((row) => row.sets.length > 0)
-        .sort((a, b) => a.ts - b.ts);
-    },
-    [],
-  );
   const timingSummary = useMemo(
     () => calculateTimingSummary(timeEvents, nowMs),
     [timeEvents, nowMs],
@@ -1836,6 +1851,7 @@ export default function RegisterTraining({
     recentBySetMap = historyRecentBySet,
     seriesTypeMap = historySeriesTypeMap,
     includeExtras = false,
+    compatibleRecentBySetMap = historyCompatibleRecentBySet,
   ) => {
     const trainingList =
       training?.exercises?.length &&
@@ -1967,15 +1983,9 @@ export default function RegisterTraining({
       });
       const savedWeightConfig = trainingEx
         ? {
-            weightBasis: normalizeWeightBasis(
-              trainingEx.weightBasis,
-              "legacy",
-            ),
+            weightBasis: normalizeWeightBasis(trainingEx.weightBasis, "legacy"),
             barWeightKg: Math.max(0, Number(trainingEx.barWeightKg || 0)),
-            implementCount: Math.max(
-              1,
-              Number(trainingEx.implementCount || 1),
-            ),
+            implementCount: Math.max(1, Number(trainingEx.implementCount || 1)),
           }
         : catalogWeightConfig;
       const weightConfig = {
@@ -2032,6 +2042,26 @@ export default function RegisterTraining({
       const recentBySet =
         localHistoryKeys.map((key) => recentBySetMap.get(key)).find(Boolean) ||
         [];
+      const compatibleHistoryKeys = getCompatibleExerciseHistoryKeys({
+        exerciseId: id,
+        name: activeVariant?.name || ex.name,
+        movementMode,
+        ...weightConfig,
+      });
+      const compatibleRecentBySet =
+        compatibleHistoryKeys
+          .map((key) => compatibleRecentBySetMap.get(key))
+          .find(Boolean) || recentBySet;
+      const latestReference = getLatestCompatibleReference(
+        compatibleRecentBySet,
+      );
+      const currentRoutineId = String(routine?._id || routine?.id || "");
+      const referenceSourceText = latestReference
+        ? latestReference.routineId &&
+          String(latestReference.routineId) !== currentRoutineId
+          ? `Plan · ${latestReference.routineName || "otra rutina"}`
+          : "Esta rutina"
+        : "";
       const setupNoteEntry = localHistoryKeys
         .map((key) => historySetupNotes.get(key))
         .find(Boolean);
@@ -2047,7 +2077,7 @@ export default function RegisterTraining({
               const fallbackPrev = `${s.weightKg ?? "--"}kg x ${
                 s.reps ?? "--"
               } | ${formatShort(training?.date)}`;
-              const recentEntries = recentBySet[sIdx] || [];
+              const recentEntries = compatibleRecentBySet[sIdx] || [];
               const previousByIndex = recentEntries.map((slot) => slot?.latest);
               const compareByIndex = recentEntries.map(
                 (slot) => slot?.previous,
@@ -2083,7 +2113,7 @@ export default function RegisterTraining({
               const setId = `${id}-set-${sIdx}`;
               const perSet = bestBySet[sIdx];
               const perSetSummary = perSet ? formatHistoryLift(perSet) : "";
-              const recentEntries = recentBySet[sIdx] || [];
+              const recentEntries = compatibleRecentBySet[sIdx] || [];
               const previousByIndex = recentEntries.map((slot) => slot?.latest);
               const compareByIndex = recentEntries.map(
                 (slot) => slot?.previous,
@@ -2095,19 +2125,17 @@ export default function RegisterTraining({
                   : "Sin referencia";
               const defaultKg =
                 seriesType === "serie"
-                  ? perSet
-                    ? perSet.weight
-                    : best
-                      ? best.weight
-                      : ""
+                  ? (previousByIndex[0]?.weight ??
+                    perSet?.weight ??
+                    best?.weight ??
+                    "")
                   : "";
               const defaultReps =
                 seriesType === "serie"
-                  ? perSet
-                    ? perSet.reps
-                    : best
-                      ? best.reps
-                      : ""
+                  ? (previousByIndex[0]?.reps ??
+                    perSet?.reps ??
+                    best?.reps ??
+                    "")
                   : "";
               return {
                 id: setId,
@@ -2165,6 +2193,7 @@ export default function RegisterTraining({
         ),
         prText: headerText,
         globalPrText,
+        referenceSourceText,
         image: activeVariant?.image || ex.image || meta.image || "",
         imagePublicId:
           activeVariant?.imagePublicId ||
@@ -2218,6 +2247,7 @@ export default function RegisterTraining({
     recentBySetMap = historyRecentBySet,
     seriesTypeMap = historySeriesTypeMap,
     sourceHistory = orderMatchedHistoryTrainings,
+    compatibleRecentBySetMap = historyCompatibleRecentBySet,
   ) =>
     (list || []).map((ex, idx) => {
       const id = ex.id || ex.exerciseId || slugify(ex.name || `ex-${idx}`);
@@ -2249,7 +2279,20 @@ export default function RegisterTraining({
       const best = bestMap.get(bestKey);
       const globalBest = historyGlobalBest.get(globalBestKey);
       const bestBySet = bestBySetMap.get(bestBySetKey) || [];
-      const recentBySet = recentBySetMap.get(recentBySetKey) || [];
+      const compatibleHistoryKey = getCompatibleExerciseHistoryKeys(ex).find(
+        (key) => compatibleRecentBySetMap.has(key),
+      );
+      const recentBySet =
+        compatibleRecentBySetMap.get(compatibleHistoryKey) ||
+        recentBySetMap.get(recentBySetKey) ||
+        [];
+      const latestReference = getLatestCompatibleReference(recentBySet);
+      const referenceSourceText = latestReference
+        ? latestReference.routineId &&
+          String(latestReference.routineId) !== String(selectedRoutineId || "")
+          ? `Plan · ${latestReference.routineName || "otra rutina"}`
+          : "Esta rutina"
+        : ex.referenceSourceText || "";
       const seriesTypeEntry = localHistoryKeys
         .map((key) => seriesTypeMap?.get(key))
         .find(Boolean);
@@ -2407,6 +2450,7 @@ export default function RegisterTraining({
         prWeight: best?.weight ?? ex.prWeight ?? null,
         prText,
         globalPrText,
+        referenceSourceText,
         sets,
       };
     });
@@ -2602,30 +2646,30 @@ export default function RegisterTraining({
       if (exerciseFocusTimerRef.current) {
         window.clearTimeout(exerciseFocusTimerRef.current);
       }
-      exerciseFocusTimerRef.current = window.setTimeout(() => {
-        exerciseFocusTimerRef.current = null;
-        const exerciseElement = Array.from(
-          document.querySelectorAll("[data-exercise-id]"),
-        ).find(
-          (element) =>
-            String(element.dataset.exerciseId) === String(exerciseId) &&
-            element.getClientRects().length > 0,
-        );
-        if (!exerciseElement) return;
+      exerciseFocusTimerRef.current = window.setTimeout(
+        () => {
+          exerciseFocusTimerRef.current = null;
+          const exerciseElement = Array.from(
+            document.querySelectorAll("[data-exercise-id]"),
+          ).find(
+            (element) =>
+              String(element.dataset.exerciseId) === String(exerciseId) &&
+              element.getClientRects().length > 0,
+          );
+          if (!exerciseElement) return;
 
-        const setElement = setId
-          ? Array.from(
-              exerciseElement.querySelectorAll("[data-set-id]"),
-            ).find(
-              (element) => String(element.dataset.setId) === String(setId),
-            )
-          : null;
-        const target = setElement || exerciseElement;
-        const visibleToolbar = [
-          document.querySelector("[data-training-header]"),
-          document.querySelector("[data-training-session-bar]"),
-        ].find(
-          (element) => {
+          const setElement = setId
+            ? Array.from(
+                exerciseElement.querySelectorAll("[data-set-id]"),
+              ).find(
+                (element) => String(element.dataset.setId) === String(setId),
+              )
+            : null;
+          const target = setElement || exerciseElement;
+          const visibleToolbar = [
+            document.querySelector("[data-training-header]"),
+            document.querySelector("[data-training-session-bar]"),
+          ].find((element) => {
             if (
               !element ||
               element.getClientRects().length === 0 ||
@@ -2635,50 +2679,51 @@ export default function RegisterTraining({
             }
             const rect = element.getBoundingClientRect();
             return rect.bottom > 0 && rect.top < window.innerHeight;
-          },
-        );
-        const toolbarRect = visibleToolbar?.getBoundingClientRect();
-        const toolbarStyle = visibleToolbar
-          ? window.getComputedStyle(visibleToolbar)
-          : null;
-        const toolbarBottom = toolbarRect
-          ? toolbarStyle?.position === "sticky"
-            ? Math.max(
-                0,
-                (Number.parseFloat(toolbarStyle.top) || 0) +
-                  toolbarRect.height,
-              )
-            : Math.max(0, toolbarRect.bottom)
-          : 0;
-        const topGap = window.matchMedia("(min-width: 768px)").matches
-          ? 18
-          : 12;
-        const targetTop =
-          target.getBoundingClientRect().top +
-          window.scrollY -
-          toolbarBottom -
-          topGap;
+          });
+          const toolbarRect = visibleToolbar?.getBoundingClientRect();
+          const toolbarStyle = visibleToolbar
+            ? window.getComputedStyle(visibleToolbar)
+            : null;
+          const toolbarBottom = toolbarRect
+            ? toolbarStyle?.position === "sticky"
+              ? Math.max(
+                  0,
+                  (Number.parseFloat(toolbarStyle.top) || 0) +
+                    toolbarRect.height,
+                )
+              : Math.max(0, toolbarRect.bottom)
+            : 0;
+          const topGap = window.matchMedia("(min-width: 768px)").matches
+            ? 18
+            : 12;
+          const targetTop =
+            target.getBoundingClientRect().top +
+            window.scrollY -
+            toolbarBottom -
+            topGap;
 
-        window.scrollTo({
-          top: Math.max(0, targetTop),
-          behavior: reduceMotion ? "auto" : "smooth",
-        });
+          window.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: reduceMotion ? "auto" : "smooth",
+          });
 
-        if (
-          highlight &&
-          !reduceMotion &&
-          typeof target.animate === "function"
-        ) {
-          target.animate(
-            [
-              { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
-              { boxShadow: "0 0 0 3px rgba(255,87,34,0.38)" },
-              { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
-            ],
-            { duration: 700, easing: "ease-out" },
-          );
-        }
-      }, reduceMotion ? Math.min(delay, 80) : delay);
+          if (
+            highlight &&
+            !reduceMotion &&
+            typeof target.animate === "function"
+          ) {
+            target.animate(
+              [
+                { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+                { boxShadow: "0 0 0 3px rgba(255,87,34,0.38)" },
+                { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+              ],
+              { duration: 700, easing: "ease-out" },
+            );
+          }
+        },
+        reduceMotion ? Math.min(delay, 80) : delay,
+      );
     },
     [reduceMotion],
   );
@@ -2858,7 +2903,11 @@ export default function RegisterTraining({
     seriesTypeMap = historySeriesTypeMap,
     options = {},
   ) => {
-    const { requestId = null, promptForExisting = false } = options;
+    const {
+      requestId = null,
+      promptForExisting = false,
+      compatibleRecentBySetMap = historyCompatibleRecentBySet,
+    } = options;
     const isCurrentRequest = () =>
       requestId == null || routineLoadRequestRef.current === requestId;
     if (!allRoutineOptions.length || !routineId) {
@@ -2897,6 +2946,7 @@ export default function RegisterTraining({
           bestBySetMap,
           recentBySetMap,
           seriesTypeMap,
+          compatibleRecentBySetMap,
         });
         setExercises(
           buildExercisesForRoutine(
@@ -2906,6 +2956,8 @@ export default function RegisterTraining({
             bestBySetMap,
             recentBySetMap,
             seriesTypeMap,
+            false,
+            compatibleRecentBySetMap,
           ),
         );
         setDurationSeconds(0);
@@ -2921,6 +2973,8 @@ export default function RegisterTraining({
           bestBySetMap,
           recentBySetMap,
           seriesTypeMap,
+          false,
+          compatibleRecentBySetMap,
         ),
       );
       setDurationSeconds(Number(trainingMatch?.durationSeconds) || 0);
@@ -2944,6 +2998,8 @@ export default function RegisterTraining({
           bestBySetMap,
           recentBySetMap,
           seriesTypeMap,
+          false,
+          compatibleRecentBySetMap,
         ),
       );
     }
@@ -2967,12 +3023,25 @@ export default function RegisterTraining({
       setSessionDate(training.date);
       setSelectedRoutineId(routine.id);
       setSelectedRoutine(routine);
+      setSelectedPlanContext(
+        training.trainingPlanId
+          ? {
+              planId: String(training.trainingPlanId),
+              slotId: String(training.trainingPlanSlotId || ""),
+            }
+          : null,
+      );
       setIsEditing(true);
       setIsHistoryReadOnly(readOnly);
-      const hist = await loadHistoryForRoutine(routine.id, { commit: false });
+      const historyResult = await loadHistoryForRoutine(routine.id, {
+        commit: false,
+        planId: training.trainingPlanId || "",
+      });
       if (requestId !== routineLoadRequestRef.current) return;
+      const hist = historyResult.routineHistory;
       loadedHistoryRoutineRef.current = routine.id;
       setHistoryTrainings(hist);
+      setPlanHistoryTrainings(historyResult.planHistory);
       const matchingHist = filterHistoryByOrderSignature(
         hist,
         getTrainingOrderSignature(training),
@@ -2988,6 +3057,10 @@ export default function RegisterTraining({
         routine.id,
         branch,
       );
+      const compatibleRecentMap = computeCompatibleRecentBySet(
+        [...hist, ...historyResult.planHistory],
+        { branch },
+      );
       setExercises(
         buildExercisesForRoutine(
           routine.raw,
@@ -2996,6 +3069,8 @@ export default function RegisterTraining({
           bestBySetMap,
           recentBySetMap,
           seriesTypeMap,
+          false,
+          compatibleRecentMap,
         ),
       );
       if (training.durationSeconds)
@@ -3038,12 +3113,32 @@ export default function RegisterTraining({
     }
   };
   const loadHistoryForRoutine = async (_routineId, options = {}) => {
-    const { commit = true } = options;
+    const {
+      commit = true,
+      planContext = selectedPlanContext,
+      planId = "",
+    } = options;
     const routine =
       allRoutineOptions.find((item) => item.id === _routineId) ||
       routineOptions.find((item) => item.id === _routineId);
     const progressScopeId =
       routine?.progressScopeId || routine?.raw?.progressScopeId || "";
+    const historyPlanId =
+      String(planId || "") || resolveHistoryPlanId(routine, planContext);
+    const splitHistory = (items = []) => {
+      const routineHistory = progressScopeId
+        ? items.filter(
+            (training) => training.progressScopeId === progressScopeId,
+          )
+        : items.filter((training) => training.routineId === _routineId);
+      const planHistory = historyPlanId
+        ? items.filter(
+            (training) =>
+              String(training.trainingPlanId || "") === historyPlanId,
+          )
+        : [];
+      return { routineHistory, planHistory, historyPlanId };
+    };
     try {
       let resp;
       try {
@@ -3051,8 +3146,9 @@ export default function RegisterTraining({
           athleteId: dataOwnerId,
           limit: 200,
           fields:
-            "date,routineId,progressScopeId,orderSignature,branch,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.setupNote,exercises.weightBasis,exercises.barWeightKg,exercises.implementCount,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.completedAt,exercises.sets.entries.previousText",
+            "date,routineId,routineName,trainingPlanId,trainingPlanSlotId,progressScopeId,orderSignature,branch,exercises.exerciseId,exercises.exerciseName,exercises.muscleGroup,exercises.order,exercises.plannedOrder,exercises.actualOrder,exercises.orderContext,exercises.movementMode,exercises.seriesType,exercises.setupNote,exercises.weightBasis,exercises.barWeightKg,exercises.implementCount,exercises.sets.seriesType,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps,exercises.sets.entries.done,exercises.sets.entries.completedAt,exercises.sets.entries.previousText",
           progressScopeId,
+          includeTrainingPlanId: historyPlanId,
           meta: false,
         });
       } catch (projectionError) {
@@ -3063,36 +3159,38 @@ export default function RegisterTraining({
         resp = await api.getTrainings({
           athleteId: dataOwnerId,
           limit: 200,
-          fields: "date,routineId,orderSignature,branch,exercises",
+          fields:
+            "date,routineId,routineName,trainingPlanId,trainingPlanSlotId,progressScopeId,orderSignature,branch,exercises",
           progressScopeId,
+          includeTrainingPlanId: historyPlanId,
           meta: false,
         });
       }
       const list = Array.isArray(resp) ? resp : resp?.items || [];
+      const result = splitHistory(list);
       if (commit) {
         loadedHistoryRoutineRef.current = _routineId;
-        setHistoryTrainings(list);
+        setHistoryTrainings(result.routineHistory);
+        setPlanHistoryTrainings(result.planHistory);
       }
-      return list;
+      return result;
     } catch (e) {
       console.warn("No se pudo cargar historial general", e);
       if (Array.isArray(trainings) && trainings.length) {
-        const scopedTrainings = progressScopeId
-          ? trainings.filter(
-              (training) => training.progressScopeId === progressScopeId,
-            )
-          : trainings.filter((training) => training.routineId === _routineId);
+        const result = splitHistory(trainings);
         if (commit) {
           loadedHistoryRoutineRef.current = _routineId;
-          setHistoryTrainings(scopedTrainings);
+          setHistoryTrainings(result.routineHistory);
+          setPlanHistoryTrainings(result.planHistory);
         }
-        return scopedTrainings;
+        return result;
       }
       if (commit) {
         loadedHistoryRoutineRef.current = _routineId;
         setHistoryTrainings([]);
+        setPlanHistoryTrainings([]);
       }
-      return [];
+      return { routineHistory: [], planHistory: [], historyPlanId };
     }
   };
 
@@ -3142,6 +3240,7 @@ export default function RegisterTraining({
       setSelectedRoutine(null);
       setExercises([]);
       setHistoryTrainings([]);
+      setPlanHistoryTrainings([]);
       setDurationSeconds(0);
       setIsRunning(false);
     }
@@ -3219,22 +3318,37 @@ export default function RegisterTraining({
   }, [selectedRoutineId, routineOptions, selectedRoutine]);
 
   useEffect(() => {
-    if (historyTrainings.length) return;
+    const needsRoutineHistory = !historyTrainings.length;
+    const needsPlanHistory =
+      Boolean(selectedHistoryPlanId) && !planHistoryTrainings.length;
+    if (!needsRoutineHistory && !needsPlanHistory) return;
     if (!selectedRoutineId) return;
     if (!trainings.length) return;
-    const scopedTrainings = selectedProgressScopeId
-      ? trainings.filter(
-          (training) => training.progressScopeId === selectedProgressScopeId,
-        )
-      : trainings.filter(
-          (training) => training.routineId === selectedRoutineId,
-        );
-    if (scopedTrainings.length) setHistoryTrainings(scopedTrainings);
+    if (needsRoutineHistory) {
+      const scopedTrainings = selectedProgressScopeId
+        ? trainings.filter(
+            (training) => training.progressScopeId === selectedProgressScopeId,
+          )
+        : trainings.filter(
+            (training) => training.routineId === selectedRoutineId,
+          );
+      if (scopedTrainings.length) setHistoryTrainings(scopedTrainings);
+    }
+    if (needsPlanHistory) {
+      const scopedPlanTrainings = trainings.filter(
+        (training) =>
+          String(training.trainingPlanId || "") === selectedHistoryPlanId,
+      );
+      if (scopedPlanTrainings.length)
+        setPlanHistoryTrainings(scopedPlanTrainings);
+    }
   }, [
     trainings,
     historyTrainings.length,
+    planHistoryTrainings.length,
     selectedRoutineId,
     selectedProgressScopeId,
+    selectedHistoryPlanId,
   ]);
 
   useEffect(() => {
@@ -3962,6 +4076,7 @@ export default function RegisterTraining({
       bestBySetMap,
       recentBySetMap,
       seriesTypeMap,
+      compatibleRecentBySetMap,
     } = pending;
     setExercises(
       buildExercisesForRoutine(
@@ -3971,6 +4086,8 @@ export default function RegisterTraining({
         bestBySetMap,
         recentBySetMap,
         seriesTypeMap,
+        false,
+        compatibleRecentBySetMap,
       ),
     );
     if (continueExisting) {
@@ -3999,6 +4116,7 @@ export default function RegisterTraining({
     setSelectedRoutine(null);
     setSelectedPlanContext(null);
     setHistoryTrainings([]);
+    setPlanHistoryTrainings([]);
     setExercises([]);
     setDurationSeconds(0);
     setTimeEvents([]);
@@ -4208,6 +4326,7 @@ export default function RegisterTraining({
     setLoadingTraining(true);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
+    setPlanHistoryTrainings([]);
     setExercises([]);
     setDurationSeconds(0);
     setIsRunning(false);
@@ -4219,10 +4338,15 @@ export default function RegisterTraining({
     setIsOrderingExercises(false);
     setNowMs(Date.now());
     (async () => {
-      const hist = await loadHistoryForRoutine(id, { commit: false });
+      const historyResult = await loadHistoryForRoutine(id, {
+        commit: false,
+        planContext,
+      });
       if (routineLoadRequestRef.current !== requestId) return;
+      const hist = historyResult.routineHistory;
       loadedHistoryRoutineRef.current = id;
       setHistoryTrainings(hist);
+      setPlanHistoryTrainings(historyResult.planHistory);
       const primaryRoutineExercises = (found?.raw?.exercises || []).filter(
         (exercise) => !exercise.isExtra,
       );
@@ -4244,6 +4368,10 @@ export default function RegisterTraining({
         id,
         branchFilter,
       );
+      const compatibleRecentMap = computeCompatibleRecentBySet(
+        [...hist, ...historyResult.planHistory],
+        { branch: branchFilter || "" },
+      );
       await loadTrainingForDate(
         sessionDate,
         id,
@@ -4251,7 +4379,11 @@ export default function RegisterTraining({
         bestBySetMap,
         recentBySetMap,
         seriesTypeMap,
-        { requestId, promptForExisting: true },
+        {
+          requestId,
+          promptForExisting: true,
+          compatibleRecentBySetMap: compatibleRecentMap,
+        },
       );
     })()
       .catch((error) => {
@@ -4350,6 +4482,7 @@ export default function RegisterTraining({
     setShowAllRoutineOptions(false);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
+    setPlanHistoryTrainings([]);
     setLoadingTraining(false);
     setDurationSeconds(0);
     setTimeEvents([]);
@@ -4369,6 +4502,7 @@ export default function RegisterTraining({
     setShowAllRoutineOptions(false);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
+    setPlanHistoryTrainings([]);
     setExercises([]);
     setLoadingTraining(false);
     setDurationSeconds(0);
@@ -4405,6 +4539,7 @@ export default function RegisterTraining({
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
     setHistoryTrainings([]);
+    setPlanHistoryTrainings([]);
     setDurationSeconds(0);
     setIsRunning(false);
     setTimeEvents([]);
@@ -4521,9 +4656,7 @@ export default function RegisterTraining({
             0,
             Number(updates.barWeightKg ?? exercise.barWeightKg ?? 0),
           ),
-          implementCount: isUnilateralImplement
-            ? 1
-            : requestedImplementCount,
+          implementCount: isUnilateralImplement ? 1 : requestedImplementCount,
           bilateralImplementCount:
             weightBasis === "per_implement" && !isUnilateralImplement
               ? requestedImplementCount
@@ -5271,10 +5404,7 @@ export default function RegisterTraining({
               stabilizerMuscles: ex.stabilizerMuscles || [],
               equipment: ex.equipment || [],
               loadType: ex.loadType || "",
-              weightBasis: normalizeWeightBasis(
-                ex.weightBasis,
-                "legacy",
-              ),
+              weightBasis: normalizeWeightBasis(ex.weightBasis, "legacy"),
               barWeightKg: Math.max(0, Number(ex.barWeightKg || 0)),
               implementCount: Math.min(
                 4,
@@ -5462,6 +5592,9 @@ export default function RegisterTraining({
     () => exercises.find((ex) => ex.id === trackingExerciseId) || null,
     [exercises, trackingExerciseId],
   );
+  const trackingExerciseHistoryId =
+    trackingExercise?.exerciseId || trackingExercise?.id || "";
+  const trackingExerciseHistoryName = trackingExercise?.name || "";
   const activeExercise = useMemo(
     () => exercises.find((ex) => ex.id === activeExerciseId) || null,
     [exercises, activeExerciseId],
@@ -5483,23 +5616,29 @@ export default function RegisterTraining({
     }
     if (completionAnnouncedRef.current) return undefined;
     completionAnnouncedRef.current = true;
-    completionFocusTimerRef.current = window.setTimeout(() => {
-      completionFocusTimerRef.current = null;
-      const panel = document.querySelector("[data-training-completion]");
-      if (!panel) return;
-      const toolbar = document.querySelector(
-        window.matchMedia("(min-width: 768px)").matches
-          ? "[data-training-session-bar]"
-          : "[data-training-header]",
-      );
-      const toolbarBottom = toolbar?.getBoundingClientRect().bottom || 0;
-      const targetTop =
-        panel.getBoundingClientRect().top + window.scrollY - toolbarBottom - 14;
-      window.scrollTo({
-        top: Math.max(0, targetTop),
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
-    }, reduceMotion ? 100 : 720);
+    completionFocusTimerRef.current = window.setTimeout(
+      () => {
+        completionFocusTimerRef.current = null;
+        const panel = document.querySelector("[data-training-completion]");
+        if (!panel) return;
+        const toolbar = document.querySelector(
+          window.matchMedia("(min-width: 768px)").matches
+            ? "[data-training-session-bar]"
+            : "[data-training-header]",
+        );
+        const toolbarBottom = toolbar?.getBoundingClientRect().bottom || 0;
+        const targetTop =
+          panel.getBoundingClientRect().top +
+          window.scrollY -
+          toolbarBottom -
+          14;
+        window.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: reduceMotion ? "auto" : "smooth",
+        });
+      },
+      reduceMotion ? 100 : 720,
+    );
 
     return () => {
       if (completionFocusTimerRef.current) {
@@ -5510,39 +5649,51 @@ export default function RegisterTraining({
   }, [reduceMotion, sessionComplete]);
 
   useEffect(() => {
-    if (!showTracking || !trackingExercise || !selectedProgressScopeId) {
-      setExternalHistoryTrainings([]);
+    if (
+      !showTracking ||
+      (!trackingExerciseHistoryId && !trackingExerciseHistoryName)
+    ) {
+      setGeneralHistoryTrainings([]);
+      setGeneralHistoryError("");
       return;
     }
 
     let cancelled = false;
-    setLoadingExternalHistory(true);
+    setLoadingGeneralHistory(true);
+    setGeneralHistoryError("");
     api
-      .getTrainings({
-        limit: 80,
-        fields:
-          "date,routineId,routineName,progressScopeId,orderSignature,branch,exercises.exerciseId,exercises.exerciseName,exercises.weightBasis,exercises.barWeightKg,exercises.implementCount,exercises.sets.weightKg,exercises.sets.reps,exercises.sets.entries.weightKg,exercises.sets.entries.reps",
-        excludeProgressScopeId: selectedProgressScopeId,
-        meta: false,
+      .getExerciseHistory({
+        athleteId: dataOwnerId,
+        exerciseId: trackingExerciseHistoryId,
+        exerciseName: trackingExerciseHistoryName,
       })
       .then((resp) => {
         if (cancelled) return;
         const list = Array.isArray(resp) ? resp : resp?.items || [];
-        setExternalHistoryTrainings(list);
+        setGeneralHistoryTrainings(list);
       })
       .catch((error) => {
         if (cancelled) return;
-        console.warn("No se pudo cargar historial externo", error);
-        setExternalHistoryTrainings([]);
+        console.warn("No se pudo cargar el seguimiento general", error);
+        setGeneralHistoryTrainings([]);
+        setGeneralHistoryError(
+          error.message || "No se pudo cargar el seguimiento general.",
+        );
       })
       .finally(() => {
-        if (!cancelled) setLoadingExternalHistory(false);
+        if (!cancelled) setLoadingGeneralHistory(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [showTracking, trackingExercise, selectedProgressScopeId]);
+  }, [
+    dataOwnerId,
+    generalHistoryReloadKey,
+    showTracking,
+    trackingExerciseHistoryId,
+    trackingExerciseHistoryName,
+  ]);
 
   const extraExerciseOptions = useMemo(() => {
     const routineExtras = selectedRoutine?.raw?.exercises || [];
@@ -5566,20 +5717,34 @@ export default function RegisterTraining({
   ]);
 
   const trackingRows = useMemo(
-    () => buildTrackingRowsForExercise(trackingExercise, historyTrainings),
-    [buildTrackingRowsForExercise, trackingExercise, historyTrainings],
+    () => buildExerciseTrackingRows(trackingExercise, historyTrainings),
+    [trackingExercise, historyTrainings],
   );
 
-  const externalTrackingRows = useMemo(
-    () =>
-      buildTrackingRowsForExercise(trackingExercise, externalHistoryTrainings),
-    [buildTrackingRowsForExercise, trackingExercise, externalHistoryTrainings],
+  const planTrackingRows = useMemo(
+    () => buildExerciseTrackingRows(trackingExercise, planHistoryTrainings),
+    [trackingExercise, planHistoryTrainings],
   );
+
+  const generalTrackingRows = useMemo(
+    () => buildExerciseTrackingRows(trackingExercise, generalHistoryTrainings),
+    [trackingExercise, generalHistoryTrainings],
+  );
+
+  const visibleTrackingRows =
+    historyViewScope === "plan"
+      ? planTrackingRows
+      : historyViewScope === "general"
+        ? generalTrackingRows
+        : trackingRows;
 
   const trackingSetCount = useMemo(() => {
-    if (!trackingRows.length) return 0;
-    return trackingRows.reduce((acc, row) => Math.max(acc, row.sets.length), 0);
-  }, [trackingRows]);
+    if (!visibleTrackingRows.length) return 0;
+    return visibleTrackingRows.reduce(
+      (acc, row) => Math.max(acc, row.sets.length),
+      0,
+    );
+  }, [visibleTrackingRows]);
   const restProgressPct = restDurationSeconds
     ? Math.max(
         0,
@@ -5599,19 +5764,19 @@ export default function RegisterTraining({
     : formatDuration(restRemainingSeconds);
   const showAutoRestCountdown = Boolean(
     isAdmin &&
-      autoFlowEnabled &&
-      autoFlowTarget &&
-      !autoFlowPrompt &&
-      restTimerOpen &&
-      !restTimerMinimized &&
-      restTimerStarted,
+    autoFlowEnabled &&
+    autoFlowTarget &&
+    !autoFlowPrompt &&
+    restTimerOpen &&
+    !restTimerMinimized &&
+    restTimerStarted,
   );
   const showAutoRestComplete = Boolean(
     isAdmin &&
-      autoFlowEnabled &&
-      autoFlowPrompt &&
-      restTimerOpen &&
-      !restTimerMinimized,
+    autoFlowEnabled &&
+    autoFlowPrompt &&
+    restTimerOpen &&
+    !restTimerMinimized,
   );
 
   return (
@@ -5737,7 +5902,9 @@ export default function RegisterTraining({
               {sessionComplete ? (
                 <motion.div
                   data-training-complete-summary
-                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                  initial={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }
+                  }
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: reduceMotion ? 0 : 0.3 }}
@@ -6217,25 +6384,25 @@ export default function RegisterTraining({
                         transition={{ duration: 0.7, delay: 0.2 }}
                       >
                         <Button
-                        className={`h-10 rounded-md px-4 ${
-                          sessionComplete ? "min-w-[190px]" : "min-w-[126px]"
-                        }`}
-                        onClick={handleFinish}
-                        disabled={!exercises.length || isFinalizing}
-                      >
-                        {isFinalizing ? (
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Flag className="h-4 w-4" />
-                        )}
-                        <span>
-                          {isFinalizing
-                            ? "Finalizando"
-                            : sessionComplete
-                              ? "Finalizar entrenamiento"
-                              : "Finalizar"}
-                        </span>
-                      </Button>
+                          className={`h-10 rounded-md px-4 ${
+                            sessionComplete ? "min-w-[190px]" : "min-w-[126px]"
+                          }`}
+                          onClick={handleFinish}
+                          disabled={!exercises.length || isFinalizing}
+                        >
+                          {isFinalizing ? (
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Flag className="h-4 w-4" />
+                          )}
+                          <span>
+                            {isFinalizing
+                              ? "Finalizando"
+                              : sessionComplete
+                                ? "Finalizar entrenamiento"
+                                : "Finalizar"}
+                          </span>
+                        </Button>
                       </motion.div>
                     ) : null}
                     <div className="relative" ref={desktopSessionMenuRef}>
@@ -6343,45 +6510,45 @@ export default function RegisterTraining({
                   </div>
                 ) : (
                   <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (sessionLocked) return;
-                    if (datePickerRef.current?.showPicker) {
-                      datePickerRef.current.showPicker();
-                    } else if (datePickerRef.current) {
-                      datePickerRef.current.focus();
-                      datePickerRef.current.click();
-                    }
-                  }}
-                  disabled={sessionLocked || isHistoryReadOnly}
-                  className="relative inline-flex items-center gap-2 font-semibold text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <CalendarDays className="h-4 w-4 text-[color:var(--text-muted)]" />
-                  Fecha: {formatLongDate(sessionDate)}
-                  <input
-                    ref={datePickerRef}
-                    type="date"
-                    value={sessionDate}
-                    disabled={sessionLocked || isHistoryReadOnly}
-                    onChange={(e) => {
-                      const nextDate = e.target.value
-                        ? e.target.value.slice(0, 10)
-                        : getLocalISODate();
-                      setSessionDate(nextDate);
-                    }}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    aria-label="Seleccionar fecha"
-                  />
-                </button>
-                <div className="flex items-center gap-4">
-                  <span className="font-bold text-[color:var(--text)]">
-                    {completedExercises}/{exercises.length} ejercicios
-                  </span>
-                  <span>
-                    {doneSets}/{totalSets} series completadas
-                  </span>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (sessionLocked) return;
+                        if (datePickerRef.current?.showPicker) {
+                          datePickerRef.current.showPicker();
+                        } else if (datePickerRef.current) {
+                          datePickerRef.current.focus();
+                          datePickerRef.current.click();
+                        }
+                      }}
+                      disabled={sessionLocked || isHistoryReadOnly}
+                      className="relative inline-flex items-center gap-2 font-semibold text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <CalendarDays className="h-4 w-4 text-[color:var(--text-muted)]" />
+                      Fecha: {formatLongDate(sessionDate)}
+                      <input
+                        ref={datePickerRef}
+                        type="date"
+                        value={sessionDate}
+                        disabled={sessionLocked || isHistoryReadOnly}
+                        onChange={(e) => {
+                          const nextDate = e.target.value
+                            ? e.target.value.slice(0, 10)
+                            : getLocalISODate();
+                          setSessionDate(nextDate);
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        aria-label="Seleccionar fecha"
+                      />
+                    </button>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-[color:var(--text)]">
+                        {completedExercises}/{exercises.length} ejercicios
+                      </span>
+                      <span>
+                        {doneSets}/{totalSets} series completadas
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
@@ -6605,6 +6772,7 @@ export default function RegisterTraining({
                               onStartNow={() => handleStartExerciseNow(ex.id)}
                               onViewTracking={() => {
                                 setTrackingExerciseId(ex.id);
+                                setHistoryViewScope("routine");
                                 setShowTracking(true);
                               }}
                             />
@@ -6691,6 +6859,7 @@ export default function RegisterTraining({
                               onStartNow={() => handleStartExerciseNow(ex.id)}
                               onViewTracking={() => {
                                 setTrackingExerciseId(ex.id);
+                                setHistoryViewScope("routine");
                                 setShowTracking(true);
                               }}
                             />
@@ -6967,7 +7136,7 @@ export default function RegisterTraining({
       {showTracking && trackingExercise && (
         <Modal
           title={`Seguimiento: ${trackingExercise.name}`}
-          subtitle="Historial de pesos por serie (por fecha)."
+          subtitle="Historial de todas las series registradas por fecha."
           onClose={() => {
             setShowTracking(false);
             setTrackingExerciseId("");
@@ -7016,17 +7185,75 @@ export default function RegisterTraining({
                           : "bilateral"}
                       </Badge>
                     )}
+                    {trackingExercise.equipment?.length ? (
+                      <Badge variant="secondary" className="text-[11px]">
+                        Equipo · {trackingExercise.equipment.join(", ")}
+                      </Badge>
+                    ) : null}
                     <span className="text-xs text-[color:var(--text-muted)]">
-                      {trackingRows.length
-                        ? `${trackingRows.length} sesiones en este ciclo`
-                        : "Sin registros previos"}
+                      {historyViewScope === "general" && loadingGeneralHistory
+                        ? "Cargando historial general"
+                        : visibleTrackingRows.length
+                          ? `${visibleTrackingRows.length} sesiones compatibles`
+                          : "Sin registros previos"}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {trackingRows.length ? (
+            <div
+              className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+              role="tablist"
+              aria-label="Alcance del historial"
+            >
+              {[
+                ["routine", "Esta rutina"],
+                ["plan", "Este plan"],
+                ["general", "General"],
+              ].map(([scope, label]) => (
+                <button
+                  key={scope}
+                  type="button"
+                  role="tab"
+                  aria-selected={historyViewScope === scope}
+                  disabled={scope === "plan" && !selectedHistoryPlanId}
+                  onClick={() => setHistoryViewScope(scope)}
+                  className={`min-h-10 px-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    historyViewScope === scope
+                      ? "theme-accent-solid"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {historyViewScope === "general" && loadingGeneralHistory ? (
+              <div
+                role="status"
+                className="flex min-h-28 items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border)] text-sm font-semibold text-[color:var(--text-muted)]"
+              >
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+                Cargando todas las series del ejercicio...
+              </div>
+            ) : historyViewScope === "general" && generalHistoryError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
+                <p className="font-semibold">{generalHistoryError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() =>
+                    setGeneralHistoryReloadKey((current) => current + 1)
+                  }
+                >
+                  Reintentar
+                </Button>
+              </div>
+            ) : visibleTrackingRows.length ? (
               <div className="overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
                 <table className="min-w-full w-full text-sm">
                   <thead className="bg-[color:var(--bg)]">
@@ -7042,15 +7269,20 @@ export default function RegisterTraining({
                     </tr>
                   </thead>
                   <tbody>
-                    {trackingRows.map((row, rowIdx) => (
+                    {visibleTrackingRows.map((row, rowIdx) => (
                       <tr
-                        key={`${row.date}-${rowIdx}`}
+                        key={row.id || `${row.date}-${rowIdx}`}
                         className="border-t border-[color:var(--border)]"
                       >
                         <td className="px-3 py-2">
                           <div className="font-semibold text-[color:var(--text)]">
                             {row.date ? formatShort(row.date) : "--"}
                           </div>
+                          {historyViewScope === "general" ? (
+                            <div className="mt-0.5 max-w-36 truncate text-[11px] text-[color:var(--text-muted)]">
+                              {row.routineName || "Sin rutina"}
+                            </div>
+                          ) : null}
                           {!locationDisabled ? (
                             <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
                               {row.branch
@@ -7109,67 +7341,6 @@ export default function RegisterTraining({
               </div>
             )}
 
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-black text-[color:var(--text)]">
-                    Referencias de otras rutinas
-                  </p>
-                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    No cuentan como PR de esta rutina.
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-[11px]">
-                  {loadingExternalHistory
-                    ? "Cargando"
-                    : `${externalTrackingRows.length} registros`}
-                </Badge>
-              </div>
-
-              {!loadingExternalHistory && externalTrackingRows.length ? (
-                <div className="mt-3 space-y-2">
-                  {externalTrackingRows
-                    .slice()
-                    .sort((a, b) => b.ts - a.ts)
-                    .slice(0, 5)
-                    .map((row, rowIdx) => {
-                      const firstSet = row.sets?.[0] || [];
-                      const firstEntry = firstSet?.[0] || null;
-                      return (
-                        <div
-                          key={`external-${row.date}-${rowIdx}`}
-                          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[color:var(--text)]">
-                              {row.routineName || "Otra rutina"}
-                            </p>
-                            <p className="text-xs text-[color:var(--text-muted)]">
-                              {row.date ? formatShort(row.date) : "--"}
-                              {!locationDisabled
-                                ? ` · ${
-                                    row.branch
-                                      ? formatBranchLabel(row.branch)
-                                      : "Sin sucursal"
-                                  }`
-                                : ""}
-                            </p>
-                          </div>
-                          <span className="text-xs font-black text-[color:var(--text)]">
-                            {firstEntry ? formatEntryValue(firstEntry) : "--"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : null}
-
-              {!loadingExternalHistory && !externalTrackingRows.length ? (
-                <p className="mt-3 rounded-xl border border-dashed border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
-                  Sin referencias externas para este ejercicio.
-                </p>
-              ) : null}
-            </div>
           </div>
         </Modal>
       )}
@@ -7421,138 +7592,138 @@ export default function RegisterTraining({
           !restTimerMinimized &&
           !showAutoRestCountdown &&
           !showAutoRestComplete && (
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            className="fixed inset-0 z-50 bg-[color:var(--bg)] text-[color:var(--text)] md:grid md:place-items-center md:bg-black/60 md:p-6"
-          >
-            <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 md:min-h-0 md:w-full md:max-w-md md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-6 md:shadow-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
-                    Descanso
-                  </p>
-                  <p className="text-lg font-semibold">
-                    {restTimerDone
-                      ? "Tiempo completado"
-                      : restTimerRunning
-                        ? "Temporizador activo"
-                        : "Temporizador listo"}
-                  </p>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              className="fixed inset-0 z-50 bg-[color:var(--bg)] text-[color:var(--text)] md:grid md:place-items-center md:bg-black/60 md:p-6"
+            >
+              <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 md:min-h-0 md:w-full md:max-w-md md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-6 md:shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+                      Descanso
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {restTimerDone
+                        ? "Tiempo completado"
+                        : restTimerRunning
+                          ? "Temporizador activo"
+                          : "Temporizador listo"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => setRestTimerMinimized(true)}
+                      aria-label="Minimizar temporizador"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="rounded-full"
+                      onClick={handleCloseRestTimer}
+                      aria-label="Cerrar temporizador"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => setRestTimerMinimized(true)}
-                    aria-label="Minimizar temporizador"
-                  >
-                    <Minimize2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={handleCloseRestTimer}
-                    aria-label="Cerrar temporizador"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
 
-              <div className="flex flex-1 flex-col items-center justify-center gap-8">
-                <div
-                  className="grid h-72 w-72 place-items-center rounded-full p-4 shadow-2xl"
-                  style={{
-                    background: `conic-gradient(var(--accent) ${restProgressPct}%, rgba(148,163,184,0.22) ${restProgressPct}% 100%)`,
-                  }}
-                >
-                  <div className="grid h-full w-full place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-center">
-                    <div>
-                      <p className="font-mono text-6xl font-bold tracking-normal">
-                        {restTimerLabel}
-                      </p>
-                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
-                        {restTimerDone
-                          ? "Descanso terminado"
-                          : `${restProgressPct}%`}
-                      </p>
+                <div className="flex flex-1 flex-col items-center justify-center gap-8">
+                  <div
+                    className="grid h-72 w-72 place-items-center rounded-full p-4 shadow-2xl"
+                    style={{
+                      background: `conic-gradient(var(--accent) ${restProgressPct}%, rgba(148,163,184,0.22) ${restProgressPct}% 100%)`,
+                    }}
+                  >
+                    <div className="grid h-full w-full place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-center">
+                      <div>
+                        <p className="font-mono text-6xl font-bold tracking-normal">
+                          {restTimerLabel}
+                        </p>
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+                          {restTimerDone
+                            ? "Descanso terminado"
+                            : `${restProgressPct}%`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-full max-w-sm space-y-4">
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 2, 3, 5].map((minutes) => (
+                        <Button
+                          key={minutes}
+                          variant={
+                            restMinutesInput === minutes ? "default" : "outline"
+                          }
+                          className="rounded-full"
+                          onClick={() => handleStartRestTimer(minutes)}
+                        >
+                          {minutes}m
+                        </Button>
+                      ))}
+                    </div>
+
+                    <label className="block space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                        Minutos
+                      </span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={restMinutesInput}
+                        onChange={(event) =>
+                          setRestMinutesInput(
+                            Math.max(1, Number(event.target.value) || 1),
+                          )
+                        }
+                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 dark:rounded-[3px] dark:focus:ring-[#e2ff00]/30"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        className={`h-12 rounded-full ${
+                          restTimerRunning
+                            ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
+                            : "bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                        }`}
+                        onClick={handleToggleRestTimer}
+                      >
+                        {restTimerRunning ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        <span>
+                          {restTimerRunning
+                            ? "Pausar"
+                            : restTimerStarted
+                              ? "Continuar"
+                              : "Iniciar"}
+                        </span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-12 rounded-full"
+                        onClick={handleResetRestTimer}
+                      >
+                        Reiniciar cronómetro
+                      </Button>
                     </div>
                   </div>
                 </div>
-
-                <div className="w-full max-w-sm space-y-4">
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 3, 5].map((minutes) => (
-                      <Button
-                        key={minutes}
-                        variant={
-                          restMinutesInput === minutes ? "default" : "outline"
-                        }
-                        className="rounded-full"
-                        onClick={() => handleStartRestTimer(minutes)}
-                      >
-                        {minutes}m
-                      </Button>
-                    ))}
-                  </div>
-
-                  <label className="block space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Minutos
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={restMinutesInput}
-                      onChange={(event) =>
-                        setRestMinutesInput(
-                          Math.max(1, Number(event.target.value) || 1),
-                        )
-                      }
-                      className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 dark:rounded-[3px] dark:focus:ring-[#e2ff00]/30"
-                    />
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      className={`h-12 rounded-full ${
-                        restTimerRunning
-                          ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
-                          : "bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
-                      }`}
-                      onClick={handleToggleRestTimer}
-                    >
-                      {restTimerRunning ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                      <span>
-                        {restTimerRunning
-                          ? "Pausar"
-                          : restTimerStarted
-                            ? "Continuar"
-                            : "Iniciar"}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-12 rounded-full"
-                      onClick={handleResetRestTimer}
-                    >
-                      Reiniciar cronómetro
-                    </Button>
-                  </div>
-                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
       </AnimatePresence>
     </main>
   );

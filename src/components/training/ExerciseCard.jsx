@@ -24,14 +24,14 @@ import {
   getWeightUnitLabel,
   normalizeWeightBasis,
 } from "../../utils/weightConfig";
+import { parseLocalCalendarDate } from "../../utils/localCalendarDate";
 
 const LONG_PRESS_MS = 650;
 const MOVE_TOLERANCE_PX = 10;
 
 const formatShortDate = (value) => {
-  if (!value) return "";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
+  const parsed = parseLocalCalendarDate(value);
+  if (!parsed) return "";
   return parsed.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
@@ -43,7 +43,10 @@ const getReferenceDateLabel = (exercise = {}) => {
     .flatMap((set) => set.entries || [])
     .map((entry) => entry.previousDate)
     .filter(Boolean)
-    .map((date) => ({ raw: date, time: new Date(date).getTime() }))
+    .map((date) => ({
+      raw: date,
+      time: parseLocalCalendarDate(date)?.getTime() ?? Number.NaN,
+    }))
     .filter((date) => !Number.isNaN(date.time))
     .sort((a, b) => b.time - a.time);
 
@@ -433,7 +436,11 @@ export default function ExerciseCard({
               </div>
               <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
                 {referenceDateLabel
-                  ? `Última vez: ${referenceDateLabel}`
+                  ? `Última vez: ${referenceDateLabel}${
+                      exercise.referenceSourceText
+                        ? ` · ${exercise.referenceSourceText}`
+                        : ""
+                    }`
                   : "Sin fecha previa"}
               </p>
             </div>
@@ -791,6 +798,7 @@ ExerciseCard.propTypes = {
     orderContext: PropTypes.string,
     orderContextLabel: PropTypes.string,
     globalPrText: PropTypes.string,
+    referenceSourceText: PropTypes.string,
     durationSeconds: PropTypes.number,
     isActive: PropTypes.bool,
     variantIndex: PropTypes.number,

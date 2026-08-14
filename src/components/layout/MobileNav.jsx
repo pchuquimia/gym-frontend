@@ -5,12 +5,12 @@ function MobileNav({ activePage, onNavigate }) {
   const { user } = useAuth();
   const itemIds =
     user?.role === "Admin"
-      ? ["dashboard", "trainer", "coach_admin", "perfil"]
+      ? ["dashboard", "trainer", "rutinas", "coach_admin", "perfil"]
       : user?.role === "Entrenador"
       ? ["trainer", "rutinas", "library", "perfil"]
       : user?.trainingMode === "coach_managed"
         ? ["dashboard", "registrar", "rutinas", "perfil"]
-        : ["dashboard", "registrar", "ejercicio_analitica", "perfil"];
+        : ["dashboard", "registrar", "rutinas", "perfil"];
   const items = itemIds
     .map((id) => navLinks.find((link) => link.id === id))
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));

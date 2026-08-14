@@ -36,7 +36,8 @@ import {
 } from "../constants/exerciseTaxonomy";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 60;
+const LIBRARY_STALE_TIME_MS = 5 * 60 * 1000;
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const LIBRARY_FIELDS =
   "name,localizedNames,nameSpanish,nameEnglish,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,loadType,weightConfig,exerciseType,difficulty,goals,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,isActive";
@@ -152,7 +153,9 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
                 {description}
               </span>
               <span className="mt-2 block text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
-                {count} ejercicios
+                {Number.isFinite(count)
+                  ? `${count} ejercicios`
+                  : "Explorar ejercicios"}
               </span>
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-[#ff5722] transition group-hover:translate-x-1 dark:text-[#e2ff00]" />
@@ -173,7 +176,9 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
           {label}
         </p>
         <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          {count} ejercicios
+          {Number.isFinite(count)
+            ? `${count} ejercicios`
+            : "Explorar ejercicios"}
         </p>
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-[#ff5722] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
@@ -216,10 +221,10 @@ export default function ExerciseLibrary({ onNavigate }) {
 
   const facetsQuery = useQuery({
     queryKey: ["exercise-facets", user?.id || user?._id || "self"],
-    queryFn: api.getExerciseFacets,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => api.getExerciseFacets({ signal }),
+    staleTime: LIBRARY_STALE_TIME_MS,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const facets = facetsQuery.data || {};
   const categoryOptions = useMemo(() => {
@@ -233,6 +238,8 @@ export default function ExerciseLibrary({ onNavigate }) {
   const groups = facets.groupsByRegion?.[selectedBodyRegion] || [];
   const entryPoints = useMemo(() => {
     const entryCounts = facets.entryCounts || {};
+    const entryCount = (key) =>
+      facetsQuery.data ? entryCounts[key] || 0 : null;
     return [
       {
         id: "upper",
@@ -241,7 +248,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Fuerza",
         description: "Pecho, espalda, hombros y brazos",
         preview: facets.entryPreviews?.upper,
-        count: entryCounts.upper || 0,
+        count: entryCount("upper"),
       },
       {
         id: "lower",
@@ -250,7 +257,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Potencia",
         description: "Cuádriceps, isquiotibiales, glúteos y pantorrillas",
         preview: facets.entryPreviews?.lower,
-        count: entryCounts.lower || 0,
+        count: entryCount("lower"),
       },
       {
         id: "core",
@@ -259,7 +266,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Estabilidad",
         description: "Abdominales, oblicuos y control lumbo-pélvico",
         preview: facets.entryPreviews?.core,
-        count: entryCounts.core || 0,
+        count: entryCount("core"),
       },
       {
         id: "fullBody",
@@ -269,7 +276,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Global",
         description: "Movimientos combinados y levantamientos olímpicos",
         preview: facets.entryPreviews?.fullBody || facets.entryPreviews?.cardio,
-        count: entryCounts.fullBody || 0,
+        count: entryCount("fullBody"),
       },
       {
         id: "cardio",
@@ -278,7 +285,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Resistencia",
         description: "Acondicionamiento y capacidad cardiovascular",
         preview: facets.entryPreviews?.cardio,
-        count: entryCounts.cardio || 0,
+        count: entryCount("cardio"),
       },
       {
         id: "mobility",
@@ -287,7 +294,7 @@ export default function ExerciseLibrary({ onNavigate }) {
         kicker: "Movimiento",
         description: "Rango articular, control y calidad de movimiento",
         preview: facets.entryPreviews?.mobility || facets.entryPreviews?.core,
-        count: entryCounts.mobility || 0,
+        count: entryCount("mobility"),
       },
       {
         id: "activation",
@@ -297,10 +304,10 @@ export default function ExerciseLibrary({ onNavigate }) {
         description: "Preparación muscular antes de la carga principal",
         preview:
           facets.entryPreviews?.activation || facets.entryPreviews?.upper,
-        count: entryCounts.activation || 0,
+        count: entryCount("activation"),
       },
-    ].filter((entry) => entry.count > 0);
-  }, [facets.entryCounts, facets.entryPreviews]);
+    ].filter((entry) => entry.count === null || entry.count > 0);
+  }, [facets.entryCounts, facets.entryPreviews, facetsQuery.data]);
 
   const showEntryPoints =
     !selectedBodyRegion &&
@@ -333,35 +340,42 @@ export default function ExerciseLibrary({ onNavigate }) {
       filters,
     ],
     enabled: showResults,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    refetchOnWindowFocus: true,
+    staleTime: LIBRARY_STALE_TIME_MS,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
-      api.getExercises({
-        fields: LIBRARY_FIELDS,
-        limit: PAGE_SIZE,
-        page: pageParam,
-        meta: true,
-        q: debouncedSearch,
-        category: selectedCategory === ALL_FILTER_VALUE ? "" : selectedCategory,
-        excludeCategory: fullBodyExcludesCardio ? "Cardio" : "",
-        bodyRegion: selectedBodyRegion,
-        primaryMuscleGroup: selectedMuscleGroup,
-        type: sourceFilter === "all" ? "" : sourceFilter,
-        equipment:
-          filters.equipment === ALL_FILTER_VALUE ? "" : filters.equipment,
-        movementPattern:
-          filters.movementPattern === ALL_FILTER_VALUE
-            ? ""
-            : filters.movementPattern,
-        difficulty:
-          filters.difficulty === ALL_FILTER_VALUE ? "" : filters.difficulty,
-        exerciseType:
-          filters.exerciseType === ALL_FILTER_VALUE ? "" : filters.exerciseType,
-        position: filters.position === ALL_FILTER_VALUE ? "" : filters.position,
-        goal: filters.goal === ALL_FILTER_VALUE ? "" : filters.goal,
-      }),
+    queryFn: ({ pageParam, signal }) =>
+      api.getExercises(
+        {
+          fields: LIBRARY_FIELDS,
+          limit: PAGE_SIZE,
+          page: pageParam,
+          meta: true,
+          q: debouncedSearch,
+          category:
+            selectedCategory === ALL_FILTER_VALUE ? "" : selectedCategory,
+          excludeCategory: fullBodyExcludesCardio ? "Cardio" : "",
+          bodyRegion: selectedBodyRegion,
+          primaryMuscleGroup: selectedMuscleGroup,
+          type: sourceFilter === "all" ? "" : sourceFilter,
+          equipment:
+            filters.equipment === ALL_FILTER_VALUE ? "" : filters.equipment,
+          movementPattern:
+            filters.movementPattern === ALL_FILTER_VALUE
+              ? ""
+              : filters.movementPattern,
+          difficulty:
+            filters.difficulty === ALL_FILTER_VALUE ? "" : filters.difficulty,
+          exerciseType:
+            filters.exerciseType === ALL_FILTER_VALUE
+              ? ""
+              : filters.exerciseType,
+          position:
+            filters.position === ALL_FILTER_VALUE ? "" : filters.position,
+          goal: filters.goal === ALL_FILTER_VALUE ? "" : filters.goal,
+        },
+        { signal },
+      ),
     getNextPageParam: (lastPage) => {
       const loaded = lastPage.page * lastPage.limit;
       return loaded < lastPage.total ? lastPage.page + 1 : undefined;
@@ -770,14 +784,8 @@ export default function ExerciseLibrary({ onNavigate }) {
           <ExerciseImageManager />
         ) : showMigration ? (
           <ExerciseMigrationPanel />
-        ) : facetsQuery.isError ? (
+        ) : facetsQuery.isError && !showResults ? (
           <ErrorState onRetry={() => facetsQuery.refetch()} />
-        ) : facetsQuery.isLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-[82px] rounded-lg" />
-            ))}
-          </div>
         ) : showEntryPoints ? (
           <section className="space-y-3">
             <div className="flex items-center gap-2 px-1">
