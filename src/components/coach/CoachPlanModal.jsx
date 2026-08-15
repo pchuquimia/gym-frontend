@@ -46,6 +46,21 @@ const PRESETS = {
   ],
 };
 
+const FREQUENCY_PRESETS = {
+  3: ["Full body", "", "Full body", "", "Full body", "", ""],
+  4: [
+    "Tren superior",
+    "Tren inferior",
+    "",
+    "Tren superior",
+    "Tren inferior",
+    "",
+    "",
+  ],
+  5: ["Empuje", "Jale", "Piernas", "", "Torso", "Piernas", ""],
+  6: PRESETS.ppl.map((focus) => (focus === "Descanso" ? "" : focus)),
+};
+
 const createSchedule = (preset = PRESETS.ppl) =>
   preset.map((focus, index) => ({
     dayIndex: index + 1,
@@ -127,7 +142,7 @@ export default function CoachPlanModal({
     initialData?.sourcePlanId || initialData?.planTemplateId || "",
   );
   const [name, setName] = useState(
-    initialData?.name || "Plan inicial de 8 semanas",
+    initialData?.name || "Plan de hipertrofia",
   );
   const [level, setLevel] = useState(initialData?.level || "beginner");
   const [goal, setGoal] = useState(initialData?.goal || "Hipertrofia");
@@ -297,6 +312,24 @@ export default function CoachPlanModal({
       }
       return resetScheduleSlots(createCycleSchedule(), mode);
     });
+  };
+
+  const applyFrequencyPreset = (frequency) => {
+    const focuses = FREQUENCY_PRESETS[frequency];
+    if (!focuses) return;
+    setSchedule(
+      resetScheduleSlots(
+        focuses.map((focus, index) => ({
+          dayIndex: index + 1,
+          type: focus ? "training" : "rest",
+          focus,
+          slotId: `slot_${index + 1}`,
+          order: index + 1,
+          sourceRoutineId: "",
+        })),
+        "fixed",
+      ),
+    );
   };
 
   const resizeCycle = (delta) => {
@@ -650,11 +683,46 @@ export default function CoachPlanModal({
                 ) : null}
               </div>
 
+              {scheduleMode === "fixed" ? (
+                <fieldset>
+                  <legend className="text-xs font-black">
+                    Frecuencia semanal rápida
+                  </legend>
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {[3, 4, 5, 6].map((frequency) => (
+                      <button
+                        key={frequency}
+                        type="button"
+                        onClick={() => applyFrequencyPreset(frequency)}
+                        className={`h-11 rounded-lg border text-xs font-black ${
+                          trainingDays === frequency
+                            ? "theme-accent-soft"
+                            : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {frequency} días
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+
+              {manageRoutinesSeparately ? (
+                <p className="rounded-lg border border-dashed border-[color:var(--border)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                  Guarda la estructura ahora. Podrás crear o asignar cada rutina
+                  desde el detalle de la planificación.
+                </p>
+              ) : null}
+
               <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
                 {schedule.map((day, index) => (
                   <div
                     key={day.dayIndex}
-                    className="grid gap-2 py-3 sm:grid-cols-[92px_130px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center"
+                    className={`grid gap-2 py-3 sm:items-center ${
+                      manageRoutinesSeparately
+                        ? "sm:grid-cols-[92px_130px_minmax(0,1fr)]"
+                        : "sm:grid-cols-[92px_130px_minmax(0,1fr)_minmax(0,1fr)]"
+                    }`}
                   >
                     <span className="text-sm font-black">
                       {scheduleMode === "fixed"
@@ -706,11 +774,7 @@ export default function CoachPlanModal({
                               </option>
                             ))}
                           </select>
-                        ) : (
-                          <div className="flex h-11 items-center rounded-lg border border-dashed border-[color:var(--border)] px-3 text-xs font-bold text-[color:var(--text-muted)]">
-                            La rutina se crea despues
-                          </div>
-                        )}
+                        ) : null}
                       </>
                     ) : (
                       <div className="flex h-10 items-center gap-2 text-xs font-bold text-[color:var(--text-muted)] sm:col-span-2">

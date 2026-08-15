@@ -69,7 +69,15 @@ test("el administrador abre rutinas desde la navegación móvil", async ({
     "Validación exclusiva de la navegación móvil.",
   );
   const runtimeErrors = [];
+  const requestedApiPaths = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  page.on("request", (request) => {
+    try {
+      requestedApiPaths.push(new URL(request.url()).pathname);
+    } catch {
+      // Ignore non-HTTP browser resources.
+    }
+  });
   await page.addInitScript(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -84,6 +92,20 @@ test("el administrador abre rutinas desde la navegación móvil", async ({
   await expect(
     page.getByRole("tab", { name: "Planificaciones", exact: true }),
   ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("tab", { name: "Rutinas", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Rutinas y planificación" }),
+  ).toBeVisible();
+  const mesOneCard = page
+    .getByRole("button")
+    .filter({ hasText: "Mes 1" })
+    .filter({ hasText: "5/5 rutinas" })
+    .first();
+  await expect(mesOneCard).toBeVisible();
+  await mesOneCard.click();
+  await expect(page.getByText("Espalda · Hombro · Tríceps").first()).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -91,6 +113,8 @@ test("el administrador abre rutinas desde la navegación móvil", async ({
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(
     dimensions.clientWidth + 1,
   );
+  expect(requestedApiPaths).not.toContain("/api/photos");
+  expect(requestedApiPaths).not.toContain("/api/sessions");
   expect(runtimeErrors).toEqual([]);
 });
 

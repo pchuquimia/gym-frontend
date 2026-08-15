@@ -257,6 +257,7 @@ export const api = {
     const query = new URLSearchParams({
       athleteId: params.athleteId ?? "",
       ...(params.kind ? { kind: params.kind } : {}),
+      ...(params.includeArchived ? { includeArchived: "true" } : {}),
     }).toString();
     return request(`/api/routines?${query}`);
   },
@@ -268,6 +269,8 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   deleteRoutine: (id) => request(`/api/routines/${id}`, { method: "DELETE" }),
+  restoreRoutine: (id) =>
+    request(`/api/routines/${id}/restore`, { method: "PATCH" }),
   getPreference: (userId) =>
     request(`/api/preferences${userId ? `?userId=${userId}` : ""}`),
   setPreference: (payload) =>

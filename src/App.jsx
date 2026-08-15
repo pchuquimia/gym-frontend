@@ -1,21 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import "./App.css";
-import Dashboard from "./pages/Dashboard";
-import ExerciseLibrary from "./pages/ExerciseLibrary";
 import MainLayout from "./components/layout/MainLayout";
-import RegisterTraining from "./pages/RegisterTraining";
-import ExerciseAnalyticsPage from "./pages/ExerciseAnalyticsPage";
-import ExerciseHistoryEditor from "./pages/ExerciseHistoryEditor";
-import SessionSummaryPage from "./pages/SessionSummaryPage";
-import DataIntelligencePage from "./pages/DataIntelligencePage";
-import Routines from "./pages/Routines";
-import ProfileSettings from "./pages/ProfileSettings";
-import PhotosLibrary from "./pages/PhotosLibrary";
-import TrainingAdmin from "./pages/TrainingAdmin";
-import CoachDashboard from "./pages/CoachDashboard";
-import CoachManagement from "./pages/CoachManagement";
-import WeightTracking from "./pages/WeightTracking";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
@@ -31,6 +17,27 @@ import {
   isActiveTrainingSnapshot,
   readActiveTrainingSnapshot,
 } from "./utils/activeTraining";
+
+const ExerciseLibrary = lazy(() => import("./pages/ExerciseLibrary"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
+const RegisterTraining = lazy(() => import("./pages/RegisterTraining"));
+const ExerciseAnalyticsPage = lazy(
+  () => import("./pages/ExerciseAnalyticsPage"),
+);
+const ExerciseHistoryEditor = lazy(
+  () => import("./pages/ExerciseHistoryEditor"),
+);
+const SessionSummaryPage = lazy(() => import("./pages/SessionSummaryPage"));
+const DataIntelligencePage = lazy(
+  () => import("./pages/DataIntelligencePage"),
+);
+const Routines = lazy(() => import("./pages/Routines"));
+const PhotosLibrary = lazy(() => import("./pages/PhotosLibrary"));
+const TrainingAdmin = lazy(() => import("./pages/TrainingAdmin"));
+const CoachDashboard = lazy(() => import("./pages/CoachDashboard"));
+const CoachManagement = lazy(() => import("./pages/CoachManagement"));
+const WeightTracking = lazy(() => import("./pages/WeightTracking"));
 
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
@@ -107,6 +114,8 @@ const EXERCISE_CONTEXT_PAGES = new Set([
   "rutinas",
   "admin_sesiones",
 ]);
+const SESSION_CONTEXT_PAGES = new Set(["ejercicio_analitica"]);
+const PHOTO_CONTEXT_PAGES = new Set(["perfil"]);
 
 const readCoachAthlete = () => {
   if (typeof localStorage === "undefined") return null;
@@ -370,7 +379,8 @@ function App() {
       key={providerScopeKey}
       ownerId={supervisedOwnerId}
       loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
-      loadPhotos={activePage !== "fotos"}
+      loadPhotos={PHOTO_CONTEXT_PAGES.has(activePage)}
+      loadSessions={SESSION_CONTEXT_PAGES.has(activePage)}
     >
       <RoutineProvider key={providerScopeKey} ownerId={supervisedOwnerId}>
         <UserProvider>
@@ -406,14 +416,25 @@ function App() {
                   )
                 }
               >
-                <RoleBasedRoute roles={allowedRoles}>
-                  <PageComponent
-                    pageKey={pageEntry.label}
-                    onNavigate={handleNavigate}
-                    coachAthlete={coachAthlete}
-                    onSelectCoachAthlete={selectCoachAthlete}
-                  />
-                </RoleBasedRoute>
+                <Suspense
+                  fallback={
+                    <OperationLoader
+                      active
+                      delayMs={120}
+                      mode="inline"
+                      title={`Abriendo ${pageEntry.label}`}
+                    />
+                  }
+                >
+                  <RoleBasedRoute roles={allowedRoles}>
+                    <PageComponent
+                      pageKey={pageEntry.label}
+                      onNavigate={handleNavigate}
+                      coachAthlete={coachAthlete}
+                      onSelectCoachAthlete={selectCoachAthlete}
+                    />
+                  </RoleBasedRoute>
+                </Suspense>
               </PageErrorBoundary>
             </motion.div>
           </MainLayout>

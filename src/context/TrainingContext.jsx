@@ -120,6 +120,7 @@ export function TrainingProvider({
   ownerId = "",
   loadExercises = true,
   loadPhotos = true,
+  loadSessions = true,
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -195,6 +196,7 @@ export function TrainingProvider({
       return (list || []).map(normalizeSession);
     },
     staleTime: 2 * 60 * 1000,
+    enabled: loadSessions,
   });
 
   const photosQuery = useQuery({
@@ -553,14 +555,14 @@ export function TrainingProvider({
     trainingsQuery.data || trainingSummariesQuery.data || [];
   const loading =
     (loadExercises && exercisesQuery.isLoading) ||
-    sessionsQuery.isLoading ||
+    (loadSessions && sessionsQuery.isLoading) ||
     (loadPhotos && photosQuery.isLoading) ||
     trainingSummariesQuery.isLoading ||
     prefsQuery.isLoading;
   const error =
     exercisesQuery.error?.message ||
-    sessionsQuery.error?.message ||
-    photosQuery.error?.message ||
+    (loadSessions ? sessionsQuery.error?.message : null) ||
+    (loadPhotos ? photosQuery.error?.message : null) ||
     trainingSummariesQuery.error?.message ||
     prefsQuery.error?.message ||
     null;

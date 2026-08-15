@@ -133,8 +133,8 @@ const PLAN_DAY_NAMES = [
 const PLAN_STATUS_LABELS = {
   active: "Vigente",
   scheduled: "Programada",
-  draft: "Inactiva",
-  paused: "Desactivada",
+  draft: "Borrador",
+  paused: "Pausada",
   completed: "Completada",
   cancelled: "Archivada",
 };
@@ -536,28 +536,35 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
         <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border)] sm:hidden" />
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-600">
-            <Trash2 className="h-5 w-5" />
+            <Archive className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
-              Eliminar rutina
+              Archivar rutina
             </p>
             <h3 className="mt-1 truncate text-lg font-black">{routine.name}</h3>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
               {routine.plan
-                ? `Esta rutina pertenece a ${routine.plan.name}. Al eliminarla, la planificación quedará inactiva hasta que asignes un reemplazo.`
-                : "Esta accion no se puede deshacer. Desliza hasta el final para confirmar."}
+                ? `Esta rutina se usa en ${routine.plan.name}. Primero debes reemplazarla en esa planificación.`
+                : "Dejará de aparecer en tu biblioteca, pero podrás recuperarla posteriormente."}
             </p>
           </div>
         </div>
 
-        <div className="mt-5">
-          <SlideToConfirm
-            label="Desliza para eliminar"
-            ariaLabel="Deslizar para confirmar eliminacion"
-            onConfirm={onConfirm}
-          />
-        </div>
+        {routine.plan ? (
+          <div className="mt-5 border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+            El archivado está bloqueado mientras la rutina figure en una
+            planificación. Usa “Cambiar rutina” en ese día y vuelve a intentarlo.
+          </div>
+        ) : (
+          <div className="mt-5">
+            <SlideToConfirm
+              label="Desliza para archivar"
+              ariaLabel="Deslizar para confirmar archivado"
+              onConfirm={onConfirm}
+            />
+          </div>
+        )}
 
         <button
           type="button"
@@ -3075,12 +3082,14 @@ function PlanRoutineChoiceModal({
   day,
   scheduleMode,
   routines,
+  plan,
   onCreate,
   onAssign,
   onClose,
 }) {
   const [query, setQuery] = useState("");
   const [assigningId, setAssigningId] = useState(null);
+  const [pendingRepeatId, setPendingRepeatId] = useState(null);
   const currentRoutineId = String(day?.routineId || "");
   const dayLabel =
     scheduleMode === "fixed"
@@ -3100,7 +3109,26 @@ function PlanRoutineChoiceModal({
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }, [query, routines]);
 
+  const usageDays = useMemo(() => {
+    const result = new Map();
+    (plan?.weeklySchedule || []).forEach((slot) => {
+      if (slot.type !== "training" || !slot.routineId) return;
+      if (String(slot.slotId) === String(day?.slotId)) return;
+      const label =
+        scheduleMode === "fixed"
+          ? PLAN_DAY_NAMES[Number(slot.dayIndex || 1) - 1] || "Otro día"
+          : `Día ${slot.dayIndex || 1}`;
+      const key = String(slot.routineId);
+      result.set(key, [...(result.get(key) || []), label]);
+    });
+    return result;
+  }, [day?.slotId, plan?.weeklySchedule, scheduleMode]);
+
   const assign = async (routineId) => {
+    if (usageDays.has(routineId) && pendingRepeatId !== routineId) {
+      setPendingRepeatId(routineId);
+      return;
+    }
     setAssigningId(routineId);
     try {
       await onAssign(routineId);
@@ -3133,6 +3161,7 @@ function PlanRoutineChoiceModal({
                 options.map((routine) => {
                   const routineId = String(routine.id || routine._id);
                   const isCurrent = routineId === currentRoutineId;
+                  const usedIn = usageDays.get(routineId) || [];
                   const muscles = [
                     ...new Set(
                       (routine.exercises || [])
@@ -3157,13 +3186,20 @@ function PlanRoutineChoiceModal({
                           {branchLabel(routine.branch)}
                           {muscles.length ? ` · ${muscles.join(" + ")}` : ""}
                         </span>
+                        {usedIn.length ? (
+                          <span className="mt-1 block text-[11px] font-black text-amber-700 dark:text-amber-300">
+                            Ya usada: {usedIn.join(", ")}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="theme-accent-text shrink-0 text-xs font-black">
                         {isCurrent
                           ? "Actual"
                           : assigningId === routineId
                             ? "Vinculando..."
-                            : "Usar"}
+                            : pendingRepeatId === routineId
+                              ? "Confirmar repetición"
+                              : "Usar"}
                       </span>
                     </button>
                   );
@@ -3821,6 +3857,7 @@ function Routines({ onNavigate }) {
     addRoutine,
     updateRoutine,
     deleteRoutine,
+    restoreRoutine,
     duplicateRoutine,
     reloadRoutines,
   } = useRoutines();
@@ -3876,19 +3913,36 @@ function Routines({ onNavigate }) {
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
   const [expandedRoutineGroups, setExpandedRoutineGroups] = useState(null);
+  const [showArchivedRoutines, setShowArchivedRoutines] = useState(false);
+  const { data: archivedRoutineData = [], refetch: refreshArchivedRoutines } =
+    useQuery({
+      queryKey: ["archived-routines", user?.id || user?._id || "self"],
+      queryFn: () => api.getRoutines({ includeArchived: true }),
+      enabled: showArchivedRoutines && !isManagedClient,
+      staleTime: 30 * 1000,
+    });
+  const archivedRoutines = useMemo(
+    () =>
+      archivedRoutineData.filter(
+        (routine) =>
+          routine.isArchived === true && routine.archiveReason === "user",
+      ),
+    [archivedRoutineData],
+  );
   const { data: routineTrainingCounts = [] } = useQuery({
     queryKey: ["routine-training-counts", user?.id || user?._id || "self"],
     queryFn: () => api.getRoutineTrainingCounts(),
     enabled: Boolean(user?.id || user?._id),
     staleTime: 30 * 1000,
   });
-  const missingPlanRoutines = useMemo(
-    () =>
-      (activePlan?.weeklySchedule || []).filter(
-        (day) => day.type === "training" && !day.routineId,
-      ).length,
-    [activePlan],
-  );
+  const missingPlanRoutines = useMemo(() => {
+    if (activePlan?.integrity) {
+      return activePlan.integrity.missingSlots?.length || 0;
+    }
+    return (activePlan?.weeklySchedule || []).filter(
+      (day) => day.type === "training" && !day.routineId,
+    ).length;
+  }, [activePlan]);
   const currentActivePlan = useMemo(
     () => trainingPlans.find((plan) => plan.status === "active") || null,
     [trainingPlans],
@@ -4661,9 +4715,20 @@ function Routines({ onNavigate }) {
     try {
       await deleteRoutine(target.id || target._id);
       await refreshPlans();
-      toast.success("Rutina eliminada");
-    } catch {
-      toast.error("No se pudo eliminar la rutina");
+      await refreshArchivedRoutines();
+      toast.success("Rutina archivada; podrás recuperarla desde la biblioteca");
+    } catch (error) {
+      toast.error(error?.message || "No se pudo archivar la rutina");
+    }
+  };
+
+  const handleRestoreRoutine = async (routine) => {
+    try {
+      await restoreRoutine(routine._id || routine.id);
+      await refreshArchivedRoutines();
+      toast.success("Rutina restaurada");
+    } catch (error) {
+      toast.error(error?.message || "No se pudo restaurar la rutina");
     }
   };
 
@@ -4737,7 +4802,7 @@ function Routines({ onNavigate }) {
     <div className="routines-shell">
       <section className="space-y-5">
         <div
-          className={`${activePlan ? "flex" : "hidden md:flex"} items-center justify-between gap-3`}
+          className="flex items-center justify-between gap-3"
         >
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
@@ -4809,7 +4874,7 @@ function Routines({ onNavigate }) {
               role="tab"
               aria-selected={workspaceView === "plans"}
               onClick={() => setWorkspaceView("plans")}
-              className={`inline-flex h-10 items-center justify-center border text-xs font-black uppercase transition ${
+              className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "plans"
                   ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
@@ -4818,7 +4883,7 @@ function Routines({ onNavigate }) {
               Planificaciones
               {!isCoach && draftPlanCount ? (
                 <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
-                  {draftPlanCount} inactivas
+                  {draftPlanCount} {draftPlanCount === 1 ? "borrador" : "borradores"}
                 </span>
               ) : null}
             </button>
@@ -4827,7 +4892,7 @@ function Routines({ onNavigate }) {
               role="tab"
               aria-selected={workspaceView === "routines"}
               onClick={() => setWorkspaceView("routines")}
-              className={`inline-flex h-10 items-center justify-center border text-xs font-black uppercase transition ${
+              className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "routines"
                   ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
@@ -4945,14 +5010,14 @@ function Routines({ onNavigate }) {
               </span>
             ) : null}
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
             {orderedTrainingPlans.map((plan) => {
               const trainingDays = (plan.weeklySchedule || []).filter(
                 (day) => day.type === "training",
               );
-              const configured = trainingDays.filter(
-                (day) => day.routineId,
-              ).length;
+              const configured =
+                plan.integrity?.configured ??
+                trainingDays.filter((day) => day.routineId).length;
               const isCurrent = plan.status === "active";
               const isSequential = plan.scheduleMode !== "fixed";
               const timeProgress = getPlanTimeProgress(plan);
@@ -4984,7 +5049,7 @@ function Routines({ onNavigate }) {
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-[11px] font-black uppercase">
                       <span className="text-[color:var(--text-muted)]">
-                        Progreso
+                        Progreso temporal
                       </span>
                       <span className={isCurrent ? "theme-accent-text" : ""}>
                         {timeProgress.percentage}%
@@ -5213,6 +5278,59 @@ function Routines({ onNavigate }) {
           setActiveBranch={setActiveBranch}
           branchCounts={branchCounts}
         />
+      ) : null}
+
+      {!activePlan &&
+      workspaceReady &&
+      workspaceView === "routines" &&
+      !isManagedClient ? (
+        <div className="mt-3 border-y border-[color:var(--border)] py-3">
+          <button
+            type="button"
+            onClick={() => setShowArchivedRoutines((current) => !current)}
+            className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
+            aria-expanded={showArchivedRoutines}
+          >
+            <span className="inline-flex items-center gap-2 text-sm font-black">
+              <Archive className="h-4 w-4" /> Rutinas archivadas
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${
+                showArchivedRoutines ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {showArchivedRoutines ? (
+            <div className="mt-2 divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+              {archivedRoutines.length ? (
+                archivedRoutines.map((routine) => (
+                  <div
+                    key={routine._id || routine.id}
+                    className="flex min-h-14 items-center justify-between gap-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black">{routine.name}</p>
+                      <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                        {getRoutineExerciseSummary(routine)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreRoutine(routine)}
+                      className="theme-accent-soft h-11 shrink-0 border px-3 text-xs font-black"
+                    >
+                      Restaurar
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                  No tienes rutinas archivadas.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {!activePlan && workspaceReady && workspaceView === "routines" ? (
@@ -5593,6 +5711,7 @@ function Routines({ onNavigate }) {
         <PlanRoutineChoiceModal
           day={planDayChoice}
           scheduleMode={activePlan?.scheduleMode}
+          plan={activePlan}
           routines={routines}
           onAssign={assignExistingRoutine}
           onCreate={() => {

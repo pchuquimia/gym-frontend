@@ -139,6 +139,13 @@ export function RoutineProvider({ children, ownerId = "" }) {
     setRoutines((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const restoreRoutine = async (id) => {
+    const restored = await api.restoreRoutine(id);
+    const normalized = { ...restored, id: restored._id || restored.id };
+    setRoutines((prev) => [normalized, ...prev.filter((r) => r.id !== id)]);
+    return normalized;
+  };
+
   const duplicateRoutine = async (id, options = {}) => {
     const found = routines.find((r) => r._id === id || r.id === id);
     if (!found) return;
@@ -154,6 +161,9 @@ export function RoutineProvider({ children, ownerId = "" }) {
     delete baseCopy.assignedAt;
     delete baseCopy.isArchived;
     delete baseCopy.isAvailableForTraining;
+    delete baseCopy.archivedAt;
+    delete baseCopy.archivedBy;
+    delete baseCopy.archiveReason;
     delete baseCopy.visibility;
     delete baseCopy.kind;
     delete baseCopy.version;
@@ -179,6 +189,7 @@ export function RoutineProvider({ children, ownerId = "" }) {
     addRoutine,
     updateRoutine,
     deleteRoutine,
+    restoreRoutine,
     duplicateRoutine,
   };
 
