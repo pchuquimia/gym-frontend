@@ -499,7 +499,7 @@ export default function ProfileSettings({ onNavigate }) {
     if (nextView === "settings") url.searchParams.delete("perfil");
     else url.searchParams.set("perfil", nextView);
     window.history[replace ? "replaceState" : "pushState"](
-      { profileView: nextView },
+      { ...window.history.state, profileView: nextView },
       "",
       `${url.pathname}${url.search}`,
     );

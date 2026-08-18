@@ -54,6 +54,10 @@ import {
   getLatestCompatibleReference,
 } from "../utils/historyCompatibility";
 import { buildExerciseTrackingRows } from "../utils/exerciseTracking";
+import {
+  getTrainingSaveErrorMessage,
+  hasRecordedTrainingData,
+} from "../utils/trainingSubmission";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -1374,6 +1378,7 @@ function AdminAutoFlowControl({
 
 export default function RegisterTraining({
   onNavigate = () => {},
+  onBack = null,
   coachAthlete = null,
 }) {
   const reduceMotion = useReducedMotion();
@@ -4569,7 +4574,8 @@ export default function RegisterTraining({
     }
     setIsHistoryReadOnly(false);
     setIsEditing(false);
-    onNavigate("admin_sesiones");
+    if (onBack) onBack("admin_sesiones");
+    else onNavigate("admin_sesiones");
   };
 
   const handleSeriesTypeChange = (exerciseId, value) => {
@@ -5489,6 +5495,9 @@ export default function RegisterTraining({
           toast.error("No se pudo subir la foto del entrenamiento.");
         }
       }
+      (savedTraining?.registrationWarnings || []).forEach((warning) => {
+        if (warning?.message) toast.warning(warning.message);
+      });
       toast.success("Entrenamiento guardado correctamente.");
       resetState();
       if (typeof onNavigate === "function") {
@@ -5499,14 +5508,16 @@ export default function RegisterTraining({
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
       releaseFinalization();
-      toast.error(
-        "No se pudo guardar el entrenamiento. Revisa tu conexión o intenta de nuevo.",
-      );
+      toast.error(getTrainingSaveErrorMessage(err));
     }
   };
 
   const handleFinish = async () => {
     if (finalizingRef.current) return;
+    if (!hasRecordedTrainingData(exercises)) {
+      toast.error("Registra al menos una serie antes de finalizar.");
+      return;
+    }
     const incompleteExercises = getIncompleteExercisesForFinish();
     if (incompleteExercises.length) {
       setFinishWarningExercises(incompleteExercises);

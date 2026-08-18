@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
 import {
+  ArrowLeft,
   CalendarDays,
   Check,
   ChevronDown,
@@ -163,6 +164,7 @@ export default function SessionSummaryPage({
   currentSession: propCurrentSession,
   onViewExerciseAnalytics = null,
   onNavigate = null,
+  onBack = null,
 }) {
   const { trainings: ctxTrainings = [], exercises: exerciseMeta = [] } =
     useTrainingData();
@@ -327,10 +329,22 @@ export default function SessionSummaryPage({
 
   return (
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
-      <header className="border-b border-[color:var(--border)] pb-4">
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Lectura posterior</p>
-        <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen diario</h1>
-        <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Revisa la sesión que acabas de completar y compárala con tu historial.</p>
+      <header className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Lectura posterior</p>
+          <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen diario</h1>
+          <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Revisa la sesión que acabas de completar y compárala con tu historial.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            onBack ? onBack("dashboard") : onNavigate?.("dashboard")
+          }
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Volver</span>
+        </button>
       </header>
 
       {sortedSessions.length ? (
@@ -412,4 +426,5 @@ SessionSummaryPage.propTypes = {
   currentSession: PropTypes.object,
   onViewExerciseAnalytics: PropTypes.func,
   onNavigate: PropTypes.func,
+  onBack: PropTypes.func,
 };

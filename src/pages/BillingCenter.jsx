@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   CalendarDays,
   Check,
   Crown,
@@ -32,7 +33,7 @@ const statusLabel = (subscription = {}) => {
   return subscription.isPremium ? "Premium activo" : "Plan activo";
 };
 
-export default function BillingCenter() {
+export default function BillingCenter({ onBack = null }) {
   const { user, refreshUser } = useAuth();
   const [billing, setBilling] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,17 +113,28 @@ export default function BillingCenter() {
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-6 pb-24 text-[color:var(--text)]">
-      <header className="border-b border-[color:var(--border)] pb-5">
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
-          Cuenta y suscripcion
-        </p>
-        <h1 className="mt-1 text-[30px] font-black uppercase leading-none sm:text-[36px]">
-          Planes y Premium
-        </h1>
-        <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-5 text-[color:var(--text-muted)]">
-          Revisa tu acceso actual y activa las herramientas avanzadas que
-          corresponden a tu tipo de cuenta.
-        </p>
+      <header className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            Cuenta y suscripcion
+          </p>
+          <h1 className="mt-1 text-[30px] font-black uppercase leading-none sm:text-[36px]">
+            Planes y Premium
+          </h1>
+          <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-5 text-[color:var(--text-muted)]">
+            Revisa tu acceso actual y activa las herramientas avanzadas que
+            corresponden a tu tipo de cuenta.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onBack?.("dashboard")}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
+          aria-label="Volver a la página anterior"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span className="hidden sm:inline">Volver</span>
+        </button>
       </header>
 
       <section className="grid gap-4 border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-5">

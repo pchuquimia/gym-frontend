@@ -20,6 +20,17 @@ import { getExerciseImageUrl } from "../utils/cloudinary";
 import { estimate1RM } from "../utils/trainingMetrics";
 import { getEffectiveWeightKg } from "../utils/weightConfig";
 
+const ANALYTICS_VIEW_KEY = "exercise_analytics_view";
+
+const readAnalyticsView = () => {
+  if (typeof sessionStorage === "undefined") return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(ANALYTICS_VIEW_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const slugify = (text = "") =>
@@ -104,6 +115,7 @@ function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
 
 export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
   const [pageOpenedAt] = useState(() => Date.now());
+  const [initialView] = useState(readAnalyticsView);
   const { sessions = [], trainings = [], exercises = [] } = useTrainingData();
   const { user } = useAuth();
   const { isDark } = useThemeMode();
@@ -112,9 +124,19 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
       ? ""
       : localStorage.getItem("last_exercise_id") || "",
   );
-  const [selectedMuscle, setSelectedMuscle] = useState("");
+  const [selectedMuscle, setSelectedMuscle] = useState(
+    initialView.selectedMuscle || "",
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialView.query || "");
+
+  useEffect(() => {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(
+      ANALYTICS_VIEW_KEY,
+      JSON.stringify({ selectedMuscle, query }),
+    );
+  }, [query, selectedMuscle]);
 
   const workouts = useMemo(
     () => [

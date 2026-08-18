@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import "./App.css";
 import MainLayout from "./components/layout/MainLayout";
@@ -19,6 +19,14 @@ import {
   readActiveTrainingSnapshot,
 } from "./utils/activeTraining";
 import { getUserHome, needsOnboarding } from "./utils/userFlow";
+import {
+  canReturnWithinApp,
+  createAppHistoryState,
+  getAppHistoryIndex,
+  getAppHistoryPage,
+  getAppHistoryScroll,
+  isAppHistoryState,
+} from "./utils/appNavigation";
 
 const ExerciseLibrary = lazy(() => import("./pages/ExerciseLibrary"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -196,6 +204,50 @@ function App() {
     return stored || authPage || "login";
   });
   const [coachAthlete, setCoachAthlete] = useState(readCoachAthlete);
+  const navigationIndexRef = useRef(
+    typeof window !== "undefined"
+      ? getAppHistoryIndex(window.history.state)
+      : 0,
+  );
+  const [restoreScrollY, setRestoreScrollY] = useState(null);
+  const [navigationDirection, setNavigationDirection] = useState("replace");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const currentState = window.history.state;
+    const navigationIndex = isAppHistoryState(currentState)
+      ? getAppHistoryIndex(currentState)
+      : 0;
+    navigationIndexRef.current = navigationIndex;
+    window.history.replaceState(
+      createAppHistoryState({
+        currentState,
+        page: activePage,
+        index: navigationIndex,
+        scrollY: window.scrollY,
+      }),
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+    // La entrada inicial se normaliza una sola vez; las siguientes pasan por
+    // handleNavigate o popstate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (restoreScrollY === null || typeof window === "undefined") return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: restoreScrollY, left: 0, behavior: "auto" });
+        setRestoreScrollY(null);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [activePage, restoreScrollY]);
 
   const selectCoachAthlete = (athlete) => {
     const next = athlete?.id ? athlete : null;
@@ -243,21 +295,66 @@ function App() {
     ) {
       selectCoachAthlete(null);
     }
+
+    if (typeof window !== "undefined") {
+      const currentState = createAppHistoryState({
+        currentState: window.history.state,
+        page: activePage,
+        index: navigationIndexRef.current,
+        scrollY: window.scrollY,
+      });
+      window.history.replaceState(
+        currentState,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+
+      const samePage = page === activePage;
+      const replace = options.replace === true || samePage;
+      const nextIndex = replace
+        ? navigationIndexRef.current
+        : navigationIndexRef.current + 1;
+      const target = AUTH_PATHS[page]
+        ? `${AUTH_PATHS[page]}${page === "reset" ? window.location.search : ""}`
+        : "/";
+      const nextState = createAppHistoryState({
+        currentState: replace ? currentState : null,
+        page,
+        index: nextIndex,
+        scrollY: 0,
+      });
+      window.history[replace ? "replaceState" : "pushState"](
+        nextState,
+        "",
+        target,
+      );
+      navigationIndexRef.current = nextIndex;
+      setNavigationDirection(replace ? "replace" : "forward");
+    }
+
+    setRestoreScrollY(null);
     setActivePage(page);
     if (typeof localStorage !== "undefined") {
       if (AUTH_PATHS[page]) {
         localStorage.removeItem("active_page");
-        const target = `${AUTH_PATHS[page]}${page === "reset" ? window.location.search : ""}`;
-        if (`${window.location.pathname}${window.location.search}` !== target) {
-          window.history.pushState({ page }, "", target);
-        }
       } else {
         localStorage.setItem("active_page", page);
-        if (window.location.pathname !== "/" || window.location.search) {
-          window.history.replaceState({ page }, "", "/");
-        }
       }
     }
+  };
+
+  const handleBack = (fallbackPage = getUserHome(user)) => {
+    if (
+      typeof window !== "undefined" &&
+      canReturnWithinApp(window.history.state)
+    ) {
+      window.history.back();
+      return;
+    }
+    handleNavigate(fallbackPage, {
+      replace: true,
+      source: "fallback-return",
+    });
   };
 
   useEffect(() => {
@@ -285,14 +382,23 @@ function App() {
   ]);
 
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (event) => {
       const authPage = authPageFromPath();
       const storedPage = localStorage.getItem("active_page");
-      if (isAuthenticated && authPage === "login") {
-        setActivePage(storedPage || getUserHome(user));
-        return;
-      }
-      setActivePage(authPage || storedPage || "login");
+      const historyPage = getAppHistoryPage(event.state);
+      const nextPage =
+        isAuthenticated && authPage === "login"
+          ? historyPage || storedPage || getUserHome(user)
+          : historyPage || authPage || storedPage || "login";
+      const nextIndex = getAppHistoryIndex(event.state);
+      setNavigationDirection(
+        nextIndex < navigationIndexRef.current ? "back" : "forward",
+      );
+      navigationIndexRef.current = nextIndex;
+      setRestoreScrollY(getAppHistoryScroll(event.state));
+      setActivePage(nextPage);
+      if (AUTH_PATHS[nextPage]) localStorage.removeItem("active_page");
+      else localStorage.setItem("active_page", nextPage);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -301,12 +407,12 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "Entrenador") return;
     if (COACH_ATHLETE_CONTEXT_PAGES.has(activePage) && !coachAthlete?.id) {
-      handleNavigate("trainer");
+      handleNavigate("trainer", { replace: true });
       return;
     }
     const isSupervisedTraining = activePage === "registrar" && coachAthlete;
     if (!COACH_ALLOWED_PAGES.has(activePage) && !isSupervisedTraining) {
-      handleNavigate("trainer");
+      handleNavigate("trainer", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage, coachAthlete, isAuthenticated, user?.role]);
@@ -319,7 +425,7 @@ function App() {
       isManagedClient &&
       !MANAGED_CLIENT_ALLOWED_PAGES.has(activePage)
     ) {
-      handleNavigate("dashboard");
+      handleNavigate("dashboard", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
@@ -327,11 +433,11 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (needsOnboarding(user) && activePage !== "onboarding") {
-      handleNavigate("onboarding");
+      handleNavigate("onboarding", { replace: true });
       return;
     }
     if (!needsOnboarding(user) && activePage === "onboarding") {
-      handleNavigate(getUserHome(user));
+      handleNavigate(getUserHome(user), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePage, isAuthenticated, user?.onboarding?.status, user?.role]);
@@ -341,7 +447,7 @@ function App() {
       isAuthenticated &&
       ["login", "register", "recover", "reset", "verify"].includes(activePage)
     ) {
-      handleNavigate(getUserHome(user));
+      handleNavigate(getUserHome(user), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.onboarding?.status, user?.role]);
@@ -443,8 +549,20 @@ function App() {
               <motion.div
                 key={activePage}
                 data-page-view={activePage}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        x:
+                          navigationDirection === "back"
+                            ? -10
+                            : navigationDirection === "forward"
+                              ? 10
+                              : 0,
+                      }
+                }
+                animate={{ opacity: 1, x: 0 }}
                 transition={{
                   duration: reduceMotion ? 0 : 0.16,
                   ease: [0.2, 0.8, 0.2, 1],
@@ -473,6 +591,7 @@ function App() {
                       <PageComponent
                         pageKey={pageEntry.label}
                         onNavigate={handleNavigate}
+                        onBack={handleBack}
                         coachAthlete={coachAthlete}
                         onSelectCoachAthlete={selectCoachAthlete}
                       />

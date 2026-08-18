@@ -23,6 +23,18 @@ import {
 } from "../utils/trainingListFields";
 
 const EMPTY_TRAININGS = [];
+const HISTORY_FILTERS_KEY = "session_history_filters";
+
+const readHistoryFilters = (scope) => {
+  if (typeof sessionStorage === "undefined") return {};
+  try {
+    return JSON.parse(
+      sessionStorage.getItem(`${HISTORY_FILTERS_KEY}:${scope}`) || "{}",
+    );
+  } catch {
+    return {};
+  }
+};
 
 const formatDate = (iso) =>
   iso
@@ -135,10 +147,14 @@ export function SessionHistory({
   const isAdmin = user?.role === "Admin";
   const isCoach = ["Admin", "Entrenador"].includes(user?.role);
   const viewingAthlete = Boolean(ownerId);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [search, setSearch] = useState("");
-  const [routineFilter, setRoutineFilter] = useState("");
+  const historyScope = String(ownerId || user?.id || user?._id || "self");
+  const [initialFilters] = useState(() => readHistoryFilters(historyScope));
+  const [from, setFrom] = useState(initialFilters.from || "");
+  const [to, setTo] = useState(initialFilters.to || "");
+  const [search, setSearch] = useState(initialFilters.search || "");
+  const [routineFilter, setRoutineFilter] = useState(
+    initialFilters.routineFilter || "",
+  );
   const [actionMenuId, setActionMenuId] = useState("");
   const [monthVisibility, setMonthVisibility] = useState({});
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -147,7 +163,14 @@ export function SessionHistory({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 5000;
-  const historyScope = String(ownerId || user?.id || user?._id || "self");
+  useEffect(() => {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(
+      `${HISTORY_FILTERS_KEY}:${historyScope}`,
+      JSON.stringify({ from, to, search, routineFilter }),
+    );
+  }, [from, historyScope, routineFilter, search, to]);
+
   const historyQueryKey = useMemo(
     () => ["session-history", historyScope, from || "all", to || "all"],
     [from, historyScope, to],

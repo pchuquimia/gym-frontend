@@ -357,6 +357,7 @@ function RecordCard({ record, saving, onSave }) {
 
 export default function ExerciseHistoryEditor({
   onNavigate = () => {},
+  onBack = null,
   coachAthlete = null,
 }) {
   const queryClient = useQueryClient();
@@ -608,9 +609,14 @@ export default function ExerciseHistoryEditor({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onNavigate("ejercicio_analitica")}
+          aria-label="Volver a la página anterior"
+          onClick={() =>
+            onBack
+              ? onBack("ejercicio_analitica")
+              : onNavigate("ejercicio_analitica")
+          }
         >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Volver a analítica
+          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
         </Button>
       </header>
 

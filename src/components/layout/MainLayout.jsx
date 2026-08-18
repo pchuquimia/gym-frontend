@@ -5,10 +5,11 @@ import {
   useState,
   useRef,
 } from "react";
-import { ArrowRight, ShieldCheck, Timer } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import MobileMenuButton from "./MobileMenuButton";
+import ActiveTrainingTopbar from "./ActiveTrainingTopbar";
 import ThemeToggle from "../ThemeToggle";
 import { useThemeMode } from "../../hooks/useThemeMode";
 import { useAuth } from "../../context/AuthContext";
@@ -61,16 +62,6 @@ function MainLayout({
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
   }, [activePage]);
-
-  const formatDuration = (sec) => {
-    const total = Math.max(0, Math.floor(sec || 0));
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-    return [hours, minutes, seconds]
-      .map((n) => String(n).padStart(2, "0"))
-      .join(":");
-  };
 
   const readSnapshot = useCallback(() => {
     const snap = readActiveTrainingSnapshot();
@@ -149,54 +140,10 @@ function MainLayout({
         </div>
       ) : null}
       {showReturnTraining ? (
-        <>
-          <button
-            data-active-training-banner
-            type="button"
-            onClick={handleReturnTraining}
-            className="sticky top-0 z-50 flex h-12 w-full items-center gap-3 border-b border-[#ff5722] bg-[#fff0eb] px-3 text-left text-[#852300] shadow-sm md:hidden dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
-            aria-label="Volver al entrenamiento en curso"
-          >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
-              <Timer className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-black uppercase leading-none">
-                {activeTraining.athleteName
-                  ? `Entrenando a ${activeTraining.athleteName}`
-                  : "Entrenamiento en curso"}
-              </span>
-              <span className="mt-1 block font-mono text-xs font-bold leading-none">
-                {formatDuration(activeTraining.elapsed || 0)}
-              </span>
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase">
-              Volver
-              <ArrowRight className="h-4 w-4" />
-            </span>
-          </button>
-
-          <div className="sticky top-0 z-30 hidden w-full border-b border-[color:var(--border)] bg-[color:var(--card)] shadow-sm md:block">
-            <div className="flex items-center justify-between px-3 py-2 sm:px-4 md:px-8">
-              <div className="flex items-center gap-1 text-sm text-[color:var(--text-muted)]">
-                <span>
-                  {activeTraining.athleteName
-                    ? `Sesión de ${activeTraining.athleteName}`
-                    : "Sesión en curso"}
-                </span>
-                <span className="ml-1 font-mono font-semibold text-[color:var(--text)]">
-                  {formatDuration(activeTraining.elapsed || 0)}
-                </span>
-              </div>
-              <button
-                onClick={handleReturnTraining}
-                className="inline-flex items-center gap-2 rounded-full bg-[#ff5722] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
-              >
-                Volver al entrenamiento
-              </button>
-            </div>
-          </div>
-        </>
+        <ActiveTrainingTopbar
+          training={activeTraining}
+          onReturn={handleReturnTraining}
+        />
       ) : null}
       <div
         className={
