@@ -19,6 +19,7 @@ const mobileNavOrder = [
   "resumen_sesion",
   "data_intelligence",
   "pesajes",
+  "check_in",
   "admin_sesiones",
   "fotos",
   "perfil",
@@ -35,6 +36,7 @@ const mobileLabels = {
   resumen_sesion: "Resumen Diario",
   data_intelligence: "Datos",
   pesajes: "Pesajes",
+  check_in: "Estado",
   admin_sesiones: "Historial",
   fotos: "Fotos",
   perfil: "Perfil",
@@ -59,6 +61,7 @@ const mobileGroups = [
       "resumen_sesion",
       "data_intelligence",
       "pesajes",
+      "check_in",
     ],
   },
   {
@@ -103,7 +106,7 @@ const managedClientMobileGroups = [
   {
     title: "Progreso",
     detail: "Resultados personales",
-    ids: ["ejercicio_analitica", "resumen_sesion", "pesajes"],
+    ids: ["ejercicio_analitica", "resumen_sesion", "pesajes", "check_in"],
   },
   {
     title: "Historial",

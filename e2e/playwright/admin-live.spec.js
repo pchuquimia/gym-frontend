@@ -9,16 +9,34 @@ test.skip(
 test("el administrador real abre el dashboard", async ({ page }) => {
   const runtimeErrors = [];
   const failedResponses = [];
-  let trainingsResponse = [];
+  const dashboardRequests = [];
+  const legacyDashboardRequests = [];
+  let dashboardResponse = null;
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/dashboard/bootstrap") {
+      dashboardRequests.push(url);
+    }
+    if (
+      [
+        "/api/trainings",
+        "/api/routines",
+        "/api/preferences",
+        "/api/analytics/intelligence",
+        "/api/weigh-ins",
+        "/api/auth/profile",
+      ].includes(url.pathname)
+    ) {
+      legacyDashboardRequests.push(url.pathname);
+    }
+  });
   page.on("response", (response) => {
-    if (response.url().includes("/api/trainings?")) {
+    if (new URL(response.url()).pathname === "/api/dashboard/bootstrap") {
       response
         .json()
         .then((payload) => {
-          trainingsResponse = Array.isArray(payload)
-            ? payload
-            : payload.items || [];
+          dashboardResponse = payload;
         })
         .catch(() => {});
     }
@@ -41,9 +59,8 @@ test("el administrador real abre el dashboard", async ({ page }) => {
     timeout: 30_000,
   });
   await expect(page.locator("[data-demo-banner]")).toHaveCount(0);
-  await expect
-    .poll(() => trainingsResponse.length, { timeout: 30_000 })
-    .toBeGreaterThan(0);
+  await expect.poll(() => dashboardResponse, { timeout: 30_000 }).not.toBeNull();
+  expect(dashboardResponse.trainings.summaries.length).toBeGreaterThan(0);
   await expect(page.getByText(/^[0-7]\/7$/, { exact: true })).toBeVisible({
     timeout: 30_000,
   });
@@ -51,14 +68,16 @@ test("el administrador real abre el dashboard", async ({ page }) => {
   console.log(
     JSON.stringify({
       browserDate,
-      trainingCount: trainingsResponse.length,
-      latestTrainingDates: trainingsResponse
+      trainingCount: dashboardResponse.trainings.summaries.length,
+      latestTrainingDates: dashboardResponse.trainings.summaries
         .slice(0, 5)
         .map((item) => item.date),
     }),
   );
   expect(runtimeErrors).toEqual([]);
   expect(failedResponses).toEqual([]);
+  expect(dashboardRequests).toHaveLength(1);
+  expect(legacyDashboardRequests).toEqual([]);
 });
 
 test("el administrador abre rutinas desde la navegación móvil", async ({

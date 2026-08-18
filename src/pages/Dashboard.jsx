@@ -3,28 +3,37 @@ import { ResponsiveBar } from "@nivo/bar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  Activity,
   ArrowLeft,
   AlertTriangle,
   BarChart3,
   CalendarDays,
   ChevronDown,
   Clock3,
+  Dumbbell,
+  Gauge,
   ListChecks,
+  Minus,
   Play,
+  Target,
   Weight,
+  TrendingDown,
   TrendingUp,
   RotateCcw,
   X,
   Zap,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
+import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
+import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 import {
   buildScopedPeriodComparison,
   getScopedExerciseKey,
@@ -668,6 +677,203 @@ function StatCard({
   );
 }
 
+function ComparisonChange({ metric }) {
+  if (!metric?.hasReference || metric.changePercent === null) {
+    return (
+      <span className="text-[10px] font-bold text-[color:var(--text-muted)]">
+        Sin referencia previa
+      </span>
+    );
+  }
+  const change = Number(metric.changePercent || 0);
+  const isUp = change > 1;
+  const isDown = change < -1;
+  const Icon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-black ${
+        isUp
+          ? "text-emerald-600 dark:text-emerald-300"
+          : isDown
+            ? "text-red-500 dark:text-red-300"
+            : "text-[color:var(--text-muted)]"
+      }`}
+    >
+      <Icon className="h-3 w-3" />
+      {isUp ? "+" : ""}
+      {Math.round(change)}%
+    </span>
+  );
+}
+
+function PeriodComparisonPanel({
+  comparison,
+  loading,
+  error,
+  locked,
+  onUpgrade,
+}) {
+  if (locked) {
+    return (
+      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
+                Actual vs anterior
+              </p>
+              <span className="border border-[#ff5722]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#ff5722] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
+                Pro
+              </span>
+            </div>
+            <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
+              Comparativa inteligente
+            </h2>
+            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+              Sesiones, volumen, fuerza, adherencia y recuperacion contra los
+              mismos dias de la semana anterior.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="h-10 shrink-0 bg-[#ff5722] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+          >
+            Ver Premium
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (loading) {
+    return (
+      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+        <p className="text-xs font-black uppercase text-[color:var(--text-muted)]">
+          Calculando actual vs anterior...
+        </p>
+      </section>
+    );
+  }
+
+  if (error || !comparison?.metrics) {
+    return (
+      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+        <p className="text-xs font-bold text-[color:var(--text-muted)]">
+          No se pudo preparar la comparativa semanal.
+        </p>
+      </section>
+    );
+  }
+
+  const metrics = comparison.metrics;
+  const cards = [
+    {
+      key: "sessions",
+      label: "Sesiones",
+      icon: Activity,
+      metric: metrics.sessions,
+      value: Math.round(metrics.sessions.current),
+      previous: `${Math.round(metrics.sessions.previous)} anterior`,
+    },
+    {
+      key: "volume",
+      label: "Volumen",
+      icon: TrendingUp,
+      metric: metrics.volume,
+      value: `${formatCompact(metrics.volume.current)} kg`,
+      previous: `${formatCompact(metrics.volume.previous)} kg anterior`,
+    },
+    {
+      key: "strength",
+      label: "Fuerza estimada",
+      icon: Dumbbell,
+      metric: metrics.strength,
+      value: metrics.strength.available
+        ? `${Math.round(metrics.strength.current)} kg`
+        : "--",
+      previous: metrics.strength.available
+        ? `${Math.round(metrics.strength.previous)} kg e1RM · ${metrics.strength.comparableExercises} ejercicios`
+        : "Repite ejercicios en ambos periodos",
+    },
+    {
+      key: "adherence",
+      label: "Adherencia",
+      icon: Target,
+      metric: metrics.adherence,
+      value: metrics.adherence.available
+        ? `${Math.round(metrics.adherence.current)}%`
+        : "--",
+      previous: metrics.adherence.available
+        ? metrics.adherence.hasReference
+          ? `${Math.round(metrics.adherence.previous)}% anterior · meta ${metrics.adherence.target}`
+          : `Meta actual ${metrics.adherence.target} · plan sin referencia previa`
+        : "Activa un plan para medirla",
+    },
+    {
+      key: "recovery",
+      label: "Recuperacion",
+      icon: Gauge,
+      metric: metrics.recovery,
+      value: metrics.recovery.available
+        ? `${Math.round(metrics.recovery.current)}%`
+        : "--",
+      previous: metrics.recovery.available
+        ? metrics.recovery.hasReference
+          ? `${Math.round(metrics.recovery.previous)}% anterior · ${metrics.recovery.currentObservations} check-ins`
+          : "Sin check-in en el periodo anterior"
+        : "Completa check-ins en ambos periodos",
+    },
+  ];
+
+  return (
+    <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
+            Actual vs anterior
+          </p>
+          <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
+            Comparativa inteligente
+          </h2>
+        </div>
+        <span className="border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+          Mismos {comparison.period.elapsedDays} dias
+        </span>
+      </div>
+      <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+        Semana activa hasta hoy frente a los dias equivalentes de la semana
+        pasada.
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
+        {cards.map(({ key, label, icon: Icon, metric, value, previous }) => (
+          <article
+            key={key}
+            className="min-w-0 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 last:col-span-2 lg:last:col-span-1"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                {label}
+              </p>
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+            </div>
+            <p className="mt-2 text-xl font-black text-[color:var(--text)]">
+              {value}
+            </p>
+            <div className="mt-2 min-h-8">
+              <ComparisonChange metric={metric} />
+              <p className="mt-0.5 text-[9px] font-semibold leading-tight text-[color:var(--text-muted)]">
+                {previous}
+              </p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function WeekStrip({ days }) {
   return (
     <section className="grid grid-cols-7 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm dark:rounded-[4px] dark:shadow-none">
@@ -1016,7 +1222,9 @@ function MonthDetailView({ detail, onBack }) {
 }
 
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const dashboardBootstrap = useDashboardBootstrap();
   const {
     trainings = [],
     exercises: catalogExercises = [],
@@ -1026,7 +1234,44 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
-  const [activePlan, setActivePlan] = useState(null);
+  const canUsePeriodComparison =
+    hasPremiumFeature(user, PREMIUM_FEATURES.LOAD_RECOVERY) &&
+    hasPremiumFeature(user, PREMIUM_FEATURES.EXERCISE_PROGRESSION);
+  const comparisonAthleteId = coachAthlete?.id || coachAthlete?._id || "";
+  const bootstrapHasIntelligence = Boolean(
+    dashboardBootstrap.data &&
+      Object.prototype.hasOwnProperty.call(
+        dashboardBootstrap.data,
+        "intelligence",
+      ),
+  );
+  const intelligenceQuery = useQuery({
+    queryKey: [
+      "training-intelligence",
+      comparisonAthleteId || user?.id || user?._id || "self",
+    ],
+    queryFn: () => api.getTrainingIntelligence(comparisonAthleteId),
+    enabled:
+      canUsePeriodComparison &&
+      (!dashboardBootstrap.enabled ||
+        (!dashboardBootstrap.isLoading && !bootstrapHasIntelligence)),
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+  const intelligenceData = bootstrapHasIntelligence
+    ? dashboardBootstrap.data?.intelligence
+    : intelligenceQuery.data;
+  const comparisonLoading =
+    dashboardBootstrap.enabled && dashboardBootstrap.isLoading
+    ? dashboardBootstrap.isLoading
+    : intelligenceQuery.isLoading;
+  const comparisonError = bootstrapHasIntelligence
+    ? Boolean(dashboardBootstrap.error)
+    : intelligenceQuery.isError;
+  const [loadedActivePlan, setLoadedActivePlan] = useState(null);
+  const activePlan = dashboardBootstrap.enabled
+    ? dashboardBootstrap.data?.activePlan || null
+    : loadedActivePlan;
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -1044,25 +1289,26 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   );
 
   useEffect(() => {
+    if (dashboardBootstrap.enabled) return undefined;
     let active = true;
     const athleteId = coachAthlete?.id || coachAthlete?._id || "";
     api
       .getTrainingPlans(athleteId)
       .then((plans) => {
         if (!active) return;
-        setActivePlan(
+        setLoadedActivePlan(
           (Array.isArray(plans) ? plans : []).find(
             (plan) => plan.status === "active",
           ) || null,
         );
       })
       .catch(() => {
-        if (active) setActivePlan(null);
+        if (active) setLoadedActivePlan(null);
       });
     return () => {
       active = false;
     };
-  }, [coachAthlete]);
+  }, [coachAthlete, dashboardBootstrap.enabled]);
 
   useEffect(() => {
     if (!hasOpenModal) return undefined;
@@ -1093,12 +1339,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const now = useMemo(() => new Date(), []);
   const todayKey = getISODateKey(now);
   const todayWeighInKey = ["weigh-ins", "today", "self", todayKey];
-  const { data: todayWeighInData } = useQuery({
+  const todayWeighInQuery = useQuery({
     queryKey: todayWeighInKey,
     queryFn: () =>
       api.getWeighIns({ from: todayKey, to: todayKey, today: todayKey }),
     staleTime: 30 * 1000,
+    enabled: !dashboardBootstrap.enabled,
   });
+  const todayWeighInData = dashboardBootstrap.enabled
+    ? dashboardBootstrap.data?.todayWeighIn
+    : todayWeighInQuery.data;
   const needsDailyWeighIn =
     todayWeighInData && !todayWeighInData.summary?.completedToday;
 
@@ -1114,6 +1364,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       },
     }));
     queryClient.invalidateQueries({ queryKey: ["weigh-ins"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
     return saved;
   };
 
@@ -2112,6 +2363,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       </div>
 
       <WeekStrip days={weekData.days} />
+
+      <PeriodComparisonPanel
+        comparison={intelligenceData?.advanced?.periodComparison}
+        loading={comparisonLoading}
+        error={comparisonError}
+        locked={!canUsePeriodComparison}
+        onUpgrade={() => onNavigate("planes")}
+      />
 
       <div className="grid gap-3 lg:grid-cols-2">
         <button

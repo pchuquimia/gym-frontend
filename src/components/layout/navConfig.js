@@ -10,6 +10,8 @@ import {
   Weight,
   Users,
   User,
+  HeartPulse,
+  Crown,
 } from "lucide-react";
 
 export const sections = [
@@ -36,6 +38,7 @@ export const sections = [
         icon: BrainCircuit,
       },
       { id: "pesajes", label: "Seguimiento de peso", icon: Weight },
+      { id: "check_in", label: "Estado diario", icon: HeartPulse },
     ],
   },
   {
@@ -76,7 +79,10 @@ export const sections = [
   },
   {
     heading: "Perfil",
-    items: [{ id: "perfil", label: "Perfil y Ajustes", icon: User }],
+    items: [
+      { id: "perfil", label: "Perfil y Ajustes", icon: User },
+      { id: "planes", label: "Planes y Premium", icon: Crown },
+    ],
   },
 ];
 
@@ -115,7 +121,10 @@ export const coachSections = [
   },
   {
     heading: "Cuenta",
-    items: [{ id: "perfil", label: "Perfil y ajustes", icon: User }],
+    items: [
+      { id: "perfil", label: "Perfil y ajustes", icon: User },
+      { id: "planes", label: "Planes y Premium", icon: Crown },
+    ],
   },
 ];
 
@@ -142,6 +151,7 @@ export const managedClientSections = [
         icon: ClipboardList,
       },
       { id: "pesajes", label: "Mis pesajes", icon: Weight },
+      { id: "check_in", label: "Estado diario", icon: HeartPulse },
     ],
   },
   {
@@ -157,7 +167,10 @@ export const managedClientSections = [
   },
   {
     heading: "Cuenta",
-    items: [{ id: "perfil", label: "Perfil y ajustes", icon: User }],
+    items: [
+      { id: "perfil", label: "Perfil y ajustes", icon: User },
+      { id: "planes", label: "Planes y Premium", icon: Crown },
+    ],
   },
 ];
 

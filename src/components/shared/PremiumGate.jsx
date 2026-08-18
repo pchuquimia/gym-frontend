@@ -1,0 +1,45 @@
+import { Crown, LockKeyhole, Sparkles } from "lucide-react";
+import Button from "../ui/button";
+
+export default function PremiumGate({
+  title = "Funcion premium",
+  description,
+  plan = "Pro",
+  onNavigate,
+  compact = false,
+}) {
+  return (
+    <section
+      className={`relative overflow-hidden border border-[#ffb199] bg-[#fff8f5] text-[color:var(--text)] dark:border-[#e2ff00]/35 dark:bg-[#161900] ${compact ? "p-4" : "grid min-h-72 place-items-center p-6 text-center"}`}
+      data-premium-gate
+    >
+      <Sparkles className="absolute -right-5 -top-5 h-28 w-28 text-[#ff5722]/[0.07] dark:text-[#e2ff00]/[0.06]" />
+      <div className={compact ? "relative" : "relative max-w-md"}>
+        <span className="mx-auto grid h-12 w-12 place-items-center border border-[#ff5722]/30 bg-white text-[#ff5722] dark:border-[#e2ff00]/30 dark:bg-black/20 dark:text-[#e2ff00]">
+          <LockKeyhole className="h-5 w-5" />
+        </span>
+        <p className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#b53612] dark:text-[#e2ff00]">
+          <Crown className="h-3.5 w-3.5" /> {plan}
+        </p>
+        <h2 className="mt-1 text-xl font-black uppercase">{title}</h2>
+        <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
+          {description ||
+            "Activa una prueba premium para acceder a esta herramienta."}
+        </p>
+        {onNavigate ? (
+          <Button
+            type="button"
+            className="mt-5 gap-2 text-xs font-black uppercase"
+            onClick={() => onNavigate("planes")}
+          >
+            <Crown className="h-4 w-4" /> Ver mi cuenta
+          </Button>
+        ) : (
+          <p className="mt-4 text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+            Solicita una prueba al administrador
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { API_URL } from "../services/axiosConfig";
 import { useAuth } from "./AuthContext";
+import { useDashboardBootstrap } from "./DashboardBootstrapContext";
 import {
   getExerciseBodyRegion,
   getExerciseCategories,
@@ -104,6 +105,20 @@ const normalizeTraining = (training) => ({
   id: training._id || training.id,
 });
 
+const mergeTrainingDetailWindow = (summaries = [], details = []) => {
+  if (!details.length) return summaries;
+  const detailById = new Map(
+    details.map((training) => [String(training.id || training._id), training]),
+  );
+  const merged = summaries.map((summary) => {
+    const detail = detailById.get(String(summary.id || summary._id));
+    if (!detail) return summary;
+    detailById.delete(String(summary.id || summary._id));
+    return { ...summary, ...detail };
+  });
+  return [...merged, ...detailById.values()];
+};
+
 const localDateString = (date = new Date()) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -118,16 +133,19 @@ const PREFS_KEY = ["preferences"];
 export function TrainingProvider({
   children,
   ownerId = "",
+  enabled = true,
   loadExercises = true,
   loadPhotos = true,
   loadSessions = true,
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const dashboardBootstrap = useDashboardBootstrap();
+  const useBootstrap = enabled && dashboardBootstrap.enabled;
   const requesterId = String(user?.id || user?._id || "anonymous");
   const dataScopeId = String(ownerId || requesterId);
   const trainingsKey = useMemo(
-    () => ["trainings", TRAINING_LIST_CACHE_VERSION, 120, dataScopeId],
+    () => ["trainings", TRAINING_LIST_CACHE_VERSION, 45, dataScopeId],
     [dataScopeId],
   );
   const trainingSummariesKey = useMemo(
@@ -135,18 +153,19 @@ export function TrainingProvider({
     [dataScopeId],
   );
   const exercisesKey = useMemo(
-    () => [...EXERCISES_KEY, dataScopeId],
-    [dataScopeId],
+    () => [
+      ...EXERCISES_KEY,
+      dataScopeId,
+      user?.profile?.language === "en" ? "en" : "es",
+    ],
+    [dataScopeId, user?.profile?.language],
   );
   const photosKey = useMemo(() => ["photos", dataScopeId], [dataScopeId]);
   const sessionsKey = useMemo(
-    () => [...SESSIONS_KEY, requesterId],
-    [requesterId],
+    () => [...SESSIONS_KEY, dataScopeId],
+    [dataScopeId],
   );
-  const prefsKey = useMemo(
-    () => [...PREFS_KEY, requesterId],
-    [requesterId],
-  );
+  const prefsKey = useMemo(() => [...PREFS_KEY, requesterId], [requesterId]);
   const [branch, setBranchState] = useState(DEFAULT_BRANCH);
   const [locationMode, setLocationMode] = useState("single");
   const [allowedBranches, setAllowedBranches] = useState([DEFAULT_BRANCH]);
@@ -155,48 +174,27 @@ export function TrainingProvider({
   const exercisesQuery = useQuery({
     queryKey: exercisesKey,
     queryFn: async () => {
-      const firstPage = await api.getExercises({
+      const list = await api.getVersionedExerciseCatalog({
         fields: EXERCISE_FIELDS,
-        limit: 500,
-        page: 1,
-        meta: true,
         ownerId: ownerId || undefined,
+        language: user?.profile?.language || "es",
       });
-      if (Array.isArray(firstPage)) return firstPage.map(normalizeExercise);
-      const list = [...(firstPage?.items || [])];
-      const totalPages = Math.ceil((firstPage?.total || list.length) / 500);
-      if (totalPages > 1) {
-        const remainingPages = await Promise.all(
-          Array.from({ length: totalPages - 1 }, (_, index) =>
-            api.getExercises({
-              fields: EXERCISE_FIELDS,
-              limit: 500,
-              page: index + 2,
-              meta: true,
-              ownerId: ownerId || undefined,
-            }),
-          ),
-        );
-        remainingPages.forEach((response) => {
-          list.push(...(response?.items || []));
-        });
-      }
       return list.map(normalizeExercise);
     },
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    refetchOnWindowFocus: true,
-    enabled: loadExercises,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    enabled: enabled && loadExercises,
   });
 
   const sessionsQuery = useQuery({
     queryKey: sessionsKey,
     queryFn: async () => {
-      const list = await api.getSessions();
+      const list = await api.getSessions({ athleteId: ownerId, limit: 500 });
       return (list || []).map(normalizeSession);
     },
     staleTime: 2 * 60 * 1000,
-    enabled: loadSessions,
+    enabled: enabled && loadSessions,
   });
 
   const photosQuery = useQuery({
@@ -210,7 +208,7 @@ export function TrainingProvider({
       return (list || []).map(normalizePhoto);
     },
     staleTime: 5 * 60 * 1000,
-    enabled: loadPhotos,
+    enabled: enabled && loadPhotos,
   });
 
   const trainingSummariesQuery = useQuery({
@@ -227,13 +225,14 @@ export function TrainingProvider({
     staleTime: 60 * 1000,
     retry: (failureCount, requestError) =>
       requestError?.status !== 401 && failureCount < 2,
+    enabled: enabled && !useBootstrap,
   });
 
   const trainingsQuery = useQuery({
     queryKey: trainingsKey,
     queryFn: async () => {
       const trResp = await api.getTrainings({
-        limit: 120,
+        limit: 45,
         athleteId: ownerId,
         fields: TRAINING_LIST_FIELDS,
       });
@@ -243,34 +242,42 @@ export function TrainingProvider({
     staleTime: 60 * 1000,
     retry: (failureCount, requestError) =>
       requestError?.status !== 401 && failureCount < 2,
-    enabled: trainingSummariesQuery.isSuccess,
+    enabled: enabled && !useBootstrap && trainingSummariesQuery.isSuccess,
   });
 
   const prefsQuery = useQuery({
     queryKey: prefsKey,
     queryFn: async () => api.getPreference(),
     staleTime: 5 * 60 * 1000,
+    enabled: enabled && !useBootstrap,
   });
 
+  const preferenceData = useBootstrap
+    ? dashboardBootstrap.data?.preference
+    : prefsQuery.data;
+  const preferenceError = useBootstrap
+    ? dashboardBootstrap.error
+    : prefsQuery.error;
+
   useEffect(() => {
-    if (prefsQuery.data) {
-      const nextBranch = normalizeBranch(prefsQuery.data.branch);
-      const nextMode = normalizeLocationMode(prefsQuery.data.locationMode);
+    if (preferenceData) {
+      const nextBranch = normalizeBranch(preferenceData.branch);
+      const nextMode = normalizeLocationMode(preferenceData.locationMode);
       // React Query is the external source; mirror its persisted preferences locally.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBranchState(nextBranch);
       setLocationMode(nextMode);
       setAllowedBranches(
         normalizeAllowedBranches(
-          prefsQuery.data.allowedBranches,
+          preferenceData.allowedBranches,
           nextMode,
           nextBranch,
         ),
       );
     }
-    if (prefsQuery.data?.goals) setGoals(prefsQuery.data.goals);
-    if (prefsQuery.error) setBranchState(DEFAULT_BRANCH);
-  }, [prefsQuery.data, prefsQuery.error]);
+    if (preferenceData?.goals) setGoals(preferenceData.goals);
+    if (preferenceError) setBranchState(DEFAULT_BRANCH);
+  }, [preferenceData, preferenceError]);
 
   const addSession = async (session) => {
     let photoUrl = session.photoUrl || "";
@@ -323,10 +330,7 @@ export function TrainingProvider({
     };
     const saved = await api.createSession(payload);
     const normalized = normalizeSession(saved);
-    queryClient.setQueryData(sessionsKey, (prev = []) => [
-      normalized,
-      ...prev,
-    ]);
+    queryClient.setQueryData(sessionsKey, (prev = []) => [normalized, ...prev]);
   };
 
   const addTraining = async (training) => {
@@ -339,12 +343,10 @@ export function TrainingProvider({
     const saved = await api.createTraining(payload);
     const normalized = normalizeTraining(saved);
     [trainingsKey, trainingSummariesKey].forEach((queryKey) => {
-      queryClient.setQueryData(queryKey, (prev = []) => [
-        normalized,
-        ...prev,
-      ]);
+      queryClient.setQueryData(queryKey, (prev = []) => [normalized, ...prev]);
     });
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
     return normalized;
   };
 
@@ -360,6 +362,7 @@ export function TrainingProvider({
       );
     });
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
     return normalized;
   };
 
@@ -551,20 +554,38 @@ export function TrainingProvider({
   const exercises = exercisesQuery.data || [];
   const sessions = sessionsQuery.data || [];
   const photos = photosQuery.data || [];
-  const trainings =
-    trainingsQuery.data || trainingSummariesQuery.data || [];
+  const trainings = useMemo(
+    () =>
+      mergeTrainingDetailWindow(
+        useBootstrap
+          ? dashboardBootstrap.data?.trainings?.summaries || []
+          : trainingSummariesQuery.data || [],
+        useBootstrap
+          ? dashboardBootstrap.data?.trainings?.details || []
+          : trainingsQuery.data || [],
+      ),
+    [
+      dashboardBootstrap.data?.trainings?.details,
+      dashboardBootstrap.data?.trainings?.summaries,
+      trainingSummariesQuery.data,
+      trainingsQuery.data,
+      useBootstrap,
+    ],
+  );
   const loading =
     (loadExercises && exercisesQuery.isLoading) ||
     (loadSessions && sessionsQuery.isLoading) ||
     (loadPhotos && photosQuery.isLoading) ||
-    trainingSummariesQuery.isLoading ||
-    prefsQuery.isLoading;
+    (useBootstrap
+      ? dashboardBootstrap.isLoading
+      : trainingSummariesQuery.isLoading || prefsQuery.isLoading);
   const error =
     exercisesQuery.error?.message ||
     (loadSessions ? sessionsQuery.error?.message : null) ||
     (loadPhotos ? photosQuery.error?.message : null) ||
-    trainingSummariesQuery.error?.message ||
-    prefsQuery.error?.message ||
+    (useBootstrap
+      ? dashboardBootstrap.error?.message
+      : trainingSummariesQuery.error?.message || prefsQuery.error?.message) ||
     null;
 
   const value = {
@@ -572,25 +593,35 @@ export function TrainingProvider({
     exercises,
     photos,
     trainings,
-    trainingsLoading: trainingSummariesQuery.isLoading,
+    trainingsLoading: useBootstrap
+      ? dashboardBootstrap.isLoading
+      : trainingSummariesQuery.isLoading,
     trainingsFetching:
-      trainingSummariesQuery.isFetching || trainingsQuery.isFetching,
+      (useBootstrap && dashboardBootstrap.isFetching) ||
+      (!useBootstrap &&
+        (trainingSummariesQuery.isFetching || trainingsQuery.isFetching)),
     trainingsError:
-      trainingSummariesQuery.error?.message ||
-      trainingsQuery.error?.message ||
-      null,
+      (useBootstrap
+        ? dashboardBootstrap.error?.message
+        : trainingSummariesQuery.error?.message ||
+          trainingsQuery.error?.message) || null,
     reloadTrainings: () =>
-      Promise.all([
-        trainingSummariesQuery.refetch(),
-        trainingsQuery.refetch(),
-      ]),
+      useBootstrap
+        ? dashboardBootstrap.refetch()
+        : Promise.all([
+            trainingSummariesQuery.refetch(),
+            trainingsQuery.refetch(),
+          ]),
     loading,
     error,
     branch,
     locationMode,
     allowedBranches,
     dataOwnerId: ownerId,
-    preferencesLoading: prefsQuery.isLoading,
+    preferencesLoading: useBootstrap
+      ? dashboardBootstrap.isLoading
+      : prefsQuery.isLoading,
+    dashboardBootstrap: dashboardBootstrap.data,
     goals,
     addSession,
     addTraining,

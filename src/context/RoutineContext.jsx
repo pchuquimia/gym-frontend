@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { api } from "../services/api";
+import { useDashboardBootstrap } from "./DashboardBootstrapContext";
 
 const RoutineContext = createContext(null);
 const DEFAULT_BRANCH = "sopocachi";
@@ -18,15 +19,21 @@ const compactObject = (value) =>
     return result;
   }, {});
 
-export function RoutineProvider({ children, ownerId = "" }) {
+export function RoutineProvider({ children, ownerId = "", enabled = true }) {
+  const dashboardBootstrap = useDashboardBootstrap();
+  const useBootstrap = enabled && dashboardBootstrap.enabled;
   const [routines, setRoutines] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
   const requestInFlightRef = useRef(null);
   const requestVersionRef = useRef(0);
 
   const loadRoutines = useCallback(
     ({ silent = false } = {}) => {
+      if (!enabled || useBootstrap) {
+        setLoading(false);
+        return Promise.resolve(dashboardBootstrap.data?.routines || []);
+      }
       const requestOwnerId = String(ownerId || "");
       if (requestInFlightRef.current?.ownerId === requestOwnerId) {
         return requestInFlightRef.current.promise;
@@ -37,10 +44,12 @@ export function RoutineProvider({ children, ownerId = "" }) {
       const operation = api
         .getRoutines({ athleteId: ownerId })
         .then((data) => {
-          const normalized = (Array.isArray(data) ? data : []).map((routine) => ({
-            ...routine,
-            id: routine._id || routine.id,
-          }));
+          const normalized = (Array.isArray(data) ? data : []).map(
+            (routine) => ({
+              ...routine,
+              id: routine._id || routine.id,
+            }),
+          );
           if (requestVersion === requestVersionRef.current) {
             setRoutines(normalized);
             setError(null);
@@ -62,21 +71,23 @@ export function RoutineProvider({ children, ownerId = "" }) {
           }
         });
 
-      requestInFlightRef.current = { ownerId: requestOwnerId, promise: operation };
+      requestInFlightRef.current = {
+        ownerId: requestOwnerId,
+        promise: operation,
+      };
       return operation;
     },
-    [ownerId],
+    [dashboardBootstrap.data?.routines, enabled, ownerId, useBootstrap],
   );
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(
-      () => loadRoutines(),
-      0,
-    );
+    if (!enabled || useBootstrap) return undefined;
+    const timeoutId = window.setTimeout(() => loadRoutines(), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadRoutines]);
+  }, [enabled, loadRoutines, useBootstrap]);
 
   useEffect(() => {
+    if (!enabled || useBootstrap) return undefined;
     const refresh = () => loadRoutines({ silent: true });
     const handleVisibility = () => {
       if (document.visibilityState === "visible") refresh();
@@ -96,7 +107,7 @@ export function RoutineProvider({ children, ownerId = "" }) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);
     };
-  }, [loadRoutines]);
+  }, [enabled, loadRoutines, useBootstrap]);
 
   const addRoutine = async (routine) => {
     const payload = compactObject({
@@ -181,10 +192,13 @@ export function RoutineProvider({ children, ownerId = "" }) {
     return addRoutine(copy);
   };
 
+  const bootstrapRoutines = (dashboardBootstrap.data?.routines || []).map(
+    (routine) => ({ ...routine, id: routine._id || routine.id }),
+  );
   const value = {
-    routines,
-    loading,
-    error,
+    routines: useBootstrap ? bootstrapRoutines : routines,
+    loading: useBootstrap ? dashboardBootstrap.isLoading : loading,
+    error: useBootstrap ? dashboardBootstrap.error?.message || null : error,
     reloadRoutines: loadRoutines,
     addRoutine,
     updateRoutine,

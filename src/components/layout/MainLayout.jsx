@@ -40,6 +40,7 @@ function MainLayout({
     activePage === "data_intelligence" ||
     activePage === "pesajes";
   const useTrainingChrome = activePage === "registrar";
+  const useOnboardingChrome = activePage === "onboarding";
 
   useLayoutEffect(() => {
     let secondFrame = 0;
@@ -197,18 +198,26 @@ function MainLayout({
           </div>
         </>
       ) : null}
-      <div className="grid grid-cols-[280px_1fr] max-md:grid-cols-1 flex-1">
-        <div className="hidden md:block">
-          <Sidebar activePage={activePage} onNavigate={handleNavigate} />
-        </div>
+      <div
+        className={
+          useOnboardingChrome
+            ? "flex flex-1"
+            : "grid flex-1 grid-cols-[280px_1fr] max-md:grid-cols-1"
+        }
+      >
+        {!useOnboardingChrome ? (
+          <div className="hidden md:block">
+            <Sidebar activePage={activePage} onNavigate={handleNavigate} />
+          </div>
+        ) : null}
         <div
-          className={`px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
+          className={`w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
             useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : "max-md:pb-24"
           }`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
-              useDashboardChrome
+              useDashboardChrome || useOnboardingChrome
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"
@@ -273,9 +282,11 @@ function MainLayout({
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-        <MobileNav activePage={activePage} onNavigate={handleNavigate} />
-      </div>
+      {!useOnboardingChrome ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+          <MobileNav activePage={activePage} onNavigate={handleNavigate} />
+        </div>
+      ) : null}
     </div>
   );
 }

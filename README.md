@@ -30,8 +30,18 @@ The public demo uses a separate frontend deployment. Set `VITE_PUBLIC_DEMO=true`
 - Review athlete summaries, training history, and progress indicators.
 - Create and assign routines, reusable plan templates, and scheduled training plans.
 - Manage plan status, training cycles, rest days, and recovery days.
+- Prioritize the athlete portfolio with adherence and recovery alerts.
+- Generate weekly progress reports and editable assisted plan drafts.
+- Review daily athlete readiness check-ins before prescribing load.
+- Turn training history into an explainable daily load decision and exercise-level progression suggestions.
+- Compare the active week with the same elapsed days of the previous week across sessions, volume, estimated strength, plan adherence, and recovery.
+- Guide every new athlete through a resumable three-step onboarding for goal, experience, weekly frequency, weight, and height before opening the dashboard.
 
 ### Administration
+
+Administrators can review each account's effective plan from the user directory and grant a 14-day Premium trial, activate 30 days manually, or return the account to Free. Premium screens also show an upgrade gate when the authenticated account lacks the required entitlement.
+
+Athletes and coaches have a provider-neutral **Planes y Premium** center where they can compare the plan available for their role, start their one-time 14-day trial, and cancel Premium. Online checkout can be connected later without changing the entitlement model or user-facing flow.
 
 - Manage users and role-based permissions for administrators, coaches, and clients.
 - Curate system and custom exercises with structured classification data.

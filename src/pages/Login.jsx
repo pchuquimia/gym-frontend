@@ -23,12 +23,7 @@ import {
   validateEmail,
   validatePassword,
 } from "../utils/authValidation";
-
-const roleHome = (role) => {
-  if (role === "Admin") return "dashboard";
-  if (role === "Entrenador") return "trainer";
-  return "perfil";
-};
+import { getUserHome } from "../utils/userFlow";
 
 const isDedicatedDemoFrontend = () => {
   if (typeof window === "undefined") return false;
@@ -101,7 +96,7 @@ function LoginForm({ onNavigate }) {
     setError("");
     try {
       const user = await login({ ...form, email: form.email.trim() });
-      onNavigate(roleHome(user?.role));
+      onNavigate(getUserHome(user));
     } catch (err) {
       setError(loginErrorMessage(err));
     } finally {
@@ -592,7 +587,7 @@ function VerifyEmail({ token, onNavigate }) {
     if (started.current || !token) return;
     started.current = true;
     verifyEmail(token)
-      .then((user) => onNavigate(roleHome(user?.role)))
+      .then((user) => onNavigate(getUserHome(user)))
       .catch((requestError) =>
         setError(
           requestError.message || "No pudimos verificar tu correo electrónico.",

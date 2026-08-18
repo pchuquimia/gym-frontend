@@ -95,7 +95,7 @@ export default function Register({ onNavigate = () => {} }) {
       toast.success("Usuario creado", {
         description: "La cuenta está lista para configurar.",
       });
-      onNavigate("perfil");
+      onNavigate("onboarding");
     } catch (error) {
       if (error.status === 409) {
         setErrors((previous) => ({

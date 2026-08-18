@@ -1,7 +1,17 @@
 import { API_URL, axiosClient } from "./axiosConfig";
+import {
+  readCachedSystemCatalog,
+  writeCachedSystemCatalog,
+} from "./exerciseCatalogCache";
 
 const EXERCISE_FIELDS =
   "name,localizedNames,nameEnglish,nameSpanish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,primaryMuscles,secondaryMuscles,stabilizerMuscles,movementPattern,movementPatterns,equipment,loadType,weightConfig,exerciseType,laterality,kineticChain,executionType,stability,position,difficulty,goals,mechanics,force,precautions,description,instructions,commonMistakes,branches,tags,type,ownerId,image,imagePublicId,media,thumb,supportsUnilateral,movementMode,source,classificationStatus,isActive,updatedAt,createdAt";
+
+const localTodayKey = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+};
 
 async function request(path, options = {}) {
   const { method = "GET", body, headers, ...config } = options;
@@ -64,6 +74,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  completeOnboarding: (payload) =>
+    request("/api/auth/onboarding", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   updateSecurity: (payload) =>
     request("/api/auth/security", {
       method: "PATCH",
@@ -83,9 +98,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  updateUserSubscription: (id, payload) =>
+    request(`/api/users/${id}/subscription`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
   getCoachAthletes: () => request("/api/coach/athletes"),
+  getCoachPortfolio: () =>
+    request(`/api/coach/portfolio?today=${localTodayKey()}`),
   getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),
   getCoachLinkCode: () => request("/api/coach/link-code"),
   regenerateCoachLinkCode: () =>
@@ -104,6 +126,29 @@ export const api = {
     }),
   getCoachAthleteOverview: (athleteId) =>
     request(`/api/coach/athletes/${athleteId}/overview`),
+  getCoachWeeklyReport: (athleteId) =>
+    request(
+      `/api/coach/athletes/${athleteId}/weekly-report?today=${localTodayKey()}`,
+    ),
+  generateCoachPlanDraft: (athleteId, frequency) =>
+    request(`/api/coach/athletes/${athleteId}/plan-draft`, {
+      method: "POST",
+      body: JSON.stringify({ frequency, today: localTodayKey() }),
+    }),
+  getCheckIns: (athleteId = "") =>
+    request(`/api/check-ins${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  getLatestCheckIn: (athleteId = "") =>
+    request(
+      `/api/check-ins/latest${athleteId ? `?athleteId=${athleteId}` : ""}`,
+    ),
+  saveCheckIn: (payload) =>
+    request("/api/check-ins", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getBillingSummary: () => request("/api/billing/me"),
+  startBillingTrial: () => request("/api/billing/trial", { method: "POST" }),
+  cancelBilling: () => request("/api/billing/cancel", { method: "POST" }),
   assignCoachRoutine: (athleteId, payload) =>
     request(`/api/coach/athletes/${athleteId}/routines`, {
       method: "POST",
@@ -202,6 +247,46 @@ export const api = {
     }).toString();
     return request(`/api/exercises?${query}`, options);
   },
+  getExerciseCatalogVersion: () => request("/api/exercises/catalog/version"),
+  getSystemExerciseCatalog: (params = {}) => {
+    const query = new URLSearchParams({
+      fields: params.fields ?? EXERCISE_FIELDS,
+      language: params.language ?? "es",
+    });
+    return request(`/api/exercises/catalog/system?${query}`);
+  },
+  getCustomExerciseCatalog: (params = {}) => {
+    const query = new URLSearchParams({
+      fields: params.fields ?? EXERCISE_FIELDS,
+      ownerId: params.ownerId ?? "",
+    });
+    return request(`/api/exercises/catalog/custom?${query}`);
+  },
+  getVersionedExerciseCatalog: async (params = {}) => {
+    const language = params.language === "en" ? "en" : "es";
+    const fields = params.fields ?? EXERCISE_FIELDS;
+    const catalogVersion = await request("/api/exercises/catalog/version");
+    const cacheKey = `v1:${catalogVersion.version}:${language}:${fields}`;
+    let systemCatalog = await readCachedSystemCatalog(cacheKey);
+    if (!systemCatalog?.items) {
+      systemCatalog = await api.getSystemExerciseCatalog({ fields, language });
+      await writeCachedSystemCatalog(cacheKey, systemCatalog);
+    }
+    const customCatalog = await api.getCustomExerciseCatalog({
+      fields,
+      ownerId: params.ownerId,
+    });
+    const merged = new Map(
+      (systemCatalog.items || []).map((exercise) => [
+        String(exercise._id || exercise.id),
+        exercise,
+      ]),
+    );
+    (customCatalog.items || []).forEach((exercise) => {
+      merged.set(String(exercise._id || exercise.id), exercise);
+    });
+    return [...merged.values()];
+  },
   getExerciseFacets: (options = {}) =>
     request("/api/exercises/facets", options),
   getExercise: (id) => request(`/api/exercises/${id}`),
@@ -298,6 +383,12 @@ export const api = {
   getSessions: (params = {}) => {
     const query = new URLSearchParams({
       athleteId: params.athleteId ?? "",
+      from: params.from ?? "",
+      to: params.to ?? "",
+      limit: params.limit ?? 500,
+      fields: params.fields ?? "",
+      meta: params.meta ?? false,
+      cursor: params.cursor ?? "",
     }).toString();
     return request(`/api/sessions?${query}`);
   },
@@ -320,6 +411,7 @@ export const api = {
       excludeProgressScopeId: params.excludeProgressScopeId ?? "",
       athleteId: params.athleteId ?? "",
       meta: params.meta ?? false,
+      cursor: params.cursor ?? "",
     }).toString();
     return request(`/api/trainings?${query}`, { timeout: 45_000 });
   },
@@ -384,10 +476,18 @@ export const api = {
     request(
       `/api/trainings/routine-counts${athleteId ? `?athleteId=${athleteId}` : ""}`,
     ),
-  getTrainingIntelligence: (athleteId = "") =>
-    request(
-      `/api/analytics/intelligence${athleteId ? `?athleteId=${athleteId}` : ""}`,
-    ),
+  getTrainingIntelligence: (athleteId = "") => {
+    const query = new URLSearchParams({ today: localTodayKey() });
+    if (athleteId) query.set("athleteId", athleteId);
+    return request(`/api/analytics/intelligence?${query}`);
+  },
+  getDashboardBootstrap: (params = {}) => {
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+      today: params.today ?? localTodayKey(),
+    });
+    return request(`/api/dashboard/bootstrap?${query}`, { timeout: 45_000 });
+  },
 
   getPhotos: (params = {}) => {
     const options = typeof params === "string" ? { type: params } : params;

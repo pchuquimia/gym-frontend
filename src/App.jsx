@@ -11,12 +11,14 @@ import { useAuth } from "./context/AuthContext";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
 import { UserProvider } from "./context/UserContext";
+import { DashboardBootstrapProvider } from "./context/DashboardBootstrapContext";
 import {
   canAccessActiveTraining,
   clearActiveTrainingSnapshot,
   isActiveTrainingSnapshot,
   readActiveTrainingSnapshot,
 } from "./utils/activeTraining";
+import { getUserHome, needsOnboarding } from "./utils/userFlow";
 
 const ExerciseLibrary = lazy(() => import("./pages/ExerciseLibrary"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -29,15 +31,16 @@ const ExerciseHistoryEditor = lazy(
   () => import("./pages/ExerciseHistoryEditor"),
 );
 const SessionSummaryPage = lazy(() => import("./pages/SessionSummaryPage"));
-const DataIntelligencePage = lazy(
-  () => import("./pages/DataIntelligencePage"),
-);
+const DataIntelligencePage = lazy(() => import("./pages/DataIntelligencePage"));
 const Routines = lazy(() => import("./pages/Routines"));
 const PhotosLibrary = lazy(() => import("./pages/PhotosLibrary"));
 const TrainingAdmin = lazy(() => import("./pages/TrainingAdmin"));
 const CoachDashboard = lazy(() => import("./pages/CoachDashboard"));
 const CoachManagement = lazy(() => import("./pages/CoachManagement"));
 const WeightTracking = lazy(() => import("./pages/WeightTracking"));
+const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
+const BillingCenter = lazy(() => import("./pages/BillingCenter"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
@@ -63,6 +66,9 @@ const PAGES = {
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
   pesajes: { label: "Seguimiento de peso", component: WeightTracking },
+  check_in: { label: "Estado diario", component: DailyCheckIn },
+  planes: { label: "Planes y Premium", component: BillingCenter },
+  onboarding: { label: "Configuracion inicial", component: Onboarding },
 };
 
 const PAGE_ROLES = {
@@ -70,6 +76,7 @@ const PAGE_ROLES = {
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
+  onboarding: ["Cliente"],
 };
 
 const SNAPSHOT_KEY = "active_training_snapshot";
@@ -85,7 +92,10 @@ const COACH_ALLOWED_PAGES = new Set([
   "data_intelligence",
   "admin_sesiones",
   "pesajes",
+  "check_in",
   "perfil",
+  "planes",
+  "onboarding",
 ]);
 const COACH_ATHLETE_CONTEXT_PAGES = new Set([
   "ejercicio_analitica",
@@ -100,12 +110,13 @@ const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "resumen_sesion",
   "rutinas",
   "pesajes",
+  "check_in",
   "admin_sesiones",
   "fotos",
   "perfil",
+  "planes",
 ]);
 const EXERCISE_CONTEXT_PAGES = new Set([
-  "dashboard",
   "registrar",
   "ejercicio_analitica",
   "editor_historial",
@@ -116,6 +127,13 @@ const EXERCISE_CONTEXT_PAGES = new Set([
 ]);
 const SESSION_CONTEXT_PAGES = new Set(["ejercicio_analitica"]);
 const PHOTO_CONTEXT_PAGES = new Set(["perfil"]);
+const AUTH_ONLY_PAGES = new Set([
+  "login",
+  "register",
+  "recover",
+  "reset",
+  "verify",
+]);
 
 const readCoachAthlete = () => {
   if (typeof localStorage === "undefined") return null;
@@ -141,12 +159,6 @@ const authPageFromPath = () => {
   return (
     Object.entries(AUTH_PATHS).find(([, value]) => value === path)?.[0] || null
   );
-};
-
-const roleHome = (role) => {
-  if (role === "Admin") return "dashboard";
-  if (role === "Entrenador") return "trainer";
-  return "perfil";
 };
 
 const hasActiveTrainingSnapshot = () => {
@@ -277,14 +289,14 @@ function App() {
       const authPage = authPageFromPath();
       const storedPage = localStorage.getItem("active_page");
       if (isAuthenticated && authPage === "login") {
-        setActivePage(storedPage || roleHome(user?.role));
+        setActivePage(storedPage || getUserHome(user));
         return;
       }
       setActivePage(authPage || storedPage || "login");
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [isAuthenticated, user?.role]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "Entrenador") return;
@@ -313,14 +325,26 @@ function App() {
   }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    if (needsOnboarding(user) && activePage !== "onboarding") {
+      handleNavigate("onboarding");
+      return;
+    }
+    if (!needsOnboarding(user) && activePage === "onboarding") {
+      handleNavigate(getUserHome(user));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage, isAuthenticated, user?.onboarding?.status, user?.role]);
+
+  useEffect(() => {
     if (
       isAuthenticated &&
       ["login", "register", "recover", "reset", "verify"].includes(activePage)
     ) {
-      handleNavigate(roleHome(user?.role));
+      handleNavigate(getUserHome(user));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.role]);
+  }, [isAuthenticated, user?.onboarding?.status, user?.role]);
 
   const pageEntry = useMemo(
     () => PAGES[activePage] || PAGES.dashboard,
@@ -374,73 +398,93 @@ function App() {
     );
   }
 
+  if (AUTH_ONLY_PAGES.has(activePage)) {
+    return (
+      <OperationLoader
+        active
+        mode="screen"
+        title="Preparando tu espacio"
+      />
+    );
+  }
+
   return (
-    <TrainingProvider
-      key={providerScopeKey}
+    <DashboardBootstrapProvider
+      enabled={activePage === "dashboard"}
       ownerId={supervisedOwnerId}
-      loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
-      loadPhotos={PHOTO_CONTEXT_PAGES.has(activePage)}
-      loadSessions={SESSION_CONTEXT_PAGES.has(activePage)}
     >
-      <RoutineProvider key={providerScopeKey} ownerId={supervisedOwnerId}>
-        <UserProvider>
-          <MainLayout
-            activePage={activePage}
-            onNavigate={handleNavigate}
-            coachAthlete={supervisedOwnerId ? coachAthlete : null}
-            onCoachContextExit={() => {
-              if (hasAccessibleTrainingSnapshot(user, coachAthlete)) {
-                handleNavigate("trainer");
-                return;
-              }
-              selectCoachAthlete(null);
-              handleNavigate("trainer");
-            }}
-          >
-            <motion.div
-              key={activePage}
-              data-page-view={activePage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{
-                duration: reduceMotion ? 0 : 0.16,
-                ease: [0.2, 0.8, 0.2, 1],
-              }}
-              className="h-full"
-            >
-              <PageErrorBoundary
-                resetKey={activePage}
-                onGoHome={() =>
-                  handleNavigate(
-                    user?.role === "Entrenador" ? "trainer" : "dashboard",
-                  )
+      <TrainingProvider
+        key={providerScopeKey}
+        ownerId={supervisedOwnerId}
+        enabled={activePage !== "onboarding"}
+        loadExercises={EXERCISE_CONTEXT_PAGES.has(activePage)}
+        loadPhotos={PHOTO_CONTEXT_PAGES.has(activePage)}
+        loadSessions={SESSION_CONTEXT_PAGES.has(activePage)}
+      >
+        <RoutineProvider
+          key={providerScopeKey}
+          ownerId={supervisedOwnerId}
+          enabled={activePage !== "onboarding"}
+        >
+          <UserProvider enabled={activePage !== "onboarding"}>
+            <MainLayout
+              activePage={activePage}
+              onNavigate={handleNavigate}
+              coachAthlete={supervisedOwnerId ? coachAthlete : null}
+              onCoachContextExit={() => {
+                if (hasAccessibleTrainingSnapshot(user, coachAthlete)) {
+                  handleNavigate("trainer");
+                  return;
                 }
+                selectCoachAthlete(null);
+                handleNavigate("trainer");
+              }}
+            >
+              <motion.div
+                key={activePage}
+                data-page-view={activePage}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.16,
+                  ease: [0.2, 0.8, 0.2, 1],
+                }}
+                className="h-full"
               >
-                <Suspense
-                  fallback={
-                    <OperationLoader
-                      active
-                      delayMs={120}
-                      mode="inline"
-                      title={`Abriendo ${pageEntry.label}`}
-                    />
+                <PageErrorBoundary
+                  resetKey={activePage}
+                  onGoHome={() =>
+                    handleNavigate(
+                      user?.role === "Entrenador" ? "trainer" : "dashboard",
+                    )
                   }
                 >
-                  <RoleBasedRoute roles={allowedRoles}>
-                    <PageComponent
-                      pageKey={pageEntry.label}
-                      onNavigate={handleNavigate}
-                      coachAthlete={coachAthlete}
-                      onSelectCoachAthlete={selectCoachAthlete}
-                    />
-                  </RoleBasedRoute>
-                </Suspense>
-              </PageErrorBoundary>
-            </motion.div>
-          </MainLayout>
-        </UserProvider>
-      </RoutineProvider>
-    </TrainingProvider>
+                  <Suspense
+                    fallback={
+                      <OperationLoader
+                        active
+                        delayMs={120}
+                        mode="inline"
+                        title={`Abriendo ${pageEntry.label}`}
+                      />
+                    }
+                  >
+                    <RoleBasedRoute roles={allowedRoles}>
+                      <PageComponent
+                        pageKey={pageEntry.label}
+                        onNavigate={handleNavigate}
+                        coachAthlete={coachAthlete}
+                        onSelectCoachAthlete={selectCoachAthlete}
+                      />
+                    </RoleBasedRoute>
+                  </Suspense>
+                </PageErrorBoundary>
+              </motion.div>
+            </MainLayout>
+          </UserProvider>
+        </RoutineProvider>
+      </TrainingProvider>
+    </DashboardBootstrapProvider>
   );
 }
 

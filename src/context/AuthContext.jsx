@@ -56,6 +56,7 @@ const USER_STORAGE_KEYS = [
   "last_exercise_id",
   "coach_athlete_context",
   "training_plan_routine_intent",
+  "apex_onboarding_draft",
 ];
 
 const clearUserScopedStorage = () => {
@@ -348,6 +349,16 @@ export function AuthProvider({ children }) {
     [commitUser],
   );
 
+  const completeOnboarding = useCallback(
+    async (payload) => {
+      const data = await api.completeOnboarding(payload);
+      const nextUser = normalizeUser(data);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
+
   const logout = useCallback(async () => {
     const userId = userRef.current?.id || userRef.current?._id;
     preserveActiveTraining(userId);
@@ -375,6 +386,7 @@ export function AuthProvider({ children }) {
       register,
       verifyEmail,
       updateAccount,
+      completeOnboarding,
       logout,
       refreshUser,
       developmentAdminMode,
@@ -388,6 +400,7 @@ export function AuthProvider({ children }) {
       register,
       verifyEmail,
       updateAccount,
+      completeOnboarding,
       logout,
       refreshUser,
       developmentAdminMode,

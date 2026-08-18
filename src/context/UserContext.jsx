@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { api } from "../services/api";
+import { useDashboardBootstrap } from "./DashboardBootstrapContext";
 
 /* eslint-disable react-refresh/only-export-components */
 
@@ -43,15 +44,18 @@ const mergeProfile = (profile = {}) => ({
   },
 });
 
-export function UserProvider({ children }) {
+export function UserProvider({ children, enabled = true }) {
+  const dashboardBootstrap = useDashboardBootstrap();
+  const useBootstrap = enabled && dashboardBootstrap.enabled;
   const [profile, setProfile] = useState(null);
   const [security, setSecurity] = useState(defaultSecurity);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
   const [capabilities, setCapabilities] = useState({ emailChange: false });
 
   const refreshProfile = useCallback(async () => {
     try {
+      setLoading(true);
       setError("");
       const data = await api.getProfile();
       setProfile(mergeProfile(data.profile));
@@ -65,8 +69,9 @@ export function UserProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!enabled || useBootstrap) return;
     refreshProfile();
-  }, [refreshProfile]);
+  }, [enabled, refreshProfile, useBootstrap]);
 
   const updateProfile = useCallback(
     async (payload) => {
@@ -102,26 +107,42 @@ export function UserProvider({ children }) {
     [security],
   );
 
+  const bootstrapProfile = dashboardBootstrap.data?.profile;
+  const effectiveUserState = useMemo(
+    () => ({
+      profile: useBootstrap ? mergeProfile(bootstrapProfile?.profile) : profile,
+      security: useBootstrap
+        ? { ...defaultSecurity, ...(bootstrapProfile?.security || {}) }
+        : security,
+      capabilities: useBootstrap
+        ? {
+            emailChange: Boolean(bootstrapProfile?.capabilities?.emailChange),
+          }
+        : capabilities,
+    }),
+    [bootstrapProfile, capabilities, profile, security, useBootstrap],
+  );
   const value = useMemo(
     () => ({
-      profile,
-      security,
-      loading,
-      error,
-      capabilities,
+      profile: effectiveUserState.profile,
+      security: effectiveUserState.security,
+      loading: useBootstrap ? dashboardBootstrap.isLoading : loading,
+      error: useBootstrap ? dashboardBootstrap.error?.message || "" : error,
+      capabilities: effectiveUserState.capabilities,
       updateProfile,
       updateSecurity,
       refreshProfile,
     }),
     [
-      profile,
-      security,
+      dashboardBootstrap.error?.message,
+      dashboardBootstrap.isLoading,
+      effectiveUserState,
       loading,
       error,
-      capabilities,
       updateProfile,
       updateSecurity,
       refreshProfile,
+      useBootstrap,
     ],
   );
 

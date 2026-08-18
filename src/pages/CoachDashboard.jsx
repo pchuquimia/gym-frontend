@@ -1,27 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  AlertTriangle,
   BarChart3,
   CalendarPlus,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Copy,
+  FileText,
   Link2,
   PauseCircle,
   Pencil,
   Play,
   MoreVertical,
   Search,
+  Sparkles,
+  Target,
   Trash2,
   UserMinus,
-  UserRound,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import Badge from "../components/ui/badge";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
+import PremiumGate from "../components/shared/PremiumGate";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import { SessionHistory } from "./TrainingAdmin";
 import { useAuth } from "../context/AuthContext";
@@ -31,6 +35,7 @@ import {
   canAccessActiveTraining,
   readActiveTrainingSnapshot,
 } from "../utils/activeTraining";
+import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 
 const formatDate = (value) => {
   if (!value) return "Sin entrenamientos";
@@ -125,8 +130,21 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
         {initials(athlete.name)}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-[color:var(--text)]">
-          {athlete.name}
+        <span className="flex items-center gap-2">
+          <span className="block min-w-0 flex-1 truncate text-sm font-black text-[color:var(--text)]">
+            {athlete.name}
+          </span>
+          {athlete.priority === "high" ? (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-red-500"
+              title="Requiere atencion"
+            />
+          ) : athlete.priority === "medium" ? (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+              title="Revisar seguimiento"
+            />
+          ) : null}
         </span>
         <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
           {athlete.trainingCount
@@ -139,12 +157,228 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
   );
 }
 
+function PortfolioOverview({ portfolio, onSelectAthlete }) {
+  const summary = portfolio?.summary || {};
+  const alerts = portfolio?.alerts || [];
+  const metrics = [
+    ["Atletas", summary.athletes || 0, Users],
+    ["Requieren atencion", summary.attention || 0, AlertTriangle],
+    ["Sesiones esta semana", summary.sessionsThisWeek || 0, BarChart3],
+    ["Adherencia global", `${summary.adherence || 0}%`, Target],
+  ];
+  return (
+    <section className="min-w-0 space-y-5">
+      <div>
+        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          Coach Pro
+        </p>
+        <h2 className="mt-1 text-2xl font-black uppercase">
+          Centro de control
+        </h2>
+        <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+          Prioridades calculadas con actividad, planificacion y recuperacion
+          reciente.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        {metrics.map(([label, value, Icon]) => (
+          <article
+            key={label}
+            className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+          >
+            <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+            <p className="mt-4 text-2xl font-black">{value}</p>
+            <p className="mt-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              {label}
+            </p>
+          </article>
+        ))}
+      </div>
+      <section>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-black uppercase">Alertas prioritarias</h3>
+          <span className="text-xs font-black text-[color:var(--text-muted)]">
+            {alerts.length}
+          </span>
+        </div>
+        <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+          {alerts.length ? (
+            alerts.slice(0, 8).map((alert, index) => (
+              <button
+                key={`${alert.athleteId}-${alert.code}-${index}`}
+                type="button"
+                onClick={() => onSelectAthlete(alert.athleteId)}
+                className="grid min-h-16 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-2 py-3 text-left hover:bg-[color:var(--card)] sm:px-3"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${alert.severity === "high" ? "bg-red-500" : "bg-amber-400"}`}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black">
+                    {alert.athleteName}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                    {alert.title}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
+              </button>
+            ))
+          ) : (
+            <div className="py-10 text-center">
+              <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500" />
+              <p className="mt-2 text-sm font-black">Todo bajo control</p>
+              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                No hay alertas que requieran intervencion.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function WeeklyReportPanel({
+  report,
+  loading,
+  onRefresh,
+  onCopy,
+  onGenerateDraft,
+  draftLoading,
+}) {
+  if (loading)
+    return (
+      <OperationLoader
+        active
+        delayMs={0}
+        mode="inline"
+        title="Generando informe"
+        description="Comparando adherencia, carga y recuperacion."
+      />
+    );
+  if (!report)
+    return (
+      <section className="border-y border-[color:var(--border)] py-10 text-center">
+        <FileText className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
+        <p className="mt-3 text-sm font-black">Informe aun no generado</p>
+        <Button onClick={onRefresh} className="mt-4">
+          Generar informe
+        </Button>
+      </section>
+    );
+  const metrics = [
+    [
+      "Adherencia",
+      `${report.adherence.percentage}%`,
+      `${report.adherence.completed}/${report.adherence.target} sesiones`,
+    ],
+    [
+      "Volumen",
+      `${Math.round(report.current.volume).toLocaleString("es-BO")} kg`,
+      `${report.comparison.volumePercent >= 0 ? "+" : ""}${report.comparison.volumePercent}% vs anterior`,
+    ],
+    [
+      "Series",
+      report.current.sets,
+      `${report.comparison.setsPercent >= 0 ? "+" : ""}${report.comparison.setsPercent}% vs anterior`,
+    ],
+    [
+      "Recuperacion",
+      report.readiness?.score ?? "--",
+      report.readiness ? "ultimo check-in" : "sin check-in",
+    ],
+  ];
+  return (
+    <section className="mt-5 space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            Informe semanal
+          </p>
+          <h3 className="mt-1 text-xl font-black uppercase">
+            {report.period.from} al {report.period.to}
+          </h3>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onCopy}>
+            <Copy className="mr-2 h-3.5 w-3.5" />
+            Copiar
+          </Button>
+          <Button variant="outline" size="sm" onClick={onRefresh}>
+            Actualizar
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {metrics.map(([label, value, detail]) => (
+          <article
+            key={label}
+            className="border border-[color:var(--border)] bg-[color:var(--card)] p-3"
+          >
+            <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              {label}
+            </p>
+            <p className="mt-2 text-xl font-black">{value}</p>
+            <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+              {detail}
+            </p>
+          </article>
+        ))}
+      </div>
+      <article className="border-l-4 border-[#ff5722] bg-[#fff7f4] p-4 dark:border-[#e2ff00] dark:bg-[#e2ff00]/[0.06]">
+        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+          Recomendacion
+        </p>
+        <p className="mt-2 text-sm font-bold">{report.recommendation}</p>
+      </article>
+      {report.alerts.length ? (
+        <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+          {report.alerts.map((alert) => (
+            <div key={alert.code} className="flex gap-3 py-3">
+              <AlertTriangle
+                className={`mt-0.5 h-4 w-4 shrink-0 ${alert.severity === "high" ? "text-red-500" : "text-amber-500"}`}
+              />
+              <div>
+                <p className="text-sm font-black">{alert.title}</p>
+                <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                  {alert.detail}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <Button
+        onClick={onGenerateDraft}
+        disabled={draftLoading}
+        className="h-12 w-full gap-2 text-xs font-black uppercase sm:w-auto"
+      >
+        <Sparkles className="h-4 w-4" />
+        {draftLoading ? "Preparando borrador..." : "Crear borrador asistido"}
+      </Button>
+    </section>
+  );
+}
+
 export default function CoachDashboard({
   onNavigate = () => {},
   onSelectCoachAthlete = () => {},
   coachAthlete = null,
 }) {
   const { user } = useAuth();
+  const canUsePortfolio = hasPremiumFeature(
+    user,
+    PREMIUM_FEATURES.COACH_PORTFOLIO,
+  );
+  const canUseReports = hasPremiumFeature(
+    user,
+    PREMIUM_FEATURES.WEEKLY_REPORTS,
+  );
+  const canUseAssistedPlans = hasPremiumFeature(
+    user,
+    PREMIUM_FEATURES.ASSISTED_PLANS,
+  );
   const { routines: availableRoutines } = useRoutines();
   const [planCatalog, setPlanCatalog] = useState({ plans: [], routines: [] });
   const templates = useMemo(() => {
@@ -173,6 +407,7 @@ export default function CoachDashboard({
     ];
   }, [availableRoutines, planCatalog.routines, user]);
   const [athletes, setAthletes] = useState([]);
+  const [portfolio, setPortfolio] = useState(null);
   const activeSession = useMemo(() => {
     const snapshot = readActiveTrainingSnapshot();
     return canAccessActiveTraining(snapshot, user, coachAthlete)
@@ -195,17 +430,31 @@ export default function CoachDashboard({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
   const [linkCodeLoading, setLinkCodeLoading] = useState(true);
+  const [weeklyReport, setWeeklyReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [planDraft, setPlanDraft] = useState(null);
 
-  const loadAthletes = useCallback(async ({ silent = false } = {}) => {
-    try {
-      if (!silent) setLoading(true);
-      setAthletes(await api.getCoachAthletes());
-    } catch (err) {
-      toast.error(err.message || "No se pudieron cargar los atletas");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
+  const loadAthletes = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (!silent) setLoading(true);
+        if (canUsePortfolio) {
+          const data = await api.getCoachPortfolio();
+          setPortfolio(data);
+          setAthletes(Array.isArray(data?.athletes) ? data.athletes : []);
+        } else {
+          setPortfolio(null);
+          setAthletes(await api.getCoachAthletes());
+        }
+      } catch (err) {
+        toast.error(err.message || "No se pudieron cargar los atletas");
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [canUsePortfolio],
+  );
 
   useEffect(() => {
     loadAthletes();
@@ -222,9 +471,7 @@ export default function CoachDashboard({
         .then((catalog) =>
           setPlanCatalog({
             plans: Array.isArray(catalog?.plans) ? catalog.plans : [],
-            routines: Array.isArray(catalog?.routines)
-              ? catalog.routines
-              : [],
+            routines: Array.isArray(catalog?.routines) ? catalog.routines : [],
           }),
         )
         .catch((err) =>
@@ -310,10 +557,12 @@ export default function CoachDashboard({
     if (!selectedId) {
       setOverview(null);
       setSelectedPlanId("");
+      setWeeklyReport(null);
       return;
     }
     setAthleteView("plan");
     setSelectedPlanId("");
+    setWeeklyReport(null);
     let active = true;
     setLoadingOverview(true);
     api
@@ -332,6 +581,29 @@ export default function CoachDashboard({
       active = false;
     };
   }, [loadAthletes, onSelectCoachAthlete, selectedId]);
+
+  useEffect(() => {
+    if (
+      !canUseReports ||
+      athleteView !== "insights" ||
+      !selectedId ||
+      weeklyReport
+    )
+      return;
+    let active = true;
+    setReportLoading(true);
+    api
+      .getCoachWeeklyReport(selectedId)
+      .then((data) => active && setWeeklyReport(data))
+      .catch(
+        (err) =>
+          active && toast.error(err.message || "No se pudo generar el informe"),
+      )
+      .finally(() => active && setReportLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [athleteView, canUseReports, selectedId, weeklyReport]);
 
   const filteredAthletes = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -422,6 +694,7 @@ export default function CoachDashboard({
       await loadAthletes({ silent: true });
       setCreatingPlan(false);
       setEditingPlan(null);
+      setPlanDraft(null);
       toast.success(editingPlan ? "Plan actualizado" : "Planificacion creada", {
         description: editingPlan
           ? `${payload.name} fue actualizado para ${selectedAthlete?.name}.`
@@ -534,6 +807,58 @@ export default function CoachDashboard({
     onNavigate("registrar");
   };
 
+  const refreshWeeklyReport = async () => {
+    if (!selectedId) return;
+    try {
+      setReportLoading(true);
+      setWeeklyReport(await api.getCoachWeeklyReport(selectedId));
+    } catch (err) {
+      toast.error(err.message || "No se pudo generar el informe");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const copyWeeklyReport = async () => {
+    if (!weeklyReport) return;
+    const text = [
+      `Informe semanal - ${weeklyReport.athlete.name}`,
+      `${weeklyReport.period.from} al ${weeklyReport.period.to}`,
+      `Adherencia: ${weeklyReport.adherence.percentage}% (${weeklyReport.adherence.completed}/${weeklyReport.adherence.target})`,
+      `Volumen: ${Math.round(weeklyReport.current.volume).toLocaleString("es-BO")} kg (${weeklyReport.comparison.volumePercent >= 0 ? "+" : ""}${weeklyReport.comparison.volumePercent}%)`,
+      `Series: ${weeklyReport.current.sets}`,
+      `Recomendacion: ${weeklyReport.recommendation}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Informe copiado");
+    } catch {
+      toast.error("No se pudo copiar el informe");
+    }
+  };
+
+  const generatePlanDraft = async () => {
+    if (!canUseAssistedPlans || !selectedId || draftLoading) return;
+    try {
+      setDraftLoading(true);
+      const result = await api.generateCoachPlanDraft(
+        selectedId,
+        activeTrainingPlan?.frequencyTarget || 3,
+      );
+      setPlanDraft(result);
+      setCreatingPlan(true);
+      toast.success("Borrador preparado", {
+        description:
+          result.rationale?.[0] ||
+          "Revisa y ajusta la propuesta antes de guardarla.",
+      });
+    } catch (err) {
+      toast.error(err.message || "No se pudo preparar el borrador");
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
   return (
     <main className="dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
       <header className="flex items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4">
@@ -600,7 +925,13 @@ export default function CoachDashboard({
 
       {loading ? (
         <div className="min-h-72 border-y border-[color:var(--border)]">
-          <OperationLoader active delayMs={0} mode="inline" title="Cargando atletas" description="Sincronizando atletas vinculados y asignaciones." />
+          <OperationLoader
+            active
+            delayMs={0}
+            mode="inline"
+            title="Cargando atletas"
+            description="Sincronizando atletas vinculados y asignaciones."
+          />
         </div>
       ) : !athletes.length ? (
         <section className="grid min-h-96 place-items-center text-center">
@@ -674,20 +1005,28 @@ export default function CoachDashboard({
           </aside>
 
           {!selectedId ? (
-            <section className="grid min-h-96 place-items-center border-y border-[color:var(--border)] text-center lg:border-y-0">
-              <div className="max-w-xs py-16">
-                <UserRound className="mx-auto h-10 w-10 text-[color:var(--text-muted)]" />
-                <h2 className="mt-4 text-lg font-black">
-                  Selecciona un atleta
-                </h2>
-                <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-                  Su planificación y progreso aparecerán aquí.
-                </p>
-              </div>
-            </section>
+            canUsePortfolio ? (
+              <PortfolioOverview
+                portfolio={portfolio}
+                onSelectAthlete={setSelectedId}
+              />
+            ) : (
+              <PremiumGate
+                plan="Coach Pro"
+                title="Centro de control premium"
+                description="Prioriza atletas, revisa adherencia y recibe alertas automaticas desde una sola vista."
+                onNavigate={onNavigate}
+              />
+            )
           ) : loadingOverview || !overview ? (
             <div className="min-h-96 border-y border-[color:var(--border)]">
-              <OperationLoader active delayMs={0} mode="inline" title="Cargando progreso" description="Consultando planificacion, actividad y metricas del atleta." />
+              <OperationLoader
+                active
+                delayMs={0}
+                mode="inline"
+                title="Cargando progreso"
+                description="Consultando planificacion, actividad y metricas del atleta."
+              />
             </div>
           ) : (
             <section className="min-w-0">
@@ -784,13 +1123,14 @@ export default function CoachDashboard({
               </div>
 
               <div
-                className="mt-4 grid grid-cols-2 border-b border-[color:var(--border)]"
+                className="mt-4 grid grid-cols-3 border-b border-[color:var(--border)]"
                 role="tablist"
                 aria-label="Informacion del atleta"
               >
                 {[
                   { id: "plan", label: "Planificación", icon: CalendarDays },
                   { id: "activity", label: "Actividad", icon: BarChart3 },
+                  { id: "insights", label: "Seguimiento", icon: FileText },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
@@ -824,11 +1164,14 @@ export default function CoachDashboard({
                       <h3 className="mt-1 truncate text-xl font-black">
                         {selectedPlanId ? activePlan?.name : "Planificaciones"}
                       </h3>
-                  {!selectedPlanId && orderedPlans.length ? (
-                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                      {orderedPlans.length} {orderedPlans.length === 1 ? "planificación" : "planificaciones"}
-                    </p>
-                  ) : null}
+                      {!selectedPlanId && orderedPlans.length ? (
+                        <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                          {orderedPlans.length}{" "}
+                          {orderedPlans.length === 1
+                            ? "planificación"
+                            : "planificaciones"}
+                        </p>
+                      ) : null}
                     </div>
                     {selectedPlanId ? (
                       <button
@@ -872,7 +1215,9 @@ export default function CoachDashboard({
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <Badge variant={isCurrent ? "active" : plan.status}>
+                              <Badge
+                                variant={isCurrent ? "active" : plan.status}
+                              >
                                 {PLAN_STATUS_LABELS[plan.status] || plan.status}
                               </Badge>
                               <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
@@ -1142,9 +1487,7 @@ export default function CoachDashboard({
                               </p>
                             </div>
                             {day.type === "training" && !day.routineId ? (
-                              <Badge variant="pending">
-                                Pendiente
-                              </Badge>
+                              <Badge variant="pending">Pendiente</Badge>
                             ) : null}
                           </article>
                         ))}
@@ -1190,23 +1533,43 @@ export default function CoachDashboard({
                     />
                   </>
                 ) : null}
+                {athleteView === "insights" ? (
+                  canUseReports ? (
+                    <WeeklyReportPanel
+                      report={weeklyReport}
+                      loading={reportLoading}
+                      onRefresh={refreshWeeklyReport}
+                      onCopy={copyWeeklyReport}
+                      onGenerateDraft={generatePlanDraft}
+                      draftLoading={draftLoading}
+                    />
+                  ) : (
+                    <PremiumGate
+                      plan="Coach Pro"
+                      title="Informes y planificacion asistida"
+                      description="Compara semanas, detecta riesgos y prepara borradores editables para cada atleta."
+                      onNavigate={onNavigate}
+                    />
+                  )
+                ) : null}
               </div>
             </section>
           )}
         </div>
       )}
 
-      {(creatingPlan || editingPlan) && selectedAthlete ? (
+      {(creatingPlan || editingPlan || planDraft) && selectedAthlete ? (
         <CoachPlanModal
           athlete={selectedAthlete}
           templates={templates}
           planTemplates={planCatalog.plans}
-          initialData={editingPlan}
+          initialData={editingPlan || planDraft?.plan}
           replacingPlan={editingPlan ? null : activePlan}
           onSave={savePlan}
           onClose={() => {
             setCreatingPlan(false);
             setEditingPlan(null);
+            setPlanDraft(null);
           }}
         />
       ) : null}

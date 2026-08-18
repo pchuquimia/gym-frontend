@@ -65,6 +65,11 @@ export const axiosClient = axios.create({
 });
 
 axiosClient.interceptors.request.use((config) => {
+  config.metadata = {
+    ...(config.metadata || {}),
+    startedAt:
+      typeof performance !== "undefined" ? performance.now() : Date.now(),
+  };
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -72,9 +77,31 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+const reportRequestTiming = (response, error = null) => {
+  const startedAt = response?.config?.metadata?.startedAt;
+  if (!startedAt) return;
+  const clock =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+  const durationMs = Math.round(clock - startedAt);
+  response.config.metadata.durationMs = durationMs;
+
+  if (import.meta.env.DEV && durationMs >= 1200) {
+    const method = String(response.config.method || "get").toUpperCase();
+    const serverTiming = response.headers?.["server-timing"] || "sin desglose";
+    console.warn(
+      `[api-lenta] ${method} ${response.config.url} ${durationMs}ms (${serverTiming})`,
+      error || "",
+    );
+  }
+};
+
 axiosClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    reportRequestTiming(response);
+    return response;
+  },
   (error) => {
+    if (error.response) reportRequestTiming(error.response, error);
     const responseData = error.response?.data;
     const message =
       responseData?.error ||
