@@ -244,6 +244,7 @@ export const api = {
       goal: params.goal ?? "",
       ownerId: params.ownerId ?? "",
       type: params.type ?? "",
+      sort: params.sort ?? "",
     }).toString();
     return request(`/api/exercises?${query}`, options);
   },
@@ -310,12 +311,36 @@ export const api = {
     }),
   deleteLegacyExercise: (id) =>
     request(`/api/exercises/admin/legacy/${id}`, { method: "DELETE" }),
-  getExerciseAiImageStatus: () =>
-    request("/api/exercises/admin/ai-image/status"),
-  generateExerciseAiImage: (id, prompt) =>
-    request(`/api/exercises/admin/${id}/ai-image`, {
+  getCodexImageRequests: (exerciseId, limit = 1) => {
+    const query = new URLSearchParams({ exerciseId, limit }).toString();
+    return request(`/api/exercises/admin/codex-image-requests?${query}`);
+  },
+  getCodexImageReviewQueue: (limit = 20) =>
+    request(
+      `/api/exercises/admin/codex-image-review-queue?${new URLSearchParams({ limit })}`,
+    ),
+  reviewCodexImageRequest: (requestId, decision, reason = "") =>
+    request(`/api/exercises/admin/codex-image-requests/${requestId}/review`, {
       method: "POST",
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ decision, reason }),
+    }),
+  enqueueCodexExerciseImages: (limit) =>
+    request("/api/exercises/admin/codex-image-requests/auto-enqueue", {
+      method: "POST",
+      body: JSON.stringify(limit ? { limit } : {}),
+    }),
+  createCodexImageRequest: (id, instruction) =>
+    request(`/api/exercises/admin/${id}/codex-image-requests`, {
+      method: "POST",
+      body: JSON.stringify({ instruction }),
+    }),
+  discardCodexImageRequest: (requestId) =>
+    request(`/api/exercises/admin/codex-image-requests/${requestId}`, {
+      method: "DELETE",
+    }),
+  applyCodexImageRequest: (requestId) =>
+    request(`/api/exercises/admin/codex-image-requests/${requestId}/apply`, {
+      method: "POST",
     }),
   replaceExerciseImage: async (id, file) => {
     const formData = new FormData();

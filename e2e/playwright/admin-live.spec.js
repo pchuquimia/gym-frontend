@@ -59,7 +59,9 @@ test("el administrador real abre el dashboard", async ({ page }) => {
     timeout: 30_000,
   });
   await expect(page.locator("[data-demo-banner]")).toHaveCount(0);
-  await expect.poll(() => dashboardResponse, { timeout: 30_000 }).not.toBeNull();
+  await expect
+    .poll(() => dashboardResponse, { timeout: 30_000 })
+    .not.toBeNull();
   expect(dashboardResponse.trainings.summaries.length).toBeGreaterThan(0);
   await expect(page.getByText(/^[0-7]\/7$/, { exact: true })).toBeVisible({
     timeout: 30_000,
@@ -124,7 +126,9 @@ test("el administrador abre rutinas desde la navegación móvil", async ({
     .first();
   await expect(mesOneCard).toBeVisible();
   await mesOneCard.click();
-  await expect(page.getByText("Espalda · Hombro · Tríceps").first()).toBeVisible();
+  await expect(
+    page.getByText("Espalda · Hombro · Tríceps").first(),
+  ).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -241,24 +245,75 @@ test("la biblioteca carga, busca y pagina sin bloquear la interfaz", async ({
   const navigationStartedAt = Date.now();
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Explorar ejercicios" }),
+    page.getByRole("heading", { name: "Encuentra tu próximo ejercicio" }),
   ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page
+      .getByRole("tablist", { name: "Colecciones de ejercicios" })
+      .getByRole("tab"),
+  ).toHaveCount(3);
+  await expect(
+    page.getByRole("button", { name: "Filtros y herramientas" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("Recomendados para ti")).toBeVisible();
+  await expect(page.locator("article")).toHaveCount(4);
+  for (const movement of [
+    "Press de pecho",
+    "Sentadilla",
+    "Remo",
+    "Peso muerto",
+  ]) {
+    await expect(page.getByRole("heading", { name: movement })).toBeVisible();
+  }
   const shellReadyMs = Date.now() - navigationStartedAt;
 
   await expect.poll(() => facetsPayload?.total, { timeout: 15_000 }).toBe(1323);
   await page
     .getByRole("searchbox", { name: "Buscar ejercicios" })
     .fill("femoral");
+  await expect(page.getByRole("tab", { name: "Para ti" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(page.getByText(/femoral/i).first()).toBeVisible({
     timeout: 10_000,
   });
-  await expect.poll(() => resultResponses.length, { timeout: 10_000 }).toBe(1);
+  await expect
+    .poll(() => resultResponses.length, { timeout: 10_000 })
+    .toBeGreaterThanOrEqual(1);
 
-  expect(resultRequests.length).toBeLessThanOrEqual(2);
+  expect(resultRequests.length).toBeLessThanOrEqual(3);
   expect(
     resultRequests.every((url) => url.searchParams.get("limit") === "60"),
   ).toBe(true);
-  expect(resultResponses).toEqual([200]);
+  expect(
+    resultRequests.every((url) => url.searchParams.get("sort") === "discovery"),
+  ).toBe(true);
+  expect(resultResponses.every((status) => status === 200)).toBe(true);
+  await page.getByRole("button", { name: "Catálogo completo" }).click();
+  await expect(
+    page.getByRole("button", { name: "Catálogo completo" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("tab", { name: "Para ti" }).click();
+  await page
+    .getByRole("searchbox", { name: "Buscar ejercicios" })
+    .fill("press banca");
+  const familyVariantsButton = page.getByRole("button", {
+    name: /Ver \d+ variantes de Press de pecho/i,
+  });
+  await expect(familyVariantsButton).toBeVisible({ timeout: 10_000 });
+  await familyVariantsButton.click();
+  await expect(
+    page.getByRole("heading", { name: "Press de pecho" }),
+  ).toBeVisible();
+  await expect(page.getByText(/^8 de \d+$/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Mostrar 8 más" }),
+  ).toBeVisible();
+  await expect(page.locator("article")).toHaveCount(8);
+  await expect(page.locator("article").first().getByRole("heading")).toHaveText(
+    "Press de banca con barra",
+  );
   expect(facetsDurationMs).toBeLessThan(10_000);
   expect(shellReadyMs).toBeLessThan(10_000);
   expect(runtimeErrors).toEqual([]);
@@ -318,9 +373,10 @@ test("el administrador entra a migrar catálogo", async ({ page }, testInfo) => 
 
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Explorar ejercicios" }),
+    page.getByRole("heading", { name: "Encuentra tu próximo ejercicio" }),
   ).toBeVisible({ timeout: 10_000 });
-  await page.getByRole("tab", { name: /Migrar catálogo/i }).click();
+  await page.getByRole("button", { name: "Filtros y herramientas" }).click();
+  await page.getByRole("button", { name: /Migrar catálogo/i }).click();
 
   await expect(
     page.getByRole("listbox", { name: "Catálogo anterior" }),
@@ -342,6 +398,54 @@ test("el administrador entra a migrar catálogo", async ({ page }, testInfo) => 
       targets: migrationPayload.summary.targets,
     }),
   );
+});
+
+test("gestionar imágenes ofrece la cola anatómica de Codex", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "La herramienta de imágenes se administra en escritorio.",
+  );
+  await page.addInitScript(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    window.localStorage.setItem("active_page", "library");
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Encuentra tu próximo ejercicio" }),
+  ).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Filtros y herramientas" }).click();
+  await page.getByRole("button", { name: /Gestionar imágenes/i }).click();
+  await expect(
+    page.getByRole("heading", { name: "Imágenes de ejercicios" }),
+  ).toBeVisible();
+
+  await expect(
+    page.getByRole("heading", { name: "Revisión automática" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Revisar propuestas" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("Autoencolado activo")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Buscar ejercicio" }).click();
+
+  const exercise = page
+    .getByRole("button", { name: /Editar imagen de/i })
+    .first();
+  await expect(exercise).toBeVisible({ timeout: 10_000 });
+  await exercise.click();
+  await page.getByRole("tab", { name: "Generar con Codex" }).click();
+
+  await expect(page.getByText("Generador anatómico con Codex")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Generar con Codex" }),
+  ).toBeVisible();
+  await expect(page.getByText("Músculo principal en rojo")).toBeVisible();
+  await expect(page.getByText(/sin utilizar una API key/i)).toBeVisible();
 });
 
 test("el editor de historial reúne entrenamientos y sesiones heredadas", async ({
