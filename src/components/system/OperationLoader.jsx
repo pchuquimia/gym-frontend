@@ -19,23 +19,23 @@ function LoadingContent({ compact, description, title }) {
       className={`${
         compact
           ? "w-full px-5 py-8"
-          : "w-full max-w-sm border border-[color:var(--border)] bg-[color:var(--card)] px-6 py-8 shadow-2xl"
+          : "w-full max-w-sm rounded-modal border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-6 py-8 shadow-overlay"
       } text-center text-[color:var(--text)]`}
     >
       <span
-        className={`${compact ? "h-12 w-12" : "h-16 w-16"} theme-accent-soft mx-auto grid place-items-center rounded-full border`}
+        className={`${compact ? "h-12 w-12" : "h-14 w-14"} theme-accent-soft mx-auto grid place-items-center rounded-full border`}
       >
         <LoaderCircle
           className={`${compact ? "h-6 w-6" : "h-8 w-8"} ${reduceMotion ? "" : "animate-spin"}`}
         />
       </span>
       <h2
-        className={`${compact ? "mt-4 text-lg" : "mt-5 text-xl"} font-black uppercase leading-tight`}
+        className={`${compact ? "mt-4 text-lg" : "mt-5 text-xl"} font-bold leading-tight`}
       >
         {title}
       </h2>
       {description ? (
-        <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-[color:var(--text-muted)]">
+        <p className="mx-auto mt-2 max-w-sm font-sans text-sm font-medium text-[color:var(--text-muted)]">
           {description}
         </p>
       ) : null}
@@ -114,7 +114,7 @@ export default function OperationLoader({
     <AnimatePresence>
       {shouldShow ? (
         <motion.div
-          className="fixed inset-0 z-[120] grid place-items-center bg-black/70 px-6 backdrop-blur-sm"
+          className="fixed inset-0 z-[120] grid place-items-center bg-[color:var(--overlay)] px-6 backdrop-blur-[3px]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

@@ -23,7 +23,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
@@ -33,7 +32,17 @@ import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
-import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
+import {
+  DetailModule,
+  DetailRow,
+  DetailRows,
+  DetailSection,
+  DetailSheet,
+  DetailSheetBody,
+  DetailSheetHeader,
+  DetailStat,
+  DetailStatGrid,
+} from "../components/dashboard/DetailSheet";
 import {
   buildScopedPeriodComparison,
   getScopedExerciseKey,
@@ -629,6 +638,7 @@ function StatCard({
   tone = "emerald",
   children,
   onClick,
+  primary = false,
 }) {
   const tones = {
     blue: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
@@ -644,9 +654,11 @@ function StatCard({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       aria-label={onClick ? `Ver detalle de ${label}` : undefined}
-      className={`w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
+      className={`dashboard-pilot__metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
+        primary ? "dashboard-pilot__metric--primary" : ""
+      } ${
         onClick
-          ? "transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          ? "transition hover:border-[color:var(--border-strong)]"
           : ""
       }`}
     >
@@ -656,7 +668,7 @@ function StatCard({
         </p>
         {Icon ? (
           <span
-            className={`grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.emerald}`}
+            className={`dashboard-pilot__metric-icon grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.emerald}`}
           >
             <Icon className="h-3.5 w-3.5" />
           </span>
@@ -715,7 +727,7 @@ function PeriodComparisonPanel({
 }) {
   if (locked) {
     return (
-      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+      <section className="dashboard-pilot__card border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -748,7 +760,7 @@ function PeriodComparisonPanel({
 
   if (loading) {
     return (
-      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+      <section className="dashboard-pilot__card border border-[color:var(--border)] bg-[color:var(--card)] p-4">
         <p className="text-xs font-black uppercase text-[color:var(--text-muted)]">
           Calculando actual vs anterior...
         </p>
@@ -758,7 +770,7 @@ function PeriodComparisonPanel({
 
   if (error || !comparison?.metrics) {
     return (
-      <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+      <section className="dashboard-pilot__card border border-[color:var(--border)] bg-[color:var(--card)] p-4">
         <p className="text-xs font-bold text-[color:var(--text-muted)]">
           No se pudo preparar la comparativa semanal.
         </p>
@@ -827,7 +839,7 @@ function PeriodComparisonPanel({
   ];
 
   return (
-    <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
+    <section className="dashboard-pilot__card dashboard-pilot__comparison border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
@@ -846,11 +858,11 @@ function PeriodComparisonPanel({
         pasada.
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
+      <div className="dashboard-pilot__comparison-grid mt-4 grid grid-cols-2 lg:grid-cols-5">
         {cards.map(({ key, label, icon: Icon, metric, value, previous }) => (
           <article
             key={key}
-            className="min-w-0 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 last:col-span-2 lg:last:col-span-1"
+            className="dashboard-pilot__comparison-cell min-w-0 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 last:col-span-2 lg:last:col-span-1"
           >
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-[9px] font-black uppercase text-[color:var(--text-muted)]">
@@ -876,15 +888,13 @@ function PeriodComparisonPanel({
 
 function WeekStrip({ days }) {
   return (
-    <section className="grid grid-cols-7 gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section className="dashboard-pilot__week grid grid-cols-7 border border-[color:var(--border)] bg-[color:var(--card)] px-2 shadow-sm dark:shadow-none sm:px-3">
       {days.map((day) => (
         <div
           key={day.key}
-          className={`rounded-xl px-1.5 py-2 text-center dark:rounded-[3px] ${
-            day.isToday
-              ? "border border-[#ff5722] bg-[#fff4f0] text-[#ff5722] dark:border-[#e2ff00] dark:bg-[#161900] dark:text-[#e2ff00]"
-              : "text-[color:var(--text-muted)]"
-          }`}
+          data-current={day.isToday || undefined}
+          data-trained={day.trained || undefined}
+          className="dashboard-pilot__day px-1.5 py-2.5 text-center text-[color:var(--text-muted)]"
         >
           <p className="text-[10px] font-black uppercase">{day.label}</p>
           <p
@@ -1222,7 +1232,6 @@ function MonthDetailView({ detail, onBack }) {
 }
 
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const dashboardBootstrap = useDashboardBootstrap();
   const {
@@ -1234,40 +1243,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
-  const canUsePeriodComparison =
-    hasPremiumFeature(user, PREMIUM_FEATURES.LOAD_RECOVERY) &&
-    hasPremiumFeature(user, PREMIUM_FEATURES.EXERCISE_PROGRESSION);
-  const comparisonAthleteId = coachAthlete?.id || coachAthlete?._id || "";
-  const bootstrapHasIntelligence = Boolean(
-    dashboardBootstrap.data &&
-      Object.prototype.hasOwnProperty.call(
-        dashboardBootstrap.data,
-        "intelligence",
-      ),
-  );
-  const intelligenceQuery = useQuery({
-    queryKey: [
-      "training-intelligence",
-      comparisonAthleteId || user?.id || user?._id || "self",
-    ],
-    queryFn: () => api.getTrainingIntelligence(comparisonAthleteId),
-    enabled:
-      canUsePeriodComparison &&
-      (!dashboardBootstrap.enabled ||
-        (!dashboardBootstrap.isLoading && !bootstrapHasIntelligence)),
-    staleTime: 60 * 1000,
-    retry: false,
-  });
-  const intelligenceData = bootstrapHasIntelligence
-    ? dashboardBootstrap.data?.intelligence
-    : intelligenceQuery.data;
-  const comparisonLoading =
-    dashboardBootstrap.enabled && dashboardBootstrap.isLoading
-    ? dashboardBootstrap.isLoading
-    : intelligenceQuery.isLoading;
-  const comparisonError = bootstrapHasIntelligence
-    ? Boolean(dashboardBootstrap.error)
-    : intelligenceQuery.isError;
   const [loadedActivePlan, setLoadedActivePlan] = useState(null);
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
@@ -2249,9 +2224,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   return (
     <motion.div
       initial={false}
-      className="dashboard-shell mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
-      <header className="flex items-center justify-between gap-3 border-b border-transparent pb-1 dark:border-[#252525] dark:pb-4">
+      <header className="dashboard-pilot__header flex items-center justify-between gap-3 border-b border-transparent pb-3 dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />
           <div className="min-w-0">
@@ -2262,6 +2237,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 PERFORMANCE
               </span>
             </h1>
+            <p className="dashboard-pilot__period mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+              Semana activa · {weekData.days[0]?.key?.slice(8)}–
+              {weekData.days[6]?.key?.slice(8)}{" "}
+              {titleCase(
+                now.toLocaleDateString("es-BO", { month: "short" }),
+              ).replace(".", "")}
+            </p>
           </div>
         </div>
 
@@ -2270,7 +2252,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <button
               type="button"
               onClick={() => setQuickWeightOpen(true)}
-              className="relative grid h-10 w-10 place-items-center rounded-full border border-[#ff5722] bg-[#fff0eb] text-[#ff5722] shadow-sm dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00] dark:shadow-none"
+              className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[#ff5722] bg-[#fff0eb] text-[#ff5722] shadow-sm dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00] dark:shadow-none"
               aria-label="Registrar pesaje de hoy"
               title="Registrar pesaje de hoy"
             >
@@ -2284,7 +2266,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <button
             type="button"
             onClick={() => onNavigate("registrar")}
-            className="grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#1a1a1a] shadow-sm dark:text-[#e2ff00] dark:shadow-none"
+            className="dashboard-pilot__action grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#1a1a1a] shadow-sm dark:text-[#e2ff00] dark:shadow-none"
             aria-label="Registrar entrenamiento"
           >
             <Play className="h-5 w-5" />
@@ -2293,8 +2275,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       </header>
 
-      <p className="text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
-        Semana activa
+      <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
+        Rendimiento semanal
       </p>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -2303,6 +2285,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           value={`${weekData.activeDays}/7`}
           icon={CalendarDays}
           tone="emerald"
+          primary
         >
           <div className="mt-3 grid grid-cols-7 gap-1">
             {weekData.days.map((day) => (
@@ -2326,18 +2309,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           tone="amber"
           onClick={() => setDurationModalOpen(true)}
         />
-        <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
+        <article className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Vs anterior
             </p>
             <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
-          <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] dark:rounded-[3px]">
+          <div className="dashboard-pilot__split mt-3 grid grid-cols-2 overflow-hidden border border-[color:var(--border)] bg-[color:var(--segmented-surface)]">
             <button
               type="button"
               onClick={() => setPerformanceModalType("declines")}
-              className="border-r border-[color:var(--border)] px-2.5 py-2 text-left transition hover:bg-red-500/10 active:bg-red-500/15"
+              className="border-r border-[color:var(--border)] px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-red-300">
                 Bajamos
@@ -2349,7 +2332,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <button
               type="button"
               onClick={() => setPerformanceModalType("improvements")}
-              className="px-2.5 py-2 text-left transition hover:bg-[#ff5722]/10 active:bg-[#ff5722]/15 dark:hover:bg-[#e2ff00]/10 dark:active:bg-[#e2ff00]/15"
+              className="px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
                 Subimos
@@ -2364,15 +2347,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
       <WeekStrip days={weekData.days} />
 
-      <PeriodComparisonPanel
-        comparison={intelligenceData?.advanced?.periodComparison}
-        loading={comparisonLoading}
-        error={comparisonError}
-        locked={!canUsePeriodComparison}
-        onUpgrade={() => onNavigate("planes")}
-      />
-
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
         <button
           type="button"
           onClick={() =>
@@ -2385,7 +2360,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="row-span-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="dashboard-pilot__card dashboard-pilot__recovery col-span-2 row-span-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none lg:col-span-1"
         >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -2395,7 +2370,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           </div>
           <div className="mt-5 grid place-items-center">
             <div
-              className="grid h-36 w-36 place-items-center rounded-full p-[11px] shadow-[0_0_22px_rgba(255,87,34,0.12)] dark:shadow-[0_0_24px_rgba(226,255,0,0.12)]"
+              className="dashboard-pilot__recovery-ring grid h-36 w-36 place-items-center rounded-full p-[9px]"
               style={{
                 background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recovery.value : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
               }}
@@ -2424,7 +2399,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         <button
           type="button"
           onClick={() => setWeeklyLoadModalOpen(true)}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="dashboard-pilot__card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -2442,7 +2417,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         <button
           type="button"
           onClick={() => setWeeklySetsModalOpen(true)}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff4f0] dark:rounded-[4px] dark:shadow-none dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+          className="dashboard-pilot__card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -2545,7 +2520,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   type="button"
                   key={month.key}
                   onClick={() => setSelectedMonthKey(month.key)}
-                  className="w-full rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 text-left shadow-sm transition hover:border-[#ff5722] hover:bg-[#fff0eb] dark:rounded-[4px] dark:bg-[#080808] dark:hover:border-[#e2ff00] dark:hover:bg-[#161900]"
+                  className="w-full rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:bg-[#080808]"
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-black text-[color:var(--text)]">
@@ -2800,210 +2775,153 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       ) : null}
 
       {weeklyLoadModalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Detalle de tonelaje libre semanal"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget)
-              setWeeklyLoadModalOpen(false);
-          }}
+        <DetailSheet
+          ariaLabel="Detalle de tonelaje libre semanal"
+          onClose={() => setWeeklyLoadModalOpen(false)}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Tonelaje libre semanal
-                </p>
-                <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  {formatCompact(weeklyLoad.current)} kg ·{" "}
-                  {weeklyLoad.changeLabel}
-                </h2>
-                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {weeklyLoad.description}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setWeeklyLoadModalOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          <DetailSheetHeader
+            eyebrow="Tonelaje libre semanal"
+            title={
+              <>
+                {formatCompact(weeklyLoad.current)} kg ·{" "}
+                {weeklyLoad.changeLabel}
+              </>
+            }
+            description={weeklyLoad.description}
+            onClose={() => setWeeklyLoadModalOpen(false)}
+          />
 
-            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="grid grid-cols-3 gap-2">
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Esta semana
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatCompact(weeklyLoad.current)} kg
-                  </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Semana anterior
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatCompact(weeklyLoad.previousTotal)} kg
-                  </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Comparable
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatCompact(weeklyLoad.comparableCurrent)} kg
-                  </p>
-                </article>
-              </div>
-
-              <p className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+          <DetailSheetBody>
+            <DetailModule>
+              <DetailStatGrid className="grid-cols-2 sm:grid-cols-3">
+                <DetailStat
+                  label="Esta semana"
+                  value={`${formatCompact(weeklyLoad.current)} kg`}
+                />
+                <DetailStat
+                  label="Semana anterior"
+                  value={`${formatCompact(weeklyLoad.previousTotal)} kg`}
+                />
+                <DetailStat
+                  label="Comparable"
+                  value={`${formatCompact(weeklyLoad.comparableCurrent)} kg`}
+                  className="col-span-2 sm:col-span-1"
+                />
+              </DetailStatGrid>
+              <p className="mt-4 border-t border-[color:var(--detail-row-divider)] pt-3 text-xs font-semibold text-[color:var(--text-muted)]">
                 Progresión comparable: {weeklyLoad.progressionChangeLabel}
                 {weeklyLoad.hasProgressionReference
                   ? ` · base ${formatCompact(weeklyLoad.previous)} kg`
                   : ""}
               </p>
+            </DetailModule>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Otras modalidades
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <article className="rounded-xl bg-[color:var(--card)] p-3">
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      Máquinas
-                    </p>
-                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
-                      {formatCompact(weeklyLoad.loadMetrics.machineKg)} kg ·{" "}
-                      {weeklyLoad.loadMetrics.machineSets} series
-                    </p>
-                  </article>
-                  <article className="rounded-xl bg-[color:var(--card)] p-3">
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      Peso corporal
-                    </p>
-                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
-                      {weeklyLoad.loadMetrics.bodyweightSets} series
-                    </p>
-                  </article>
-                  <article className="rounded-xl bg-[color:var(--card)] p-3">
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      Asistencia
-                    </p>
-                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
-                      {weeklyLoad.loadMetrics.assistedSets} series ·{" "}
-                      {formatCompact(weeklyLoad.loadMetrics.assistanceKg)} kg
-                    </p>
-                  </article>
-                  <article className="rounded-xl bg-[color:var(--card)] p-3">
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      Sin clasificar
-                    </p>
-                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
-                      {weeklyLoad.loadMetrics.unknownSets} series ·{" "}
-                      {formatCompact(weeklyLoad.loadMetrics.unknownKg)} kg
-                    </p>
-                  </article>
-                </div>
-              </section>
+            <DetailSection title="Otras modalidades">
+              <DetailStatGrid className="grid-cols-2">
+                <DetailStat
+                  label="Máquinas"
+                  value={`${formatCompact(weeklyLoad.loadMetrics.machineKg)} kg`}
+                  detail={`${weeklyLoad.loadMetrics.machineSets} series`}
+                />
+                <DetailStat
+                  label="Peso corporal"
+                  value={`${weeklyLoad.loadMetrics.bodyweightSets} series`}
+                />
+                <DetailStat
+                  label="Asistencia"
+                  value={`${weeklyLoad.loadMetrics.assistedSets} series`}
+                  detail={`${formatCompact(weeklyLoad.loadMetrics.assistanceKg)} kg`}
+                />
+                <DetailStat
+                  label="Sin clasificar"
+                  value={`${weeklyLoad.loadMetrics.unknownSets} series`}
+                  detail={`${formatCompact(weeklyLoad.loadMetrics.unknownKg)} kg`}
+                />
+              </DetailStatGrid>
+            </DetailSection>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Exposición muscular estimada
-                </p>
-                <div className="mt-3 space-y-2">
-                  {weeklyLoad.byMuscle.length ? (
-                    weeklyLoad.byMuscle.map((item) => (
-                      <div
-                        key={item.muscle}
-                        className="rounded-xl bg-[color:var(--card)] px-3 py-2"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-black text-[color:var(--text)]">
-                            {item.muscle}
-                          </p>
-                          <p className="text-sm font-black text-[#ff5722] dark:text-[#e2ff00]">
-                            {formatEquivalentSeries(item.equivalentSets)}
-                          </p>
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e5e5e5] dark:bg-[#292929]">
-                          <div
-                            className="h-full rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                weeklyLoad.byMuscle[0]?.equivalentSets
-                                  ? (item.equivalentSets /
-                                      weeklyLoad.byMuscle[0].equivalentSets) *
-                                      100
-                                  : 0,
-                              )}%`,
-                            }}
-                          />
-                        </div>
+            <DetailSection title="Exposición muscular estimada">
+              {weeklyLoad.byMuscle.length ? (
+                <DetailRows>
+                  {weeklyLoad.byMuscle.map((item) => (
+                    <DetailRow key={item.muscle}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-bold text-[color:var(--text)]">
+                          {item.muscle}
+                        </p>
+                        <p className="text-sm font-bold text-[color:var(--accent)]">
+                          {formatEquivalentSeries(item.equivalentSets)}
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay series completadas esta semana.
-                    </p>
-                  )}
-                </div>
-              </section>
-
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Por rutina
-                </p>
-                <div className="mt-3 space-y-2">
-                  {weeklyLoad.byRoutine.length ? (
-                    weeklyLoad.byRoutine.map((item) => (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
-                            {item.name}
-                          </p>
-                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {formatSessionCount(item.sessions)} ·{" "}
-                            {item.completedSets} series
-                            {!item.hasReference
-                              ? " / ciclo sin referencia"
-                              : ""}
-                          </p>
-                          <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                            Libre {formatCompact(item.externalKg)} kg · Máquina{" "}
-                            {formatCompact(item.machineKg)} kg
-                            {item.bodyweightSets
-                              ? ` · Corporal ${item.bodyweightSets} series`
-                              : ""}
-                            {item.assistedSets
-                              ? ` · Asistido ${item.assistedSets} series`
-                              : ""}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
-                          {item.completedSets}
-                        </span>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color:var(--detail-row-divider)]">
+                        <div
+                          className="h-full rounded-full bg-[color:var(--accent)]"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              weeklyLoad.byMuscle[0]?.equivalentSets
+                                ? (item.equivalentSets /
+                                    weeklyLoad.byMuscle[0].equivalentSets) *
+                                    100
+                                : 0,
+                            )}%`,
+                          }}
+                        />
                       </div>
-                    ))
-                  ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay rutinas registradas esta semana.
-                    </p>
-                  )}
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
+                    </DetailRow>
+                  ))}
+                </DetailRows>
+              ) : (
+                <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                  No hay series completadas esta semana.
+                </p>
+              )}
+            </DetailSection>
+
+            <DetailSection title="Por rutina">
+              {weeklyLoad.byRoutine.length ? (
+                <DetailRows>
+                  {weeklyLoad.byRoutine.map((item) => (
+                    <DetailRow
+                      key={item.key}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-[color:var(--text)]">
+                          {item.name}
+                        </p>
+                        <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                          {formatSessionCount(item.sessions)} ·{" "}
+                          {item.completedSets} series
+                          {!item.hasReference
+                            ? " / ciclo sin referencia"
+                            : ""}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                          Libre {formatCompact(item.externalKg)} kg · Máquina{" "}
+                          {formatCompact(item.machineKg)} kg
+                          {item.bodyweightSets
+                            ? ` · Corporal ${item.bodyweightSets} series`
+                            : ""}
+                          {item.assistedSets
+                            ? ` · Asistido ${item.assistedSets} series`
+                            : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-bold text-[color:var(--text)]">
+                        {item.completedSets}
+                      </span>
+                    </DetailRow>
+                  ))}
+                </DetailRows>
+              ) : (
+                <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                  No hay rutinas registradas esta semana.
+                </p>
+              )}
+            </DetailSection>
+          </DetailSheetBody>
+        </DetailSheet>
       ) : null}
 
       {weeklySetsModalOpen ? (

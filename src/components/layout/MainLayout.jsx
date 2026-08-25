@@ -11,7 +11,6 @@ import MobileNav from "./MobileNav";
 import MobileMenuButton from "./MobileMenuButton";
 import ActiveTrainingTopbar from "./ActiveTrainingTopbar";
 import ThemeToggle from "../ThemeToggle";
-import { useThemeMode } from "../../hooks/useThemeMode";
 import { useAuth } from "../../context/AuthContext";
 import {
   canAccessActiveTraining,
@@ -28,7 +27,6 @@ function MainLayout({
   const [activeTraining, setActiveTraining] = useState(null);
   const pollRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
-  const { isDark } = useThemeMode();
   const { user } = useAuth();
   const useDashboardChrome = activePage === "dashboard";
   const useDashboardBackground =
@@ -97,6 +95,20 @@ function MainLayout({
     return () => window.removeEventListener("open-main-menu", openMainMenu);
   }, []);
 
+  useEffect(() => {
+    if (!showDrawer) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setShowDrawer(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showDrawer]);
+
   const handleReturnTraining = () => {
     if (typeof onNavigate === "function") onNavigate("registrar");
   };
@@ -113,18 +125,14 @@ function MainLayout({
   return (
     <div
       data-active-page={activePage}
-      className={`app-shell min-h-dvh bg-[color:var(--bg)] text-[color:var(--text)] dark:!bg-[#050505] dark:!text-[#f8f8f4] flex flex-col transition-colors ${
+      className={`app-shell flex min-h-dvh flex-col bg-[color:var(--bg)] text-[color:var(--text)] transition-colors ${
         useDashboardBackground ? "dashboard-app-shell" : ""
       }`}
-      style={{
-        backgroundColor: isDark ? "#050505" : "var(--bg)",
-        color: isDark ? "#f8f8f4" : "var(--text)",
-      }}
     >
       {user?.isDemo ? (
         <div
           data-demo-banner
-          className="flex min-h-9 w-full items-center justify-center gap-2 border-b border-[#ff5722]/35 bg-[#fff0eb] px-3 py-2 text-center text-[10px] font-black uppercase text-[#9f2c09] dark:border-[#e2ff00]/25 dark:bg-[#161900] dark:text-[#e2ff00]"
+          className="flex min-h-9 w-full items-center justify-center gap-2 border-b border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 text-center font-sans text-[11px] font-bold uppercase text-[color:var(--accent-strong)]"
         >
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
           <span>
@@ -178,12 +186,12 @@ function MainLayout({
           </div>
           {coachAthlete ? (
             <div
-              className={`mb-5 flex min-h-14 items-center justify-between gap-3 border-y border-[#ffb199] bg-[#fff0eb] px-3 py-2 dark:border-[#e2ff00]/25 dark:bg-[#e2ff00]/10 ${
+              className={`mb-5 flex min-h-14 items-center justify-between gap-3 rounded-card border border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 ${
                 useTrainingChrome ? "max-md:mt-12" : ""
               }`}
             >
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#b82f05] dark:text-[#e2ff00]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
                   Sesión supervisada
                 </p>
                 <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -198,27 +206,35 @@ function MainLayout({
                     ? "Volver a Mis atletas sin cerrar la sesión"
                     : "Salir de la sesión supervisada"
                 }
-                className="h-10 shrink-0 rounded-lg border border-[#ff8a66] px-3 text-xs font-black text-[#b82f05] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]"
+                className="h-10 shrink-0 rounded-control border border-[color:var(--accent)] px-3 font-sans text-xs font-bold text-[color:var(--accent-strong)] transition-colors hover:bg-[color:var(--surface)]"
               >
                 {activeTraining ? "Mis atletas" : "Salir"}
               </button>
             </div>
           ) : null}
-          <main className="flex flex-col gap-6">{children}</main>
+          <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+            {children}
+          </main>
         </div>
       </div>
 
       {/* Off-canvas Drawer for mobile */}
       {showDrawer && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu principal"
+        >
           <div
-            className="absolute inset-0 bg-black/40"
+            className="mobile-drawer-overlay absolute inset-0 bg-[color:var(--overlay)] backdrop-blur-[3px]"
             onClick={() => setShowDrawer(false)}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 left-0 h-dvh w-[280px] bg-[color:var(--card)] border-r border-[color:var(--border)] shadow-2xl">
+          <div className="premium-drawer mobile-drawer-panel absolute inset-y-0 left-0 h-dvh w-[min(86vw,320px)] border-r border-[color:var(--drawer-border)] shadow-drawer">
             <Sidebar
               forceVisible
+              onClose={() => setShowDrawer(false)}
               activePage={activePage}
               onNavigate={(id) => {
                 setShowDrawer(false);

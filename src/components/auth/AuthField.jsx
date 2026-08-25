@@ -6,19 +6,19 @@ export default function AuthField({ id, icon: Icon, label, error, children }) {
     <div className="space-y-1.5">
       <label
         htmlFor={id}
-        className="block text-[11px] font-bold uppercase tracking-[0.08em] text-white/55"
+        className="block font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--auth-muted)]"
       >
         {label}
       </label>
       <div className="relative">
         <Icon
-          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35"
+          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--auth-muted)]"
           aria-hidden="true"
         />
         {children}
       </div>
       {error ? (
-        <p id={errorId} className="text-xs font-semibold text-red-200">
+        <p id={errorId} className="font-sans text-xs font-medium text-red-300">
           {error}
         </p>
       ) : null}

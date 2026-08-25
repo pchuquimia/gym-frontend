@@ -1,4 +1,4 @@
-import { Check, LogOut } from "lucide-react";
+import { Check, LogOut, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useUserProfile } from "../../context/UserContext";
 import Button from "../ui/button";
@@ -120,7 +120,12 @@ const managedClientMobileGroups = [
   },
 ];
 
-function Sidebar({ activePage, onNavigate, forceVisible = false }) {
+function Sidebar({
+  activePage,
+  onNavigate,
+  forceVisible = false,
+  onClose = null,
+}) {
   const { user, logout } = useAuth();
   const { profile } = useUserProfile();
   const avatarPhotoId = profile
@@ -175,53 +180,81 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
       : visibleMobileGroups;
 
     return (
-      <aside className="flex h-dvh w-[276px] flex-col overflow-hidden border-r border-slate-200 bg-white px-3 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-5 text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#121212] dark:text-white">
+      <aside className="flex h-dvh w-full flex-col overflow-hidden bg-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--drawer-text)]">
+        <div className="mb-3 flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--drawer-border)] pb-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[0.65rem] bg-[color:var(--drawer-accent)] font-sans text-xs font-bold italic tracking-[-0.06em] text-[color:var(--drawer-accent-contrast)] shadow-[inset_0_1px_0_rgba(255,255,255,0.24)]">
+              AP
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-sans text-[13px] font-semibold tracking-[-0.01em] text-[color:var(--drawer-text)]">
+                APEX PERFORMANCE
+              </p>
+              <p className="mt-0.5 truncate font-sans text-[10px] font-medium tracking-[0.02em] text-[color:var(--drawer-subtle)]">
+                {user?.role === "Admin"
+                  ? "Panel administrador"
+                  : isCoach
+                    ? "Panel coach"
+                    : "Panel personal"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-[0.7rem] border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface)] text-[color:var(--drawer-muted)] transition-[transform,border-color,color,background-color] hover:bg-[color:var(--drawer-surface-hover)] hover:text-[color:var(--drawer-text)] active:scale-95"
+            aria-label="Cerrar menu principal"
+            title="Cerrar menu principal"
+          >
+            <X className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </button>
+        </div>
+
         <button
           type="button"
-          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left shadow-sm max-[700px]:py-2.5 dark:border-white/10 dark:bg-white/[0.055] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          className="group flex items-center gap-3 rounded-[0.85rem] border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface)] px-3 py-3 text-left shadow-hairline transition-[border-color,background-color,box-shadow] hover:bg-[color:var(--drawer-surface-hover)] hover:shadow-soft"
           onClick={() => onNavigate?.("perfil")}
         >
-          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[#ffb199] bg-[#fff0eb] shadow-md shadow-slate-200/70 dark:border-[#e2ff00]/40 dark:bg-[#252525] dark:shadow-lg dark:shadow-black/20">
+          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface-hover)]">
             <ProfileAvatar
               photoId={avatarPhotoId}
               name={user?.name}
               className="h-full w-full"
-              fallbackClassName="bg-[#fff0eb] text-sm font-black text-[#ff5722] dark:bg-[#252525] dark:text-[#e2ff00]"
+              fallbackClassName="bg-[color:var(--drawer-surface-hover)] text-sm font-bold text-[color:var(--drawer-text)]"
             />
-            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-white bg-[#ff5722] text-white dark:border-[#121212] dark:bg-[#e2ff00] dark:text-black">
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-[color:var(--drawer-bg)] bg-[color:var(--drawer-accent)] text-[color:var(--drawer-accent-contrast)]">
               <Check className="h-2.5 w-2.5 stroke-[4]" />
             </span>
           </div>
           <div className="min-w-0">
-            <p className="truncate text-lg font-black leading-tight text-slate-950 dark:text-slate-100">
+            <p className="truncate font-sans text-sm font-semibold leading-tight text-[color:var(--drawer-text)]">
               {user?.name || "Usuario"}
             </p>
-            <p className="mt-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-300">
-              {isCoach
-                ? "Modo coach"
-                : isManagedClient
-                  ? "Plan con coach"
-                  : "Atleta Pro"}
+            <p className="mt-1 font-sans text-[10px] font-medium tracking-[0.03em] text-[color:var(--drawer-accent)]">
+              {user?.role === "Admin"
+                ? "Administrador"
+                : isCoach
+                  ? "Modo coach"
+                  : isManagedClient
+                    ? "Plan con coach"
+                    : "Atleta Pro"}
             </p>
           </div>
         </button>
 
-        <nav className="mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable] max-[700px]:mt-4">
-          <div className="space-y-6 pb-3 max-[700px]:space-y-4">
+        <nav className="premium-drawer-nav mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          <div className="space-y-3 pb-3">
             {drawerGroups.map((group) => {
               const groupItems = group.ids.map(getMobileItem).filter(Boolean);
               if (!groupItems.length) return null;
               return (
                 <div key={group.title}>
-                  <div className="mb-3 flex items-end justify-between gap-3 px-3 max-[700px]:mb-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300/55">
+                  <div className="mb-1 px-2">
+                    <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--drawer-subtle)]">
                       {group.title}
                     </p>
-                    <p className="truncate text-[10px] font-bold text-slate-400 dark:text-slate-400/45">
-                      {group.detail}
-                    </p>
                   </div>
-                  <div className="space-y-2 max-[700px]:space-y-1.5">
+                  <div className="space-y-1">
                     {groupItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activePage === item.id;
@@ -230,21 +263,30 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                           key={item.id}
                           type="button"
                           onClick={() => onNavigate?.(item.id)}
-                          className={`group flex h-[clamp(46px,6.1svh,54px)] w-full items-center gap-4 rounded-xl px-3 text-left transition max-[700px]:h-[clamp(42px,6svh,46px)] ${
+                          aria-current={isActive ? "page" : undefined}
+                          className={`group relative flex h-[42px] w-full items-center gap-3 overflow-hidden rounded-[0.65rem] border px-2.5 text-left transition-[transform,border-color,background-color,color,box-shadow] active:scale-[0.985] ${
                             isActive
-                              ? "bg-[#fff0eb] text-slate-950 shadow-[inset_3px_0_0_#ff5722] dark:bg-[#252525] dark:text-white dark:shadow-[inset_3px_0_0_#e2ff00]"
-                              : "text-slate-600 hover:bg-slate-50 hover:text-slate-950 dark:text-slate-300/72 dark:hover:bg-white/[0.045] dark:hover:text-white"
+                              ? "border-[color:var(--drawer-active-border)] bg-[color:var(--drawer-active)] text-[color:var(--drawer-active-text)] shadow-soft"
+                              : "border-transparent text-[color:var(--drawer-muted)] hover:bg-[color:var(--drawer-surface)] hover:text-[color:var(--drawer-text)]"
                           }`}
                         >
-                          <Icon
-                            className={`h-5 w-5 shrink-0 ${
+                          <span
+                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-[0.55rem] transition-colors ${
                               isActive
-                                ? "text-[#ff5722] dark:text-[#e2ff00]"
-                                : "text-slate-400 dark:text-slate-300/72"
+                                ? "bg-[color:var(--drawer-active-icon-bg)] text-[color:var(--drawer-active-icon)]"
+                                : "text-[color:var(--drawer-subtle)] group-hover:bg-[color:var(--drawer-surface-hover)] group-hover:text-[color:var(--drawer-text)]"
                             }`}
-                            strokeWidth={2.2}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-[15px] font-black">
+                          >
+                            <Icon
+                              className="h-[18px] w-[18px]"
+                              strokeWidth={isActive ? 2 : 1.8}
+                            />
+                          </span>
+                          <span
+                            className={`min-w-0 flex-1 truncate font-sans text-sm ${
+                              isActive ? "font-semibold" : "font-medium"
+                            }`}
+                          >
                             {mobileLabels[item.id] || item.label}
                           </span>
                         </button>
@@ -257,35 +299,31 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
           </div>
         </nav>
 
-        <Button
+        <button
           type="button"
-          variant="outline"
-          className="mt-5 h-12 justify-center gap-2 rounded-xl border-red-200 bg-red-50 text-[12px] font-black uppercase tracking-[0.08em] text-red-600 hover:bg-red-100 max-[700px]:mt-4 dark:border-red-300/20 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-400/10"
+          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[0.7rem] border border-[color:var(--drawer-border)] bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--drawer-muted)] transition-colors hover:border-[#c85a52]/40 hover:bg-[#c85a52]/10 hover:text-[#b94840]"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
           <span>Cerrar sesion</span>
-        </Button>
-        <p className="mt-4 text-center text-[10px] font-black uppercase tracking-tight text-slate-400/70 dark:text-slate-400/25">
-          Apex Performance v2.4.0
-        </p>
+        </button>
       </aside>
     );
   }
 
   return (
-    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--card)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:flex">
+    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:flex">
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/40"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
           onClick={() => onNavigate?.("perfil")}
         >
           <ProfileAvatar
             photoId={avatarPhotoId}
             name={user?.name}
             className="h-10 w-10 shrink-0 rounded-full"
-            fallbackClassName="bg-[#ff5722] font-bold text-white dark:bg-[#e2ff00] dark:text-black"
+            fallbackClassName="bg-[color:var(--accent)] font-bold text-[color:var(--accent-contrast)]"
           />
           <div className="min-w-0 flex flex-col">
             <p className="truncate text-sm font-semibold text-[color:var(--text)]">
@@ -321,22 +359,22 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
                         type="button"
                         variant="ghost"
                         onClick={() => onNavigate?.(item.id)}
-                        className={`relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        className={`relative flex items-center gap-3 rounded-control border px-3 py-2 font-sans text-sm transition-colors duration-150 ${
                           isActive
-                            ? "border border-[#ff5722]/40 bg-[#fff0eb] font-semibold text-[color:var(--text)] shadow-sm dark:border-[#e2ff00]/45 dark:bg-[#252525]"
-                            : "text-[color:var(--text-muted)] hover:bg-accent/50 hover:text-[color:var(--text)]"
+                            ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] font-semibold text-[color:var(--text)] shadow-soft"
+                            : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                         }`}
                       >
                         {isActive && (
                           <span
-                            className="absolute left-1 h-5 w-1 rounded-full bg-[#ff5722] shadow-[0_0_8px_rgba(255,87,34,0.35)] dark:bg-[#e2ff00] dark:shadow-[0_0_8px_rgba(226,255,0,0.45)]"
+                            className="absolute left-1 h-5 w-1 rounded-full bg-[color:var(--accent)]"
                             aria-hidden="true"
                           />
                         )}
                         <Icon
                           className={`h-5 w-5 shrink-0 ${
                             isActive
-                              ? "text-[#ff5722] dark:text-[#e2ff00]"
+                              ? "text-[color:var(--accent-strong)]"
                               : "text-[color:var(--text-muted)]"
                           }`}
                           strokeWidth={2}
@@ -360,8 +398,8 @@ function Sidebar({ activePage, onNavigate, forceVisible = false }) {
 
       <Button
         type="button"
-        variant="outline"
-        className="mt-auto justify-start gap-2 rounded-xl"
+        variant="destructiveOutline"
+        className="mt-auto justify-start gap-2"
         onClick={handleLogout}
       >
         <LogOut className="h-4 w-4" />

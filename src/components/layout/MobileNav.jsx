@@ -16,28 +16,44 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="font-condensed border-t border-[#d7d7d7] bg-[#f8f8f8]/98 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-[#292929] dark:bg-[#101010]/98 md:hidden">
+    <nav className="border-t border-[color:var(--border)] bg-[color:var(--surface)]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-nav backdrop-blur-xl md:hidden">
       <div
-        className="grid text-xs font-bold uppercase text-[#8e8e93] dark:text-[#c9c9ad]"
+        className="grid font-sans text-[11px] font-semibold text-[color:var(--text-muted)]"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         }}
       >
         {items.map((item) => {
           const Icon = item.icon;
+          const isActive = activePage === item.id;
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => onNavigate?.(item.id)}
-              className={`flex min-h-12 flex-col items-center justify-center gap-1 border border-transparent py-1 transition-colors ${
-                activePage === item.id
-                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                  : "hover:border-[#cfcfcf] hover:text-[#1a1a1a] dark:hover:border-[#454545] dark:hover:text-white"
+              aria-current={isActive ? "page" : undefined}
+              className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-control border py-1 transition-[background-color,color,box-shadow,transform] active:scale-[0.97] ${
+                isActive
+                  ? "border-transparent bg-[color:var(--surface-subtle)] text-[color:var(--text)] shadow-hairline"
+                  : "border-transparent hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              <span className="max-w-full truncate">
+              {isActive ? (
+                <span
+                  className="absolute inset-x-0 top-0 mx-auto h-0.5 w-5 rounded-full bg-[color:var(--accent)]"
+                  aria-hidden="true"
+                />
+              ) : null}
+              <Icon
+                className={`h-5 w-5 ${
+                  isActive ? "text-[color:var(--accent-strong)]" : ""
+                }`}
+              />
+              <span
+                className={`max-w-full truncate ${
+                  isActive ? "font-bold" : ""
+                }`}
+              >
                 {item.id === "registrar"
                   ? "Entrenar"
                   : item.id === "ejercicio_analitica"

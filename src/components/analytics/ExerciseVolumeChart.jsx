@@ -76,7 +76,7 @@ const ExerciseVolumeChart = ({
 
   return (
     <div className="space-y-3">
-      <div className="grid w-fit grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1 text-xs">
+      <div className="grid w-fit grid-cols-2 border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1 text-xs">
         <button
           className={`h-8 px-3 text-[11px] font-black uppercase ${view === 'volume' ? 'theme-accent-solid' : 'text-[color:var(--text-muted)]'}`}
           onClick={() => setView('volume')}

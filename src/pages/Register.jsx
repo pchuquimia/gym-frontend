@@ -22,7 +22,7 @@ import {
 } from "../utils/authValidation";
 
 const inputClass =
-  "h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-white/28 hover:border-white/20 focus:border-[#b8ff4f]/70 focus:ring-2 focus:ring-[#b8ff4f]/15 sm:text-sm";
+  "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
 
 const validateForm = (form) => ({
   name:
@@ -134,7 +134,7 @@ export default function Register({ onNavigate = () => {} }) {
             <button
               type="button"
               onClick={() => onNavigate("login")}
-              className="text-sm font-black text-[#b8ff4f]"
+              className="text-sm font-bold text-[color:var(--auth-accent)]"
             >
               Volver a iniciar sesión
             </button>
@@ -165,10 +165,10 @@ export default function Register({ onNavigate = () => {} }) {
           <button
             type="button"
             onClick={() => onNavigate("login")}
-            className="text-sm font-semibold text-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+            className="font-sans text-sm font-medium text-[color:var(--auth-muted)] focus-visible:ring-[color:var(--auth-accent)]"
           >
             ¿Ya tienes cuenta?{" "}
-            <span className="font-black text-[#b8ff4f]">Inicia sesión</span>
+            <span className="font-bold text-[color:var(--auth-accent)]">Inicia sesión</span>
           </button>
         </div>
       }
@@ -244,7 +244,7 @@ export default function Register({ onNavigate = () => {} }) {
           <button
             type="button"
             onClick={() => setShowPasswords((value) => !value)}
-            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+            className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-control text-[color:var(--auth-muted)] hover:bg-[color:var(--auth-surface-hover)] hover:text-[color:var(--auth-text)] focus-visible:ring-[color:var(--auth-accent)]"
             aria-label={
               showPasswords ? "Ocultar contraseñas" : "Mostrar contraseñas"
             }
@@ -262,12 +262,12 @@ export default function Register({ onNavigate = () => {} }) {
             {Array.from({ length: 5 }).map((_, index) => (
               <span
                 key={index}
-                className={`h-1 rounded-full ${index < Math.min(5, Math.ceil((form.password.length / 6) * 5)) ? "bg-[#b8ff4f]" : "bg-white/10"}`}
+                className={`h-1 rounded-full ${index < Math.min(5, Math.ceil((form.password.length / 6) * 5)) ? "bg-[color:var(--auth-accent)]" : "bg-white/10"}`}
               />
             ))}
           </div>
           <p
-            className={`text-[11px] font-semibold ${form.password && !missingPasswordRules.length ? "text-[#b8ff4f]" : "text-white/45"}`}
+            className={`font-sans text-[11px] font-medium ${form.password && !missingPasswordRules.length ? "text-[color:var(--auth-accent)]" : "text-[color:var(--auth-muted)]"}`}
           >
             {form.password
               ? missingPasswordRules.length
@@ -306,7 +306,7 @@ export default function Register({ onNavigate = () => {} }) {
         ) : null}
         <Button
           type="submit"
-          className="h-12 w-full rounded-lg bg-[#b8ff4f] text-base font-black text-[#101709] hover:bg-[#a7ef48] focus-visible:ring-[#b8ff4f]"
+          className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
           disabled={submitting}
         >
           {submitting ? "Creando cuenta..." : "Crear cuenta"}

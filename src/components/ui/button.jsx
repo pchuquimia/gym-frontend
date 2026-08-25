@@ -1,24 +1,30 @@
 import { forwardRef } from "react";
 
 const base =
-  "font-condensed inline-flex items-center justify-center rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40 disabled:opacity-80 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-control font-sans text-sm font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0";
 
 const variants = {
   default:
-    "bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]",
+    "border border-transparent bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-soft hover:bg-[color:var(--accent-hover)]",
   accentOutline:
-    "border border-[#ff5722] bg-transparent text-[#ff5722] hover:bg-[#fff0eb] dark:border-[#e2ff00] dark:text-[#e2ff00] dark:hover:bg-[#1d2100]",
+    "border border-[color:var(--accent)] bg-transparent text-[color:var(--accent-strong)] hover:bg-[color:var(--accent-soft)]",
   accentSolid:
-    "border border-[#ff5722] bg-[#ff5722] text-white hover:bg-[#df3f0d] disabled:!opacity-100 dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]",
+    "border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-soft hover:bg-[color:var(--accent-hover)] disabled:!opacity-100",
   outline:
-    "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] hover:border-[#ff5722] hover:text-[color:var(--text)] dark:hover:border-[#e2ff00]",
-  ghost: "text-[color:var(--text)] hover:bg-[color:var(--card)]",
+    "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-soft hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
+  ghost:
+    "border border-transparent text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+  destructive:
+    "border border-transparent bg-[color:var(--danger)] text-white shadow-soft hover:brightness-95",
+  destructiveOutline:
+    "border border-[color:var(--danger)] bg-transparent text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]",
 };
 
 const sizes = {
   default: "h-11 px-4",
   sm: "h-9 px-3 text-xs",
-  icon: "h-10 w-10",
+  lg: "h-12 px-5 text-base",
+  icon: "h-11 w-11 p-0",
   touchIcon: "h-11 w-11 p-0",
 };
 
