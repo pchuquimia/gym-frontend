@@ -9,8 +9,8 @@ export default function ThemeToggle({ compact = false }) {
     <button
       type="button"
       onClick={toggleTheme}
-      className={`grid shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] transition-colors hover:border-[#ff5722] active:bg-[color:var(--bg)] dark:hover:border-[#e2ff00] ${
-        compact ? "h-9 w-9 rounded-xl" : "h-10 w-10 rounded-full shadow-sm"
+      className={`grid shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-soft transition-colors hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] ${
+        compact ? "h-9 w-9 rounded-control" : "h-11 w-11 rounded-full"
       }`}
       aria-label={isDark ? "Activar modo claro" : "Activar modo oscuro"}
       title={isDark ? "Activar modo claro" : "Activar modo oscuro"}

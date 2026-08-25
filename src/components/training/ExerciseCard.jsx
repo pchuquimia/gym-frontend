@@ -537,7 +537,7 @@ export default function ExerciseCard({
                         <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                           Serie
                         </span>
-                        <div className="grid min-w-0 flex-1 grid-cols-3 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
+                        <div className="grid min-w-0 flex-1 grid-cols-3 rounded-full border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1">
                           {[
                             ["serie", "Normal"],
                             ["biserie", "Bi"],
@@ -563,7 +563,7 @@ export default function ExerciseCard({
                           <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                             Modo
                           </span>
-                          <div className="grid min-w-0 flex-1 grid-cols-2 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
+                          <div className="grid min-w-0 flex-1 grid-cols-2 rounded-full border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1">
                             {[
                               ["bilateral", "Bilateral"],
                               ["unilateral", "Unilateral"],

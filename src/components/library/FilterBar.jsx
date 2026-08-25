@@ -79,7 +79,7 @@ function FilterBar({
           </select>
         </label>
 
-        <div className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1">
           {[
             ["todos", "Todos"],
             ["system", "Catalogo"],

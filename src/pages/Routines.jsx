@@ -1941,7 +1941,7 @@ function RoutineModal({
               </div>
 
               <div
-                className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+                className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1"
                 role="radiogroup"
                 aria-label="Cambiar secuencia de entrenamiento"
               >

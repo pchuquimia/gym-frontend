@@ -46,7 +46,7 @@ const mainApplicationUrl =
   import.meta.env.VITE_MAIN_APP_URL || "https://gym-frontend-t65c.onrender.com";
 
 const inputClass =
-  "h-12 w-full rounded-lg border border-white/12 bg-white/[0.055] pl-11 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-white/28 hover:border-white/20 focus:border-[#b8ff4f]/70 focus:ring-2 focus:ring-[#b8ff4f]/15 sm:text-sm";
+  "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
 
 const keepFieldVisible = (event) => {
   const field = event.currentTarget;
@@ -73,7 +73,7 @@ function PasswordToggle({ visible, onToggle }) {
       type="button"
       onClick={onToggle}
       onPointerDown={(event) => event.preventDefault()}
-      className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-white/45 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+      className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-control text-[color:var(--auth-muted)] transition hover:bg-[color:var(--auth-surface-hover)] hover:text-[color:var(--auth-text)] focus-visible:ring-[color:var(--auth-accent)]"
       aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
       aria-pressed={visible}
     >
@@ -150,7 +150,7 @@ function LoginForm({ onNavigate }) {
         <button
           type="button"
           onClick={() => onNavigate("recover")}
-          className="text-xs font-bold text-white/65 transition hover:text-[#b8ff4f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+          className="font-sans text-xs font-semibold text-[color:var(--auth-muted)] transition hover:text-[color:var(--auth-accent)] focus-visible:ring-[color:var(--auth-accent)]"
         >
           ¿Olvidaste tu contraseña?
         </button>
@@ -166,7 +166,7 @@ function LoginForm({ onNavigate }) {
       ) : null}
       <Button
         type="submit"
-        className="h-12 w-full rounded-lg bg-[#b8ff4f] text-base font-black text-[#101709] hover:bg-[#a7ef48] focus-visible:ring-[#b8ff4f]"
+        className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
         disabled={submitting}
       >
         {submitting ? "Ingresando..." : "Ingresar"}
@@ -273,14 +273,14 @@ function DemoAccess({ onNavigate }) {
     >
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#b8ff4f]">
+          <p className="font-sans text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--auth-accent)]">
             Probar la demo
           </p>
           <p className="mt-1 text-xs font-semibold text-white/45">
             Datos ficticios y temporales
           </p>
         </div>
-        <span className="border border-[#b8ff4f]/30 px-2 py-1 text-[10px] font-black uppercase text-[#b8ff4f]">
+        <span className="rounded-control border border-[color:var(--auth-accent)] px-2 py-1 font-sans text-[10px] font-bold uppercase text-[color:var(--auth-accent)]">
           Sin registro
         </span>
       </div>
@@ -295,9 +295,9 @@ function DemoAccess({ onNavigate }) {
               aria-label={`Abrir demo como ${role.label}`}
               disabled={Boolean(loadingRole)}
               onClick={() => handleDemoLogin(role.id)}
-              className="group flex min-h-20 items-center gap-3 border border-white/12 bg-white/[0.035] px-3 py-3 text-left transition hover:border-[#b8ff4f]/55 hover:bg-[#b8ff4f]/[0.07] disabled:cursor-wait disabled:opacity-55 sm:flex-col sm:items-start sm:gap-2"
+              className="group flex min-h-20 items-center gap-3 rounded-card border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] px-3 py-3 text-left transition hover:border-[color:var(--auth-accent)] hover:bg-[color:var(--auth-surface-hover)] disabled:cursor-wait disabled:opacity-55 sm:flex-col sm:items-start sm:gap-2"
             >
-              <Icon className="h-5 w-5 shrink-0 text-[#b8ff4f]" />
+              <Icon className="h-5 w-5 shrink-0 text-[color:var(--auth-accent)]" />
               <span className="min-w-0">
                 <span className="block text-sm font-black text-white">
                   {isLoading ? "Preparando..." : role.label}
@@ -667,7 +667,7 @@ export default function Login({
             </p>
             <a
               href={mainApplicationUrl}
-              className="mt-2 inline-flex text-sm font-black text-[#b8ff4f] transition hover:text-[#d0ff8c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+              className="mt-2 inline-flex font-sans text-sm font-bold text-[color:var(--auth-accent)] transition hover:text-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
             >
               Ir a la aplicacion
             </a>
@@ -680,7 +680,7 @@ export default function Login({
             <button
               type="button"
               onClick={() => onNavigate("register")}
-              className="mt-1 text-base font-black text-[#b8ff4f] transition hover:text-[#d0ff8c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b8ff4f]"
+              className="mt-1 font-sans text-base font-bold text-[color:var(--auth-accent)] transition hover:text-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
             >
               Regístrate gratis
             </button>

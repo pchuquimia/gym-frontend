@@ -7214,7 +7214,7 @@ export default function RegisterTraining({
             </div>
 
             <div
-              className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-1"
+              className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1"
               role="tablist"
               aria-label="Alcance del historial"
             >
