@@ -167,7 +167,7 @@ function MainLayout({
         ) : null}
         <div
           className={`w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
-            useDashboardChrome ? "max-md:pb-24 max-md:pt-0" : "max-md:pb-24"
+            useDashboardChrome ? "max-md:pb-28 max-md:pt-0" : "max-md:pb-28"
           }`}
         >
           <div

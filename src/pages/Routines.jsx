@@ -145,11 +145,11 @@ const getRoutineExerciseSummary = (routine) => {
   return `${baseCount} ejercicios${optionalCount ? ` + ${optionalCount} ${optionalCount === 1 ? "opcional" : "opcionales"}` : ""}`;
 };
 const TRAINING_PLAN_ROUTINE_INTENT_KEY = "training_plan_routine_intent";
-const getPlanWeekIndex = (plan) => {
+const getPlanWeekIndex = (plan, now = new Date()) => {
   if (!plan?.startDate) return 0;
   const start = new Date(plan.startDate);
   start.setUTCHours(0, 0, 0, 0);
-  const today = new Date();
+  const today = new Date(now);
   today.setUTCHours(0, 0, 0, 0);
   return Math.min(
     Math.max(0, Number(plan.durationWeeks || 1) - 1),
@@ -169,6 +169,67 @@ const formatPlanDayDate = (date) =>
     month: "short",
     timeZone: "UTC",
   });
+
+// Exported for deterministic date-state coverage alongside this page.
+// eslint-disable-next-line react-refresh/only-export-components
+export const getPlanTodayState = ({
+  plan,
+  routines = [],
+  trainings = [],
+  now = new Date(),
+}) => {
+  if (!plan) return null;
+  const schedule = Array.isArray(plan.weeklySchedule)
+    ? plan.weeklySchedule
+    : [];
+  if (!schedule.length) return null;
+
+  const sequential = plan.scheduleMode !== "fixed";
+  const index = sequential
+    ? Math.min(
+        schedule.length - 1,
+        Math.max(0, Number(plan.cycleProgress?.currentIndex || 0)),
+      )
+    : schedule.findIndex((_, dayIndex) => {
+        const date = getPlanDayDate(
+          plan,
+          getPlanWeekIndex(plan, now),
+          dayIndex,
+        );
+        return toPlanIsoDate(date) === now.toLocaleDateString("en-CA");
+      });
+  const day = schedule[index];
+  if (!day) return null;
+
+  const routine = day.routineId
+    ? routines.find((item) => getEntityId(item) === String(day.routineId)) ||
+      null
+    : null;
+  const todayIso = now.toLocaleDateString("en-CA");
+  const isCompleted = !sequential
+    ? trainings.some((training) => {
+        if (String(training.date || "").slice(0, 10) !== todayIso) {
+          return false;
+        }
+        return (
+          (training.trainingPlanId &&
+            String(training.trainingPlanId) === getEntityId(plan) &&
+            training.trainingPlanSlotId === day.slotId) ||
+          (day.routineId &&
+            String(training.routineId) === String(day.routineId))
+        );
+      })
+    : false;
+
+  return {
+    day,
+    index,
+    isCompleted,
+    isRest: day.type !== "training",
+    routine,
+    sequential,
+  };
+};
 const GLOBAL_ORDER_GROUP = "Orden de la rutina";
 const SETUP_MUSCLE_ORDER = [
   "Pecho",
@@ -3237,29 +3298,86 @@ function RoutineToolbar({
   activeBranch,
   setActiveBranch,
   branchCounts,
+  showArchivedControl,
+  archivedCount,
+  showArchived,
+  onToggleArchived,
+  routineScope,
+  setRoutineScope,
+  routineScopeCounts,
+  assignedLabel = "En plan",
 }) {
-  if (!showSearch && !showBranchFilter) return null;
   const branches = [
     { id: "all", label: "Todas", count: branchCounts.all },
     { id: "sopocachi", label: "Sopocachi", count: branchCounts.sopocachi },
     { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
   ];
+  const scopes = [
+    { id: "all", label: "Todas", count: routineScopeCounts.all },
+    {
+      id: "assigned",
+      label: assignedLabel,
+      count: routineScopeCounts.assigned,
+    },
+    {
+      id: "unassigned",
+      label: "Sin asignar",
+      count: routineScopeCounts.unassigned,
+    },
+  ];
   return (
     <section className="mt-5 space-y-3">
-      <div>
+      <div className="flex items-stretch gap-2">
         {showSearch ? (
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text)]" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               type="search"
               inputMode="search"
               placeholder="Buscar rutina..."
-              className="theme-accent-focus h-12 w-full rounded-none border border-[#ffb9a3] bg-[color:var(--card)] pl-12 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:border-[#3a3a3a] dark:focus:border-[#e2ff00]"
+              className="theme-accent-focus h-11 w-full rounded-none border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:focus:border-[#e2ff00]"
             />
           </div>
         ) : null}
+        {showArchivedControl ? (
+          <button
+            type="button"
+            onClick={onToggleArchived}
+            className={`inline-flex h-11 shrink-0 items-center justify-center gap-1.5 border px-3 text-xs font-black transition ${
+              showArchived
+                ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]"
+                : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
+            }`}
+            aria-expanded={showArchived}
+            aria-label={`${showArchived ? "Ocultar" : "Ver"} rutinas archivadas (${archivedCount})`}
+          >
+            <Archive className="h-4 w-4" />
+            <span className="hidden min-[360px]:inline">Archivadas</span>
+            <span aria-hidden="true">{archivedCount}</span>
+          </button>
+        ) : null}
+      </div>
+      <div
+        className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+        aria-label="Filtrar rutinas por asignación"
+      >
+        {scopes.map((scope) => (
+          <button
+            key={scope.id}
+            type="button"
+            onClick={() => setRoutineScope(scope.id)}
+            aria-pressed={routineScope === scope.id}
+            className={`min-h-9 px-2 text-[10px] font-black uppercase transition sm:text-xs ${
+              routineScope === scope.id
+                ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
+                : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+            }`}
+          >
+            {scope.label} <span className="opacity-75">{scope.count}</span>
+          </button>
+        ))}
       </div>
       {showBranchFilter ? (
         <div className="grid grid-cols-3 gap-2" aria-label="Filtrar por sede">
@@ -3310,11 +3428,164 @@ function RoutinePreviewImage({ item }) {
   );
 }
 
+function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
+  if (!plan) return null;
+  const day = state?.day;
+  const isCompleted = Boolean(state?.isCompleted);
+  const isRest = Boolean(state?.isRest);
+  const routine = state?.routine;
+  const title = !state
+    ? "Consulta la agenda del plan"
+    : isRest
+      ? day.type === "recovery"
+        ? "Recuperación activa"
+        : "Descanso programado"
+      : routine?.name || "Rutina pendiente de asignar";
+  const detail = !state
+    ? "Revisa la programación para conocer tu siguiente sesión."
+    : isCompleted
+      ? "La sesión de hoy ya está registrada."
+      : isRest
+        ? "Hoy no necesitas añadir carga para mantener el avance del plan."
+        : routine
+          ? `${getRoutineExerciseSummary(routine)} preparados para hoy.`
+          : "Asigna una rutina para completar la planificación.";
+  const StatusIcon = !state
+    ? CalendarDays
+    : isCompleted
+      ? Check
+      : isRest
+        ? Bed
+        : Dumbbell;
+  const canStart =
+    plan.status === "active" && !isCompleted && !isRest && Boolean(routine);
+  const timeProgress = getPlanTimeProgress(plan);
+
+  return (
+    <section className="routines-surface mt-5 border border-[color:var(--border)] border-t-[3px] border-t-[color:var(--accent)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--accent-strong)]">
+            Plan actual
+          </p>
+          <h2 className="mt-1 truncate text-xl font-black leading-tight text-[color:var(--text)] sm:text-2xl">
+            {plan.name}
+          </h2>
+          <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
+            {plan.goal || "Objetivo general"} · {plan.durationWeeks} semanas
+          </p>
+        </div>
+        <Badge variant="active">Vigente</Badge>
+      </div>
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[10px] font-black uppercase">
+          <span className="text-[color:var(--text-muted)]">
+            Periodo transcurrido
+          </span>
+          <span className="text-[color:var(--accent-strong)]">
+            {timeProgress.percentage}%
+          </span>
+        </div>
+        <div
+          className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]"
+          role="progressbar"
+          aria-label={`Periodo transcurrido de ${plan.name}`}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow={timeProgress.percentage}
+        >
+          <div
+            className="h-full bg-[color:var(--accent)]"
+            style={{ width: `${timeProgress.percentage}%` }}
+          />
+        </div>
+      </div>
+      <div className="mt-4 border-t border-[color:var(--border)] pt-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
+            <StatusIcon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+              Hoy
+            </p>
+            <h3 className="mt-0.5 truncate text-base font-black leading-tight text-[color:var(--text)]">
+              {title}
+            </h3>
+            <p className="mt-1 text-xs font-semibold leading-4 text-[color:var(--text-muted)]">
+              {detail}
+            </p>
+          </div>
+        </div>
+        <div
+          className={`mt-3 grid gap-2 sm:mt-0 sm:flex sm:shrink-0 ${
+            canStart ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={onOpen}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
+          >
+            Ver agenda
+          </button>
+          {canStart ? (
+            <button
+              type="button"
+              onClick={() => onStart(day, plan)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--accent)] px-3 text-xs font-black text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)]"
+            >
+              <Play className="h-4 w-4" /> Iniciar
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SecondaryPlanRow({ plan, onOpen }) {
+  const timeProgress = getPlanTimeProgress(plan);
+  const sequential = plan.scheduleMode !== "fixed";
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(plan)}
+      className="routines-surface flex min-h-20 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-left transition hover:border-[color:var(--border-strong)] sm:px-4"
+    >
+      <Badge variant={plan.status}>
+        {PLAN_STATUS_LABELS[plan.status] || plan.status}
+      </Badge>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black text-[color:var(--text)] sm:text-base">
+          {plan.name}
+        </span>
+        <span className="mt-1 block truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
+          {sequential
+            ? `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`
+            : "Semana recurrente"}{" "}
+          · {plan.durationWeeks} semanas
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="block text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
+          Periodo
+        </span>
+        <span className="block text-xs font-black text-[color:var(--text)]">
+          {timeProgress.percentage}%
+        </span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+    </button>
+  );
+}
+
 export function TrainingPlanSchedule({
   plan,
   routines,
   trainings,
   selectedWeek,
+  onSelectWeek,
   isManagedClient,
   onChooseRoutine,
   onOpenRoutine,
@@ -3327,7 +3598,15 @@ export function TrainingPlanSchedule({
 }) {
   const sequential = plan.scheduleMode !== "fixed";
   const schedule = plan.weeklySchedule || [];
+  const isConfiguring = plan.status === "draft";
+  const isEditable = ["draft", "scheduled", "active", "paused"].includes(
+    plan.status,
+  );
+  const planId = getEntityId(plan);
+  const [editingSchedulePlanId, setEditingSchedulePlanId] = useState("");
+  const editingSchedule = editingSchedulePlanId === planId;
   const todayIso = new Date().toLocaleDateString("en-CA");
+  const currentWeekIndex = getPlanWeekIndex(plan);
   const currentCycleIndex = Math.min(
     schedule.length - 1,
     Math.max(0, Number(plan.cycleProgress?.currentIndex || 0)),
@@ -3360,10 +3639,8 @@ export function TrainingPlanSchedule({
   const configuredTrainingDays = schedule.filter(
     (day) => day.type === "training" && day.routineId,
   ).length;
-  const isConfiguring = plan.status === "draft";
-  const isEditable = ["draft", "scheduled", "active", "paused"].includes(
-    plan.status,
-  );
+  const showEditingControls =
+    isConfiguring || (editingSchedule && isEditable && !isManagedClient);
   const progressValue = isConfiguring
     ? configuredTrainingDays
     : completedTrainingDays;
@@ -3371,14 +3648,14 @@ export function TrainingPlanSchedule({
 
   return (
     <div className="mt-5">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
             {isConfiguring
               ? "Asignación de rutinas"
               : sequential
                 ? "Orden del ciclo"
-                : "Semana actual"}
+                : `Semana ${selectedWeek + 1} de ${Math.max(1, Number(plan.durationWeeks || 1))}`}
           </p>
           <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
             {isConfiguring
@@ -3390,13 +3667,32 @@ export function TrainingPlanSchedule({
                 : `${formatPlanDayDate(weekStart)} - ${formatPlanDayDate(weekEnd)}`}
           </p>
         </div>
-        <strong className="theme-accent-text shrink-0 text-xs uppercase">
-          {isConfiguring
-            ? `${configuredTrainingDays}/${totalTrainingDays} asignadas`
-            : sequential
-              ? `Día ${currentCycleIndex + 1}/${schedule.length}`
-              : `${completedTrainingDays}/${totalTrainingDays} completadas`}
-        </strong>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <strong className="theme-accent-text text-xs uppercase">
+            {isConfiguring
+              ? `${configuredTrainingDays}/${totalTrainingDays} asignadas`
+              : sequential
+                ? `Día ${currentCycleIndex + 1}/${schedule.length}`
+                : `${completedTrainingDays}/${totalTrainingDays} sesiones esta semana`}
+          </strong>
+          {!isConfiguring && isEditable && !isManagedClient ? (
+            <button
+              type="button"
+              onClick={() =>
+                setEditingSchedulePlanId((current) =>
+                  current === planId ? "" : planId,
+                )
+              }
+              className={`h-8 border px-2.5 text-[10px] font-black uppercase transition ${
+                editingSchedule
+                  ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]"
+                  : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+              }`}
+            >
+              {editingSchedule ? "Cerrar edición" : "Editar distribución"}
+            </button>
+          ) : null}
+        </div>
       </div>
       {(!sequential || isConfiguring) && totalTrainingDays ? (
         <div className="mt-3 h-1.5 overflow-hidden bg-[color:var(--border)]">
@@ -3404,6 +3700,39 @@ export function TrainingPlanSchedule({
             className="theme-accent-solid h-full border-0 transition-all"
             style={{ width: `${(progressValue / progressTotal) * 100}%` }}
           />
+        </div>
+      ) : null}
+
+      {showEditingControls && !sequential ? (
+        <p className="mt-3 border-l-2 border-[color:var(--accent)] pl-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+          Los cambios se aplican a la semana recurrente completa.
+        </p>
+      ) : null}
+
+      {!sequential && Number(plan.durationWeeks || 1) > 1 ? (
+        <div
+          className="mt-4 flex gap-2 overflow-x-auto pb-1"
+          aria-label="Seleccionar semana de la planificación"
+        >
+          {Array.from(
+            { length: Math.max(1, Number(plan.durationWeeks || 1)) },
+            (_, weekIndex) => (
+              <button
+                key={weekIndex}
+                type="button"
+                onClick={() => onSelectWeek?.(weekIndex)}
+                aria-pressed={selectedWeek === weekIndex}
+                className={`h-9 shrink-0 border px-3 text-[10px] font-black uppercase transition ${
+                  selectedWeek === weekIndex
+                    ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
+                    : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]"
+                }`}
+              >
+                Semana {weekIndex + 1}
+                {weekIndex === currentWeekIndex ? " · Actual" : ""}
+              </button>
+            ),
+          )}
         </div>
       ) : null}
 
@@ -3452,7 +3781,25 @@ export function TrainingPlanSchedule({
                   .join(" · ")
               : "Selecciona una rutina";
           const canStart =
-            isCurrent && plan.status === "active" && Boolean(routine);
+            isCurrent &&
+            plan.status === "active" &&
+            Boolean(routine) &&
+            !training;
+          const dayStateLabel = training
+            ? "Completada"
+            : isCurrent
+              ? sequential
+                ? "Actual"
+                : "Hoy"
+              : !sequential && !isRest && dateIso < todayIso
+                ? "No registrada"
+                : !sequential && !isRest && dateIso > todayIso
+                  ? "Programada"
+                  : "";
+          const dayStateClass =
+            training || isCurrent
+              ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
+              : "border border-[color:var(--border)] text-[color:var(--text-muted)]";
           return (
             <article
               key={day.slotId || day.dayIndex}
@@ -3470,53 +3817,56 @@ export function TrainingPlanSchedule({
               }}
               className={`relative flex min-h-[72px] items-center gap-3 px-2 py-3 sm:px-3 ${
                 isCurrent
-                  ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
+                  ? "bg-[color:var(--card)] ring-1 ring-inset ring-[color:var(--accent)]"
                   : "bg-[color:var(--card)]"
               } ${!isRest && routine ? "cursor-pointer transition hover:bg-[color:var(--bg)]" : ""}`}
             >
               {isCurrent ? (
-                <span className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--accent-contrast)]" />
+                <span className="absolute inset-y-0 left-0 w-1 bg-[color:var(--accent)]" />
               ) : null}
               <div className="w-12 shrink-0 border-r border-[color:var(--border)] pr-3 text-center sm:w-16">
                 <p
-                  className={`text-xs font-black uppercase ${isCurrent ? "text-current" : ""}`}
+                  className={`text-xs font-black uppercase ${isCurrent ? "text-[color:var(--accent-strong)]" : ""}`}
                 >
                   {sequential
                     ? `Día ${index + 1}`
                     : PLAN_DAY_NAMES[index].slice(0, 3)}
                 </p>
                 {date ? (
-                  <p
-                    className={`mt-1 text-[10px] font-bold ${isCurrent ? "text-current/75" : "text-[color:var(--text-muted)]"}`}
-                  >
+                  <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
                     {formatPlanDayDate(date)}
                   </p>
                 ) : null}
               </div>
               <div className="min-w-0 flex-1">
-                {!isRest && routine ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenRoutine(routine)}
-                    className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
-                    aria-label={`Ver ejercicios de ${routine.name}`}
-                  >
-                    {primaryLabel}
-                  </button>
-                ) : (
-                  <p
-                    className={`truncate text-sm font-black ${!routine && !isRest ? "text-[color:var(--text-muted)]" : ""}`}
-                  >
-                    {primaryLabel}
-                  </p>
-                )}
-                <p
-                  className={`mt-1 truncate text-[11px] font-semibold ${
-                    isCurrent
-                      ? "text-current/75"
-                      : "text-[color:var(--text-muted)]"
-                  }`}
-                >
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    {!isRest && routine ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenRoutine(routine)}
+                        className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                        aria-label={`Ver ejercicios de ${routine.name}`}
+                      >
+                        {primaryLabel}
+                      </button>
+                    ) : (
+                      <p
+                        className={`truncate text-sm font-black ${!routine && !isRest ? "text-[color:var(--text-muted)]" : ""}`}
+                      >
+                        {primaryLabel}
+                      </p>
+                    )}
+                  </div>
+                  {dayStateLabel ? (
+                    <span
+                      className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${dayStateClass}`}
+                    >
+                      {dayStateLabel}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
                   {secondaryLabel}
                   {training
                     ? ` · ${Math.round(Number(training.totalVolume || 0)).toLocaleString("es-BO")} kg`
@@ -3526,35 +3876,20 @@ export function TrainingPlanSchedule({
               <div className="flex shrink-0 items-center gap-1">
                 {training ? (
                   <Check
-                    className={`h-4 w-4 ${isCurrent ? "text-current" : "theme-accent-text"}`}
+                    className="theme-accent-text h-4 w-4"
                     aria-label="Completada"
                   />
                 ) : null}
                 {day.type === "training" &&
                 !routine &&
                 !isManagedClient &&
-                isEditable ? (
+                showEditingControls ? (
                   <button
                     type="button"
                     onClick={() => onChooseRoutine(day)}
                     className="theme-accent-soft inline-flex h-10 items-center gap-1.5 border px-2.5 text-xs font-black"
                   >
                     <Plus className="h-4 w-4" /> Asignar
-                  </button>
-                ) : null}
-                {!isRest &&
-                routine &&
-                !isManagedClient &&
-                isEditable &&
-                !canStart ? (
-                  <button
-                    type="button"
-                    onClick={() => onChooseRoutine(day)}
-                    className={`inline-flex h-10 items-center gap-1.5 px-2 text-xs font-black ${isCurrent ? "text-current" : "text-[color:var(--text)]"}`}
-                    aria-label={`Cambiar rutina de ${sequential ? `día ${index + 1}` : PLAN_DAY_NAMES[index]}`}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    <span className="hidden sm:inline">Cambiar</span>
                   </button>
                 ) : null}
                 {canStart ? (
@@ -3566,29 +3901,30 @@ export function TrainingPlanSchedule({
                     <Play className="h-4 w-4" /> Iniciar
                   </button>
                 ) : null}
-                {!isRest && routine && !isManagedClient && isEditable ? (
+                {!isRest &&
+                routine &&
+                !isManagedClient &&
+                showEditingControls ? (
                   <details className="relative">
                     <summary
-                      className={`grid h-10 w-10 cursor-pointer list-none place-items-center [&::-webkit-details-marker]:hidden ${isCurrent ? "text-current" : "text-[color:var(--text-muted)]"}`}
+                      className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
                       aria-label={`Opciones de ${routine.name}`}
                     >
                       <MoreVertical className="h-5 w-5" />
                     </summary>
                     <div className="absolute bottom-10 right-0 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                      {canStart ? (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            onChooseRoutine(day);
-                          }}
-                          className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                        >
-                          <RotateCcw className="h-4 w-4" /> Cambiar
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          onChooseRoutine(day);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <RotateCcw className="h-4 w-4" /> Cambiar
+                      </button>
                       <button
                         type="button"
                         disabled={Boolean(duplicatingRoutineId)}
@@ -3756,6 +4092,9 @@ function RoutineDetailsModal({
     (total, exercise) => total + (Number(exercise.sets) || 0),
     0,
   );
+  const estimatedMinutes =
+    Number(routine.estimatedMinutes) ||
+    (totalSets > 0 ? Math.max(20, Math.round((totalSets * 2.5) / 5) * 5) : 20);
   return (
     <Modal
       title={routine.name}
@@ -3790,21 +4129,26 @@ function RoutineDetailsModal({
           </p>
         </div>
         <div>
-          <p className="theme-accent-text truncate px-1 text-sm font-black uppercase">
-            {ROUTINE_LEVEL_LABELS[routine.level] || routine.goal || "Personal"}
-          </p>
+          <p className="text-lg font-black">{estimatedMinutes}</p>
           <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-            Nivel
+            Minutos
           </p>
         </div>
       </div>
       <div className="mb-2 flex items-center justify-between gap-3">
         <h4 className="text-xs font-black uppercase">Ejercicios</h4>
-        <span className="theme-accent-soft border px-2 py-1 text-[9px] font-black uppercase">
-          {routine.exerciseOrderMode === "muscle_blocks"
-            ? "Por bloques"
-            : "Orden libre"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {routine.level ? (
+            <span className="border border-[color:var(--border)] px-2 py-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+              {ROUTINE_LEVEL_LABELS[routine.level] || routine.level}
+            </span>
+          ) : null}
+          <span className="theme-accent-soft border px-2 py-1 text-[9px] font-black uppercase">
+            {routine.exerciseOrderMode === "muscle_blocks"
+              ? "Por bloques"
+              : "Orden libre"}
+          </span>
+        </div>
       </div>
       <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {exercises.map((exercise, index) => {
@@ -3815,18 +4159,18 @@ function RoutineDetailsModal({
           return (
             <div
               key={`${exercise.exerciseId || exercise.name}-${index}`}
-              className="flex min-h-24 items-center gap-3 py-3"
+              className="flex min-h-20 items-center gap-2.5 py-2.5 sm:min-h-24 sm:gap-3 sm:py-3"
             >
               <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
                 {index + 1}
               </span>
-              <div className="h-20 w-[76px] shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
+              <div className="h-16 w-16 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
                 <RoutinePreviewImage
                   item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-sm font-black uppercase leading-tight">
+                <p className="line-clamp-2 text-xs font-black uppercase leading-tight sm:text-sm">
                   {exercise.name}
                 </p>
                 {exercise.muscle ? (
@@ -3835,8 +4179,9 @@ function RoutineDetailsModal({
                   </p>
                 ) : null}
               </div>
-              <span className="shrink-0 border border-[color:var(--border)] px-2 py-1 text-xs font-black">
-                {exercise.sets || 0} series
+              <span className="shrink-0 border border-[color:var(--border)] px-1.5 py-1 text-[11px] font-black sm:px-2 sm:text-xs">
+                {exercise.sets || 0}{" "}
+                {Number(exercise.sets) === 1 ? "serie" : "series"}
               </span>
             </div>
           );
@@ -3888,6 +4233,7 @@ function Routines({ onNavigate }) {
   );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [routineScope, setRoutineScope] = useState("all");
   const [canReturnToTraining, setCanReturnToTraining] =
     useState(hasTrainingReturn);
   const [editTargetRoutineId, setEditTargetRoutineId] = useState(
@@ -3918,7 +4264,6 @@ function Routines({ onNavigate }) {
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
-  const [expandedRoutineGroups, setExpandedRoutineGroups] = useState(null);
   const [showArchivedRoutines, setShowArchivedRoutines] = useState(false);
   const { data: archivedRoutineData = [], refetch: refreshArchivedRoutines } =
     useQuery({
@@ -3953,6 +4298,15 @@ function Routines({ onNavigate }) {
     () => trainingPlans.find((plan) => plan.status === "active") || null,
     [trainingPlans],
   );
+  const currentPlanToday = useMemo(
+    () =>
+      getPlanTodayState({
+        plan: currentActivePlan,
+        routines,
+        trainings,
+      }),
+    [currentActivePlan, routines, trainings],
+  );
   const draftPlanCount = useMemo(
     () => trainingPlans.filter((plan) => plan.status === "draft").length,
     [trainingPlans],
@@ -3972,17 +4326,52 @@ function Routines({ onNavigate }) {
         getDateTimestamp(b.updatedAt) - getDateTimestamp(a.updatedAt),
     );
   }, [trainingPlans]);
-  const routinePlanById = useMemo(() => {
+  const upcomingTrainingPlans = useMemo(
+    () =>
+      orderedTrainingPlans.filter((plan) =>
+        ["scheduled", "draft"].includes(plan.status),
+      ),
+    [orderedTrainingPlans],
+  );
+  const otherTrainingPlans = useMemo(
+    () =>
+      orderedTrainingPlans.filter(
+        (plan) =>
+          getEntityId(plan) !== getEntityId(currentActivePlan) &&
+          !["scheduled", "draft"].includes(plan.status),
+      ),
+    [currentActivePlan, orderedTrainingPlans],
+  );
+  const routineAssignmentById = useMemo(() => {
     const map = new Map();
-    trainingPlans
-      .filter((plan) => ["active", "scheduled", "draft"].includes(plan.status))
-      .forEach((plan) => {
-        (plan.weeklySchedule || []).forEach((day) => {
-          if (day.routineId) map.set(String(day.routineId), plan);
-        });
+    const planningSources = isCoach
+      ? planTemplates
+      : orderedTrainingPlans.filter((plan) =>
+          ["active", "scheduled", "draft", "paused"].includes(plan.status),
+        );
+    planningSources.forEach((plan) => {
+      (plan.weeklySchedule || []).forEach((day, dayIndex) => {
+        const routineId = getEntityId(
+          (isCoach ? day.sourceRoutineId : day.routineId) ||
+            day.sourceRoutineId ||
+            "",
+        );
+        if (!routineId) return;
+        const current = map.get(routineId);
+        if (current) {
+          if (
+            getEntityId(current.plan) === getEntityId(plan) &&
+            !current.dayIndexes.includes(dayIndex)
+          ) {
+            current.dayIndexes.push(dayIndex);
+          }
+          return;
+        }
+        map.set(routineId, { plan, dayIndexes: [dayIndex] });
       });
+    });
     return map;
-  }, [trainingPlans]);
+  }, [isCoach, orderedTrainingPlans, planTemplates]);
 
   const refreshPlans = useCallback(
     ({ silent = false } = {}) => {
@@ -4164,7 +4553,9 @@ function Routines({ onNavigate }) {
     branchCounts.sopocachi > 0 &&
     branchCounts.miraflores > 0;
   const hasActiveRoutineFilters =
-    Boolean(searchTerm.trim()) || (showBranchFilter && activeBranch !== "all");
+    Boolean(searchTerm.trim()) ||
+    routineScope !== "all" ||
+    (showBranchFilter && activeBranch !== "all");
 
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -4220,7 +4611,12 @@ function Routines({ onNavigate }) {
 
         return {
           ...routine,
-          plan: routinePlanById.get(String(routine.id || routine._id)) || null,
+          assignment:
+            routineAssignmentById.get(String(routine.id || routine._id)) ||
+            null,
+          plan:
+            routineAssignmentById.get(String(routine.id || routine._id))
+              ?.plan || null,
           trainingCount:
             routineTrainingCountMap.get(String(routine.id || routine._id)) || 0,
           totalExerciseCount: exercises.length,
@@ -4245,114 +4641,26 @@ function Routines({ onNavigate }) {
     exerciseMetaMap,
     locationMode,
     preferredBranch,
-    routinePlanById,
+    routineAssignmentById,
     routineTrainingCountMap,
   ]);
-  const groupedRoutineCards = useMemo(() => {
-    const planningSources = isCoach ? planTemplates : orderedTrainingPlans;
-    const groupedRoutineIds = new Set();
-    const planningGroups = planningSources.flatMap((plan) => {
-      const routineIds = Array.from(
-        new Set(
-          (plan.weeklySchedule || [])
-            .filter((day) => day.type === "training")
-            .map((day) =>
-              getEntityId(
-                (isCoach ? day.sourceRoutineId : day.routineId) ||
-                  day.sourceRoutineId ||
-                  "",
-              ),
-            )
-            .filter(Boolean),
-        ),
-      );
-      const matches = routineIds
-        .map((id) =>
-          routineCards.find((routine) => getEntityId(routine) === id),
-        )
-        .filter(Boolean);
-      if (!matches.length) return [];
-
-      const groupId = `plan-${plan._id || plan.id}`;
-      matches.forEach((routine) => groupedRoutineIds.add(getEntityId(routine)));
-      return [
-        {
-          id: `__${groupId}`,
-          groupId,
-          groupHeading: plan.name,
-          groupCount: matches.length,
-          groupEyebrow: isCoach
-            ? "Planificación"
-            : PLAN_STATUS_LABELS[plan.status] || "Planificación",
-          groupMeta: `${plan.goal || "Objetivo general"} · ${plan.durationWeeks || 1} ${Number(plan.durationWeeks || 1) === 1 ? "semana" : "semanas"} · ${matches.length} ${matches.length === 1 ? "rutina" : "rutinas"}`,
-          groupStatus: plan.status,
-          collapsible: true,
-        },
-        ...matches.map((routine) => ({
-          ...routine,
-          plan,
-          routineGroupId: groupId,
-        })),
-      ];
-    });
-
-    const remainingRoutineCards = routineCards.filter(
-      (routine) => !groupedRoutineIds.has(getEntityId(routine)),
-    );
-    if (planningGroups.length) {
-      return [
-        ...planningGroups,
-        ...(remainingRoutineCards.length
-          ? [
-              {
-                id: "__other_heading",
-                groupHeading: "Rutinas sin planificación",
-                groupCount: remainingRoutineCards.length,
-              },
-              ...remainingRoutineCards,
-            ]
-          : []),
-      ];
-    }
-
-    return remainingRoutineCards;
-  }, [isCoach, orderedTrainingPlans, planTemplates, routineCards]);
-
-  const routineGroupOptions = useMemo(
-    () =>
-      groupedRoutineCards.filter(
-        (item) => item.groupHeading && item.collapsible,
-      ),
-    [groupedRoutineCards],
+  const routineScopeCounts = useMemo(
+    () => ({
+      all: routineCards.length,
+      assigned: routineCards.filter((routine) => routine.assignment).length,
+      unassigned: routineCards.filter((routine) => !routine.assignment).length,
+    }),
+    [routineCards],
   );
-
-  useEffect(() => {
-    if (!routineGroupOptions.length) {
-      setExpandedRoutineGroups(null);
-      return;
+  const visibleRoutineCards = useMemo(() => {
+    if (routineScope === "assigned") {
+      return routineCards.filter((routine) => routine.assignment);
     }
-    setExpandedRoutineGroups((current) => {
-      const availableIds = new Set(
-        routineGroupOptions.map((group) => group.groupId),
-      );
-      if (current === null) {
-        const preferred =
-          routineGroupOptions.find((group) => group.groupStatus === "active") ||
-          routineGroupOptions[0];
-        return new Set(preferred ? [preferred.groupId] : []);
-      }
-      return new Set([...current].filter((id) => availableIds.has(id)));
-    });
-  }, [routineGroupOptions]);
-
-  const toggleRoutineGroup = (groupId) => {
-    setExpandedRoutineGroups((current) => {
-      const next = new Set(current || []);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
+    if (routineScope === "unassigned") {
+      return routineCards.filter((routine) => !routine.assignment);
+    }
+    return routineCards;
+  }, [routineCards, routineScope]);
 
   const openCreate = (planDay = null, { replacing = false } = {}) => {
     if (isManagedClient) return;
@@ -4666,14 +4974,14 @@ function Routines({ onNavigate }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const startPlanRoutine = (day) => {
+  const startPlanRoutine = (day, sourcePlan = activePlan) => {
     if (!day?.routineId) return;
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(
         TRAINING_PLAN_ROUTINE_INTENT_KEY,
         JSON.stringify({
           routineId: String(day.routineId),
-          planId: String(activePlan?._id || activePlan?.id || ""),
+          planId: String(sourcePlan?._id || sourcePlan?.id || ""),
           slotId: day.slotId,
           createdAt: Date.now(),
         }),
@@ -4807,14 +5115,14 @@ function Routines({ onNavigate }) {
   return (
     <div className="routines-shell">
       <section className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {activePlan
                 ? "Detalle de planificación"
                 : "Gestión de entrenamiento"}
             </p>
-            <h1 className="mt-1 text-[26px] font-black leading-none text-[color:var(--text)] sm:text-3xl">
+            <h1 className="mt-1 text-[24px] font-black leading-[0.95] text-[color:var(--text)] sm:text-3xl">
               {activePlan ? activePlan.name : "Rutinas y planificación"}
             </h1>
             {!activePlan ? (
@@ -4856,12 +5164,20 @@ function Routines({ onNavigate }) {
                     ? setPlanModalOpen(true)
                     : openCreate()
                 }
-                className="theme-accent-solid routines-surface inline-flex h-11 items-center justify-center gap-2 border px-4 text-sm font-black shadow-sm transition active:scale-[0.98]"
+                className="theme-accent-solid routines-surface inline-flex h-10 items-center justify-center gap-1.5 border px-3 text-xs font-black shadow-sm transition active:scale-[0.98] sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
+                aria-label={
+                  workspaceView === "plans"
+                    ? "Nueva planificación"
+                    : "Nueva rutina"
+                }
               >
                 <Plus className="h-4 w-4" />
-                {workspaceView === "plans"
-                  ? "Nueva planificación"
-                  : "Nueva rutina"}
+                <span className="sm:hidden">Nueva</span>
+                <span className="hidden sm:inline">
+                  {workspaceView === "plans"
+                    ? "Nueva planificación"
+                    : "Nueva rutina"}
+                </span>
               </button>
             ) : null}
           </div>
@@ -4999,101 +5315,63 @@ function Routines({ onNavigate }) {
       !activePlan &&
       workspaceView === "plans" &&
       trainingPlans.length ? (
-        <section className="mt-6 space-y-3 pb-24 sm:pb-0">
-          <div className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+        <section className="mt-6 space-y-5">
+          {currentActivePlan ? (
+            <CurrentPlanOverview
+              plan={currentActivePlan}
+              state={currentPlanToday}
+              onOpen={() => openTrainingPlan(currentActivePlan)}
+              onStart={startPlanRoutine}
+            />
+          ) : null}
+          {upcomingTrainingPlans.length ? (
             <div>
-              <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                Tus programas
-              </p>
-              <h2 className="mt-1 text-xl font-black">
-                Elige una planificación
-              </h2>
+              <div className="mb-3 border-b border-[color:var(--border)] pb-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                  Próximas planificaciones
+                </p>
+                <h2 className="mt-1 text-lg font-black">
+                  Preparadas para después
+                </h2>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {upcomingTrainingPlans.map((plan) => (
+                  <SecondaryPlanRow
+                    key={plan._id || plan.id}
+                    plan={plan}
+                    onOpen={openTrainingPlan}
+                  />
+                ))}
+              </div>
             </div>
-            {currentActivePlan ? (
-              <span className="theme-accent-soft rounded px-2.5 py-1 text-xs font-black">
-                1 vigente
-              </span>
-            ) : null}
-          </div>
-          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))]">
-            {orderedTrainingPlans.map((plan) => {
-              const trainingDays = (plan.weeklySchedule || []).filter(
-                (day) => day.type === "training",
-              );
-              const configured =
-                plan.integrity?.configured ??
-                trainingDays.filter((day) => day.routineId).length;
-              const isCurrent = plan.status === "active";
-              const isSequential = plan.scheduleMode !== "fixed";
-              const timeProgress = getPlanTimeProgress(plan);
-              return (
-                <button
-                  key={plan._id || plan.id}
-                  type="button"
-                  onClick={() => openTrainingPlan(plan)}
-                  className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
-                    isCurrent
-                      ? "border-[#ff5722] dark:border-[#e2ff00]"
-                      : "border-[color:var(--border)]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <Badge variant={isCurrent ? "active" : plan.status}>
-                      {PLAN_STATUS_LABELS[plan.status] || plan.status}
-                    </Badge>
-                    <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-black leading-tight">
-                    {plan.name}
-                  </h3>
-                  <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                    {isSequential
-                      ? `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`
-                      : "Rutina semanal fija"}
-                  </p>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-[11px] font-black uppercase">
-                      <span className="text-[color:var(--text-muted)]">
-                        Progreso temporal
-                      </span>
-                      <span className={isCurrent ? "theme-accent-text" : ""}>
-                        {timeProgress.percentage}%
-                      </span>
-                    </div>
-                    <div
-                      className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]"
-                      role="progressbar"
-                      aria-label={`Progreso temporal de ${plan.name}`}
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-valuenow={timeProgress.percentage}
-                    >
-                      <div
-                        className={`h-full ${
-                          isCurrent
-                            ? "theme-accent-solid border-0"
-                            : "bg-[color:var(--text-muted)]"
-                        }`}
-                        style={{ width: `${timeProgress.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs font-black">
-                    <span>{plan.durationWeeks} semanas</span>
-                    <span
-                      className={
-                        configured === trainingDays.length
-                          ? "theme-accent-text"
-                          : "text-[color:var(--text-muted)]"
-                      }
-                    >
-                      {configured}/{trainingDays.length} rutinas
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          ) : null}
+          {otherTrainingPlans.length ? (
+            <details className="group border-y border-[color:var(--border)]">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                    Historial y pausadas
+                  </span>
+                  <span className="mt-1 block text-base font-black">
+                    Otros planes
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 text-xs font-black text-[color:var(--text-muted)]">
+                  {otherTrainingPlans.length}
+                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t border-[color:var(--border)] py-3 md:grid-cols-2">
+                {otherTrainingPlans.map((plan) => (
+                  <SecondaryPlanRow
+                    key={plan._id || plan.id}
+                    plan={plan}
+                    onOpen={openTrainingPlan}
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
         </section>
       ) : null}
 
@@ -5122,10 +5400,7 @@ function Routines({ onNavigate }) {
                 {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
               </Badge>
               <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                {activePlan.goal} · {activePlan.durationWeeks} semanas ·{" "}
-                {activePlan.scheduleMode === "fixed"
-                  ? "Semana recurrente"
-                  : "Ciclo libre"}
+                {activePlan.goal || "Objetivo general"}
               </p>
             </div>
             {!isManagedClient || user?.role === "Admin" ? (
@@ -5222,22 +5497,24 @@ function Routines({ onNavigate }) {
             ) : null}
           </div>
           <div className="mt-4">
+            <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+              Calendario del plan
+            </p>
             <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
-              <span className="truncate text-[color:var(--text-muted)]">
-                {formatPlanDate(activePlan.startDate)} -{" "}
-                {formatPlanDate(getPlanEndDate(activePlan))}
+              <span className="text-[color:var(--text-muted)]">
+                {activePlanTimeProgress.message}
               </span>
               <span className="shrink-0">
-                {activePlanTimeProgress.message} ·{" "}
                 <strong className="theme-accent-text">
                   {activePlanTimeProgress.percentage}%
-                </strong>
+                </strong>{" "}
+                transcurrido
               </span>
             </div>
             <div
               className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
               role="progressbar"
-              aria-label="Progreso temporal de la planificación"
+              aria-label="Calendario transcurrido de la planificación"
               aria-valuemin="0"
               aria-valuemax="100"
               aria-valuenow={activePlanTimeProgress.percentage}
@@ -5253,6 +5530,7 @@ function Routines({ onNavigate }) {
             routines={routines}
             trainings={trainings}
             selectedWeek={selectedPlanWeek}
+            onSelectWeek={setSelectedPlanWeek}
             isManagedClient={isManagedClient}
             onChooseRoutine={setPlanDayChoice}
             onOpenRoutine={setViewingRoutine}
@@ -5263,11 +5541,52 @@ function Routines({ onNavigate }) {
             onAdvanceCycle={advanceCycle}
             advancingCycle={advancingCycle}
           />
-          {activePlan.notes ? (
-            <p className="mt-3 text-xs font-semibold text-[color:var(--text-muted)]">
-              {activePlan.notes}
-            </p>
-          ) : null}
+          <details className="group mt-4 border-y border-[color:var(--border)]">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-black [&::-webkit-details-marker]:hidden">
+              Información del plan
+              <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-180" />
+            </summary>
+            <dl className="grid gap-3 border-t border-[color:var(--border)] py-3 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="font-black uppercase text-[color:var(--text-muted)]">
+                  Objetivo
+                </dt>
+                <dd className="mt-1 font-semibold text-[color:var(--text)]">
+                  {activePlan.goal || "Objetivo general"}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-black uppercase text-[color:var(--text-muted)]">
+                  Duración
+                </dt>
+                <dd className="mt-1 font-semibold text-[color:var(--text)]">
+                  {activePlan.durationWeeks} semanas ·{" "}
+                  {activePlan.scheduleMode === "fixed"
+                    ? "Semana recurrente"
+                    : "Ciclo libre"}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-black uppercase text-[color:var(--text-muted)]">
+                  Fechas
+                </dt>
+                <dd className="mt-1 font-semibold text-[color:var(--text)]">
+                  {formatPlanDate(activePlan.startDate)} -{" "}
+                  {formatPlanDate(getPlanEndDate(activePlan))}
+                </dd>
+              </div>
+              {activePlan.notes ? (
+                <div>
+                  <dt className="font-black uppercase text-[color:var(--text-muted)]">
+                    Notas
+                  </dt>
+                  <dd className="mt-1 font-semibold text-[color:var(--text)]">
+                    {activePlan.notes}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </details>
         </section>
       ) : null}
 
@@ -5280,6 +5599,16 @@ function Routines({ onNavigate }) {
           activeBranch={activeBranch}
           setActiveBranch={setActiveBranch}
           branchCounts={branchCounts}
+          showArchivedControl={!isManagedClient}
+          archivedCount={archivedRoutines.length}
+          showArchived={showArchivedRoutines}
+          onToggleArchived={() =>
+            setShowArchivedRoutines((current) => !current)
+          }
+          routineScope={routineScope}
+          setRoutineScope={setRoutineScope}
+          routineScopeCounts={routineScopeCounts}
+          assignedLabel={isCoach ? "En plantilla" : "En planes"}
         />
       ) : null}
 
@@ -5287,24 +5616,9 @@ function Routines({ onNavigate }) {
       workspaceReady &&
       workspaceView === "routines" &&
       !isManagedClient ? (
-        <div className="mt-3 border-y border-[color:var(--border)] py-3">
-          <button
-            type="button"
-            onClick={() => setShowArchivedRoutines((current) => !current)}
-            className="flex min-h-11 w-full items-center justify-between gap-3 text-left"
-            aria-expanded={showArchivedRoutines}
-          >
-            <span className="inline-flex items-center gap-2 text-sm font-black">
-              <Archive className="h-4 w-4" /> Rutinas archivadas
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${
-                showArchivedRoutines ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+        <div>
           {showArchivedRoutines ? (
-            <div className="mt-2 divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+            <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
               {archivedRoutines.length ? (
                 archivedRoutines.map((routine) => (
                   <div
@@ -5329,7 +5643,7 @@ function Routines({ onNavigate }) {
                   </div>
                 ))
               ) : (
-                <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                <p className="py-3 text-sm font-semibold text-[color:var(--text-muted)]">
                   No tienes rutinas archivadas.
                 </p>
               )}
@@ -5339,124 +5653,9 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {!activePlan && workspaceReady && workspaceView === "routines" ? (
-        <section className="mt-4 grid gap-3 pb-24 sm:mt-5 sm:gap-4 sm:pb-0 md:grid-cols-2 xl:grid-cols-3">
+        <section className="mt-4 grid gap-3 sm:mt-5 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false} mode="popLayout">
-            {groupedRoutineCards.map((routine) => {
-              if (routine.groupHeading) {
-                if (routine.collapsible) {
-                  const isExpanded = expandedRoutineGroups?.has(
-                    routine.groupId,
-                  );
-                  return (
-                    <motion.button
-                      key={routine.id}
-                      layout
-                      type="button"
-                      onClick={() => toggleRoutineGroup(routine.groupId)}
-                      aria-expanded={Boolean(isExpanded)}
-                      className={`routines-surface col-span-full mt-3 flex min-h-[76px] w-full items-center justify-between gap-3 border px-4 py-3 text-left transition ${
-                        isExpanded
-                          ? "theme-accent-solid border-transparent shadow-[0_8px_20px_rgba(255,87,34,0.18)] dark:shadow-[0_8px_20px_rgba(226,255,0,0.1)]"
-                          : routine.groupStatus === "active"
-                            ? "border-[#ff5722] border-l-4 bg-[color:var(--card)] dark:border-[#e2ff00]"
-                            : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff8a66] dark:hover:border-[#e2ff00]"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-3">
-                        <span
-                          className={`grid h-11 w-11 shrink-0 place-items-center border ${
-                            isExpanded
-                              ? "border-white/35 bg-white/15 text-white dark:border-black/30 dark:bg-black/10 dark:text-black"
-                              : "theme-accent-soft"
-                          }`}
-                        >
-                          <CalendarDays className="h-5 w-5" />
-                        </span>
-                        <span className="min-w-0">
-                          <span
-                            className={`block text-[10px] font-black uppercase tracking-[0.12em] ${
-                              isExpanded
-                                ? "text-white/75 dark:text-black/65"
-                                : "text-[#a93614] dark:text-[#e2ff00]"
-                            }`}
-                          >
-                            {routine.groupEyebrow}
-                          </span>
-                          <span
-                            className={`mt-1 line-clamp-2 block text-base font-black uppercase leading-tight sm:text-lg ${
-                              isExpanded
-                                ? "text-white dark:text-black"
-                                : "text-[color:var(--text)]"
-                            }`}
-                          >
-                            {routine.groupHeading}
-                          </span>
-                          <span
-                            className={`mt-1 block truncate text-[11px] font-semibold ${
-                              isExpanded
-                                ? "text-white/80 dark:text-black/70"
-                                : "text-[color:var(--text-muted)]"
-                            }`}
-                          >
-                            {routine.groupMeta}
-                          </span>
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        <span
-                          className={`hidden text-right font-black sm:block ${
-                            isExpanded
-                              ? "text-white dark:text-black"
-                              : "text-[color:var(--text-muted)]"
-                          }`}
-                        >
-                          <span className="block text-xs">
-                            {routine.groupCount}{" "}
-                            {routine.groupCount === 1 ? "rutina" : "rutinas"}
-                          </span>
-                          <span className="mt-0.5 block text-[10px] uppercase opacity-75">
-                            {isExpanded ? "Ocultar" : "Ver rutinas"}
-                          </span>
-                        </span>
-                        <ChevronDown
-                          className={`h-5 w-5 transition-transform duration-200 ${
-                            isExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                      </span>
-                    </motion.button>
-                  );
-                }
-                return (
-                  <motion.h2
-                    key={routine.id}
-                    layout
-                    className="col-span-full mt-3 flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-2"
-                  >
-                    <span>
-                      {routine.groupEyebrow ? (
-                        <span className="mb-1 block text-[10px] font-black uppercase text-[#a93614] dark:text-[#e2ff00]">
-                          {routine.groupEyebrow}
-                        </span>
-                      ) : null}
-                      <span className="block text-base font-black uppercase text-[color:var(--text)]">
-                        {routine.groupHeading}
-                      </span>
-                    </span>
-                    {routine.groupCount ? (
-                      <span className="pb-0.5 text-xs font-black text-[color:var(--text-muted)]">
-                        {routine.groupCount}
-                      </span>
-                    ) : null}
-                  </motion.h2>
-                );
-              }
-              if (
-                routine.routineGroupId &&
-                !expandedRoutineGroups?.has(routine.routineGroupId)
-              ) {
-                return null;
-              }
+            {visibleRoutineCards.map((routine) => {
               const isHighlighted = ["active", "scheduled"].includes(
                 routine.plan?.status,
               );
@@ -5465,14 +5664,27 @@ function Routines({ onNavigate }) {
                 routine.goal ||
                 routine.muscles.slice(0, 2).join(" · ") ||
                 "Rutina personalizada";
+              const assignmentDays = (routine.assignment?.dayIndexes || [])
+                .map((dayIndex) =>
+                  routine.plan?.scheduleMode === "fixed"
+                    ? PLAN_DAY_NAMES[dayIndex]?.slice(0, 3)
+                    : `Día ${dayIndex + 1}`,
+                )
+                .filter(Boolean)
+                .join(" / ");
+              const assignmentLabel = routine.plan
+                ? `${
+                    isCoach
+                      ? "En plantilla"
+                      : routine.plan.status === "active"
+                        ? "En"
+                        : `${PLAN_STATUS_LABELS[routine.plan.status] || "En plan"} ·`
+                  } ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
+                : "";
 
               return (
                 <motion.article
-                  key={
-                    routine.routineGroupId
-                      ? `${routine.routineGroupId}-${routine.id || routine._id}`
-                      : routine.id || routine._id
-                  }
+                  key={routine.id || routine._id}
                   layout
                   initial={{ opacity: 0, y: 8, scale: 0.99 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -5482,10 +5694,6 @@ function Routines({ onNavigate }) {
                     isHighlighted
                       ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
                       : "border-t-[#626262] dark:border-t-[#6d6d62]"
-                  } ${
-                    routine.routineGroupId
-                      ? "border-l-[3px] border-l-[#ff5722]/45 dark:border-l-[#e2ff00]/45"
-                      : ""
                   } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
                 >
                   <button
@@ -5494,10 +5702,15 @@ function Routines({ onNavigate }) {
                     className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
                     aria-label={`Ver ejercicios de ${routine.name}`}
                   />
-                  <div className="pointer-events-none relative z-[1] p-4">
+                  <div className="pointer-events-none relative z-[1] p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h2 className="line-clamp-2 text-[23px] font-black uppercase leading-[0.95] text-[color:var(--text)] sm:text-[25px]">
+                        {assignmentLabel ? (
+                          <p className="mb-1.5 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
+                            {assignmentLabel}
+                          </p>
+                        ) : null}
+                        <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
                           {routine.name}
                         </h2>
                         <p className="mt-2 truncate text-xs font-black uppercase text-[#9f3518] dark:text-[#e2ff00]">
@@ -5560,17 +5773,17 @@ function Routines({ onNavigate }) {
                       ) : null}
                     </div>
 
-                    <div className="mt-5 flex min-h-14 items-stretch gap-2">
+                    <div className="mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
                       {routine.preview.slice(0, 3).map((item, idx) => (
                         <div
                           key={`${routine.id}-preview-${idx}`}
-                          className="h-20 w-[76px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
+                          className="h-16 w-[60px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
                         >
                           <RoutinePreviewImage item={item} />
                         </div>
                       ))}
                       {routine.hiddenPreviewCount > 0 ? (
-                        <div className="grid h-20 w-[76px] shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
+                        <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
                           +{routine.hiddenPreviewCount}
                         </div>
                       ) : null}
@@ -5581,22 +5794,20 @@ function Routines({ onNavigate }) {
                       ) : null}
                     </div>
 
-                    <div className="mt-5 flex min-h-11 items-center justify-between gap-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333]">
-                      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs font-black text-[color:var(--text)]">
-                        <span className="inline-flex items-center gap-1.5">
+                    <div className="mt-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333] sm:mt-5 sm:flex sm:min-h-11 sm:items-center sm:justify-between sm:gap-3">
+                      <div className="grid min-w-0 grid-cols-3 gap-2 text-[11px] font-black text-[color:var(--text)] sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:text-xs">
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
                           <Dumbbell className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
                           {routine.totalExerciseCount} ejercicios
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
                           <Layers3 className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
                           {routine.totalSets} series
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
                           <History className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
                           {routine.trainingCount}{" "}
-                          {routine.trainingCount === 1
-                            ? "entrenamiento"
-                            : "entrenamientos"}
+                          {routine.trainingCount === 1 ? "sesión" : "sesiones"}
                         </span>
                       </div>
                       {isManagedClient ? (
@@ -5611,7 +5822,7 @@ function Routines({ onNavigate }) {
             })}
           </AnimatePresence>
 
-          {!routineCards.length ? (
+          {!visibleRoutineCards.length ? (
             <div className="border-y border-[color:var(--border)] py-12 text-center md:col-span-2 xl:col-span-3">
               <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-lg bg-[color:var(--bg)]">
                 <Layers3 className="h-5 w-5 text-[color:var(--text-muted)]" />
@@ -5623,7 +5834,7 @@ function Routines({ onNavigate }) {
               </p>
               <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                 {hasActiveRoutineFilters
-                  ? "Prueba con otra búsqueda o sede."
+                  ? "Prueba con otro filtro, búsqueda o sede."
                   : isManagedClient
                     ? "Consulta con tu coach para ajustar la planificación."
                     : "Puedes crear una nueva desde aquí."}
@@ -5635,6 +5846,7 @@ function Routines({ onNavigate }) {
                     if (hasActiveRoutineFilters) {
                       setSearchTerm("");
                       setActiveBranch("all");
+                      setRoutineScope("all");
                     } else {
                       openCreate();
                     }
@@ -5646,21 +5858,6 @@ function Routines({ onNavigate }) {
             </div>
           ) : null}
         </section>
-      ) : null}
-
-      {!activePlan && workspaceReady && !isManagedClient ? (
-        <button
-          type="button"
-          onClick={() =>
-            workspaceView === "plans" ? setPlanModalOpen(true) : openCreate()
-          }
-          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-[#ff5722] text-white shadow-[0_8px_24px_rgba(255,87,34,0.35)] transition active:scale-95 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_8px_24px_rgba(226,255,0,0.2)] md:hidden"
-          aria-label={
-            workspaceView === "plans" ? "Nueva planificación" : "Nueva rutina"
-          }
-        >
-          <Plus className="h-6 w-6" />
-        </button>
       ) : null}
 
       {viewingPlanTemplate && !viewingRoutine ? (

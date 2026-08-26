@@ -477,11 +477,6 @@ export default function DetailModal({
             </div>
           </section>
 
-          {exercise.source?.attribution ? (
-            <p className="px-4 py-4 text-xs leading-5 text-[color:var(--text-muted)] sm:px-6">
-              Fuente: {exercise.source.attribution}
-            </p>
-          ) : null}
           <div className="h-4" />
         </div>
 

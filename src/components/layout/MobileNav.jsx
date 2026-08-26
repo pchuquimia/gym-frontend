@@ -1,5 +1,22 @@
 import { navLinks } from "./navConfig";
 import { useAuth } from "../../context/AuthContext";
+import {
+  ClipboardList,
+  Dumbbell,
+  LayoutDashboard,
+  Library,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+
+const mobileIcons = {
+  dashboard: LayoutDashboard,
+  registrar: Dumbbell,
+  rutinas: ClipboardList,
+  library: Library,
+  perfil: UserRound,
+  trainer: UsersRound,
+};
 
 function MobileNav({ activePage, onNavigate }) {
   const { user } = useAuth();
@@ -16,15 +33,15 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="border-t border-[color:var(--border)] bg-[color:var(--surface)]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-nav backdrop-blur-xl md:hidden">
+    <nav className="mx-[18px] mb-[calc(0.875rem+env(safe-area-inset-bottom))] rounded-[2rem] border border-[color:var(--mobile-nav-border)] bg-[color:var(--mobile-nav-bg)] p-1.5 shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] md:hidden">
       <div
-        className="grid font-sans text-[11px] font-semibold text-[color:var(--text-muted)]"
+        className="grid font-sans text-[11px] font-medium"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
         }}
       >
         {items.map((item) => {
-          const Icon = item.icon;
+          const Icon = mobileIcons[item.id] ?? item.icon;
           const isActive = activePage === item.id;
           return (
             <button
@@ -32,25 +49,21 @@ function MobileNav({ activePage, onNavigate }) {
               type="button"
               onClick={() => onNavigate?.(item.id)}
               aria-current={isActive ? "page" : undefined}
-              className={`relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-control border py-1 transition-[background-color,color,box-shadow,transform] active:scale-[0.97] ${
+              className={`relative mx-0.5 flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.6rem] border border-transparent px-1 py-1.5 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.97] ${
                 isActive
-                  ? "border-transparent bg-[color:var(--surface-subtle)] text-[color:var(--text)] shadow-hairline"
-                  : "border-transparent hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                  ? "bg-[color:var(--mobile-nav-active)] text-[color:var(--mobile-nav-text)] shadow-[var(--mobile-nav-active-shadow)]"
+                  : "text-[color:var(--mobile-nav-muted)] hover:bg-[color:var(--mobile-nav-hover)] hover:text-[color:var(--mobile-nav-text)]"
               }`}
             >
-              {isActive ? (
-                <span
-                  className="absolute inset-x-0 top-0 mx-auto h-0.5 w-5 rounded-full bg-[color:var(--accent)]"
-                  aria-hidden="true"
-                />
-              ) : null}
               <Icon
-                className={`h-5 w-5 ${
-                  isActive ? "text-[color:var(--accent-strong)]" : ""
-                }`}
+                className="h-[22px] w-[22px] shrink-0"
+                strokeWidth={1.5}
+                aria-hidden="true"
               />
               <span
-                className={`max-w-full truncate ${isActive ? "font-bold" : ""}`}
+                className={`max-w-full truncate leading-none ${
+                  isActive ? "font-bold" : ""
+                }`}
               >
                 {item.id === "registrar"
                   ? "Entrenar"
