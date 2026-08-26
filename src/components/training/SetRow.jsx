@@ -158,12 +158,12 @@ export default function SetRow({
             {prSummary ? (
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="min-w-0 truncate text-[13px] text-[color:var(--text-muted)]">
-                  PR {prSummary}
+                  Mejor marca: {prSummary}
                 </span>
                 {prBranchLabel ? (
                   <span
                     className="shrink-0 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 py-0.5 text-xs font-medium text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
-                    title={`PR registrado en ${prBranchLabel}`}
+                    title={`Mejor marca registrada en ${prBranchLabel}`}
                   >
                     {prBranchLabel}
                   </span>
@@ -246,9 +246,21 @@ export default function SetRow({
                 </div>
                 <div
                   className={`flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
+                  title={
+                    entry.previousText
+                      ? `Última sesión: ${entry.previousText}`
+                      : "Sin sesión anterior"
+                  }
                 >
-                  <span className="min-w-0 truncate">
-                    {entry.previousText || "Sin referencia"}
+                  <span className="flex min-w-0 flex-col leading-tight">
+                    {entry.previousText ? (
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
+                        Última sesión
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 truncate">
+                      {entry.previousText || "Sin sesión anterior"}
+                    </span>
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>

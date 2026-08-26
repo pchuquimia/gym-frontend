@@ -13,28 +13,6 @@ export default function ExerciseOrderPanel({
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-[color:var(--text)]">
-            Orden de ejecución
-          </p>
-          <p className="truncate text-[11px] text-[color:var(--text-muted)]">
-            {historyCount
-              ? `${historyCount} ${historyCount === 1 ? "sesión" : "sesiones"} con secuencias musculares compatibles`
-              : "Sin referencias para estas secuencias musculares"}
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant={active ? "default" : "outline"}
-          size="sm"
-          className="shrink-0 rounded-xl"
-          onClick={onToggle}
-        >
-          {active ? "Listo" : "Ordenar"}
-        </Button>
-      </div>
-
       {active ? (
         <Reorder.Group
           axis="y"

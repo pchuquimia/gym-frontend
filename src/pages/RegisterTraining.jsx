@@ -311,8 +311,6 @@ const buildFallbackTimeEvents = (durationSeconds = 0, endMs = Date.now()) => {
   ];
 };
 
-const formatCounter = (value) => String(value || 0).padStart(2, "0");
-
 const branchMeta = {
   sopocachi: {
     title: "Sopocachi",
@@ -4639,43 +4637,6 @@ export default function RegisterTraining({
     );
   };
 
-  const handleWeightConfigChange = (exerciseId, updates) => {
-    setExercises((previous) =>
-      previous.map((exercise) => {
-        if (exercise.id !== exerciseId) return exercise;
-        const weightBasis = normalizeWeightBasis(
-          updates.weightBasis ?? exercise.weightBasis,
-          "total",
-        );
-        const requestedImplementCount = Math.min(
-          4,
-          Math.max(
-            1,
-            Number(updates.implementCount ?? exercise.implementCount ?? 1),
-          ),
-        );
-        const isUnilateralImplement =
-          weightBasis === "per_implement" &&
-          exercise.movementMode === "unilateral";
-        return {
-          ...exercise,
-          ...updates,
-          weightBasis,
-          barWeightKg: Math.max(
-            0,
-            Number(updates.barWeightKg ?? exercise.barWeightKg ?? 0),
-          ),
-          implementCount: isUnilateralImplement ? 1 : requestedImplementCount,
-          bilateralImplementCount:
-            weightBasis === "per_implement" && !isUnilateralImplement
-              ? requestedImplementCount
-              : exercise.bilateralImplementCount,
-          weightConfigEdited: true,
-        };
-      }),
-    );
-  };
-
   const handleMovementModeChange = (exerciseId, value) => {
     const nextMode = normalizeMovementMode(value);
     setExercises((prev) => {
@@ -5887,7 +5848,6 @@ export default function RegisterTraining({
                   ) : null}
                 </button>
               ) : null}
-              <ThemeToggle compact />
               {isHistoryReadOnly ? (
                 <button
                   type="button"
@@ -5902,7 +5862,7 @@ export default function RegisterTraining({
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length || isFinalizing}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-1.5 min-[430px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
                     sessionComplete
                       ? "shadow-[0_0_0_4px_rgba(255,87,34,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
                       : ""
@@ -5925,7 +5885,7 @@ export default function RegisterTraining({
                   ) : (
                     <Flag className="h-4 w-4" />
                   )}
-                  <span className="hidden min-[430px]:inline">
+                  <span className="hidden min-[360px]:inline">
                     {isFinalizing ? "Finalizando" : "Finalizar"}
                   </span>
                 </motion.button>
@@ -6021,6 +5981,10 @@ export default function RegisterTraining({
                   <span>Editar rutina activa</span>
                   <ClipboardList className="h-4 w-4" />
                 </button>
+                <div className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]">
+                  <span>Apariencia</span>
+                  <ThemeToggle compact />
+                </div>
                 <button
                   type="button"
                   className="flex h-12 w-full items-center justify-between rounded-2xl border border-red-500/25 bg-red-500/10 px-4 text-sm font-bold text-red-700 dark:text-red-300"
@@ -6044,7 +6008,7 @@ export default function RegisterTraining({
         <div
           className={`hidden items-center justify-between md:flex ${
             !setupStarted && !isEditing
-              ? "md:mx-auto md:w-full md:max-w-2xl"
+              ? "md:mx-auto md:w-full md:max-w-4xl"
               : ""
           }`}
         >
@@ -6088,7 +6052,7 @@ export default function RegisterTraining({
         </div>
 
         {!setupStarted && !isEditing ? (
-          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col pb-28 md:min-h-0 md:max-w-2xl md:pb-0">
+          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col pb-28 md:min-h-0 md:max-w-4xl md:pb-0">
             <header
               data-training-setup-header
               className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden"
@@ -6320,62 +6284,73 @@ export default function RegisterTraining({
               }`}
             >
               <div className="flex min-h-[76px] items-center gap-5 px-5 py-3">
-                <div className="min-w-[190px] flex-1">
-                  {sessionComplete ? (
-                    <div className="flex items-center gap-3">
-                      <motion.span
-                        aria-hidden="true"
-                        initial={reduceMotion ? false : { scale: 0.6 }}
-                        animate={{ scale: 1 }}
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                      >
-                        <Check className="h-5 w-5 stroke-[3]" />
-                      </motion.span>
-                      <div className="min-w-0">
-                        <p className="font-condensed text-[10px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
-                          Rutina activa
-                        </p>
-                        <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                          <p className="truncate font-condensed text-xl font-black uppercase leading-none">
-                            {selectorRoutine?.name || "Rutina completada"}
+                <div className="grid min-w-[360px] flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-5">
+                  <div className="min-w-0">
+                    {sessionComplete ? (
+                      <div className="flex items-center gap-3">
+                        <motion.span
+                          aria-hidden="true"
+                          initial={reduceMotion ? false : { scale: 0.6 }}
+                          animate={{ scale: 1 }}
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                        >
+                          <Check className="h-5 w-5 stroke-[3]" />
+                        </motion.span>
+                        <div className="min-w-0">
+                          <p className="font-condensed text-[10px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
+                            Rutina completada
                           </p>
-                          <Badge variant="completed">Completada</Badge>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                            <p className="truncate font-condensed text-xl font-black uppercase leading-none">
+                              {selectorRoutine?.name || "Entrenamiento"}
+                            </p>
+                            <Badge variant="completed">Completada</Badge>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                        Duracion
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[28px] leading-none text-[color:var(--text)]">
-                          {formatDuration(durationSeconds)}
-                        </span>
-                        <Badge
-                          variant={
-                            isHistoryReadOnly
-                              ? "completed"
-                              : isRunning
-                                ? "active"
-                                : "paused"
-                          }
-                        >
-                          {isHistoryReadOnly
-                            ? "Registrado"
-                            : isRunning
-                              ? "En curso"
-                              : "Pausado"}
-                        </Badge>
-                      </div>
-                      {activeExercise && (
-                        <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
-                          Actual: {activeExercise.name} ·{" "}
-                          {formatDuration(activeExerciseDuration)}
+                    ) : (
+                      <>
+                        <p className="font-condensed text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                          Rutina activa
                         </p>
-                      )}
-                    </>
-                  )}
+                        <p className="mt-1 truncate font-condensed text-xl font-black uppercase leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                          {selectorRoutine?.name || "Rutina seleccionada"}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="min-w-[180px] border-l border-[color:var(--border)] pl-5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                      Duración
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="font-mono text-2xl leading-none text-[color:var(--text)]">
+                        {formatDuration(durationSeconds)}
+                      </span>
+                      <Badge
+                        variant={
+                          isHistoryReadOnly
+                            ? "completed"
+                            : isRunning
+                              ? "active"
+                              : "paused"
+                        }
+                      >
+                        {isHistoryReadOnly
+                          ? "Registrado"
+                          : isRunning
+                            ? "En curso"
+                            : "Pausado"}
+                      </Badge>
+                    </div>
+                    {activeExercise ? (
+                      <p className="mt-1 max-w-[220px] truncate text-[11px] text-[color:var(--text-muted)]">
+                        Actual: {activeExercise.name} ·{" "}
+                        {formatDuration(activeExerciseDuration)}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 {!isHistoryReadOnly ? (
                   <div className="flex shrink-0 items-center gap-2">
@@ -6514,76 +6489,61 @@ export default function RegisterTraining({
                 ) : null}
               </div>
               <div className="flex min-h-11 items-center justify-between gap-4 border-t border-[color:var(--border)] bg-[color:var(--bg)]/55 px-5 py-2 text-xs text-[color:var(--text-muted)]">
-                {sessionComplete ? (
-                  <div className="grid w-full grid-cols-3 divide-x divide-[color:var(--border)]">
-                    <div className="pr-4">
-                      <span className="font-condensed text-[10px] font-black uppercase">
-                        Completado
-                      </span>
-                      <strong className="ml-2 text-sm text-[#ff5722] dark:text-[#e2ff00]">
-                        {completedExercises}/{exercises.length} ejercicios
-                      </strong>
-                    </div>
-                    <div className="px-4">
-                      <span className="font-condensed text-[10px] font-black uppercase">
-                        Total series
-                      </span>
-                      <strong className="ml-2 text-sm text-[color:var(--text)]">
-                        {totalSets}
-                      </strong>
-                    </div>
-                    <div className="pl-4">
-                      <span className="font-condensed text-[10px] font-black uppercase">
-                        Tiempo
-                      </span>
-                      <strong className="ml-2 font-mono text-sm text-[color:var(--text)]">
-                        {formatDuration(durationSeconds)}
-                      </strong>
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sessionLocked) return;
+                    if (datePickerRef.current?.showPicker) {
+                      datePickerRef.current.showPicker();
+                    } else if (datePickerRef.current) {
+                      datePickerRef.current.focus();
+                      datePickerRef.current.click();
+                    }
+                  }}
+                  disabled={sessionLocked || isHistoryReadOnly}
+                  className="relative inline-flex shrink-0 items-center gap-2 font-semibold text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CalendarDays className="h-4 w-4 text-[color:var(--text-muted)]" />
+                  {formatLongDate(sessionDate)}
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    value={sessionDate}
+                    disabled={sessionLocked || isHistoryReadOnly}
+                    onChange={(e) => {
+                      const nextDate = e.target.value
+                        ? e.target.value.slice(0, 10)
+                        : getLocalISODate();
+                      setSessionDate(nextDate);
+                    }}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    aria-label="Seleccionar fecha"
+                  />
+                </button>
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+                  <strong className="shrink-0 text-sm text-[color:var(--text)]">
+                    {doneSets}/{totalSets} series
+                  </strong>
+                  <div
+                    className="h-1.5 min-w-20 max-w-56 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]"
+                    role="progressbar"
+                    aria-label="Progreso de series"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={progressPct}
+                  >
+                    <span
+                      className="block h-full rounded-full bg-[#ff5722] transition-[width] duration-300 dark:bg-[#e2ff00]"
+                      style={{ width: `${progressPct}%` }}
+                    />
                   </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (sessionLocked) return;
-                        if (datePickerRef.current?.showPicker) {
-                          datePickerRef.current.showPicker();
-                        } else if (datePickerRef.current) {
-                          datePickerRef.current.focus();
-                          datePickerRef.current.click();
-                        }
-                      }}
-                      disabled={sessionLocked || isHistoryReadOnly}
-                      className="relative inline-flex items-center gap-2 font-semibold text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <CalendarDays className="h-4 w-4 text-[color:var(--text-muted)]" />
-                      Fecha: {formatLongDate(sessionDate)}
-                      <input
-                        ref={datePickerRef}
-                        type="date"
-                        value={sessionDate}
-                        disabled={sessionLocked || isHistoryReadOnly}
-                        onChange={(e) => {
-                          const nextDate = e.target.value
-                            ? e.target.value.slice(0, 10)
-                            : getLocalISODate();
-                          setSessionDate(nextDate);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        aria-label="Seleccionar fecha"
-                      />
-                    </button>
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold text-[color:var(--text)]">
-                        {completedExercises}/{exercises.length} ejercicios
-                      </span>
-                      <span>
-                        {doneSets}/{totalSets} series completadas
-                      </span>
-                    </div>
-                  </>
-                )}
+                  <span className="w-8 shrink-0 font-bold tabular-nums text-[#ff5722] dark:text-[#e2ff00]">
+                    {progressPct}%
+                  </span>
+                  <span className="shrink-0 border-l border-[color:var(--border)] pl-3 font-semibold text-[color:var(--text)]">
+                    {completedExercises}/{exercises.length} ejercicios
+                  </span>
+                </div>
               </div>
             </Card>
           </div>
@@ -6591,123 +6551,121 @@ export default function RegisterTraining({
 
         {(setupStarted || isEditing) && selectedRoutineId && (
           <section className="space-y-3 md:hidden">
-            <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 shadow-lg">
-              <ClipboardList className="pointer-events-none absolute -right-8 -top-4 h-32 w-32 rotate-[-8deg] text-[#ff5722]/10 dark:text-[#e2ff00]/10" />
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                {isHistoryReadOnly ? "Sesión registrada" : "Rutina activa"}
-              </p>
-              <h2 className="mt-2 truncate text-2xl font-black leading-none text-[color:var(--accent)]">
-                {selectorRoutine?.name || "Rutina seleccionada"}
-              </h2>
-              <p className="mt-1.5 truncate text-sm font-semibold text-[color:var(--text-muted)]">
-                {locationDisabled
-                  ? `${exercises.length} ejercicios total`
-                  : `${getBranchTitle(effectiveBranch)} · ${exercises.length} ejercicios total`}
-              </p>
-            </article>
-
-            <div className="grid grid-cols-2 gap-3">
-              <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Completado
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-3xl font-black leading-none text-[#ff5722] dark:text-[#e2ff00]">
-                    {formatCounter(completedExercises)}/
-                    {formatCounter(exercises.length)}
+            <article
+              className={`rounded-xl border bg-[color:var(--card)] p-4 shadow-lg ${
+                sessionComplete
+                  ? "border-[#ff5722]/60 dark:border-[#e2ff00]/55"
+                  : "border-[color:var(--border)]"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-condensed text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                    {isHistoryReadOnly
+                      ? "Sesión registrada"
+                      : sessionComplete
+                        ? "Rutina completada"
+                        : "Rutina activa"}
                   </p>
-                  <div
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full p-1 text-[11px] font-black text-[#b82f05] dark:text-[#e2ff00]"
-                    style={{
-                      background: `conic-gradient(var(--accent) ${progressPct}%, var(--border) 0)`,
-                    }}
-                  >
-                    <span className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
-                      {progressPct}%
-                    </span>
-                  </div>
+                  <h2 className="mt-1.5 truncate font-condensed text-2xl font-black uppercase leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                    {selectorRoutine?.name || "Rutina seleccionada"}
+                  </h2>
                 </div>
-              </article>
+                <strong className="shrink-0 font-condensed text-xl font-black tabular-nums text-[#ff5722] dark:text-[#e2ff00]">
+                  {progressPct}%
+                </strong>
+              </div>
 
-              <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Total series
-                </p>
-                <p className="mt-3 text-3xl font-black leading-none text-[color:var(--text)]">
-                  {totalSets}
-                </p>
-                <div className="mt-4 grid grid-cols-5 gap-1.5">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className={`h-1.5 rounded-full ${
-                        progressPct > 0 && index < Math.ceil(progressPct / 20)
-                          ? "bg-[#ff5722] dark:bg-[#e2ff00]"
-                          : "bg-[color:var(--border)]"
-                      }`}
-                    />
-                  ))}
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="font-condensed text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                    Series completadas
+                  </p>
+                  <p className="mt-1 font-condensed text-2xl font-black leading-none text-[color:var(--text)]">
+                    {doneSets}/{totalSets}
+                  </p>
                 </div>
-              </article>
-            </div>
+                <p className="pb-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                  {completedExercises}/{exercises.length} ejercicios
+                </p>
+              </div>
+
+              <div
+                className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--border)]"
+                role="progressbar"
+                aria-label="Progreso de series"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={progressPct}
+              >
+                <span
+                  className="block h-full rounded-full bg-[#ff5722] transition-[width] duration-300 dark:bg-[#e2ff00]"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </article>
           </section>
         )}
 
         <div
-          className={`min-w-0 max-w-full gap-4 md:grid-cols-[360px_minmax(0,1fr)] ${
-            setupStarted || isEditing ? "grid" : "hidden"
-          }`}
+          className={`min-w-0 max-w-full gap-4 ${
+            !sessionLocked || isEditing
+              ? "md:grid-cols-[360px_minmax(0,1fr)]"
+              : "md:grid-cols-1"
+          } ${setupStarted || isEditing ? "grid" : "hidden"}`}
         >
-          <div className="hidden min-w-0 max-w-full space-y-4 md:block">
-            <Card className="p-4 space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 backdrop-blur shadow-sm">
-              {requiresBranchSelection ? (
+          {!sessionLocked || isEditing ? (
+            <div className="hidden min-w-0 max-w-full space-y-4 md:block">
+              <Card className="space-y-4 border border-[color:var(--border)] bg-[color:var(--card)]/85 p-4 shadow-sm backdrop-blur">
+                {requiresBranchSelection ? (
+                  <div className="space-y-2">
+                    <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
+                      Sucursal
+                    </p>
+                    <select
+                      value={selectedBranch}
+                      onChange={(e) => handleBranchChange(e.target.value)}
+                      disabled={sessionLocked || isHistoryReadOnly}
+                      className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
+                    >
+                      {branchOptions.map((b) => (
+                        <option
+                          key={b}
+                          value={b}
+                          className="bg-[color:var(--card)] text-[color:var(--text)]"
+                        >
+                          {getBranchTitle(b)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 <div className="space-y-2">
                   <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
-                    Sucursal
+                    Rutina seleccionada
                   </p>
-                  <select
-                    value={selectedBranch}
-                    onChange={(e) => handleBranchChange(e.target.value)}
-                    disabled={sessionLocked || isHistoryReadOnly}
-                    className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
-                  >
-                    {branchOptions.map((b) => (
-                      <option
-                        key={b}
-                        value={b}
-                        className="bg-[color:var(--card)] text-[color:var(--text)]"
-                      >
-                        {getBranchTitle(b)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-
-              <div className="space-y-2">
-                <p className="text-[11px] uppercase text-[color:var(--text-muted)] font-semibold">
-                  Rutina seleccionada
-                </p>
-                <RoutineSelector
-                  routine={
-                    selectorRoutine || {
-                      id: "sin-rutina",
-                      name: routinesLoading
-                        ? "Cargando..."
-                        : "Selecciona una rutina",
-                      location: selectedBranch || DEFAULT_BRANCH,
-                      exerciseCount: 0,
-                      lastDate: "--",
+                  <RoutineSelector
+                    routine={
+                      selectorRoutine || {
+                        id: "sin-rutina",
+                        name: routinesLoading
+                          ? "Cargando..."
+                          : "Selecciona una rutina",
+                        location: selectedBranch || DEFAULT_BRANCH,
+                        exerciseCount: 0,
+                        lastDate: "--",
+                      }
                     }
-                  }
-                  routines={routineOptions}
-                  onSelect={handleSelectRoutine}
-                  disabled={sessionLocked || isHistoryReadOnly}
-                  showLocation={requiresBranchSelection}
-                />
-              </div>
-            </Card>
-          </div>
+                    routines={routineOptions}
+                    onSelect={handleSelectRoutine}
+                    disabled={sessionLocked || isHistoryReadOnly}
+                    showLocation={requiresBranchSelection}
+                  />
+                </div>
+              </Card>
+            </div>
+          ) : null}
 
           <section className="min-w-0 max-w-full space-y-3">
             {selectedRoutineId ? (
@@ -6796,9 +6754,6 @@ export default function RegisterTraining({
                               onSetupNoteChange={(value) =>
                                 handleSetupNoteChange(ex.id, value)
                               }
-                              onWeightConfigChange={(updates) =>
-                                handleWeightConfigChange(ex.id, updates)
-                              }
                               onSwapVariant={(direction) =>
                                 handleSwapVariant(ex.id, direction)
                               }
@@ -6882,9 +6837,6 @@ export default function RegisterTraining({
                               }
                               onSetupNoteChange={(value) =>
                                 handleSetupNoteChange(ex.id, value)
-                              }
-                              onWeightConfigChange={(updates) =>
-                                handleWeightConfigChange(ex.id, updates)
                               }
                               onSwapVariant={(direction) =>
                                 handleSwapVariant(ex.id, direction)

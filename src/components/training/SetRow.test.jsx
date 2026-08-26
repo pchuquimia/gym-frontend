@@ -66,4 +66,14 @@ describe("SetRow", () => {
       }),
     ).toBeDisabled();
   });
+
+  it("distingue la mejor marca del resultado de la ultima sesion", () => {
+    renderSet({ prSummary: "45 kg x 8 | 15 ago" });
+
+    expect(
+      screen.getByText("Mejor marca: 45 kg x 8 | 15 ago"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Última sesión")).toBeInTheDocument();
+    expect(screen.getByText("40 kg x 10")).toBeInTheDocument();
+  });
 });

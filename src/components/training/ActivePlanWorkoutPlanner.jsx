@@ -92,6 +92,7 @@ export default function ActivePlanWorkoutPlanner({
   preparingRoutineId,
 }) {
   const [overrideCandidate, setOverrideCandidate] = useState(null);
+  const [selectedScheduleDay, setSelectedScheduleDay] = useState(null);
 
   if (loading) {
     return (
@@ -188,281 +189,349 @@ export default function ActivePlanWorkoutPlanner({
     : Math.max(1, trainingDays.length);
   const completedCount = sequential ? currentCycleIndex : completedThisWeek;
   const progress = (completedCount / targetCount) * 100;
+  const planKey = String(plan._id || plan.id || "active-plan");
+  const getDayView = (day, index) => {
+    const date = sequential ? null : getPlanDayDate(plan, selectedWeek, index);
+    const dateValue = date ? isoDate(date) : "";
+    const current = sequential
+      ? index === currentCycleIndex
+      : dateValue === today;
+    const routine = day.routineId
+      ? routineById.get(String(day.routineId))
+      : null;
+    const completedTraining = !sequential
+      ? weekTrainings.find((training) =>
+          matchesCompletedSlot(day, index, training),
+        )
+      : null;
+    const rest = day.type !== "training";
+    const completed =
+      Boolean(completedTraining) ||
+      (sequential && index < currentCycleIndex && !rest);
+
+    return {
+      day,
+      index,
+      date,
+      dateValue,
+      current,
+      routine,
+      rest,
+      completed,
+      preparing: preparingRoutineId === String(day.routineId),
+      exerciseCount: getRoutineExerciseCount(routine),
+      duration: getRoutineDuration(routine),
+      title: rest
+        ? day.type === "rest"
+          ? "Descanso completo"
+          : "Recuperación activa"
+        : routine?.name || day.focus || "Entrenamiento",
+    };
+  };
+  const dayViews = schedule.map(getDayView);
+  const todayIndex = dayViews.findIndex((day) => day.current);
+  const defaultSelectedIndex = todayIndex >= 0 ? todayIndex : 0;
+  const requestedSelectedIndex =
+    selectedScheduleDay?.planKey === planKey
+      ? Number(selectedScheduleDay.index)
+      : defaultSelectedIndex;
+  const selectedIndex = Math.min(
+    Math.max(0, requestedSelectedIndex),
+    Math.max(0, dayViews.length - 1),
+  );
+  const selectedDay = dayViews[selectedIndex] || null;
 
   return (
     <>
-    <section className="training-schedule bg-[#f5f5f5] pb-4 text-[#151515] dark:bg-[#050505] dark:text-white md:border md:border-[color:var(--border)] md:p-6">
-      <header className="pb-5">
-        <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
-          Plan vigente
-        </p>
-        <h2 className="mt-1 text-[2rem] font-bold uppercase leading-none sm:text-4xl">
-          {sequential ? "Ciclo de entrenamiento" : "Agenda semanal"}
-        </h2>
-        <p className="mt-2 text-sm font-semibold text-[#686868] dark:text-[#b8b8a6]">
-          {plan.name}
-        </p>
-      </header>
+      <section className="training-schedule bg-[#f5f5f5] p-4 text-[#151515] dark:bg-[#050505] dark:text-white md:border md:border-[color:var(--border)] md:p-6">
+        <header className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
+              Plan vigente
+            </p>
+            <h2 className="mt-1 font-condensed text-[2rem] font-bold uppercase leading-none sm:text-4xl">
+              {sequential ? "Ciclo de entrenamiento" : "Agenda semanal"}
+            </h2>
+            <p className="mt-2 truncate text-sm font-semibold text-[#686868] dark:text-[#b8b8a6]">
+              {plan.name}
+            </p>
+          </div>
 
-      <div className="flex items-center gap-4 border border-[#d1d1d1] bg-white p-4 dark:border-[#303030] dark:bg-[#121212]">
-        <ProgressRing value={progress} />
-        <div className="min-w-0">
-          <p className="text-base font-bold uppercase">
-            {sequential ? "Progreso del ciclo" : "Objetivo semanal"}
-          </p>
-          <p className="text-sm font-semibold text-[#5f5f5f] dark:text-[#d0d0b8]">
+          <div className="flex shrink-0 items-center gap-3 border-l border-[#d1d1d1] pl-3 dark:border-[#303030]">
+            <ProgressRing value={progress} />
+            <div className="hidden min-w-0 sm:block">
+              <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
+                {sequential ? "Progreso" : "Esta semana"}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#5f5f5f] dark:text-[#d0d0b8]">
+                {sequential
+                  ? `${currentCycleIndex + 1} de ${schedule.length}`
+                  : `${completedThisWeek} de ${trainingDays.length}`}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="mt-4 flex items-center justify-between border-y border-[#d7d7d7] py-3 text-xs font-bold dark:border-[#282828]">
+          <span>
             {sequential
-              ? `Bloque ${currentCycleIndex + 1} de ${schedule.length}`
-              : `${completedThisWeek} de ${trainingDays.length} entrenamientos`}
-          </p>
-        </div>
-      </div>
-
-      {!sequential ? (
-        <div className="mt-4 flex items-center justify-between border-b border-[#d7d7d7] pb-3 text-xs font-bold dark:border-[#282828]">
-          <span>Semana {selectedWeek + 1}</span>
+              ? `${schedule.length} bloques del ciclo`
+              : `Semana ${selectedWeek + 1}`}
+          </span>
           <span className="text-[#686868] dark:text-[#b8b8a6]">
-            {shortDate(weekStart)} - {shortDate(weekEnd)}
+            {sequential
+              ? `${completedCount} completados`
+              : `${shortDate(weekStart)} - ${shortDate(weekEnd)}`}
           </span>
         </div>
-      ) : null}
 
-      <div className="mt-5 space-y-2.5">
-        {schedule.map((day, index) => {
-          const date = sequential
-            ? null
-            : getPlanDayDate(plan, selectedWeek, index);
-          const dateValue = date ? isoDate(date) : "";
-          const current = sequential
-            ? index === currentCycleIndex
-            : dateValue === today;
-          const routine = day.routineId
-            ? routineById.get(String(day.routineId))
-            : null;
-          const completedTraining = !sequential
-            ? weekTrainings.find((training) =>
-                matchesCompletedSlot(day, index, training),
-              )
-            : null;
-          const rest = day.type !== "training";
-          const completed =
-            Boolean(completedTraining) ||
-            (sequential && index < currentCycleIndex && !rest);
-          const preparing = preparingRoutineId === String(day.routineId);
-          const exerciseCount = getRoutineExerciseCount(routine);
-          const duration = getRoutineDuration(routine);
-          const title = rest
-            ? day.type === "rest"
-              ? "Descanso completo"
-              : "Recuperacion activa"
-            : routine?.name || day.focus || "Entrenamiento";
+        {dayViews.length ? (
+          <>
+            <div className="mt-4">
+              <div
+                className="grid gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(${dayViews.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {dayViews.map((dayView) => {
+                  const selected = dayView.index === selectedIndex;
+                  return (
+                    <button
+                      key={dayView.day.slotId || dayView.index}
+                      type="button"
+                      onClick={() =>
+                        setSelectedScheduleDay({
+                          planKey,
+                          index: dayView.index,
+                        })
+                      }
+                      aria-pressed={selected}
+                      aria-label={`Ver ${
+                        sequential
+                          ? `día ${dayView.index + 1}`
+                          : DAY_SHORT_NAMES[dayView.index]
+                      }: ${dayView.title}`}
+                      className={`relative flex h-[62px] min-w-0 flex-col items-center justify-center border text-center transition-colors ${
+                        selected
+                          ? "border-2 border-[#ff5722] bg-[#fff0eb] text-[#151515] dark:border-[#d8ff00] dark:bg-[#171b0c] dark:text-white"
+                          : dayView.completed
+                            ? "border-[#c9c9c9] bg-[#e9e9e9] text-[#777] dark:border-[#292929] dark:bg-[#0b0b0b] dark:text-[#777]"
+                            : "border-[#d6d6d6] text-[#666] hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold uppercase">
+                        {sequential ? "Día" : DAY_SHORT_NAMES[dayView.index]}
+                      </span>
+                      <strong className="mt-1 text-xl font-bold leading-none tabular-nums">
+                        {sequential
+                          ? dayView.index + 1
+                          : dayView.date?.getUTCDate()}
+                      </strong>
+                      <span
+                        className={`absolute bottom-1.5 h-1 w-1 rounded-full ${
+                          dayView.completed
+                            ? "bg-[#777]"
+                            : dayView.current
+                              ? "bg-[#ff5722] dark:bg-[#d8ff00]"
+                              : dayView.rest
+                                ? "border border-[#8e8e93] dark:border-[#c8c8aa]"
+                                : "bg-transparent"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-          return (
             <article
-              key={day.slotId || index}
-              className={`border bg-white dark:bg-[#121212] ${
-                current
-                  ? "border-2 border-[#ff5722] p-4 shadow-[0_8px_24px_rgba(255,87,34,0.12)] dark:border-[#d8ff00] dark:bg-[#171b0c] dark:shadow-[0_0_24px_rgba(216,255,0,0.12)]"
-                  : completed
-                    ? "border-[#c9c9c9] bg-[#e9e9e9] p-4 dark:border-[#292929] dark:bg-[#0b0b0b]"
-                    : rest
-                      ? "border-dashed border-[#cecece] p-4 dark:border-[#303030]"
-                      : "border-[#d6d6d6] p-4 dark:border-[#303030]"
+              className={`mt-3 border p-4 ${
+                selectedDay.current
+                  ? "border-2 border-[#ff5722] bg-[#fff0eb] shadow-[0_8px_24px_rgba(255,87,34,0.12)] dark:border-[#d8ff00] dark:bg-[#171b0c] dark:shadow-[0_0_24px_rgba(216,255,0,0.12)]"
+                  : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`grid h-[68px] w-[62px] shrink-0 place-items-center border text-center ${
-                    current
-                      ? "border-2 border-[#ff5722] text-[#c52d00] dark:border-[#d8ff00] dark:text-[#d8ff00]"
-                      : completed
-                        ? "border-[#cfcfcf] bg-[#dfdfdf] text-[#777] dark:border-[#242424] dark:bg-[#101010] dark:text-[#777]"
-                        : "border-[#dddddd] text-[#666] dark:border-[#292929] dark:text-[#c8c8aa]"
-                  }`}
-                >
+              <div className="flex items-start gap-3.5">
+                <div className="grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
                   <div>
                     <span className="block text-sm font-bold uppercase leading-none">
-                      {sequential ? "Dia" : DAY_SHORT_NAMES[index]}
+                      {sequential ? "Día" : DAY_SHORT_NAMES[selectedDay.index]}
                     </span>
-                    <strong className="mt-1 block text-3xl font-bold leading-none">
-                      {sequential ? index + 1 : date?.getUTCDate()}
+                    <strong className="mt-1 block text-3xl font-bold leading-none tabular-nums">
+                      {sequential
+                        ? selectedDay.index + 1
+                        : selectedDay.date?.getUTCDate()}
                     </strong>
                   </div>
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    {current ? (
+                    {selectedDay.current ? (
                       <span className="bg-[#ff5722] px-2 py-1 text-[10px] font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black">
-                        Actual
+                        {sequential ? "Actual" : "Hoy"}
                       </span>
                     ) : null}
-                    {!rest && plan.goal ? (
-                      <span
-                        className={`text-xs font-bold uppercase ${
-                          completed
-                            ? "text-[#777] dark:text-[#777]"
-                            : "text-[#c52d00] dark:text-[#d8ff00]"
-                        }`}
-                      >
+                    {selectedDay.completed ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-[#777] dark:text-[#777]">
+                        <Check className="h-3.5 w-3.5" /> Completado
+                      </span>
+                    ) : !selectedDay.rest && plan.goal ? (
+                      <span className="text-xs font-bold uppercase text-[#c52d00] dark:text-[#d8ff00]">
                         {plan.goal}
                       </span>
                     ) : null}
                   </div>
-                  <h3
-                    className={`mt-1 font-bold uppercase leading-none ${
-                      current ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"
-                    } ${completed ? "text-[#777] line-through decoration-2 dark:text-[#777]" : ""}`}
-                  >
-                    {title}
+
+                  <h3 className="mt-1.5 font-condensed text-2xl font-bold uppercase leading-none sm:text-3xl">
+                    {selectedDay.title}
                   </h3>
 
-                  <div
-                    className={`mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold ${
-                      completed
-                        ? "text-[#777] dark:text-[#777]"
-                        : "text-[#555] dark:text-[#d0d0b8]"
-                    }`}
-                  >
-                    {rest ? (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#555] dark:text-[#d0d0b8]">
+                    {selectedDay.rest ? (
                       <span className="inline-flex items-center gap-1.5">
                         <BedDouble className="h-4 w-4" />
-                        {day.type === "rest"
-                          ? "Recuperacion"
+                        {selectedDay.day.type === "rest"
+                          ? "Recuperación programada"
                           : "Movilidad ligera"}
                       </span>
                     ) : (
                       <>
-                        {duration ? (
-                          <span className="inline-flex items-center gap-1 border border-[#dedede] px-2 py-1 dark:border-[#303030]">
-                            <Clock3 className="h-3.5 w-3.5" /> {duration} min
+                        {selectedDay.duration ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {selectedDay.duration} min estimados
                           </span>
                         ) : null}
-                        <span className="inline-flex items-center gap-1 border border-[#dedede] px-2 py-1 dark:border-[#303030]">
-                          <Dumbbell className="h-3.5 w-3.5" /> {exerciseCount}{" "}
-                          ejercicios
+                        <span className="inline-flex items-center gap-1.5">
+                          <Dumbbell className="h-3.5 w-3.5" />
+                          {selectedDay.exerciseCount} ejercicios
                         </span>
                       </>
                     )}
                   </div>
                 </div>
-
-                {completed ? (
-                  <span
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-[#ff5722] bg-[#fff5f2] text-[#ff5722] dark:border-[#d8ff00] dark:bg-[#151900] dark:text-[#d8ff00]"
-                    aria-label="Entrenamiento completado"
-                  >
-                    <Check className="h-5 w-5 stroke-[3]" />
-                  </span>
-                ) : null}
               </div>
 
-              {current && routine ? (
+              {selectedDay.current && selectedDay.routine ? (
                 <button
                   type="button"
                   onClick={() =>
-                    onStart(routine.id || routine._id, day.slotId, {
-                      isScheduleOverride: false,
-                      scheduledDate: dateValue,
-                      dayIndex: index,
-                    })
+                    onStart(
+                      selectedDay.routine.id || selectedDay.routine._id,
+                      selectedDay.day.slotId,
+                      {
+                        isScheduleOverride: false,
+                        scheduledDate: selectedDay.dateValue,
+                        dayIndex: selectedDay.index,
+                      },
+                    )
                   }
-                  disabled={preparing}
-                  className="mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black"
+                  disabled={selectedDay.preparing}
+                  className="mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
                 >
-                  {preparing ? (
+                  {selectedDay.preparing ? (
                     <RotateCcw className="h-4 w-4 animate-spin" />
                   ) : (
                     <Play className="h-4 w-4 fill-current" />
                   )}
-                  {preparing
+                  {selectedDay.preparing
                     ? "Preparando entrenamiento"
                     : "Iniciar entrenamiento"}
                 </button>
               ) : null}
 
-              {!current && !completed && !rest && routine ? (
+              {!selectedDay.current &&
+              !selectedDay.completed &&
+              !selectedDay.rest &&
+              selectedDay.routine ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setOverrideCandidate({
-                      routine,
-                      day,
-                      index,
-                      scheduledDate: dateValue,
-                      title,
-                    })
-                  }
-                  className="mt-4 h-11 w-full border border-[#9a9a9a] text-xs font-bold uppercase text-[#444] transition hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
+                  onClick={() => setOverrideCandidate(selectedDay)}
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
-                  Elegir este entrenamiento
+                  <Play className="h-4 w-4" />
+                  Entrenar esta rutina
                 </button>
               ) : null}
 
-              {sequential && current && rest ? (
+              {sequential && selectedDay.current && selectedDay.rest ? (
                 <button
                   type="button"
                   onClick={onAdvance}
                   disabled={advancing}
-                  className="mt-5 h-12 w-full border border-[#ff5722] text-xs font-bold uppercase text-[#c52d00] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00]"
+                  className="mt-4 h-12 w-full border border-[#ff5722] px-4 text-xs font-bold uppercase text-[#c52d00] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
                   {advancing ? "Actualizando..." : "Completar descanso"}
                 </button>
               ) : null}
+
+              {!sequential && selectedDay.current && selectedDay.rest ? (
+                <p className="mt-4 border-t border-[#d7d7d7] pt-3 text-sm leading-6 text-[#686868] dark:border-[#303030] dark:text-[#b8b8a6]">
+                  La recuperación forma parte del plan. Si entrenarás hoy,
+                  selecciona otro día de la agenda.
+                </p>
+              ) : null}
             </article>
-          );
-        })}
-      </div>
-    </section>
-    {overrideCandidate ? (
-      <Modal
-        title="Entrenar otro día del plan"
-        subtitle={overrideCandidate.title}
-        onClose={() => setOverrideCandidate(null)}
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setOverrideCandidate(null)}
-              className="h-11 border border-[color:var(--border)] px-4 text-xs font-bold uppercase"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const candidate = overrideCandidate;
-                setOverrideCandidate(null);
-                onStart(
-                  candidate.routine.id || candidate.routine._id,
-                  candidate.day.slotId,
-                  {
-                    isScheduleOverride: true,
-                    scheduledDate: candidate.scheduledDate,
-                    dayIndex: candidate.index,
-                    scheduleMode: plan.scheduleMode,
-                  },
-                );
-              }}
-              className="h-11 bg-[#ff5722] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
-            >
-              Confirmar cambio
-            </button>
           </>
-        }
-      >
-        <div className="border-l-4 border-[#ff5722] bg-[#ff5722]/5 p-4 dark:border-[#d8ff00] dark:bg-[#d8ff00]/5">
-          <p className="text-sm font-bold text-[color:var(--text)]">
-            Esta sesión quedará registrada como una excepción del plan.
-          </p>
-          <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
-            {sequential
-              ? "El ciclo continuará desde el bloque posterior al que elegiste."
-              : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}
-          </p>
-        </div>
-      </Modal>
-    ) : null}
+        ) : (
+          <div className="mt-4 border border-dashed border-[color:var(--border)] p-5 text-center text-sm text-[color:var(--text-muted)]">
+            Este plan todavía no tiene días configurados.
+          </div>
+        )}
+      </section>
+      {overrideCandidate ? (
+        <Modal
+          title="Entrenar otro día del plan"
+          subtitle={overrideCandidate.title}
+          onClose={() => setOverrideCandidate(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setOverrideCandidate(null)}
+                className="h-11 border border-[color:var(--border)] px-4 text-xs font-bold uppercase"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const candidate = overrideCandidate;
+                  setOverrideCandidate(null);
+                  onStart(
+                    candidate.routine.id || candidate.routine._id,
+                    candidate.day.slotId,
+                    {
+                      isScheduleOverride: true,
+                      scheduledDate:
+                        candidate.scheduledDate || candidate.dateValue,
+                      dayIndex: candidate.index,
+                      scheduleMode: plan.scheduleMode,
+                    },
+                  );
+                }}
+                className="h-11 bg-[#ff5722] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
+              >
+                Confirmar cambio
+              </button>
+            </>
+          }
+        >
+          <div className="border-l-4 border-[#ff5722] bg-[#ff5722]/5 p-4 dark:border-[#d8ff00] dark:bg-[#d8ff00]/5">
+            <p className="text-sm font-bold text-[color:var(--text)]">
+              Esta sesión quedará registrada como una excepción del plan.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+              {sequential
+                ? "El ciclo continuará desde el bloque posterior al que elegiste."
+                : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}
+            </p>
+          </div>
+        </Modal>
+      ) : null}
     </>
   );
 }

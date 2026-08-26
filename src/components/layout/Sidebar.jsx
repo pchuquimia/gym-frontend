@@ -181,24 +181,32 @@ function Sidebar({
 
     return (
       <aside className="flex h-dvh w-full flex-col overflow-hidden bg-transparent px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--drawer-text)]">
-        <div className="mb-3 flex min-h-11 items-center justify-between gap-3 border-b border-[color:var(--drawer-border)] pb-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[0.65rem] bg-[color:var(--drawer-accent)] font-sans text-xs font-bold italic tracking-[-0.06em] text-[color:var(--drawer-accent-contrast)] shadow-[inset_0_1px_0_rgba(255,255,255,0.24)]">
-              AP
-            </span>
+        <div className="mb-3 flex min-h-12 items-center gap-2 border-b border-[color:var(--drawer-border)] pb-3">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[0.7rem] p-1 text-left transition-colors hover:bg-[color:var(--drawer-surface)]"
+            onClick={() => onNavigate?.("perfil")}
+          >
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface-hover)]">
+              <ProfileAvatar
+                photoId={avatarPhotoId}
+                name={user?.name}
+                className="h-full w-full"
+                fallbackClassName="bg-[color:var(--drawer-surface-hover)] text-xs font-bold text-[color:var(--drawer-text)]"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 grid h-3.5 w-3.5 place-items-center rounded-full border border-[color:var(--drawer-bg)] bg-[color:var(--drawer-accent)] text-[color:var(--drawer-accent-contrast)]">
+                <Check className="h-2 w-2 stroke-[4]" />
+              </span>
+            </div>
             <div className="min-w-0">
-              <p className="truncate font-sans text-[13px] font-semibold tracking-[-0.01em] text-[color:var(--drawer-text)]">
-                APEX PERFORMANCE
+              <p className="truncate font-sans text-[13px] font-semibold leading-tight text-[color:var(--drawer-text)]">
+                {user?.name || "Usuario"}
               </p>
-              <p className="mt-0.5 truncate font-sans text-[10px] font-medium tracking-[0.02em] text-[color:var(--drawer-subtle)]">
-                {user?.role === "Admin"
-                  ? "Panel administrador"
-                  : isCoach
-                    ? "Panel coach"
-                    : "Panel personal"}
+              <p className="mt-1 truncate font-sans text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--drawer-subtle)]">
+                Apex Performance · {user?.role || "Cliente"}
               </p>
             </div>
-          </div>
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -210,39 +218,7 @@ function Sidebar({
           </button>
         </div>
 
-        <button
-          type="button"
-          className="group flex items-center gap-3 rounded-[0.85rem] border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface)] px-3 py-3 text-left shadow-hairline transition-[border-color,background-color,box-shadow] hover:bg-[color:var(--drawer-surface-hover)] hover:shadow-soft"
-          onClick={() => onNavigate?.("perfil")}
-        >
-          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface-hover)]">
-            <ProfileAvatar
-              photoId={avatarPhotoId}
-              name={user?.name}
-              className="h-full w-full"
-              fallbackClassName="bg-[color:var(--drawer-surface-hover)] text-sm font-bold text-[color:var(--drawer-text)]"
-            />
-            <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-[color:var(--drawer-bg)] bg-[color:var(--drawer-accent)] text-[color:var(--drawer-accent-contrast)]">
-              <Check className="h-2.5 w-2.5 stroke-[4]" />
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="truncate font-sans text-sm font-semibold leading-tight text-[color:var(--drawer-text)]">
-              {user?.name || "Usuario"}
-            </p>
-            <p className="mt-1 font-sans text-[10px] font-medium tracking-[0.03em] text-[color:var(--drawer-accent)]">
-              {user?.role === "Admin"
-                ? "Administrador"
-                : isCoach
-                  ? "Modo coach"
-                  : isManagedClient
-                    ? "Plan con coach"
-                    : "Atleta Pro"}
-            </p>
-          </div>
-        </button>
-
-        <nav className="premium-drawer-nav mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+        <nav className="premium-drawer-nav min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
           <div className="space-y-3 pb-3">
             {drawerGroups.map((group) => {
               const groupItems = group.ids.map(getMobileItem).filter(Boolean);
@@ -254,7 +230,7 @@ function Sidebar({
                       {group.title}
                     </p>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {groupItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activePage === item.id;
@@ -264,26 +240,26 @@ function Sidebar({
                           type="button"
                           onClick={() => onNavigate?.(item.id)}
                           aria-current={isActive ? "page" : undefined}
-                          className={`group relative flex h-[42px] w-full items-center gap-3 overflow-hidden rounded-[0.65rem] border px-2.5 text-left transition-[transform,border-color,background-color,color,box-shadow] active:scale-[0.985] ${
+                          className={`group relative flex h-10 w-full items-center gap-2.5 overflow-hidden rounded-[0.65rem] border px-2.5 text-left transition-[transform,border-color,background-color,color,box-shadow] active:scale-[0.985] ${
                             isActive
                               ? "border-[color:var(--drawer-active-border)] bg-[color:var(--drawer-active)] text-[color:var(--drawer-active-text)] shadow-soft"
                               : "border-transparent text-[color:var(--drawer-muted)] hover:bg-[color:var(--drawer-surface)] hover:text-[color:var(--drawer-text)]"
                           }`}
                         >
                           <span
-                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-[0.55rem] transition-colors ${
+                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-[0.5rem] transition-colors ${
                               isActive
                                 ? "bg-[color:var(--drawer-active-icon-bg)] text-[color:var(--drawer-active-icon)]"
                                 : "text-[color:var(--drawer-subtle)] group-hover:bg-[color:var(--drawer-surface-hover)] group-hover:text-[color:var(--drawer-text)]"
                             }`}
                           >
                             <Icon
-                              className="h-[18px] w-[18px]"
+                              className="h-[17px] w-[17px]"
                               strokeWidth={isActive ? 2 : 1.8}
                             />
                           </span>
                           <span
-                            className={`min-w-0 flex-1 truncate font-sans text-sm ${
+                            className={`min-w-0 flex-1 truncate font-sans text-[13px] ${
                               isActive ? "font-semibold" : "font-medium"
                             }`}
                           >
@@ -316,20 +292,20 @@ function Sidebar({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control px-2.5 py-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
           onClick={() => onNavigate?.("perfil")}
         >
           <ProfileAvatar
             photoId={avatarPhotoId}
             name={user?.name}
-            className="h-10 w-10 shrink-0 rounded-full"
+            className="h-9 w-9 shrink-0 rounded-full"
             fallbackClassName="bg-[color:var(--accent)] font-bold text-[color:var(--accent-contrast)]"
           />
           <div className="min-w-0 flex flex-col">
-            <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+            <p className="truncate text-[13px] font-semibold text-[color:var(--text)]">
               {user?.name || "Usuario"}
             </p>
-            <span className="text-xs text-[color:var(--text-muted)]">
+            <span className="text-[11px] text-[color:var(--text-muted)]">
               {user?.role || "Cliente"}
             </span>
           </div>
@@ -345,11 +321,11 @@ function Sidebar({
             );
             if (!items.length) return null;
             return (
-              <div key={section.heading} className="flex flex-col gap-2">
-                <p className="mt-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
+              <div key={section.heading} className="flex flex-col gap-1.5">
+                <p className="mt-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
                   {section.heading}
                 </p>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-0.5">
                   {items.map((item) => {
                     const isActive = activePage === item.id;
                     const Icon = item.icon;
@@ -359,7 +335,7 @@ function Sidebar({
                         type="button"
                         variant="ghost"
                         onClick={() => onNavigate?.(item.id)}
-                        className={`relative flex items-center gap-3 rounded-control border px-3 py-2 font-sans text-sm transition-colors duration-150 ${
+                        className={`relative flex min-h-9 items-center gap-2.5 rounded-control border px-2.5 py-1.5 font-sans text-[13px] transition-colors duration-150 ${
                           isActive
                             ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] font-semibold text-[color:var(--text)] shadow-soft"
                             : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -367,12 +343,12 @@ function Sidebar({
                       >
                         {isActive && (
                           <span
-                            className="absolute left-1 h-5 w-1 rounded-full bg-[color:var(--accent)]"
+                            className="absolute left-1 h-4 w-1 rounded-full bg-[color:var(--accent)]"
                             aria-hidden="true"
                           />
                         )}
                         <Icon
-                          className={`h-5 w-5 shrink-0 ${
+                          className={`h-[18px] w-[18px] shrink-0 ${
                             isActive
                               ? "text-[color:var(--accent-strong)]"
                               : "text-[color:var(--text-muted)]"
@@ -380,7 +356,7 @@ function Sidebar({
                           strokeWidth={2}
                           aria-hidden="true"
                         />
-                        <span className="min-w-0 truncate text-sm">
+                        <span className="min-w-0 truncate text-[13px]">
                           {item.label}
                         </span>
                       </Button>
@@ -388,7 +364,7 @@ function Sidebar({
                   })}
                 </div>
                 {idx < visibleSections.length - 1 && (
-                  <div className="my-2 h-px bg-[color:var(--border)]/60" />
+                  <div className="my-1.5 h-px bg-[color:var(--border)]/60" />
                 )}
               </div>
             );

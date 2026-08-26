@@ -4,6 +4,9 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronDown,
+  EllipsisVertical,
+  History,
+  Image,
   Play,
   Repeat2,
   Settings2,
@@ -18,12 +21,6 @@ import DetailModal from "../library/DetailModal";
 import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
-import {
-  getEffectiveWeightKg,
-  getWeightBasisLabel,
-  getWeightUnitLabel,
-  normalizeWeightBasis,
-} from "../../utils/weightConfig";
 import { parseLocalCalendarDate } from "../../utils/localCalendarDate";
 
 const LONG_PRESS_MS = 650;
@@ -149,14 +146,15 @@ export default function ExerciseCard({
   onSeriesTypeChange = () => {},
   onMovementModeChange = () => {},
   onSetupNoteChange = () => {},
-  onWeightConfigChange = () => {},
   onViewTracking = null,
   onSwapVariant = null,
   onStartNow = null,
 }) {
   const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const actionsMenuRef = useRef(null);
   const [isHoldingExercise, setIsHoldingExercise] = useState(false);
   const exerciseHoldTimerRef = useRef(null);
   const exerciseHoldStartRef = useRef({ x: 0, y: 0 });
@@ -181,20 +179,6 @@ export default function ExerciseCard({
   const supportsUnilateral = Boolean(exercise.supportsUnilateral);
   const movementMode =
     exercise.movementMode === "unilateral" ? "unilateral" : "bilateral";
-  const weightBasis = normalizeWeightBasis(exercise.weightBasis, "total");
-  const weightConfig = {
-    weightBasis,
-    barWeightKg: Number(exercise.barWeightKg || 0),
-    implementCount: Math.max(1, Number(exercise.implementCount || 1)),
-  };
-  const firstEnteredWeight = (exercise.sets || [])
-    .flatMap((set) => set.entries || [])
-    .map((entry) => entry.kg)
-    .find((value) => value !== "" && value !== null && value !== undefined);
-  const effectiveWeight = getEffectiveWeightKg(
-    firstEnteredWeight,
-    weightConfig,
-  );
   const hasVariants =
     Array.isArray(exercise.variants) && exercise.variants.length > 1;
   const variantTotal = hasVariants ? exercise.variants.length : 0;
@@ -204,6 +188,7 @@ export default function ExerciseCard({
       1
     : 0;
   const referenceDateLabel = getReferenceDateLabel(exercise);
+  const setupNote = String(exercise.setupNote || "").trim();
   const isComplete =
     Array.isArray(exercise.sets) &&
     exercise.sets.length > 0 &&
@@ -212,6 +197,14 @@ export default function ExerciseCard({
         ? set.entries.every((entry) => entry.done)
         : Boolean(set.done),
     );
+  const totalSeries = Array.isArray(exercise.sets) ? exercise.sets.length : 0;
+  const completedSeries = Array.isArray(exercise.sets)
+    ? exercise.sets.filter((set) =>
+        Array.isArray(set.entries) && set.entries.length
+          ? set.entries.every((entry) => entry.done)
+          : Boolean(set.done),
+      ).length
+    : 0;
   const handleDragEnd = (_, info) => {
     if (!onSwapVariant || !hasVariants) return;
     const offsetX = info.offset?.x ?? 0;
@@ -248,12 +241,8 @@ export default function ExerciseCard({
 
   const handleExercisePointerMove = (event) => {
     if (!exerciseHoldTimerRef.current) return;
-    const deltaX = Math.abs(
-      event.clientX - exerciseHoldStartRef.current.x,
-    );
-    const deltaY = Math.abs(
-      event.clientY - exerciseHoldStartRef.current.y,
-    );
+    const deltaX = Math.abs(event.clientX - exerciseHoldStartRef.current.x);
+    const deltaY = Math.abs(event.clientY - exerciseHoldStartRef.current.y);
     if (deltaX > MOVE_TOLERANCE_PX || deltaY > MOVE_TOLERANCE_PX) {
       clearExerciseLongPress();
     }
@@ -265,9 +254,32 @@ export default function ExerciseCard({
       exerciseHoldTriggeredRef.current = false;
       return;
     }
-    if (open) setShowOptions(false);
+    if (open) {
+      setShowOptions(false);
+      setShowActionsMenu(false);
+    }
     onToggleOpen?.();
   };
+
+  useEffect(() => {
+    if (!showActionsMenu) return undefined;
+
+    const closeMenu = (event) => {
+      if (!actionsMenuRef.current?.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setShowActionsMenu(false);
+    };
+
+    document.addEventListener("pointerdown", closeMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showActionsMenu]);
 
   useEffect(
     () => () => {
@@ -324,7 +336,7 @@ export default function ExerciseCard({
           ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45"
           : ""
       }`}
-      layout
+      layout="position"
       initial={false}
       whileHover={reduceMotion ? undefined : { y: -2 }}
       drag={!readOnly && onSwapVariant && hasVariants ? "x" : false}
@@ -368,7 +380,7 @@ export default function ExerciseCard({
             : "border-[color:var(--border)] shadow-lg"
         }`}
       >
-        <div className="flex items-center gap-2 p-3 sm:p-4 hover:bg-[color:var(--bg)]/40 transition-colors">
+        <div className="relative z-30 flex items-center gap-2 p-3 transition-colors hover:bg-[color:var(--bg)]/40 sm:p-4">
           <button
             type="button"
             onClick={handleOpenDetails}
@@ -443,12 +455,26 @@ export default function ExerciseCard({
                     }`
                   : "Sin fecha previa"}
               </p>
+              {setupNote ? (
+                <div
+                  className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)]"
+                  title={`Ajuste: ${setupNote}`}
+                >
+                  <Settings2 className="h-3.5 w-3.5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <span className="shrink-0 font-bold">Ajuste:</span>
+                  <span className="min-w-0 truncate">{setupNote}</span>
+                </div>
+              ) : null}
             </div>
             <ChevronDown
               className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
             />
           </button>
-          {!readOnly && onStartNow && !isComplete && !exercise.isActive && (
+          {!readOnly &&
+            onStartNow &&
+            !isComplete &&
+            !exercise.isActive &&
+            !open && (
             <Button
               size="sm"
               variant="accentOutline"
@@ -460,7 +486,11 @@ export default function ExerciseCard({
               <span>Empezar</span>
             </Button>
           )}
-          {!readOnly && onStartNow && !isComplete && !exercise.isActive && (
+          {!readOnly &&
+            onStartNow &&
+            !isComplete &&
+            !exercise.isActive &&
+            !open && (
             <Button
               size="touchIcon"
               variant="accentOutline"
@@ -471,66 +501,134 @@ export default function ExerciseCard({
               <Play className="h-4 w-4" />
             </Button>
           )}
+          {open ? (
+            <div className="flex shrink-0 items-center gap-1.5" ref={actionsMenuRef}>
+              <span
+                className="whitespace-nowrap text-xs font-black tabular-nums text-[color:var(--text-muted)]"
+                aria-label={`${completedSeries} de ${totalSeries} series completadas`}
+              >
+                {completedSeries}/{totalSeries}
+                <span className="ml-1 hidden sm:inline">series</span>
+              </span>
+              <button
+                type="button"
+                className={`grid h-10 w-10 place-items-center rounded-md border transition-colors dark:rounded-[3px] ${
+                  showActionsMenu
+                    ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                    : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+                }`}
+                onClick={() => setShowActionsMenu((value) => !value)}
+                aria-label={`Acciones de ${exercise.name}`}
+                aria-haspopup="menu"
+                aria-expanded={showActionsMenu}
+              >
+                <EllipsisVertical className="h-5 w-5" />
+              </button>
+              <AnimatePresence>
+                {showActionsMenu ? (
+                  <motion.div
+                    role="menu"
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.14 }}
+                    className="absolute right-3 top-[calc(100%-0.5rem)] z-40 w-52 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl dark:rounded-[4px] sm:right-4"
+                  >
+                    {!readOnly &&
+                    onStartNow &&
+                    !isComplete &&
+                    !exercise.isActive ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowActionsMenu(false);
+                          onStartNow();
+                        }}
+                        className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <Play className="h-4 w-4" />
+                        Empezar ejercicio
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowActionsMenu(false);
+                        onViewTracking?.();
+                      }}
+                      className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                    >
+                      <History className="h-4 w-4" />
+                      Historial
+                    </button>
+                    {!readOnly ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowActionsMenu(false);
+                          setShowOptions((value) => !value);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Opciones
+                        {setupNote ? (
+                          <span className="ml-auto h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]" />
+                        ) : null}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowActionsMenu(false);
+                        handleOpenDetails();
+                      }}
+                      className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                    >
+                      <Image className="h-4 w-4" />
+                      Ver técnica
+                    </button>
+                    {!readOnly && onRemoveExercise ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowActionsMenu(false);
+                          setDeleteSheetOpen(true);
+                        }}
+                        className="mt-1 flex h-10 w-full items-center gap-2 border-t border-[color:var(--border)] px-3 pt-1 text-left text-sm font-bold text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Eliminar ejercicio
+                      </button>
+                    ) : null}
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
+          ) : null}
         </div>
 
         <AnimatePresence initial={false}>
           {open && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0 : 0.18 }}
+              className="flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
-              <div className="flex items-center px-4 py-3">
-                <div className="flex gap-2 flex-wrap">
-                  <motion.div whileTap={{ scale: 0.97 }}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full px-4"
-                      onClick={onViewTracking}
-                    >
-                      Seguimiento
-                    </Button>
-                  </motion.div>
-                  {!readOnly ? (
-                    <motion.div whileTap={{ scale: 0.97 }}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`rounded-full px-3 ${
-                          showOptions
-                            ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
-                            : ""
-                        }`}
-                        onClick={() => setShowOptions((value) => !value)}
-                        title={
-                          exercise.setupNote
-                            ? "Este ejercicio tiene una configuración guardada"
-                            : "Opciones del ejercicio"
-                        }
-                      >
-                        <SlidersHorizontal className="h-4 w-4" />
-                        Opciones
-                        {exercise.setupNote && (
-                          <span
-                            className="h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]"
-                            aria-label="Configuración guardada"
-                          />
-                        )}
-                      </Button>
-                    </motion.div>
-                  ) : null}
-                </div>
-              </div>
-
               <AnimatePresence initial={false}>
                 {showOptions && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
+                    className="order-2 overflow-hidden"
                   >
                     <div className="mx-4 mb-3 space-y-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
                       <div className="flex items-center justify-between gap-3">
@@ -584,84 +682,6 @@ export default function ExerciseCard({
                           </div>
                         </div>
                       )}
-                      <div className="border-t border-[color:var(--border)] pt-3">
-                        <label className="block">
-                          <span className="mb-1.5 block text-[13px] font-semibold text-[color:var(--text-muted)]">
-                            Cómo registrar el peso
-                          </span>
-                          <select
-                            value={weightBasis}
-                            onChange={(event) =>
-                              onWeightConfigChange({
-                                weightBasis: event.target.value,
-                              })
-                            }
-                            className="h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
-                          >
-                            {weightBasis === "legacy" ? (
-                              <option value="legacy">
-                                Registro anterior (sin conversión)
-                              </option>
-                            ) : null}
-                            <option value="total">Peso total (incluye barra)</option>
-                            <option value="per_side">Peso por lado</option>
-                            <option value="per_implement">Peso por mancuerna / implemento</option>
-                            <option value="machine">Valor indicado por máquina</option>
-                            <option value="additional">Carga adicional</option>
-                            <option value="assistance">Asistencia indicada</option>
-                          </select>
-                        </label>
-                        {weightBasis === "per_side" ? (
-                          <label className="mt-2 block">
-                            <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                              Peso de la barra
-                            </span>
-                            <div className="flex h-11 items-center border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                min="0"
-                                step="0.5"
-                                value={weightConfig.barWeightKg}
-                                onChange={(event) =>
-                                  onWeightConfigChange({
-                                    barWeightKg: Math.max(
-                                      0,
-                                      Number(event.target.value || 0),
-                                    ),
-                                  })
-                                }
-                                className="min-w-0 flex-1 bg-transparent text-right text-sm font-bold outline-none"
-                                aria-label={`Peso de la barra para ${exercise.name}`}
-                              />
-                              <span className="ml-2 text-xs font-black text-[color:var(--text-muted)]">kg</span>
-                            </div>
-                          </label>
-                        ) : null}
-                        {weightBasis === "per_implement" &&
-                        movementMode !== "unilateral" ? (
-                          <label className="mt-2 block">
-                            <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                              Cantidad de implementos
-                            </span>
-                            <select
-                              value={weightConfig.implementCount}
-                              onChange={(event) =>
-                                onWeightConfigChange({
-                                  implementCount: Number(event.target.value),
-                                })
-                              }
-                              className="h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold"
-                            >
-                              {[1, 2, 3, 4].map((count) => (
-                                <option key={count} value={count}>
-                                  {count} {count === 1 ? "implemento" : "implementos"}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ) : null}
-                      </div>
                       <label className="block border-t border-[color:var(--border)] pt-3">
                         <span className="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
                           <Settings2 className="h-3.5 w-3.5" />
@@ -686,16 +706,7 @@ export default function ExerciseCard({
                 )}
               </AnimatePresence>
 
-              <div className="space-y-2 px-2 pb-3 sm:px-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs font-bold text-[color:var(--text-muted)]">
-                  <span>{getWeightBasisLabel(weightConfig)}</span>
-                  {firstEnteredWeight !== undefined &&
-                  ["per_side", "per_implement"].includes(weightBasis) ? (
-                    <span className="text-[#c52d00] dark:text-[#e2ff00]">
-                      Carga efectiva: {effectiveWeight} kg
-                    </span>
-                  ) : null}
-                </div>
+              <div className="order-1 space-y-2 px-2 py-3 sm:px-3">
                 <div className="space-y-2">
                   <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
@@ -709,7 +720,6 @@ export default function ExerciseCard({
                         entries={set.entries}
                         prSummary={set.prSummary}
                         prBranchLabel={set.prBranchLabel}
-                        weightUnitLabel={getWeightUnitLabel(weightConfig)}
                         onChangeEntry={(entryId, field, value) =>
                           onUpdateEntry(set.id, entryId, field, value)
                         }
@@ -757,7 +767,6 @@ export default function ExerciseCard({
             <DetailModal
               exercise={detailExercise}
               canManage={false}
-              recordingContext
               onClose={() => setDetailExercise(null)}
             />,
             document.body,
@@ -838,7 +847,6 @@ ExerciseCard.propTypes = {
   onSeriesTypeChange: PropTypes.func,
   onMovementModeChange: PropTypes.func,
   onSetupNoteChange: PropTypes.func,
-  onWeightConfigChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onSwapVariant: PropTypes.func,
   onStartNow: PropTypes.func,
