@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, LoaderCircle, Weight, X } from "lucide-react";
 
 const sanitizeWeight = (value) => {
@@ -14,7 +10,9 @@ const sanitizeWeight = (value) => {
     .replace(/[^0-9.]/g, "");
   const [integer = "", ...decimalParts] = normalized.split(".");
   const decimal = decimalParts.join("").slice(0, 2);
-  return decimalParts.length ? `${integer.slice(0, 3)}.${decimal}` : integer.slice(0, 3);
+  return decimalParts.length
+    ? `${integer.slice(0, 3)}.${decimal}`
+    : integer.slice(0, 3);
 };
 
 export default function QuickWeightModal({ open, onClose, onSave }) {
@@ -28,7 +26,9 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
   const reduceMotion = useReducedMotion();
   const numericWeight = Number(weight);
   const validWeight =
-    Number.isFinite(numericWeight) && numericWeight >= 25 && numericWeight <= 400;
+    Number.isFinite(numericWeight) &&
+    numericWeight >= 25 &&
+    numericWeight <= 400;
 
   const changePhase = (nextPhase) => {
     phaseRef.current = nextPhase;
@@ -111,9 +111,13 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
             onClick={phase === "saving" ? undefined : onClose}
           />
           <motion.section
-            initial={reduceMotion ? { opacity: 0 } : { y: 28, opacity: 0, scale: 0.98 }}
+            initial={
+              reduceMotion ? { opacity: 0 } : { y: 28, opacity: 0, scale: 0.98 }
+            }
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { y: 24, opacity: 0, scale: 0.98 }}
+            exit={
+              reduceMotion ? { opacity: 0 } : { y: 24, opacity: 0, scale: 0.98 }
+            }
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
             className="relative w-full max-w-sm rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-5 text-[color:var(--text)] shadow-2xl sm:p-6 dark:rounded-[4px]"
           >
@@ -129,19 +133,41 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                   aria-live="polite"
                 >
                   <span className="theme-accent-soft mx-auto grid h-16 w-16 place-items-center rounded-full border">
-                    <LoaderCircle className={`h-8 w-8 ${reduceMotion ? "" : "animate-spin"}`} />
+                    <LoaderCircle
+                      className={`h-8 w-8 ${reduceMotion ? "" : "animate-spin"}`}
+                    />
                   </span>
-                  <h2 className="mt-5 text-xl font-black uppercase">Guardando pesaje</h2>
+                  <h2 className="mt-5 text-xl font-black uppercase">
+                    Guardando pesaje
+                  </h2>
                   <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
                     Confirmando tu peso con el servidor.
                   </p>
-                  <div className="mt-6 flex justify-center gap-2" aria-hidden="true">
+                  <div
+                    className="mt-6 flex justify-center gap-2"
+                    aria-hidden="true"
+                  >
                     {[0, 1, 2].map((index) => (
                       <motion.span
                         key={index}
                         className="theme-accent-solid h-1.5 w-10 border-0"
-                        animate={reduceMotion ? { opacity: 0.8 } : { opacity: [0.25, 1, 0.25], scaleX: [0.75, 1, 0.75] }}
-                        transition={reduceMotion ? undefined : { duration: 1.2, repeat: Infinity, delay: index * 0.18 }}
+                        animate={
+                          reduceMotion
+                            ? { opacity: 0.8 }
+                            : {
+                                opacity: [0.25, 1, 0.25],
+                                scaleX: [0.75, 1, 0.75],
+                              }
+                        }
+                        transition={
+                          reduceMotion
+                            ? undefined
+                            : {
+                                duration: 1.2,
+                                repeat: Infinity,
+                                delay: index * 0.18,
+                              }
+                        }
                       />
                     ))}
                   </div>
@@ -149,7 +175,9 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
               ) : phase === "success" ? (
                 <motion.div
                   key="success"
-                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }}
+                  initial={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92 }
+                  }
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
                   className="py-6 text-center"
@@ -163,9 +191,14 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                   >
                     <Check className="h-8 w-8 stroke-[3]" />
                   </motion.span>
-                  <h2 className="mt-5 text-xl font-black uppercase">Peso registrado</h2>
+                  <h2 className="mt-5 text-xl font-black uppercase">
+                    Peso registrado
+                  </h2>
                   <p className="mt-2 text-3xl font-black text-[#ff5722] dark:text-[#e2ff00]">
-                    {numericWeight.toLocaleString("es-BO", { maximumFractionDigits: 2 })} KG
+                    {numericWeight.toLocaleString("es-BO", {
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    KG
                   </p>
                 </motion.div>
               ) : (
@@ -178,12 +211,19 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#fff0eb] text-[#ff5722] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                         <Weight className="h-5 w-5" />
                       </span>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Pesaje diario</p>
-                        <h2 id="quick-weight-title" className="mt-0.5 text-xl font-black uppercase">Peso actual</h2>
+                        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                          Pesaje diario
+                        </p>
+                        <h2
+                          id="quick-weight-title"
+                          className="mt-0.5 text-xl font-black uppercase"
+                        >
+                          Peso actual
+                        </h2>
                       </div>
                     </div>
                     <button
@@ -206,15 +246,25 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                         enterKeyHint="done"
                         autoComplete="off"
                         value={weight}
-                        onChange={(event) => setWeight(sanitizeWeight(event.target.value))}
+                        onChange={(event) =>
+                          setWeight(sanitizeWeight(event.target.value))
+                        }
                         placeholder="0.0"
                         className="theme-accent-focus h-20 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-20 text-center text-4xl font-black tabular-nums outline-none"
                       />
-                      <span className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm font-black text-[color:var(--text-muted)]">KG</span>
+                      <span className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-sm font-black text-[color:var(--text-muted)]">
+                        KG
+                      </span>
                     </span>
                   </label>
-                  <p className={`mt-2 min-h-5 text-center text-xs font-bold ${error ? "text-red-500" : "text-[color:var(--text-muted)]"}`} role={error ? "alert" : undefined}>
-                    {error || (weight && !validWeight ? "Ingresa un peso entre 25 y 400 kg." : "")}
+                  <p
+                    className={`mt-2 min-h-5 text-center text-xs font-bold ${error ? "text-red-500" : "text-[color:var(--text-muted)]"}`}
+                    role={error ? "alert" : undefined}
+                  >
+                    {error ||
+                      (weight && !validWeight
+                        ? "Ingresa un peso entre 25 y 400 kg."
+                        : "")}
                   </p>
                   <button
                     type="submit"

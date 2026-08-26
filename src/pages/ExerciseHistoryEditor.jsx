@@ -752,7 +752,7 @@ export default function ExerciseHistoryEditor({
                         onClick={() => selectExercise(exercise)}
                         className={`flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[color:var(--bg)] ${index === activeExerciseIndex ? "bg-[color:var(--bg)]" : ""}`}
                       >
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#fff0eb] text-[#ff5722] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                           {selected ? (
                             <Check className="h-4 w-4" />
                           ) : (
@@ -811,7 +811,7 @@ export default function ExerciseHistoryEditor({
               setExercisePickerOpen(true);
               setActiveExerciseIndex(0);
             }}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-black transition ${onlyWithHistory ? "border-[#ff5722] bg-[#fff7f4] text-[#a72c09] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]" : "border-[color:var(--border)] text-[color:var(--text-muted)]"}`}
+            className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-black transition ${onlyWithHistory ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--border)] text-[color:var(--text-muted)]"}`}
           >
             <span
               className={`grid h-4 w-4 place-items-center rounded border ${onlyWithHistory ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
@@ -825,7 +825,7 @@ export default function ExerciseHistoryEditor({
             <span className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Seleccionado
             </span>
-            <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-[#ff5722]/30 bg-[#fff7f4] px-3 text-xs font-black text-[#a72c09] dark:border-[#e2ff00]/25 dark:bg-[#e2ff00]/[0.08] dark:text-[#e2ff00]">
+            <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 text-xs font-black text-[color:var(--accent-contrast)]">
               <Dumbbell className="h-3.5 w-3.5" />
               {selectedExercise?.name || "Selecciona un ejercicio"}
             </span>

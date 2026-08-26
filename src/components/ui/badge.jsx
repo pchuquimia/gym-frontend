@@ -22,7 +22,7 @@ export function Badge({
     secondary:
       "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
     active:
-      "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]",
+      "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]",
     enabled:
       "border-[color:var(--success)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
     completed:

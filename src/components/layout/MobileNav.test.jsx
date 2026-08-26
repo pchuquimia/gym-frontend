@@ -37,6 +37,14 @@ describe("MobileNav", () => {
     render(<MobileNav activePage="rutinas" onNavigate={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Rutinas" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Entrenar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Biblioteca" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Atletas" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Gestion" }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 });

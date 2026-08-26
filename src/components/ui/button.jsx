@@ -7,7 +7,7 @@ const variants = {
   default:
     "border border-transparent bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-soft hover:bg-[color:var(--accent-hover)]",
   accentOutline:
-    "border border-[color:var(--accent)] bg-transparent text-[color:var(--accent-strong)] hover:bg-[color:var(--accent-soft)]",
+    "border border-[color:var(--accent)] bg-transparent text-[color:var(--accent-strong)] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)]",
   accentSolid:
     "border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-soft hover:bg-[color:var(--accent-hover)] disabled:!opacity-100",
   outline:

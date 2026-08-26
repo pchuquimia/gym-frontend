@@ -383,25 +383,39 @@ function BranchCard({ branch, selected, compact = false, onClick }) {
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
         selected
-          ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#252525]"
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
           : "border-transparent bg-[color:var(--card)]"
       } ${compact ? "py-2.5" : "py-3.5"}`}
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)] text-[#ff5722] dark:text-[#e2ff00]">
+      <span
+        className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg ${
+          selected
+            ? "border border-current bg-transparent text-current"
+            : "bg-[color:var(--bg)] text-[#ff5722] dark:text-[#e2ff00]"
+        }`}
+      >
         <MapPin className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-base font-black text-[color:var(--text)]">
+        <span
+          className={`block truncate text-base font-black ${
+            selected ? "text-current" : "text-[color:var(--text)]"
+          }`}
+        >
           {meta.title}
         </span>
         {!compact ? (
-          <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+          <span
+            className={`mt-0.5 block truncate text-xs font-semibold ${
+              selected ? "text-current/80" : "text-[color:var(--text-muted)]"
+            }`}
+          >
             {meta.subtitle}
           </span>
         ) : null}
       </span>
       {selected ? (
-        <CircleDot className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+        <CircleDot className="h-5 w-5 shrink-0 text-current" />
       ) : (
         <Circle className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
       )}
@@ -6180,7 +6194,7 @@ export default function RegisterTraining({
                   <div className="space-y-3">
                     {routinesLoading ? (
                       <div
-                        className="border border-[#ff8a65] bg-[#fff0eb] p-5 text-sm font-bold text-[#852300] dark:border-[#e2ff00]/40 dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                        className="border border-[color:var(--accent)] bg-[color:var(--accent)] p-5 text-sm font-bold text-[color:var(--accent-contrast)]"
                         role="status"
                       >
                         Cargando rutinas...
@@ -6238,7 +6252,7 @@ export default function RegisterTraining({
                       </div>
                     )}
                     {loadingTraining ? (
-                      <div className="border border-[#ff8a65] bg-[#fff0eb] p-4 text-sm font-bold text-[#852300] dark:border-[#e2ff00]/40 dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+                      <div className="border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-sm font-bold text-[color:var(--accent-contrast)]">
                         Preparando rutina e historial...
                       </div>
                     ) : null}
@@ -7006,7 +7020,7 @@ export default function RegisterTraining({
                     onClick={() => setSelectedMuscleGroup(muscle)}
                     className={`px-3 py-2 rounded-full border text-sm transition ${
                       selectedMuscleGroup === muscle
-                        ? "border-[#ff5722]/50 bg-[#ff5722]/10 text-[color:var(--text)] font-semibold dark:border-[#e2ff00]/50 dark:bg-[#e2ff00]/10"
+                        ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold"
                         : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#ff5722]/40 dark:hover:border-[#e2ff00]/40"
                     }`}
                   >
@@ -7340,7 +7354,7 @@ export default function RegisterTraining({
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 gap-2 rounded-lg border-[#ff5722]/40 font-black uppercase text-[#c52d00] hover:bg-[#fff0eb] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00] dark:hover:bg-[#e2ff00]/10"
+                className="h-12 gap-2 rounded-lg border-[#ff5722]/40 font-black uppercase text-[#c52d00] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
                 onClick={() => handleSameDayTrainingChoice(false)}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -7357,15 +7371,15 @@ export default function RegisterTraining({
             </div>
           }
         >
-          <div className="flex gap-3 border-l-2 border-[#ff5722] bg-[#fff5f1] p-4 dark:border-[#e2ff00] dark:bg-[#171900]">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+          <div className="flex gap-3 border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-current bg-transparent text-current">
               <AlertTriangle className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <p className="text-sm font-black uppercase">
                 Encontramos una sesion de hoy
               </p>
-              <p className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
+              <p className="mt-1 text-sm font-semibold leading-5 text-current/80">
                 Continuar recupera las series, pesos y tiempo registrados.
                 Reiniciar comienza vacio y reemplazara esta sesion cuando
                 finalices el entrenamiento.
@@ -7446,12 +7460,12 @@ export default function RegisterTraining({
                 </button>
               </div>
 
-              <div className="mt-4 rounded-lg border border-[#ff5722]/30 bg-[#fff0eb] p-3 dark:rounded-[4px] dark:border-[#e2ff00]/30 dark:bg-[#1d2100]">
+              <div className="mt-4 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] p-3 text-[color:var(--accent-contrast)] dark:rounded-[4px]">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-[#852300] dark:text-[#e2ff00]">
+                  <p className="text-sm font-black text-current">
                     {finishWarningExercises.length} ejercicio(s) pendientes
                   </p>
-                  <span className="rounded bg-[#ff5722]/15 px-2 py-1 text-[10px] font-black uppercase text-[#852300] dark:bg-[#e2ff00]/15 dark:text-[#e2ff00]">
+                  <span className="rounded border border-current px-2 py-1 text-[10px] font-black uppercase text-current">
                     Atencion
                   </span>
                 </div>
@@ -7496,7 +7510,7 @@ export default function RegisterTraining({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 rounded-lg border-[#ff5722]/40 text-[#c52d00] hover:bg-[#fff0eb] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00] dark:hover:bg-[#e2ff00]/10"
+                  className="h-12 rounded-lg border-[#ff5722]/40 text-[#c52d00] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
                   onClick={confirmFinishTraining}
                 >
                   Finalizar de todos modos

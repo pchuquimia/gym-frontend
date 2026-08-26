@@ -70,18 +70,20 @@ function Metric({ label, value, accent = false }) {
     <div
       className={`min-h-24 border border-[color:var(--border)] p-3 ${
         accent
-          ? "bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(255,87,34,0.09)_5px,rgba(255,87,34,0.09)_8px)] dark:bg-[repeating-linear-gradient(135deg,transparent,transparent_5px,rgba(226,255,0,0.08)_5px,rgba(226,255,0,0.08)_8px)]"
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
           : "bg-[color:var(--bg)]"
       }`}
     >
-      <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+      <p
+        className={`font-condensed text-[11px] font-black uppercase ${
+          accent ? "text-current/75" : "text-[color:var(--text-muted)]"
+        }`}
+      >
         {label}
       </p>
       <p
         className={`mt-1 break-words font-condensed text-xl font-black leading-tight ${
-          accent
-            ? "text-[#ff5722] dark:text-[#e2ff00]"
-            : "text-[color:var(--text)]"
+          accent ? "text-current" : "text-[color:var(--text)]"
         }`}
       >
         {value}
@@ -90,10 +92,18 @@ function Metric({ label, value, accent = false }) {
   );
 }
 
-function SectionHeading({ icon: Icon, children }) {
+function SectionHeading({ icon: Icon, children, contrast = false }) {
   return (
-    <h3 className="flex items-center gap-2 font-condensed text-lg font-black uppercase text-[color:var(--text)]">
-      <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+    <h3
+      className={`flex items-center gap-2 font-condensed text-lg font-black uppercase ${
+        contrast ? "text-current" : "text-[color:var(--text)]"
+      }`}
+    >
+      <Icon
+        className={`h-4 w-4 ${
+          contrast ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"
+        }`}
+      />
       {children}
     </h3>
   );
@@ -256,7 +266,7 @@ export default function DetailModal({
         >
           <div className="px-4 pb-4 pt-5 sm:px-6">
             {isPersonal ? (
-              <div className="mb-4 flex items-center gap-2 border-l-4 border-l-[#ff5722] bg-[#ff5722]/5 px-3 py-2 text-xs font-black uppercase text-[#c52d00] dark:border-l-[#e2ff00] dark:bg-[#e2ff00]/5 dark:text-[#e2ff00]">
+              <div className="mb-4 flex items-center gap-2 border-l-4 border-l-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-xs font-black uppercase text-[color:var(--accent-contrast)]">
                 <UserRound className="h-4 w-4" />
                 Ejercicio personal
               </div>
@@ -423,11 +433,11 @@ export default function DetailModal({
           </section>
 
           {precautions.length ? (
-            <section className="mt-4 border-l-4 border-l-[#ff5722] bg-[#ff5722]/5 px-4 py-5 dark:border-l-[#e2ff00] dark:bg-[#e2ff00]/5 sm:px-6">
-              <SectionHeading icon={AlertTriangle}>
+            <section className="mt-4 border-l-4 border-l-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-5 text-[color:var(--accent-contrast)] sm:px-6">
+              <SectionHeading icon={AlertTriangle} contrast>
                 Consejo técnico
               </SectionHeading>
-              <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              <p className="mt-3 text-sm leading-6 text-current/80">
                 {formatList(precautions)}
               </p>
             </section>

@@ -177,7 +177,7 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#fff4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)] dark:hover:bg-[#161900]"
+      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
     >
       <span className="theme-accent-soft grid h-9 w-9 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
         <Icon className="h-4 w-4" />
@@ -212,8 +212,8 @@ function SettingsSelectRow({
 }) {
   return (
     <div className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#ff5722]/10 dark:bg-[#e2ff00]/10">
-        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
+        <Icon className="h-4 w-4 text-current" />
       </span>
       <span className="min-w-0 flex-1">
         <label
@@ -856,7 +856,10 @@ export default function ProfileSettings({ onNavigate }) {
     }
     try {
       setCoachSaving(true);
-      const data = await api.connectCoach(normalizedCode, Boolean(changingCoach));
+      const data = await api.connectCoach(
+        normalizedCode,
+        Boolean(changingCoach),
+      );
       setCoachRelationship({ loading: false, ...data });
       setCoachCode("");
       await refreshUser({ force: true, silent: true });
@@ -892,7 +895,13 @@ export default function ProfileSettings({ onNavigate }) {
   if (profileLoading) {
     return (
       <main className="settings-shell mx-auto min-h-[50vh] w-full max-w-5xl border-y border-[color:var(--border)]">
-        <OperationLoader active delayMs={0} mode="inline" title="Cargando perfil" description="Sincronizando tus preferencias y datos de cuenta." />
+        <OperationLoader
+          active
+          delayMs={0}
+          mode="inline"
+          title="Cargando perfil"
+          description="Sincronizando tus preferencias y datos de cuenta."
+        />
       </main>
     );
   }
@@ -1298,7 +1307,13 @@ export default function ProfileSettings({ onNavigate }) {
           }
         >
           {sessionsState.loading ? (
-            <OperationLoader active delayMs={0} mode="inline" title="Cargando sesiones" description="Consultando los dispositivos con acceso activo." />
+            <OperationLoader
+              active
+              delayMs={0}
+              mode="inline"
+              title="Cargando sesiones"
+              description="Consultando los dispositivos con acceso activo."
+            />
           ) : sessionsState.error ? (
             <div className="p-4">
               <p role="alert" className="text-sm font-semibold text-red-500">
@@ -1358,18 +1373,22 @@ export default function ProfileSettings({ onNavigate }) {
                   }))
                 }
                 aria-pressed={selected}
-                className={`flex w-full items-start gap-3 border-b border-[color:var(--border)] p-4 text-left last:border-b-0 ${selected ? "bg-[#ff5722]/10 dark:bg-[#e2ff00]/10" : ""}`}
+                className={`flex w-full items-start gap-3 border-b border-[color:var(--border)] p-4 text-left last:border-b-0 ${selected ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""}`}
               >
                 <span
-                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white dark:text-black" : "border-[color:var(--border)]"}`}
+                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${selected ? "border-current bg-transparent text-current" : "border-[color:var(--border)]"}`}
                 >
                   {selected ? <Check className="h-3 w-3" /> : null}
                 </span>
                 <span>
-                  <span className="block text-sm font-bold text-[color:var(--text)]">
+                  <span
+                    className={`block text-sm font-bold ${selected ? "text-current" : "text-[color:var(--text)]"}`}
+                  >
                     {mode.title}
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
+                  <span
+                    className={`mt-1 block text-xs leading-5 ${selected ? "text-current/80" : "text-[color:var(--text-muted)]"}`}
+                  >
                     {mode.detail}
                   </span>
                 </span>
@@ -1402,20 +1421,24 @@ export default function ProfileSettings({ onNavigate }) {
                     }))
                   }
                   aria-pressed={selected}
-                  className={`flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 ${selected ? "bg-[#ff5722]/10 dark:bg-[#e2ff00]/10" : ""} disabled:cursor-default`}
+                  className={`flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 ${selected ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""} disabled:cursor-default`}
                 >
-                  <Building2 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Building2
+                    className={`h-5 w-5 ${selected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"}`}
+                  />
                   <span className="flex-1">
-                    <span className="block text-sm font-bold text-[color:var(--text)]">
+                    <span
+                      className={`block text-sm font-bold ${selected ? "text-current" : "text-[color:var(--text)]"}`}
+                    >
                       {option.label}
                     </span>
-                    <span className="text-xs text-[color:var(--text-muted)]">
+                    <span
+                      className={`text-xs ${selected ? "text-current/80" : "text-[color:var(--text-muted)]"}`}
+                    >
                       {option.detail}
                     </span>
                   </span>
-                  {selected ? (
-                    <Check className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
-                  ) : null}
+                  {selected ? <Check className="h-4 w-4 text-current" /> : null}
                 </button>
               );
             })}

@@ -80,7 +80,7 @@ export default function ExerciseCard({
         >
           <div className="mb-1.5 flex flex-wrap gap-1">
             {isEssential ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#ff5722]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#c52d00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--accent)] px-2 py-0.5 text-[9px] font-black uppercase text-[color:var(--accent-contrast)]">
                 <Sparkles className="h-2.5 w-2.5" />
                 Básico
               </span>

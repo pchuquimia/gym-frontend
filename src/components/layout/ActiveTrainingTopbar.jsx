@@ -84,7 +84,7 @@ function ActiveTrainingTopbar({ training, onReturn }) {
             <span
               className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
                 training.isRunning
-                  ? "bg-[#ff5722]/12 text-[#b72f08] dark:bg-[#e2ff00]/12 dark:text-[#e2ff00]"
+                  ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                   : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
               }`}
             >

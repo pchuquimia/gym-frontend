@@ -57,7 +57,7 @@ function ExerciseImageRow({ exercise, selected, onSelect }) {
       onClick={() => onSelect(exercise)}
       className={`grid min-h-[88px] w-full grid-cols-[80px_minmax(0,1fr)_20px] items-center gap-3 border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
         selected
-          ? "border-[#ff5722] bg-[#ff5722]/5 dark:border-[#e2ff00] dark:bg-[#e2ff00]/5"
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
           : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff5722]/60 dark:hover:border-[#e2ff00]/60"
       }`}
     >
@@ -76,23 +76,33 @@ function ExerciseImageRow({ exercise, selected, onSelect }) {
         )}
       </div>
       <div className="min-w-0">
-        <p className="line-clamp-2 text-base font-black uppercase leading-tight text-[color:var(--text)]">
+        <p
+          className={`line-clamp-2 text-base font-black uppercase leading-tight ${
+            selected ? "text-current" : "text-[color:var(--text)]"
+          }`}
+        >
           {exercise.name}
         </p>
-        <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+        <p
+          className={`mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em] ${
+            selected ? "text-current/75" : "text-[color:var(--text-muted)]"
+          }`}
+        >
           {exercise.primaryMuscleGroup ||
             exercise.bodyRegion ||
             "Sin clasificar"}
         </p>
-        <span className="mt-1 inline-block text-[9px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <span
+          className={`mt-1 inline-block text-[9px] font-black uppercase ${
+            selected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"
+          }`}
+        >
           {exercise.type === "custom" ? "Personalizado" : "Catalogo"}
         </span>
       </div>
       <ChevronRight
         className={`h-5 w-5 ${
-          selected
-            ? "text-[#ff5722] dark:text-[#e2ff00]"
-            : "text-[color:var(--text-muted)]"
+          selected ? "text-current" : "text-[color:var(--text-muted)]"
         }`}
       />
     </button>

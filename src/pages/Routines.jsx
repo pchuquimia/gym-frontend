@@ -554,7 +554,8 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
         {routine.plan ? (
           <div className="mt-5 border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             El archivado está bloqueado mientras la rutina figure en una
-            planificación. Usa “Cambiar rutina” en ese día y vuelve a intentarlo.
+            planificación. Usa “Cambiar rutina” en ese día y vuelve a
+            intentarlo.
           </div>
         ) : (
           <div className="mt-5">
@@ -842,10 +843,7 @@ function RoutineModal({
 
   const selectableExerciseById = useMemo(
     () =>
-      buildRoutineExerciseOptionMap(
-        availableExercises,
-        remoteExerciseOptions,
-      ),
+      buildRoutineExerciseOptionMap(availableExercises, remoteExerciseOptions),
     [availableExercises, remoteExerciseOptions],
   );
 
@@ -3472,23 +3470,25 @@ export function TrainingPlanSchedule({
               }}
               className={`relative flex min-h-[72px] items-center gap-3 px-2 py-3 sm:px-3 ${
                 isCurrent
-                  ? "bg-[#fff4ef] dark:bg-[#e2ff00]/[0.06]"
+                  ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                   : "bg-[color:var(--card)]"
               } ${!isRest && routine ? "cursor-pointer transition hover:bg-[color:var(--bg)]" : ""}`}
             >
               {isCurrent ? (
-                <span className="absolute inset-y-0 left-0 w-0.5 bg-[#ff5722] dark:bg-[#e2ff00]" />
+                <span className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--accent-contrast)]" />
               ) : null}
               <div className="w-12 shrink-0 border-r border-[color:var(--border)] pr-3 text-center sm:w-16">
                 <p
-                  className={`text-xs font-black uppercase ${isCurrent ? "theme-accent-text" : ""}`}
+                  className={`text-xs font-black uppercase ${isCurrent ? "text-current" : ""}`}
                 >
                   {sequential
                     ? `Día ${index + 1}`
                     : PLAN_DAY_NAMES[index].slice(0, 3)}
                 </p>
                 {date ? (
-                  <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                  <p
+                    className={`mt-1 text-[10px] font-bold ${isCurrent ? "text-current/75" : "text-[color:var(--text-muted)]"}`}
+                  >
                     {formatPlanDayDate(date)}
                   </p>
                 ) : null}
@@ -3510,7 +3510,13 @@ export function TrainingPlanSchedule({
                     {primaryLabel}
                   </p>
                 )}
-                <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
+                <p
+                  className={`mt-1 truncate text-[11px] font-semibold ${
+                    isCurrent
+                      ? "text-current/75"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
                   {secondaryLabel}
                   {training
                     ? ` · ${Math.round(Number(training.totalVolume || 0)).toLocaleString("es-BO")} kg`
@@ -3520,7 +3526,7 @@ export function TrainingPlanSchedule({
               <div className="flex shrink-0 items-center gap-1">
                 {training ? (
                   <Check
-                    className="theme-accent-text h-4 w-4"
+                    className={`h-4 w-4 ${isCurrent ? "text-current" : "theme-accent-text"}`}
                     aria-label="Completada"
                   />
                 ) : null}
@@ -3544,7 +3550,7 @@ export function TrainingPlanSchedule({
                   <button
                     type="button"
                     onClick={() => onChooseRoutine(day)}
-                    className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-black text-[color:var(--text)]"
+                    className={`inline-flex h-10 items-center gap-1.5 px-2 text-xs font-black ${isCurrent ? "text-current" : "text-[color:var(--text)]"}`}
                     aria-label={`Cambiar rutina de ${sequential ? `día ${index + 1}` : PLAN_DAY_NAMES[index]}`}
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -3563,7 +3569,7 @@ export function TrainingPlanSchedule({
                 {!isRest && routine && !isManagedClient && isEditable ? (
                   <details className="relative">
                     <summary
-                      className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                      className={`grid h-10 w-10 cursor-pointer list-none place-items-center [&::-webkit-details-marker]:hidden ${isCurrent ? "text-current" : "text-[color:var(--text-muted)]"}`}
                       aria-label={`Opciones de ${routine.name}`}
                     >
                       <MoreVertical className="h-5 w-5" />
@@ -4801,9 +4807,7 @@ function Routines({ onNavigate }) {
   return (
     <div className="routines-shell">
       <section className="space-y-5">
-        <div
-          className="flex items-center justify-between gap-3"
-        >
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {activePlan
@@ -4883,7 +4887,8 @@ function Routines({ onNavigate }) {
               Planificaciones
               {!isCoach && draftPlanCount ? (
                 <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
-                  {draftPlanCount} {draftPlanCount === 1 ? "borrador" : "borradores"}
+                  {draftPlanCount}{" "}
+                  {draftPlanCount === 1 ? "borrador" : "borradores"}
                 </span>
               ) : null}
             </button>
@@ -5105,9 +5110,7 @@ function Routines({ onNavigate }) {
               {currentActivePlan.name}
             </p>
           </div>
-          <Badge variant="active">
-            En curso
-          </Badge>
+          <Badge variant="active">En curso</Badge>
         </section>
       ) : null}
 
@@ -5309,7 +5312,9 @@ function Routines({ onNavigate }) {
                     className="flex min-h-14 items-center justify-between gap-3 py-2"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black">{routine.name}</p>
+                      <p className="truncate text-sm font-black">
+                        {routine.name}
+                      </p>
                       <p className="text-xs font-semibold text-[color:var(--text-muted)]">
                         {getRoutineExerciseSummary(routine)}
                       </p>

@@ -9,8 +9,6 @@ import { coachSections, managedClientSections, sections } from "./navConfig";
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
 
 const mobileNavOrder = [
-  "trainer",
-  "coach_admin",
   "dashboard",
   "registrar",
   "rutinas",
@@ -23,6 +21,10 @@ const mobileNavOrder = [
   "admin_sesiones",
   "fotos",
   "perfil",
+  "planes",
+  "trainer",
+  "coach_admin",
+  "editor_historial",
 ];
 
 const mobileLabels = {
@@ -40,14 +42,11 @@ const mobileLabels = {
   admin_sesiones: "Historial",
   fotos: "Fotos",
   perfil: "Perfil",
+  planes: "Planes",
+  editor_historial: "Editor",
 };
 
 const mobileGroups = [
-  {
-    title: "Coach",
-    detail: "Atletas asignados",
-    ids: ["trainer"],
-  },
   {
     title: "Entrenamiento",
     detail: "Accesos diarios",
@@ -65,9 +64,24 @@ const mobileGroups = [
     ],
   },
   {
-    title: "Gestion",
-    detail: "Historial y cuenta",
-    ids: ["coach_admin", "admin_sesiones", "fotos", "perfil"],
+    title: "Historial",
+    detail: "Sesiones y fotos",
+    ids: ["admin_sesiones", "fotos"],
+  },
+  {
+    title: "Cuenta",
+    detail: "Perfil y suscripcion",
+    ids: ["perfil", "planes"],
+  },
+  {
+    title: "Coach",
+    detail: "Atletas asignados",
+    ids: ["trainer"],
+  },
+  {
+    title: "Administracion",
+    detail: "Accesos exclusivos",
+    ids: ["coach_admin", "editor_historial"],
   },
 ];
 
@@ -337,7 +351,7 @@ function Sidebar({
                         onClick={() => onNavigate?.(item.id)}
                         className={`relative flex min-h-9 items-center gap-2.5 rounded-control border px-2.5 py-1.5 font-sans text-[13px] transition-colors duration-150 ${
                           isActive
-                            ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] font-semibold text-[color:var(--text)] shadow-soft"
+                            ? "border-[color:var(--accent)] bg-[color:var(--accent)] font-semibold text-[color:var(--accent-contrast)] shadow-soft"
                             : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                         }`}
                       >

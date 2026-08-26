@@ -120,18 +120,28 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
       aria-disabled={blocked}
       className={`flex min-h-[72px] w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition dark:rounded-[3px] ${
         selected
-          ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#e2ff00]/10"
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
           : blocked
             ? "cursor-not-allowed border-transparent opacity-45"
             : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--bg)]"
       }`}
     >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-[#ff5722] text-sm font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
+      <span
+        className={`grid h-11 w-11 shrink-0 place-items-center rounded-md text-sm font-black dark:rounded-[3px] ${
+          selected
+            ? "border border-current bg-transparent text-current"
+            : "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+        }`}
+      >
         {initials(athlete.name)}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span className="block min-w-0 flex-1 truncate text-sm font-black text-[color:var(--text)]">
+          <span
+            className={`block min-w-0 flex-1 truncate text-sm font-black ${
+              selected ? "text-current" : "text-[color:var(--text)]"
+            }`}
+          >
             {athlete.name}
           </span>
           {athlete.priority === "high" ? (
@@ -146,13 +156,21 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
             />
           ) : null}
         </span>
-        <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+        <span
+          className={`mt-0.5 block truncate text-xs font-semibold ${
+            selected ? "text-current/80" : "text-[color:var(--text-muted)]"
+          }`}
+        >
           {athlete.trainingCount
             ? `Ultima sesion ${formatDate(athlete.lastTraining?.date)}`
             : "Sin sesiones registradas"}
         </span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+      <ChevronRight
+        className={`h-4 w-4 shrink-0 ${
+          selected ? "text-current" : "text-[color:var(--text-muted)]"
+        }`}
+      />
     </button>
   );
 }
@@ -326,8 +344,8 @@ function WeeklyReportPanel({
           </article>
         ))}
       </div>
-      <article className="border-l-4 border-[#ff5722] bg-[#fff7f4] p-4 dark:border-[#e2ff00] dark:bg-[#e2ff00]/[0.06]">
-        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+      <article className="border-l-4 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
+        <p className="text-[10px] font-black uppercase text-current/75">
           Recomendacion
         </p>
         <p className="mt-2 text-sm font-bold">{report.recommendation}</p>
@@ -885,13 +903,13 @@ export default function CoachDashboard({
       </header>
 
       {inviteOpen ? (
-        <section className="mt-4 border border-[#ffb199] bg-[#fff8f5] p-4 dark:border-[#e2ff00]/35 dark:bg-[#161900]">
+        <section className="mt-4 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase text-current">
                 Código de vinculación
               </p>
-              <p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">
+              <p className="mt-1 text-[13px] font-semibold text-current/80">
                 El atleta crea su cuenta básica y luego introduce este código
                 desde Perfil.
               </p>

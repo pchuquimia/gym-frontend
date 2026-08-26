@@ -237,11 +237,11 @@ export default function BillingCenter({ onBack = null }) {
       </section>
 
       {!subscription.isPremium && recommended && !billing?.canStartTrial ? (
-        <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] p-4 dark:border-[#e2ff00] dark:bg-[#171900]">
+        <section className="border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
           <p className="text-xs font-black uppercase">
             Prueba gratuita utilizada
           </p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
+          <p className="mt-1 text-xs font-semibold leading-5 text-current/80">
             Solicita al administrador la activacion de {recommended.name}. La
             integracion de cobros online se conectara a este mismo centro de
             planes.

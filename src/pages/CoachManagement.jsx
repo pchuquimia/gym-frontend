@@ -365,7 +365,7 @@ export default function CoachManagement({ onNavigate }) {
                           photoId={coach.profile?.avatarPhotoId}
                           name={coach.name}
                           className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
-                          fallbackClassName="bg-[#fff0eb] text-sm font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                          fallbackClassName="bg-[color:var(--accent)] text-sm font-black text-[color:var(--accent-contrast)]"
                         />
                         <div className="min-w-0">
                           <p className="truncate text-[14px] font-black">
@@ -408,11 +408,11 @@ export default function CoachManagement({ onNavigate }) {
             </div>
           </section>
 
-          <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] p-4 dark:border-[#e2ff00] dark:bg-[#171900]">
+          <section className="border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
             <p className="text-[11px] font-black uppercase">
               Vinculacion sin intermediarios
             </p>
-            <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-5 text-[color:var(--text-muted)]">
+            <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-5 text-current/80">
               En beta, toda cuenta nueva inicia como atleta independiente. El
               coach comparte su codigo y el atleta decide vincularse desde
               Perfil. El administrador solo supervisa los indicadores generales.
@@ -460,7 +460,7 @@ export default function CoachManagement({ onNavigate }) {
                         photoId={item.profile?.avatarPhotoId}
                         name={item.name}
                         className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
-                        fallbackClassName="bg-[#fff0eb] text-sm font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                        fallbackClassName="bg-[color:var(--accent)] text-sm font-black text-[color:var(--accent-contrast)]"
                       />
                       <div className="min-w-0">
                         <p className="truncate text-[14px] font-black">

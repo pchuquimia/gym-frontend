@@ -42,12 +42,14 @@ const formatDateLong = (iso) =>
 
 const compact = (value) => {
   const number = Number(value) || 0;
-  if (Math.abs(number) >= 1000) return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}k`;
+  if (Math.abs(number) >= 1000)
+    return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}k`;
   return Math.round(number).toLocaleString("es-BO");
 };
 
 const percent = (value) => {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "--";
+  if (value === null || value === undefined || !Number.isFinite(value))
+    return "--";
   return `${value > 0 ? "+" : ""}${Math.round(value)}%`;
 };
 
@@ -63,17 +65,19 @@ const titleCase = (value = "") =>
   value
     .split(/\s+/)
     .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .map(
+      (part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`,
+    )
     .join(" ");
 
 const flattenSets = (sets = []) =>
   (Array.isArray(sets) ? sets : []).flatMap((set) => {
-    const source = Array.isArray(set?.entries) && set.entries.length
-      ? set.entries
-      : [set];
+    const source =
+      Array.isArray(set?.entries) && set.entries.length ? set.entries : [set];
     return source
       .map((entry) => ({
-        weightKg: Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
+        weightKg:
+          Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
         reps: Number(entry?.reps ?? 0) || 0,
       }))
       .filter((entry) => entry.weightKg > 0 && entry.reps > 0);
@@ -96,15 +100,37 @@ function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] sm:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-session-picker-title">
-      <button type="button" aria-label="Cerrar selector de sesiones" onClick={onClose} className="absolute inset-0 bg-black/55" />
+    <div
+      className="fixed inset-0 z-[100] sm:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mobile-session-picker-title"
+    >
+      <button
+        type="button"
+        aria-label="Cerrar selector de sesiones"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/55"
+      />
       <section className="absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--card)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
         <header className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Historial</p>
-            <h2 id="mobile-session-picker-title" className="mt-0.5 text-lg font-black uppercase">Selecciona una sesion</h2>
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              Historial
+            </p>
+            <h2
+              id="mobile-session-picker-title"
+              className="mt-0.5 text-lg font-black uppercase"
+            >
+              Selecciona una sesion
+            </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="grid h-10 w-10 shrink-0 place-items-center border border-[color:var(--border)]">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="grid h-10 w-10 shrink-0 place-items-center border border-[color:var(--border)]"
+          >
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -118,13 +144,23 @@ function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
                 type="button"
                 aria-pressed={isSelected}
                 onClick={() => onSelect(id)}
-                className={`flex min-h-14 w-full items-center gap-3 border-b border-[color:var(--border)] px-3 py-2 text-left ${isSelected ? "bg-[#fff0eb] dark:bg-[#e2ff00]/10" : ""}`}
+                className={`flex min-h-14 w-full items-center gap-3 border-b border-[color:var(--border)] px-3 py-2 text-left ${isSelected ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""}`}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">{String(session.date || "").slice(0, 10) || "Sin fecha"}</span>
-                  <span className="mt-0.5 block truncate text-sm font-black uppercase">{session.routineName || "Entrenamiento"}</span>
+                  <span
+                    className={`block text-[10px] font-black uppercase ${isSelected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"}`}
+                  >
+                    {String(session.date || "").slice(0, 10) || "Sin fecha"}
+                  </span>
+                  <span className="mt-0.5 block truncate text-sm font-black uppercase">
+                    {session.routineName || "Entrenamiento"}
+                  </span>
                 </span>
-                {isSelected ? <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" /> : <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />}
+                {isSelected ? (
+                  <Check className="h-5 w-5 shrink-0 text-current" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                )}
               </button>
             );
           })}
@@ -142,7 +178,15 @@ MobileSessionPicker.propTypes = {
   sessions: PropTypes.arrayOf(PropTypes.object).isRequired,
 };
 
-function MetricCard({ label, value, detail, icon: Icon, accent = false, onClick = null, className = "" }) {
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  accent = false,
+  onClick = null,
+  className = "",
+}) {
   const Component = onClick ? "button" : "article";
   return (
     <Component
@@ -151,24 +195,35 @@ function MetricCard({ label, value, detail, icon: Icon, accent = false, onClick 
       className={`rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${onClick ? "transition hover:border-[color:var(--border-strong)]" : ""} ${className}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">{label}</p>
+        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+          {label}
+        </p>
         <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
       </div>
-      <p className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}>{value}</p>
-      <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">{detail}</p>
+      <p
+        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}
+      >
+        {value}
+      </p>
+      <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+        {detail}
+      </p>
     </Component>
   );
 }
 
 function Delta({ value }) {
-  const className = value === null || value === undefined
-    ? "text-[color:var(--text-muted)]"
-    : value >= 1
-      ? "text-emerald-600 dark:text-[#e2ff00]"
-      : value <= -1
-        ? "text-red-500"
-        : "text-[color:var(--text-muted)]";
-  return <span className={`text-xs font-black ${className}`}>{percent(value)}</span>;
+  const className =
+    value === null || value === undefined
+      ? "text-[color:var(--text-muted)]"
+      : value >= 1
+        ? "text-emerald-600 dark:text-[#e2ff00]"
+        : value <= -1
+          ? "text-red-500"
+          : "text-[color:var(--text-muted)]";
+  return (
+    <span className={`text-xs font-black ${className}`}>{percent(value)}</span>
+  );
 }
 
 export default function SessionSummaryPage({
@@ -192,7 +247,9 @@ export default function SessionSummaryPage({
 
   const routineBranches = useMemo(() => {
     const map = new Map();
-    routines.forEach((routine) => map.set(String(routine.id || routine._id), routine.branch || "general"));
+    routines.forEach((routine) =>
+      map.set(String(routine.id || routine._id), routine.branch || "general"),
+    );
     return map;
   }, [routines]);
 
@@ -200,7 +257,11 @@ export default function SessionSummaryPage({
     () =>
       safeArray(ctxTrainings)
         .map((training) => ({
-          id: String(training.id || training._id || `${training.date}-${training.routineId || ""}`),
+          id: String(
+            training.id ||
+              training._id ||
+              `${training.date}-${training.routineId || ""}`,
+          ),
           date: training.date,
           routineName: training.routineName || "Entrenamiento",
           routineBranch:
@@ -208,7 +269,8 @@ export default function SessionSummaryPage({
             routineBranches.get(String(training.routineId || "")) ||
             "general",
           durationSeconds: Number(training.durationSeconds) || 0,
-          durationOverrideSeconds: Number(training.durationOverrideSeconds) || 0,
+          durationOverrideSeconds:
+            Number(training.durationOverrideSeconds) || 0,
           workSeconds: Number(training.workSeconds) || 0,
           restSeconds: Number(training.restSeconds) || 0,
           exercises: safeArray(training.exercises).map((exercise) => ({
@@ -216,12 +278,15 @@ export default function SessionSummaryPage({
             exerciseName: exercise.exerciseName || "Ejercicio",
             muscleGroup:
               exercise.muscleGroup ||
-              exerciseMeta.find((item) => item.id === exercise.exerciseId)?.muscle ||
+              exerciseMeta.find((item) => item.id === exercise.exerciseId)
+                ?.muscle ||
               "Sin grupo",
             sets: flattenSets(exercise.sets),
           })),
         }))
-        .sort((left, right) => String(right.date).localeCompare(String(left.date))),
+        .sort((left, right) =>
+          String(right.date).localeCompare(String(left.date)),
+        ),
     [ctxTrainings, exerciseMeta, routineBranches],
   );
 
@@ -229,12 +294,17 @@ export default function SessionSummaryPage({
     ? safeArray(propSessions)
     : normalizedContextSessions;
   const sortedSessions = useMemo(
-    () => [...baseSessions].sort((left, right) => String(right.date).localeCompare(String(left.date))),
+    () =>
+      [...baseSessions].sort((left, right) =>
+        String(right.date).localeCompare(String(left.date)),
+      ),
     [baseSessions],
   );
   const currentRaw =
     propCurrentSession ||
-    sortedSessions.find((session) => String(session.id) === String(selectedId)) ||
+    sortedSessions.find(
+      (session) => String(session.id) === String(selectedId),
+    ) ||
     sortedSessions[0] ||
     null;
   const currentSummary = useMemo(
@@ -242,7 +312,10 @@ export default function SessionSummaryPage({
     [currentRaw],
   );
   const historySummaries = useMemo(
-    () => sortedSessions.map((session) => summarizeSession(session)).filter((item) => item.date),
+    () =>
+      sortedSessions
+        .map((session) => summarizeSession(session))
+        .filter((item) => item.date),
     [sortedSessions],
   );
 
@@ -262,7 +335,10 @@ export default function SessionSummaryPage({
       volume: exercises.reduce((sum, item) => sum + item.volume, 0),
       sets: exercises.reduce((sum, item) => sum + item.setsCount, 0),
       reps: exercises.reduce((sum, item) => sum + item.repsTotal, 0),
-      bestOneRM: exercises.reduce((best, item) => Math.max(best, item.oneRMTop), 0),
+      bestOneRM: exercises.reduce(
+        (best, item) => Math.max(best, item.oneRMTop),
+        0,
+      ),
       exercises: exercises.length,
     };
   }, [currentSummary.exercises]);
@@ -289,21 +365,36 @@ export default function SessionSummaryPage({
   );
 
   const sessionReference = useMemo(() => {
-    if (!currentRaw?.date) return { count: 0, volume: 0, sets: 0, volumeDelta: null, setsDelta: null };
+    if (!currentRaw?.date)
+      return {
+        count: 0,
+        volume: 0,
+        sets: 0,
+        volumeDelta: null,
+        setsDelta: null,
+      };
     const references = historySummaries
       .filter(
         (item) =>
           item.date < currentRaw.date &&
-          (!currentRaw.routineName || item.routineName === currentRaw.routineName),
+          (!currentRaw.routineName ||
+            item.routineName === currentRaw.routineName),
       )
       .slice(0, 7);
     const referenceTotals = references.map((summary) => ({
-      volume: (summary.exercises || []).reduce((sum, item) => sum + item.volume, 0),
-      sets: (summary.exercises || []).reduce((sum, item) => sum + item.setsCount, 0),
+      volume: (summary.exercises || []).reduce(
+        (sum, item) => sum + item.volume,
+        0,
+      ),
+      sets: (summary.exercises || []).reduce(
+        (sum, item) => sum + item.setsCount,
+        0,
+      ),
     }));
     const average = (field) =>
       referenceTotals.length
-        ? referenceTotals.reduce((sum, item) => sum + item[field], 0) / referenceTotals.length
+        ? referenceTotals.reduce((sum, item) => sum + item[field], 0) /
+          referenceTotals.length
         : 0;
     const volume = average("volume");
     const sets = average("sets");
@@ -324,19 +415,28 @@ export default function SessionSummaryPage({
         ...entry,
         label: formatMuscleGroup(entry.muscleKey || "Otros"),
       }));
-    const maxVolume = Math.max(1, ...entries.map((entry) => entry.today?.volume || 0));
+    const maxVolume = Math.max(
+      1,
+      ...entries.map((entry) => entry.today?.volume || 0),
+    );
     return entries
       .map((entry) => ({
         ...entry,
         share: ((entry.today?.volume || 0) / maxVolume) * 100,
       }))
-      .sort((left, right) => (right.today?.volume || 0) - (left.today?.volume || 0));
+      .sort(
+        (left, right) => (right.today?.volume || 0) - (left.today?.volume || 0),
+      );
   }, [currentSummary, historySummaries]);
 
   const exerciseRows = useMemo(
     () =>
       (currentSummary.exercises || []).map((exercise, index) => ({
-        ...(compareExercise(currentSummary, historySummaries, exercise.exerciseId) || {
+        ...(compareExercise(
+          currentSummary,
+          historySummaries,
+          exercise.exerciseId,
+        ) || {
           today: exercise,
           ref: null,
           delta: null,
@@ -369,9 +469,16 @@ export default function SessionSummaryPage({
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <header className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Lectura posterior</p>
-          <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">Resumen diario</h1>
-          <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">Revisa la sesión que acabas de completar y compárala con tu historial.</p>
+          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            Lectura posterior
+          </p>
+          <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
+            Resumen diario
+          </h1>
+          <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
+            Revisa la sesión que acabas de completar y compárala con tu
+            historial.
+          </p>
         </div>
         <button
           type="button"
@@ -387,17 +494,48 @@ export default function SessionSummaryPage({
 
       {sortedSessions.length ? (
         <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] sm:items-end dark:rounded-[4px] dark:shadow-none">
-          <div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">{formatDateLong(currentRaw?.date)}</p><h2 className="mt-1 truncate text-xl font-black uppercase">{currentRaw?.routineName || "Entrenamiento"}</h2><p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">{titleCase(currentRaw?.routineBranch || "general")} · {totals.exercises} ejercicios</p></div>
-          <label className="hidden sm:block"><span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span><select value={currentRaw?.id || ""} onChange={(event) => selectSession(event.target.value)} className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none">{sortedSessions.map((session) => <option key={session.id} value={session.id}>{String(session.date).slice(0, 10)} · {session.routineName}</option>)}</select></label>
+          <div>
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              {formatDateLong(currentRaw?.date)}
+            </p>
+            <h2 className="mt-1 truncate text-xl font-black uppercase">
+              {currentRaw?.routineName || "Entrenamiento"}
+            </h2>
+            <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+              {titleCase(currentRaw?.routineBranch || "general")} ·{" "}
+              {totals.exercises} ejercicios
+            </p>
+          </div>
+          <label className="hidden sm:block">
+            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Cambiar sesion
+            </span>
+            <select
+              value={currentRaw?.id || ""}
+              onChange={(event) => selectSession(event.target.value)}
+              className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none"
+            >
+              {sortedSessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {String(session.date).slice(0, 10)} · {session.routineName}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="sm:hidden">
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">Cambiar sesion</span>
+            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Cambiar sesion
+            </span>
             <button
               type="button"
               onClick={() => setIsSessionPickerOpen(true)}
               aria-haspopup="dialog"
               className="flex h-11 w-full items-center justify-between gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-left text-sm font-bold"
             >
-              <span className="truncate">{String(currentRaw?.date || "").slice(0, 10)} · {currentRaw?.routineName || "Entrenamiento"}</span>
+              <span className="truncate">
+                {String(currentRaw?.date || "").slice(0, 10)} ·{" "}
+                {currentRaw?.routineName || "Entrenamiento"}
+              </span>
               <ChevronDown className="h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
             </button>
           </div>
@@ -414,17 +552,56 @@ export default function SessionSummaryPage({
       ) : null}
 
       <section className="grid grid-cols-2 gap-2 lg:grid-cols-5">
-        <MetricCard label="Volumen" value={totals.volume ? `${compact(totals.volume)} kg` : "--"} detail={sessionReference.count ? `${percent(sessionReference.volumeDelta)} vs media` : "sin referencia"} icon={Dumbbell} accent />
-        <MetricCard label="Series" value={totals.sets || "--"} detail={sessionReference.count ? `${percent(sessionReference.setsDelta)} vs media` : `${totals.reps} repeticiones`} icon={ListChecks} />
-        <MetricCard label="Mejor 1RM" value={totals.bestOneRM ? `${totals.bestOneRM.toFixed(1)} kg` : "--"} detail="mayor estimacion de la sesion" icon={TrendingUp} />
-        <MetricCard label="Duracion" value={duration(currentRaw?.durationSeconds)} detail={`${totals.exercises} ejercicios completados`} icon={Clock3} />
+        <MetricCard
+          label="Volumen"
+          value={totals.volume ? `${compact(totals.volume)} kg` : "--"}
+          detail={
+            sessionReference.count
+              ? `${percent(sessionReference.volumeDelta)} vs media`
+              : "sin referencia"
+          }
+          icon={Dumbbell}
+          accent
+        />
+        <MetricCard
+          label="Series"
+          value={totals.sets || "--"}
+          detail={
+            sessionReference.count
+              ? `${percent(sessionReference.setsDelta)} vs media`
+              : `${totals.reps} repeticiones`
+          }
+          icon={ListChecks}
+        />
+        <MetricCard
+          label="Mejor 1RM"
+          value={totals.bestOneRM ? `${totals.bestOneRM.toFixed(1)} kg` : "--"}
+          detail="mayor estimacion de la sesion"
+          icon={TrendingUp}
+        />
+        <MetricCard
+          label="Duracion"
+          value={duration(currentRaw?.durationSeconds)}
+          detail={`${totals.exercises} ejercicios completados`}
+          icon={Clock3}
+        />
         <MetricCard
           label="Calorías quemadas"
-          value={calorieEstimate.available ? `~${calorieEstimate.calories} kcal` : "--"}
-          detail={calorieEstimate.available ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} kcal · ver detalle` : "sin datos suficientes"}
+          value={
+            calorieEstimate.available
+              ? `~${calorieEstimate.calories} kcal`
+              : "--"
+          }
+          detail={
+            calorieEstimate.available
+              ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} kcal · ver detalle`
+              : "sin datos suficientes"
+          }
           icon={Flame}
           accent
-          onClick={calorieEstimate.available ? () => setIsCaloriesOpen(true) : null}
+          onClick={
+            calorieEstimate.available ? () => setIsCaloriesOpen(true) : null
+          }
           className="col-span-2 lg:col-span-1"
         />
       </section>
@@ -433,43 +610,141 @@ export default function SessionSummaryPage({
         open={isCaloriesOpen}
         onClose={() => setIsCaloriesOpen(false)}
         summary={calorieSummary}
-        estimates={calorieEstimate.available ? [calorieEstimateWithSession] : []}
+        estimates={
+          calorieEstimate.available ? [calorieEstimateWithSession] : []
+        }
         periodLabel="Entrenamiento completado"
       />
 
-      <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] px-4 py-3 dark:border-[#e2ff00] dark:bg-[#171900]"><p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">Lectura de la sesion</p><p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">{sessionInsight}</p></section>
+      <section className="border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-3 text-[color:var(--accent-contrast)]">
+        <p className="text-[10px] font-black uppercase text-current">
+          Lectura de la sesion
+        </p>
+        <p className="mt-1 text-[13px] font-semibold text-current/80">
+          {sessionInsight}
+        </p>
+      </section>
 
       <section>
-        <div className="mb-2 flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Distribucion</p><h2 className="mt-1 text-xl font-black uppercase">Por grupo muscular</h2></div><Layers3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" /></div>
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              Distribucion
+            </p>
+            <h2 className="mt-1 text-xl font-black uppercase">
+              Por grupo muscular
+            </h2>
+          </div>
+          <Layers3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+        </div>
         <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
-          {muscleRows.length ? muscleRows.map((muscle) => (
-            <div key={muscle.muscleKey} className="grid gap-2 px-4 py-3 sm:grid-cols-[160px_minmax(160px,1fr)_100px_80px] sm:items-center">
-              <div><p className="text-sm font-black uppercase">{muscle.label}</p><p className="text-[10px] font-semibold text-[color:var(--text-muted)]">{muscle.today?.setsCount || 0} series · {muscle.refCount || 0} referencias</p></div>
-              <div className="h-2 overflow-hidden bg-[color:var(--border)]"><div className="h-full bg-[#ff5722] dark:bg-[#e2ff00]" style={{ width: `${muscle.share}%` }} /></div>
-              <p className="text-sm font-black sm:text-right">{compact(muscle.today?.volume)} kg</p>
-              <div className="sm:text-right"><Delta value={muscle.delta} /></div>
-            </div>
-          )) : <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">No hay series con carga y repeticiones en esta sesion.</p>}
+          {muscleRows.length ? (
+            muscleRows.map((muscle) => (
+              <div
+                key={muscle.muscleKey}
+                className="grid gap-2 px-4 py-3 sm:grid-cols-[160px_minmax(160px,1fr)_100px_80px] sm:items-center"
+              >
+                <div>
+                  <p className="text-sm font-black uppercase">{muscle.label}</p>
+                  <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    {muscle.today?.setsCount || 0} series ·{" "}
+                    {muscle.refCount || 0} referencias
+                  </p>
+                </div>
+                <div className="h-2 overflow-hidden bg-[color:var(--border)]">
+                  <div
+                    className="h-full bg-[#ff5722] dark:bg-[#e2ff00]"
+                    style={{ width: `${muscle.share}%` }}
+                  />
+                </div>
+                <p className="text-sm font-black sm:text-right">
+                  {compact(muscle.today?.volume)} kg
+                </p>
+                <div className="sm:text-right">
+                  <Delta value={muscle.delta} />
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+              No hay series con carga y repeticiones en esta sesion.
+            </p>
+          )}
         </div>
       </section>
 
       <section>
-        <div className="mb-2 flex items-end justify-between gap-3"><div><p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">Detalle</p><h2 className="mt-1 text-xl font-black uppercase">Ejercicios realizados</h2></div><span className="text-[11px] font-bold text-[color:var(--text-muted)]">{exerciseRows.length} ejercicios</span></div>
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              Detalle
+            </p>
+            <h2 className="mt-1 text-xl font-black uppercase">
+              Ejercicios realizados
+            </h2>
+          </div>
+          <span className="text-[11px] font-bold text-[color:var(--text-muted)]">
+            {exerciseRows.length} ejercicios
+          </span>
+        </div>
         <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
-          {exerciseRows.length ? exerciseRows.map((entry) => {
-            const exercise = entry.today || {};
-            const meta = exerciseMeta.find((item) => item.id === exercise.exerciseId);
-            const image = meta ? getExerciseImageUrl(meta, { width: 240, height: 240 }) : "";
-            return (
-              <button key={`${entry.order}-${exercise.exerciseId}`} type="button" onClick={() => handleViewExercise(exercise.exerciseId)} className="grid w-full grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[#fff5f1] dark:hover:bg-[#171900] sm:grid-cols-[92px_minmax(180px,1fr)_130px_120px_70px_auto]">
-                <span className="relative h-20 w-[76px] border border-[color:var(--border)] sm:h-24 sm:w-[92px]"><ExerciseThumbnail src={image} className="h-full w-full" /><span className="absolute left-0 top-0 grid h-5 min-w-5 place-items-center bg-[#1a1a1a] px-1 text-[9px] font-black text-white dark:bg-[#e2ff00] dark:text-black">{entry.order}</span></span>
-                <span className="min-w-0"><span className="block truncate text-sm font-black uppercase">{exercise.exerciseName}</span><span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)]">{formatMuscleGroup(exercise.muscleGroup || "Sin grupo")} · {exercise.topSet ? `${exercise.topSet.weightKg} kg x ${exercise.topSet.reps}` : `${entry.refCount || 0} referencias`} · {compact(exercise.volume)} kg</span></span>
-                <span className="hidden text-xs font-bold sm:block">{exercise.topSet ? `${exercise.topSet.weightKg} kg × ${exercise.topSet.reps}` : "--"}</span>
-                <span className="hidden text-xs font-bold sm:block">{compact(exercise.volume)} kg</span>
-                <span className="justify-self-end"><Delta value={entry.delta} /></span><ChevronRight className="hidden h-4 w-4 text-[color:var(--text-muted)] sm:block" />
-              </button>
-            );
-          }) : <div className="px-4 py-10 text-center"><CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" /><p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">Aun no hay una sesion guardada para analizar.</p></div>}
+          {exerciseRows.length ? (
+            exerciseRows.map((entry) => {
+              const exercise = entry.today || {};
+              const meta = exerciseMeta.find(
+                (item) => item.id === exercise.exerciseId,
+              );
+              const image = meta
+                ? getExerciseImageUrl(meta, { width: 240, height: 240 })
+                : "";
+              return (
+                <button
+                  key={`${entry.order}-${exercise.exerciseId}`}
+                  type="button"
+                  onClick={() => handleViewExercise(exercise.exerciseId)}
+                  className="group grid w-full grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] sm:grid-cols-[92px_minmax(180px,1fr)_130px_120px_70px_auto]"
+                >
+                  <span className="relative h-20 w-[76px] border border-[color:var(--border)] sm:h-24 sm:w-[92px]">
+                    <ExerciseThumbnail src={image} className="h-full w-full" />
+                    <span className="absolute left-0 top-0 grid h-5 min-w-5 place-items-center bg-[#1a1a1a] px-1 text-[9px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                      {entry.order}
+                    </span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black uppercase">
+                      {exercise.exerciseName}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)] group-hover:text-current/80">
+                      {formatMuscleGroup(exercise.muscleGroup || "Sin grupo")} ·{" "}
+                      {exercise.topSet
+                        ? `${exercise.topSet.weightKg} kg x ${exercise.topSet.reps}`
+                        : `${entry.refCount || 0} referencias`}{" "}
+                      · {compact(exercise.volume)} kg
+                    </span>
+                  </span>
+                  <span className="hidden text-xs font-bold sm:block">
+                    {exercise.topSet
+                      ? `${exercise.topSet.weightKg} kg × ${exercise.topSet.reps}`
+                      : "--"}
+                  </span>
+                  <span className="hidden text-xs font-bold sm:block">
+                    {compact(exercise.volume)} kg
+                  </span>
+                  <span className="justify-self-end">
+                    <Delta value={entry.delta} />
+                  </span>
+                  <ChevronRight className="hidden h-4 w-4 text-[color:var(--text-muted)] sm:block" />
+                </button>
+              );
+            })
+          ) : (
+            <div className="px-4 py-10 text-center">
+              <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
+              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
+                Aun no hay una sesion guardada para analizar.
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </main>

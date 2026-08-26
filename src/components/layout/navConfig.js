@@ -16,19 +16,20 @@ import {
 
 export const sections = [
   {
-    heading: "Principal",
+    heading: "Entrenamiento",
     items: [
       { id: "dashboard", label: "Inicio", icon: LayoutDashboard },
-      { id: "library", label: "Biblioteca de Ejercicios", icon: Dumbbell },
       {
         id: "registrar",
         label: "Registrar Entrenamiento",
         icon: ClipboardList,
       },
+      { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
+      { id: "library", label: "Biblioteca de Ejercicios", icon: Dumbbell },
     ],
   },
   {
-    heading: "Analitica",
+    heading: "Progreso",
     items: [
       { id: "ejercicio_analitica", label: "Por ejercicio", icon: Layers },
       { id: "resumen_sesion", label: "Resumen de sesion", icon: Layers },
@@ -39,6 +40,25 @@ export const sections = [
       },
       { id: "pesajes", label: "Seguimiento de peso", icon: Weight },
       { id: "check_in", label: "Estado diario", icon: HeartPulse },
+    ],
+  },
+  {
+    heading: "Historial",
+    items: [
+      {
+        id: "admin_sesiones",
+        label: "Historial de sesiones",
+        icon: Shield,
+        roles: ["Admin", "Entrenador"],
+      },
+      { id: "fotos", label: "Biblioteca de Fotos", icon: Images },
+    ],
+  },
+  {
+    heading: "Cuenta",
+    items: [
+      { id: "perfil", label: "Perfil y Ajustes", icon: User },
+      { id: "planes", label: "Planes y Premium", icon: Crown },
     ],
   },
   {
@@ -53,9 +73,8 @@ export const sections = [
     ],
   },
   {
-    heading: "Gestion",
+    heading: "Administracion",
     items: [
-      { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
       {
         id: "coach_admin",
         label: "Coaches y atletas",
@@ -63,25 +82,11 @@ export const sections = [
         roles: ["Admin"],
       },
       {
-        id: "admin_sesiones",
-        label: "Historial de sesiones",
-        icon: Shield,
-        roles: ["Admin", "Entrenador"],
-      },
-      {
         id: "editor_historial",
         label: "Editor de historial",
         icon: ListChecks,
         roles: ["Admin"],
       },
-      { id: "fotos", label: "Biblioteca de Fotos", icon: Images },
-    ],
-  },
-  {
-    heading: "Perfil",
-    items: [
-      { id: "perfil", label: "Perfil y Ajustes", icon: User },
-      { id: "planes", label: "Planes y Premium", icon: Crown },
     ],
   },
 ];

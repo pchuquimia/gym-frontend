@@ -1063,7 +1063,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                   onClick={() => setSelectedDay(day)}
                   onMouseEnter={() => setSelectedDay(day)}
                   onMouseLeave={() => setSelectedDay(null)}
-                  className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""} ${day.isToday ? "bg-[#ff5722]/5 dark:bg-[#e2ff00]/5" : ""}`}
+                  className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""} ${day.isToday ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""}`}
                   aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${sets ? `${formatSeriesCount(sets)} series completadas` : day.sessions ? "sesión sin series completadas" : "sin entrenamiento"}`}
                 >
                   <span className="flex min-h-0 w-full flex-1 items-end justify-center">
@@ -1198,7 +1198,7 @@ function MonthDetailView({ detail, onBack }) {
             {detail.monthName}
           </h3>
         </div>
-        <span className="rounded bg-[#fff0eb] px-2.5 py-1 text-[10px] font-black uppercase text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
+        <span className="rounded bg-[color:var(--accent)] px-2.5 py-1 text-[10px] font-black uppercase text-[color:var(--accent-contrast)]">
           {detail.trainedDays} días entrenados
         </span>
       </div>
@@ -1209,18 +1209,24 @@ function MonthDetailView({ detail, onBack }) {
             key={day.key}
             className={`relative min-h-[86px] rounded-2xl border p-3 shadow-sm ${
               day.active
-                ? "border-[#ffb199] bg-[#fff0eb] text-[#1a1a1a] dark:border-[#e2ff00]/30 dark:bg-[#161900] dark:text-white"
+                ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                 : "border-[color:var(--border)] bg-[#fafafa] text-[color:var(--text)] dark:bg-[#080808]"
             }`}
           >
             <span
               className={`absolute right-3 top-3 h-2 w-2 rounded-full ${
                 day.active
-                  ? "bg-[#ff5722] dark:bg-[#e2ff00]"
+                  ? "bg-[color:var(--accent-contrast)]"
                   : "bg-[#d8d8d8] dark:bg-[#383838]"
               }`}
             />
-            <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+            <p
+              className={`text-[9px] font-black uppercase tracking-wide ${
+                day.active
+                  ? "text-current/75"
+                  : "text-[color:var(--text-muted)]"
+              }`}
+            >
               {day.weekday}
             </p>
             <p className="mt-1 text-lg font-black leading-none">
@@ -1229,7 +1235,13 @@ function MonthDetailView({ detail, onBack }) {
             <p className="mt-2 truncate text-[11px] font-black">
               {day.active ? day.routine : "Descanso"}
             </p>
-            <p className="mt-1 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+            <p
+              className={`mt-1 truncate text-[10px] font-semibold ${
+                day.active
+                  ? "text-current/75"
+                  : "text-[color:var(--text-muted)]"
+              }`}
+            >
               {day.active
                 ? `${formatSessionCount(day.sessions)} · ${day.minutes}`
                 : "Sin sesión"}
@@ -1300,6 +1312,8 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
       : action.tone === "warning"
         ? "var(--warning-soft)"
         : "var(--accent-soft)";
+  const toneIconColor =
+    action.tone === "warning" ? "var(--warning)" : "var(--accent-contrast)";
   const StatusIcon =
     action.type === "active"
       ? Activity
@@ -1324,7 +1338,10 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
             <div className="flex items-center gap-2">
               <span
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
-                style={{ backgroundColor: toneBackground, color: toneColor }}
+                style={{
+                  backgroundColor: toneBackground,
+                  color: toneIconColor,
+                }}
               >
                 <StatusIcon className="h-3.5 w-3.5" />
               </span>
@@ -1496,7 +1513,7 @@ function AdminDateControl({ value, actualDateKey, onChange }) {
         aria-expanded={open}
         className={`relative grid h-10 w-10 place-items-center rounded-full border shadow-sm transition ${
           isPreview
-            ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+            ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
             : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]"
         }`}
         title="Cambiar fecha del dashboard (solo Admin)"
@@ -1687,7 +1704,7 @@ function RecoveryInsightSection({ insights, isPostWorkout, isPlannedRestDay }) {
                     className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
                       warning
                         ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                        : "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                        : "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                     }`}
                   >
                     <InsightIcon className="h-4 w-4" aria-hidden="true" />
@@ -3132,7 +3149,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         className="mx-auto grid min-h-[55dvh] w-full max-w-md place-items-center px-3 py-10 text-center"
       >
         <div className="w-full border border-[color:var(--border)] bg-[color:var(--card)] p-6 shadow-sm dark:shadow-none">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#fff0eb] text-[#ff5722] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
             <AlertTriangle className="h-6 w-6" />
           </span>
           <h1 className="mt-4 text-xl font-black uppercase">
@@ -3186,7 +3203,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <button
               type="button"
               onClick={() => setQuickWeightOpen(true)}
-              className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[#ff5722] bg-[#fff0eb] text-[#ff5722] shadow-sm dark:border-[#e2ff00] dark:bg-[#1d2100] dark:text-[#e2ff00] dark:shadow-none"
+              className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm dark:shadow-none"
               aria-label="Registrar pesaje de hoy"
               title="Registrar pesaje de hoy"
             >
@@ -3202,9 +3219,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       </header>
 
       {isAdminDatePreview ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 text-[color:var(--text)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)]">
           <div className="flex min-w-0 items-center gap-2.5">
-            <CalendarDays className="h-4 w-4 shrink-0 text-[color:var(--accent-strong)]" />
+            <CalendarDays className="h-4 w-4 shrink-0 text-current" />
             <p className="truncate text-[11px] font-bold">
               Vista administrativa · {formatAdminPreviewDate(todayKey)}
             </p>
@@ -3212,7 +3229,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <button
             type="button"
             onClick={() => setDashboardDateKey(systemTodayKey)}
-            className="shrink-0 text-[10px] font-black uppercase text-[color:var(--accent-strong)]"
+            className="shrink-0 text-[10px] font-black uppercase text-current"
           >
             Volver a hoy
           </button>
@@ -3386,7 +3403,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         >
           {isPostWorkout ? (
             <div className="flex items-center gap-3 text-left">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                 <Check className="h-5 w-5" strokeWidth={3} />
               </span>
               <div className="min-w-0 flex-1">
@@ -3413,7 +3430,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
           ) : isPlannedRestDay ? (
             <div className="flex items-center gap-3 text-left">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                 <Gauge className="h-5 w-5" strokeWidth={2.4} />
               </span>
               <div className="min-w-0 flex-1">
@@ -3632,7 +3649,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               {isPostWorkout ? (
                 <section className="rounded-2xl bg-[color:var(--bg)] p-4">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                       <Check className="h-6 w-6" strokeWidth={3} />
                     </span>
                     <div className="min-w-0">
@@ -3669,7 +3686,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               ) : isPlannedRestDay ? (
                 <section className="rounded-2xl bg-[color:var(--bg)] p-4">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                       <Gauge className="h-6 w-6" strokeWidth={2.4} />
                     </span>
                     <div className="min-w-0">
@@ -3722,7 +3739,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                               : "var(--danger-soft)",
                         color:
                           recoveryDisplayValue >= 70
-                            ? "var(--accent-strong)"
+                            ? "var(--accent-contrast)"
                             : recoveryDisplayValue >= 55
                               ? "var(--warning)"
                               : "var(--danger)",
@@ -3841,7 +3858,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                         : "Compara antes de elegir tu entrenamiento."}
                     </p>
                   </div>
-                  <span className="max-w-[45%] truncate rounded-full bg-[color:var(--accent-soft)] px-2.5 py-1 text-[9px] font-black uppercase text-[color:var(--accent-strong)]">
+                  <span className="max-w-[45%] truncate rounded-full bg-[color:var(--accent)] px-2.5 py-1 text-[9px] font-black uppercase text-[color:var(--accent-contrast)]">
                     {recovery.activePlan?.name || "Sin plan vigente"}
                   </span>
                 </div>
@@ -3866,7 +3883,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                                   ? futurePlanRoutine?.id === routine.id
                                   : recovery.recommended?.id === routine.id
                               ) ? (
-                                <span className="shrink-0 rounded-full bg-[color:var(--accent-soft)] px-2 py-0.5 text-[8px] font-black uppercase text-[color:var(--accent-strong)]">
+                                <span className="shrink-0 rounded-full bg-[color:var(--accent)] px-2 py-0.5 text-[8px] font-black uppercase text-[color:var(--accent-contrast)]">
                                   {isPostWorkout || isPlannedRestDay
                                     ? "Próxima"
                                     : "Recomendada"}
@@ -4206,7 +4223,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           : "var(--warning-soft)",
                       color:
                         weeklySets.completionRate >= 90
-                          ? "var(--accent-strong)"
+                          ? "var(--accent-contrast)"
                           : "var(--warning)",
                     }}
                   >
@@ -4545,7 +4562,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </section>
               ) : (
                 <div className="py-10 text-center">
-                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                     <Clock3 className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <h3 className="mt-4 text-base font-black text-[color:var(--text)]">
@@ -4626,7 +4643,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           className={`grid h-7 min-w-7 shrink-0 place-items-center rounded-full px-1.5 text-xs font-black ${
                             active
                               ? tab.key === "improvements"
-                                ? "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                                ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                                 : "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
                               : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                           }`}
@@ -4710,7 +4727,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                                   className={`min-w-0 rounded-xl p-3 ${
                                     performanceModalConfig.tone === "red"
                                       ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-                                      : "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                                      : "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                                   }`}
                                 >
                                   <p className="text-[9px] font-black uppercase tracking-wide opacity-70">
@@ -4737,7 +4754,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   id="performance-comparison-results"
                   className="py-10 text-center"
                 >
-                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                     <Check className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <h3 className="mt-4 text-base font-black text-[color:var(--text)]">

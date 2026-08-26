@@ -30,8 +30,8 @@
   --accent: #ff5722;
   --accent-hover: #e64712;
   --accent-strong: #c43a0a;
-  --accent-soft: #fff0eb;
-  --accent-contrast: #ffffff;
+  --accent-soft: var(--accent);
+  --accent-contrast: #171717;
   --success: #16875b;
   --success-soft: #edf8f3;
   --warning: #a96500;
@@ -46,17 +46,13 @@
   --radius-modal: 1rem;
   --shadow-xs: 0 1px 2px rgba(23, 23, 23, 0.035);
   --shadow-sm:
-    0 1px 2px rgba(23, 23, 23, 0.04),
-    0 4px 12px rgba(23, 23, 23, 0.035);
+    0 1px 2px rgba(23, 23, 23, 0.04), 0 4px 12px rgba(23, 23, 23, 0.035);
   --shadow-md:
-    0 2px 4px rgba(23, 23, 23, 0.035),
-    0 12px 32px rgba(23, 23, 23, 0.07);
+    0 2px 4px rgba(23, 23, 23, 0.035), 0 12px 32px rgba(23, 23, 23, 0.07);
   --shadow-overlay:
-    0 4px 12px rgba(9, 9, 9, 0.06),
-    0 24px 56px rgba(9, 9, 9, 0.16);
+    0 4px 12px rgba(9, 9, 9, 0.06), 0 24px 56px rgba(9, 9, 9, 0.16);
   --shadow-drawer:
-    8px 0 20px rgba(9, 9, 9, 0.06),
-    24px 0 56px rgba(9, 9, 9, 0.12);
+    8px 0 20px rgba(9, 9, 9, 0.06), 24px 0 56px rgba(9, 9, 9, 0.12);
   --shadow-nav: 0 -8px 24px rgba(23, 23, 23, 0.045);
 
   --space-1: 0.25rem;
@@ -88,7 +84,7 @@
   --accent: #dcf900;
   --accent-hover: #c8e300;
   --accent-strong: #dcf900;
-  --accent-soft: #1d2100;
+  --accent-soft: var(--accent);
   --accent-contrast: #090909;
   --success: #62c99b;
   --success-soft: #10271d;
@@ -99,18 +95,12 @@
   --focus-ring: rgba(220, 249, 0, 0.34);
   --overlay: rgba(0, 0, 0, 0.68);
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.18);
-  --shadow-sm:
-    0 1px 2px rgba(0, 0, 0, 0.22),
-    0 4px 14px rgba(0, 0, 0, 0.14);
-  --shadow-md:
-    0 2px 5px rgba(0, 0, 0, 0.2),
-    0 14px 36px rgba(0, 0, 0, 0.24);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22), 0 4px 14px rgba(0, 0, 0, 0.14);
+  --shadow-md: 0 2px 5px rgba(0, 0, 0, 0.2), 0 14px 36px rgba(0, 0, 0, 0.24);
   --shadow-overlay:
-    0 6px 16px rgba(0, 0, 0, 0.24),
-    0 28px 64px rgba(0, 0, 0, 0.42);
+    0 6px 16px rgba(0, 0, 0, 0.24), 0 28px 64px rgba(0, 0, 0, 0.42);
   --shadow-drawer:
-    10px 0 24px rgba(0, 0, 0, 0.24),
-    28px 0 64px rgba(0, 0, 0, 0.36);
+    10px 0 24px rgba(0, 0, 0, 0.24), 28px 0 64px rgba(0, 0, 0, 0.36);
   --shadow-nav: 0 -8px 28px rgba(0, 0, 0, 0.22);
   color-scheme: dark;
 }
@@ -213,13 +203,23 @@ body {
 }
 
 @keyframes drawer-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes drawer-panel-in {
-  from { transform: translate3d(-24px, 0, 0); opacity: 0.72; }
-  to { transform: translate3d(0, 0, 0); opacity: 1; }
+  from {
+    transform: translate3d(-24px, 0, 0);
+    opacity: 0.72;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
 }
 
 .mobile-drawer-overlay {
@@ -273,7 +273,10 @@ button,
 
 .dark body {
   background-color: var(--bg);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.075) 0.65px, transparent 0.65px);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.075) 0.65px,
+    transparent 0.65px
+  );
   background-size: 14px 14px;
 }
 
@@ -284,18 +287,27 @@ button,
 .dark .app-shell {
   background-color: var(--bg);
   color: var(--text);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.075) 0.65px, transparent 0.65px);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.075) 0.65px,
+    transparent 0.65px
+  );
   background-size: 14px 14px;
 }
 
 .dashboard-app-shell {
   background-color: var(--bg);
-  background-image: radial-gradient(rgba(23, 23, 23, 0.09) 0.65px, transparent 0.65px);
+  background-image: radial-gradient(
+    rgba(23, 23, 23, 0.09) 0.65px,
+    transparent 0.65px
+  );
   background-size: 14px 14px;
 }
 
 .dark .dashboard-app-shell {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.075) 0.65px, transparent 0.65px);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.075) 0.65px,
+    transparent 0.65px
+  );
 }
 
 .routines-shell {
@@ -348,9 +360,9 @@ button,
 }
 
 .theme-accent-soft {
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent-strong);
+  color: var(--accent-contrast);
 }
 
 .theme-accent-focus:focus {
@@ -388,11 +400,11 @@ button,
 }
 
 .settings-shell .theme-accent-soft {
-  color: #ff5722;
+  color: var(--accent-contrast);
 }
 
 .dark .settings-shell .theme-accent-soft {
-  color: #e2ff00;
+  color: var(--accent-contrast);
 }
 
 .settings-shell h1,
@@ -529,11 +541,8 @@ button,
 
 .routines-shell [class~="bg-blue-500/10"],
 .routines-shell [class~="bg-blue-500/5"] {
-  background-color: color-mix(
-    in srgb,
-    var(--accent) 10%,
-    transparent
-  ) !important;
+  background-color: var(--accent) !important;
+  color: var(--accent-contrast) !important;
 }
 
 .routines-shell [class~="border-blue-300"],
@@ -674,8 +683,7 @@ button,
   --dashboard-card-radius: 0.25rem;
   --dashboard-card-shadow: 0 1px 2px rgba(23, 23, 23, 0.035);
   --dashboard-card-shadow-hover:
-    0 2px 4px rgba(23, 23, 23, 0.025),
-    0 10px 28px rgba(23, 23, 23, 0.065);
+    0 2px 4px rgba(23, 23, 23, 0.025), 0 10px 28px rgba(23, 23, 23, 0.065);
 }
 
 .dashboard-pilot__header {
@@ -841,7 +849,6 @@ button,
   }
 }
 /* dashboard-pilot:end */
-
 
 @media (prefers-reduced-motion: reduce) {
   *,

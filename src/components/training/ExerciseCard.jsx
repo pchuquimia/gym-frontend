@@ -438,7 +438,7 @@ export default function ExerciseCard({
                 </AnimatePresence>
                 {hasVariants && (
                   <span
-                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 text-xs font-black text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-[color:var(--accent)] bg-[color:var(--accent)] px-2 text-xs font-black text-[color:var(--accent-contrast)]"
                     title="Desliza lateralmente para cambiar de ejercicio. Al llegar al final vuelve al inicio."
                   >
                     <Repeat2 className="h-3.5 w-3.5" />
@@ -475,34 +475,37 @@ export default function ExerciseCard({
             !isComplete &&
             !exercise.isActive &&
             !open && (
-            <Button
-              size="sm"
-              variant="accentOutline"
-              className="hidden shrink-0 rounded-md px-3 sm:inline-flex dark:rounded-[3px]"
-              onClick={onStartNow}
-              aria-label={`Empezar ${exercise.name}`}
-            >
-              <Play className="h-4 w-4" />
-              <span>Empezar</span>
-            </Button>
-          )}
+              <Button
+                size="sm"
+                variant="accentOutline"
+                className="hidden shrink-0 rounded-md px-3 sm:inline-flex dark:rounded-[3px]"
+                onClick={onStartNow}
+                aria-label={`Empezar ${exercise.name}`}
+              >
+                <Play className="h-4 w-4" />
+                <span>Empezar</span>
+              </Button>
+            )}
           {!readOnly &&
             onStartNow &&
             !isComplete &&
             !exercise.isActive &&
             !open && (
-            <Button
-              size="touchIcon"
-              variant="accentOutline"
-              className="shrink-0 rounded-md sm:hidden dark:rounded-[3px]"
-              onClick={onStartNow}
-              aria-label={`Empezar ${exercise.name}`}
-            >
-              <Play className="h-4 w-4" />
-            </Button>
-          )}
+              <Button
+                size="touchIcon"
+                variant="accentOutline"
+                className="shrink-0 rounded-md sm:hidden dark:rounded-[3px]"
+                onClick={onStartNow}
+                aria-label={`Empezar ${exercise.name}`}
+              >
+                <Play className="h-4 w-4" />
+              </Button>
+            )}
           {open ? (
-            <div className="flex shrink-0 items-center gap-1.5" ref={actionsMenuRef}>
+            <div
+              className="flex shrink-0 items-center gap-1.5"
+              ref={actionsMenuRef}
+            >
               <span
                 className="whitespace-nowrap text-xs font-black tabular-nums text-[color:var(--text-muted)]"
                 aria-label={`${completedSeries} de ${totalSeries} series completadas`}

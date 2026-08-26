@@ -512,7 +512,9 @@ export default function ExerciseLibrary({ onNavigate }) {
           : showDiscoveryHome
             ? personalizedFamilies
             : essentialFamilies;
-    const limit = showDiscoveryHome ? HOME_FAMILY_LIMIT : ESSENTIAL_FAMILY_LIMIT;
+    const limit = showDiscoveryHome
+      ? HOME_FAMILY_LIMIT
+      : ESSENTIAL_FAMILY_LIMIT;
     return families.slice(0, limit);
   }, [
     essentialFamilies,
@@ -1055,7 +1057,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                       onClick={() => setFiltersOpen((value) => !value)}
                       className={`flex h-10 items-center gap-1.5 rounded px-3 text-xs font-black transition ${
                         filtersOpen || activeFilterCount
-                          ? "bg-[#ff5722]/10 text-[#c52d00] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]"
+                          ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                           : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                       }`}
                     >
@@ -1137,26 +1139,32 @@ export default function ExerciseLibrary({ onNavigate }) {
                         role="group"
                         aria-label="Origen de los ejercicios"
                       >
-                        {sourceTabs.map(({ value, label, mobileLabel, icon: Icon }) => {
-                          const active = sourceFilter === value;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              aria-pressed={active}
-                              onClick={() => selectSource(value)}
-                              className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded px-2 text-xs font-black uppercase transition ${
-                                active
-                                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
-                                  : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                              }`}
-                            >
-                              <Icon className="h-3.5 w-3.5 shrink-0" />
-                              <span className="truncate sm:hidden">{mobileLabel}</span>
-                              <span className="hidden truncate sm:inline">{label}</span>
-                            </button>
-                          );
-                        })}
+                        {sourceTabs.map(
+                          ({ value, label, mobileLabel, icon: Icon }) => {
+                            const active = sourceFilter === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => selectSource(value)}
+                                className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded px-2 text-xs font-black uppercase transition ${
+                                  active
+                                    ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                                    : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                <Icon className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate sm:hidden">
+                                  {mobileLabel}
+                                </span>
+                                <span className="hidden truncate sm:inline">
+                                  {label}
+                                </span>
+                              </button>
+                            );
+                          },
+                        )}
                       </div>
                     </div>
 
@@ -1369,7 +1377,8 @@ export default function ExerciseLibrary({ onNavigate }) {
                       Aún no hay ejercicios recientes
                     </h3>
                     <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                      Abre una ficha y aparecerá aquí para volver a encontrarla rápido.
+                      Abre una ficha y aparecerá aquí para volver a encontrarla
+                      rápido.
                     </p>
                   </section>
                 ) : (

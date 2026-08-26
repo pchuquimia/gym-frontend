@@ -91,21 +91,39 @@ export default function RoutineSelector({
                   }}
                   className={`w-full rounded-xl px-3 py-2 text-left hover:bg-[color:var(--bg)] ${
                     r.id === routine.id
-                      ? "border border-[#ffb199] bg-[#fff0eb] dark:border-[#e2ff00]/30 dark:bg-[#161900]"
+                      ? "border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                       : "border border-transparent"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       {showLocation ? (
-                        <p className="text-xs font-semibold capitalize text-[#ff5722] dark:text-[#e2ff00]">
+                        <p
+                          className={`text-xs font-semibold capitalize ${
+                            r.id === routine.id
+                              ? "text-current"
+                              : "text-[#ff5722] dark:text-[#e2ff00]"
+                          }`}
+                        >
                           {r.location}
                         </p>
                       ) : null}
-                      <p className="text-sm font-semibold text-[color:var(--text)]">
+                      <p
+                        className={`text-sm font-semibold ${
+                          r.id === routine.id
+                            ? "text-current"
+                            : "text-[color:var(--text)]"
+                        }`}
+                      >
                         {r.name}
                       </p>
-                      <p className="text-[12px] text-[color:var(--text-muted)]">
+                      <p
+                        className={`text-[12px] ${
+                          r.id === routine.id
+                            ? "text-current/80"
+                            : "text-[color:var(--text-muted)]"
+                        }`}
+                      >
                         {r.exerciseCount} principales
                         {r.optionalExerciseCount
                           ? ` + ${r.optionalExerciseCount} opcional`
@@ -114,7 +132,7 @@ export default function RoutineSelector({
                       </p>
                     </div>
                     {r.id === routine.id && (
-                      <span className="text-sm font-semibold text-[#ff5722] dark:text-[#e2ff00]">
+                      <span className="text-sm font-semibold text-current">
                         Elegido
                       </span>
                     )}

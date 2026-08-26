@@ -68,7 +68,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       onClick={onClick}
       className={`flex min-h-24 w-full items-center gap-3 border p-4 text-left transition ${
         selected
-          ? "border-[#ff5722] bg-[#fff0eb] dark:border-[#e2ff00] dark:bg-[#161900]"
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
           : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
       }`}
     >
@@ -76,7 +76,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
         <span
           className={`grid h-11 w-11 shrink-0 place-items-center ${
             selected
-              ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+              ? "border border-current bg-transparent text-current"
               : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
           }`}
         >
@@ -84,15 +84,23 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
         </span>
       ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black uppercase text-[color:var(--text)]">
+        <span
+          className={`block text-sm font-black uppercase ${
+            selected ? "text-current" : "text-[color:var(--text)]"
+          }`}
+        >
           {title}
         </span>
-        <span className="mt-1 block text-xs font-semibold text-[color:var(--text-muted)]">
+        <span
+          className={`mt-1 block text-xs font-semibold ${
+            selected ? "text-current/80" : "text-[color:var(--text-muted)]"
+          }`}
+        >
           {detail}
         </span>
       </span>
       {selected ? (
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current bg-transparent text-current">
           <Check className="h-3.5 w-3.5" />
         </span>
       ) : null}
@@ -111,10 +119,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ ...form, step }),
-      );
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...form, step }));
     } catch {
       // The server submission remains available without local persistence.
     }
@@ -180,7 +185,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
       <header className="flex items-center justify-between border-b border-[color:var(--border)] pb-4">
         <div>
           <p className="text-xl font-black italic leading-none">
-            APEX <span className="text-[#ff5722] dark:text-[#e2ff00]">PERFORMANCE</span>
+            APEX{" "}
+            <span className="text-[#ff5722] dark:text-[#e2ff00]">
+              PERFORMANCE
+            </span>
           </p>
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
             Configuracion inicial
@@ -195,7 +203,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
         </button>
       </header>
 
-      <div className="mt-5 grid grid-cols-3 gap-2" aria-label="Progreso de configuracion">
+      <div
+        className="mt-5 grid grid-cols-3 gap-2"
+        aria-label="Progreso de configuracion"
+      >
         {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
           <div key={label}>
             <div
@@ -222,7 +233,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 ¿Cual es tu objetivo principal?
               </h1>
               <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Usaremos esta eleccion para orientar tus metricas y recomendaciones.
+                Usaremos esta eleccion para orientar tus metricas y
+                recomendaciones.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {goals.map((goal) => (
@@ -230,7 +242,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     key={goal.id}
                     {...goal}
                     selected={form.goal === goal.id}
-                    onClick={() => setForm((value) => ({ ...value, goal: goal.id }))}
+                    onClick={() =>
+                      setForm((value) => ({ ...value, goal: goal.id }))
+                    }
                   />
                 ))}
               </div>
@@ -243,7 +257,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 Ajustemos el punto de partida
               </h1>
               <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Esto calibra la complejidad y frecuencia sugerida, no limita tus rutinas.
+                Esto calibra la complejidad y frecuencia sugerida, no limita tus
+                rutinas.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 {levels.map((level) => (
@@ -263,7 +278,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
               <div className="mt-7 border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase">Dias por semana</p>
+                    <p className="text-xs font-black uppercase">
+                      Dias por semana
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                       Una meta realista ayuda a medir adherencia.
                     </p>
@@ -305,7 +322,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 Completa tu perfil base
               </h1>
               <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Evitamos valores genericos: tus calculos comenzaran con datos reales.
+                Evitamos valores genericos: tus calculos comenzaran con datos
+                reales.
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
@@ -322,15 +340,24 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       inputMode="decimal"
                       value={form.weight}
                       onChange={(event) => {
-                        setForm((value) => ({ ...value, weight: event.target.value }));
+                        setForm((value) => ({
+                          ...value,
+                          weight: event.target.value,
+                        }));
                         setErrors((value) => ({ ...value, weight: "" }));
                       }}
                       className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
                       aria-label="Peso actual en kilogramos"
                     />
-                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">kg</span>
+                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
+                      kg
+                    </span>
                   </span>
-                  {errors.weight ? <span className="mt-2 block text-xs font-bold text-red-500">{errors.weight}</span> : null}
+                  {errors.weight ? (
+                    <span className="mt-2 block text-xs font-bold text-red-500">
+                      {errors.weight}
+                    </span>
+                  ) : null}
                 </label>
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
@@ -346,21 +373,42 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       inputMode="numeric"
                       value={form.height}
                       onChange={(event) => {
-                        setForm((value) => ({ ...value, height: event.target.value }));
+                        setForm((value) => ({
+                          ...value,
+                          height: event.target.value,
+                        }));
                         setErrors((value) => ({ ...value, height: "" }));
                       }}
                       className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
                       aria-label="Altura en centimetros"
                     />
-                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">cm</span>
+                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
+                      cm
+                    </span>
                   </span>
-                  {errors.height ? <span className="mt-2 block text-xs font-bold text-red-500">{errors.height}</span> : null}
+                  {errors.height ? (
+                    <span className="mt-2 block text-xs font-bold text-red-500">
+                      {errors.height}
+                    </span>
+                  ) : null}
                 </label>
               </div>
-              <div className="mt-4 flex items-start gap-3 border border-[#ff5722]/25 bg-[#fff0eb] p-4 dark:border-[#e2ff00]/20 dark:bg-[#161900]">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
-                <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                  Configuraremos <strong className="text-[color:var(--text)]">{selectedGoal?.title}</strong>, nivel <strong className="text-[color:var(--text)]">{selectedLevel?.title.toLowerCase()}</strong> y una meta de <strong className="text-[color:var(--text)]">{form.weeklyFrequency} dias</strong> por semana.
+              <div className="mt-4 flex items-start gap-3 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-current" />
+                <p className="text-xs font-semibold text-current/80">
+                  Configuraremos{" "}
+                  <strong className="text-current">
+                    {selectedGoal?.title}
+                  </strong>
+                  , nivel{" "}
+                  <strong className="text-current">
+                    {selectedLevel?.title.toLowerCase()}
+                  </strong>{" "}
+                  y una meta de{" "}
+                  <strong className="text-current">
+                    {form.weeklyFrequency} dias
+                  </strong>{" "}
+                  por semana.
                 </p>
               </div>
             </div>
@@ -382,12 +430,20 @@ export default function Onboarding({ onNavigate = () => {} }) {
         </p>
         <button
           type="button"
-          onClick={step === 2 ? finish : () => setStep((value) => Math.min(2, value + 1))}
+          onClick={
+            step === 2
+              ? finish
+              : () => setStep((value) => Math.min(2, value + 1))
+          }
           disabled={saving}
           className="inline-flex h-11 items-center gap-2 bg-[#ff5722] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
         >
           {step === 2 ? "Preparar dashboard" : "Continuar"}
-          {step === 2 ? <Check className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+          {step === 2 ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <ArrowRight className="h-4 w-4" />
+          )}
         </button>
       </footer>
 

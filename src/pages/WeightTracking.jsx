@@ -120,7 +120,9 @@ function WeightTracking({ coachAthlete = null }) {
 
   const numericWeight = Number(String(weight).replace(",", "."));
   const validWeight =
-    Number.isFinite(numericWeight) && numericWeight >= 25 && numericWeight <= 400;
+    Number.isFinite(numericWeight) &&
+    numericWeight >= 25 &&
+    numericWeight <= 400;
 
   const handleSave = async (event) => {
     event.preventDefault();
@@ -160,7 +162,8 @@ function WeightTracking({ coachAthlete = null }) {
   };
 
   const change = Number(summary.changeKg);
-  const ChangeIcon = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus;
+  const ChangeIcon =
+    change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus;
 
   return (
     <div className="dashboard-shell mx-auto w-full max-w-md space-y-5 pb-12 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl">
@@ -176,8 +179,8 @@ function WeightTracking({ coachAthlete = null }) {
       </header>
 
       {coachAthlete ? (
-        <div className="border-l-4 border-[#ff5722] bg-[#fff0eb] px-3 py-2 dark:border-[#e2ff00] dark:bg-[#1d2100]">
-          <p className="text-[10px] font-black uppercase text-[#a93614] dark:text-[#e2ff00]">
+        <div className="border-l-4 border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)]">
+          <p className="text-[10px] font-black uppercase text-current">
             Atleta seleccionado
           </p>
           <p className="mt-0.5 text-sm font-black">{coachAthlete.name}</p>
@@ -191,7 +194,9 @@ function WeightTracking({ coachAthlete = null }) {
           </p>
           <p className="mt-2 text-2xl font-black leading-none sm:text-3xl">
             {summary.latest ? summary.latest.weightKg : "--"}
-            <span className="ml-1 text-xs text-[color:var(--text-muted)]">kg</span>
+            <span className="ml-1 text-xs text-[color:var(--text-muted)]">
+              kg
+            </span>
           </p>
         </article>
         <article className="border border-[color:var(--border)] bg-[color:var(--card)] p-3 sm:p-4">
@@ -206,7 +211,9 @@ function WeightTracking({ coachAthlete = null }) {
               {summary.changeKg == null
                 ? "--"
                 : `${change > 0 ? "+" : ""}${change}`}
-              <span className="ml-1 text-xs text-[color:var(--text-muted)]">kg</span>
+              <span className="ml-1 text-xs text-[color:var(--text-muted)]">
+                kg
+              </span>
             </p>
           </div>
         </article>
@@ -216,7 +223,9 @@ function WeightTracking({ coachAthlete = null }) {
           </p>
           <p className="mt-2 text-2xl font-black leading-none sm:text-3xl">
             {summary.streak || 0}
-            <span className="ml-1 text-xs text-[color:var(--text-muted)]">dias</span>
+            <span className="ml-1 text-xs text-[color:var(--text-muted)]">
+              dias
+            </span>
           </p>
         </article>
       </section>
@@ -238,7 +247,9 @@ function WeightTracking({ coachAthlete = null }) {
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-black uppercase leading-tight">
-              {summary.completedToday ? "Pesaje diario completo" : "Registra tu peso de hoy"}
+              {summary.completedToday
+                ? "Pesaje diario completo"
+                : "Registra tu peso de hoy"}
             </h2>
             <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
               Usa condiciones similares cada dia, idealmente al despertar.
@@ -246,7 +257,10 @@ function WeightTracking({ coachAthlete = null }) {
           </div>
         </div>
 
-        <form className="mt-5 grid gap-4 sm:grid-cols-[160px_1fr]" onSubmit={handleSave}>
+        <form
+          className="mt-5 grid gap-4 sm:grid-cols-[160px_1fr]"
+          onSubmit={handleSave}
+        >
           <label className="block">
             <span className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Fecha
@@ -304,7 +318,11 @@ function WeightTracking({ coachAthlete = null }) {
             disabled={!validWeight || saving || !selectedDate}
             className="h-12 gap-2 sm:col-span-2"
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Weight className="h-4 w-4" />}
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Weight className="h-4 w-4" />
+            )}
             {saving
               ? "Guardando"
               : selectedEntry
@@ -320,7 +338,9 @@ function WeightTracking({ coachAthlete = null }) {
             <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Evolucion
             </p>
-            <h2 className="mt-1 text-xl font-black uppercase">Tendencia de peso</h2>
+            <h2 className="mt-1 text-xl font-black uppercase">
+              Tendencia de peso
+            </h2>
           </div>
           <div className="grid grid-cols-3 border border-[color:var(--border)] p-0.5">
             {RANGE_OPTIONS.map((days) => (
@@ -348,8 +368,14 @@ function WeightTracking({ coachAthlete = null }) {
           ) : error ? (
             <div className="grid h-full place-items-center text-center">
               <div>
-                <p className="text-sm font-black">No se pudo cargar la tendencia</p>
-                <Button variant="outline" className="mt-3" onClick={() => refetch()}>
+                <p className="text-sm font-black">
+                  No se pudo cargar la tendencia
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => refetch()}
+                >
                   Reintentar
                 </Button>
               </div>
@@ -395,7 +421,9 @@ function WeightTracking({ coachAthlete = null }) {
               <div className="max-w-xs px-4">
                 <Weight className="mx-auto h-7 w-7 text-[#ff5722] dark:text-[#e2ff00]" />
                 <p className="mt-3 text-sm font-black">
-                  {entries.length ? `${entries[0].weightKg} kg registrados` : "Aun no hay pesajes"}
+                  {entries.length
+                    ? `${entries[0].weightKg} kg registrados`
+                    : "Aun no hay pesajes"}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                   La tendencia aparecera al registrar al menos dos dias.
@@ -412,7 +440,9 @@ function WeightTracking({ coachAthlete = null }) {
             <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Registro
             </p>
-            <h2 className="mt-1 text-xl font-black uppercase">Historial reciente</h2>
+            <h2 className="mt-1 text-xl font-black uppercase">
+              Historial reciente
+            </h2>
           </div>
           <span className="text-xs font-black text-[color:var(--text-muted)]">
             {summary.total || 0} total

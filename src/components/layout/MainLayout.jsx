@@ -132,7 +132,7 @@ function MainLayout({
       {user?.isDemo ? (
         <div
           data-demo-banner
-          className="flex min-h-9 w-full items-center justify-center gap-2 border-b border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 text-center font-sans text-[11px] font-bold uppercase text-[color:var(--accent-strong)]"
+          className="flex min-h-9 w-full items-center justify-center gap-2 border-b border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-center font-sans text-[11px] font-bold uppercase text-[color:var(--accent-contrast)]"
         >
           <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
           <span>
@@ -186,15 +186,15 @@ function MainLayout({
           </div>
           {coachAthlete ? (
             <div
-              className={`mb-5 flex min-h-14 items-center justify-between gap-3 rounded-card border border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 ${
+              className={`mb-5 flex min-h-14 items-center justify-between gap-3 rounded-card border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)] ${
                 useTrainingChrome ? "max-md:mt-12" : ""
               }`}
             >
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-current">
                   Sesión supervisada
                 </p>
-                <p className="truncate text-sm font-black text-[color:var(--text)]">
+                <p className="truncate text-sm font-black text-current">
                   Entrenando a {coachAthlete.name}
                 </p>
               </div>
@@ -206,7 +206,7 @@ function MainLayout({
                     ? "Volver a Mis atletas sin cerrar la sesión"
                     : "Salir de la sesión supervisada"
                 }
-                className="h-10 shrink-0 rounded-control border border-[color:var(--accent)] px-3 font-sans text-xs font-bold text-[color:var(--accent-strong)] transition-colors hover:bg-[color:var(--surface)]"
+                className="h-10 shrink-0 rounded-control border border-current px-3 font-sans text-xs font-bold text-current transition-colors hover:bg-black/10 dark:hover:bg-white/10"
               >
                 {activeTraining ? "Mis atletas" : "Salir"}
               </button>

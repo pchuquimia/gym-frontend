@@ -168,7 +168,7 @@ export default function SetRow({
                 </span>
                 {prBranchLabel ? (
                   <span
-                    className="shrink-0 rounded border border-[#ff5722]/25 bg-[#fff0eb] px-2 py-0.5 text-xs font-medium text-[#c52d00] dark:border-[#e2ff00]/25 dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                    className="shrink-0 rounded border border-[color:var(--accent)] bg-[color:var(--accent)] px-2 py-0.5 text-xs font-medium text-[color:var(--accent-contrast)]"
                     title={`Mejor marca registrada en ${prBranchLabel}`}
                   >
                     {prBranchLabel}

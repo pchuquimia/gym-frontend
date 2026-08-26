@@ -40,10 +40,7 @@ export default class PageErrorBoundary extends Component {
   }
 
   componentDidUpdate(previousProps) {
-    if (
-      previousProps.resetKey !== this.props.resetKey &&
-      this.state.error
-    ) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
       this.setState({ error: null });
     }
   }
@@ -63,7 +60,7 @@ export default class PageErrorBoundary extends Component {
         className="mx-auto grid min-h-[55dvh] w-full max-w-md place-items-center px-3 py-10 text-center"
       >
         <div className="w-full border border-[color:var(--border)] bg-[color:var(--card)] p-6 shadow-sm dark:shadow-none">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#fff0eb] text-[#ff5722] dark:bg-[#e2ff00]/10 dark:text-[#e2ff00]">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
             <AlertTriangle className="h-6 w-6" />
           </span>
           <h1 className="mt-4 text-xl font-black uppercase">

@@ -181,7 +181,7 @@ export default function TrainingCompletionPanel({
               </div>
             </div>
           ) : (
-            <label className="group flex min-h-32 cursor-pointer items-center gap-4 border border-dashed border-[#ff5722]/45 bg-[#fff8f5] px-4 py-5 transition-colors hover:border-[#ff5722] hover:bg-[#fff3ed] dark:border-[#e2ff00]/35 dark:bg-[#e2ff00]/[0.045] dark:hover:border-[#e2ff00] dark:hover:bg-[#e2ff00]/[0.075]">
+            <label className="group flex min-h-32 cursor-pointer items-center gap-4 border border-dashed border-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-5 text-[color:var(--accent-contrast)] transition-colors hover:bg-[color:var(--accent-hover)]">
               <span className="grid h-12 w-12 shrink-0 place-items-center border border-[#ff5722]/30 bg-white text-[#ff5722] shadow-sm dark:border-[#e2ff00]/30 dark:bg-[#111] dark:text-[#e2ff00]">
                 <ImagePlus className="h-5 w-5" />
               </span>
@@ -189,11 +189,11 @@ export default function TrainingCompletionPanel({
                 <span className="block font-condensed text-lg font-black uppercase leading-none">
                   Añadir foto final
                 </span>
-                <span className="mt-1 block text-xs font-semibold text-[color:var(--text-muted)]">
+                <span className="mt-1 block text-xs font-semibold text-current/80">
                   Usa la cámara o selecciona una imagen.
                 </span>
               </span>
-              <Camera className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+              <Camera className="h-5 w-5 shrink-0 text-current" />
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"

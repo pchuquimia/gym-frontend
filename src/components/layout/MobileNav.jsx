@@ -5,12 +5,12 @@ function MobileNav({ activePage, onNavigate }) {
   const { user } = useAuth();
   const itemIds =
     user?.role === "Admin"
-      ? ["dashboard", "trainer", "rutinas", "coach_admin", "perfil"]
+      ? ["dashboard", "registrar", "rutinas", "library", "perfil"]
       : user?.role === "Entrenador"
-      ? ["trainer", "rutinas", "library", "perfil"]
-      : user?.trainingMode === "coach_managed"
-        ? ["dashboard", "registrar", "rutinas", "perfil"]
-        : ["dashboard", "registrar", "rutinas", "perfil"];
+        ? ["trainer", "rutinas", "library", "perfil"]
+        : user?.trainingMode === "coach_managed"
+          ? ["dashboard", "registrar", "rutinas", "perfil"]
+          : ["dashboard", "registrar", "rutinas", "perfil"];
   const items = itemIds
     .map((id) => navLinks.find((link) => link.id === id))
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
@@ -50,9 +50,7 @@ function MobileNav({ activePage, onNavigate }) {
                 }`}
               />
               <span
-                className={`max-w-full truncate ${
-                  isActive ? "font-bold" : ""
-                }`}
+                className={`max-w-full truncate ${isActive ? "font-bold" : ""}`}
               >
                 {item.id === "registrar"
                   ? "Entrenar"
@@ -62,7 +60,7 @@ function MobileNav({ activePage, onNavigate }) {
                       ? "Atletas"
                       : item.id === "coach_admin"
                         ? "Gestion"
-                      : item.label.split(" ")[0]}
+                        : item.label.split(" ")[0]}
               </span>
             </button>
           );

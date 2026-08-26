@@ -132,7 +132,7 @@ function SearchableExerciseList({
               onClick={() => onSelect(exercise)}
               className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${
                 selected
-                  ? "bg-[#fff0eb] dark:bg-[#e2ff00]/10"
+                  ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                   : "hover:bg-[color:var(--bg)]"
               }`}
             >
@@ -141,18 +141,30 @@ function SearchableExerciseList({
                 <span className="block truncate text-sm font-black uppercase">
                   {exercise.name}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
+                <span
+                  className={`mt-0.5 block truncate text-[11px] font-semibold ${
+                    selected
+                      ? "text-current/80"
+                      : "text-[color:var(--text-muted)]"
+                  }`}
+                >
                   {exercise.muscle || "Sin grupo"}
                   {legacy ? ` · ${referenceTotal} referencias` : ""}
                 </span>
               </span>
               {legacy && referenceTotal > 0 ? (
-                <span className="theme-accent-soft shrink-0 px-2 py-1 text-[9px] font-black uppercase">
+                <span
+                  className={`shrink-0 px-2 py-1 text-[9px] font-black uppercase ${
+                    selected
+                      ? "border border-current bg-transparent text-current"
+                      : "theme-accent-soft"
+                  }`}
+                >
                   Con historial
                 </span>
               ) : null}
               {selected ? (
-                <span className="grid h-6 w-6 shrink-0 place-items-center bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+                <span className="grid h-6 w-6 shrink-0 place-items-center border border-current bg-transparent text-current">
                   <Check className="h-4 w-4" />
                 </span>
               ) : null}

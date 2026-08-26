@@ -314,7 +314,7 @@ export default function ActivePlanWorkoutPlanner({
                       }: ${dayView.title}`}
                       className={`relative flex h-[62px] min-w-0 flex-col items-center justify-center border text-center transition-colors ${
                         selected
-                          ? "border-2 border-[#ff5722] bg-[#fff0eb] text-[#151515] dark:border-[#d8ff00] dark:bg-[#171b0c] dark:text-white"
+                          ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                           : dayView.completed
                             ? "border-[#c9c9c9] bg-[#e9e9e9] text-[#777] dark:border-[#292929] dark:bg-[#0b0b0b] dark:text-[#777]"
                             : "border-[#d6d6d6] text-[#666] hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
@@ -349,7 +349,7 @@ export default function ActivePlanWorkoutPlanner({
             <article
               className={`mt-3 border p-4 ${
                 selectedDay.current
-                  ? "border-2 border-[#ff5722] bg-[#fff0eb] shadow-[0_8px_24px_rgba(255,87,34,0.12)] dark:border-[#d8ff00] dark:bg-[#171b0c] dark:shadow-[0_0_24px_rgba(216,255,0,0.12)]"
+                  ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(255,87,34,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
                   : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
@@ -370,7 +370,7 @@ export default function ActivePlanWorkoutPlanner({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedDay.current ? (
-                      <span className="bg-[#ff5722] px-2 py-1 text-[10px] font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black">
+                      <span className="border border-current bg-transparent px-2 py-1 text-[10px] font-bold uppercase text-current">
                         {sequential ? "Actual" : "Hoy"}
                       </span>
                     ) : null}
@@ -379,7 +379,13 @@ export default function ActivePlanWorkoutPlanner({
                         <Check className="h-3.5 w-3.5" /> Completado
                       </span>
                     ) : !selectedDay.rest && plan.goal ? (
-                      <span className="text-xs font-bold uppercase text-[#c52d00] dark:text-[#d8ff00]">
+                      <span
+                        className={`text-xs font-bold uppercase ${
+                          selectedDay.current
+                            ? "text-current"
+                            : "text-[#c52d00] dark:text-[#d8ff00]"
+                        }`}
+                      >
                         {plan.goal}
                       </span>
                     ) : null}
@@ -389,7 +395,13 @@ export default function ActivePlanWorkoutPlanner({
                     {selectedDay.title}
                   </h3>
 
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#555] dark:text-[#d0d0b8]">
+                  <div
+                    className={`mt-2.5 flex flex-wrap items-center gap-2 text-xs font-semibold ${
+                      selectedDay.current
+                        ? "text-current/80"
+                        : "text-[#555] dark:text-[#d0d0b8]"
+                    }`}
+                  >
                     {selectedDay.rest ? (
                       <span className="inline-flex items-center gap-1.5">
                         <BedDouble className="h-4 w-4" />
@@ -520,11 +532,11 @@ export default function ActivePlanWorkoutPlanner({
             </>
           }
         >
-          <div className="border-l-4 border-[#ff5722] bg-[#ff5722]/5 p-4 dark:border-[#d8ff00] dark:bg-[#d8ff00]/5">
-            <p className="text-sm font-bold text-[color:var(--text)]">
+          <div className="border-l-4 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
+            <p className="text-sm font-bold text-current">
               Esta sesión quedará registrada como una excepción del plan.
             </p>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+            <p className="mt-2 text-sm leading-6 text-current/80">
               {sequential
                 ? "El ciclo continuará desde el bloque posterior al que elegiste."
                 : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}

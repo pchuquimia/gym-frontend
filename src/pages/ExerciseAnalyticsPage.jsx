@@ -506,11 +506,11 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
         />
       </section>
 
-      <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] px-4 py-3 dark:border-[#e2ff00] dark:bg-[#171900]">
-        <p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">
+      <section className="border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-3 text-[color:var(--accent-contrast)]">
+        <p className="text-[10px] font-black uppercase text-current">
           Lectura actual
         </p>
-        <p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">
+        <p className="mt-1 text-[13px] font-semibold text-current/80">
           {insight}
         </p>
       </section>
