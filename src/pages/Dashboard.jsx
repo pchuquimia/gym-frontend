@@ -5,12 +5,15 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
   ArrowLeft,
+  ArrowRight,
   AlertTriangle,
   BarChart3,
   CalendarDays,
+  Check,
   ChevronDown,
   Clock3,
   Dumbbell,
+  Flame,
   Gauge,
   ListChecks,
   Minus,
@@ -26,23 +29,15 @@ import {
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
+import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
-import {
-  DetailModule,
-  DetailRow,
-  DetailRows,
-  DetailSection,
-  DetailSheet,
-  DetailSheetBody,
-  DetailSheetHeader,
-  DetailStat,
-  DetailStatGrid,
-} from "../components/dashboard/DetailSheet";
+import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
+import { useUserProfile } from "../context/UserContext";
 import {
   buildScopedPeriodComparison,
   getScopedExerciseKey,
@@ -55,6 +50,15 @@ import {
   getExerciseMuscleWeights,
   getTrainingLoadMetrics,
 } from "../utils/trainingLoad";
+import {
+  canAccessActiveTraining,
+  isActiveTrainingSnapshot,
+  readActiveTrainingSnapshot,
+} from "../utils/activeTraining";
+import {
+  estimateTrainingCalories,
+  summarizeCalorieEstimates,
+} from "../utils/calorieEstimate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -118,7 +122,7 @@ function getRoutineName(training = {}) {
     training.routineName ||
     training.routineId?.name ||
     training.routine?.name ||
-    "Sesion"
+    "Sesión"
   );
 }
 
@@ -136,6 +140,16 @@ function formatLongDate(value) {
   if (!date) return "--";
   return date.toLocaleDateString("es-BO", {
     day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatAdminPreviewDate(dateKey) {
+  if (!dateKey) return "Fecha no disponible";
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("es-BO", {
+    weekday: "short",
+    day: "numeric",
     month: "short",
     year: "numeric",
   });
@@ -368,7 +382,14 @@ function getRecoveryLabel(value) {
   if (value >= 85) return "Listo para carga alta";
   if (value >= 70) return "Buen estado para entrenar";
   if (value >= 55) return "Carga moderada recomendada";
-  return "Prioriza recuperacion";
+  return "Prioriza recuperación";
+}
+
+function getPostWorkoutRecoveryLabel(value) {
+  if (value >= 85) return "Proyección alta";
+  if (value >= 70) return "Buena base próxima";
+  if (value >= 55) return "Recuperación parcial";
+  return "Necesita recuperación";
 }
 
 function formatPercentChange(current = 0, previous = 0) {
@@ -376,11 +397,6 @@ function formatPercentChange(current = 0, previous = 0) {
   if (!previous) return "+100%";
   const change = ((current - previous) / previous) * 100;
   return `${change >= 0 ? "+" : ""}${Math.round(change)}%`;
-}
-
-function formatSignedCount(value, sign) {
-  const count = Math.max(0, Number(value) || 0);
-  return count ? `${sign}${count}` : "0";
 }
 
 function getWeeklyComparisonSummary(comparison, formatValue, unit) {
@@ -405,7 +421,7 @@ function getWeeklyComparisonSummary(comparison, formatValue, unit) {
       isPartial: false,
       changeLabel: "Sin carga esta semana",
       label: "Sin datos semanales",
-      description: "Registra una sesion para comenzar la comparacion semanal.",
+      description: "Registra una sesión para comenzar la comparación semanal.",
     };
   }
 
@@ -421,7 +437,7 @@ function getWeeklyComparisonSummary(comparison, formatValue, unit) {
       changeLabel: "Sin referencia semanal",
       label: "Nuevo ciclo",
       description:
-        "Los ciclos entrenados aun no tienen una semana anterior comparable.",
+        "Los ciclos entrenados aún no tienen una semana anterior comparable.",
     };
   }
 
@@ -439,11 +455,11 @@ function getWeeklyComparisonSummary(comparison, formatValue, unit) {
     change,
     hasReference: true,
     isPartial,
-    changeLabel: `${formatPercentChange(comparableCurrent, previous)} vs anterior`,
+    changeLabel: `${formatPercentChange(comparableCurrent, previous)} vs semana anterior`,
     label,
     description: isPartial
       ? `${formatValue(excluded)} ${unit} pertenecen a ciclos nuevos y no alteran el porcentaje.`
-      : "Comparacion realizada con los mismos ciclos de progreso.",
+      : "Comparación realizada con los mismos ciclos de progreso.",
   };
 }
 
@@ -494,19 +510,58 @@ function formatCompact(value = 0) {
   return Math.round(number).toString();
 }
 
+function formatLiftedWeight(value = 0) {
+  const number = Math.max(0, Number(value) || 0);
+  if (number >= 1000) {
+    const tonnes = number / 1000;
+    return `${tonnes.toFixed(tonnes >= 10 ? 1 : 2).replace(/\.0+$/, "")} t`;
+  }
+  return `${Math.round(number)} kg`;
+}
+
+function formatNaturalPercentChange(current = 0, previous = 0) {
+  const currentValue = Number(current) || 0;
+  const previousValue = Number(previous) || 0;
+  if (!previousValue) return "Aún sin una semana anterior para comparar";
+  const change = Math.round(
+    ((currentValue - previousValue) / previousValue) * 100,
+  );
+  if (!change) return "Similar a la semana anterior";
+  return `${Math.abs(change)}% ${change > 0 ? "más" : "menos"} que la semana anterior`;
+}
+
 function formatSeriesCount(value = 0) {
   const number = Number(value) || 0;
   return Number.isInteger(number) ? String(number) : number.toFixed(1);
 }
 
-function formatEquivalentSeries(value = 0) {
-  const number = Number(value) || 0;
-  return `${formatSeriesCount(number)} ${number === 1 ? "equivalente" : "equivalentes"}`;
-}
-
 function formatSessionCount(value = 0) {
   const number = Math.max(0, Number(value) || 0);
   return `${number} ${number === 1 ? "sesión" : "sesiones"}`;
+}
+
+function formatExerciseCount(value = 0) {
+  const number = Math.max(0, Number(value) || 0);
+  return `${number} ${number === 1 ? "ejercicio" : "ejercicios"}`;
+}
+
+function getRoutinePlannedSets(routine = {}) {
+  return (routine.exercises || []).reduce(
+    (sum, exercise) => sum + Math.max(0, Number(exercise.sets) || 0),
+    0,
+  );
+}
+
+function getRoutineEstimatedMinutes(routine = {}) {
+  return Math.max(
+    0,
+    Number(
+      routine.estimatedDuration ??
+        routine.durationMinutes ??
+        routine.duration ??
+        0,
+    ) || 0,
+  );
 }
 
 function extractBestExercisePerformances(training) {
@@ -568,8 +623,8 @@ function getPerformanceChange(current, previous) {
   return {
     direction: difference > 0 ? "improvement" : "decline",
     type,
-    previousValue: `${previous.weight}kg x ${previous.reps}`,
-    currentValue: `${current.weight}kg x ${current.reps}`,
+    previousValue: `${previous.weight} kg × ${previous.reps}`,
+    currentValue: `${current.weight} kg × ${current.reps}`,
   };
 }
 
@@ -635,7 +690,7 @@ function StatCard({
   value,
   suffix,
   icon: Icon,
-  tone = "emerald",
+  tone = "accent",
   children,
   onClick,
   primary = false,
@@ -643,7 +698,7 @@ function StatCard({
   const tones = {
     blue: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
     amber: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
-    emerald: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
+    accent: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
     violet: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
   };
 
@@ -657,9 +712,7 @@ function StatCard({
       className={`dashboard-pilot__metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
         primary ? "dashboard-pilot__metric--primary" : ""
       } ${
-        onClick
-          ? "transition hover:border-[color:var(--border-strong)]"
-          : ""
+        onClick ? "transition hover:border-[color:var(--border-strong)]" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -668,7 +721,7 @@ function StatCard({
         </p>
         {Icon ? (
           <span
-            className={`dashboard-pilot__metric-icon grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.emerald}`}
+            className={`dashboard-pilot__metric-icon grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.accent}`}
           >
             <Icon className="h-3.5 w-3.5" />
           </span>
@@ -705,7 +758,7 @@ function ComparisonChange({ metric }) {
     <span
       className={`inline-flex items-center gap-1 text-[10px] font-black ${
         isUp
-          ? "text-emerald-600 dark:text-emerald-300"
+          ? "text-[color:var(--accent-strong)]"
           : isDown
             ? "text-red-500 dark:text-red-300"
             : "text-[color:var(--text-muted)]"
@@ -732,7 +785,7 @@ function PeriodComparisonPanel({
           <div>
             <div className="flex items-center gap-2">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
-                Actual vs anterior
+                Semana actual vs anterior
               </p>
               <span className="border border-[#ff5722]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#ff5722] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
                 Pro
@@ -742,8 +795,8 @@ function PeriodComparisonPanel({
               Comparativa inteligente
             </h2>
             <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Sesiones, volumen, fuerza, adherencia y recuperacion contra los
-              mismos dias de la semana anterior.
+              Sesiones, volumen, fuerza, adherencia y recuperación frente a los
+              mismos días de la semana anterior.
             </p>
           </div>
           <button
@@ -762,7 +815,7 @@ function PeriodComparisonPanel({
     return (
       <section className="dashboard-pilot__card border border-[color:var(--border)] bg-[color:var(--card)] p-4">
         <p className="text-xs font-black uppercase text-[color:var(--text-muted)]">
-          Calculando actual vs anterior...
+          Calculando semana actual vs anterior...
         </p>
       </section>
     );
@@ -824,7 +877,7 @@ function PeriodComparisonPanel({
     },
     {
       key: "recovery",
-      label: "Recuperacion",
+      label: "Recuperación",
       icon: Gauge,
       metric: metrics.recovery,
       value: metrics.recovery.available
@@ -843,18 +896,18 @@ function PeriodComparisonPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
-            Actual vs anterior
+            Semana actual vs anterior
           </p>
           <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
             Comparativa inteligente
           </h2>
         </div>
         <span className="border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-          Mismos {comparison.period.elapsedDays} dias
+          Mismos {comparison.period.elapsedDays} días
         </span>
       </div>
       <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-        Semana activa hasta hoy frente a los dias equivalentes de la semana
+        Semana actual hasta hoy frente a los días equivalentes de la semana
         pasada.
       </p>
 
@@ -972,8 +1025,8 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
             ) : null}
             {selectedDay.sets > 0 ? (
               <span className="mt-0.5 block text-[color:var(--text-muted)]">
-                Libre {formatCompact(selectedDay.externalKg)} kg · Máquina{" "}
-                {formatCompact(selectedDay.machineKg)} kg
+                Peso externo {formatCompact(selectedDay.externalKg)} kg ·
+                Máquina {formatCompact(selectedDay.machineKg)} kg
                 {selectedDay.assistedSets
                   ? ` · Asistido ${selectedDay.assistedSets} series`
                   : ""}
@@ -1146,7 +1199,7 @@ function MonthDetailView({ detail, onBack }) {
           </h3>
         </div>
         <span className="rounded bg-[#fff0eb] px-2.5 py-1 text-[10px] font-black uppercase text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-          {detail.trainedDays} dias
+          {detail.trainedDays} días entrenados
         </span>
       </div>
 
@@ -1178,8 +1231,8 @@ function MonthDetailView({ detail, onBack }) {
             </p>
             <p className="mt-1 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
               {day.active
-                ? `${day.sessions} ses. · ${day.minutes}`
-                : "Sin sesion"}
+                ? `${formatSessionCount(day.sessions)} · ${day.minutes}`
+                : "Sin sesión"}
             </p>
           </article>
         ))}
@@ -1190,7 +1243,7 @@ function MonthDetailView({ detail, onBack }) {
           Rutinas entrenadas este mes
         </p>
         <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          Cuantas veces se entreno cada rutina
+          Cuántas veces se entrenó cada rutina
         </p>
 
         <div className="mt-3 space-y-2">
@@ -1209,7 +1262,9 @@ function MonthDetailView({ detail, onBack }) {
                       {routine.sessions}
                     </p>
                     <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      veces entrenada
+                      {routine.sessions === 1
+                        ? "sesión registrada"
+                        : "sesiones registradas"}
                     </p>
                   </div>
                   <p className="text-right text-[11px] font-bold text-[color:var(--text-muted)]">
@@ -1231,9 +1286,448 @@ function MonthDetailView({ detail, onBack }) {
   );
 }
 
+function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
+  const compactRest = action.type === "rest";
+  const toneColor =
+    action.tone === "success"
+      ? "var(--accent-strong)"
+      : action.tone === "warning"
+        ? "var(--warning)"
+        : "var(--accent-strong)";
+  const toneBackground =
+    action.tone === "success"
+      ? "var(--accent-soft)"
+      : action.tone === "warning"
+        ? "var(--warning-soft)"
+        : "var(--accent-soft)";
+  const StatusIcon =
+    action.type === "active"
+      ? Activity
+      : action.type === "completed"
+        ? Check
+        : action.type === "rest"
+          ? Gauge
+          : action.type === "scheduled"
+            ? Dumbbell
+            : Target;
+
+  return (
+    <section className="dashboard-pilot__card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
+      <div className="h-0.5 bg-[color:var(--accent)] sm:h-1" />
+      <div className={compactRest ? "p-3 sm:p-4" : "p-3.5 sm:p-4"}>
+        <div
+          className={`flex flex-col md:flex-row md:items-center md:justify-between ${
+            compactRest ? "gap-2.5 sm:gap-3" : "gap-3"
+          }`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
+                style={{ backgroundColor: toneBackground, color: toneColor }}
+              >
+                <StatusIcon className="h-3.5 w-3.5" />
+              </span>
+              <p
+                className="text-[10px] font-black uppercase tracking-[0.18em]"
+                style={{ color: toneColor }}
+              >
+                {action.eyebrow}
+              </p>
+            </div>
+
+            <h2
+              className={`font-black tracking-tight text-[color:var(--text)] ${
+                compactRest
+                  ? "mt-1.5 text-lg sm:mt-2 sm:text-2xl"
+                  : "mt-2 text-xl sm:text-2xl"
+              }`}
+            >
+              {action.title}
+            </h2>
+            {compactRest && action.mobileDescription ? (
+              <>
+                <p className="mt-1 text-[11px] font-semibold leading-snug text-[color:var(--text-muted)] sm:hidden">
+                  {action.mobileDescription}
+                </p>
+                <p className="mt-1 hidden max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)] sm:block">
+                  {action.description}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                {action.description}
+              </p>
+            )}
+
+            {action.meta?.length ? (
+              <div
+                className={`flex flex-wrap gap-1.5 ${compactRest ? "mt-2" : "mt-2.5"}`}
+              >
+                {action.meta.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-0.5 text-[9px] font-bold text-[color:var(--text-muted)]"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {action.progress != null ? (
+              <div className="mt-3 max-w-xl">
+                <div className="mb-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-[color:var(--text-muted)]">
+                  <span>Progreso de la sesión</span>
+                  <span>{action.progress}%</span>
+                </div>
+                <div
+                  className="h-1.5 overflow-hidden rounded-full bg-[color:var(--border)]"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={action.progress}
+                >
+                  <div
+                    className="h-full rounded-full bg-[color:var(--accent)]"
+                    style={{ width: `${action.progress}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div
+            className={
+              compactRest
+                ? "grid shrink-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row md:w-[200px] md:flex-col"
+                : "flex shrink-0 flex-col gap-1.5 sm:flex-row md:w-[200px] md:flex-col"
+            }
+          >
+            {readOnly ? (
+              <div className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                <CalendarDays className="h-4 w-4" />
+                Vista histórica
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onPrimary}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--accent)] px-4 text-[10px] font-black uppercase text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)] active:translate-y-px"
+              >
+                {action.type === "completed" ? (
+                  <ArrowRight className="h-4 w-4" />
+                ) : action.type === "rest" ? (
+                  <Gauge className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4 fill-current" />
+                )}
+                {action.primaryLabel}
+              </button>
+            )}
+            {!readOnly && action.secondaryLabel ? (
+              <button
+                type="button"
+                onClick={onSecondary}
+                className={`inline-flex h-9 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] ${
+                  compactRest ? "px-3 sm:px-4" : "px-4"
+                }`}
+              >
+                {compactRest && action.secondaryMobileLabel ? (
+                  <>
+                    <span className="sm:hidden">
+                      {action.secondaryMobileLabel}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {action.secondaryLabel}
+                    </span>
+                  </>
+                ) : (
+                  action.secondaryLabel
+                )}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AdminDateControl({ value, actualDateKey, onChange }) {
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const isPreview = value !== actualDateKey;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event) => {
+      if (!containerRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  const applyDate = () => {
+    const selectedDate = inputRef.current?.value || draft;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return;
+    onChange(selectedDate);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          if (!open) setDraft(value);
+          setOpen((current) => !current);
+        }}
+        aria-label="Cambiar fecha del dashboard"
+        aria-expanded={open}
+        className={`relative grid h-10 w-10 place-items-center rounded-full border shadow-sm transition ${
+          isPreview
+            ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]"
+        }`}
+        title="Cambiar fecha del dashboard (solo Admin)"
+      >
+        <CalendarDays className="h-[18px] w-[18px]" />
+        {isPreview ? (
+          <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[color:var(--accent)]" />
+        ) : null}
+      </button>
+
+      {open ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-end bg-black/35 p-4 backdrop-blur-[2px] sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cambiar fecha de análisis"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <div className="w-full max-w-xs rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  Herramienta administrativa
+                </p>
+                <h2 className="mt-1 text-base font-black text-[color:var(--text)]">
+                  Cambiar fecha de análisis
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar selector de fecha"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
+              Simula el dashboard sin modificar entrenamientos ni registros.
+            </p>
+            <label className="mt-4 block text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+              Fecha
+              <input
+                ref={inputRef}
+                type="date"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="mt-1.5 h-10 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[color:var(--accent)]"
+              />
+            </label>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(actualDateKey);
+                  onChange(actualDateKey);
+                  setOpen(false);
+                }}
+                className="h-10 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] text-[10px] font-black uppercase text-[color:var(--text)]"
+              >
+                Volver a hoy
+              </button>
+              <button
+                type="button"
+                onClick={applyDate}
+                className="h-10 rounded-md bg-[color:var(--accent)] text-[10px] font-black uppercase text-[color:var(--accent-contrast)]"
+              >
+                Aplicar fecha
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RecoveryMuscleSection({ muscles, prioritizeRecovery = false }) {
+  return (
+    <section className="mt-5">
+      <div>
+        <h3 className="text-sm font-black text-[color:var(--text)]">
+          {prioritizeRecovery
+            ? "Músculos por recuperar"
+            : "Recuperación muscular"}
+        </h3>
+        <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+          {prioritizeRecovery
+            ? "Los grupos con menor disponibilidad aparecen primero."
+            : "Disponibilidad estimada por grupo trabajado."}
+        </p>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-x-3 sm:gap-x-6">
+        {muscles.length ? (
+          muscles.map((muscle) => (
+            <article
+              key={muscle.muscle}
+              className="border-t border-[color:var(--border)] py-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-xs font-black text-[color:var(--text)] sm:text-sm">
+                  {muscle.muscle}
+                </p>
+                <span
+                  className="text-xs font-black"
+                  style={{
+                    color:
+                      muscle.value >= 70
+                        ? "var(--accent-strong)"
+                        : muscle.value >= 55
+                          ? "var(--warning)"
+                          : "var(--danger)",
+                  }}
+                >
+                  {muscle.value}%
+                </span>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${muscle.value}%`,
+                    backgroundColor:
+                      muscle.value >= 70
+                        ? "var(--accent)"
+                        : muscle.value >= 55
+                          ? "var(--warning)"
+                          : "var(--danger)",
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-[10px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                <span className="block">
+                  {muscle.daysSinceLast === 0
+                    ? "Entrenado hoy"
+                    : muscle.daysSinceLast === 1
+                      ? "Entrenado ayer"
+                      : `${muscle.daysSinceLast} días sin entrenar`}
+                </span>
+                <span className="block">
+                  Carga: {formatSeriesCount(muscle.latestSets)} series ·
+                  habitual{" "}
+                  {muscle.typicalSets
+                    ? formatSeriesCount(muscle.typicalSets)
+                    : "--"}
+                </span>
+              </p>
+            </article>
+          ))
+        ) : (
+          <p className="col-span-2 border-t border-[color:var(--border)] py-4 text-sm font-semibold text-[color:var(--text-muted)]">
+            Sin grupos musculares registrados.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function RecoveryInsightSection({ insights, isPostWorkout, isPlannedRestDay }) {
+  return (
+    <section className="mt-5">
+      <h3 className="text-sm font-black text-[color:var(--text)]">
+        Lo que debes tener en cuenta
+      </h3>
+      <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+        {isPostWorkout
+          ? "Cómo afecta la sesión que acabas de completar."
+          : isPlannedRestDay
+            ? "Por qué conviene respetar el descanso de hoy."
+            : "Señales prácticas para ajustar tu próximo entrenamiento."}
+      </p>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {insights.length ? (
+          insights.map((insight, index) => {
+            const InsightIcon = index === 0 ? Activity : BarChart3;
+            const warning = insight.tone === "warning";
+            return (
+              <article
+                key={`${insight.title}-${insight.action}`}
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3.5"
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
+                      warning
+                        ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                        : "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                    }`}
+                  >
+                    <InsightIcon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-[color:var(--text)]">
+                      {insight.title}
+                    </h4>
+                    <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                      {insight.detail}
+                    </p>
+                  </div>
+                </div>
+                <p
+                  className={`mt-3 border-t border-[color:var(--border)] pt-2 text-[10px] font-black uppercase tracking-wide ${
+                    warning
+                      ? "text-[color:var(--warning)]"
+                      : "text-[color:var(--accent-strong)]"
+                  }`}
+                >
+                  {insight.action}
+                </p>
+              </article>
+            );
+          })
+        ) : (
+          <p className="rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-sm font-semibold text-[color:var(--text-muted)] sm:col-span-2">
+            Aún no hay suficiente historial para explicar tu recuperación.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const queryClient = useQueryClient();
   const dashboardBootstrap = useDashboardBootstrap();
+  const { user: authUser } = useAuth();
+  const { profile } = useUserProfile();
   const {
     trainings = [],
     exercises: catalogExercises = [],
@@ -1243,6 +1737,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
+  const isAdmin = authUser?.role === "Admin";
+  const systemTodayKey = useMemo(() => getISODateKey(new Date()), []);
+  const [dashboardDateKey, setDashboardDateKey] = useState(systemTodayKey);
   const [loadedActivePlan, setLoadedActivePlan] = useState(null);
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
@@ -1254,14 +1751,37 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
   const [weeklyLoadModalOpen, setWeeklyLoadModalOpen] = useState(false);
   const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
+  const [caloriesModalOpen, setCaloriesModalOpen] = useState(false);
+  const [weeklyDetailsOpen, setWeeklyDetailsOpen] = useState(false);
   const [quickWeightOpen, setQuickWeightOpen] = useState(false);
+  const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(null);
   const hasOpenModal = Boolean(
     durationModalOpen ||
     performanceModalType ||
     recoveryModalOpen ||
     weeklyLoadModalOpen ||
-    weeklySetsModalOpen,
+    weeklySetsModalOpen ||
+    caloriesModalOpen,
   );
+
+  useEffect(() => {
+    const syncActiveTraining = () => {
+      const snapshot = readActiveTrainingSnapshot();
+      setActiveTrainingSnapshot(
+        isActiveTrainingSnapshot(snapshot) &&
+          canAccessActiveTraining(snapshot, authUser, coachAthlete)
+          ? snapshot
+          : null,
+      );
+    };
+    syncActiveTraining();
+    window.addEventListener("active-training-updated", syncActiveTraining);
+    window.addEventListener("storage", syncActiveTraining);
+    return () => {
+      window.removeEventListener("active-training-updated", syncActiveTraining);
+      window.removeEventListener("storage", syncActiveTraining);
+    };
+  }, [authUser, coachAthlete]);
 
   useEffect(() => {
     if (dashboardBootstrap.enabled) return undefined;
@@ -1294,6 +1814,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       setRecoveryModalOpen(false);
       setWeeklyLoadModalOpen(false);
       setWeeklySetsModalOpen(false);
+      setCaloriesModalOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -1311,13 +1832,21 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     [catalogExercises],
   );
 
-  const now = useMemo(() => new Date(), []);
-  const todayKey = getISODateKey(now);
-  const todayWeighInKey = ["weigh-ins", "today", "self", todayKey];
+  const now = useMemo(
+    () => new Date(`${dashboardDateKey}T12:00:00`),
+    [dashboardDateKey],
+  );
+  const todayKey = dashboardDateKey;
+  const isAdminDatePreview = isAdmin && todayKey !== systemTodayKey;
+  const todayWeighInKey = ["weigh-ins", "today", "self", systemTodayKey];
   const todayWeighInQuery = useQuery({
     queryKey: todayWeighInKey,
     queryFn: () =>
-      api.getWeighIns({ from: todayKey, to: todayKey, today: todayKey }),
+      api.getWeighIns({
+        from: systemTodayKey,
+        to: systemTodayKey,
+        today: systemTodayKey,
+      }),
     staleTime: 30 * 1000,
     enabled: !dashboardBootstrap.enabled,
   });
@@ -1325,10 +1854,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     ? dashboardBootstrap.data?.todayWeighIn
     : todayWeighInQuery.data;
   const needsDailyWeighIn =
-    todayWeighInData && !todayWeighInData.summary?.completedToday;
+    !isAdminDatePreview &&
+    todayWeighInData &&
+    !todayWeighInData.summary?.completedToday;
 
   const saveQuickWeight = async (weightKg) => {
-    const saved = await api.saveWeighIn({ dateKey: todayKey, weightKg });
+    const saved = await api.saveWeighIn({
+      dateKey: systemTodayKey,
+      weightKg,
+    });
     queryClient.setQueryData(todayWeighInKey, (previous = {}) => ({
       ...previous,
       entries: [saved],
@@ -1396,7 +1930,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       if (!day) return;
       day.trained = true;
       day.routine = clampText(
-        training.routineName || training.routineId?.name || "Sesion",
+        training.routineName || training.routineId?.name || "Sesión",
         6,
       );
     });
@@ -1434,6 +1968,33 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       previousSessions: previousTrainings.length,
     };
   }, [catalogIndex, now, orderedTrainings, todayKey]);
+
+  const calorieWeightKg =
+    coachAthlete?.profile?.weight ?? coachAthlete?.weight ?? profile?.weight;
+  const weeklyCalorieEstimates = useMemo(
+    () =>
+      (weekData.currentTrainings || [])
+        .map((training) => ({
+          ...estimateTrainingCalories(training, { weightKg: calorieWeightKg }),
+          id: String(
+            training.id ||
+              training._id ||
+              `${training.date}-${getRoutineName(training)}`,
+          ),
+          date: training.date,
+          routineName: getRoutineName(training),
+        }))
+        .filter((estimate) => estimate.available)
+        .sort(
+          (left, right) =>
+            getDateTimestamp(right.date) - getDateTimestamp(left.date),
+        ),
+    [calorieWeightKg, weekData.currentTrainings],
+  );
+  const weeklyCalories = useMemo(
+    () => summarizeCalorieEstimates(weeklyCalorieEstimates),
+    [weeklyCalorieEstimates],
+  );
 
   const monthActivity = useMemo(() => {
     const map = new Map();
@@ -1477,7 +2038,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       day.bodyweightSets += metrics.bodyweightSets;
       day.assistedSets += metrics.assistedSets;
       const routineName =
-        training.routineName || training.routineId?.name || "Sesion";
+        training.routineName || training.routineId?.name || "Sesión";
       day.routine = day.routine
         ? `${day.routine}, ${routineName}`
         : routineName;
@@ -1637,18 +2198,30 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const durationSummary = useMemo(() => {
     const trackedRows = durationRows.filter((row) => row.hasRestTracking);
+    const workSeconds = trackedRows.reduce(
+      (sum, row) => sum + row.workSeconds,
+      0,
+    );
+    const restSeconds = trackedRows.reduce(
+      (sum, row) => sum + row.restSeconds,
+      0,
+    );
+    const measuredSeconds = workSeconds + restSeconds;
     return {
       sessionSeconds: durationRows.reduce(
         (sum, row) => sum + row.sessionSeconds,
         0,
       ),
-      workSeconds: trackedRows.reduce((sum, row) => sum + row.workSeconds, 0),
-      restSeconds: trackedRows.reduce((sum, row) => sum + row.restSeconds, 0),
+      workSeconds,
+      restSeconds,
       pauseSeconds: durationRows.reduce(
         (sum, row) => sum + row.pauseSeconds,
         0,
       ),
       trackedCount: trackedRows.length,
+      workPercent: measuredSeconds
+        ? Math.round((workSeconds / measuredSeconds) * 100)
+        : 0,
     };
   }, [durationRows]);
 
@@ -1703,10 +2276,26 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     );
     const previousTotal = weekData.previousLoadMetrics.completedSets;
     const diff = weekData.totalSets - previousTotal;
+    const sessions = weekData.sessions || 0;
+    const previousSessions = weekData.previousSessions || 0;
+    const completionRate = weekData.loadMetrics.recordedSets
+      ? Math.round(
+          (weekData.loadMetrics.completedSets /
+            weekData.loadMetrics.recordedSets) *
+            100,
+        )
+      : 0;
     return {
       total: weekData.totalSets,
       recorded: weekData.loadMetrics.recordedSets,
       incomplete: weekData.loadMetrics.incompleteSets,
+      sessions,
+      previousSessions,
+      averagePerSession: sessions ? weekData.totalSets / sessions : 0,
+      previousAveragePerSession: previousSessions
+        ? previousTotal / previousSessions
+        : 0,
+      completionRate,
       comparableCurrent: comparison.comparableCurrent,
       previous: comparison.previous,
       previousTotal,
@@ -1715,15 +2304,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       hasProgressionReference: comparison.hasReference,
       isPartial: comparison.isPartial,
       description:
-        "Solo se cuentan series marcadas como completadas. La comparacion principal incluye toda la semana.",
+        "Cuenta las series que terminaste en tus entrenamientos de esta semana.",
       diff,
       diffLabel:
         previousTotal > 0
-          ? `${diff >= 0 ? "+" : ""}${diff} vs anterior`
-          : "Sin referencia semanal",
+          ? !diff
+            ? "Igual que la semana anterior"
+            : `${Math.abs(diff)} ${diff > 0 ? "más" : "menos"} que la semana anterior`
+          : "Aún sin comparación semanal",
       statusLabel: weekData.loadMetrics.incompleteSets
-        ? `${weekData.loadMetrics.incompleteSets} ${weekData.loadMetrics.incompleteSets === 1 ? "pendiente" : "pendientes"}`
-        : "Sin pendientes",
+        ? `${weekData.loadMetrics.incompleteSets} sin completar`
+        : "Todo completado",
       progressionDescription: comparison.description,
       progressionLabel: comparison.changeLabel,
       byMuscle: Array.from(byMuscle.values()).sort((a, b) => b.sets - a.sets),
@@ -1770,29 +2361,45 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const performanceModalConfig =
     performanceModalType === "declines"
       ? {
-          eyebrow: "Vs anterior",
-          title: "Donde bajamos",
-          description:
-            "Mejor serie de esta semana frente a la ejecución inmediatamente anterior del ejercicio.",
-          label: "Bajamos",
           count: weekData.declines?.length || 0,
           groups: declinesByMuscle,
           tone: "red",
           typeKey: "declineType",
-          empty: "No se detectaron bajadas en esta semana activa.",
+          emptyTitle: "Sin marcas por recuperar",
+          empty:
+            "Ningún ejercicio quedó por debajo de su ejecución anterior esta semana.",
         }
       : {
-          eyebrow: "Vs anterior",
-          title: "Donde subimos",
-          description:
-            "Mejor serie de esta semana frente a la ejecución inmediatamente anterior del ejercicio.",
-          label: "Subimos",
           count: weekData.improvements?.length || 0,
           groups: improvementsByMuscle,
-          tone: "emerald",
+          tone: "accent",
           typeKey: "improvementType",
-          empty: "No se detectaron subidas en esta semana activa.",
+          emptyTitle: "Aún no hay nuevas marcas",
+          empty:
+            "Tu próxima sesión puede registrar la primera mejora de esta semana.",
         };
+
+  const performanceSummary =
+    performanceModalType === "declines"
+      ? performanceModalConfig.count === 1
+        ? "1 ejercicio quedó por debajo de su marca anterior"
+        : `${performanceModalConfig.count} ejercicios quedaron por debajo de su marca anterior`
+      : performanceModalConfig.count === 1
+        ? "1 ejercicio superó su marca anterior"
+        : `${performanceModalConfig.count} ejercicios superaron su marca anterior`;
+
+  const performanceTabs = [
+    {
+      key: "improvements",
+      label: "Mejoraron",
+      count: weekData.improvements?.length || 0,
+    },
+    {
+      key: "declines",
+      label: "Por recuperar",
+      count: weekData.declines?.length || 0,
+    },
+  ];
 
   const recovery = useMemo(() => {
     const todayStart = new Date(todayKey).getTime();
@@ -1841,7 +2448,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         : loadSpike <= -0.2
           ? Math.min(4, Math.round(Math.abs(loadSpike) * 5))
           : 0;
-    const factors = [];
+    const recoveryInsights = [];
     const muscleStats = new Map();
 
     orderedTrainings.forEach((training) => {
@@ -1892,11 +2499,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           Math.min(98, Math.round(100 - fatigue * 48)),
         );
         const lastRecord = records[records.length - 1] || null;
+        const lastRecordDay = lastRecord
+          ? new Date(getISODateKey(new Date(lastRecord.timestamp))).getTime()
+          : null;
         const days = lastRecord
-          ? Math.max(
-              0,
-              Math.floor((todayStart - lastRecord.timestamp) / DAY_MS),
-            )
+          ? Math.max(0, Math.floor((todayStart - lastRecordDay) / DAY_MS))
           : null;
         const latestSetRatio =
           lastRecord && typicalSets ? lastRecord.sets / typicalSets : 1;
@@ -2027,16 +2634,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         ? scheduledRoutine
         : betterAlternative || scheduledRoutine;
     const recommendationReason = !activePlan
-      ? "Activa una planificacion para recibir una sugerencia"
+      ? "Activa una planificación para recibir una sugerencia"
       : isPlannedRest
         ? scheduledDay?.type === "recovery"
-          ? "Hoy corresponde recuperacion en tu plan"
+          ? "Hoy corresponde recuperación en tu plan"
           : "Hoy corresponde descanso en tu plan"
         : betterAlternative && scheduledRoutine?.value < 65
-          ? `${scheduledRoutine.name} esta limitada por ${scheduledRoutine.limitingMuscle?.muscle || "fatiga reciente"}`
+          ? `${scheduledRoutine.name} está limitada por ${scheduledRoutine.limitingMuscle?.muscle || "fatiga reciente"}`
           : scheduledRoutine?.value < 65
             ? "La rutina prevista presenta fatiga alta; reduce volumen o descansa"
-            : "Rutina prevista y compatible con tu recuperacion";
+            : "Rutina prevista y compatible con tu recuperación";
     const value = recommended?.value ?? globalValue;
     const label = recommended?.name || recommendationReason;
 
@@ -2044,21 +2651,43 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       (item) => item.latestSetRatio >= 1.5 && item.daysSinceLast <= 3,
     );
     overloadedMuscles.slice(0, 2).forEach((item) => {
-      factors.push({
-        label: `${item.muscle}: ${formatEquivalentSeries(item.latestSets)} vs ${formatEquivalentSeries(item.typicalSets || 0)} habituales`,
-        impact: `${Math.round(item.latestSetRatio * 100)}%`,
+      recoveryInsights.push({
+        title: `${item.muscle}: carga por encima de lo habitual`,
+        detail: `Hiciste ${formatSeriesCount(item.latestSets)} series frente a ${formatSeriesCount(item.typicalSets || 0)} habituales. Dale más tiempo antes de repetir carga intensa.`,
+        action: "Descansa este grupo",
+        tone: "warning",
       });
     });
     if (!overloadedMuscles.length && daysSinceLast != null) {
-      factors.push({
-        label: daysSinceLast <= 1 ? "Sesion reciente" : "Descanso acumulado",
-        impact: daysSinceLast <= 1 ? "Carga" : "+Recuperacion",
+      recoveryInsights.push({
+        title:
+          daysSinceLast <= 1 ? "Entrenamiento reciente" : "Descanso acumulado",
+        detail:
+          daysSinceLast === 0
+            ? "Entrenaste hoy. Es normal que los músculos trabajados todavía necesiten descanso."
+            : daysSinceLast === 1
+              ? "Entrenaste ayer. Ajusta la intensidad si repites músculos que aún se sienten fatigados."
+              : `Han pasado ${daysSinceLast} días desde tu última sesión. La disponibilidad muscular debería ir aumentando.`,
+        action:
+          daysSinceLast <= 1
+            ? "La fatiga es esperable"
+            : "Recuperación favorable",
+        tone: daysSinceLast <= 1 ? "warning" : "accent",
       });
     }
     if (previousWeeklySets > 0 && Math.abs(loadSpike) >= 0.2) {
-      factors.push({
-        label: `Series semanales: ${weeklySets} vs ${previousWeeklySets}`,
-        impact: `${weeklyLoadAdjustment >= 0 ? "+" : ""}${weeklyLoadAdjustment} rec.`,
+      const loadIsHigher = loadSpike > 0;
+      recoveryInsights.push({
+        title: loadIsHigher
+          ? "Carga semanal más alta"
+          : "Carga semanal más baja",
+        detail: `Llevas ${weeklySets} series frente a ${previousWeeklySets} en el mismo punto de la semana anterior. ${
+          loadIsHigher
+            ? "Evita añadir volumen si la técnica o la energía empeoran."
+            : "No necesitas compensar toda la diferencia en una sola sesión."
+        }`,
+        action: loadIsHigher ? "Controla el volumen" : "Sigue tu plan",
+        tone: loadIsHigher ? "warning" : "accent",
       });
     }
 
@@ -2073,13 +2702,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       previousWeeklySets,
       weeklySeconds,
       loadSpike,
-      factors,
+      recoveryInsights,
       lastTraining,
       routineReadiness,
       muscleReadiness,
       recommended,
       recommendationReason,
       activePlan,
+      scheduledDay,
       scheduledRoutine,
       isPlannedRest,
     };
@@ -2152,15 +2782,20 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
     const current = weekData.loadMetrics.externalKg;
     const previousTotal = weekData.previousLoadMetrics.externalKg;
+    const sessions = weekData.sessions || 0;
+    const previousSessions = weekData.previousSessions || 0;
     return {
       current,
       previousTotal,
-      changeLabel:
-        previousTotal > 0
-          ? `${formatPercentChange(current, previousTotal)} vs semana anterior`
-          : "Sin referencia semanal",
+      sessions,
+      previousSessions,
+      averagePerSession: sessions ? current / sessions : 0,
+      previousAveragePerSession: previousSessions
+        ? previousTotal / previousSessions
+        : 0,
+      changeLabel: formatNaturalPercentChange(current, previousTotal),
       description:
-        "Peso externo por repeticiones en series completadas. Maquinas, asistencia y peso corporal se muestran por separado.",
+        "Suma el peso libre que registraste en cada repetición completada. No representa tu peso máximo.",
       comparableCurrent: progression.comparableCurrent,
       previous: progression.previous,
       progressionChangeLabel: progression.changeLabel,
@@ -2176,6 +2811,305 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     };
   }, [catalogIndex, weekData]);
 
+  const completedTodayTrainings = useMemo(
+    () =>
+      (weekData.currentTrainings || []).filter(
+        (training) => getISODateKey(training.date) === todayKey,
+      ),
+    [todayKey, weekData.currentTrainings],
+  );
+  const latestCompletedToday =
+    completedTodayTrainings[completedTodayTrainings.length - 1] || null;
+  const postWorkoutNextRoutine = useMemo(() => {
+    if (!latestCompletedToday || !activePlan) return null;
+    const schedule = activePlan.weeklySchedule || [];
+    if (!schedule.length) return recovery.scheduledRoutine || null;
+    const completedSlotId = String(
+      latestCompletedToday.trainingPlanSlotId || "",
+    );
+    let completedIndex = completedSlotId
+      ? schedule.findIndex(
+          (day) => String(day.slotId || "") === completedSlotId,
+        )
+      : -1;
+    if (completedIndex < 0 && activePlan.scheduleMode === "fixed") {
+      const mondayIndex = (now.getDay() + 6) % 7;
+      completedIndex = schedule.findIndex(
+        (day) => Number(day.dayIndex || day.order) === mondayIndex + 1,
+      );
+    }
+    for (let offset = 1; offset <= schedule.length; offset += 1) {
+      const day =
+        schedule[(Math.max(0, completedIndex) + offset) % schedule.length];
+      if (day?.type !== "training" || !day.routineId) continue;
+      const readiness = recovery.routineReadiness.find(
+        (routine) => routine.id === String(day.routineId),
+      );
+      if (readiness) return readiness;
+    }
+    return recovery.scheduledRoutine || recovery.recommended || null;
+  }, [activePlan, latestCompletedToday, now, recovery]);
+  const isPostWorkout = Boolean(latestCompletedToday);
+  const isPlannedRestDay = !isPostWorkout && Boolean(recovery.isPlannedRest);
+  const plannedRestNextRoutine = useMemo(() => {
+    if (!isPlannedRestDay || !activePlan) return null;
+    const schedule = activePlan.weeklySchedule || [];
+    if (!schedule.length) return null;
+    const mondayIndex = (now.getDay() + 6) % 7;
+    const currentIndex =
+      activePlan.scheduleMode === "fixed"
+        ? schedule.findIndex(
+            (day) => Number(day.dayIndex || day.order) === mondayIndex + 1,
+          )
+        : Math.min(
+            Math.max(0, Number(activePlan.cycleProgress?.currentIndex || 0)),
+            schedule.length - 1,
+          );
+    for (let offset = 1; offset <= schedule.length; offset += 1) {
+      const day =
+        schedule[(Math.max(0, currentIndex) + offset) % schedule.length];
+      if (day?.type !== "training" || !day.routineId) continue;
+      const readiness = recovery.routineReadiness.find(
+        (routine) => routine.id === String(day.routineId),
+      );
+      if (readiness) return readiness;
+    }
+    return null;
+  }, [activePlan, isPlannedRestDay, now, recovery.routineReadiness]);
+  const futurePlanRoutine = isPostWorkout
+    ? postWorkoutNextRoutine
+    : plannedRestNextRoutine;
+  const recoveryDisplayValue = isPostWorkout
+    ? (postWorkoutNextRoutine?.value ?? recovery.globalValue)
+    : recovery.value;
+  const recoveryMusclesForDisplay = useMemo(
+    () =>
+      isPostWorkout || isPlannedRestDay
+        ? [...recovery.muscleReadiness].sort(
+            (a, b) => a.value - b.value || a.muscle.localeCompare(b.muscle),
+          )
+        : recovery.muscleReadiness,
+    [isPlannedRestDay, isPostWorkout, recovery.muscleReadiness],
+  );
+  const postWorkoutPriorityMuscles = recoveryMusclesForDisplay
+    .filter((muscle) => muscle.daysSinceLast === 0)
+    .slice(0, 2);
+  const recoveryRoutinesForDisplay = useMemo(() => {
+    if (!isPostWorkout || !postWorkoutNextRoutine) {
+      return recovery.routineReadiness;
+    }
+    return [...recovery.routineReadiness].sort((a, b) => {
+      if (a.id === postWorkoutNextRoutine.id) return -1;
+      if (b.id === postWorkoutNextRoutine.id) return 1;
+      return b.value - a.value || a.name.localeCompare(b.name);
+    });
+  }, [isPostWorkout, postWorkoutNextRoutine, recovery.routineReadiness]);
+
+  const todayAction = useMemo(() => {
+    if (activeTrainingSnapshot && !isAdminDatePreview) {
+      const snapshotExercises = activeTrainingSnapshot.exercises || [];
+      const plannedSets = snapshotExercises.reduce(
+        (sum, exercise) => sum + (exercise.sets || []).length,
+        0,
+      );
+      const completedSets = snapshotExercises.reduce(
+        (sum, exercise) =>
+          sum + getExerciseLoadMetrics(exercise, catalogIndex).completedSets,
+        0,
+      );
+      const progress = plannedSets
+        ? Math.round((completedSets / plannedSets) * 100)
+        : 0;
+      const routine =
+        activeTrainingSnapshot.selectedRoutine ||
+        routines.find(
+          (item) =>
+            String(item.id || item._id) ===
+            String(activeTrainingSnapshot.selectedRoutineId),
+        );
+      return {
+        type: "active",
+        tone: "warning",
+        eyebrow: "Entrenamiento en curso",
+        title: routine?.name || "Continúa donde lo dejaste",
+        description:
+          "Tu sesión sigue guardada. Retómala sin perder el progreso registrado.",
+        meta: [
+          formatExerciseCount(snapshotExercises.length),
+          `${completedSets} de ${plannedSets} series`,
+          formatDashboardDuration(
+            activeTrainingSnapshot.elapsed ||
+              activeTrainingSnapshot.durationSeconds,
+          ),
+        ].filter(Boolean),
+        progress,
+        primaryLabel: "Continuar entrenamiento",
+      };
+    }
+
+    if (latestCompletedToday) {
+      const durationSeconds = getEffectiveDurationSeconds(latestCompletedToday);
+      return {
+        type: "completed",
+        tone: "success",
+        eyebrow:
+          completedTodayTrainings.length > 1
+            ? `${completedTodayTrainings.length} sesiones completadas hoy`
+            : "Listo por hoy",
+        title: `${getRoutineName(latestCompletedToday)} completada`,
+        description:
+          "Buen trabajo. Tu actividad y recuperación ya incluyen esta sesión.",
+        meta: [
+          `${getTrainingSetCount(latestCompletedToday, catalogIndex)} series`,
+          durationSeconds
+            ? formatDashboardDuration(durationSeconds)
+            : "Duración no registrada",
+          formatExerciseCount(latestCompletedToday.exercises?.length || 0),
+        ],
+        primaryLabel: "Ver resumen",
+        secondaryLabel: "Registrar otra sesión",
+      };
+    }
+
+    if (activePlan && recovery.isPlannedRest) {
+      const activeRecovery = recovery.scheduledDay?.type === "recovery";
+      return {
+        type: "rest",
+        tone: "success",
+        eyebrow: activeRecovery ? "Recuperación programada" : "Día de descanso",
+        title: activeRecovery ? "Hoy toca recuperar" : "Hoy toca descansar",
+        description: activeRecovery
+          ? "Tu planificación reservó el día para recuperar y llegar mejor a la próxima sesión."
+          : "El descanso también forma parte del progreso. Evita sumar carga sin necesidad.",
+        mobileDescription: activeRecovery
+          ? "Movilidad suave y recuperación para llegar mejor a tu próxima sesión."
+          : "Recupera hoy para llegar mejor a tu próxima sesión.",
+        meta: [
+          plannedRestNextRoutine
+            ? `Próxima: ${plannedRestNextRoutine.name}`
+            : activeRecovery
+              ? "Recuperación activa"
+              : activePlan.name,
+        ].filter(Boolean),
+        primaryLabel: "Ver recuperación",
+        secondaryLabel: "Entrenar de todos modos",
+        secondaryMobileLabel: "Entrenar",
+      };
+    }
+
+    if (recovery.scheduledRoutine) {
+      const routine =
+        routines.find(
+          (item) =>
+            String(item.id || item._id) ===
+            String(recovery.scheduledRoutine.id),
+        ) || {};
+      const plannedSets = getRoutinePlannedSets(routine);
+      const duration = getRoutineEstimatedMinutes(routine);
+      const fixedSchedule = activePlan?.scheduleMode === "fixed";
+      return {
+        type: "scheduled",
+        tone: recovery.scheduledRoutine.value < 55 ? "warning" : "accent",
+        eyebrow: fixedSchedule ? "Rutina de hoy" : "Siguiente en tu plan",
+        title: `${fixedSchedule ? "Hoy toca" : "Tu próxima rutina:"} ${recovery.scheduledRoutine.name}`,
+        description: fixedSchedule
+          ? "Tu planificación marca esta rutina para hoy. Todo está preparado para comenzar."
+          : "Continúa el orden de tu ciclo con esta rutina.",
+        meta: [
+          recovery.scheduledRoutine.muscles.slice(0, 4).join(" · "),
+          plannedSets ? `${plannedSets} series` : null,
+          duration ? `${duration} min aprox.` : null,
+          `${recovery.scheduledRoutine.value}% de compatibilidad muscular`,
+        ].filter(Boolean),
+        primaryLabel: "Iniciar entrenamiento",
+        secondaryLabel: "Ver recuperación",
+      };
+    }
+
+    const hasRoutines = routines.length > 0;
+    return {
+      type: "empty",
+      tone: "accent",
+      eyebrow: activePlan ? "Planificación pendiente" : "Tu próximo paso",
+      title: hasRoutines
+        ? "Elige tu entrenamiento de hoy"
+        : "Crea tu primera rutina",
+      description: hasRoutines
+        ? "No hay una rutina asignada para hoy. Puedes elegir una de tus rutinas disponibles."
+        : "Prepara una rutina para empezar a registrar tu progreso.",
+      meta: hasRoutines ? [formatSessionCount(weekData.sessions)] : [],
+      primaryLabel: hasRoutines ? "Elegir rutina" : "Crear rutina",
+      secondaryLabel: hasRoutines ? "Ver rutinas" : null,
+    };
+  }, [
+    activePlan,
+    activeTrainingSnapshot,
+    catalogIndex,
+    completedTodayTrainings.length,
+    isAdminDatePreview,
+    latestCompletedToday,
+    plannedRestNextRoutine,
+    recovery,
+    routines,
+    weekData.sessions,
+  ]);
+
+  const openFreeTraining = () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("training_plan_routine_intent");
+    }
+    onNavigate("registrar");
+  };
+
+  const handleTodayPrimary = () => {
+    if (todayAction.type === "active") {
+      onNavigate("registrar");
+      return;
+    }
+    if (todayAction.type === "completed") {
+      const trainingId =
+        latestCompletedToday?.id || latestCompletedToday?._id || "";
+      if (trainingId && typeof localStorage !== "undefined") {
+        localStorage.setItem("last_training_id", String(trainingId));
+      }
+      onNavigate("resumen_sesion", { trainingId });
+      return;
+    }
+    if (todayAction.type === "rest") {
+      setRecoveryModalOpen(true);
+      return;
+    }
+    if (todayAction.type === "scheduled") {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(
+          "training_plan_routine_intent",
+          JSON.stringify({
+            routineId: recovery.scheduledRoutine.id,
+            planId: activePlan?._id || activePlan?.id || "",
+            slotId: recovery.scheduledDay?.slotId || "",
+            createdAt: Date.now(),
+          }),
+        );
+      }
+      onNavigate("registrar");
+      return;
+    }
+    if (routines.length) openFreeTraining();
+    else onNavigate("rutinas");
+  };
+
+  const handleTodaySecondary = () => {
+    if (todayAction.type === "scheduled") {
+      setRecoveryModalOpen(true);
+      return;
+    }
+    if (todayAction.type === "completed" || todayAction.type === "rest") {
+      openFreeTraining();
+      return;
+    }
+    if (todayAction.type === "empty") onNavigate("rutinas");
+  };
+
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
 
@@ -2186,7 +3120,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         delayMs={0}
         mode="inline"
         title="Cargando tu actividad"
-        description="Sincronizando entrenamientos y metricas del dashboard."
+        description="Sincronizando entrenamientos y métricas del dashboard."
       />
     );
   }
@@ -2226,7 +3160,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       initial={false}
       className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
-      <header className="dashboard-pilot__header flex items-center justify-between gap-3 border-b border-transparent pb-3 dark:border-[#252525] dark:pb-4">
+      <header className="dashboard-pilot__header relative z-40 flex items-center justify-between gap-3 border-b border-transparent pb-3 dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />
           <div className="min-w-0">
@@ -2237,17 +3171,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 PERFORMANCE
               </span>
             </h1>
-            <p className="dashboard-pilot__period mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-              Semana activa · {weekData.days[0]?.key?.slice(8)}–
-              {weekData.days[6]?.key?.slice(8)}{" "}
-              {titleCase(
-                now.toLocaleDateString("es-BO", { month: "short" }),
-              ).replace(".", "")}
-            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {isAdmin ? (
+            <AdminDateControl
+              value={todayKey}
+              actualDateKey={systemTodayKey}
+              onChange={setDashboardDateKey}
+            />
+          ) : null}
           {needsDailyWeighIn ? (
             <button
               type="button"
@@ -2263,28 +3197,59 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               />
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => onNavigate("registrar")}
-            className="dashboard-pilot__action grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#1a1a1a] shadow-sm dark:text-[#e2ff00] dark:shadow-none"
-            aria-label="Registrar entrenamiento"
-          >
-            <Play className="h-5 w-5" />
-          </button>
           <ThemeToggle />
         </div>
       </header>
 
-      <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
-        Rendimiento semanal
-      </p>
+      {isAdminDatePreview ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent-soft)] px-3 py-2 text-[color:var(--text)]">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <CalendarDays className="h-4 w-4 shrink-0 text-[color:var(--accent-strong)]" />
+            <p className="truncate text-[11px] font-bold">
+              Vista administrativa · {formatAdminPreviewDate(todayKey)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDashboardDateKey(systemTodayKey)}
+            className="shrink-0 text-[10px] font-black uppercase text-[color:var(--accent-strong)]"
+          >
+            Volver a hoy
+          </button>
+        </div>
+      ) : null}
+
+      <TodayActionCard
+        action={todayAction}
+        onPrimary={handleTodayPrimary}
+        onSecondary={handleTodaySecondary}
+        readOnly={isAdminDatePreview}
+      />
+      <WeekStrip days={weekData.days} />
+      <div className="flex items-center justify-between gap-3">
+        <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
+          Rendimiento semanal
+        </p>
+        <button
+          type="button"
+          onClick={() => setWeeklyDetailsOpen((current) => !current)}
+          aria-expanded={weeklyDetailsOpen}
+          aria-controls="weekly-extra-metrics"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
+        >
+          {weeklyDetailsOpen ? "Ocultar" : "Ver todas"}
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${weeklyDetailsOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Dias activos"
+          label="Días entrenados"
           value={`${weekData.activeDays}/7`}
           icon={CalendarDays}
-          tone="emerald"
+          tone="accent"
           primary
         >
           <div className="mt-3 grid grid-cols-7 gap-1">
@@ -2297,22 +3262,32 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           </div>
         </StatCard>
         <StatCard
-          label="Sesiones"
-          value={weekData.sessions}
-          icon={BarChart3}
-          tone="blue"
-        />
-        <StatCard
-          label="Tiempo de sesión"
+          label="Tiempo semanal"
           value={formatDashboardDuration(weekData.totalSeconds)}
           icon={Clock3}
           tone="amber"
           onClick={() => setDurationModalOpen(true)}
         />
+        <StatCard
+          label="Calorías quemadas"
+          value={
+            weeklyCalories.available ? `~${weeklyCalories.calories}` : "--"
+          }
+          suffix={weeklyCalories.available ? "kcal" : ""}
+          icon={Flame}
+          tone="accent"
+          onClick={() => setCaloriesModalOpen(true)}
+        >
+          <p className="mt-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
+            {weeklyCalories.available
+              ? `${weeklyCalories.minCalories}–${weeklyCalories.maxCalories} kcal · ${formatSessionCount(weeklyCalories.sessions)}`
+              : "Completa una sesión para calcularlas"}
+          </p>
+        </StatCard>
         <article className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Vs anterior
+              Comparación por ejercicio
             </p>
             <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
           </div>
@@ -2323,10 +3298,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               className="border-r border-[color:var(--border)] px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-red-300">
-                Bajamos
+                Marca menor
               </p>
               <p className="mt-1 text-2xl font-black text-[#1a1a1a] dark:text-red-300">
-                {formatSignedCount(weekData.declines?.length, "-")}
+                {Math.max(0, Number(weekData.declines?.length) || 0)}
               </p>
             </button>
             <button
@@ -2335,19 +3310,66 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               className="px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
             >
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
-                Subimos
+                Marca mejor
               </p>
               <p className="mt-1 text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
-                {formatSignedCount(weekData.improvements?.length, "+")}
+                {Math.max(0, Number(weekData.improvements?.length) || 0)}
               </p>
             </button>
           </div>
         </article>
       </div>
 
-      <WeekStrip days={weekData.days} />
+      {weeklyDetailsOpen ? (
+        <div id="weekly-extra-metrics" className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setWeeklyLoadModalOpen(true)}
+            aria-label={`Ver detalle del peso levantado: ${formatLiftedWeight(weeklyLoad.current)}`}
+            className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                Peso levantado
+              </p>
+              <TrendingUp className="h-3.5 w-3.5 text-[color:var(--accent-strong)]" />
+            </div>
+            <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
+              {formatLiftedWeight(weeklyLoad.current)}
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+              Peso libre × repeticiones ·{" "}
+              {formatSessionCount(weeklyLoad.sessions)}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setWeeklySetsModalOpen(true)}
+            aria-label={`Ver detalle del trabajo semanal: ${weeklySets.total} series completadas`}
+            className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                Trabajo semanal
+              </p>
+              <ListChecks className="h-3.5 w-3.5 text-[color:var(--accent-strong)]" />
+            </div>
+            <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
+              {weeklySets.total} series
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+              {formatSessionCount(weeklySets.sessions)} ·{" "}
+              {weeklySets.statusLabel}
+            </p>
+          </button>
+        </div>
+      ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-2">
+      <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
+        Recuperación actual
+      </p>
+
+      <div>
         <button
           type="button"
           onClick={() =>
@@ -2360,77 +3382,96 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="dashboard-pilot__card dashboard-pilot__recovery col-span-2 row-span-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none lg:col-span-1"
+          className="dashboard-pilot__card dashboard-pilot__recovery w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
         >
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Recovery
-            </p>
-            <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
-          </div>
-          <div className="mt-5 grid place-items-center">
-            <div
-              className="dashboard-pilot__recovery-ring grid h-36 w-36 place-items-center rounded-full p-[9px]"
-              style={{
-                background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recovery.value : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
-              }}
-            >
-              <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
-                <span className="text-[34px] font-black text-[color:var(--text)]">
-                  {hasTrainingHistory ? `${recovery.value}%` : "--"}
-                </span>
+          {isPostWorkout ? (
+            <div className="flex items-center gap-3 text-left">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                <Check className="h-5 w-5" strokeWidth={3} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Después de {getRoutineName(latestCompletedToday)}
+                </p>
+                <p className="mt-0.5 text-base font-black text-[color:var(--text)]">
+                  Recuperación en curso
+                </p>
+                <p className="mt-0.5 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+                  {postWorkoutPriorityMuscles.length
+                    ? `${postWorkoutPriorityMuscles.map((muscle) => muscle.muscle).join(" y ")} necesitan más descanso.`
+                    : "Tu cuerpo ya está procesando la carga de la sesión."}
+                </p>
+              </div>
+              <div className="max-w-[34%] shrink-0 text-right">
+                <p className="text-[8px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Próxima
+                </p>
+                <p className="mt-0.5 truncate text-xs font-black text-[color:var(--accent-strong)]">
+                  {postWorkoutNextRoutine?.name || "Por definir"}
+                </p>
               </div>
             </div>
-          </div>
-          <p className="mt-4 text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {hasTrainingHistory
-              ? recovery.recommended
-                ? `Mejor hoy: ${recovery.recommended.name}`
-                : recovery.label
-              : "Registra tu primera sesión"}
-          </p>
-          {hasTrainingHistory && recovery.activePlan ? (
-            <p className="mt-1 truncate text-center text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
-              {recovery.activePlan.name}
-            </p>
-          ) : null}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setWeeklyLoadModalOpen(true)}
-          className="dashboard-pilot__card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Tonelaje libre
-            </p>
-            <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-            {formatCompact(weeklyLoad.current)} kg
-          </p>
-          <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {weeklyLoad.changeLabel}
-          </p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setWeeklySetsModalOpen(true)}
-          className="dashboard-pilot__card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Series completadas
-            </p>
-            <ListChecks className="h-3.5 w-3.5 text-[#5f5f5f] dark:text-[#e2ff00]" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-            {weeklySets.total}
-          </p>
-          <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-            {weeklySets.statusLabel} · {weeklySets.diffLabel}
-          </p>
+          ) : isPlannedRestDay ? (
+            <div className="flex items-center gap-3 text-left">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                <Gauge className="h-5 w-5" strokeWidth={2.4} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Día de descanso
+                </p>
+                <p className="mt-0.5 text-base font-black text-[color:var(--text)]">
+                  Recuperación programada
+                </p>
+                <p className="mt-0.5 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+                  Sin otra sesión necesaria hoy.
+                </p>
+              </div>
+              <div className="max-w-[34%] shrink-0 text-right">
+                <p className="text-[8px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Próxima
+                </p>
+                <p className="mt-0.5 truncate text-xs font-black text-[color:var(--accent-strong)]">
+                  {plannedRestNextRoutine?.name || "Por definir"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Disponibilidad muscular
+                </p>
+                <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+              </div>
+              <div className="mt-5 grid place-items-center">
+                <div
+                  className="dashboard-pilot__recovery-ring grid h-36 w-36 place-items-center rounded-full p-[9px]"
+                  style={{
+                    background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
+                  }}
+                >
+                  <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
+                    <span className="text-[34px] font-black text-[color:var(--text)]">
+                      {hasTrainingHistory ? `${recoveryDisplayValue}%` : "--"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-4 text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
+                {hasTrainingHistory
+                  ? recovery.recommended
+                    ? `Para ${recovery.recommended.name}`
+                    : recovery.label
+                  : "Registra tu primera sesión"}
+              </p>
+              {hasTrainingHistory && recovery.activePlan ? (
+                <p className="mt-1 truncate text-center text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                  {recovery.activePlan.name}
+                </p>
+              ) : null}
+            </>
+          )}
         </button>
       </div>
 
@@ -2442,7 +3483,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       />
 
       <CollapsibleSection
-        title="Ultimos 3 meses"
+        title="Últimos 3 meses"
         subtitle={selectedMonthDetail ? "Mes seleccionado" : "Tendencia"}
         meta={`${formatCompact(threeMonthSummary.reduce((sum, item) => sum + item.volume, 0))} kg`}
         open={isThreeMonthsOpen}
@@ -2504,7 +3545,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 tooltip={({ data }) => (
                   <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs text-[color:var(--text)] shadow-xl">
                     <strong>{data.month}</strong>
-                    <p>{data.sessions} sesiones</p>
+                    <p>{formatSessionCount(data.sessions)}</p>
                     <p>{formatCompact(data.volume)} kg</p>
                     <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
                       Toca para ver detalle
@@ -2527,7 +3568,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                       {month.month}
                     </p>
                     <p className="text-xs font-black text-[#ff5722] dark:text-[#e2ff00]">
-                      {month.sessions} sesiones
+                      {formatSessionCount(month.sessions)}
                     </p>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-[color:var(--text-muted)]">
@@ -2552,21 +3593,29 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               setRecoveryModalOpen(false);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Recovery
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  {isPostWorkout
+                    ? "Recuperación post-entrenamiento"
+                    : isPlannedRestDay
+                      ? "Recuperación programada"
+                      : "Estado de recuperación"}
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  {recovery.value}% -{" "}
-                  {recovery.recommended
-                    ? `Mejor hoy: ${recovery.recommended.name}`
-                    : recovery.label}
+                  {isPostWorkout
+                    ? `Después de ${getRoutineName(latestCompletedToday)}`
+                    : isPlannedRestDay
+                      ? "Hoy toca descansar"
+                      : "Tu disponibilidad para hoy"}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {recovery.recommendationReason}. Se compara la exposición
-                  muscular reciente con tu carga habitual.
+                  {isPostWorkout
+                    ? "Tu sesión de hoy ya está completa. Esta lectura prepara tu próximo entrenamiento."
+                    : isPlannedRestDay
+                      ? "Tu plan reservó este día para recuperar y llegar mejor a la próxima sesión."
+                      : "Estimación basada en tu actividad y carga muscular reciente."}
                 </p>
               </div>
               <button
@@ -2580,106 +3629,298 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="grid grid-cols-2 gap-3">
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Ultima sesion
+              {isPostWorkout ? (
+                <section className="rounded-2xl bg-[color:var(--bg)] p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                      <Check className="h-6 w-6" strokeWidth={3} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                        Sesión completada hoy
+                      </p>
+                      <p className="mt-1 truncate text-2xl font-black text-[color:var(--text)]">
+                        {getRoutineName(latestCompletedToday)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-4 border-l-2 border-[color:var(--accent)] pl-3 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                    Tu recuperación ya comenzó. Los porcentajes siguientes
+                    describen grupos musculares y rutinas concretas, no tu
+                    recuperación general.
                   </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {recovery.daysSinceLast == null
-                      ? "--"
-                      : recovery.daysSinceLast === 0
-                        ? "Hoy"
-                        : `${recovery.daysSinceLast} d`}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                      {getTrainingSetCount(latestCompletedToday, catalogIndex)}{" "}
+                      series
+                    </span>
+                    <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                      {formatDashboardDuration(
+                        getEffectiveDurationSeconds(latestCompletedToday),
+                      )}
+                    </span>
+                    <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                      {formatExerciseCount(
+                        latestCompletedToday.exercises?.length || 0,
+                      )}
+                    </span>
+                  </div>
+                </section>
+              ) : isPlannedRestDay ? (
+                <section className="rounded-2xl bg-[color:var(--bg)] p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                      <Gauge className="h-6 w-6" strokeWidth={2.4} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                        Descanso programado
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-[color:var(--text)]">
+                        Recuperación en curso
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-4 border-l-2 border-[color:var(--accent)] pl-3 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                    Que algunos grupos musculares estén disponibles no significa
+                    que debas añadir otra sesión hoy. Mantén el descanso
+                    previsto por tu plan.
                   </p>
-                  <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    {recovery.lastTraining
-                      ? getRoutineName(recovery.lastTraining)
-                      : "Sin datos"}
-                  </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Racha
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {recovery.consecutiveDays} d
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    dias consecutivos
-                  </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Series completadas
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatSeriesCount(recovery.weeklySets)}
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    semana activa
-                  </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Tiempo semanal
-                  </p>
-                  <p className="mt-2 text-xl font-black text-[color:var(--text)]">
-                    {formatDashboardDuration(recovery.weeklySeconds)}
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    acumulado
-                  </p>
-                </article>
-              </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {recovery.activePlan ? (
+                      <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                        {recovery.activePlan.name}
+                      </span>
+                    ) : null}
+                    {plannedRestNextRoutine ? (
+                      <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
+                        Próxima: {plannedRestNextRoutine.name}
+                      </span>
+                    ) : null}
+                  </div>
+                </section>
+              ) : (
+                <section className="rounded-2xl bg-[color:var(--bg)] p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                        Disponibilidad para{" "}
+                        {recovery.recommended?.name || "entrenar"}
+                      </p>
+                      <p className="mt-1 text-4xl font-black tracking-tight text-[color:var(--text)]">
+                        {recoveryDisplayValue}%
+                      </p>
+                    </div>
+                    <span
+                      className="max-w-[55%] rounded-full px-3 py-1.5 text-right text-[10px] font-black uppercase"
+                      style={{
+                        backgroundColor:
+                          recoveryDisplayValue >= 70
+                            ? "var(--accent-soft)"
+                            : recoveryDisplayValue >= 55
+                              ? "var(--warning-soft)"
+                              : "var(--danger-soft)",
+                        color:
+                          recoveryDisplayValue >= 70
+                            ? "var(--accent-strong)"
+                            : recoveryDisplayValue >= 55
+                              ? "var(--warning)"
+                              : "var(--danger)",
+                      }}
+                    >
+                      {getRecoveryLabel(recoveryDisplayValue)}
+                    </span>
+                  </div>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
+                  <div
+                    className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--border)]"
+                    role="img"
+                    aria-label={`${recoveryDisplayValue}% de compatibilidad muscular estimada`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-[color:var(--accent)]"
+                      style={{ width: `${recoveryDisplayValue}%` }}
+                    />
+                  </div>
+
+                  <div className="mt-4 border-l-2 border-[color:var(--accent)] pl-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--accent-strong)]">
+                      Recomendación de hoy
+                    </p>
+                    <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                      {recovery.recommended
+                        ? recovery.recommended.name
+                        : recovery.label}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                      {recovery.recommendationReason}.
+                    </p>
+                  </div>
+                </section>
+              )}
+
+              {!isPostWorkout && !isPlannedRestDay ? (
+                <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[color:var(--border)] py-4 sm:grid-cols-4 sm:gap-4">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Última sesión
+                    </p>
+                    <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                      {recovery.daysSinceLast == null
+                        ? "--"
+                        : recovery.daysSinceLast === 0
+                          ? "Hoy"
+                          : `${recovery.daysSinceLast} d`}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      {recovery.lastTraining
+                        ? getRoutineName(recovery.lastTraining)
+                        : "Sin datos"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Racha actual
+                    </p>
+                    <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                      {recovery.consecutiveDays} d
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      consecutivos
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Series
+                    </p>
+                    <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                      {formatSeriesCount(recovery.weeklySets)}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      esta semana
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                      Tiempo
+                    </p>
+                    <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                      {formatDashboardDuration(recovery.weeklySeconds)}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      esta semana
+                    </p>
+                  </div>
+                </section>
+              ) : null}
+
+              <RecoveryInsightSection
+                insights={recovery.recoveryInsights}
+                isPostWorkout={isPostWorkout}
+                isPlannedRestDay={isPlannedRestDay}
+              />
+
+              {isPostWorkout || isPlannedRestDay ? (
+                <RecoveryMuscleSection
+                  muscles={recoveryMusclesForDisplay}
+                  prioritizeRecovery
+                />
+              ) : null}
+
+              <section className="mt-5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                    Si entrenas hoy
-                  </p>
-                  <span className="rounded bg-[#fff0eb] px-2 py-1 text-[10px] font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
+                  <div>
+                    <h3 className="text-sm font-black text-[color:var(--text)]">
+                      {isPostWorkout || isPlannedRestDay
+                        ? "Próxima rutina del plan"
+                        : "Disponibilidad por rutina"}
+                    </h3>
+                    <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                      {isPostWorkout || isPlannedRestDay
+                        ? "Vuelve a consultar esta estimación antes de entrenar."
+                        : "Compara antes de elegir tu entrenamiento."}
+                    </p>
+                  </div>
+                  <span className="max-w-[45%] truncate rounded-full bg-[color:var(--accent-soft)] px-2.5 py-1 text-[9px] font-black uppercase text-[color:var(--accent-strong)]">
                     {recovery.activePlan?.name || "Sin plan vigente"}
                   </span>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {recovery.routineReadiness.length ? (
-                    recovery.routineReadiness.map((routine) => (
-                      <article
-                        key={routine.name}
-                        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
+                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                  {(isPostWorkout || isPlannedRestDay
+                    ? [futurePlanRoutine].filter(Boolean)
+                    : recoveryRoutinesForDisplay
+                  ).length ? (
+                    (isPostWorkout || isPlannedRestDay
+                      ? [futurePlanRoutine].filter(Boolean)
+                      : recoveryRoutinesForDisplay
+                    ).map((routine) => (
+                      <article key={routine.name} className="py-3">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-[color:var(--text)]">
-                              {routine.name}
-                            </p>
-                            <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
-                              {routine.muscles.join(" / ")}
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-black text-[color:var(--text)]">
+                                {routine.name}
+                              </p>
+                              {(
+                                isPostWorkout || isPlannedRestDay
+                                  ? futurePlanRoutine?.id === routine.id
+                                  : recovery.recommended?.id === routine.id
+                              ) ? (
+                                <span className="shrink-0 rounded-full bg-[color:var(--accent-soft)] px-2 py-0.5 text-[8px] font-black uppercase text-[color:var(--accent-strong)]">
+                                  {isPostWorkout || isPlannedRestDay
+                                    ? "Próxima"
+                                    : "Recomendada"}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+                              {routine.muscles.join(" · ")}
                             </p>
                           </div>
                           <span
-                            className={`shrink-0 rounded-xl px-3 py-2 text-sm font-black ${
-                              routine.value >= 70
-                                ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
-                                : "bg-red-500/10 text-red-700 dark:text-red-300"
-                            }`}
+                            className="shrink-0 text-sm font-black"
+                            style={{
+                              color:
+                                routine.value >= 70
+                                  ? "var(--accent-strong)"
+                                  : routine.value >= 55
+                                    ? "var(--warning)"
+                                    : "var(--danger)",
+                            }}
                           >
                             {routine.value}%
                           </span>
                         </div>
-                        <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-bold text-[color:var(--text-muted)]">
-                          <span>{routine.label}</span>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${routine.value}%`,
+                              backgroundColor:
+                                routine.value >= 70
+                                  ? "var(--accent)"
+                                  : routine.value >= 55
+                                    ? "var(--warning)"
+                                    : "var(--danger)",
+                            }}
+                          />
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
                           <span>
+                            {isPostWorkout || isPlannedRestDay
+                              ? `Compatibilidad muscular actual · ${getPostWorkoutRecoveryLabel(routine.value)}`
+                              : routine.label}
+                          </span>
+                          <span className="text-right">
                             {routine.limitingMuscle
                               ? `Limita: ${routine.limitingMuscle.muscle}`
-                              : "Sin limite claro"}
+                              : "Sin limitantes"}
                           </span>
                         </div>
                       </article>
                     ))
                   ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
                       {recovery.activePlan
                         ? "El plan vigente no tiene rutinas disponibles para sugerir."
                         : "Activa una planificación para recibir sugerencias de rutina."}
@@ -2688,83 +3929,217 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 </div>
               </section>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Grupos musculares
+              {!isPostWorkout && !isPlannedRestDay ? (
+                <RecoveryMuscleSection muscles={recoveryMusclesForDisplay} />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <CalorieEstimateModal
+        open={caloriesModalOpen}
+        onClose={() => setCaloriesModalOpen(false)}
+        summary={weeklyCalories}
+        estimates={weeklyCalorieEstimates}
+        periodLabel="Semana actual"
+      />
+
+      {weeklyLoadModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Detalle del peso levantado"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget)
+              setWeeklyLoadModalOpen(false);
+          }}
+        >
+          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  Peso levantado
                 </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {recovery.muscleReadiness.length ? (
-                    recovery.muscleReadiness.map((muscle) => (
-                      <article
-                        key={muscle.muscle}
-                        className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-xs font-black text-[color:var(--text)]">
-                            {muscle.muscle}
-                          </p>
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-black ${
-                              muscle.value >= 70
-                                ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
-                                : "bg-red-500/10 text-red-700 dark:text-red-300"
-                            }`}
-                          >
-                            {muscle.value}%
-                          </span>
-                        </div>
-                        <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                          {muscle.daysSinceLast === 0
-                            ? "Entrenado hoy"
-                            : muscle.daysSinceLast === 1
-                              ? "Entrenado ayer"
-                              : `${muscle.daysSinceLast} dias`}
-                        </p>
-                        <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-                          Último: {formatEquivalentSeries(muscle.latestSets)} ·
-                          habitual:{" "}
-                          {muscle.typicalSets
-                            ? formatEquivalentSeries(muscle.typicalSets)
-                            : "--"}
-                        </p>
-                      </article>
-                    ))
-                  ) : (
-                    <p className="col-span-2 text-sm font-semibold text-[color:var(--text-muted)]">
-                      Sin grupos musculares registrados.
+                <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
+                  Tu carga con peso libre
+                </h2>
+                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                  {weeklyLoad.description}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWeeklyLoadModalOpen(false)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
+              <section className="rounded-2xl bg-[color:var(--bg)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                      Acumulado esta semana
                     </p>
-                  )}
+                    <p className="mt-1 text-4xl font-black tracking-tight text-[color:var(--text)]">
+                      {formatLiftedWeight(weeklyLoad.current)}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-[10px] font-black text-[color:var(--text-muted)]">
+                    {weeklyLoad.changeLabel}
+                  </span>
+                </div>
+                <p className="mt-4 border-l-2 border-[color:var(--accent)] pl-3 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                  Ejemplo: 10 repeticiones con 20 kg suman 200 kg. Usa este dato
+                  para observar tu tendencia, no como una marca máxima.
+                </p>
+              </section>
+
+              <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[color:var(--border)] py-4 sm:grid-cols-4 sm:gap-4">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Sesiones
+                  </p>
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {weeklyLoad.sessions}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    esta semana
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Por sesión
+                  </p>
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {formatLiftedWeight(weeklyLoad.averagePerSession)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    promedio
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Semana anterior
+                  </p>
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {formatLiftedWeight(weeklyLoad.previousTotal)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    {formatSessionCount(weeklyLoad.previousSessions)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Antes por sesión
+                  </p>
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {formatLiftedWeight(weeklyLoad.previousAveragePerSession)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    promedio
+                  </p>
                 </div>
               </section>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Factores
-                </p>
-                <div className="mt-3 space-y-2">
-                  {recovery.factors.length ? (
-                    recovery.factors.map((factor) => (
+              <section className="mt-5">
+                <div>
+                  <h3 className="text-sm font-black text-[color:var(--text)]">
+                    Otros tipos de ejercicio
+                  </h3>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Se separan porque no se comparan igual que el peso libre.
+                  </p>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-x-6 border-y border-[color:var(--border)] sm:grid-cols-4 sm:gap-4">
+                  <div className="py-3">
+                    <p className="text-[10px] font-black text-[color:var(--text)]">
+                      Máquinas
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--accent-strong)]">
+                      {formatLiftedWeight(weeklyLoad.loadMetrics.machineKg)}
+                    </p>
+                    <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      {weeklyLoad.loadMetrics.machineSets} series
+                    </p>
+                  </div>
+                  <div className="py-3">
+                    <p className="text-[10px] font-black text-[color:var(--text)]">
+                      Peso corporal
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--accent-strong)]">
+                      {weeklyLoad.loadMetrics.bodyweightSets} series
+                    </p>
+                    <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      sin carga externa
+                    </p>
+                  </div>
+                  <div className="py-3">
+                    <p className="text-[10px] font-black text-[color:var(--text)]">
+                      Asistidos
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--accent-strong)]">
+                      {weeklyLoad.loadMetrics.assistedSets} series
+                    </p>
+                    <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      con ayuda
+                    </p>
+                  </div>
+                  <div className="py-3">
+                    <p className="text-[10px] font-black text-[color:var(--text)]">
+                      Sin clasificar
+                    </p>
+                    <p className="mt-1 text-sm font-black text-[color:var(--accent-strong)]">
+                      {weeklyLoad.loadMetrics.unknownSets} series
+                    </p>
+                    <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                      revisa el tipo
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mt-5">
+                <div>
+                  <h3 className="text-sm font-black text-[color:var(--text)]">
+                    Peso levantado por rutina
+                  </h3>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Identifica qué entrenamiento aportó más carga.
+                  </p>
+                </div>
+                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                  {weeklyLoad.byRoutine.length ? (
+                    weeklyLoad.byRoutine.map((item) => (
                       <div
-                        key={`${factor.label}-${factor.impact}`}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
+                        key={item.key}
+                        className="flex items-center justify-between gap-3 py-3"
                       >
-                        <p className="text-sm font-bold text-[color:var(--text)]">
-                          {factor.label}
-                        </p>
-                        <span
-                          className={`rounded-full px-2 py-1 text-[10px] font-black ${
-                            factor.impact.startsWith("+")
-                              ? "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
-                              : "bg-red-500/10 text-red-700 dark:text-red-300"
-                          }`}
-                        >
-                          {factor.impact}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {item.name}
+                          </p>
+                          <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                            {formatSessionCount(item.sessions)} ·{" "}
+                            {item.completedSets} series
+                            {item.machineKg
+                              ? ` · Máquinas ${formatLiftedWeight(item.machineKg)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-black text-[color:var(--accent-strong)]">
+                          {formatLiftedWeight(item.externalKg)}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                      Sin factores relevantes por ahora.
+                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                      No hay rutinas registradas esta semana.
                     </p>
                   )}
                 </div>
@@ -2772,156 +4147,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
           </div>
         </div>
-      ) : null}
-
-      {weeklyLoadModalOpen ? (
-        <DetailSheet
-          ariaLabel="Detalle de tonelaje libre semanal"
-          onClose={() => setWeeklyLoadModalOpen(false)}
-        >
-          <DetailSheetHeader
-            eyebrow="Tonelaje libre semanal"
-            title={
-              <>
-                {formatCompact(weeklyLoad.current)} kg ·{" "}
-                {weeklyLoad.changeLabel}
-              </>
-            }
-            description={weeklyLoad.description}
-            onClose={() => setWeeklyLoadModalOpen(false)}
-          />
-
-          <DetailSheetBody>
-            <DetailModule>
-              <DetailStatGrid className="grid-cols-2 sm:grid-cols-3">
-                <DetailStat
-                  label="Esta semana"
-                  value={`${formatCompact(weeklyLoad.current)} kg`}
-                />
-                <DetailStat
-                  label="Semana anterior"
-                  value={`${formatCompact(weeklyLoad.previousTotal)} kg`}
-                />
-                <DetailStat
-                  label="Comparable"
-                  value={`${formatCompact(weeklyLoad.comparableCurrent)} kg`}
-                  className="col-span-2 sm:col-span-1"
-                />
-              </DetailStatGrid>
-              <p className="mt-4 border-t border-[color:var(--detail-row-divider)] pt-3 text-xs font-semibold text-[color:var(--text-muted)]">
-                Progresión comparable: {weeklyLoad.progressionChangeLabel}
-                {weeklyLoad.hasProgressionReference
-                  ? ` · base ${formatCompact(weeklyLoad.previous)} kg`
-                  : ""}
-              </p>
-            </DetailModule>
-
-            <DetailSection title="Otras modalidades">
-              <DetailStatGrid className="grid-cols-2">
-                <DetailStat
-                  label="Máquinas"
-                  value={`${formatCompact(weeklyLoad.loadMetrics.machineKg)} kg`}
-                  detail={`${weeklyLoad.loadMetrics.machineSets} series`}
-                />
-                <DetailStat
-                  label="Peso corporal"
-                  value={`${weeklyLoad.loadMetrics.bodyweightSets} series`}
-                />
-                <DetailStat
-                  label="Asistencia"
-                  value={`${weeklyLoad.loadMetrics.assistedSets} series`}
-                  detail={`${formatCompact(weeklyLoad.loadMetrics.assistanceKg)} kg`}
-                />
-                <DetailStat
-                  label="Sin clasificar"
-                  value={`${weeklyLoad.loadMetrics.unknownSets} series`}
-                  detail={`${formatCompact(weeklyLoad.loadMetrics.unknownKg)} kg`}
-                />
-              </DetailStatGrid>
-            </DetailSection>
-
-            <DetailSection title="Exposición muscular estimada">
-              {weeklyLoad.byMuscle.length ? (
-                <DetailRows>
-                  {weeklyLoad.byMuscle.map((item) => (
-                    <DetailRow key={item.muscle}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-bold text-[color:var(--text)]">
-                          {item.muscle}
-                        </p>
-                        <p className="text-sm font-bold text-[color:var(--accent)]">
-                          {formatEquivalentSeries(item.equivalentSets)}
-                        </p>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color:var(--detail-row-divider)]">
-                        <div
-                          className="h-full rounded-full bg-[color:var(--accent)]"
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              weeklyLoad.byMuscle[0]?.equivalentSets
-                                ? (item.equivalentSets /
-                                    weeklyLoad.byMuscle[0].equivalentSets) *
-                                    100
-                                : 0,
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </DetailRow>
-                  ))}
-                </DetailRows>
-              ) : (
-                <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                  No hay series completadas esta semana.
-                </p>
-              )}
-            </DetailSection>
-
-            <DetailSection title="Por rutina">
-              {weeklyLoad.byRoutine.length ? (
-                <DetailRows>
-                  {weeklyLoad.byRoutine.map((item) => (
-                    <DetailRow
-                      key={item.key}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-[color:var(--text)]">
-                          {item.name}
-                        </p>
-                        <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                          {formatSessionCount(item.sessions)} ·{" "}
-                          {item.completedSets} series
-                          {!item.hasReference
-                            ? " / ciclo sin referencia"
-                            : ""}
-                        </p>
-                        <p className="mt-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                          Libre {formatCompact(item.externalKg)} kg · Máquina{" "}
-                          {formatCompact(item.machineKg)} kg
-                          {item.bodyweightSets
-                            ? ` · Corporal ${item.bodyweightSets} series`
-                            : ""}
-                          {item.assistedSets
-                            ? ` · Asistido ${item.assistedSets} series`
-                            : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm font-bold text-[color:var(--text)]">
-                        {item.completedSets}
-                      </span>
-                    </DetailRow>
-                  ))}
-                </DetailRows>
-              ) : (
-                <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-                  No hay rutinas registradas esta semana.
-                </p>
-              )}
-            </DetailSection>
-          </DetailSheetBody>
-        </DetailSheet>
       ) : null}
 
       {weeklySetsModalOpen ? (
@@ -2935,14 +4160,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               setWeeklySetsModalOpen(false);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Series completadas
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  Trabajo semanal
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  {weeklySets.total} series · {weeklySets.diffLabel}
+                  Series que completaste
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                   {weeklySets.description}
@@ -2959,77 +4184,166 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="grid grid-cols-3 gap-2">
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Total
+              <section className="rounded-2xl bg-[color:var(--bg)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                      Completadas esta semana
+                    </p>
+                    <p className="mt-1 text-4xl font-black tracking-tight text-[color:var(--text)]">
+                      {weeklySets.total}{" "}
+                      <span className="text-lg text-[color:var(--text-muted)]">
+                        series
+                      </span>
+                    </p>
+                  </div>
+                  <span
+                    className="rounded-full px-3 py-1.5 text-[10px] font-black"
+                    style={{
+                      backgroundColor:
+                        weeklySets.completionRate >= 90
+                          ? "var(--accent-soft)"
+                          : "var(--warning-soft)",
+                      color:
+                        weeklySets.completionRate >= 90
+                          ? "var(--accent-strong)"
+                          : "var(--warning)",
+                    }}
+                  >
+                    {weeklySets.recorded
+                      ? `${weeklySets.completionRate}% terminadas`
+                      : "Sin series registradas"}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--border)]">
+                  <div
+                    className="h-full rounded-full bg-[color:var(--accent)]"
+                    style={{ width: `${weeklySets.completionRate}%` }}
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>{weeklySets.diffLabel}</span>
+                  <span>
+                    {weeklySets.incomplete
+                      ? `${weeklySets.incomplete} sin completar`
+                      : "Todas las registradas fueron completadas"}
+                  </span>
+                </div>
+              </section>
+
+              <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[color:var(--border)] py-4 sm:grid-cols-4 sm:gap-4">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Sesiones
                   </p>
-                  <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-                    {weeklySets.total}
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {weeklySets.sessions}
                   </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Pendientes
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    esta semana
                   </p>
-                  <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-                    {weeklySets.incomplete}
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Por sesión
                   </p>
-                </article>
-                <article className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {formatSeriesCount(weeklySets.averagePerSession)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    promedio
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
                     Semana anterior
                   </p>
-                  <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
                     {weeklySets.previousTotal}
                   </p>
-                </article>
-              </div>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    {formatSessionCount(weeklySets.previousSessions)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Antes por sesión
+                  </p>
+                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
+                    {formatSeriesCount(weeklySets.previousAveragePerSession)}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
+                    promedio
+                  </p>
+                </div>
+              </section>
 
-              <p className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                Progresión comparable:{" "}
-                {weeklySets.hasProgressionReference
-                  ? `${weeklySets.comparableCurrent} series · ${weeklySets.progressionLabel}`
-                  : "sin ciclo anterior comparable"}
+              <p className="mt-5 border-l-2 border-[color:var(--accent)] pl-3 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+                Más series no siempre significa mejor entrenamiento. Úsalas para
+                observar constancia y distribución, junto con tu recuperación y
+                progreso.
               </p>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Series equivalentes por músculo
-                </p>
-                <div className="mt-3 space-y-2">
+              <section className="mt-5">
+                <div>
+                  <h3 className="text-sm font-black text-[color:var(--text)]">
+                    Distribución por músculo
+                  </h3>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Estimación del trabajo principal y secundario recibido.
+                  </p>
+                </div>
+                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
                   {weeklySets.byMuscle.length ? (
                     weeklySets.byMuscle.map((item) => (
-                      <div
-                        key={item.name}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
-                      >
-                        <p className="truncate text-sm font-black text-[color:var(--text)]">
-                          {item.name}
-                        </p>
-                        <span className="shrink-0 rounded bg-[#fff0eb] px-2 py-1 text-xs font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-                          {formatEquivalentSeries(item.sets)}
-                        </span>
+                      <div key={item.name} className="py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {item.name}
+                          </p>
+                          <span className="shrink-0 text-xs font-black text-[color:var(--accent-strong)]">
+                            {formatSeriesCount(item.sets)} series aprox.
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
+                          <div
+                            className="h-full rounded-full bg-[color:var(--accent)]"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                weeklySets.byMuscle[0]?.sets
+                                  ? (item.sets / weeklySets.byMuscle[0].sets) *
+                                      100
+                                  : 0,
+                              )}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
                       No hay series completadas esta semana.
                     </p>
                   )}
                 </div>
               </section>
 
-              <section className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                  Por rutina
-                </p>
-                <div className="mt-3 space-y-2">
+              <section className="mt-5">
+                <div>
+                  <h3 className="text-sm font-black text-[color:var(--text)]">
+                    Trabajo por rutina
+                  </h3>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                    Series terminadas en cada entrenamiento.
+                  </p>
+                </div>
+                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
                   {weeklySets.byRoutine.length ? (
                     weeklySets.byRoutine.map((item) => (
                       <div
                         key={item.key}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
+                        className="flex items-center justify-between gap-3 py-3"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-[color:var(--text)]">
@@ -3037,26 +4351,28 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                           </p>
                           <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
                             {formatSessionCount(item.sessions)}
-                            {!item.hasReference
-                              ? " / ciclo sin referencia"
-                              : ""}
                           </p>
                           {item.incompleteSets ? (
-                            <p className="mt-1 text-[10px] font-bold text-[#c52d00] dark:text-[#e2ff00]">
+                            <p className="mt-1 text-[10px] font-bold text-[color:var(--warning)]">
                               {item.incompleteSets}{" "}
                               {item.incompleteSets === 1
-                                ? "serie pendiente"
-                                : "series pendientes"}
+                                ? "serie sin completar"
+                                : "series sin completar"}
                             </p>
                           ) : null}
                         </div>
-                        <span className="shrink-0 text-sm font-black text-[color:var(--text)]">
-                          {item.sets}/{item.recordedSets}
-                        </span>
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-black text-[color:var(--accent-strong)]">
+                            {item.sets} series
+                          </p>
+                          <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
+                            {item.sets} de {item.recordedSets} terminadas
+                          </p>
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
                       No hay rutinas registradas esta semana.
                     </p>
                   )}
@@ -3072,24 +4388,24 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Detalle del tiempo entrenado"
+          aria-label="Detalle del tiempo semanal"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget)
               setDurationModalOpen(false);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
-                  Semana activa
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  Semana actual
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  Tiempo de sesión
+                  Tiempo semanal
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Incluye los descansos medidos. Las pausas quedan fuera del
-                  total.
+                  Tiempo acumulado en tus sesiones. Las pausas manuales no se
+                  suman al total.
                 </p>
               </div>
               <button
@@ -3103,83 +4419,141 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="mb-4 grid grid-cols-3 gap-2">
-                {[
-                  {
-                    label: "Sesión",
-                    value: formatSessionMinutes(durationSummary.sessionSeconds),
-                  },
-                  {
-                    label: "Trabajo est.",
-                    value: durationSummary.trackedCount
-                      ? formatSessionMinutes(durationSummary.workSeconds)
-                      : "--",
-                  },
-                  {
-                    label: "Descanso",
-                    value: durationSummary.trackedCount
-                      ? formatSessionMinutes(durationSummary.restSeconds)
-                      : "--",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-3 text-center"
-                  >
-                    <p className="truncate text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                      {item.label}
+              <section className="border-b border-[color:var(--border)] pb-5">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                      Tiempo acumulado
                     </p>
-                    <p className="mt-1 text-sm font-black text-[color:var(--text)]">
-                      {item.value}
+                    <p className="mt-2 text-4xl font-black text-[color:var(--text)]">
+                      {formatSessionMinutes(durationSummary.sessionSeconds)}
                     </p>
                   </div>
-                ))}
-              </div>
-              <div className="mb-4 flex items-center justify-between gap-3 border-y border-[color:var(--border)] py-2 text-xs font-bold text-[color:var(--text-muted)]">
-                <span>Pausas excluidas</span>
-                <span className="text-[color:var(--text)]">
-                  {formatSessionMinutes(durationSummary.pauseSeconds)}
-                </span>
-              </div>
-              {durationSummary.trackedCount < durationRows.length ? (
-                <p className="mb-3 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  El descanso no fue medido en algunas sesiones anteriores.
-                </p>
-              ) : null}
-              {durationRows.length ? (
-                <div className="space-y-2">
-                  {durationRows.map((row) => (
-                    <article
-                      key={row.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
+                  <span className="pb-1 text-xs font-black text-[color:var(--accent-strong)]">
+                    {formatSessionCount(durationRows.length)}
+                  </span>
+                </div>
+
+                {durationSummary.trackedCount ? (
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+                        Distribución medida
+                      </p>
+                      <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                        {durationSummary.trackedCount} de {durationRows.length}{" "}
+                        sesiones
+                      </p>
+                    </div>
+                    <div
+                      className="mt-3 flex h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]"
+                      role="img"
+                      aria-label={`${durationSummary.workPercent}% trabajo estimado y ${100 - durationSummary.workPercent}% descanso medido`}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[color:var(--text)]">
-                          {row.routine}
+                      <span
+                        className="h-full bg-[color:var(--accent)]"
+                        style={{ width: `${durationSummary.workPercent}%` }}
+                      />
+                      <span className="h-full flex-1 bg-[color:var(--border-strong)]" />
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--accent-strong)]">
+                          Trabajo estimado
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                          {formatLongDate(row.date)}
-                          {row.branch ? ` · ${titleCase(row.branch)}` : ""}
-                        </p>
-                        <p className="mt-1 text-[11px] font-bold text-[color:var(--text-muted)]">
-                          {row.hasRestTracking
-                            ? `Trabajo est. ${formatSessionMinutes(row.workSeconds)} · Descanso ${formatSessionMinutes(row.restSeconds)}`
-                            : "Descanso no medido"}
-                          {row.pauseSeconds
-                            ? ` · Pausa ${formatSessionMinutes(row.pauseSeconds)}`
-                            : ""}
-                          {row.adjusted ? " · Ajustado" : ""}
+                        <p className="mt-1 text-lg font-black text-[color:var(--text)]">
+                          {formatSessionMinutes(durationSummary.workSeconds)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded bg-[#fff0eb] px-3 py-2 text-sm font-black text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]">
-                        {formatSessionMinutes(row.seconds)}
-                      </span>
-                    </article>
-                  ))}
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                          Descanso medido
+                        </p>
+                        <p className="mt-1 text-lg font-black text-[color:var(--text)]">
+                          {formatSessionMinutes(durationSummary.restSeconds)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                    Aún no hay sesiones con descansos medidos para mostrar la
+                    distribución.
+                  </p>
+                )}
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>Pausas excluidas del total</span>
+                  <span className="font-black text-[color:var(--text)]">
+                    {formatSessionMinutes(durationSummary.pauseSeconds)}
+                  </span>
                 </div>
+
+                {durationSummary.trackedCount < durationRows.length ? (
+                  <p className="mt-3 rounded-lg bg-[color:var(--warning-soft)] px-3 py-2 text-[11px] font-semibold text-[color:var(--warning)]">
+                    Algunas sesiones no tienen descansos medidos; la
+                    distribución solo usa las sesiones disponibles.
+                  </p>
+                ) : null}
+              </section>
+
+              {durationRows.length ? (
+                <section className="pt-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-[color:var(--text)]">
+                      Sesiones de esta semana
+                    </h3>
+                    <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                      {formatSessionCount(durationRows.length)}
+                    </span>
+                  </div>
+                  <div className="mt-2 divide-y divide-[color:var(--border)]">
+                    {durationRows.map((row) => (
+                      <article
+                        key={row.id}
+                        className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                            {row.routine}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                            {formatLongDate(row.date)}
+                            {row.branch ? ` · ${titleCase(row.branch)}` : ""}
+                          </p>
+                          <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            {row.hasRestTracking
+                              ? `Trabajo ${formatSessionMinutes(row.workSeconds)} · Descanso ${formatSessionMinutes(row.restSeconds)}`
+                              : "Descanso no medido"}
+                            {row.pauseSeconds
+                              ? ` · Pausa excluida ${formatSessionMinutes(row.pauseSeconds)}`
+                              : ""}
+                            {row.adjusted ? " · Tiempo ajustado" : ""}
+                          </p>
+                        </div>
+                        <div className="sm:text-right">
+                          <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                            Total
+                          </p>
+                          <p className="mt-1 text-lg font-black text-[color:var(--accent-strong)]">
+                            {formatSessionMinutes(row.seconds)}
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                  No hay entrenamientos registrados esta semana.
+                <div className="py-10 text-center">
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                    <Clock3 className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-4 text-base font-black text-[color:var(--text)]">
+                    Sin tiempo registrado
+                  </h3>
+                  <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+                    Completa una sesión para empezar tu resumen semanal.
+                  </p>
                 </div>
               )}
             </div>
@@ -3192,29 +4566,23 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Detalle de rendimiento"
+          aria-label="Comparación semanal por ejercicio"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget)
               setPerformanceModalType(null);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-2xl sm:rounded-3xl">
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
               <div>
-                <p
-                  className={`text-[10px] font-black uppercase tracking-[0.18em] ${
-                    performanceModalConfig.tone === "red"
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-[#ff5722] dark:text-[#e2ff00]"
-                  }`}
-                >
-                  {performanceModalConfig.eyebrow}
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+                  Progreso semanal
                 </p>
                 <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  {performanceModalConfig.title}
+                  Comparación por ejercicio
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {performanceModalConfig.description}
+                  Tu mejor serie de esta semana frente a la ejecución anterior.
                 </p>
               </div>
               <button
@@ -3228,93 +4596,136 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
 
             <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <article
-                className={`rounded-2xl border p-3 ${
-                  performanceModalConfig.tone === "red"
-                    ? "border-red-200 bg-red-50 dark:border-red-400/20 dark:bg-red-500/10"
-                    : "border-[#ffb199] bg-[#fff0eb] dark:border-[#e2ff00]/30 dark:bg-[#161900]"
-                }`}
-              >
-                <p
-                  className={`text-[10px] font-black uppercase tracking-wide ${
-                    performanceModalConfig.tone === "red"
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-[#c52d00] dark:text-[#e2ff00]"
-                  }`}
+              <div className="sticky -top-4 z-10 -mx-4 bg-[color:var(--card)] px-4">
+                <div
+                  className="grid grid-cols-2 border-b border-[color:var(--border)]"
+                  role="group"
+                  aria-label="Resultado de la comparación"
                 >
-                  {performanceModalConfig.label}
-                </p>
-                <p
-                  className={`mt-2 text-3xl font-black ${
-                    performanceModalConfig.tone === "red"
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-[#ff5722] dark:text-[#e2ff00]"
-                  }`}
-                >
-                  {performanceModalConfig.tone === "red" ? "-" : "+"}
-                  {performanceModalConfig.count}
-                </p>
-              </article>
-
-              {performanceModalConfig.groups.length ? (
-                <div className="mt-4 space-y-4">
-                  {performanceModalConfig.groups.map(({ group, items }) => (
-                    <section key={`${performanceModalType}-${group}`}>
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                          {group}
-                        </p>
+                  {performanceTabs.map((tab) => {
+                    const active = performanceModalType === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        aria-pressed={active}
+                        aria-controls="performance-comparison-results"
+                        onClick={() => setPerformanceModalType(tab.key)}
+                        className={`flex min-h-12 min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-2 text-center transition ${
+                          active
+                            ? tab.key === "improvements"
+                              ? "border-[color:var(--accent)] text-[color:var(--text)]"
+                              : "border-[color:var(--danger)] text-[color:var(--text)]"
+                            : "border-transparent text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        <span className="truncate text-xs font-black">
+                          {tab.label}
+                        </span>
                         <span
-                          className={`rounded-full px-2 py-1 text-[10px] font-black ${
-                            performanceModalConfig.tone === "red"
-                              ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                              : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                          className={`grid h-7 min-w-7 shrink-0 place-items-center rounded-full px-1.5 text-xs font-black ${
+                            active
+                              ? tab.key === "improvements"
+                                ? "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                                : "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+                              : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                           }`}
                         >
-                          {items.length}
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div
+                className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] py-4"
+                aria-live="polite"
+              >
+                <p className="text-sm font-black text-[color:var(--text)]">
+                  {performanceSummary}
+                </p>
+                <span className="shrink-0 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  Semana actual
+                </span>
+              </div>
+
+              {performanceModalConfig.groups.length ? (
+                <div
+                  id="performance-comparison-results"
+                  className="divide-y divide-[color:var(--border)]"
+                >
+                  {performanceModalConfig.groups.map(({ group, items }) => (
+                    <section
+                      key={`${performanceModalType}-${group}`}
+                      className="py-5 first:pt-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-base font-black text-[color:var(--text)]">
+                          {group}
+                        </h3>
+                        <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                          {formatExerciseCount(items.length)}
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="mt-1 divide-y divide-[color:var(--border)]">
                         {items.map((item) => (
                           <article
                             key={`${performanceModalType}-${item.key}-${item.date}`}
-                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
+                            className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(240px,0.9fr)] sm:items-center sm:gap-5"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-black text-[color:var(--text)]">
-                                  {item.exerciseName}
-                                </p>
-                                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                                  {formatLongDate(item.date)}
-                                </p>
-                              </div>
-                              <span
-                                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-black ${
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-[color:var(--text)]">
+                                {item.exerciseName}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                                {formatLongDate(item.date)}
+                              </p>
+                              <p
+                                className={`mt-2 text-[10px] font-black uppercase tracking-wide ${
                                   performanceModalConfig.tone === "red"
-                                    ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                                    : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
-                                }`}
-                              >
-                                {item.weight}kg x {item.reps}
-                              </span>
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <span
-                                className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${
-                                  performanceModalConfig.tone === "red"
-                                    ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                                    : "bg-[#fff0eb] text-[#c52d00] dark:bg-[#1d2100] dark:text-[#e2ff00]"
+                                    ? "text-[color:var(--danger)]"
+                                    : "text-[color:var(--accent-strong)]"
                                 }`}
                               >
                                 {item[performanceModalConfig.typeKey]}
-                              </span>
-                              <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                                {item.previousValue
-                                  ? `Antes: ${item.previousValue} / Ahora: ${item.currentValue}`
-                                  : "Primer registro comparativo."}
                               </p>
                             </div>
+                            {item.previousValue ? (
+                              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                                <div className="min-w-0 rounded-xl bg-[color:var(--bg)] p-3">
+                                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                                    Anterior
+                                  </p>
+                                  <p className="mt-1 truncate text-xs font-black text-[color:var(--text)]">
+                                    {item.previousValue}
+                                  </p>
+                                </div>
+                                <ArrowRight
+                                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]"
+                                  aria-hidden="true"
+                                />
+                                <div
+                                  className={`min-w-0 rounded-xl p-3 ${
+                                    performanceModalConfig.tone === "red"
+                                      ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+                                      : "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                                  }`}
+                                >
+                                  <p className="text-[9px] font-black uppercase tracking-wide opacity-70">
+                                    Actual
+                                  </p>
+                                  <p className="mt-1 truncate text-xs font-black">
+                                    {item.currentValue}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                                Primer registro comparativo.
+                              </p>
+                            )}
                           </article>
                         ))}
                       </div>
@@ -3322,8 +4733,19 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                  {performanceModalConfig.empty}
+                <div
+                  id="performance-comparison-results"
+                  className="py-10 text-center"
+                >
+                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
+                    <Check className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-4 text-base font-black text-[color:var(--text)]">
+                    {performanceModalConfig.emptyTitle}
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-[color:var(--text-muted)]">
+                    {performanceModalConfig.empty}
+                  </p>
                 </div>
               )}
             </div>

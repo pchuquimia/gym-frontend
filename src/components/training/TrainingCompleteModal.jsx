@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, Flag, LoaderCircle, RotateCcw } from "lucide-react";
+import { Check, Flag, Flame, LoaderCircle, RotateCcw } from "lucide-react";
 
 export default function TrainingCompleteModal({
   routineName,
@@ -8,6 +8,7 @@ export default function TrainingCompleteModal({
   totalExercises,
   totalSets,
   durationLabel,
+  calorieEstimate,
   isFinalizing,
   onFinish,
   onDismiss,
@@ -35,15 +36,11 @@ export default function TrainingCompleteModal({
         aria-modal="true"
         aria-labelledby="completed-routine-modal-title"
         initial={
-          reduceMotion
-            ? { opacity: 0 }
-            : { opacity: 0, scale: 0.9, y: 22 }
+          reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 22 }
         }
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={
-          reduceMotion
-            ? { opacity: 0 }
-            : { opacity: 0, scale: 0.96, y: 12 }
+          reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }
         }
         transition={{
           duration: reduceMotion ? 0 : 0.38,
@@ -89,8 +86,8 @@ export default function TrainingCompleteModal({
             {routineName || "Entrenamiento"}
           </p>
 
-          <div className="mt-5 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-left">
-            <div className="pr-3">
+          <div className="mt-5 grid grid-cols-2 border-y border-[color:var(--border)] text-left sm:grid-cols-4">
+            <div className="border-b border-[color:var(--border)] py-3 pr-3 sm:border-b-0">
               <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 Ejercicios
               </p>
@@ -98,13 +95,15 @@ export default function TrainingCompleteModal({
                 {completedExercises}/{totalExercises}
               </p>
             </div>
-            <div className="border-x border-[color:var(--border)] px-3">
+            <div className="border-b border-l border-[color:var(--border)] px-3 py-3 sm:border-b-0">
               <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 Series
               </p>
-              <p className="mt-1 text-lg font-black leading-none">{totalSets}</p>
+              <p className="mt-1 text-lg font-black leading-none">
+                {totalSets}
+              </p>
             </div>
-            <div className="pl-3">
+            <div className="py-3 pr-3 sm:border-l sm:border-[color:var(--border)] sm:px-3">
               <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 Tiempo
               </p>
@@ -112,7 +111,24 @@ export default function TrainingCompleteModal({
                 {durationLabel}
               </p>
             </div>
+            <div className="border-l border-[color:var(--border)] py-3 pl-3">
+              <p className="font-condensed flex items-center gap-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                <Flame className="h-3 w-3 text-[#ff5722] dark:text-[#e2ff00]" />
+                Calorías
+              </p>
+              <p className="mt-1 truncate text-sm font-black leading-none text-[color:var(--text)]">
+                {calorieEstimate?.available
+                  ? `~${calorieEstimate.calories} kcal`
+                  : "--"}
+              </p>
+            </div>
           </div>
+          {calorieEstimate?.available ? (
+            <p className="mt-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
+              Estimación orientativa · {calorieEstimate.minCalories}–
+              {calorieEstimate.maxCalories} kcal
+            </p>
+          ) : null}
 
           <motion.button
             type="button"
@@ -120,9 +136,7 @@ export default function TrainingCompleteModal({
             disabled={isFinalizing}
             className="mt-5 flex h-14 w-full items-center justify-center gap-2 bg-[#ff5722] px-4 font-condensed text-xl font-black uppercase text-white shadow-[0_10px_28px_rgba(255,87,34,0.25)] disabled:cursor-wait disabled:opacity-80 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_10px_30px_rgba(226,255,0,0.16)]"
             initial={false}
-            animate={
-              reduceMotion ? { scale: 1 } : { scale: [1, 1.025, 1] }
-            }
+            animate={reduceMotion ? { scale: 1 } : { scale: [1, 1.025, 1] }}
             transition={{ duration: reduceMotion ? 0 : 0.7, delay: 0.3 }}
           >
             {isFinalizing ? (
@@ -154,6 +168,12 @@ TrainingCompleteModal.propTypes = {
   totalExercises: PropTypes.number.isRequired,
   totalSets: PropTypes.number.isRequired,
   durationLabel: PropTypes.string.isRequired,
+  calorieEstimate: PropTypes.shape({
+    available: PropTypes.bool,
+    calories: PropTypes.number,
+    minCalories: PropTypes.number,
+    maxCalories: PropTypes.number,
+  }),
   isFinalizing: PropTypes.bool,
   onFinish: PropTypes.func.isRequired,
   onDismiss: PropTypes.func.isRequired,

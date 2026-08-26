@@ -9,6 +9,12 @@ const renderPanel = (overrides = {}) => {
     totalExercises: 6,
     totalSets: 14,
     durationLabel: "00:48:12",
+    calorieEstimate: {
+      available: true,
+      calories: 384,
+      minCalories: 315,
+      maxCalories: 453,
+    },
     photoPreview: "",
     photoError: "",
     onPhotoChange: vi.fn(),
@@ -31,6 +37,8 @@ describe("TrainingCompletionPanel", () => {
     expect(screen.getByText("6/6")).toBeInTheDocument();
     expect(screen.getByText("14")).toBeInTheDocument();
     expect(screen.getByText("00:48:12")).toBeInTheDocument();
+    expect(screen.getByText("~384 kcal")).toBeInTheDocument();
+    expect(screen.getByText(/rango 315–453 kcal/i)).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Finalizar entrenamiento" }),
@@ -50,4 +58,3 @@ describe("TrainingCompletionPanel", () => {
     expect(props.onClearPhoto).toHaveBeenCalledOnce();
   });
 });
-

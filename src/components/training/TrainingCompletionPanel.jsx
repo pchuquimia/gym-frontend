@@ -4,6 +4,7 @@ import {
   Camera,
   Check,
   Flag,
+  Flame,
   ImagePlus,
   LoaderCircle,
   X,
@@ -15,6 +16,7 @@ export default function TrainingCompletionPanel({
   totalExercises,
   totalSets,
   durationLabel,
+  calorieEstimate,
   photoPreview,
   photoError,
   onPhotoChange,
@@ -77,8 +79,8 @@ export default function TrainingCompletionPanel({
           </div>
         </header>
 
-        <div className="mt-5 grid grid-cols-3 border-y border-[color:var(--border)] py-3">
-          <div className="min-w-0 pr-3">
+        <div className="mt-5 grid grid-cols-2 border-y border-[color:var(--border)] sm:grid-cols-4">
+          <div className="min-w-0 border-b border-[color:var(--border)] py-3 pr-3 sm:border-b-0">
             <p className="font-condensed text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Completado
             </p>
@@ -86,13 +88,13 @@ export default function TrainingCompletionPanel({
               {completedExercises}/{totalExercises}
             </p>
           </div>
-          <div className="min-w-0 border-x border-[color:var(--border)] px-3">
+          <div className="min-w-0 border-b border-l border-[color:var(--border)] px-3 py-3 sm:border-b-0">
             <p className="font-condensed text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Total series
             </p>
             <p className="mt-1 text-xl font-black leading-none">{totalSets}</p>
           </div>
-          <div className="min-w-0 pl-3">
+          <div className="min-w-0 py-3 pr-3 sm:border-l sm:border-[color:var(--border)] sm:px-3">
             <p className="font-condensed text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               Tiempo
             </p>
@@ -100,7 +102,24 @@ export default function TrainingCompletionPanel({
               {durationLabel}
             </p>
           </div>
+          <div className="min-w-0 border-l border-[color:var(--border)] py-3 pl-3">
+            <p className="font-condensed flex items-center gap-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              <Flame className="h-3 w-3 text-[#ff5722] dark:text-[#e2ff00]" />
+              Calorías
+            </p>
+            <p className="mt-1 truncate text-base font-black leading-none text-[color:var(--text)]">
+              {calorieEstimate?.available
+                ? `~${calorieEstimate.calories} kcal`
+                : "--"}
+            </p>
+          </div>
         </div>
+        {calorieEstimate?.available ? (
+          <p className="mt-2 text-center text-[10px] font-semibold text-[color:var(--text-muted)]">
+            Estimación según tu peso, tiempo e intensidad · rango{" "}
+            {calorieEstimate.minCalories}–{calorieEstimate.maxCalories} kcal
+          </p>
+        ) : null}
 
         <section className="mt-5" aria-labelledby="final-photo-title">
           <div className="mb-3 flex items-end justify-between gap-3">
@@ -225,6 +244,12 @@ TrainingCompletionPanel.propTypes = {
   totalExercises: PropTypes.number.isRequired,
   totalSets: PropTypes.number.isRequired,
   durationLabel: PropTypes.string.isRequired,
+  calorieEstimate: PropTypes.shape({
+    available: PropTypes.bool,
+    calories: PropTypes.number,
+    minCalories: PropTypes.number,
+    maxCalories: PropTypes.number,
+  }),
   photoPreview: PropTypes.string,
   photoError: PropTypes.string,
   onPhotoChange: PropTypes.func.isRequired,

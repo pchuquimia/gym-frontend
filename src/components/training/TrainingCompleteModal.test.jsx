@@ -9,6 +9,12 @@ const renderModal = (overrides = {}) => {
     totalExercises: 5,
     totalSets: 16,
     durationLabel: "00:42:18",
+    calorieEstimate: {
+      available: true,
+      calories: 341,
+      minCalories: 280,
+      maxCalories: 402,
+    },
     isFinalizing: false,
     onFinish: vi.fn(),
     onDismiss: vi.fn(),
@@ -28,6 +34,8 @@ describe("TrainingCompleteModal", () => {
     expect(screen.getByText("5/5")).toBeInTheDocument();
     expect(screen.getByText("16")).toBeInTheDocument();
     expect(screen.getByText("00:42:18")).toBeInTheDocument();
+    expect(screen.getByText("~341 kcal")).toBeInTheDocument();
+    expect(screen.getByText(/280–402 kcal/i)).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Finalizar entrenamiento" }),

@@ -43,6 +43,7 @@ import OperationLoader from "../components/system/OperationLoader";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
+import { useUserProfile } from "../context/UserContext";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
@@ -58,6 +59,7 @@ import {
   getTrainingSaveErrorMessage,
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
+import { estimateTrainingCalories } from "../utils/calorieEstimate";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -1383,6 +1385,7 @@ export default function RegisterTraining({
 }) {
   const reduceMotion = useReducedMotion();
   const { user: authUser } = useAuth();
+  const { profile } = useUserProfile();
   const isAdmin = authUser?.role === "Admin";
   const {
     routines,
@@ -5561,6 +5564,25 @@ export default function RegisterTraining({
       ),
     [exercises],
   );
+  const calorieEstimate = useMemo(
+    () =>
+      estimateTrainingCalories(
+        {
+          durationSeconds,
+          workSeconds: timingSummary.workSeconds,
+          restSeconds: timingSummary.restSeconds,
+          exercises,
+        },
+        { weightKg: profile?.weight },
+      ),
+    [
+      durationSeconds,
+      exercises,
+      profile?.weight,
+      timingSummary.restSeconds,
+      timingSummary.workSeconds,
+    ],
+  );
   const allSetsDone = totalSets > 0 && doneSets === totalSets;
   const completedExercises = useMemo(
     () =>
@@ -6975,6 +6997,7 @@ export default function RegisterTraining({
             totalExercises={exercises.length}
             totalSets={totalSets}
             durationLabel={formatDuration(durationSeconds)}
+            calorieEstimate={calorieEstimate}
             photoPreview={trainingPhotoPreview}
             photoError={trainingPhotoError}
             onPhotoChange={handleTrainingPhotoChange}
@@ -7351,7 +7374,6 @@ export default function RegisterTraining({
                 No hay historial para este ejercicio aun.
               </div>
             )}
-
           </div>
         </Modal>
       )}
@@ -7412,6 +7434,7 @@ export default function RegisterTraining({
             totalExercises={exercises.length}
             totalSets={totalSets}
             durationLabel={formatDuration(durationSeconds)}
+            calorieEstimate={calorieEstimate}
             isFinalizing={isFinalizing}
             onFinish={handleFinish}
             onDismiss={handleDismissCompletionModal}

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock3,
   Dumbbell,
+  Flame,
   Layers3,
   ListChecks,
   TrendingUp,
@@ -24,6 +25,12 @@ import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
+import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
+import { useUserProfile } from "../context/UserContext";
+import {
+  estimateTrainingCalories,
+  summarizeCalorieEstimates,
+} from "../utils/calorieEstimate";
 
 const formatDateLong = (iso) =>
   iso
@@ -135,16 +142,21 @@ MobileSessionPicker.propTypes = {
   sessions: PropTypes.arrayOf(PropTypes.object).isRequired,
 };
 
-function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
+function MetricCard({ label, value, detail, icon: Icon, accent = false, onClick = null, className = "" }) {
+  const Component = onClick ? "button" : "article";
   return (
-    <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <Component
+      type={onClick ? "button" : undefined}
+      onClick={onClick || undefined}
+      className={`rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${onClick ? "transition hover:border-[color:var(--border-strong)]" : ""} ${className}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">{label}</p>
         <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
       </div>
       <p className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}>{value}</p>
       <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">{detail}</p>
-    </article>
+    </Component>
   );
 }
 
@@ -169,7 +181,9 @@ export default function SessionSummaryPage({
   const { trainings: ctxTrainings = [], exercises: exerciseMeta = [] } =
     useTrainingData();
   const { routines = [] } = useRoutines();
+  const { profile } = useUserProfile();
   const [isSessionPickerOpen, setIsSessionPickerOpen] = useState(false);
+  const [isCaloriesOpen, setIsCaloriesOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(() =>
     typeof localStorage === "undefined"
       ? ""
@@ -194,6 +208,9 @@ export default function SessionSummaryPage({
             routineBranches.get(String(training.routineId || "")) ||
             "general",
           durationSeconds: Number(training.durationSeconds) || 0,
+          durationOverrideSeconds: Number(training.durationOverrideSeconds) || 0,
+          workSeconds: Number(training.workSeconds) || 0,
+          restSeconds: Number(training.restSeconds) || 0,
           exercises: safeArray(training.exercises).map((exercise) => ({
             exerciseId: exercise.exerciseId,
             exerciseName: exercise.exerciseName || "Ejercicio",
@@ -249,6 +266,27 @@ export default function SessionSummaryPage({
       exercises: exercises.length,
     };
   }, [currentSummary.exercises]);
+
+  const calorieEstimate = useMemo(
+    () =>
+      estimateTrainingCalories(currentRaw || {}, {
+        weightKg: profile?.weight,
+      }),
+    [currentRaw, profile?.weight],
+  );
+  const calorieEstimateWithSession = useMemo(
+    () => ({
+      ...calorieEstimate,
+      id: String(currentRaw?.id || currentRaw?._id || "current-session"),
+      date: currentRaw?.date,
+      routineName: currentRaw?.routineName || "Entrenamiento",
+    }),
+    [calorieEstimate, currentRaw],
+  );
+  const calorieSummary = useMemo(
+    () => summarizeCalorieEstimates([calorieEstimate]),
+    [calorieEstimate],
+  );
 
   const sessionReference = useMemo(() => {
     if (!currentRaw?.date) return { count: 0, volume: 0, sets: 0, volumeDelta: null, setsDelta: null };
@@ -375,12 +413,29 @@ export default function SessionSummaryPage({
         />
       ) : null}
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-5">
         <MetricCard label="Volumen" value={totals.volume ? `${compact(totals.volume)} kg` : "--"} detail={sessionReference.count ? `${percent(sessionReference.volumeDelta)} vs media` : "sin referencia"} icon={Dumbbell} accent />
         <MetricCard label="Series" value={totals.sets || "--"} detail={sessionReference.count ? `${percent(sessionReference.setsDelta)} vs media` : `${totals.reps} repeticiones`} icon={ListChecks} />
         <MetricCard label="Mejor 1RM" value={totals.bestOneRM ? `${totals.bestOneRM.toFixed(1)} kg` : "--"} detail="mayor estimacion de la sesion" icon={TrendingUp} />
         <MetricCard label="Duracion" value={duration(currentRaw?.durationSeconds)} detail={`${totals.exercises} ejercicios completados`} icon={Clock3} />
+        <MetricCard
+          label="Calorías quemadas"
+          value={calorieEstimate.available ? `~${calorieEstimate.calories} kcal` : "--"}
+          detail={calorieEstimate.available ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} kcal · ver detalle` : "sin datos suficientes"}
+          icon={Flame}
+          accent
+          onClick={calorieEstimate.available ? () => setIsCaloriesOpen(true) : null}
+          className="col-span-2 lg:col-span-1"
+        />
       </section>
+
+      <CalorieEstimateModal
+        open={isCaloriesOpen}
+        onClose={() => setIsCaloriesOpen(false)}
+        summary={calorieSummary}
+        estimates={calorieEstimate.available ? [calorieEstimateWithSession] : []}
+        periodLabel="Entrenamiento completado"
+      />
 
       <section className="border-l-2 border-[#ff5722] bg-[#fff5f1] px-4 py-3 dark:border-[#e2ff00] dark:bg-[#171900]"><p className="text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">Lectura de la sesion</p><p className="mt-1 text-[13px] font-semibold text-[color:var(--text-muted)]">{sessionInsight}</p></section>
 
