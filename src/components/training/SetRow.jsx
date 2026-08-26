@@ -2,7 +2,18 @@ import PropTypes from "prop-types";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowDownRight, ArrowUpRight, Check, Trash2, X } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Check,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  getTrainingSetTrend,
+  getTrainingSetTrendLabel,
+} from "../../utils/trainingSetTrend";
 
 const LONG_PRESS_MS = 650;
 const MOVE_TOLERANCE_PX = 10;
@@ -41,11 +52,6 @@ export default function SetRow({
   const normalizeDecimal = (val) => {
     if (val === "" || val === null || val === undefined) return "";
     return String(val).replace(",", ".");
-  };
-  const toNumber = (val) => {
-    if (val === "" || val === null || val === undefined) return null;
-    const parsed = Number(String(val).replace(",", "."));
-    return Number.isNaN(parsed) ? null : parsed;
   };
   const moveCaretToEnd = (event) => {
     const input = event.currentTarget;
@@ -188,50 +194,25 @@ export default function SetRow({
             const entryDone = Boolean(entry.done);
             const entryLabel =
               seriesType === "serie" ? `S${index}` : `E${entryIdx + 1}`;
-            const previousWeightValue = toNumber(entry.previousWeight);
-            const compareWeightValue = toNumber(entry.previousCompareWeight);
-            const previousRepsValue = toNumber(entry.previousReps);
-            const compareRepsValue = toNumber(entry.previousCompareReps);
-            const hasTrend =
-              (previousWeightValue != null && compareWeightValue != null) ||
-              (previousRepsValue != null && compareRepsValue != null);
-            let trend = null;
-            if (hasTrend) {
-              if (previousWeightValue != null && compareWeightValue != null) {
-                if (previousWeightValue > compareWeightValue) trend = "up";
-                else if (previousWeightValue < compareWeightValue)
-                  trend = "down";
-                else if (
-                  previousRepsValue != null &&
-                  compareRepsValue != null
-                ) {
-                  if (previousRepsValue > compareRepsValue) trend = "up";
-                  else if (previousRepsValue < compareRepsValue) trend = "down";
-                  else trend = "same";
-                } else {
-                  trend = "same";
-                }
-              } else if (
-                previousRepsValue != null &&
-                compareRepsValue != null
-              ) {
-                if (previousRepsValue > compareRepsValue) trend = "up";
-                else if (previousRepsValue < compareRepsValue) trend = "down";
-                else trend = "same";
-              }
-            }
+            const trend = getTrainingSetTrend({
+              latestWeight: entry.previousWeight,
+              earlierWeight: entry.previousCompareWeight,
+              latestReps: entry.previousReps,
+              earlierReps: entry.previousCompareReps,
+            });
+            const trendLabel = getTrainingSetTrendLabel(trend);
             const trendClass =
               trend === "up"
                 ? "text-[#ff5722] dark:text-[#e2ff00]"
-                : trend === "down"
-                  ? "text-rose-500"
-                  : "text-[color:var(--text-muted)]";
+                : "text-[color:var(--text-muted)]";
             const TrendIcon =
               trend === "up"
                 ? ArrowUpRight
                 : trend === "down"
                   ? ArrowDownRight
-                  : null;
+                  : trend === "mixed"
+                    ? ArrowRightLeft
+                    : null;
             return (
               <div
                 key={entry.id || `${index}-${entryIdx}`}
@@ -248,7 +229,9 @@ export default function SetRow({
                   className={`flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
                   title={
                     entry.previousText
-                      ? `Última sesión: ${entry.previousText}`
+                      ? `Última sesión: ${entry.previousText}${
+                          trendLabel ? ` · ${trendLabel}` : ""
+                        }`
                       : "Sin sesión anterior"
                   }
                 >
