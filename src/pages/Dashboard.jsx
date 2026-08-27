@@ -3192,7 +3192,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   return (
     <motion.div
       initial={false}
-      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-6 px-[6px] pb-10 pt-2 text-[color:var(--text)] md:max-w-5xl md:space-y-4 md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-6 px-[6px] pb-10 pt-0 text-[color:var(--text)] md:max-w-5xl md:space-y-4 md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
       <MobilePageHeader
         title="Inicio"

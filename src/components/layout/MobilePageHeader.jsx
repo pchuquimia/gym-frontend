@@ -20,7 +20,7 @@ export default function MobilePageHeader({
         >
           <ArrowLeft className="h-7 w-7" strokeWidth={2.25} />
         </button>
-        <h1 className="truncate text-center font-sans text-[22px] font-medium tracking-[-0.015em] text-[color:var(--text)]">
+        <h1 className="truncate text-center font-sans text-[20px] font-medium tracking-[-0.015em] text-[color:var(--text)]">
           {title}
         </h1>
         <span aria-hidden="true" />
@@ -30,9 +30,9 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className={`mobile-page-header mobile-page-header--main flex min-h-[112px] items-end justify-between gap-4 pb-5 pt-7 md:hidden ${className}`}
+      className={`mobile-page-header mobile-page-header--main flex min-h-[88px] items-center justify-between gap-4 pb-4 pt-3 md:hidden ${className}`}
     >
-      <h1 className="min-w-0 truncate font-sans text-[36px] font-medium leading-none tracking-[-0.035em] text-[color:var(--text)]">
+      <h1 className="min-w-0 truncate font-sans text-[32px] font-medium leading-none tracking-[-0.03em] text-[color:var(--text)]">
         {title}
       </h1>
       {actions ? (
