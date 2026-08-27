@@ -172,7 +172,7 @@ function Section({ title, action, children, className = "" }) {
         </h2>
         {action}
       </div>
-      <div className="overflow-hidden rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] shadow-xs dark:shadow-none">
+      <div className="profile-reference-card overflow-hidden rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] shadow-xs dark:shadow-none">
         {children}
       </div>
     </section>
@@ -184,7 +184,7 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex min-h-[68px] w-full items-center gap-3 px-5 py-3 text-left transition-colors after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden hover:bg-[color:var(--surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
+      className="group relative flex min-h-[60px] w-full items-center gap-3 px-5 py-2.5 text-left transition-colors after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden hover:bg-[color:var(--surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)] md:min-h-[68px] md:py-3"
     >
       {Icon ? (
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
@@ -223,7 +223,7 @@ function SettingsSelectRow({
   disabled,
 }) {
   return (
-    <div className="relative flex min-h-[68px] w-full items-center gap-3 px-5 py-3 after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden">
+    <div className="relative flex min-h-[60px] w-full items-center gap-3 px-5 py-2.5 after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden md:min-h-[68px] md:py-3">
       {Icon ? (
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
           <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -264,8 +264,8 @@ function SettingsSelectRow({
 
 function ProfileHero({ user, profile, avatarUrl, stats, onChangePhoto }) {
   return (
-    <section className="lg:sticky lg:top-6">
-      <div className="rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
+    <section className="profile-reference-hero-wrap lg:sticky lg:top-6">
+      <div className="profile-reference-hero rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
         <button
           type="button"
           onClick={onChangePhoto}
@@ -1537,8 +1537,8 @@ export default function ProfileSettings({ onNavigate }) {
           Perfil y ajustes
         </h1>
       </div>
-      <div className="mt-5 grid gap-5 md:mt-0 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-7">
-      <div>
+      <div className="grid gap-5 px-[6px] md:px-0 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-7">
+      <div className="min-w-0">
         <ProfileHero
           user={user}
           profile={profile}
@@ -1559,7 +1559,7 @@ export default function ProfileSettings({ onNavigate }) {
           </div>
         ) : null}
       </div>
-      <div className="space-y-5">
+      <div className="min-w-0 space-y-5">
         <Section title="General">
           <SettingsRow
             title="Tema"

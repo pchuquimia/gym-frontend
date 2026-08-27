@@ -596,7 +596,7 @@ button,
   border-color: var(--accent) !important;
 }
 
-/* Escala legible y estable para el dashboard en ambos temas. */
+/* Identidad original del dashboard en escritorio. */
 .dashboard-shell {
   font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
   letter-spacing: 0;
@@ -870,8 +870,152 @@ button,
 }
 
 @media (max-width: 639px) {
-  .dashboard-pilot__header h1 {
-    font-size: 1.75rem;
+  :root:not(.dark) .app-shell[data-active-page="dashboard"],
+  :root:not(.dark) .app-shell[data-active-page="perfil"] {
+    --bg: #f8f0e7;
+    --surface: #fffdf8;
+    --surface-subtle: #f2ece4;
+    --surface-raised: #fffdf8;
+    --card: #fffdf8;
+    --segmented-surface: #fffaf4;
+    --detail-canvas: #f8f0e7;
+    --detail-module: #fffdf8;
+    --detail-module-border: #e8e1d7;
+    --detail-row-divider: #e6e0d7;
+    --border: #e5ded4;
+    --border-strong: #d2c8bb;
+    --text: #251a12;
+    --text-muted: #7b746a;
+    --text-subtle: #a29b91;
+    background-color: #f8f0e7 !important;
+    background-image: none;
+  }
+
+  .dashboard-shell,
+  .dashboard-shell p,
+  .dashboard-shell span,
+  .dashboard-shell a,
+  .dashboard-shell button,
+  .dashboard-shell h1,
+  .dashboard-shell h2,
+  .dashboard-shell h3,
+  .dashboard-shell h4,
+  .dashboard-shell label,
+  .dashboard-shell input,
+  .dashboard-shell select,
+  .dashboard-shell textarea {
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+      sans-serif;
+    font-stretch: normal;
+  }
+
+  .dashboard-shell .font-black {
+    font-weight: 700;
+  }
+
+  .dashboard-shell .font-bold {
+    font-weight: 600;
+  }
+
+  .dashboard-shell .font-semibold,
+  .dashboard-shell .font-medium {
+    font-weight: 500;
+  }
+
+  .dashboard-shell [class~="text-[9px]"].font-black,
+  .dashboard-shell [class~="text-[10px]"].font-black,
+  .dashboard-shell [class~="text-[11px]"].font-black,
+  .dashboard-shell .text-xs.font-black {
+    font-weight: 600;
+  }
+
+  .dashboard-shell h1,
+  .dashboard-shell h2,
+  .dashboard-shell h3,
+  .dashboard-shell h4 {
+    letter-spacing: -0.015em;
+  }
+
+  .dashboard-shell .uppercase {
+    letter-spacing: 0.02em !important;
+  }
+
+  .dashboard-shell [class~="text-[9px]"],
+  .dashboard-shell [class~="text-[10px]"] {
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  .dashboard-shell [class~="text-[11px]"],
+  .dashboard-shell [class~="text-xs"] {
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .dashboard-shell .dashboard-pilot__section-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.25rem;
+  }
+
+  .dashboard-shell .dashboard-pilot__header h1 {
+    font-size: 1.375rem;
+    font-weight: 700;
+  }
+
+  .dashboard-shell .dashboard-pilot__brand-accent {
+    font-size: 1.0625rem;
+    letter-spacing: -0.02em;
+  }
+
+  .dashboard-pilot {
+    --dashboard-card-radius: 1.5rem;
+    --dashboard-card-shadow: none;
+    --dashboard-card-shadow-hover: none;
+  }
+
+  .dashboard-pilot__card,
+  .dashboard-pilot__metric,
+  .dashboard-pilot__week {
+    border-color: var(--detail-module-border);
+    background-color: var(--card);
+    box-shadow: none;
+  }
+
+  .dashboard-pilot__metric--primary::before {
+    display: none;
+  }
+
+  .profile-reference-card,
+  .profile-reference-hero {
+    border-color: color-mix(
+      in srgb,
+      var(--detail-module-border) 72%,
+      transparent
+    );
+    border-radius: 1.5rem;
+    box-shadow: none;
+  }
+
+  .app-shell[data-active-page="perfil"]
+    .profile-reference-shell
+    > header {
+    background-color: var(--card);
+    backdrop-filter: none;
+  }
+
+  .profile-reference-hero-wrap {
+    margin-inline: -1.125rem;
+  }
+
+  .profile-reference-hero {
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0 0 1.75rem 1.75rem;
+    padding-top: 2.25rem;
   }
 
   .dashboard-pilot__period {
@@ -884,7 +1028,7 @@ button,
   }
 
   .dashboard-pilot__metric [class~="text-[34px]"] {
-    font-size: 1.875rem;
+    font-size: 2rem;
   }
 
   .dashboard-pilot__recovery-ring {

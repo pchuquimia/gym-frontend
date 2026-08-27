@@ -3175,16 +3175,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   return (
     <motion.div
       initial={false}
-      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-4 pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-4 px-[6px] pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
       <header className="dashboard-pilot__header relative z-40 flex items-center justify-between gap-3 border-b border-transparent pb-3 dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />
           <div className="min-w-0">
-            <h1 className="text-3xl font-black italic leading-[0.9] text-[#1a1a1a] dark:text-white">
+            <h1 className="text-[22px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1a1a1a] md:text-3xl md:font-black md:italic md:leading-[0.9] md:tracking-normal dark:text-white">
               APEX
               <br />
-              <span className="text-[#ff5722] dark:text-[#e2ff00]">
+              <span className="dashboard-pilot__brand-accent text-[#ff5722] dark:text-[#e2ff00]">
                 PERFORMANCE
               </span>
             </h1>
