@@ -55,6 +55,7 @@ import CoachPlanModal from "../components/coach/CoachPlanModal";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import OperationLoader from "../components/system/OperationLoader";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -5115,7 +5116,46 @@ function Routines({ onNavigate }) {
   return (
     <div className="routines-shell">
       <section className="space-y-5">
-        <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
+        <MobilePageHeader
+          title={activePlan ? activePlan.name : "Rutinas"}
+          variant={activePlan ? "detail" : "main"}
+          onBack={() => setActivePlan(null)}
+          actions={
+            !activePlan ? (
+              <>
+                {canReturnToTraining ? (
+                  <button
+                    type="button"
+                    onClick={handleReturnToTraining}
+                    className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                    aria-label="Volver al entrenamiento"
+                  >
+                    <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
+                  </button>
+                ) : null}
+                {!isManagedClient ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      workspaceView === "plans"
+                        ? setPlanModalOpen(true)
+                        : openCreate()
+                    }
+                    className="grid h-11 w-11 place-items-center rounded-full bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                    aria-label={
+                      workspaceView === "plans"
+                        ? "Nueva planificación"
+                        : "Nueva rutina"
+                    }
+                  >
+                    <Plus className="h-5 w-5" strokeWidth={1.8} />
+                  </button>
+                ) : null}
+              </>
+            ) : null
+          }
+        />
+        <div className="hidden items-start justify-between gap-2 md:flex md:items-center md:gap-3">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {activePlan

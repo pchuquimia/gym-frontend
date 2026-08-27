@@ -289,14 +289,17 @@ function Sidebar({
           </div>
         </nav>
 
-        <button
-          type="button"
-          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[0.7rem] border border-[color:var(--drawer-border)] bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--drawer-muted)] transition-colors hover:border-[#c85a52]/40 hover:bg-[#c85a52]/10 hover:text-[#b94840]"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Cerrar sesion</span>
-        </button>
+        <div className="mt-4 flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-[0.7rem] border border-[color:var(--drawer-border)] bg-transparent font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--drawer-muted)] transition-colors hover:border-[#c85a52]/40 hover:bg-[#c85a52]/10 hover:text-[#b94840]"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Cerrar sesion</span>
+          </button>
+        </div>
       </aside>
     );
   }

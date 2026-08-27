@@ -41,6 +41,8 @@ function MainLayout({
   const useTrainingChrome = activePage === "registrar";
   const useOnboardingChrome = activePage === "onboarding";
   const useProfileChrome = activePage === "perfil";
+  const useLibraryChrome = activePage === "library";
+  const useRoutinesChrome = activePage === "rutinas";
 
   useLayoutEffect(() => {
     let secondFrame = 0;
@@ -168,14 +170,21 @@ function MainLayout({
         ) : null}
         <div
           className={`w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
-            useDashboardChrome || useProfileChrome
+            useDashboardChrome ||
+            useProfileChrome ||
+            useLibraryChrome ||
+            useRoutinesChrome
               ? "max-md:pb-28 max-md:pt-0"
               : "max-md:pb-28"
           }`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
-              useDashboardChrome || useOnboardingChrome || useProfileChrome
+              useDashboardChrome ||
+                useOnboardingChrome ||
+                useProfileChrome ||
+                useLibraryChrome ||
+                useRoutinesChrome
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"

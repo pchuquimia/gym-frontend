@@ -871,7 +871,9 @@ button,
 
 @media (max-width: 639px) {
   :root:not(.dark) .app-shell[data-active-page="dashboard"],
-  :root:not(.dark) .app-shell[data-active-page="perfil"] {
+  :root:not(.dark) .app-shell[data-active-page="perfil"],
+  :root:not(.dark) .app-shell[data-active-page="library"],
+  :root:not(.dark) .app-shell[data-active-page="rutinas"] {
     --bg: #f8f0e7;
     --surface: #fffdf8;
     --surface-subtle: #f2ece4;
@@ -889,6 +891,25 @@ button,
     --text-subtle: #a29b91;
     background-color: #f8f0e7 !important;
     background-image: none;
+  }
+
+  :root:not(.dark) .app-shell[data-active-page="dashboard"] {
+    --bg: #f5f1e8;
+    --surface: #fffdf8;
+    --surface-subtle: #efebe2;
+    --surface-raised: #fffdf8;
+    --card: #fffdf8;
+    --segmented-surface: #f7f3eb;
+    --detail-canvas: #f5f1e8;
+    --detail-module: #fffdf8;
+    --detail-module-border: #e9e4da;
+    --detail-row-divider: #e7e2d8;
+    --border: #e8e3d9;
+    --border-strong: #d4ccbf;
+    --text: #21170f;
+    --text-muted: #7c776e;
+    --text-subtle: #aaa49a;
+    background-color: #f5f1e8 !important;
   }
 
   .dashboard-shell,
@@ -970,6 +991,79 @@ button,
     letter-spacing: -0.02em;
   }
 
+  .library-reference-shell,
+  .library-reference-shell p,
+  .library-reference-shell span,
+  .library-reference-shell a,
+  .library-reference-shell button,
+  .library-reference-shell h1,
+  .library-reference-shell h2,
+  .library-reference-shell h3,
+  .library-reference-shell h4,
+  .library-reference-shell label,
+  .library-reference-shell input,
+  .library-reference-shell select,
+  .library-reference-shell textarea {
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+      sans-serif;
+    font-stretch: normal;
+  }
+
+  .library-exercise-card {
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transition: none;
+  }
+
+  .library-filter-strip {
+    overflow-anchor: none;
+    scrollbar-width: none;
+  }
+
+  .library-filter-strip > * {
+    overflow-anchor: none;
+  }
+
+  .library-filter-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .library-reset-chip {
+    animation: library-chip-enter 220ms ease-out both;
+  }
+
+  .library-filter-strip--focused {
+    animation: library-strip-focus 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes library-strip-focus {
+    from {
+      opacity: 0.72;
+      transform: translateX(1.25rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes library-chip-enter {
+    from {
+      opacity: 0;
+      transform: translateX(0.5rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
   .dashboard-pilot {
     --dashboard-card-radius: 1.5rem;
     --dashboard-card-shadow: none;
@@ -1001,7 +1095,7 @@ button,
 
   .app-shell[data-active-page="perfil"]
     .profile-reference-shell
-    > header {
+    > header.mobile-page-header--detail {
     background-color: var(--card);
     backdrop-filter: none;
   }
@@ -1011,9 +1105,7 @@ button,
   }
 
   .profile-reference-hero {
-    border-top: 0;
-    border-right: 0;
-    border-left: 0;
+    border: 0;
     border-radius: 0 0 1.75rem 1.75rem;
     padding-top: 2.25rem;
   }
@@ -1034,6 +1126,300 @@ button,
   .dashboard-pilot__recovery-ring {
     height: 8rem;
     width: 8rem;
+  }
+
+  .dashboard-shell > .mobile-page-header--main {
+    min-height: 7.5rem;
+    padding-bottom: 1.5rem;
+    padding-top: 1.75rem;
+  }
+
+  .dashboard-shell > .mobile-page-header--main h1 {
+    font-size: 2.25rem;
+    font-weight: 500;
+    letter-spacing: -0.035em;
+  }
+
+  .dashboard-mobile-avatar {
+    border-color: color-mix(in srgb, var(--border) 70%, transparent);
+    box-shadow: none;
+  }
+
+  .dashboard-today-module {
+    overflow: hidden;
+    gap: 0;
+    border-radius: 1.5rem;
+    background: var(--card);
+  }
+
+  .dashboard-today-module .dashboard-today-card,
+  .dashboard-today-module .dashboard-week-strip {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent;
+  }
+
+  .dashboard-today-card__accent {
+    display: none;
+  }
+
+  .dashboard-today-card__body {
+    padding: 1.5rem 1.25rem 1.25rem !important;
+  }
+
+  .dashboard-today-card__layout {
+    gap: 1.25rem;
+  }
+
+  .dashboard-today-card__eyebrow > span {
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  .dashboard-today-card__eyebrow > p {
+    font-size: 0.8125rem !important;
+    font-weight: 600;
+    letter-spacing: 0.025em !important;
+  }
+
+  .dashboard-today-card h2 {
+    margin-top: 0.875rem;
+    font-size: 1.625rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+
+  .dashboard-today-card h2 + p,
+  .dashboard-today-card h2 + div > p {
+    margin-top: 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .dashboard-today-card[data-dashboard-action="scheduled"]
+    .dashboard-today-card__description,
+  .dashboard-today-card[data-dashboard-action="scheduled"]
+    .dashboard-today-card__meta,
+  .dashboard-today-card[data-dashboard-action="scheduled"]
+    .dashboard-today-card__secondary {
+    display: none;
+  }
+
+  .dashboard-today-card[data-dashboard-action="scheduled"] h2 {
+    margin-top: 1rem;
+    font-size: 1.75rem;
+  }
+
+  .dashboard-today-card[data-dashboard-action="scheduled"]
+    [data-dashboard-today-actions] {
+    margin-top: 0.25rem;
+  }
+
+  .dashboard-today-card__meta {
+    gap: 0;
+    margin-top: 1rem;
+  }
+
+  .dashboard-today-card__meta > span {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.15rem;
+  }
+
+  .dashboard-today-card__meta > span:first-child {
+    padding-left: 0;
+  }
+
+  .dashboard-today-card__meta > span + span {
+    border-left: 1px solid var(--detail-row-divider);
+  }
+
+  .dashboard-today-card [data-dashboard-today-actions] {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.625rem;
+  }
+
+  .dashboard-today-card[data-dashboard-action="rest"]
+    [data-dashboard-today-actions] {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .dashboard-today-card [data-dashboard-today-actions] > button,
+  .dashboard-today-card [data-dashboard-today-actions] > div {
+    height: 3.125rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+  }
+
+  .dashboard-week-strip {
+    border-top: 1px solid var(--detail-row-divider) !important;
+    padding-inline: 0.5rem;
+  }
+
+  .dashboard-week-strip .dashboard-pilot__day {
+    border-left: 0;
+    padding: 0.875rem 0.25rem 1rem;
+  }
+
+  .dashboard-week-strip .dashboard-pilot__day > p:first-child {
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+
+  .dashboard-week-strip .dashboard-pilot__day > p:last-child {
+    margin-top: 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+  }
+
+  .dashboard-shell .dashboard-pilot__section-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.015em;
+  }
+
+  .dashboard-weekly-toggle {
+    border: 0;
+    background: transparent;
+    padding-inline: 0;
+    font-size: 0.75rem !important;
+    font-weight: 500;
+  }
+
+  .dashboard-weekly-grid {
+    overflow: hidden;
+    gap: 0;
+    border-radius: 1.5rem;
+    background: var(--card);
+  }
+
+  .dashboard-weekly-grid .dashboard-weekly-metric {
+    min-height: 8.75rem;
+    border: 0;
+    border-radius: 0 !important;
+    background: transparent;
+    padding: 1.125rem;
+  }
+
+  .dashboard-weekly-grid .dashboard-weekly-metric:nth-child(odd) {
+    border-right: 1px solid var(--detail-row-divider);
+  }
+
+  .dashboard-weekly-grid .dashboard-weekly-metric:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--detail-row-divider);
+  }
+
+  .dashboard-weekly-grid .dashboard-weekly-metric > div:first-child > p,
+  .dashboard-weekly-comparison > div:first-child > p {
+    font-size: 0.75rem !important;
+    font-weight: 500;
+    letter-spacing: 0.015em !important;
+  }
+
+  .dashboard-weekly-grid .dashboard-weekly-metric [class~="text-[34px]"] {
+    font-size: 1.875rem;
+    font-weight: 600;
+  }
+
+  .dashboard-weekly-comparison .dashboard-pilot__split {
+    border-color: var(--detail-row-divider);
+    background: transparent;
+  }
+
+  .dashboard-weekly-comparison .dashboard-pilot__split p:last-child {
+    font-weight: 600;
+  }
+
+  .dashboard-weekly-extra {
+    overflow: hidden;
+    gap: 0;
+    border-radius: 1.5rem;
+    background: var(--card);
+  }
+
+  .dashboard-weekly-extra > button {
+    min-height: 8.5rem;
+    border: 0;
+    border-radius: 0 !important;
+    box-shadow: none;
+  }
+
+  .dashboard-weekly-extra > button:first-child {
+    border-right: 1px solid var(--detail-row-divider);
+  }
+
+  .dashboard-recovery-card,
+  .dashboard-month-card,
+  .dashboard-trend-card {
+    border: 0 !important;
+    border-radius: 1.5rem !important;
+    background: var(--card);
+    box-shadow: none;
+  }
+
+  .dashboard-recovery-card {
+    padding: 1.25rem;
+  }
+
+  .dashboard-recovery-overview__value {
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .dashboard-recovery-overview .dashboard-pilot__recovery-ring {
+    height: 5rem;
+    width: 5rem;
+  }
+
+  .dashboard-month-card {
+    padding: 1.25rem;
+  }
+
+  .dashboard-month-card > div:first-child p:first-child,
+  .dashboard-trend-card > button span > span:first-child {
+    font-size: 0.8125rem !important;
+    font-weight: 600;
+    letter-spacing: 0.02em !important;
+  }
+
+  .dashboard-month-card > div:first-child p:last-child {
+    margin-top: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  .dashboard-month-chart {
+    height: 11rem;
+    border: 0;
+    border-radius: 0.875rem;
+    background: #faf8f2;
+  }
+
+  .dashboard-month-summary {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+
+  .dashboard-trend-card > button {
+    min-height: 6.5rem;
+    padding: 1.25rem;
+  }
+
+  .dashboard-trend-card > button span > span:nth-child(2) {
+    margin-top: 0.375rem;
+    font-size: 1.125rem;
+    font-weight: 500;
   }
 }
 /* dashboard-pilot:end */

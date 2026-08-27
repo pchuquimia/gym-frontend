@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
 import ExerciseMigrationPanel from "../components/library/ExerciseMigrationPanel";
 import ExerciseImageManager from "../components/library/ExerciseImageManager";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
 import { useAuth } from "../context/AuthContext";
@@ -249,9 +250,24 @@ export default function ExerciseLibrary({ onNavigate }) {
     readRecentExerciseIds,
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [isMobileLibrary, setIsMobileLibrary] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 639px)").matches
+      : false,
+  );
+  const mobileFilterStripRef = useRef(null);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [routineDraftMeta] = useState(readRoutineDraftMeta);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const updateViewport = () => setIsMobileLibrary(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
 
   const facetsQuery = useQuery({
     queryKey: ["exercise-facets", user?.id || user?._id || "self"],
@@ -270,6 +286,24 @@ export default function ExerciseLibrary({ onNavigate }) {
     ).map((category) => ({ value: category, count: available.get(category) }));
   }, [facets.categories]);
   const groups = facets.groupsByRegion?.[selectedBodyRegion] || [];
+  const categoryChildOptions =
+    selectedCategory !== ALL_FILTER_VALUE
+      ? facets.groupsByCategory?.[selectedCategory] || []
+      : [];
+  const mobileChildOptions = selectedBodyRegion
+    ? groups
+    : categoryChildOptions;
+  const selectedMobileChildOption = selectedMuscleGroup;
+  const orderedMobileChildOptions = selectedMobileChildOption
+    ? [
+        mobileChildOptions.find(
+          (option) => option.value === selectedMobileChildOption,
+        ),
+        ...mobileChildOptions.filter(
+          (option) => option.value !== selectedMobileChildOption,
+        ),
+      ].filter(Boolean)
+    : mobileChildOptions;
   const entryPoints = useMemo(() => {
     const entryCounts = facets.entryCounts || {};
     const entryCount = (key) =>
@@ -350,6 +384,7 @@ export default function ExerciseLibrary({ onNavigate }) {
     Object.values(filters).every((value) => value === ALL_FILTER_VALUE) &&
     !search.trim();
   const showGroups = Boolean(
+    !isMobileLibrary &&
     sourceFilter === "all" &&
     selectedBodyRegion &&
     !selectedMuscleGroup &&
@@ -583,8 +618,91 @@ export default function ExerciseLibrary({ onNavigate }) {
                   : showDiscoveryHome
                     ? "Elige un movimiento esencial o busca por nombre, músculo o equipo."
                     : "Busca por nombre o explora una región corporal.";
+  const isLibraryChild = Boolean(
+    showAdminPanel ||
+      selectedFamily ||
+      selectedBodyRegion ||
+      selectedMuscleGroup ||
+      selectedCategory !== ALL_FILTER_VALUE,
+  );
+  const mobileLibraryTitle = selectedFamily
+    ? selectedFamily.name
+    : showMigration
+      ? "Migración de catálogo"
+      : showImageManager
+        ? "Imágenes de ejercicios"
+        : selectedBodyRegion
+          ? selectedBodyLabel || selectedBodyRegion
+          : selectedCategory !== ALL_FILTER_VALUE
+            ? selectedCategory
+            : activeTitle;
 
   const clearTechnicalFilters = () => setFilters(defaultFilters);
+  const getScrollBehavior = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth";
+  const scrollLibraryToTop = () => {
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+      });
+    });
+  };
+  const focusMobileFilter = () => {
+    if (
+      typeof window === "undefined" ||
+      !window.matchMedia?.("(max-width: 639px)").matches
+    )
+      return;
+    window.setTimeout(() => {
+      const strip = mobileFilterStripRef.current;
+      if (strip) {
+        const start = strip.scrollLeft;
+        const reduceMotion = getScrollBehavior() === "auto";
+        if (reduceMotion || start <= 0) {
+          strip.scrollLeft = 0;
+        } else {
+          const duration = 320;
+          const startedAt = window.performance.now();
+          const move = (now) => {
+            const progress = Math.min(1, (now - startedAt) / duration);
+            const eased = 1 - (1 - progress) ** 3;
+            strip.scrollLeft = Math.round(start * (1 - eased));
+            if (progress < 1) {
+              window.requestAnimationFrame(move);
+            } else {
+              strip.scrollLeft = 0;
+            }
+          };
+          window.requestAnimationFrame(move);
+        }
+      }
+      window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+    }, 80);
+  };
+  const selectMuscleGroup = (group) => {
+    setSelectedMuscleGroup(group);
+    setSelectedFamilyId("");
+    setVisibleVariantCount(8);
+    setFiltersOpen(false);
+    setMobileSearchOpen(false);
+    focusMobileFilter();
+  };
+  const resetMuscleGroup = () => {
+    setSelectedMuscleGroup("");
+    setSelectedFamilyId("");
+    setVisibleVariantCount(8);
+    focusMobileFilter();
+  };
+  const selectMobileChildOption = (option) => {
+    selectMuscleGroup(option);
+  };
+  const resetMobileChildOption = () => {
+    resetMuscleGroup();
+  };
   const resetScope = () => {
     setSelectedCategory(ALL_FILTER_VALUE);
     setSelectedBodyRegion("");
@@ -614,6 +732,14 @@ export default function ExerciseLibrary({ onNavigate }) {
       setSelectedCategory(ALL_FILTER_VALUE);
     }
   };
+  const goBackMobileScope = () => {
+    if (selectedFamilyId) {
+      setSelectedFamilyId("");
+      setVisibleVariantCount(8);
+      return;
+    }
+    resetScope();
+  };
   const selectCategory = (category) => {
     setSelectedCategory(category);
     setSelectedBodyRegion("");
@@ -631,8 +757,10 @@ export default function ExerciseLibrary({ onNavigate }) {
     setSelectedMuscleGroup("");
     setSelectedFamilyId("");
     setVisibleVariantCount(8);
+    setViewMode("complete");
     setFiltersOpen(false);
     clearTechnicalFilters();
+    scrollLibraryToTop();
   };
   const updateFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
@@ -803,9 +931,158 @@ export default function ExerciseLibrary({ onNavigate }) {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl space-y-5 pb-24 font-condensed">
+      <div className="library-reference-shell mx-auto w-full max-w-6xl space-y-5 px-[6px] pb-24 font-condensed md:px-0">
         <section className="space-y-4 px-1 pt-1">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="md:hidden">
+            <MobilePageHeader
+              title={isLibraryChild ? mobileLibraryTitle : "Biblioteca"}
+              variant={isLibraryChild ? "detail" : "main"}
+              onBack={() => {
+                if (showAdminPanel) {
+                  selectSource("all");
+                } else {
+                  goBackMobileScope();
+                }
+                scrollLibraryToTop();
+              }}
+            />
+
+            {!showAdminPanel && !selectedFamily ? (
+              <div
+                key={
+                  selectedBodyRegion
+                    ? `${selectedBodyRegion}:${selectedMobileChildOption || "grupos"}`
+                    : selectedCategory !== ALL_FILTER_VALUE
+                      ? `${selectedCategory}:${selectedMobileChildOption || "subgrupos"}`
+                    : "colecciones"
+                }
+                ref={mobileFilterStripRef}
+                className={`library-filter-strip -mx-[10px] flex gap-2.5 overflow-x-auto border-b border-[color:var(--detail-row-divider)] px-[10px] pb-5 pt-3 ${selectedMobileChildOption ? "library-filter-strip--focused" : ""}`}
+              >
+                {isLibraryChild ? (
+                  <>
+                    {selectedMobileChildOption ? (
+                      <button
+                        type="button"
+                        onClick={resetMobileChildOption}
+                        className="library-reset-chip flex h-12 shrink-0 items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-transparent px-5 font-sans text-[15px] font-medium text-[color:var(--text)]"
+                      >
+                        <RefreshCw className="h-4 w-4" strokeWidth={2} />
+                        Restablecer
+                      </button>
+                    ) : null}
+                    {orderedMobileChildOptions.map((option) => {
+                      const active =
+                        selectedMobileChildOption === option.value;
+                      const locked = Boolean(
+                        selectedMobileChildOption && !active,
+                      );
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          data-library-filter={slugify(option.value)}
+                          aria-pressed={active}
+                          disabled={locked}
+                          onClick={(event) => {
+                            event.currentTarget.blur();
+                            selectMobileChildOption(option.value);
+                          }}
+                          className={`h-12 shrink-0 rounded-full px-5 font-sans text-[15px] font-medium transition-[opacity,transform,background-color,color] duration-300 ${
+                            active
+                              ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                          } ${locked ? "cursor-not-allowed opacity-35" : "opacity-100"}`}
+                        >
+                          {option.value}
+                        </button>
+                      );
+                    })}
+                    {!mobileChildOptions.length ? (
+                      <span className="flex h-12 shrink-0 items-center rounded-full bg-[color:var(--surface-subtle)] px-5 font-sans text-[15px] text-[color:var(--text-muted)]">
+                        Cargando subgrupos…
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {[
+                      { value: "essential", label: "Para ti" },
+                      { value: "basics", label: "Básicos" },
+                      { value: "recent", label: "Recientes" },
+                      { value: "complete", label: "Catálogo" },
+                    ].map(({ value, label }) => {
+                      const active = viewMode === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => {
+                            setViewMode(value);
+                            setSelectedFamilyId("");
+                            setMobileSearchOpen(false);
+                          }}
+                          className={`h-12 shrink-0 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
+                            active
+                              ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      aria-pressed={mobileSearchOpen || Boolean(search)}
+                      onClick={() => {
+                        setMobileSearchOpen((value) => !value);
+                        setFiltersOpen(false);
+                      }}
+                      className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
+                        mobileSearchOpen || search
+                          ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                          : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <Search className="h-4 w-4" strokeWidth={2} />
+                      Buscar
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={filtersOpen || activeFilterCount > 0}
+                      onClick={() => {
+                        setFiltersOpen((value) => !value);
+                        setMobileSearchOpen(false);
+                      }}
+                      className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
+                        filtersOpen || activeFilterCount
+                          ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                          : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <SlidersHorizontal className="h-4 w-4" strokeWidth={2} />
+                      Filtros
+                      {activeFilterCount ? ` ${activeFilterCount}` : ""}
+                    </button>
+                    {canCreate ? (
+                      <button
+                        type="button"
+                        onClick={handleAdd}
+                        className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[color:var(--surface-subtle)] px-5 font-sans text-[15px] font-medium text-[color:var(--text)]"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={2} />
+                        Crear
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden flex-wrap items-start justify-between gap-3 md:flex">
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
                 Biblioteca
@@ -857,7 +1134,7 @@ export default function ExerciseLibrary({ onNavigate }) {
             selectedCategory !== ALL_FILTER_VALUE) ? (
             <nav
               aria-label="Ruta de navegación"
-              className="flex flex-wrap items-center gap-1 text-xs font-bold text-[color:var(--text-muted)]"
+              className="hidden flex-wrap items-center gap-1 text-xs font-bold text-[color:var(--text-muted)] md:flex"
             >
               <button
                 type="button"
@@ -902,7 +1179,9 @@ export default function ExerciseLibrary({ onNavigate }) {
           ) : null}
 
           {!showAdminPanel && !selectedFamily ? (
-            <label className="relative block">
+            <label
+              className={`relative ${mobileSearchOpen ? "block" : "hidden"} md:block`}
+            >
               <span className="sr-only">Buscar ejercicios</span>
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
               <input
@@ -916,7 +1195,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 type="search"
                 inputMode="search"
                 placeholder="Buscar por nombre, músculo o equipo"
-                className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
+                className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 font-sans text-[16px] font-normal text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 md:rounded md:text-sm md:font-semibold dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
               />
             </label>
           ) : null}
@@ -928,7 +1207,7 @@ export default function ExerciseLibrary({ onNavigate }) {
           !isSearching &&
           !selectedFamily ? (
             <div
-              className="flex flex-wrap gap-2"
+              className="hidden flex-wrap gap-2 md:flex"
               role="group"
               aria-label="Categoría de ejercicio"
             >
@@ -962,7 +1241,15 @@ export default function ExerciseLibrary({ onNavigate }) {
           <ErrorState onRetry={() => facetsQuery.refetch()} />
         ) : showGroups ? (
           <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3 px-1">
+            <div className="px-2 py-10 text-center md:hidden">
+              <p className="font-sans text-[16px] font-medium text-[color:var(--text)]">
+                Elige un grupo muscular arriba
+              </p>
+              <p className="mt-1 font-sans text-[14px] text-[color:var(--text-muted)]">
+                La biblioteca mostrará solo los ejercicios de ese grupo.
+              </p>
+            </div>
+            <div className="hidden items-center justify-between gap-3 px-1 md:flex">
               <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
                 Grupos musculares
               </h2>
@@ -971,13 +1258,13 @@ export default function ExerciseLibrary({ onNavigate }) {
                 Volver
               </Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="hidden gap-3 md:grid md:grid-cols-2 lg:grid-cols-3">
               {groups.map((group) => (
                 <ScopeCard
                   key={group.value}
                   label={group.value}
                   count={group.count}
-                  onClick={() => setSelectedMuscleGroup(group.value)}
+                  onClick={() => selectMuscleGroup(group.value)}
                 />
               ))}
             </div>
@@ -986,7 +1273,7 @@ export default function ExerciseLibrary({ onNavigate }) {
           <section className="space-y-4">
             {!selectedFamily ? (
               <>
-                <div className="flex flex-col gap-2 rounded border border-[color:var(--border)] bg-[color:var(--card)] p-1 sm:flex-row sm:items-center">
+                <div className="hidden flex-col gap-2 rounded border border-[color:var(--border)] bg-[color:var(--card)] p-1 md:flex md:flex-row md:items-center">
                   <div
                     className="grid min-w-0 flex-1 grid-cols-3"
                     role="tablist"
@@ -1073,7 +1360,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 </div>
 
                 <div
-                  className="flex gap-2 overflow-x-auto pb-1"
+                  className={`${filtersOpen ? "flex" : "hidden"} library-filter-strip gap-2 overflow-x-auto pb-1 md:flex`}
                   role="group"
                   aria-label="Filtros rápidos"
                 >
@@ -1284,7 +1571,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 </div>
                 {selectedFamily ? (
                   <>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-0 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
                       {visibleVariants.map((exercise, index) => (
                         <ExerciseCard
                           key={exercise.id}
@@ -1316,7 +1603,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                   </>
                 ) : familyView && visibleFamilyGroups.length ? (
                   <>
-                    <div className="grid gap-3 md:grid-cols-2">
+                    <div className="grid gap-0 md:grid-cols-2 md:gap-3">
                       {visibleFamilyGroups.map((family) => (
                         <ExerciseCard
                           key={family.id}
@@ -1383,7 +1670,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                   </section>
                 ) : (
                   <>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-0 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
                       {exercises.map((exercise) => (
                         <ExerciseCard
                           key={exercise.id}

@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronRight,
   Clock3,
   Dumbbell,
   Flame,
@@ -34,6 +35,8 @@ import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
@@ -709,7 +712,7 @@ function StatCard({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       aria-label={onClick ? `Ver detalle de ${label}` : undefined}
-      className={`dashboard-pilot__metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
+      className={`dashboard-pilot__metric dashboard-weekly-metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
         primary ? "dashboard-pilot__metric--primary" : ""
       } ${
         onClick ? "transition hover:border-[color:var(--border-strong)]" : ""
@@ -941,7 +944,7 @@ function PeriodComparisonPanel({
 
 function WeekStrip({ days }) {
   return (
-    <section className="dashboard-pilot__week grid grid-cols-7 border border-[color:var(--border)] bg-[color:var(--card)] px-2 shadow-sm dark:shadow-none sm:px-3">
+    <section className="dashboard-pilot__week dashboard-week-strip grid grid-cols-7 border border-[color:var(--border)] bg-[color:var(--card)] px-2 shadow-sm dark:shadow-none sm:px-3">
       {days.map((day) => (
         <div
           key={day.key}
@@ -982,7 +985,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
   }, [data.length]);
 
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section className="dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text)]">
@@ -994,7 +997,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
         </div>
       </div>
 
-      <div className="relative mt-4 h-40 rounded border border-[#d8d8d8] bg-[#fafafa] px-3 pb-2 pt-10 dark:rounded-[3px] dark:border-[#292929] dark:bg-[#080808]">
+      <div className="dashboard-month-chart relative mt-4 h-40 rounded border border-[#d8d8d8] bg-[#fafafa] px-3 pb-2 pt-10 dark:rounded-[3px] dark:border-[#292929] dark:bg-[#080808]">
         {selectedDay ? (
           <div
             className={`absolute top-2 z-10 max-w-[190px] rounded border border-[color:var(--border)] bg-[color:var(--card)] px-2.5 py-1.5 text-[10px] font-bold text-[color:var(--text)] shadow-lg ${selectedDay.dayNumber > 20 ? "right-2" : "left-2"}`}
@@ -1106,7 +1109,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 border-t border-[color:var(--border)] pt-3">
+      <div className="dashboard-month-summary mt-3 grid grid-cols-2 border-t border-[color:var(--border)] pt-3">
         <div className="border-r border-[color:var(--border)] px-3">
           <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
             Días entrenados
@@ -1143,7 +1146,7 @@ function CollapsibleSection({
   children,
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section className="dashboard-trend-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
       <button
         type="button"
         onClick={onToggle}
@@ -1326,16 +1329,21 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
             : Target;
 
   return (
-    <section className="dashboard-pilot__card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
-      <div className="h-0.5 bg-[color:var(--accent)] sm:h-1" />
-      <div className={compactRest ? "p-3 sm:p-4" : "p-3.5 sm:p-4"}>
+    <section
+      data-dashboard-action={action.type}
+      className="dashboard-pilot__card dashboard-today-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none"
+    >
+      <div className="dashboard-today-card__accent h-0.5 bg-[color:var(--accent)] sm:h-1" />
+      <div
+        className={`dashboard-today-card__body ${compactRest ? "p-3 sm:p-4" : "p-3.5 sm:p-4"}`}
+      >
         <div
-          className={`flex flex-col md:flex-row md:items-center md:justify-between ${
+          className={`dashboard-today-card__layout flex flex-col md:flex-row md:items-center md:justify-between ${
             compactRest ? "gap-2.5 sm:gap-3" : "gap-3"
           }`}
         >
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="dashboard-today-card__eyebrow flex items-center gap-2">
               <span
                 className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
                 style={{
@@ -1360,26 +1368,33 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
                   : "mt-2 text-xl sm:text-2xl"
               }`}
             >
-              {action.title}
+              {action.mobileTitle ? (
+                <>
+                  <span className="sm:hidden">{action.mobileTitle}</span>
+                  <span className="hidden sm:inline">{action.title}</span>
+                </>
+              ) : (
+                action.title
+              )}
             </h2>
             {compactRest && action.mobileDescription ? (
               <>
-                <p className="mt-1 text-[11px] font-semibold leading-snug text-[color:var(--text-muted)] sm:hidden">
+                <p className="dashboard-today-card__description mt-1 text-[11px] font-semibold leading-snug text-[color:var(--text-muted)] sm:hidden">
                   {action.mobileDescription}
                 </p>
-                <p className="mt-1 hidden max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)] sm:block">
+                <p className="dashboard-today-card__description mt-1 hidden max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)] sm:block">
                   {action.description}
                 </p>
               </>
             ) : (
-              <p className="mt-1 max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
+              <p className="dashboard-today-card__description mt-1 max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
                 {action.description}
               </p>
             )}
 
             {action.meta?.length ? (
               <div
-                className={`flex flex-wrap gap-1.5 ${compactRest ? "mt-2" : "mt-2.5"}`}
+                className={`dashboard-today-card__meta flex flex-wrap gap-1.5 ${compactRest ? "mt-2" : "mt-2.5"}`}
               >
                 {action.meta.map((item) => (
                   <span
@@ -1415,6 +1430,7 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
           </div>
 
           <div
+            data-dashboard-today-actions
             className={
               compactRest
                 ? "grid shrink-0 grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:flex-row md:w-[200px] md:flex-col"
@@ -1430,7 +1446,7 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
               <button
                 type="button"
                 onClick={onPrimary}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--accent)] px-4 text-[10px] font-black uppercase text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)] active:translate-y-px"
+                className="dashboard-today-card__primary inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--accent)] px-4 text-[10px] font-black uppercase text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)] active:translate-y-px"
               >
                 {action.type === "completed" ? (
                   <ArrowRight className="h-4 w-4" />
@@ -1446,7 +1462,7 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
               <button
                 type="button"
                 onClick={onSecondary}
-                className={`inline-flex h-9 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] ${
+                className={`dashboard-today-card__secondary inline-flex h-9 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] ${
                   compactRest ? "px-3 sm:px-4" : "px-4"
                 }`}
               >
@@ -3029,6 +3045,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         tone: recovery.scheduledRoutine.value < 55 ? "warning" : "accent",
         eyebrow: fixedSchedule ? "Rutina de hoy" : "Siguiente en tu plan",
         title: `${fixedSchedule ? "Hoy toca" : "Tu próxima rutina:"} ${recovery.scheduledRoutine.name}`,
+        mobileTitle: recovery.scheduledRoutine.name,
         description: fixedSchedule
           ? "Tu planificación marca esta rutina para hoy. Todo está preparado para comenzar."
           : "Continúa el orden de tu ciclo con esta rutina.",
@@ -3175,9 +3192,52 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   return (
     <motion.div
       initial={false}
-      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-4 px-[6px] pb-10 pt-4 text-[color:var(--text)] md:max-w-5xl md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
+      className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-6 px-[6px] pb-10 pt-2 text-[color:var(--text)] md:max-w-5xl md:space-y-4 md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
-      <header className="dashboard-pilot__header relative z-40 flex items-center justify-between gap-3 border-b border-transparent pb-3 dark:border-[#252525] dark:pb-4">
+      <MobilePageHeader
+        title="Inicio"
+        actions={
+          <>
+            {isAdmin ? (
+              <AdminDateControl
+                value={todayKey}
+                actualDateKey={systemTodayKey}
+                onChange={setDashboardDateKey}
+              />
+            ) : null}
+            {needsDailyWeighIn ? (
+              <button
+                type="button"
+                onClick={() => setQuickWeightOpen(true)}
+                className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
+                aria-label="Registrar pesaje de hoy"
+              >
+                <Weight className="h-5 w-5 motion-safe:animate-pulse" />
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722]"
+                />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+              className="dashboard-mobile-avatar h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
+              aria-label="Abrir menú principal"
+            >
+              <ProfileAvatar
+                photoId={
+                  profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
+                }
+                name={profile?.name || authUser?.name}
+                className="h-full w-full"
+                fallbackClassName="bg-[#ead8dd] text-sm font-semibold text-[#4a2430]"
+              />
+            </button>
+          </>
+        }
+      />
+      <header className="dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />
           <div className="min-w-0">
@@ -3236,13 +3296,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       ) : null}
 
-      <TodayActionCard
-        action={todayAction}
-        onPrimary={handleTodayPrimary}
-        onSecondary={handleTodaySecondary}
-        readOnly={isAdminDatePreview}
-      />
-      <WeekStrip days={weekData.days} />
+      <div className="dashboard-today-module grid gap-4">
+        <TodayActionCard
+          action={todayAction}
+          onPrimary={handleTodayPrimary}
+          onSecondary={handleTodaySecondary}
+          readOnly={isAdminDatePreview}
+        />
+        <WeekStrip days={weekData.days} />
+      </div>
       <div className="flex items-center justify-between gap-3">
         <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
           Rendimiento semanal
@@ -3252,7 +3314,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           onClick={() => setWeeklyDetailsOpen((current) => !current)}
           aria-expanded={weeklyDetailsOpen}
           aria-controls="weekly-extra-metrics"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
+          className="dashboard-weekly-toggle inline-flex h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
         >
           {weeklyDetailsOpen ? "Ocultar" : "Ver todas"}
           <ChevronDown
@@ -3261,7 +3323,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="dashboard-weekly-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Días entrenados"
           value={`${weekData.activeDays}/7`}
@@ -3301,7 +3363,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               : "Completa una sesión para calcularlas"}
           </p>
         </StatCard>
-        <article className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
+        <article className="dashboard-pilot__metric dashboard-weekly-metric dashboard-weekly-comparison rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Comparación por ejercicio
@@ -3338,7 +3400,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       </div>
 
       {weeklyDetailsOpen ? (
-        <div id="weekly-extra-metrics" className="grid grid-cols-2 gap-3">
+        <div
+          id="weekly-extra-metrics"
+          className="dashboard-weekly-extra grid grid-cols-2 gap-3"
+        >
           <button
             type="button"
             onClick={() => setWeeklyLoadModalOpen(true)}
@@ -3399,7 +3464,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="dashboard-pilot__card dashboard-pilot__recovery w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+          className="dashboard-pilot__card dashboard-pilot__recovery dashboard-recovery-card w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
         >
           {isPostWorkout ? (
             <div className="flex items-center gap-3 text-left">
@@ -3454,40 +3519,48 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               </div>
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                  Disponibilidad muscular
+            <div className="dashboard-recovery-overview flex items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Disponibilidad muscular
+                  </p>
+                </div>
+                <p className="dashboard-recovery-overview__value mt-2 text-2xl font-black text-[color:var(--text)]">
+                  {hasTrainingHistory
+                    ? `${recoveryDisplayValue}% disponible`
+                    : "Sin datos todavía"}
                 </p>
-                <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  {hasTrainingHistory
+                    ? recovery.recommended
+                      ? `Para ${recovery.recommended.name}`
+                      : recovery.label
+                    : "Registra tu primera sesión"}
+                </p>
+                {hasTrainingHistory && recovery.activePlan ? (
+                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                    {recovery.activePlan.name}
+                  </p>
+                ) : null}
               </div>
-              <div className="mt-5 grid place-items-center">
+              <div className="grid shrink-0 place-items-center">
                 <div
-                  className="dashboard-pilot__recovery-ring grid h-36 w-36 place-items-center rounded-full p-[9px]"
+                  className="dashboard-pilot__recovery-ring grid h-20 w-20 place-items-center rounded-full p-[6px] sm:h-36 sm:w-36 sm:p-[9px]"
                   style={{
                     background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
                   }}
                 >
                   <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
-                    <span className="text-[34px] font-black text-[color:var(--text)]">
+                    <span className="text-lg font-black text-[color:var(--text)] sm:text-[34px]">
                       {hasTrainingHistory ? `${recoveryDisplayValue}%` : "--"}
                     </span>
                   </div>
                 </div>
               </div>
-              <p className="mt-4 text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
-                {hasTrainingHistory
-                  ? recovery.recommended
-                    ? `Para ${recovery.recommended.name}`
-                    : recovery.label
-                  : "Registra tu primera sesión"}
-              </p>
-              {hasTrainingHistory && recovery.activePlan ? (
-                <p className="mt-1 truncate text-center text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
-                  {recovery.activePlan.name}
-                </p>
-              ) : null}
-            </>
+              <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-subtle)]" />
+            </div>
           )}
         </button>
       </div>

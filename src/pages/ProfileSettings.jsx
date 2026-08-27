@@ -26,6 +26,7 @@ import { api } from "../services/api";
 import { buildCloudinaryUrl } from "../utils/cloudinary";
 import { toast } from "sonner";
 import OperationLoader from "../components/system/OperationLoader";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
 import {
   passwordStatus,
   validateEmail,
@@ -54,18 +55,6 @@ const locationModes = [
     detail: "Rutinas, historial y marcas no se separarán por sede.",
   },
 ];
-
-const roleLabels = {
-  Admin: "Administrador",
-  Entrenador: "Entrenador",
-  Cliente: "Atleta",
-};
-
-const goalLabels = {
-  volumen: "Volumen",
-  mantenimiento: "Mantenimiento",
-  definicion: "Definición",
-};
 
 const inputClass =
   "theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-normal text-[color:var(--text)] outline-none transition disabled:opacity-60 dark:rounded-[3px]";
@@ -262,7 +251,7 @@ function SettingsSelectRow({
   );
 }
 
-function ProfileHero({ user, profile, avatarUrl, stats, onChangePhoto }) {
+function ProfileHero({ user, avatarUrl, stats, onChangePhoto }) {
   return (
     <section className="profile-reference-hero-wrap lg:sticky lg:top-6">
       <div className="profile-reference-hero rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
@@ -293,12 +282,6 @@ function ProfileHero({ user, profile, avatarUrl, stats, onChangePhoto }) {
           <p className="mt-1 truncate font-sans text-sm text-[color:var(--text-muted)]">
             {user?.email || "Cuenta Apex"}
           </p>
-          <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.035em] text-[color:var(--text-subtle)]">
-            {roleLabels[user?.role] || user?.role || "Cuenta"}
-            {profile?.goal
-              ? ` · ${goalLabels[profile.goal] || profile.goal}`
-              : ""}
-          </p>
         </div>
         <div className="mt-6 grid grid-cols-2 border-t border-[color:var(--detail-row-divider)] pt-5">
           <Stat value={stats.workouts} label="Entrenamientos" />
@@ -324,22 +307,18 @@ function Stat({ value, label, bordered = false }) {
   );
 }
 
-function ProfilePageHeader({ title, onBack }) {
+function ProfilePageHeader({ title, onBack, variant = "detail" }) {
   return (
-    <header className="sticky top-0 z-30 -mx-3 grid min-h-[60px] grid-cols-[52px_1fr_52px] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--bg)]/95 px-1 backdrop-blur-md md:hidden">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label="Volver"
-        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
-      >
-        <ChevronLeft className="h-7 w-7" strokeWidth={2.25} />
-      </button>
-      <h1 className="truncate text-center font-sans text-[22px] font-medium text-[color:var(--text)]">
-        {title}
-      </h1>
-      <span aria-hidden="true" />
-    </header>
+    <MobilePageHeader
+      title={title}
+      variant={variant}
+      onBack={onBack}
+      className={
+        variant === "detail"
+          ? "sticky top-0 z-30 -mx-3 border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-1"
+          : "px-[6px]"
+      }
+    />
   );
 }
 
@@ -942,8 +921,8 @@ export default function ProfileSettings({ onNavigate }) {
     return (
       <main className="settings-shell profile-reference-shell mx-auto min-h-[50vh] w-full max-w-5xl">
         <ProfilePageHeader
-          title="Mi perfil"
-          onBack={() => onNavigate?.("dashboard")}
+          title="Perfil"
+          variant="main"
         />
         <OperationLoader
           active
@@ -960,8 +939,8 @@ export default function ProfileSettings({ onNavigate }) {
     return (
       <main className="settings-shell profile-reference-shell mx-auto max-w-lg py-12 text-center">
         <ProfilePageHeader
-          title="Mi perfil"
-          onBack={() => onNavigate?.("dashboard")}
+          title="Perfil"
+          variant="main"
         />
         <p role="alert" className="text-sm font-semibold text-red-500">
           {profileError || "No se pudo cargar el perfil."}
@@ -1526,8 +1505,8 @@ export default function ProfileSettings({ onNavigate }) {
   return (
     <main className="settings-shell profile-reference-shell mx-auto w-full max-w-md pb-28 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <ProfilePageHeader
-        title="Mi perfil"
-        onBack={() => onNavigate?.("dashboard")}
+        title="Perfil"
+        variant="main"
       />
       <div className="mb-7 hidden md:block">
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
@@ -1541,7 +1520,6 @@ export default function ProfileSettings({ onNavigate }) {
       <div className="min-w-0">
         <ProfileHero
           user={user}
-          profile={profile}
           avatarUrl={avatarUrl}
           stats={stats}
           onChangePhoto={openPersonalPhoto}

@@ -40,9 +40,73 @@ export default function ExerciseCard({
   ]
     .filter(Boolean)
     .join(" · ");
+  const mobileDetail = [
+    muscle,
+    variantCount > 1
+      ? `${variantCount} variantes`
+      : equipment.length
+        ? formatList(equipment)
+        : category,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const openMobileExercise = () => {
+    if (variantCount > 1 && onShowVariants) {
+      onShowVariants();
+      return;
+    }
+    onView(exercise);
+  };
 
   return (
-    <article className="group overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#ff5722] bg-[color:var(--card)] shadow-sm transition hover:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/30">
+    <article className="library-exercise-card group overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#ff5722] bg-[color:var(--card)] shadow-sm transition hover:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/30">
+      <button
+        type="button"
+        onClick={openMobileExercise}
+        className="grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-4 border-b border-[color:var(--detail-row-divider)] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/25 md:hidden dark:focus-visible:ring-[#e2ff00]/25"
+        aria-label={
+          variantCount > 1 && onShowVariants
+            ? `Ver ${variantCount} variantes de ${title}`
+            : `Ver ficha de ${title}`
+        }
+      >
+        <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
+          {imageSrc && failedImageSrc !== imageSrc ? (
+            <img
+              src={imageSrc}
+              alt=""
+              loading="lazy"
+              onError={() => setFailedImageSrc(imageSrc)}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center text-[color:var(--text-subtle)]">
+              <ImageIcon className="h-5 w-5" strokeWidth={1.75} />
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 self-center font-sans">
+          <h3 className="line-clamp-2 text-[18px] font-medium leading-[1.2] tracking-[-0.015em] text-[color:var(--text)]">
+            {title}
+          </h3>
+          <p className="mt-2 truncate text-[16px] font-normal leading-5 text-[color:var(--text-muted)]">
+            {mobileDetail}
+          </p>
+          {isPersonal ? (
+            <p className="mt-1 text-[12px] font-medium text-[#c52d00] dark:text-[#e2ff00]">
+              Creado por ti
+            </p>
+          ) : null}
+        </div>
+
+        <ChevronRight
+          className="h-6 w-6 text-[color:var(--text-subtle)]"
+          strokeWidth={1.75}
+        />
+      </button>
+
+      <div className="hidden md:block">
       <button
         type="button"
         onClick={() => onView(exercise)}
@@ -134,6 +198,7 @@ export default function ExerciseCard({
           Ver {variantCount} variantes
         </button>
       ) : null}
+      </div>
     </article>
   );
 }
