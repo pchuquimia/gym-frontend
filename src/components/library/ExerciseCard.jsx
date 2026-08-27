@@ -59,11 +59,11 @@ export default function ExerciseCard({
   };
 
   return (
-    <article className="library-exercise-card group overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#ff5722] bg-[color:var(--card)] shadow-sm transition hover:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/30">
+    <article className="library-exercise-card group overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#352018] bg-[color:var(--card)] shadow-sm transition hover:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/30">
       <button
         type="button"
         onClick={openMobileExercise}
-        className="grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-4 border-b border-[color:var(--detail-row-divider)] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/25 md:hidden dark:focus-visible:ring-[#e2ff00]/25"
+        className="grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-4 border-b border-[color:var(--detail-row-divider)] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/25 md:hidden dark:focus-visible:ring-[#e2ff00]/25"
         aria-label={
           variantCount > 1 && onShowVariants
             ? `Ver ${variantCount} variantes de ${title}`
@@ -94,7 +94,7 @@ export default function ExerciseCard({
             {mobileDetail}
           </p>
           {isPersonal ? (
-            <p className="mt-1 text-[12px] font-medium text-[#c52d00] dark:text-[#e2ff00]">
+            <p className="mt-1 text-[12px] font-medium text-[#2a1711] dark:text-[#e2ff00]">
               Creado por ti
             </p>
           ) : null}
@@ -167,7 +167,7 @@ export default function ExerciseCard({
             <span className="shrink-0 bg-[#1a1a1a] px-2 py-1 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
               {muscle}
             </span>
-            <span className="truncate text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <span className="truncate text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               {category}
             </span>
           </div>
@@ -177,21 +177,21 @@ export default function ExerciseCard({
             </p>
           ) : null}
           {isPersonal ? (
-            <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase text-[#c52d00] dark:text-[#e2ff00]">
+            <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase text-[#2a1711] dark:text-[#e2ff00]">
               <UserRound className="h-3 w-3" />
               Creado por ti
             </p>
           ) : null}
         </div>
 
-        <ChevronRight className="h-5 w-5 self-center text-[#ff5722] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
+        <ChevronRight className="h-5 w-5 self-center text-[#352018] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
       </button>
 
       {variantCount > 1 && onShowVariants ? (
         <button
           type="button"
           onClick={onShowVariants}
-          className="flex h-10 w-full items-center justify-center gap-2 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-black text-[color:var(--text)] transition hover:text-[#ff5722] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/30 dark:hover:text-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
+          className="flex h-10 w-full items-center justify-center gap-2 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-black text-[color:var(--text)] transition hover:text-[#352018] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/30 dark:hover:text-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
           aria-label={`Ver ${variantCount} variantes de ${title}`}
         >
           <Layers3 className="h-3.5 w-3.5" />

@@ -218,7 +218,7 @@ export default function CoachManagement({ onNavigate }) {
     <main className="management-shell mx-auto w-full max-w-[1280px] pb-24 text-[color:var(--text)]">
       <header className="grid gap-4 border-b border-[color:var(--border)] pb-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Estado de la plataforma
           </p>
           <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
@@ -312,7 +312,7 @@ export default function CoachManagement({ onNavigate }) {
                   <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
                     {label}
                   </p>
-                  <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
                 </div>
                 <p className="mt-3 text-[30px] font-black leading-none">
                   {value}
@@ -327,7 +327,7 @@ export default function CoachManagement({ onNavigate }) {
           <section>
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                   Operacion
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">
@@ -383,7 +383,7 @@ export default function CoachManagement({ onNavigate }) {
                       <div className="flex items-center gap-3">
                         <div className="h-1.5 flex-1 overflow-hidden bg-[color:var(--border)]">
                           <div
-                            className="h-full bg-[#ff5722] dark:bg-[#e2ff00]"
+                            className="h-full bg-[#352018] dark:bg-[#e2ff00]"
                             style={{ width: `${loadPercent}%` }}
                           />
                         </div>
@@ -578,7 +578,7 @@ export default function CoachManagement({ onNavigate }) {
           <div className="w-full rounded-t-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl sm:max-w-md sm:rounded-[4px]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                   Cambio de acceso
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">
@@ -627,7 +627,7 @@ export default function CoachManagement({ onNavigate }) {
           <div className="w-full rounded-t-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl sm:max-w-md sm:rounded-[4px]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                   Suscripcion manual
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">

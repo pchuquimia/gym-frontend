@@ -4,7 +4,7 @@ export default function ChartSampleState({ value, detail }) {
   return (
     <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] px-4 py-6 text-center">
       <div>
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           Primera observacion
         </p>
         <p className="mt-2 text-3xl font-black">{value}</p>

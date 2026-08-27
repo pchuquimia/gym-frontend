@@ -169,7 +169,7 @@ function MainLayout({
           </div>
         ) : null}
         <div
-          className={`w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
+          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
             useDashboardChrome ||
             useProfileChrome ||
             useLibraryChrome ||

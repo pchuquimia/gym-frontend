@@ -457,9 +457,9 @@ export default function CoachPlanModal({
               <button
                 type="button"
                 onClick={continueWithoutTemplate}
-                className="flex min-h-16 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-left transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+                className="flex min-h-16 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-left transition hover:border-[#352018] dark:hover:border-[#e2ff00]"
               >
-                <span className="grid h-10 w-10 shrink-0 place-items-center bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+                <span className="grid h-10 w-10 shrink-0 place-items-center bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black">
                   <Plus className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -471,7 +471,7 @@ export default function CoachPlanModal({
                   </span>
                 </span>
                 {!selectedPlanTemplateId ? (
-                  <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
                 ) : null}
               </button>
 
@@ -507,7 +507,7 @@ export default function CoachPlanModal({
                           </span>
                         </span>
                         {selected ? (
-                          <Check className="h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                          <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
                         ) : (
                           <ArrowRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
                         )}
@@ -534,7 +534,7 @@ export default function CoachPlanModal({
                   <button
                     type="button"
                     onClick={() => setTemplatePickerOpen(true)}
-                    className="h-10 shrink-0 border border-[#ff5722] px-3 text-xs font-black text-[#b82f05] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                    className="h-10 shrink-0 border border-[#352018] px-3 text-xs font-black text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
                   >
                     {selectedPlanTemplate ? "Cambiar" : "Usar planificación"}
                   </button>

@@ -37,12 +37,12 @@ export default function RoutineSelector({
         disabled={disabled}
         aria-expanded={open && !disabled}
         aria-haspopup="listbox"
-        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition-colors hover:border-[#ff5722] disabled:cursor-not-allowed disabled:opacity-60 dark:rounded-[4px] dark:hover:border-[#e2ff00]"
+        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition-colors hover:border-[#352018] disabled:cursor-not-allowed disabled:opacity-60 dark:rounded-[4px] dark:hover:border-[#e2ff00]"
       >
         <div className="flex items-center justify-between">
           <div>
             {showLocation ? (
-              <p className="text-xs font-semibold capitalize text-[#ff5722] dark:text-[#e2ff00]">
+              <p className="text-xs font-semibold capitalize text-[#352018] dark:text-[#e2ff00]">
                 {routine.location}
               </p>
             ) : null}
@@ -102,7 +102,7 @@ export default function RoutineSelector({
                           className={`text-xs font-semibold capitalize ${
                             r.id === routine.id
                               ? "text-current"
-                              : "text-[#ff5722] dark:text-[#e2ff00]"
+                              : "text-[#352018] dark:text-[#e2ff00]"
                           }`}
                         >
                           {r.location}

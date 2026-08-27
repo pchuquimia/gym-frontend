@@ -94,7 +94,7 @@ const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dar
               format: (v) => (groupBy === 'week' ? formatCompactWeekLabel(v) : v),
             }}
             axisLeft={{ legend: '1RM (kg)', legendOffset: -40, legendPosition: 'middle', tickPadding: 6 }}
-            colors={mode === 'dark' ? ['#e2ff00', '#8e8e93'] : ['#ff5722', '#8e8e93']}
+            colors={mode === 'dark' ? ['#e2ff00', '#8e8e93'] : ['#352018', '#8e8e93']}
             enablePoints
             pointSize={6}
             curve="monotoneX"

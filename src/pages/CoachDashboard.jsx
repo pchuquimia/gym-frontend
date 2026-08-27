@@ -130,7 +130,7 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-md text-sm font-black dark:rounded-[3px] ${
           selected
             ? "border border-current bg-transparent text-current"
-            : "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+            : "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
         }`}
       >
         {initials(athlete.name)}
@@ -187,7 +187,7 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
   return (
     <section className="min-w-0 space-y-5">
       <div>
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           Coach Pro
         </p>
         <h2 className="mt-1 text-2xl font-black uppercase">
@@ -204,7 +204,7 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
             key={label}
             className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
           >
-            <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+            <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
             <p className="mt-4 text-2xl font-black">{value}</p>
             <p className="mt-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               {label}
@@ -311,7 +311,7 @@ function WeeklyReportPanel({
     <section className="mt-5 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Informe semanal
           </p>
           <h3 className="mt-1 text-xl font-black uppercase">
@@ -881,7 +881,7 @@ export default function CoachDashboard({
     <main className="dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
       <header className="flex items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#ae3512] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Coach · {athletes.length}{" "}
             {athletes.length === 1 ? "atleta" : "atletas"}
           </p>
@@ -1060,11 +1060,11 @@ export default function CoachDashboard({
               </button>
               <div className="border-b border-[color:var(--border)] pb-4">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#ff5722] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#352018] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
                     {initials(overview.athlete.name)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black uppercase text-[#ae3512] dark:text-[#e2ff00]">
+                    <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                       {overview.athlete.profile?.goal || "Objetivo sin definir"}
                     </p>
                     <h2 className="mt-1 line-clamp-2 break-words text-[22px] font-black uppercase leading-none sm:text-[28px]">
@@ -1160,7 +1160,7 @@ export default function CoachDashboard({
                       onClick={() => setAthleteView(item.id)}
                       className={`relative flex h-12 items-center justify-center gap-2 border-b-2 text-[11px] font-black uppercase transition ${
                         athleteView === item.id
-                          ? "border-[#ff5722] text-[#b53612] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                          ? "border-[#352018] text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
                           : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                       }`}
                     >
@@ -1228,7 +1228,7 @@ export default function CoachDashboard({
                             onClick={() => setSelectedPlanId(id)}
                             className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
                               isCurrent
-                                ? "border-[#ff5722] dark:border-[#e2ff00]"
+                                ? "border-[#352018] dark:border-[#e2ff00]"
                                 : "border-[color:var(--border)]"
                             }`}
                           >
@@ -1454,7 +1454,7 @@ export default function CoachDashboard({
                           </div>
                           <div className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]">
                             <div
-                              className="h-full bg-[#ff5722] transition-all dark:bg-[#e2ff00]"
+                              className="h-full bg-[#352018] transition-all dark:bg-[#e2ff00]"
                               style={{
                                 width: `${Math.round(
                                   ((activePlanTrainingDays.length -

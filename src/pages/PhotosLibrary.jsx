@@ -161,10 +161,10 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
       onClick={onClick}
       aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
       aria-pressed={selectionMode ? selected : undefined}
-      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
+      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
         selected
-          ? "border-[#ff5722] ring-2 ring-[#ff5722]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
-          : "border-[color:var(--border)] hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+          ? "border-[#352018] ring-2 ring-[#352018]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
+          : "border-[color:var(--border)] hover:border-[#352018] dark:hover:border-[#e2ff00]"
       }`}
     >
       <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
@@ -194,7 +194,7 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
         <span
           className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
             selected
-              ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+              ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
               : "border-white/70 bg-black/40 text-transparent"
           }`}
         >
@@ -385,7 +385,7 @@ export default function PhotosLibrary() {
       <div className="w-full space-y-4">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               Progreso visual
             </p>
             <h1 className="text-3xl font-black uppercase leading-none">
@@ -521,7 +521,7 @@ export default function PhotosLibrary() {
               onChange={handleUpload}
             />
             {uploading ? (
-              <p role="status" className="text-sm font-bold text-[#ff5722] dark:text-[#e2ff00]">
+              <p role="status" className="text-sm font-bold text-[#352018] dark:text-[#e2ff00]">
                 Subiendo foto...
               </p>
             ) : null}
@@ -549,7 +549,7 @@ export default function PhotosLibrary() {
                 role="tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
-                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
+                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
@@ -582,7 +582,7 @@ export default function PhotosLibrary() {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="text-xs font-black text-[#ff5722] dark:text-[#e2ff00]"
+                  className="text-xs font-black text-[#352018] dark:text-[#e2ff00]"
                 >
                   Limpiar
                 </button>

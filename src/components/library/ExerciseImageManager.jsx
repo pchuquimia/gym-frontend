@@ -55,10 +55,10 @@ function ExerciseImageRow({ exercise, selected, onSelect }) {
       type="button"
       aria-label={`Editar imagen de ${exercise.name}`}
       onClick={() => onSelect(exercise)}
-      className={`grid min-h-[88px] w-full grid-cols-[80px_minmax(0,1fr)_20px] items-center gap-3 border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
+      className={`grid min-h-[88px] w-full grid-cols-[80px_minmax(0,1fr)_20px] items-center gap-3 border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
         selected
           ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff5722]/60 dark:hover:border-[#e2ff00]/60"
+          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#352018]/60 dark:hover:border-[#e2ff00]/60"
       }`}
     >
       <div className="h-20 w-20 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)]">
@@ -94,7 +94,7 @@ function ExerciseImageRow({ exercise, selected, onSelect }) {
         </p>
         <span
           className={`mt-1 inline-block text-[9px] font-black uppercase ${
-            selected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"
+            selected ? "text-current" : "text-[#352018] dark:text-[#e2ff00]"
           }`}
         >
           {exercise.type === "custom" ? "Personalizado" : "Catalogo"}
@@ -289,7 +289,7 @@ export default function ExerciseImageManager() {
           onClick={() => setManagerMode("review")}
           className={`flex h-11 items-center justify-center gap-2 px-3 text-xs font-black uppercase ${
             managerMode === "review"
-              ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+              ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
               : "text-[color:var(--text-muted)]"
           }`}
         >
@@ -303,7 +303,7 @@ export default function ExerciseImageManager() {
           onClick={() => setManagerMode("manual")}
           className={`flex h-11 items-center justify-center gap-2 px-3 text-xs font-black uppercase ${
             managerMode === "manual"
-              ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+              ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
               : "text-[color:var(--text-muted)]"
           }`}
         >
@@ -316,9 +316,9 @@ export default function ExerciseImageManager() {
         <ExerciseCodexReviewQueue onApplied={handleAppliedExercise} />
       ) : (
         <>
-          <div className="border-l-4 border-[#ff5722] bg-[color:var(--card)] p-4 dark:border-[#e2ff00]">
+          <div className="border-l-4 border-[#352018] bg-[color:var(--card)] p-4 dark:border-[#e2ff00]">
             <div className="flex items-start gap-3">
-              <UploadCloud className="mt-0.5 h-5 w-5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+              <UploadCloud className="mt-0.5 h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
               <div>
                 <h2 className="text-lg font-black uppercase leading-none text-[color:var(--text)]">
                   Una imagen maestra
@@ -342,7 +342,7 @@ export default function ExerciseImageManager() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar ejercicio"
-              className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
+              className="h-12 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 text-base font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15 sm:text-sm"
             />
           </label>
 
@@ -403,7 +403,7 @@ export default function ExerciseImageManager() {
                 <div className="space-y-5 border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
                         Imagen del ejercicio
                       </p>
                       <h3 className="truncate text-xl font-black uppercase text-[color:var(--text)]">
@@ -441,7 +441,7 @@ export default function ExerciseImageManager() {
                       onClick={() => setEditorMode("manual")}
                       className={`flex h-10 items-center justify-center gap-2 text-xs font-black uppercase ${
                         editorMode === "manual"
-                          ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                          ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                           : "text-[color:var(--text-muted)]"
                       }`}
                     >
@@ -458,7 +458,7 @@ export default function ExerciseImageManager() {
                       }}
                       className={`flex h-10 items-center justify-center gap-2 text-xs font-black uppercase ${
                         editorMode === "ai"
-                          ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                          ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                           : "text-[color:var(--text-muted)]"
                       }`}
                     >
@@ -486,10 +486,10 @@ export default function ExerciseImageManager() {
                           event.preventDefault();
                           handleFile(event.dataTransfer.files?.[0]);
                         }}
-                        className="grid min-h-28 w-full place-items-center border-2 border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+                        className="grid min-h-28 w-full place-items-center border-2 border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center transition hover:border-[#352018] dark:hover:border-[#e2ff00]"
                       >
                         <span>
-                          <UploadCloud className="mx-auto h-6 w-6 text-[#ff5722] dark:text-[#e2ff00]" />
+                          <UploadCloud className="mx-auto h-6 w-6 text-[#352018] dark:text-[#e2ff00]" />
                           <span className="mt-2 block text-sm font-black uppercase text-[color:var(--text)]">
                             {file ? file.name : "Seleccionar nueva imagen"}
                           </span>

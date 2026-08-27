@@ -36,11 +36,11 @@ function ActiveTrainingTopbar({ training, onReturn }) {
         className="group mx-auto flex min-h-14 w-full max-w-md items-center gap-2 px-3 py-2 text-left md:hidden"
         aria-label="Volver al entrenamiento en curso"
       >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[#ff5722] shadow-sm dark:text-[#e2ff00]">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[#352018] shadow-sm dark:text-[#e2ff00]">
           <Timer className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-[#b72f08] dark:text-[#e2ff00]">
+          <span className="block font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-[#352018] dark:text-[#e2ff00]">
             Entrenamiento en curso
           </span>
           <span className="mt-0.5 block truncate text-xs font-bold text-[color:var(--text)]">
@@ -50,18 +50,18 @@ function ActiveTrainingTopbar({ training, onReturn }) {
         <span className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[color:var(--card)] px-2 font-mono text-xs font-black text-[color:var(--text)]">
           {duration}
         </span>
-        <span className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl bg-[#ff5722] px-2.5 text-[10px] font-black uppercase text-white transition-colors group-hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:group-hover:bg-[#cbe600]">
+        <span className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl bg-[#352018] px-2.5 text-[10px] font-black uppercase text-white transition-colors group-hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:group-hover:bg-[#cbe600]">
           Volver
           <ArrowRight className="h-3.5 w-3.5 stroke-[3]" />
         </span>
       </button>
 
       <div className="hidden min-h-[76px] items-center gap-5 bg-[color:var(--card)]/95 px-5 py-3 md:flex md:px-8">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black">
           <Timer className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-[#b72f08] dark:text-[#e2ff00]">
+          <p className="font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-[#352018] dark:text-[#e2ff00]">
             Entrenamiento en curso
           </p>
           <p className="mt-0.5 truncate font-condensed text-xl font-black uppercase leading-none text-[color:var(--text)]">
@@ -95,7 +95,7 @@ function ActiveTrainingTopbar({ training, onReturn }) {
         <button
           type="button"
           onClick={onReturn}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-[#ff5722] px-4 text-sm font-black text-white transition-colors hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-[#352018] px-4 text-sm font-black text-white transition-colors hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
         >
           Volver al entrenamiento
           <ArrowRight className="h-4 w-4 stroke-[3]" />

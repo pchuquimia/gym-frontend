@@ -194,7 +194,7 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                   <h2 className="mt-5 text-xl font-black uppercase">
                     Peso registrado
                   </h2>
-                  <p className="mt-2 text-3xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+                  <p className="mt-2 text-3xl font-black text-[#352018] dark:text-[#e2ff00]">
                     {numericWeight.toLocaleString("es-BO", {
                       maximumFractionDigits: 2,
                     })}{" "}
@@ -215,7 +215,7 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                         <Weight className="h-5 w-5" />
                       </span>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                           Pesaje diario
                         </p>
                         <h2
@@ -269,7 +269,7 @@ export default function QuickWeightModal({ open, onClose, onSave }) {
                   <button
                     type="submit"
                     disabled={!validWeight}
-                    className="mt-3 h-12 w-full bg-[#ff5722] text-sm font-black uppercase text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
+                    className="mt-3 h-12 w-full bg-[#352018] text-sm font-black uppercase text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
                   >
                     Confirmar peso
                   </button>

@@ -69,7 +69,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       className={`flex min-h-24 w-full items-center gap-3 border p-4 text-left transition ${
         selected
           ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
+          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#352018]/50 dark:hover:border-[#e2ff00]/50"
       }`}
     >
       {Icon ? (
@@ -186,7 +186,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
         <div>
           <p className="text-xl font-black italic leading-none">
             APEX{" "}
-            <span className="text-[#ff5722] dark:text-[#e2ff00]">
+            <span className="text-[#352018] dark:text-[#e2ff00]">
               PERFORMANCE
             </span>
           </p>
@@ -210,7 +210,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
         {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
           <div key={label}>
             <div
-              className={`h-1.5 ${index <= step ? "bg-[#ff5722] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
+              className={`h-1.5 ${index <= step ? "bg-[#352018] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
             />
             <p
               className={`mt-2 text-[9px] font-black uppercase ${index <= step ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
@@ -223,7 +223,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
       <section className="my-auto py-8 sm:py-12">
         <div className="mx-auto max-w-3xl">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#352018] dark:text-[#e2ff00]">
             Hola, {user?.name?.split(" ")[0] || "atleta"}
           </p>
 
@@ -285,7 +285,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       Una meta realista ayuda a medir adherencia.
                     </p>
                   </div>
-                  <span className="text-3xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+                  <span className="text-3xl font-black text-[#352018] dark:text-[#e2ff00]">
                     {form.weeklyFrequency}
                   </span>
                 </div>
@@ -304,7 +304,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       }
                       className={`h-11 border text-sm font-black ${
                         form.weeklyFrequency === frequency
-                          ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                          ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                           : "border-[color:var(--border)] bg-[color:var(--bg)]"
                       }`}
                     >
@@ -328,7 +328,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
-                    <Scale className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <Scale className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
                     Peso actual
                   </span>
                   <span className="mt-3 flex items-end gap-2">
@@ -346,7 +346,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, weight: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
                       aria-label="Peso actual en kilogramos"
                     />
                     <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
@@ -361,7 +361,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 </label>
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
-                    <Target className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <Target className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
                     Altura
                   </span>
                   <span className="mt-3 flex items-end gap-2">
@@ -379,7 +379,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, height: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
                       aria-label="Altura en centimetros"
                     />
                     <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
@@ -436,7 +436,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
               : () => setStep((value) => Math.min(2, value + 1))
           }
           disabled={saving}
-          className="inline-flex h-11 items-center gap-2 bg-[#ff5722] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+          className="inline-flex h-11 items-center gap-2 bg-[#352018] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
         >
           {step === 2 ? "Preparar dashboard" : "Continuar"}
           {step === 2 ? (

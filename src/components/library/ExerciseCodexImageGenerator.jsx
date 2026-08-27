@@ -152,7 +152,7 @@ export default function ExerciseCodexImageGenerator({
 
   return (
     <div className="space-y-4">
-      <div className="border-l-4 border-[#ff5722] bg-[color:var(--bg)] p-3 dark:border-[#e2ff00]">
+      <div className="border-l-4 border-[#352018] bg-[color:var(--bg)] p-3 dark:border-[#e2ff00]">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-sm font-black uppercase text-[color:var(--text)]">
@@ -189,9 +189,9 @@ export default function ExerciseCodexImageGenerator({
         <div className="border border-[color:var(--border)] bg-[color:var(--bg)] p-3">
           <div className="flex items-start gap-3">
             {status === "processing" ? (
-              <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#ff5722] dark:text-[#e2ff00]" />
+              <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#352018] dark:text-[#e2ff00]" />
             ) : (
-              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
             )}
             <div className="min-w-0">
               <p className="text-xs font-black uppercase text-[color:var(--text)]">
@@ -241,7 +241,7 @@ export default function ExerciseCodexImageGenerator({
             maxLength={2000}
             disabled={active}
             placeholder="Ejemplo: mantener visible el agarre y dejar más margen alrededor del atleta."
-            className="w-full resize-y border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-sm font-semibold leading-relaxed text-[color:var(--text)] outline-none disabled:opacity-50 focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+            className="w-full resize-y border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-sm font-semibold leading-relaxed text-[color:var(--text)] outline-none disabled:opacity-50 focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
           />
         </div>
       </details>

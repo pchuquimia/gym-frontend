@@ -135,13 +135,13 @@ export default function SetRow({
         }
       }}
       className={`relative max-w-full rounded-lg transition-shadow dark:rounded-[4px] ${
-        isHolding ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45" : ""
+        isHolding ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45" : ""
       }`}
     >
       <AnimatePresence>
         {isHolding ? (
           <motion.span
-            className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 origin-left bg-[#ff5722] dark:bg-[#e2ff00]"
+            className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 origin-left bg-[#352018] dark:bg-[#e2ff00]"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             exit={{ opacity: 0 }}
@@ -155,7 +155,7 @@ export default function SetRow({
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 setDone
-                  ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                  ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                   : "bg-[#1a1a1a] text-white dark:bg-[#252525]"
               }`}
             >
@@ -203,7 +203,7 @@ export default function SetRow({
             const trendLabel = getTrainingSetTrendLabel(trend);
             const trendClass =
               trend === "up"
-                ? "text-[#ff5722] dark:text-[#e2ff00]"
+                ? "text-[#352018] dark:text-[#e2ff00]"
                 : "text-[color:var(--text-muted)]";
             const TrendIcon =
               trend === "up"
@@ -247,7 +247,7 @@ export default function SetRow({
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
-                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                   <input
                     className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                     type="text"
@@ -271,7 +271,7 @@ export default function SetRow({
                     {weightUnitLabel}
                   </span>
                 </label>
-                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#ff5722] focus-within:ring-2 focus-within:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                   <input
                     className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                     type="text"
@@ -311,7 +311,7 @@ export default function SetRow({
                     <span
                       className={`flex h-7 w-7 items-center justify-center rounded-full border ${
                         entryDone
-                          ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                          ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                           : "border-[color:var(--border)] text-[color:var(--text-muted)]"
                       }`}
                     >

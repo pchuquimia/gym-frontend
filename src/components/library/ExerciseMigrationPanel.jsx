@@ -94,7 +94,7 @@ function SearchableExerciseList({
   return (
     <section className="min-w-0 border border-[color:var(--border)] bg-[color:var(--card)]">
       <div className="border-b border-[color:var(--border)] p-3">
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           {label}
         </p>
         <h2 className="mt-1 text-lg font-black uppercase">{title}</h2>
@@ -188,7 +188,7 @@ function SearchableExerciseList({
           <button
             type="button"
             onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
-            className="shrink-0 text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]"
+            className="shrink-0 text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]"
           >
             Mostrar más
           </button>
@@ -257,7 +257,7 @@ function ConfirmationDialog({
               </p>
               <p className="mt-1 truncate text-sm font-black">{source.name}</p>
             </div>
-            <ArrowRight className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+            <ArrowRight className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
             <div className="min-w-0 text-right">
               <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
                 Destino
@@ -396,7 +396,7 @@ export default function ExerciseMigrationPanel() {
     return (
       <div className="grid min-h-72 place-items-center border border-[color:var(--border)] bg-[color:var(--card)]">
         <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
-          <Loader2 className="h-4 w-4 animate-spin text-[#ff5722] dark:text-[#e2ff00]" />
+          <Loader2 className="h-4 w-4 animate-spin text-[#352018] dark:text-[#e2ff00]" />
           Revisando referencias
         </span>
       </div>
@@ -432,7 +432,7 @@ export default function ExerciseMigrationPanel() {
           </p>
         </div>
         <div>
-          <p className="text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-2xl font-black text-[#352018] dark:text-[#e2ff00]">
             {data.summary?.withReferences || 0}
           </p>
           <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
@@ -478,7 +478,7 @@ export default function ExerciseMigrationPanel() {
           <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                   Impacto
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">
@@ -545,7 +545,7 @@ export default function ExerciseMigrationPanel() {
       ) : (
         <section className="grid min-h-64 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center">
           <div>
-            <Check className="mx-auto h-8 w-8 text-[#ff5722] dark:text-[#e2ff00]" />
+            <Check className="mx-auto h-8 w-8 text-[#352018] dark:text-[#e2ff00]" />
             <h2 className="mt-3 text-xl font-black uppercase">
               Catálogo anterior limpio
             </h2>
@@ -559,7 +559,7 @@ export default function ExerciseMigrationPanel() {
       {data.recent?.length ? (
         <details className="border border-[color:var(--border)] bg-[color:var(--card)]">
           <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-sm font-black uppercase">
-            <History className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+            <History className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
             Operaciones recientes
           </summary>
           <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
@@ -577,7 +577,7 @@ export default function ExerciseMigrationPanel() {
                     ? ` → ${item.targetExercise.name}`
                     : ""}
                 </p>
-                <span className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                <span className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                   {item.operation === "migrate" ? "Migrado" : "Eliminado"}
                 </span>
               </div>

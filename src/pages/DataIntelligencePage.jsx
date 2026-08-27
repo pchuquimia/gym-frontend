@@ -53,7 +53,7 @@ function MetricCard({ label, value, detail, icon: Icon }) {
         <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
         </p>
-        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
       </div>
       <p className="mt-3 text-2xl font-black leading-none">{value}</p>
       <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
@@ -67,7 +67,7 @@ function SectionHeader({ eyebrow, title, meta }) {
   return (
     <div className="mb-2 flex items-end justify-between gap-3">
       <div>
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           {eyebrow}
         </p>
         <h2 className="mt-1 text-xl font-black uppercase leading-none">
@@ -88,7 +88,7 @@ function ProgressBar({ value }) {
   return (
     <div className="h-2 overflow-hidden bg-[color:var(--border)]">
       <div
-        className="h-full bg-[#ff5722] dark:bg-[#e2ff00]"
+        className="h-full bg-[#352018] dark:bg-[#e2ff00]"
         style={{ width: `${safeValue}%` }}
       />
     </div>
@@ -99,7 +99,7 @@ function EmptyData() {
   return (
     <div className="grid min-h-72 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center">
       <div>
-        <Database className="mx-auto h-8 w-8 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Database className="mx-auto h-8 w-8 text-[#352018] dark:text-[#e2ff00]" />
         <h2 className="mt-3 text-xl font-black uppercase">
           Aun no hay una muestra analizable
         </h2>
@@ -355,7 +355,7 @@ function ExerciseProgression({ progression }) {
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 border-l-2 border-[#ff5722] pl-3 dark:border-[#e2ff00]">
+                <div className="mt-4 border-l-2 border-[#352018] pl-3 dark:border-[#e2ff00]">
                   <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
                     Siguiente accion
                   </p>
@@ -409,7 +409,7 @@ export default function DataIntelligencePage({
       })),
     [data?.weekly],
   );
-  const accent = isDark ? "#e2ff00" : "#ff5722";
+  const accent = isDark ? "#e2ff00" : "#352018";
   const canUseAdvanced =
     hasPremiumFeature(user, PREMIUM_FEATURES.LOAD_RECOVERY) &&
     hasPremiumFeature(user, PREMIUM_FEATURES.EXERCISE_PROGRESSION);
@@ -417,7 +417,7 @@ export default function DataIntelligencePage({
   return (
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <header className="border-b border-[color:var(--border)] pb-4">
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           Analitica aplicada
         </p>
         <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
@@ -577,14 +577,14 @@ export default function DataIntelligencePage({
                 <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                      <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                         Prediccion analitica
                       </p>
                       <h2 className="mt-1 text-xl font-black uppercase">
                         Proxima semana
                       </h2>
                     </div>
-                    <BrainCircuit className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <BrainCircuit className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                   </div>
                   {data.prediction.available ? (
                     <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[color:var(--border)] pt-4">
@@ -606,7 +606,7 @@ export default function DataIntelligencePage({
                           Tendencia
                         </p>
                         <p
-                          className={`mt-1 text-3xl font-black ${data.prediction.trendPercent >= 0 ? "text-[#ff5722] dark:text-[#e2ff00]" : "text-red-500"}`}
+                          className={`mt-1 text-3xl font-black ${data.prediction.trendPercent >= 0 ? "text-[#352018] dark:text-[#e2ff00]" : "text-red-500"}`}
                         >
                           {data.prediction.trendPercent > 0 ? "+" : ""}
                           {data.prediction.trendPercent}%
@@ -634,7 +634,7 @@ export default function DataIntelligencePage({
                         Anomalias
                       </h2>
                     </div>
-                    <AlertTriangle className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <AlertTriangle className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                   </div>
                   <p className="mt-4 text-3xl font-black">
                     {data.anomalies.length}
@@ -728,7 +728,7 @@ export default function DataIntelligencePage({
                           Relacion {correlationLabel(value).toLowerCase()}
                         </p>
                       </div>
-                      <p className="text-3xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+                      <p className="text-3xl font-black text-[#352018] dark:text-[#e2ff00]">
                         {value ?? "--"}
                       </p>
                     </div>
@@ -759,7 +759,7 @@ export default function DataIntelligencePage({
                           {compact(item.volume)} kg
                         </p>
                         <span
-                          className={`justify-self-end text-xs font-black ${item.direction === "alta" ? "text-[#ff5722] dark:text-[#e2ff00]" : "text-red-500"}`}
+                          className={`justify-self-end text-xs font-black ${item.direction === "alta" ? "text-[#352018] dark:text-[#e2ff00]" : "text-red-500"}`}
                         >
                           z {item.zScore}
                         </span>
@@ -781,14 +781,14 @@ export default function DataIntelligencePage({
                 <article className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                      <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                         Modelo predictivo
                       </p>
                       <h2 className="mt-1 text-xl font-black uppercase">
                         Regresion lineal
                       </h2>
                     </div>
-                    <TrendingUp className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <TrendingUp className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                   </div>
                   <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] border-y border-[color:var(--border)] py-3 text-center">
                     <div>
@@ -829,14 +829,14 @@ export default function DataIntelligencePage({
                 <article className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                      <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                         Machine Learning
                       </p>
                       <h2 className="mt-1 text-xl font-black uppercase">
                         Segmentacion de carga
                       </h2>
                     </div>
-                    <Layers3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                    <Layers3 className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                   </div>
                   {data.machineLearning.available ? (
                     <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
@@ -872,14 +872,14 @@ export default function DataIntelligencePage({
               <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                    <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                       Deep Learning
                     </p>
                     <h2 className="mt-1 text-xl font-black uppercase">
                       Preparacion del dataset
                     </h2>
                   </div>
-                  <BrainCircuit className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <BrainCircuit className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
                   <div>
@@ -949,7 +949,7 @@ export default function DataIntelligencePage({
                       key={label}
                       className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
                     >
-                      <Icon className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                      <Icon className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                       <p className="mt-4 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
                         {label}
                       </p>
@@ -965,14 +965,14 @@ export default function DataIntelligencePage({
               <section className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                    <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                       Calidad del dataset
                     </p>
                     <h2 className="mt-1 text-xl font-black uppercase">
                       Cobertura analitica
                     </h2>
                   </div>
-                  <Database className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Database className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                 </div>
                 <div className="mt-5">
                   <div className="mb-2 flex justify-between text-xs font-black">

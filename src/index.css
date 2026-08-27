@@ -27,18 +27,18 @@
   --text: #211a13;
   --text-muted: #6f675d;
   --text-subtle: #91887b;
-  --accent: #ff5722;
-  --accent-hover: #e64917;
-  --accent-strong: #d94112;
+  --accent: #352018;
+  --accent-hover: #482b20;
+  --accent-strong: #2a1711;
   --accent-soft: var(--accent);
-  --accent-contrast: #211a13;
+  --accent-contrast: #fffaf2;
   --success: #276653;
   --success-soft: #f1ede4;
   --warning: #a96816;
   --warning-soft: #f7efe1;
   --danger: #b84237;
   --danger-soft: #f8ebe8;
-  --focus-ring: rgba(255, 87, 34, 0.32);
+  --focus-ring: rgba(53, 32, 24, 0.32);
   --overlay: rgba(9, 9, 9, 0.48);
 
   --radius-control: 0.5rem;
@@ -74,6 +74,29 @@
   --space-8: 2rem;
   --space-12: 3rem;
   --space-16: 4rem;
+
+  --mobile-ui-font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+    "Helvetica Neue", Arial, sans-serif;
+  --mobile-display-font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
+    "Helvetica Neue", Arial, sans-serif;
+  --mobile-page-gutter: 1.125rem;
+  --mobile-section-gap: 1.5rem;
+  --mobile-card-radius: 1.5rem;
+  --mobile-control-radius: 0.75rem;
+  --mobile-control-height: 3.25rem;
+  --mobile-header-main-height: 4.75rem;
+  --mobile-header-detail-height: 3.75rem;
+  --mobile-text-caption: 0.6875rem;
+  --mobile-text-xs: 0.75rem;
+  --mobile-text-sm: 0.875rem;
+  --mobile-text-base: 1rem;
+  --mobile-text-lg: 1.125rem;
+  --mobile-text-xl: 1.25rem;
+  --mobile-text-2xl: 1.5rem;
+  --mobile-text-3xl: 1.75rem;
+  --mobile-text-4xl: 2rem;
 }
 
 .dark {
@@ -134,9 +157,9 @@
   --auth-border: rgba(255, 255, 255, 0.13);
   --auth-text: #f7f7f4;
   --auth-muted: #a9aaa5;
-  --auth-accent: #ff5722;
-  --auth-accent-hover: #e64712;
-  --auth-accent-contrast: #ffffff;
+  --auth-accent: #352018;
+  --auth-accent-hover: #482b20;
+  --auth-accent-contrast: #fffaf2;
 }
 
 .premium-drawer {
@@ -1141,6 +1164,7 @@ button,
   }
 
   .dashboard-today-module {
+    margin-top: 0.75rem !important;
     overflow: hidden;
     gap: 0;
     border-radius: 1.5rem;
@@ -1466,6 +1490,8 @@ button,
   }
 
   .training-schedule {
+    display: flex;
+    flex-direction: column;
     border: 0;
     background: transparent;
     padding: 0;
@@ -1473,8 +1499,7 @@ button,
   }
 
   .training-schedule__summary {
-    align-items: center;
-    padding: 0 0.375rem 0.875rem;
+    display: none;
   }
 
   .training-schedule__eyebrow {
@@ -1515,15 +1540,13 @@ button,
   }
 
   .training-schedule__period {
-    margin-top: 0;
-    border-color: var(--detail-row-divider);
-    padding: 0.75rem 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+    display: none;
   }
 
   .training-schedule__days-wrap {
-    margin-top: 0.875rem;
+    order: 1;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
   }
 
   .training-schedule__days {
@@ -1556,7 +1579,8 @@ button,
   }
 
   .training-schedule__selection {
-    margin-top: 0.875rem;
+    order: 2;
+    margin-top: 0;
     border: 0 !important;
     border-radius: 1.5rem;
     background: var(--card) !important;
@@ -1565,13 +1589,90 @@ button,
     box-shadow: none !important;
   }
 
+  .training-schedule__selection--hero {
+    width: auto;
+    margin-inline: -1.125rem;
+    border-radius: 0 0 2rem 2rem;
+    padding: 0 1.125rem 1.5rem;
+  }
+
+  .training-schedule__hero {
+    position: relative;
+    display: block !important;
+    height: min(92vw, 22.5rem);
+    margin-inline: -1.125rem;
+    overflow: hidden;
+    background: #171512;
+  }
+
+  .training-schedule__hero img,
+  .training-schedule__hero-fallback,
+  .training-schedule__hero-shade {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  .training-schedule__hero img {
+    z-index: 1;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .training-schedule__hero-fallback {
+    display: grid;
+    place-items: center;
+    color: #928d84;
+    background:
+      radial-gradient(circle at 50% 38%, #37332d 0, #201e1a 46%, #131210 100%);
+  }
+
+  .training-schedule__hero-shade {
+    z-index: 2;
+    background: linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.2) 0%,
+      rgba(0, 0, 0, 0.02) 46%,
+      rgba(0, 0, 0, 0.35) 100%
+    );
+  }
+
+  .training-schedule__hero-badge {
+    position: absolute;
+    z-index: 3;
+    top: 1rem;
+    left: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
+    background: rgba(24, 20, 17, 0.68);
+    padding: 0.45rem 0.75rem;
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    backdrop-filter: blur(12px);
+  }
+
+  .training-schedule__selection--hero > .flex.items-start {
+    position: relative;
+    z-index: 4;
+    justify-content: center;
+    margin: -2rem -1.125rem 0;
+    border-radius: 2rem 2rem 0 0;
+    background: var(--card);
+    padding: 2.25rem 1.125rem 0;
+    text-align: center;
+  }
+
+  .training-schedule__selection--hero
+    > .flex.items-start
+    > .min-w-0.flex-1 {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
   .training-schedule__selected-date {
-    height: 3.75rem;
-    width: 3.5rem;
-    border: 0;
-    border-radius: 1rem;
-    background: var(--surface-subtle);
-    color: var(--text-muted);
+    display: none;
   }
 
   .training-schedule__selected-date span {
@@ -1585,14 +1686,7 @@ button,
   }
 
   .training-schedule__today-badge {
-    border: 0;
-    border-radius: 999px;
-    background: var(--accent);
-    padding: 0.25rem 0.625rem;
-    color: var(--accent-contrast);
-    font-size: 0.625rem;
-    font-weight: 600;
-    letter-spacing: 0;
+    display: none;
   }
 
   .training-schedule__goal,
@@ -1601,12 +1695,27 @@ button,
   }
 
   .training-schedule__selected-title {
-    margin-top: 0.5rem;
+    margin-top: 0;
     font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
-    font-size: 1.5rem;
-    font-weight: 600;
+    font-size: 1.625rem;
+    font-weight: 500;
     letter-spacing: -0.025em;
     text-transform: none;
+  }
+
+  .training-schedule__selection--hero
+    > .flex.items-start
+    .mt-2\.5.flex {
+    justify-content: center;
+    margin-top: 0.625rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+
+  .training-schedule__metric-divider {
+    color: var(--detail-row-divider);
+    font-weight: 400;
   }
 
   .training-schedule__selection [class*="text-current/80"] {
@@ -1614,12 +1723,19 @@ button,
   }
 
   .training-schedule__primary-action {
+    flex: 1;
     height: 3.25rem;
-    border-radius: 1rem;
+    border-radius: 0.875rem;
+    background: #352018 !important;
+    color: #fffaf2 !important;
     font-size: 0.9375rem;
     font-weight: 600;
     letter-spacing: -0.01em;
-    text-transform: none;
+    text-transform: uppercase;
+  }
+
+  .training-schedule__action-row {
+    margin-top: 1.5rem;
   }
 
   .training-schedule-state {
@@ -1950,6 +2066,301 @@ button,
   }
 }
 /* routines-mobile-refresh:end */
+
+/* mobile-reference-type-scale:start */
+@media (max-width: 767px) {
+  :root {
+    --radius-control: var(--mobile-control-radius);
+    --radius-card: var(--mobile-card-radius);
+    --radius-modal: 1.75rem;
+  }
+
+  body,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  button,
+  input,
+  select,
+  textarea,
+  [role="tab"],
+  .font-condensed,
+  .font-display,
+  .uppercase {
+    font-family: var(--mobile-ui-font);
+    font-stretch: normal;
+  }
+
+  h1,
+  h2,
+  h3,
+  .mobile-page-header,
+  .training-schedule__selected-title {
+    font-family: var(--mobile-display-font);
+  }
+
+  .font-black {
+    font-weight: 600;
+  }
+
+  .font-bold,
+  .font-semibold {
+    font-weight: 600;
+  }
+
+  .font-medium {
+    font-weight: 500;
+  }
+
+  .uppercase {
+    letter-spacing: 0.015em !important;
+  }
+
+  [class~="text-[8px]"],
+  [class~="text-[9px]"],
+  [class~="text-[10px]"] {
+    font-size: var(--mobile-text-caption);
+    line-height: 0.9375rem;
+  }
+
+  [class~="text-[11px]"],
+  .text-xs {
+    font-size: var(--mobile-text-xs);
+    line-height: 1rem;
+  }
+
+  [class~="text-[13px]"],
+  .text-sm {
+    font-size: var(--mobile-text-sm);
+    line-height: 1.25rem;
+  }
+
+  .text-base {
+    font-size: var(--mobile-text-base);
+    line-height: 1.375rem;
+  }
+
+  .text-lg {
+    font-size: var(--mobile-text-lg);
+    line-height: 1.5rem;
+  }
+
+  .text-xl {
+    font-size: var(--mobile-text-xl);
+    line-height: 1.625rem;
+  }
+
+  .text-2xl {
+    font-size: var(--mobile-text-2xl);
+    line-height: 1.875rem;
+  }
+
+  .text-3xl {
+    font-size: var(--mobile-text-3xl);
+    line-height: 2.125rem;
+  }
+
+  .text-4xl {
+    font-size: var(--mobile-text-4xl);
+    line-height: 2.375rem;
+  }
+
+  .mobile-app-content {
+    padding-inline: var(--mobile-page-gutter);
+  }
+
+  .dashboard-shell,
+  .routines-shell,
+  .library-reference-shell,
+  .training-setup-page {
+    padding-inline: 0 !important;
+  }
+
+  .rounded-lg {
+    border-radius: var(--mobile-control-radius);
+  }
+
+  .rounded-xl {
+    border-radius: 1rem;
+  }
+
+  .rounded-2xl {
+    border-radius: 1.25rem;
+  }
+
+  .rounded-3xl {
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .mobile-page-header--main {
+    min-height: var(--mobile-header-main-height);
+    gap: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .mobile-page-header--main h1 {
+    font-size: 1.75rem;
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.032em;
+  }
+
+  .mobile-page-header--detail {
+    min-height: var(--mobile-header-detail-height);
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  }
+
+  .mobile-page-header--detail h1 {
+    font-size: 1.1875rem;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+  }
+
+  .mobile-page-header__actions {
+    gap: 0.625rem;
+  }
+
+  .training-shell,
+  .training-shell p,
+  .training-shell span,
+  .training-shell strong,
+  .training-shell button,
+  .training-shell label,
+  .training-shell input,
+  .training-shell select,
+  .training-shell textarea,
+  .training-shell h1,
+  .training-shell h2,
+  .training-shell h3,
+  .training-shell h4 {
+    font-family: var(--mobile-ui-font);
+    font-stretch: normal;
+  }
+
+  .training-shell .font-mono {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas,
+      monospace;
+  }
+
+  .training-shell .font-black {
+    font-weight: 600;
+  }
+
+  .training-shell .font-bold,
+  .training-shell .font-semibold {
+    font-weight: 600;
+  }
+
+  .training-shell .uppercase {
+    letter-spacing: 0.015em !important;
+  }
+
+  .training-schedule__days-wrap {
+    margin-bottom: 1rem;
+  }
+
+  .training-schedule__day {
+    height: 3.5rem;
+    border-radius: 0.9375rem;
+  }
+
+  .training-schedule__day > span:first-child {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .training-schedule__day > strong {
+    margin-top: 0.3rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .training-schedule__selection--hero > .flex.items-start {
+    padding-top: 2.125rem;
+  }
+
+  .training-schedule__selected-title {
+    font-size: 1.625rem;
+    font-weight: 500;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+  }
+
+  .training-schedule__selection--hero
+    > .flex.items-start
+    .mt-2\.5.flex {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.35;
+  }
+
+  .training-schedule__primary-action {
+    height: var(--mobile-control-height);
+    border-radius: var(--mobile-control-radius);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  [data-training-header] {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  [data-training-header] button {
+    font-weight: 600;
+  }
+
+  [data-training-overview] {
+    border: 0;
+    border-radius: 1.5rem;
+    padding: 1.25rem;
+    box-shadow: none;
+  }
+
+  [data-training-overview] h2 {
+    margin-top: 0.375rem;
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    text-transform: none;
+  }
+
+  [data-training-overview] > div:first-child p,
+  [data-training-overview] > div:nth-child(2) p:first-child {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1rem;
+    letter-spacing: 0.025em !important;
+  }
+
+  [data-training-overview] > div:first-child strong,
+  [data-training-overview] > div:nth-child(2) p:nth-child(2) {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .training-shell [data-training-overview] + div,
+  .training-shell section > .space-y-3 {
+    font-family: var(--mobile-ui-font);
+  }
+
+  .training-shell section > .space-y-3 > div > .flex p.text-xl {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+}
+/* mobile-reference-type-scale:end */
 
 @media (prefers-reduced-motion: reduce) {
   *,

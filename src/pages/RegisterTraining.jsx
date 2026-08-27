@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
@@ -355,7 +355,7 @@ function SetupStep({ number, title, subtitle, active = false, done = false }) {
           done
             ? "bg-[#1a1a1a] text-white dark:bg-[#e2ff00] dark:text-black"
             : active
-              ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+              ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
               : "bg-[color:var(--card)] text-[color:var(--text-muted)] dark:bg-[#252525]"
         }`}
       >
@@ -393,7 +393,7 @@ function BranchCard({ branch, selected, compact = false, onClick }) {
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg ${
           selected
             ? "border border-current bg-transparent text-current"
-            : "bg-[color:var(--bg)] text-[#ff5722] dark:text-[#e2ff00]"
+            : "bg-[color:var(--bg)] text-[#352018] dark:text-[#e2ff00]"
         }`}
       >
         <MapPin className="h-5 w-5" />
@@ -431,9 +431,9 @@ function RoutineSetupCard({ routine, selected, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`group relative w-full border-2 bg-[#fbfaff] p-4 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#ff5722]/25 dark:bg-[#1b1b1b] dark:focus-visible:ring-[#e2ff00]/25 ${
+      className={`group relative w-full border-2 bg-[#fbfaff] p-4 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#352018]/25 dark:bg-[#1b1b1b] dark:focus-visible:ring-[#e2ff00]/25 ${
         selected
-          ? "border-[#ff5722] dark:border-[#e2ff00]"
+          ? "border-[#352018] dark:border-[#e2ff00]"
           : "border-transparent hover:border-[#8e8e93] dark:hover:border-[#5a5a5a]"
       }`}
     >
@@ -1296,9 +1296,9 @@ function DevTrainingDateControl({ value, onChange }) {
 
   return (
     <label
-      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#ff5722] dark:hover:border-[#d8ff00] ${
+      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#352018] dark:hover:border-[#d8ff00] ${
         value !== todayISO
-          ? "border-[#ff5722] text-[#ff5722] dark:border-[#d8ff00] dark:text-[#d8ff00]"
+          ? "border-[#352018] text-[#352018] dark:border-[#d8ff00] dark:text-[#d8ff00]"
           : "border-[color:var(--border)] text-[color:var(--text)]"
       }`}
       title={`Fecha de prueba: ${formatLongDate(value)}`}
@@ -1333,13 +1333,13 @@ function AdminAutoFlowControl({
     <div className="border border-[color:var(--border)] bg-[color:var(--bg)] p-3 dark:bg-[#171717]">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Timer className="h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+          <Timer className="h-4 w-4 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-[color:var(--text)]">
                 Flujo automatico
               </span>
-              <span className="bg-[#ff5722] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
+              <span className="bg-[#352018] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
                 Beta
               </span>
             </div>
@@ -1354,9 +1354,9 @@ function AdminAutoFlowControl({
           aria-checked={enabled}
           aria-label="Activar flujo automatico beta"
           onClick={() => onToggle(!enabled)}
-          className={`relative h-8 w-14 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 dark:focus:ring-[#e2ff00]/30 ${
+          className={`relative h-8 w-14 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:focus:ring-[#e2ff00]/30 ${
             enabled
-              ? "border-[#ff5722] bg-[#ff5722] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
+              ? "border-[#352018] bg-[#352018] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
               : "border-[color:var(--border)] bg-[color:var(--card)] shadow-inner"
           }`}
         >
@@ -1379,7 +1379,7 @@ function AdminAutoFlowControl({
               onClick={() => onDurationChange(seconds)}
               className={`h-9 rounded-md border px-1 text-xs font-black tabular-nums transition-colors ${
                 durationSeconds === seconds
-                  ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                  ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                   : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
               }`}
             >
@@ -1633,6 +1633,9 @@ export default function RegisterTraining({
         sourceRoutineId: r.sourceRoutineId || null,
         exerciseCount: primaryExercises.length,
         optionalExerciseCount: optionalExercises.length,
+        estimatedDuration:
+          Number(r.estimatedDuration || r.durationMinutes || r.duration) ||
+          Math.max(20, primaryExercises.length * 7),
         kind:
           r.assignmentType === "plan"
             ? "Plan semanal"
@@ -2736,9 +2739,9 @@ export default function RegisterTraining({
           ) {
             target.animate(
               [
-                { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
-                { boxShadow: "0 0 0 3px rgba(255,87,34,0.38)" },
-                { boxShadow: "0 0 0 0 rgba(255,87,34,0)" },
+                { boxShadow: "0 0 0 0 rgba(53,32,24,0)" },
+                { boxShadow: "0 0 0 3px rgba(53,32,24,0.38)" },
+                { boxShadow: "0 0 0 0 rgba(53,32,24,0)" },
               ],
               { duration: 700, easing: "ease-out" },
             );
@@ -4582,6 +4585,15 @@ export default function RegisterTraining({
     toast.success("Modo edición activado");
   };
 
+  const handleHistoryDateChange = (value) => {
+    const nextDate = String(value || getLocalISODate()).slice(0, 10);
+    setSessionDate(nextDate);
+    if (typeof localStorage !== "undefined" && editingId) {
+      localStorage.setItem("edit_training_date", nextDate);
+    }
+    toast.success(`Nueva fecha: ${formatLongDate(nextDate)}`);
+  };
+
   const handleExitHistoryView = () => {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem("view_training_id");
@@ -5823,7 +5835,7 @@ export default function RegisterTraining({
                   <button
                     type="button"
                     onClick={() => setSessionMenuOpen(true)}
-                    className="grid h-10 w-8 shrink-0 place-items-center text-[#ff5722] dark:text-[#e2ff00]"
+                    className="grid h-10 w-8 shrink-0 place-items-center text-[#352018] dark:text-[#e2ff00]"
                     aria-label="Opciones del entrenamiento"
                   >
                     <MoreVertical className="h-5 w-5" />
@@ -5831,6 +5843,25 @@ export default function RegisterTraining({
                 </>
               )}
               <div className="min-w-0 flex-1" />
+              {isEditing && !isHistoryReadOnly ? (
+                <label
+                  className="relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                  title={`Cambiar fecha: ${formatLongDate(sessionDate)}`}
+                  aria-label={`Cambiar fecha de la sesión. Fecha actual: ${formatLongDate(sessionDate)}`}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  <input
+                    type="date"
+                    value={sessionDate}
+                    max={todayISO}
+                    onChange={(event) =>
+                      handleHistoryDateChange(event.target.value)
+                    }
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    aria-label="Seleccionar nueva fecha de la sesión"
+                  />
+                </label>
+              ) : null}
               {isHistoryReadOnly ? (
                 <div className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)] dark:rounded-[3px]">
                   <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
@@ -5853,14 +5884,14 @@ export default function RegisterTraining({
                   onClick={handleOpenRestTimer}
                   className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
                     restTimerRunning
-                      ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                      ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                       : "bg-[color:var(--card)] text-[color:var(--text)]"
                   }`}
                   aria-label="Abrir temporizador de descanso"
                 >
                   <Hourglass className="h-4 w-4" />
                   {restTimerStarted ? (
-                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#ff5722] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#352018] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
                       {restTimerLabel}
                     </span>
                   ) : null}
@@ -5880,9 +5911,9 @@ export default function RegisterTraining({
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length || isFinalizing}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#ff5722] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#352018] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
                     sessionComplete
-                      ? "shadow-[0_0_0_4px_rgba(255,87,34,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
+                      ? "shadow-[0_0_0_4px_rgba(53,32,24,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
                       : ""
                   }`}
                   initial={false}
@@ -5919,10 +5950,10 @@ export default function RegisterTraining({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: reduceMotion ? 0 : 0.3 }}
-                  className="mx-auto mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto_auto] items-center border-t border-[#ff5722]/25 pt-2 dark:border-[#e2ff00]/25"
+                  className="mx-auto mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto_auto] items-center border-t border-[#352018]/25 pt-2 dark:border-[#e2ff00]/25"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="font-condensed text-[9px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
+                    <p className="font-condensed text-[9px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                       Rutina activa
                     </p>
                     <p className="truncate font-condensed text-[15px] font-black uppercase leading-none">
@@ -5933,7 +5964,7 @@ export default function RegisterTraining({
                     <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                       Completado
                     </p>
-                    <p className="font-condensed text-base font-black leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                    <p className="font-condensed text-base font-black leading-none text-[#352018] dark:text-[#e2ff00]">
                       {completedExercises}/{exercises.length}
                     </p>
                   </div>
@@ -6152,6 +6183,7 @@ export default function RegisterTraining({
                   onAdvance={handleAdvancePlanCycle}
                   advancing={advancingPlanCycle}
                   preparingRoutineId={pendingPlanRoutineId}
+                  weightKg={profile?.weight}
                 />
               ) : null}
 
@@ -6179,7 +6211,7 @@ export default function RegisterTraining({
                         <span
                           className={`font-condensed grid h-8 w-8 place-items-center rounded-full border text-sm font-bold ${
                             step.state === "active"
-                              ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                              ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                               : step.state === "done"
                                 ? "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-white dark:bg-white dark:text-black"
                                 : "border-[#60443e] bg-[#f5f5f5] text-[#1a1a1a] dark:border-white dark:bg-black dark:text-white"
@@ -6240,7 +6272,7 @@ export default function RegisterTraining({
                         {routineOptions.length > 3 ? (
                           <button
                             type="button"
-                            className="font-condensed h-11 w-full border border-[#8e8e93] bg-transparent text-sm font-bold uppercase tracking-[0.08em] text-[#1a1a1a] hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#4a4a4a] dark:text-white dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00]"
+                            className="font-condensed h-11 w-full border border-[#8e8e93] bg-transparent text-sm font-bold uppercase tracking-[0.08em] text-[#1a1a1a] hover:border-[#352018] hover:text-[#2a1711] dark:border-[#4a4a4a] dark:text-white dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00]"
                             onClick={() =>
                               setShowAllRoutineOptions((current) => !current)
                             }
@@ -6279,7 +6311,7 @@ export default function RegisterTraining({
             <div className="hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mt-auto border-t border-[#1a1a1a] bg-[#f5f5f5]/95 px-3 py-3 backdrop-blur dark:border-[#252525] dark:bg-[#121212]/95 md:static md:mt-4 md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
               <div className="mx-auto w-full max-w-md md:max-w-none">
                 <Button
-                  className="font-condensed h-12 w-full rounded-none border-0 !bg-[#ff5722] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:!bg-[#df3f0d] focus-visible:ring-[#ff5722] disabled:!bg-[#d6d4d4] disabled:text-[#8e8e93] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600] dark:focus-visible:ring-[#e2ff00] dark:disabled:!bg-[#343434] dark:disabled:text-[#777]"
+                  className="font-condensed h-12 w-full rounded-none border-0 !bg-[#352018] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:!bg-[#482b20] focus-visible:ring-[#352018] disabled:!bg-[#d6d4d4] disabled:text-[#8e8e93] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600] dark:focus-visible:ring-[#e2ff00] dark:disabled:!bg-[#343434] dark:disabled:text-[#777]"
                   disabled={
                     !branchReady ||
                     !selectedRoutineId ||
@@ -6308,7 +6340,7 @@ export default function RegisterTraining({
             <Card
               className={`overflow-visible border bg-[color:var(--card)]/95 p-0 backdrop-blur transition-[border-color,box-shadow] ${
                 sessionComplete
-                  ? "border-[#ff5722]/60 shadow-[0_12px_32px_rgba(255,87,34,0.14)] dark:border-[#e2ff00]/55 dark:shadow-[0_12px_34px_rgba(226,255,0,0.09)]"
+                  ? "border-[#352018]/60 shadow-[0_12px_32px_rgba(53,32,24,0.14)] dark:border-[#e2ff00]/55 dark:shadow-[0_12px_34px_rgba(226,255,0,0.09)]"
                   : "border-[color:var(--border)] shadow-lg"
               }`}
             >
@@ -6321,12 +6353,12 @@ export default function RegisterTraining({
                           aria-hidden="true"
                           initial={reduceMotion ? false : { scale: 0.6 }}
                           animate={{ scale: 1 }}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                         >
                           <Check className="h-5 w-5 stroke-[3]" />
                         </motion.span>
                         <div className="min-w-0">
-                          <p className="font-condensed text-[10px] font-black uppercase text-[#b72f08] dark:text-[#e2ff00]">
+                          <p className="font-condensed text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                             Rutina completada
                           </p>
                           <div className="mt-0.5 flex min-w-0 items-center gap-2">
@@ -6342,7 +6374,7 @@ export default function RegisterTraining({
                         <p className="font-condensed text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
                           Rutina activa
                         </p>
-                        <p className="mt-1 truncate font-condensed text-xl font-black uppercase leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                        <p className="mt-1 truncate font-condensed text-xl font-black uppercase leading-none text-[#352018] dark:text-[#e2ff00]">
                           {selectorRoutine?.name || "Rutina seleccionada"}
                         </p>
                       </>
@@ -6539,12 +6571,16 @@ export default function RegisterTraining({
                     type="date"
                     value={sessionDate}
                     disabled={sessionLocked || isHistoryReadOnly}
-                    onChange={(e) => {
-                      const nextDate = e.target.value
-                        ? e.target.value.slice(0, 10)
-                        : getLocalISODate();
-                      setSessionDate(nextDate);
-                    }}
+                    max={isEditing ? todayISO : undefined}
+                    onChange={(e) =>
+                      isEditing
+                        ? handleHistoryDateChange(e.target.value)
+                        : setSessionDate(
+                            e.target.value
+                              ? e.target.value.slice(0, 10)
+                              : getLocalISODate(),
+                          )
+                    }
                     className="absolute inset-0 cursor-pointer opacity-0"
                     aria-label="Seleccionar fecha"
                   />
@@ -6562,11 +6598,11 @@ export default function RegisterTraining({
                     aria-valuenow={progressPct}
                   >
                     <span
-                      className="block h-full rounded-full bg-[#ff5722] transition-[width] duration-300 dark:bg-[#e2ff00]"
+                      className="block h-full rounded-full bg-[#352018] transition-[width] duration-300 dark:bg-[#e2ff00]"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 font-bold tabular-nums text-[#ff5722] dark:text-[#e2ff00]">
+                  <span className="w-8 shrink-0 font-bold tabular-nums text-[#352018] dark:text-[#e2ff00]">
                     {progressPct}%
                   </span>
                   <span className="shrink-0 border-l border-[color:var(--border)] pl-3 font-semibold text-[color:var(--text)]">
@@ -6581,9 +6617,10 @@ export default function RegisterTraining({
         {(setupStarted || isEditing) && selectedRoutineId && (
           <section className="space-y-3 md:hidden">
             <article
+              data-training-overview
               className={`rounded-xl border bg-[color:var(--card)] p-4 shadow-lg ${
                 sessionComplete
-                  ? "border-[#ff5722]/60 dark:border-[#e2ff00]/55"
+                  ? "border-[#352018]/60 dark:border-[#e2ff00]/55"
                   : "border-[color:var(--border)]"
               }`}
             >
@@ -6596,11 +6633,11 @@ export default function RegisterTraining({
                         ? "Rutina completada"
                         : "Rutina activa"}
                   </p>
-                  <h2 className="mt-1.5 truncate font-condensed text-2xl font-black uppercase leading-none text-[#ff5722] dark:text-[#e2ff00]">
+                  <h2 className="mt-1.5 truncate font-condensed text-2xl font-black uppercase leading-none text-[#352018] dark:text-[#e2ff00]">
                     {selectorRoutine?.name || "Rutina seleccionada"}
                   </h2>
                 </div>
-                <strong className="shrink-0 font-condensed text-xl font-black tabular-nums text-[#ff5722] dark:text-[#e2ff00]">
+                <strong className="shrink-0 font-condensed text-xl font-black tabular-nums text-[#352018] dark:text-[#e2ff00]">
                   {progressPct}%
                 </strong>
               </div>
@@ -6628,7 +6665,7 @@ export default function RegisterTraining({
                 aria-valuenow={progressPct}
               >
                 <span
-                  className="block h-full rounded-full bg-[#ff5722] transition-[width] duration-300 dark:bg-[#e2ff00]"
+                  className="block h-full rounded-full bg-[#352018] transition-[width] duration-300 dark:bg-[#e2ff00]"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -6655,7 +6692,7 @@ export default function RegisterTraining({
                       value={selectedBranch}
                       onChange={(e) => handleBranchChange(e.target.value)}
                       disabled={sessionLocked || isHistoryReadOnly}
-                      className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
+                      className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
                     >
                       {branchOptions.map((b) => (
                         <option
@@ -7036,7 +7073,7 @@ export default function RegisterTraining({
                     className={`px-3 py-2 rounded-full border text-sm transition ${
                       selectedMuscleGroup === muscle
                         ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#ff5722]/40 dark:hover:border-[#e2ff00]/40"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#352018]/40 dark:hover:border-[#e2ff00]/40"
                     }`}
                   >
                     {muscle}
@@ -7055,7 +7092,7 @@ export default function RegisterTraining({
                 Buscar ejercicio
               </p>
               <input
-                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/25 dark:focus:ring-[#e2ff00]/25"
+                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/25 dark:focus:ring-[#e2ff00]/25"
                 placeholder="Buscar por nombre..."
                 value={exerciseSearch}
                 onChange={(e) => setExerciseSearch(e.target.value)}
@@ -7369,7 +7406,7 @@ export default function RegisterTraining({
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 gap-2 rounded-lg border-[#ff5722]/40 font-black uppercase text-[#c52d00] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
+                className="h-12 gap-2 rounded-lg border-[#352018]/40 font-black uppercase text-[#2a1711] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
                 onClick={() => handleSameDayTrainingChoice(false)}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -7377,7 +7414,7 @@ export default function RegisterTraining({
               </Button>
               <Button
                 type="button"
-                className="h-12 gap-2 rounded-lg !bg-[#ff5722] font-black uppercase text-white hover:!bg-[#df3f0d] dark:rounded-[4px] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                className="h-12 gap-2 rounded-lg !bg-[#352018] font-black uppercase text-white hover:!bg-[#482b20] dark:rounded-[4px] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                 onClick={() => handleSameDayTrainingChoice(true)}
               >
                 <Play className="h-4 w-4" />
@@ -7454,7 +7491,7 @@ export default function RegisterTraining({
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
                     Revision pendiente
                   </p>
                   <h2 className="mt-1 text-xl font-black leading-tight">
@@ -7517,7 +7554,7 @@ export default function RegisterTraining({
               <div className="mt-4 grid grid-cols-1 gap-2">
                 <Button
                   type="button"
-                  className="h-12 rounded-2xl !bg-[#ff5722] text-white hover:!bg-[#df3f0d] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                  className="h-12 rounded-2xl !bg-[#352018] text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                   onClick={() => setFinishWarningOpen(false)}
                 >
                   Volver a completar
@@ -7525,7 +7562,7 @@ export default function RegisterTraining({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 rounded-lg border-[#ff5722]/40 text-[#c52d00] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
+                  className="h-12 rounded-lg border-[#352018]/40 text-[#2a1711] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
                   onClick={confirmFinishTraining}
                 >
                   Finalizar de todos modos
@@ -7700,7 +7737,7 @@ export default function RegisterTraining({
                             Math.max(1, Number(event.target.value) || 1),
                           )
                         }
-                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/30 dark:rounded-[3px] dark:focus:ring-[#e2ff00]/30"
+                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:rounded-[3px] dark:focus:ring-[#e2ff00]/30"
                       />
                     </label>
 
@@ -7709,7 +7746,7 @@ export default function RegisterTraining({
                         className={`h-12 rounded-full ${
                           restTimerRunning
                             ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
-                            : "bg-[#ff5722] text-white hover:bg-[#df3f0d] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                            : "bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
                         }`}
                         onClick={handleToggleRestTimer}
                       >

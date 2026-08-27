@@ -590,7 +590,7 @@ export default function ExerciseHistoryEditor({
     <main className="mx-auto w-full max-w-7xl space-y-4 pb-24 text-[color:var(--text)]">
       <header className="flex flex-col gap-3 border-b border-[color:var(--border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#352018] dark:text-[#e2ff00]">
             Administración de datos
           </p>
           <h1 className="mt-1 text-3xl font-black uppercase leading-none">
@@ -601,7 +601,7 @@ export default function ExerciseHistoryEditor({
             de cada registro sin modificar sus valores originales.
           </p>
           {coachAthlete?.name ? (
-            <p className="mt-2 text-xs font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="mt-2 text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               Atleta: {coachAthlete.name}
             </p>
           ) : null}
@@ -770,7 +770,7 @@ export default function ExerciseHistoryEditor({
                         </span>
                         <span className="shrink-0 text-right">
                           <span
-                            className={`block text-xs font-black tabular-nums ${sessionCount ? "text-[#ff5722] dark:text-[#e2ff00]" : "text-[color:var(--text-muted)]"}`}
+                            className={`block text-xs font-black tabular-nums ${sessionCount ? "text-[#352018] dark:text-[#e2ff00]" : "text-[color:var(--text-muted)]"}`}
                           >
                             {sessionCount}{" "}
                             {sessionCount === 1 ? "sesión" : "sesiones"}
@@ -814,7 +814,7 @@ export default function ExerciseHistoryEditor({
             className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-black transition ${onlyWithHistory ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--border)] text-[color:var(--text-muted)]"}`}
           >
             <span
-              className={`grid h-4 w-4 place-items-center rounded border ${onlyWithHistory ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
+              className={`grid h-4 w-4 place-items-center rounded border ${onlyWithHistory ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
             >
               {onlyWithHistory ? <Check className="h-3 w-3" /> : null}
             </span>

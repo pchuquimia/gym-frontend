@@ -36,11 +36,11 @@ export default function TrainingCompletionPanel({
         duration: reduceMotion ? 0 : 0.42,
         ease: [0.16, 1, 0.3, 1],
       }}
-      className="relative overflow-hidden border border-[#ff5722]/45 bg-[color:var(--card)] text-[color:var(--text)] shadow-[0_18px_45px_rgba(255,87,34,0.12)] dark:border-[#e2ff00]/45 dark:shadow-[0_18px_48px_rgba(226,255,0,0.08)]"
+      className="relative overflow-hidden border border-[#352018]/45 bg-[color:var(--card)] text-[color:var(--text)] shadow-[0_18px_45px_rgba(53,32,24,0.12)] dark:border-[#e2ff00]/45 dark:shadow-[0_18px_48px_rgba(226,255,0,0.08)]"
     >
       <motion.span
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-1 origin-left bg-[#ff5722] dark:bg-[#e2ff00]"
+        className="absolute inset-x-0 top-0 h-1 origin-left bg-[#352018] dark:bg-[#e2ff00]"
         initial={reduceMotion ? false : { scaleX: 0 }}
         animate={{ scaleX: 1 }}
         transition={{ duration: reduceMotion ? 0 : 0.7, ease: "easeOut" }}
@@ -50,7 +50,7 @@ export default function TrainingCompletionPanel({
         <header className="flex items-start gap-3 sm:items-center">
           <motion.span
             aria-hidden="true"
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#ff5722] text-white shadow-[0_8px_24px_rgba(255,87,34,0.28)] dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_8px_26px_rgba(226,255,0,0.18)]"
+            className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#352018] text-white shadow-[0_8px_24px_rgba(53,32,24,0.28)] dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_8px_26px_rgba(226,255,0,0.18)]"
             initial={reduceMotion ? false : { scale: 0.55, rotate: -18 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{
@@ -64,7 +64,7 @@ export default function TrainingCompletionPanel({
             <Check className="h-7 w-7 stroke-[3]" />
           </motion.span>
           <div className="min-w-0 flex-1">
-            <p className="font-condensed text-[11px] font-black uppercase tracking-[0.14em] text-[#b72f08] dark:text-[#e2ff00]">
+            <p className="font-condensed text-[11px] font-black uppercase tracking-[0.14em] text-[#352018] dark:text-[#e2ff00]">
               Sesión lista para guardar
             </p>
             <h2
@@ -104,7 +104,7 @@ export default function TrainingCompletionPanel({
           </div>
           <div className="min-w-0 border-l border-[color:var(--border)] py-3 pl-3">
             <p className="font-condensed flex items-center gap-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              <Flame className="h-3 w-3 text-[#ff5722] dark:text-[#e2ff00]" />
+              <Flame className="h-3 w-3 text-[#352018] dark:text-[#e2ff00]" />
               Calorías
             </p>
             <p className="mt-1 truncate text-base font-black leading-none text-[color:var(--text)]">
@@ -182,7 +182,7 @@ export default function TrainingCompletionPanel({
             </div>
           ) : (
             <label className="group flex min-h-32 cursor-pointer items-center gap-4 border border-dashed border-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-5 text-[color:var(--accent-contrast)] transition-colors hover:bg-[color:var(--accent-hover)]">
-              <span className="grid h-12 w-12 shrink-0 place-items-center border border-[#ff5722]/30 bg-white text-[#ff5722] shadow-sm dark:border-[#e2ff00]/30 dark:bg-[#111] dark:text-[#e2ff00]">
+              <span className="grid h-12 w-12 shrink-0 place-items-center border border-[#352018]/30 bg-white text-[#352018] shadow-sm dark:border-[#e2ff00]/30 dark:bg-[#111] dark:text-[#e2ff00]">
                 <ImagePlus className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
@@ -215,7 +215,7 @@ export default function TrainingCompletionPanel({
           type="button"
           onClick={onFinish}
           disabled={isFinalizing}
-          className="mt-5 flex h-14 w-full items-center justify-center gap-2 bg-[#ff5722] px-5 font-condensed text-xl font-black uppercase text-white shadow-[0_10px_28px_rgba(255,87,34,0.25)] transition-colors hover:bg-[#df3f0d] disabled:cursor-wait disabled:opacity-80 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_10px_30px_rgba(226,255,0,0.16)] dark:hover:bg-[#cbe600]"
+          className="mt-5 flex h-14 w-full items-center justify-center gap-2 bg-[#352018] px-5 font-condensed text-xl font-black uppercase text-white shadow-[0_10px_28px_rgba(53,32,24,0.25)] transition-colors hover:bg-[#482b20] disabled:cursor-wait disabled:opacity-80 dark:bg-[#e2ff00] dark:text-black dark:shadow-[0_10px_30px_rgba(226,255,0,0.16)] dark:hover:bg-[#cbe600]"
           initial={reduceMotion ? false : { scale: 0.97 }}
           animate={
             reduceMotion

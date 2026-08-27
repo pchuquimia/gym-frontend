@@ -3,15 +3,16 @@ import {
   BedDouble,
   CalendarDays,
   Check,
-  Clock3,
   Dumbbell,
   Play,
   RotateCcw,
 } from "lucide-react";
 import Modal from "../shared/Modal";
 import OperationLoader from "../system/OperationLoader";
+import { estimateTrainingCalories } from "../../utils/calorieEstimate";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
 
 const getPlanDayDate = (plan, weekIndex, dayIndex) => {
   const date = new Date(plan.startDate);
@@ -34,6 +35,9 @@ const getRoutineExerciseCount = (routine) =>
 const getRoutineDuration = (routine) =>
   Number(
     routine?.estimatedDuration ??
+      routine?.raw?.estimatedDuration ??
+      routine?.raw?.durationMinutes ??
+      routine?.raw?.duration ??
       routine?.durationMinutes ??
       routine?.duration ??
       0,
@@ -66,7 +70,7 @@ function ProgressRing({ value }) {
           stroke="currentColor"
           strokeWidth="5"
           strokeDasharray={`${progress * 1.068} 106.8`}
-          className="text-[#ff5722] dark:text-[#d8ff00]"
+          className="text-[#352018] dark:text-[#d8ff00]"
         />
       </svg>
       <strong className="absolute text-base font-bold tabular-nums">
@@ -90,6 +94,7 @@ export default function ActivePlanWorkoutPlanner({
   onAdvance,
   advancing,
   preparingRoutineId,
+  weightKg,
 }) {
   const [overrideCandidate, setOverrideCandidate] = useState(null);
   const [selectedScheduleDay, setSelectedScheduleDay] = useState(null);
@@ -126,7 +131,7 @@ export default function ActivePlanWorkoutPlanner({
   if (!plan) {
     return (
       <div className="training-schedule-state rounded-3xl bg-[color:var(--card)] p-6 text-center">
-        <CalendarDays className="mx-auto h-7 w-7 text-[#ff5722] dark:text-[#d8ff00]" />
+        <CalendarDays className="mx-auto h-7 w-7 text-[#352018] dark:text-[#d8ff00]" />
         <h2 className="mt-4 text-xl font-bold uppercase">
           No hay una planificacion vigente
         </h2>
@@ -136,7 +141,7 @@ export default function ActivePlanWorkoutPlanner({
         <button
           type="button"
           onClick={onOpenPlans}
-          className="mt-5 h-11 border border-[#ff5722] px-4 text-xs font-bold uppercase text-[#c52d00] dark:border-[#d8ff00] dark:text-[#d8ff00]"
+          className="mt-5 h-11 border border-[#352018] px-4 text-xs font-bold uppercase text-[#2a1711] dark:border-[#d8ff00] dark:text-[#d8ff00]"
         >
           Ver planificaciones
         </button>
@@ -240,6 +245,12 @@ export default function ActivePlanWorkoutPlanner({
     Math.max(0, dayViews.length - 1),
   );
   const selectedDay = dayViews[selectedIndex] || null;
+  const plannedCalories = selectedDay?.duration
+    ? estimateTrainingCalories(
+        { durationSeconds: selectedDay.duration * 60 },
+        { weightKg },
+      ).calories
+    : 0;
 
   return (
     <>
@@ -317,7 +328,7 @@ export default function ActivePlanWorkoutPlanner({
                           ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                           : dayView.completed
                             ? "border-[#c9c9c9] bg-[#e9e9e9] text-[#777] dark:border-[#292929] dark:bg-[#0b0b0b] dark:text-[#777]"
-                            : "border-[#d6d6d6] text-[#666] hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
+                            : "border-[#d6d6d6] text-[#666] hover:border-[#352018] hover:text-[#2a1711] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase">
@@ -333,7 +344,7 @@ export default function ActivePlanWorkoutPlanner({
                           dayView.completed
                             ? "bg-[#777]"
                             : dayView.current
-                              ? "bg-[#ff5722] dark:bg-[#d8ff00]"
+                              ? "bg-[#352018] dark:bg-[#d8ff00]"
                               : dayView.rest
                                 ? "border border-[#8e8e93] dark:border-[#c8c8aa]"
                                 : "bg-transparent"
@@ -347,12 +358,34 @@ export default function ActivePlanWorkoutPlanner({
             </div>
 
             <article
-              className={`training-schedule__selection mt-3 border p-4 ${
+              className={`training-schedule__selection ${selectedDay.routine ? "training-schedule__selection--hero" : ""} mt-3 border p-4 ${
                 selectedDay.current
-                  ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(255,87,34,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
+                  ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(53,32,24,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
                   : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
+              {selectedDay.routine ? (
+                <div className="training-schedule__hero hidden" aria-hidden="true">
+                  <div className="training-schedule__hero-fallback">
+                    <Dumbbell className="h-12 w-12" />
+                  </div>
+                  <img
+                    src={WORKOUT_HERO_IMAGE}
+                    alt=""
+                    loading="eager"
+                    decoding="async"
+                  />
+                  <div className="training-schedule__hero-shade" />
+                  <span className="training-schedule__hero-badge">
+                    {selectedDay.current
+                      ? "Entrenamiento de hoy"
+                      : sequential
+                        ? `Día ${selectedDay.index + 1}`
+                        : DAY_SHORT_NAMES[selectedDay.index]}
+                  </span>
+                </div>
+              ) : null}
+
               <div className="flex items-start gap-3.5">
                 <div className="training-schedule__selected-date grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
                   <div>
@@ -383,7 +416,7 @@ export default function ActivePlanWorkoutPlanner({
                         className={`training-schedule__goal text-xs font-bold uppercase ${
                           selectedDay.current
                             ? "text-current"
-                            : "text-[#c52d00] dark:text-[#d8ff00]"
+                            : "text-[#2a1711] dark:text-[#d8ff00]"
                         }`}
                       >
                         {plan.goal}
@@ -412,10 +445,22 @@ export default function ActivePlanWorkoutPlanner({
                     ) : (
                       <>
                         {selectedDay.duration ? (
-                          <span className="training-schedule__duration inline-flex items-center gap-1.5">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            {selectedDay.duration} min estimados
-                          </span>
+                          <>
+                            <span className="training-schedule__duration">
+                              {selectedDay.duration} Min
+                            </span>
+                            {plannedCalories ? (
+                              <>
+                                <span
+                                  className="training-schedule__metric-divider"
+                                  aria-hidden="true"
+                                >
+                                  |
+                                </span>
+                                <span>{plannedCalories} Cal</span>
+                              </>
+                            ) : null}
+                          </>
                         ) : null}
                         <span className="training-schedule__exercise-count inline-flex items-center gap-1.5">
                           <Dumbbell className="h-3.5 w-3.5" />
@@ -428,31 +473,31 @@ export default function ActivePlanWorkoutPlanner({
               </div>
 
               {selectedDay.current && selectedDay.routine ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onStart(
-                      selectedDay.routine.id || selectedDay.routine._id,
-                      selectedDay.day.slotId,
-                      {
-                        isScheduleOverride: false,
-                        scheduledDate: selectedDay.dateValue,
-                        dayIndex: selectedDay.index,
-                      },
-                    )
-                  }
-                  disabled={selectedDay.preparing}
-                  className="training-schedule__primary-action mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
-                >
-                  {selectedDay.preparing ? (
-                    <RotateCcw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Play className="h-4 w-4 fill-current" />
-                  )}
-                  {selectedDay.preparing
-                    ? "Preparando entrenamiento"
-                    : "Iniciar entrenamiento"}
-                </button>
+                <div className="training-schedule__action-row mt-5 flex">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onStart(
+                        selectedDay.routine.id || selectedDay.routine._id,
+                        selectedDay.day.slotId,
+                        {
+                          isScheduleOverride: false,
+                          scheduledDate: selectedDay.dateValue,
+                          dayIndex: selectedDay.index,
+                        },
+                      )
+                    }
+                    disabled={selectedDay.preparing}
+                    className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#352018] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                  >
+                    {selectedDay.preparing ? (
+                      <RotateCcw className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    {selectedDay.preparing
+                      ? "PREPARANDO ENTRENAMIENTO"
+                      : "INICIAR ENTRENAMIENTO"}
+                  </button>
+                </div>
               ) : null}
 
               {!selectedDay.current &&
@@ -462,7 +507,7 @@ export default function ActivePlanWorkoutPlanner({
                 <button
                   type="button"
                   onClick={() => setOverrideCandidate(selectedDay)}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#ff5722] hover:text-[#c52d00] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#352018] hover:text-[#2a1711] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
                   <Play className="h-4 w-4" />
                   Entrenar esta rutina
@@ -474,7 +519,7 @@ export default function ActivePlanWorkoutPlanner({
                   type="button"
                   onClick={onAdvance}
                   disabled={advancing}
-                  className="mt-4 h-12 w-full border border-[#ff5722] px-4 text-xs font-bold uppercase text-[#c52d00] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
+                  className="mt-4 h-12 w-full border border-[#352018] px-4 text-xs font-bold uppercase text-[#2a1711] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
                   {advancing ? "Actualizando..." : "Completar descanso"}
                 </button>
@@ -525,7 +570,7 @@ export default function ActivePlanWorkoutPlanner({
                     },
                   );
                 }}
-                className="h-11 bg-[#ff5722] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
+                className="h-11 bg-[#352018] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
               >
                 Confirmar cambio
               </button>

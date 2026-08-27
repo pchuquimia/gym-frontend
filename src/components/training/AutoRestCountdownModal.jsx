@@ -28,7 +28,7 @@ export default function AutoRestCountdownModal({
         transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
       >
         <div
-          className="grid h-full w-full place-items-center rounded-full p-[10px] shadow-[0_0_42px_rgba(255,87,34,0.2)] dark:shadow-[0_0_48px_rgba(226,255,0,0.18)]"
+          className="grid h-full w-full place-items-center rounded-full p-[10px] shadow-[0_0_42px_rgba(53,32,24,0.2)] dark:shadow-[0_0_48px_rgba(226,255,0,0.18)]"
           style={{
             background: `conic-gradient(var(--accent) ${progress}%, color-mix(in srgb, var(--border) 72%, transparent) ${progress}% 100%)`,
           }}
@@ -49,7 +49,7 @@ export default function AutoRestCountdownModal({
         <button
           type="button"
           onClick={onExit}
-          className="absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full border border-white/70 bg-[color:var(--card)] text-[color:var(--text)] shadow-lg transition hover:border-[#ff5722] hover:text-[#ff5722] focus:outline-none focus:ring-2 focus:ring-[#ff5722]/40 dark:border-white/15 dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00] dark:focus:ring-[#e2ff00]/40"
+          className="absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full border border-white/70 bg-[color:var(--card)] text-[color:var(--text)] shadow-lg transition hover:border-[#352018] hover:text-[#352018] focus:outline-none focus:ring-2 focus:ring-[#352018]/40 dark:border-white/15 dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00] dark:focus:ring-[#e2ff00]/40"
           aria-label="Salir del descanso automático"
           title="Salir del descanso"
         >

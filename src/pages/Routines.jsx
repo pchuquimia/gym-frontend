@@ -3284,7 +3284,7 @@ function PlanRoutineChoiceModal({
         <button
           type="button"
           onClick={onCreate}
-          className="flex h-11 w-full items-center justify-center gap-2 border border-[color:var(--border)] text-xs font-black text-[color:var(--text)] transition hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+          className="flex h-11 w-full items-center justify-center gap-2 border border-[color:var(--border)] text-xs font-black text-[color:var(--text)] transition hover:border-[#352018] dark:hover:border-[#e2ff00]"
         >
           <Plus className="h-4 w-4" /> Crear rutina nueva
         </button>
@@ -3395,7 +3395,7 @@ function RoutineToolbar({
               aria-pressed={activeBranch === item.id}
               className={`h-8 min-w-0 border px-2 text-xs font-black uppercase transition ${
                 activeBranch === item.id
-                  ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                  ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                   : "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-[#353535] dark:bg-[#202020] dark:text-[#f5f5e8]"
               }`}
             >
@@ -3851,7 +3851,7 @@ export function TrainingPlanSchedule({
                       <button
                         type="button"
                         onClick={() => onOpenRoutine(routine)}
-                        className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                        className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
                         aria-label={`Ver ejercicios de ${routine.name}`}
                       >
                         {primaryLabel}
@@ -5243,7 +5243,7 @@ function Routines({ onNavigate }) {
               onClick={() => setWorkspaceView("plans")}
               className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "plans"
-                  ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  ? "border-[#d8c8c0] bg-white text-[#352018] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
@@ -5262,7 +5262,7 @@ function Routines({ onNavigate }) {
               onClick={() => setWorkspaceView("routines")}
               className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "routines"
-                  ? "border-[#ffc4b2] bg-white text-[#b82f05] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  ? "border-[#d8c8c0] bg-white text-[#352018] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
@@ -5741,14 +5741,14 @@ function Routines({ onNavigate }) {
                   transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                   className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
                     isHighlighted
-                      ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
+                      ? "border-t-[#352018] dark:border-t-[#e2ff00]"
                       : "border-t-[#626262] dark:border-t-[#6d6d62]"
                   } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
                 >
                   <button
                     type="button"
                     onClick={() => setViewingRoutine(routine)}
-                    className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                    className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
                     aria-label={`Ver ejercicios de ${routine.name}`}
                   />
                   <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
@@ -5762,7 +5762,7 @@ function Routines({ onNavigate }) {
                         <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
                           {routine.name}
                         </h2>
-                        <p className="mt-2 truncate text-xs font-black uppercase text-[#9f3518] dark:text-[#e2ff00]">
+                        <p className="mt-2 truncate text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                           {focusLabel} · {routine.estimatedMinutes} min
                         </p>
                       </div>
@@ -5832,7 +5832,7 @@ function Routines({ onNavigate }) {
                         </div>
                       ))}
                       {routine.hiddenPreviewCount > 0 ? (
-                        <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#ffc4b2] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
+                        <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#d8c8c0] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
                           +{routine.hiddenPreviewCount}
                         </div>
                       ) : null}
@@ -5846,15 +5846,15 @@ function Routines({ onNavigate }) {
                     <div className="routine-library-card__footer mt-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333] sm:mt-5 sm:flex sm:min-h-11 sm:items-center sm:justify-between sm:gap-3">
                       <div className="grid min-w-0 grid-cols-3 gap-2 text-[11px] font-black text-[color:var(--text)] sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:text-xs">
                         <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <Dumbbell className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                          <Dumbbell className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
                           {routine.totalExerciseCount} ejercicios
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <Layers3 className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                          <Layers3 className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
                           {routine.totalSets} series
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <History className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
+                          <History className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
                           {routine.trainingCount}{" "}
                           {routine.trainingCount === 1 ? "sesión" : "sesiones"}
                         </span>

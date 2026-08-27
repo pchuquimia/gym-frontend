@@ -103,7 +103,7 @@ const ExerciseVolumeChart = ({
               indexBy="week"
               margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
               padding={0.35}
-              colors={mode === 'dark' ? ['#e2ff00'] : ['#ff5722']}
+              colors={mode === 'dark' ? ['#e2ff00'] : ['#352018']}
               axisBottom={{
                 tickRotation: -25,
                 tickPadding: 8,
@@ -145,7 +145,7 @@ const ExerciseVolumeChart = ({
               enablePoints
               pointSize={6}
               curve="monotoneX"
-              colors={mode === 'dark' ? ['#e2ff00'] : ['#ff5722']}
+              colors={mode === 'dark' ? ['#e2ff00'] : ['#352018']}
               useMesh
               tooltip={({ point }) => (
                 <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">

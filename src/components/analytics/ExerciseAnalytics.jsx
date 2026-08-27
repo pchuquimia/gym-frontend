@@ -26,7 +26,7 @@ const ExerciseAnalytics = ({
     <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
       <div className="grid gap-3 border-b border-[color:var(--border)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-4">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Evolucion historica
           </p>
           <h2 className="mt-1 text-xl font-black uppercase leading-none">
@@ -125,7 +125,7 @@ const ExerciseAnalytics = ({
           <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
             Vs sesion anterior
           </p>
-          <p className="mt-1 text-lg font-black text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="mt-1 text-lg font-black text-[#352018] dark:text-[#e2ff00]">
             {summary.vsPrevious || "--"}
           </p>
         </div>

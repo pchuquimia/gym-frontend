@@ -708,10 +708,10 @@ function StatCard({
   primary = false,
 }) {
   const tones = {
-    blue: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
-    amber: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
-    accent: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
-    violet: "bg-transparent text-[#ff5722] dark:text-[#e2ff00]",
+    blue: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
+    amber: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
+    accent: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
+    violet: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
   };
 
   const Component = onClick ? "button" : "article";
@@ -796,10 +796,10 @@ function PeriodComparisonPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
                 Semana actual vs anterior
               </p>
-              <span className="border border-[#ff5722]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#ff5722] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
+              <span className="border border-[#352018]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#352018] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
                 Pro
               </span>
             </div>
@@ -814,7 +814,7 @@ function PeriodComparisonPanel({
           <button
             type="button"
             onClick={onUpgrade}
-            className="h-10 shrink-0 bg-[#ff5722] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="h-10 shrink-0 bg-[#352018] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
           >
             Ver Premium
           </button>
@@ -907,7 +907,7 @@ function PeriodComparisonPanel({
     <section className="dashboard-pilot__card dashboard-pilot__comparison border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
             Semana actual vs anterior
           </p>
           <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
@@ -933,7 +933,7 @@ function PeriodComparisonPanel({
               <p className="truncate text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 {label}
               </p>
-              <Icon className="h-3.5 w-3.5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
             </div>
             <p className="mt-2 text-xl font-black text-[color:var(--text)]">
               {value}
@@ -965,7 +965,7 @@ function WeekStrip({ days }) {
           <p
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
-                ? "text-[#ff5722] dark:text-[#e2ff00]"
+                ? "text-[#352018] dark:text-[#e2ff00]"
                 : "text-[#c9c9c9] dark:text-[#454545]"
             }`}
           >
@@ -1022,7 +1022,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                   : "Descanso"}
             </span>
             {selectedDay.incompleteSets > 0 ? (
-              <span className="ml-1 text-[#c52d00] dark:text-[#e2ff00]">
+              <span className="ml-1 text-[#2a1711] dark:text-[#e2ff00]">
                 · {selectedDay.incompleteSets}{" "}
                 {selectedDay.incompleteSets === 1 ? "pendiente" : "pendientes"}
               </span>
@@ -1083,10 +1083,10 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                       className={`block w-full max-w-6 rounded-t-[3px] transition-[height,opacity] duration-200 md:max-w-8 ${
                         sets
                           ? overloaded
-                            ? "bg-[#c52d00] shadow-[0_0_8px_rgba(197,45,0,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
-                            : "bg-[#ff5722] dark:bg-[#b8d000]"
+                            ? "bg-[#2a1711] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
+                            : "bg-[#352018] dark:bg-[#b8d000]"
                           : day.isToday
-                            ? "bg-[#ff5722] dark:bg-[#e2ff00]"
+                            ? "bg-[#352018] dark:bg-[#e2ff00]"
                             : "bg-[#d8d8d8] dark:bg-[#292929]"
                       }`}
                       initial={
@@ -1105,7 +1105,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                   <span
                     className={`mt-1 grid h-4 min-w-4 place-items-center rounded-[2px] px-0.5 text-[8px] font-black leading-none md:text-[9px] ${
                       day.isToday
-                        ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                        ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                         : "text-[color:var(--text-muted)]"
                     }`}
                   >
@@ -1197,13 +1197,13 @@ function MonthDetailView({ detail, onBack }) {
         <button
           type="button"
           onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#ff5722] shadow-sm dark:text-[#e2ff00]"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#352018] shadow-sm dark:text-[#e2ff00]"
           aria-label="Volver a tendencia"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
             Detalle mensual
           </p>
           <h3 className="truncate text-xl font-black text-[color:var(--text)]">
@@ -1263,7 +1263,7 @@ function MonthDetailView({ detail, onBack }) {
       </div>
 
       <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
           Rutinas entrenadas este mes
         </p>
         <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
@@ -3202,7 +3202,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <button
             type="button"
             onClick={() => reloadTrainings()}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#ff5722] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#352018] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
           >
             <RotateCcw className="h-4 w-4" />
             Reintentar
@@ -3238,7 +3238,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 <Weight className="h-5 w-5 motion-safe:animate-pulse" />
                 <span
                   aria-hidden="true"
-                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722]"
+                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018]"
                 />
               </button>
             ) : null}
@@ -3267,7 +3267,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <h1 className="text-[22px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1a1a1a] md:text-3xl md:font-black md:italic md:leading-[0.9] md:tracking-normal dark:text-white">
               APEX
               <br />
-              <span className="dashboard-pilot__brand-accent text-[#ff5722] dark:text-[#e2ff00]">
+              <span className="dashboard-pilot__brand-accent text-[#352018] dark:text-[#e2ff00]">
                 PERFORMANCE
               </span>
             </h1>
@@ -3293,7 +3293,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <Weight className="h-5 w-5 motion-safe:animate-pulse" />
               <span
                 aria-hidden="true"
-                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ff5722] dark:bg-[#e2ff00]"
+                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
               />
             </button>
           ) : null}
@@ -3358,7 +3358,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             {weekData.days.map((day) => (
               <span
                 key={day.key}
-                className={`h-1.5 rounded-full ${day.trained ? "bg-[#ff5722] dark:bg-[#e2ff00]" : "bg-[#e5e5e5] dark:bg-[#292929]"}`}
+                className={`h-1.5 rounded-full ${day.trained ? "bg-[#352018] dark:bg-[#e2ff00]" : "bg-[#e5e5e5] dark:bg-[#292929]"}`}
               />
             ))}
           </div>
@@ -3391,7 +3391,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
               Comparación por ejercicio
             </p>
-            <TrendingUp className="h-3.5 w-3.5 text-[#ff5722] dark:text-[#e2ff00]" />
+            <TrendingUp className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
           </div>
           <div className="dashboard-pilot__split mt-3 grid grid-cols-2 overflow-hidden border border-[color:var(--border)] bg-[color:var(--segmented-surface)]">
             <button
@@ -3414,7 +3414,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
                 Marca mejor
               </p>
-              <p className="mt-1 text-2xl font-black text-[#ff5722] dark:text-[#e2ff00]">
+              <p className="mt-1 text-2xl font-black text-[#352018] dark:text-[#e2ff00]">
                 {Math.max(0, Number(weekData.improvements?.length) || 0)}
               </p>
             </button>
@@ -3545,7 +3545,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <div className="dashboard-recovery-overview flex items-center gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Zap className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
                   <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
                     Disponibilidad muscular
                   </p>
@@ -3563,7 +3563,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     : "Registra tu primera sesión"}
                 </p>
                 {hasTrainingHistory && recovery.activePlan ? (
-                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                     {recovery.activePlan.name}
                   </p>
                 ) : null}
@@ -3572,7 +3572,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 <div
                   className="dashboard-pilot__recovery-ring grid h-20 w-20 place-items-center rounded-full p-[6px] sm:h-36 sm:w-36 sm:p-[9px]"
                   style={{
-                    background: `conic-gradient(${isDark ? "#e2ff00" : "#ff5722"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
+                    background: `conic-gradient(${isDark ? "#e2ff00" : "#352018"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
                   }}
                 >
                   <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
@@ -3619,7 +3619,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 indexBy="month"
                 margin={{ top: 12, right: 8, bottom: 28, left: 46 }}
                 padding={0.35}
-                colors={isDark ? "#e2ff00" : "#ff5722"}
+                colors={isDark ? "#e2ff00" : "#352018"}
                 borderRadius={6}
                 enableLabel={false}
                 axisTop={null}
@@ -3680,7 +3680,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     <p className="font-black text-[color:var(--text)]">
                       {month.month}
                     </p>
-                    <p className="text-xs font-black text-[#ff5722] dark:text-[#e2ff00]">
+                    <p className="text-xs font-black text-[#352018] dark:text-[#e2ff00]">
                       {formatSessionCount(month.sessions)}
                     </p>
                   </div>

@@ -15,7 +15,7 @@ export default function PremiumGate({
     >
       <Sparkles className="absolute -right-5 -top-5 h-28 w-28 text-current opacity-10" />
       <div className={compact ? "relative" : "relative max-w-md"}>
-        <span className="mx-auto grid h-12 w-12 place-items-center border border-[#ff5722]/30 bg-white text-[#ff5722] dark:border-[#e2ff00]/30 dark:bg-black/20 dark:text-[#e2ff00]">
+        <span className="mx-auto grid h-12 w-12 place-items-center border border-[#352018]/30 bg-white text-[#352018] dark:border-[#e2ff00]/30 dark:bg-black/20 dark:text-[#e2ff00]">
           <LockKeyhole className="h-5 w-5" />
         </span>
         <p className="mt-4 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-current">

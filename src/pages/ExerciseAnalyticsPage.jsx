@@ -99,10 +99,10 @@ function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
         <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
         </p>
-        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
       </div>
       <p
-        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}
+        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
       >
         {value}
       </p>
@@ -346,7 +346,7 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <header className="flex flex-col gap-3 border-b border-[color:var(--border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Progreso individual
           </p>
           <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
@@ -438,7 +438,7 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
                         setPickerOpen(false);
                         setQuery("");
                       }}
-                      className={`flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-bold hover:bg-[color:var(--bg)] ${exercise.id === effectiveExerciseId ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}
+                      className={`flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-bold hover:bg-[color:var(--bg)] ${exercise.id === effectiveExerciseId ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
                     >
                       <span className="truncate">{exercise.name}</span>
                       <span className="text-[10px] font-black text-[color:var(--text-muted)]">
@@ -529,14 +529,14 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
         <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                 Patron de trabajo
               </p>
               <h2 className="mt-1 text-xl font-black uppercase">
                 Consistencia
               </h2>
             </div>
-            <Gauge className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+            <Gauge className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
           </div>
           <div className="mt-5 grid grid-cols-3 divide-x divide-[color:var(--border)] text-center">
             <div>
@@ -571,14 +571,14 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
         <div>
           <div className="mb-2 flex items-end justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
                 Historial
               </p>
               <h2 className="mt-1 text-xl font-black uppercase">
                 Ultimas sesiones
               </h2>
             </div>
-            <Clock3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+            <Clock3 className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
           </div>
           <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
             {stats.summaries.length ? (
@@ -601,7 +601,7 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
                     <p className="hidden text-sm font-bold sm:block">
                       {compact(item.volume)} kg
                     </p>
-                    <p className="text-right text-sm font-black text-[#ff5722] dark:text-[#e2ff00]">
+                    <p className="text-right text-sm font-black text-[#352018] dark:text-[#e2ff00]">
                       {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
                     </p>
                   </div>

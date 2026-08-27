@@ -27,7 +27,7 @@ export default function AutoRestCompleteModal({
       aria-label="Descanso terminado. Volver al entrenamiento"
     >
       <motion.span
-        className="relative grid aspect-square w-full max-w-[280px] place-items-center rounded-full bg-[#ff5722] p-[10px] shadow-[0_0_58px_rgba(255,87,34,0.42)] dark:bg-[#e2ff00] dark:shadow-[0_0_64px_rgba(226,255,0,0.38)]"
+        className="relative grid aspect-square w-full max-w-[280px] place-items-center rounded-full bg-[#352018] p-[10px] shadow-[0_0_58px_rgba(53,32,24,0.42)] dark:bg-[#e2ff00] dark:shadow-[0_0_64px_rgba(226,255,0,0.38)]"
         initial={reduceMotion ? false : { opacity: 0, scale: 0.86 }}
         animate={
           reduceMotion
@@ -51,7 +51,7 @@ export default function AutoRestCompleteModal({
       >
         <span className="grid h-full w-full place-items-center rounded-full border border-white/70 bg-[color:var(--card)]/95 text-center shadow-[inset_0_0_30px_rgba(0,0,0,0.07)] backdrop-blur-xl dark:border-black/20 dark:shadow-[inset_0_0_34px_rgba(0,0,0,0.42)]">
           <span className="grid justify-items-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-[#ff5722] text-white shadow-lg dark:bg-[#e2ff00] dark:text-black">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-[#352018] text-white shadow-lg dark:bg-[#e2ff00] dark:text-black">
               <Check className="h-7 w-7 stroke-[3]" />
             </span>
             <strong className="mt-3 font-condensed text-6xl font-black uppercase leading-none text-[color:var(--text)]">

@@ -169,7 +169,7 @@ function WeightTracking({ coachAthlete = null }) {
     <div className="dashboard-shell mx-auto w-full max-w-md space-y-5 pb-12 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl">
       <header className="border-b border-[color:var(--border)] pb-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#352018] dark:text-[#e2ff00]">
             Seguimiento corporal
           </p>
           <h1 className="mt-1 text-2xl font-black uppercase leading-none sm:text-3xl">
@@ -205,7 +205,7 @@ function WeightTracking({ coachAthlete = null }) {
           </p>
           <div className="mt-2 flex items-center gap-1.5">
             {summary.changeKg != null ? (
-              <ChangeIcon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+              <ChangeIcon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
             ) : null}
             <p className="text-2xl font-black leading-none sm:text-3xl">
               {summary.changeKg == null
@@ -236,7 +236,7 @@ function WeightTracking({ coachAthlete = null }) {
             className={`grid h-11 w-11 shrink-0 place-items-center border ${
               summary.completedToday
                 ? "border-emerald-500 bg-emerald-500 text-white"
-                : "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                : "border-[#352018] text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
             }`}
           >
             {summary.completedToday ? (
@@ -271,7 +271,7 @@ function WeightTracking({ coachAthlete = null }) {
               min={fromDate}
               max={todayKey}
               onChange={(event) => setSelectedDate(event.target.value)}
-              className="mt-1.5 h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+              className="mt-1.5 h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
             />
           </label>
           <label className="block">
@@ -289,7 +289,7 @@ function WeightTracking({ coachAthlete = null }) {
                   setWeight(event.target.value.replace(/[^0-9.,]/g, ""))
                 }
                 placeholder="Ej. 78,5"
-                className="h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 pr-12 text-xl font-black outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+                className="h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 pr-12 text-xl font-black outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
                 aria-describedby="weight-unit"
               />
               <span
@@ -310,7 +310,7 @@ function WeightTracking({ coachAthlete = null }) {
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Ej. En ayunas, despues de dormir 8 horas"
-              className="mt-1.5 h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold outline-none focus:border-[#ff5722] dark:focus:border-[#e2ff00]"
+              className="mt-1.5 h-12 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
             />
           </label>
           <Button
@@ -350,7 +350,7 @@ function WeightTracking({ coachAthlete = null }) {
                 onClick={() => setRangeDays(days)}
                 className={`h-8 min-w-12 px-2 text-[10px] font-black uppercase ${
                   rangeDays === days
-                    ? "bg-[#ff5722] text-white dark:bg-[#e2ff00] dark:text-black"
+                    ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                     : "text-[color:var(--text-muted)]"
                 }`}
               >
@@ -363,7 +363,7 @@ function WeightTracking({ coachAthlete = null }) {
         <div className="mt-4 h-72 sm:h-80">
           {isLoading ? (
             <div className="grid h-full place-items-center" role="status">
-              <Loader2 className="h-7 w-7 animate-spin text-[#ff5722] dark:text-[#e2ff00]" />
+              <Loader2 className="h-7 w-7 animate-spin text-[#352018] dark:text-[#e2ff00]" />
             </div>
           ) : error ? (
             <div className="grid h-full place-items-center text-center">
@@ -398,7 +398,7 @@ function WeightTracking({ coachAthlete = null }) {
                 legendOffset: -38,
                 legendPosition: "middle",
               }}
-              colors={[theme === "dark" ? "#e2ff00" : "#ff5722"]}
+              colors={[theme === "dark" ? "#e2ff00" : "#352018"]}
               curve="monotoneX"
               lineWidth={3}
               pointSize={7}
@@ -419,7 +419,7 @@ function WeightTracking({ coachAthlete = null }) {
           ) : (
             <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] text-center">
               <div className="max-w-xs px-4">
-                <Weight className="mx-auto h-7 w-7 text-[#ff5722] dark:text-[#e2ff00]" />
+                <Weight className="mx-auto h-7 w-7 text-[#352018] dark:text-[#e2ff00]" />
                 <p className="mt-3 text-sm font-black">
                   {entries.length
                     ? `${entries[0].weightKg} kg registrados`
@@ -458,7 +458,7 @@ function WeightTracking({ coachAthlete = null }) {
                 className="flex min-h-16 items-center gap-3 py-3"
               >
                 <span className="grid h-10 w-10 shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--card)]">
-                  <CalendarDays className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <CalendarDays className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-black">{entry.weightKg} kg</p>
@@ -473,7 +473,7 @@ function WeightTracking({ coachAthlete = null }) {
                     setSelectedDate(entry.dateKey);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="grid h-10 w-10 place-items-center text-[color:var(--text-muted)] hover:text-[#ff5722] dark:hover:text-[#e2ff00]"
+                  className="grid h-10 w-10 place-items-center text-[color:var(--text-muted)] hover:text-[#352018] dark:hover:text-[#e2ff00]"
                   aria-label={`Editar pesaje del ${formatDate(entry.dateKey)}`}
                 >
                   <Pencil className="h-4 w-4" />

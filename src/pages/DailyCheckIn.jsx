@@ -111,7 +111,7 @@ function ScaleField({ field, value, onChange }) {
     <fieldset className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
       <legend className="sr-only">{field.label}</legend>
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
         <p className="text-sm font-black uppercase">{field.label}</p>
       </div>
       <div className="mt-3 grid grid-cols-5 gap-2">
@@ -124,7 +124,7 @@ function ScaleField({ field, value, onChange }) {
             className={`h-11 border text-sm font-black transition ${
               value === score
                 ? "theme-accent-solid border-transparent"
-                : "border-[color:var(--border)] bg-[color:var(--bg)] hover:border-[#ff5722] dark:hover:border-[#e2ff00]"
+                : "border-[color:var(--border)] bg-[color:var(--bg)] hover:border-[#352018] dark:hover:border-[#e2ff00]"
             }`}
           >
             {score}
@@ -230,7 +230,7 @@ export default function DailyCheckIn({ onNavigate }) {
   return (
     <main className="mx-auto w-full max-w-4xl space-y-5 pb-24 text-[color:var(--text)]">
       <header className="border-b border-[color:var(--border)] pb-4">
-        <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
           Recuperacion inteligente
         </p>
         <h1 className="mt-1 text-[30px] font-black uppercase leading-none">

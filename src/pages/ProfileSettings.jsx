@@ -351,7 +351,7 @@ function SessionRow({ session }) {
   return (
     <div className="flex min-h-20 items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)]">
-        <Icon className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Icon className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -1357,7 +1357,7 @@ export default function ProfileSettings({ onNavigate }) {
               <button
                 type="button"
                 onClick={loadSessions}
-                className="mt-3 text-sm font-bold text-[#ff5722] dark:text-[#e2ff00]"
+                className="mt-3 text-sm font-bold text-[#352018] dark:text-[#e2ff00]"
               >
                 Reintentar
               </button>
@@ -1460,7 +1460,7 @@ export default function ProfileSettings({ onNavigate }) {
                   className={`flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 ${selected ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""} disabled:cursor-default`}
                 >
                   <Building2
-                    className={`h-5 w-5 ${selected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"}`}
+                    className={`h-5 w-5 ${selected ? "text-current" : "text-[#352018] dark:text-[#e2ff00]"}`}
                   />
                   <span className="flex-1">
                     <span
@@ -1530,7 +1530,7 @@ export default function ProfileSettings({ onNavigate }) {
             <button
               type="button"
               onClick={loadSummary}
-              className="mt-1 text-xs font-bold text-[#ff5722] dark:text-[#e2ff00]"
+              className="mt-1 text-xs font-bold text-[#352018] dark:text-[#e2ff00]"
             >
               Reintentar resumen
             </button>

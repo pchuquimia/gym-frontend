@@ -55,7 +55,7 @@ function TaxonomyTag({ children, accent = false }) {
     <span
       className={`inline-flex min-h-6 items-center border px-2 py-1 font-condensed text-[11px] font-black uppercase leading-none ${
         accent
-          ? "border-[#ff5722] bg-[#ff5722] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+          ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
           : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
       }`}
     >
@@ -101,7 +101,7 @@ function SectionHeading({ icon: Icon, children, contrast = false }) {
     >
       <Icon
         className={`h-4 w-4 ${
-          contrast ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"
+          contrast ? "text-current" : "text-[#352018] dark:text-[#e2ff00]"
         }`}
       />
       {children}
@@ -113,7 +113,7 @@ function TechnicalRow({ icon: Icon, label, value }) {
   if (!value) return null;
   return (
     <div className="flex gap-3 border-b border-[color:var(--border)] py-3 last:border-b-0">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
       <div className="min-w-0">
         <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
@@ -317,7 +317,7 @@ export default function DetailModal({
                 type="button"
                 onClick={() => setShowAnimation((value) => !value)}
                 aria-pressed={showAnimation}
-                className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-[#ff5722] text-white shadow-xl transition hover:scale-105 dark:bg-[#e2ff00] dark:text-black"
+                className="absolute inset-0 m-auto grid h-16 w-16 place-items-center rounded-full bg-[#352018] text-white shadow-xl transition hover:scale-105 dark:bg-[#e2ff00] dark:text-black"
                 aria-label={
                   showAnimation ? "Ver imagen estática" : "Ver animación"
                 }
@@ -494,7 +494,7 @@ export default function DetailModal({
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex h-12 flex-1 items-center justify-center gap-2 bg-[#ff5722] px-4 font-condensed text-sm font-black uppercase text-white transition hover:brightness-95 dark:bg-[#e2ff00] dark:text-black"
+              className="inline-flex h-12 flex-1 items-center justify-center gap-2 bg-[#352018] px-4 font-condensed text-sm font-black uppercase text-white transition hover:brightness-95 dark:bg-[#e2ff00] dark:text-black"
             >
               <Pencil className="h-4 w-4" />
               Editar ejercicio

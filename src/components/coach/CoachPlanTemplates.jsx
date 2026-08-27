@@ -57,12 +57,12 @@ export default function CoachPlanTemplates({
         return (
           <article
             key={id}
-            className="routines-surface relative border border-[color:var(--border)] border-t-[3px] border-t-[#ff5722] bg-[color:var(--card)] p-4 shadow-sm dark:border-t-[#e2ff00]"
+            className="routines-surface relative border border-[color:var(--border)] border-t-[3px] border-t-[#352018] bg-[color:var(--card)] p-4 shadow-sm dark:border-t-[#e2ff00]"
           >
             <button
               type="button"
               onClick={() => onOpen(template)}
-              className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
+              className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
               aria-label={`Ver contenido de ${template.name}`}
             />
             <div className="pointer-events-none relative z-[1] flex items-start justify-between gap-3">

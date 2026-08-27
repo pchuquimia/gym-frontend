@@ -115,7 +115,7 @@ function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
       <section className="absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--card)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
         <header className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               Historial
             </p>
             <h2
@@ -148,7 +148,7 @@ function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
               >
                 <span className="min-w-0 flex-1">
                   <span
-                    className={`block text-[10px] font-black uppercase ${isSelected ? "text-current" : "text-[#ff5722] dark:text-[#e2ff00]"}`}
+                    className={`block text-[10px] font-black uppercase ${isSelected ? "text-current" : "text-[#352018] dark:text-[#e2ff00]"}`}
                   >
                     {String(session.date || "").slice(0, 10) || "Sin fecha"}
                   </span>
@@ -198,10 +198,10 @@ function MetricCard({
         <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
         </p>
-        <Icon className="h-4 w-4 text-[#ff5722] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
       </div>
       <p
-        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#ff5722] dark:text-[#e2ff00]" : ""}`}
+        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
       >
         {value}
       </p>
@@ -469,7 +469,7 @@ export default function SessionSummaryPage({
     <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <header className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Lectura posterior
           </p>
           <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
@@ -485,7 +485,7 @@ export default function SessionSummaryPage({
           onClick={() =>
             onBack ? onBack("dashboard") : onNavigate?.("dashboard")
           }
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#352018]/50 dark:hover:border-[#e2ff00]/50"
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Volver</span>
@@ -495,7 +495,7 @@ export default function SessionSummaryPage({
       {sortedSessions.length ? (
         <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] sm:items-end dark:rounded-[4px] dark:shadow-none">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               {formatDateLong(currentRaw?.date)}
             </p>
             <h2 className="mt-1 truncate text-xl font-black uppercase">
@@ -536,7 +536,7 @@ export default function SessionSummaryPage({
                 {String(currentRaw?.date || "").slice(0, 10)} ·{" "}
                 {currentRaw?.routineName || "Entrenamiento"}
               </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
             </button>
           </div>
         </section>
@@ -628,14 +628,14 @@ export default function SessionSummaryPage({
       <section>
         <div className="mb-2 flex items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               Distribucion
             </p>
             <h2 className="mt-1 text-xl font-black uppercase">
               Por grupo muscular
             </h2>
           </div>
-          <Layers3 className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+          <Layers3 className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
         </div>
         <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
           {muscleRows.length ? (
@@ -653,7 +653,7 @@ export default function SessionSummaryPage({
                 </div>
                 <div className="h-2 overflow-hidden bg-[color:var(--border)]">
                   <div
-                    className="h-full bg-[#ff5722] dark:bg-[#e2ff00]"
+                    className="h-full bg-[#352018] dark:bg-[#e2ff00]"
                     style={{ width: `${muscle.share}%` }}
                   />
                 </div>
@@ -676,7 +676,7 @@ export default function SessionSummaryPage({
       <section>
         <div className="mb-2 flex items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
               Detalle
             </p>
             <h2 className="mt-1 text-xl font-black uppercase">

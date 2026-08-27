@@ -333,7 +333,7 @@ export default function ExerciseCard({
       data-exercise-id={exercise.id}
       className={`relative w-full max-w-full overflow-hidden transition-shadow ${
         isHoldingExercise
-          ? "ring-2 ring-[#ff5722]/45 dark:ring-[#e2ff00]/45"
+          ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45"
           : ""
       }`}
       layout="position"
@@ -354,7 +354,7 @@ export default function ExerciseCard({
       <AnimatePresence>
         {isHoldingExercise ? (
           <motion.span
-            className="pointer-events-none absolute inset-x-1 top-0 z-30 h-0.5 origin-left bg-[#ff5722] dark:bg-[#e2ff00]"
+            className="pointer-events-none absolute inset-x-1 top-0 z-30 h-0.5 origin-left bg-[#352018] dark:bg-[#e2ff00]"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             exit={{ opacity: 0 }}
@@ -365,7 +365,7 @@ export default function ExerciseCard({
       <AnimatePresence initial={false}>
         {isComplete && !reduceMotion ? (
           <motion.span
-            className="pointer-events-none absolute inset-0 z-20 border-2 border-[#ff5722] dark:border-[#e2ff00]"
+            className="pointer-events-none absolute inset-0 z-20 border-2 border-[#352018] dark:border-[#e2ff00]"
             initial={{ opacity: 0.65 }}
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -376,7 +376,7 @@ export default function ExerciseCard({
       <Card
         className={`overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
           exercise.isActive && !isComplete
-            ? "border-[#ff5722]/65 shadow-[0_8px_24px_rgba(255,87,34,0.12)] dark:border-[#e2ff00]/55 dark:shadow-[0_8px_26px_rgba(226,255,0,0.08)]"
+            ? "border-[#352018]/65 shadow-[0_8px_24px_rgba(53,32,24,0.12)] dark:border-[#e2ff00]/55 dark:shadow-[0_8px_26px_rgba(226,255,0,0.08)]"
             : "border-[color:var(--border)] shadow-lg"
         }`}
       >
@@ -385,7 +385,7 @@ export default function ExerciseCard({
             type="button"
             onClick={handleOpenDetails}
             onPointerDown={(event) => event.stopPropagation()}
-            className="group relative h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#ff5722] sm:h-24 sm:w-[92px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
+            className="group relative h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#352018] sm:h-24 sm:w-[92px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
             aria-label={`Ver técnica de ${exercise.name}`}
             title="Ver técnica"
           >
@@ -460,7 +460,7 @@ export default function ExerciseCard({
                   className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)]"
                   title={`Ajuste: ${setupNote}`}
                 >
-                  <Settings2 className="h-3.5 w-3.5 shrink-0 text-[#ff5722] dark:text-[#e2ff00]" />
+                  <Settings2 className="h-3.5 w-3.5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
                   <span className="shrink-0 font-bold">Ajuste:</span>
                   <span className="min-w-0 truncate">{setupNote}</span>
                 </div>
@@ -517,7 +517,7 @@ export default function ExerciseCard({
                 type="button"
                 className={`grid h-10 w-10 place-items-center rounded-md border transition-colors dark:rounded-[3px] ${
                   showActionsMenu
-                    ? "border-[#ff5722] text-[#ff5722] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                    ? "border-[#352018] text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
                     : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                 }`}
                 onClick={() => setShowActionsMenu((value) => !value)}
@@ -579,7 +579,7 @@ export default function ExerciseCard({
                         <SlidersHorizontal className="h-4 w-4" />
                         Opciones
                         {setupNote ? (
-                          <span className="ml-auto h-2 w-2 rounded-full bg-[#ff5722] dark:bg-[#e2ff00]" />
+                          <span className="ml-auto h-2 w-2 rounded-full bg-[#352018] dark:bg-[#e2ff00]" />
                         ) : null}
                       </button>
                     ) : null}
@@ -650,7 +650,7 @@ export default function ExerciseCard({
                               onClick={() => onSeriesTypeChange(value)}
                               className={`h-8 rounded-full text-xs font-black transition ${
                                 seriesValue === value
-                                  ? "bg-[#ff5722] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
+                                  ? "bg-[#352018] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
                                   : "text-[color:var(--text-muted)]"
                               }`}
                             >
@@ -675,7 +675,7 @@ export default function ExerciseCard({
                                 onClick={() => onMovementModeChange(value)}
                                 className={`h-8 rounded-full text-xs font-black transition ${
                                   movementMode === value
-                                    ? "bg-[#ff5722] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
+                                    ? "bg-[#352018] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
                                     : "text-[color:var(--text-muted)]"
                                 }`}
                               >
@@ -700,7 +700,7 @@ export default function ExerciseCard({
                           enterKeyHint="done"
                           autoComplete="off"
                           placeholder="Ej. asiento 3 · respaldo 5 · altura 9"
-                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#ff5722] focus:ring-2 focus:ring-[#ff5722]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
                           aria-label={`Ajuste de ${exercise.name}`}
                         />
                       </label>

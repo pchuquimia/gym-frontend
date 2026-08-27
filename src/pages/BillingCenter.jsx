@@ -115,7 +115,7 @@ export default function BillingCenter({ onBack = null }) {
     <main className="mx-auto w-full max-w-5xl space-y-6 pb-24 text-[color:var(--text)]">
       <header className="flex items-end justify-between gap-3 border-b border-[color:var(--border)] pb-5">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Cuenta y suscripcion
           </p>
           <h1 className="mt-1 text-[30px] font-black uppercase leading-none sm:text-[36px]">
@@ -129,7 +129,7 @@ export default function BillingCenter({ onBack = null }) {
         <button
           type="button"
           onClick={() => onBack?.("dashboard")}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#ff5722]/50 dark:hover:border-[#e2ff00]/50"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#352018]/50 dark:hover:border-[#e2ff00]/50"
           aria-label="Volver a la página anterior"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -175,7 +175,7 @@ export default function BillingCenter({ onBack = null }) {
 
       <section>
         <div className="mb-3">
-          <p className="text-[10px] font-black uppercase text-[#ff5722] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
             Comparar acceso
           </p>
           <h2 className="mt-1 text-xl font-black uppercase">
@@ -190,14 +190,14 @@ export default function BillingCenter({ onBack = null }) {
             return (
               <article
                 key={plan.id}
-                className={`relative overflow-hidden border bg-[color:var(--card)] p-5 ${isCurrent ? "border-[#ff5722] dark:border-[#e2ff00]" : "border-[color:var(--border)]"}`}
+                className={`relative overflow-hidden border bg-[color:var(--card)] p-5 ${isCurrent ? "border-[#352018] dark:border-[#e2ff00]" : "border-[color:var(--border)]"}`}
               >
                 {isRecommended ? (
-                  <span className="absolute right-0 top-0 bg-[#ff5722] px-3 py-1.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
+                  <span className="absolute right-0 top-0 bg-[#352018] px-3 py-1.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
                     Recomendado
                   </span>
                 ) : null}
-                <Sparkles className="h-5 w-5 text-[#ff5722] dark:text-[#e2ff00]" />
+                <Sparkles className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
                 <h3 className="mt-4 text-xl font-black uppercase">
                   {plan.name}
                 </h3>

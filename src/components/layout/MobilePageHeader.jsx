@@ -10,7 +10,7 @@ export default function MobilePageHeader({
   if (variant === "detail") {
     return (
       <header
-        className={`mobile-page-header mobile-page-header--detail grid min-h-[64px] grid-cols-[48px_1fr_48px] items-center md:hidden ${className}`}
+        className={`mobile-page-header mobile-page-header--detail grid items-center md:hidden ${className}`}
       >
         <button
           type="button"
@@ -18,9 +18,9 @@ export default function MobilePageHeader({
           aria-label="Volver"
           className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
         >
-          <ArrowLeft className="h-7 w-7" strokeWidth={2.25} />
+          <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
         </button>
-        <h1 className="truncate text-center font-sans text-[20px] font-medium tracking-[-0.015em] text-[color:var(--text)]">
+        <h1 className="truncate text-center text-[color:var(--text)]">
           {title}
         </h1>
         <span aria-hidden="true" />
@@ -30,13 +30,15 @@ export default function MobilePageHeader({
 
   return (
     <header
-      className={`mobile-page-header mobile-page-header--main flex min-h-[88px] items-center justify-between gap-4 pb-4 pt-3 md:hidden ${className}`}
+      className={`mobile-page-header mobile-page-header--main flex items-center justify-between md:hidden ${className}`}
     >
-      <h1 className="min-w-0 truncate font-sans text-[32px] font-medium leading-none tracking-[-0.03em] text-[color:var(--text)]">
+      <h1 className="min-w-0 truncate text-[color:var(--text)]">
         {title}
       </h1>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-2.5">{actions}</div>
+        <div className="mobile-page-header__actions flex shrink-0 items-center">
+          {actions}
+        </div>
       ) : null}
     </header>
   );

@@ -89,7 +89,7 @@ export default class PageErrorBoundary extends Component {
             <button
               type="button"
               onClick={this.handleRetry}
-              className="inline-flex h-11 items-center justify-center gap-2 bg-[#ff5722] px-3 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+              className="inline-flex h-11 items-center justify-center gap-2 bg-[#352018] px-3 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
             >
               <RotateCcw className="h-4 w-4" />
               Reintentar
