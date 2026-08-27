@@ -1129,9 +1129,9 @@ button,
   }
 
   .dashboard-shell > .mobile-page-header--main {
-    min-height: 7.5rem;
-    padding-bottom: 1.5rem;
-    padding-top: 1.75rem;
+    min-height: 5.5rem; /* 88px */
+    padding-top: 0.75rem; /* 12px */
+    padding-bottom: 1rem; /* 16px */
   }
 
   .dashboard-shell > .mobile-page-header--main h1 {
