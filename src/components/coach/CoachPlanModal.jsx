@@ -411,23 +411,23 @@ export default function CoachPlanModal({
   };
 
   return (
-    <div className="routines-shell fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4">
+    <div className="coach-plan-page routines-shell fixed inset-0 z-[90] flex items-end bg-[color:var(--bg)] sm:items-center sm:justify-center sm:bg-black/55 sm:p-4">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={isEditing ? "Editar planificación" : "Crear planificación"}
         tabIndex={-1}
-        className="flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl outline-none sm:max-w-3xl sm:rounded-lg dark:sm:rounded-[4px]"
+        className="coach-plan-page__dialog flex h-dvh max-h-dvh w-full flex-col overflow-hidden bg-[color:var(--card)] shadow-none outline-none sm:h-auto sm:max-h-[94dvh] sm:max-w-3xl sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:shadow-2xl dark:sm:rounded-[4px]"
       >
-        <header className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:px-6">
-          <div className="min-w-0">
-            <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
+        <header className="coach-plan-page__header grid min-h-16 grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3 p-0 sm:flex sm:min-h-0 sm:items-start sm:justify-between sm:border-b sm:border-[color:var(--border)] sm:p-4 sm:px-6">
+          <div className="col-start-2 row-start-1 min-w-0 text-center sm:text-left">
+            <p className="coach-plan-page__eyebrow theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {templatePickerOpen
                 ? `Nueva planificación · ${athlete.name}`
                 : `Paso ${step} de 2 · ${athlete.name}`}
             </p>
-            <h2 className="mt-1 truncate text-xl font-black">
+            <h2 className="coach-plan-page__title mt-1 truncate text-xl font-black">
               {templatePickerOpen
                 ? "Elegir estructura"
                 : step === 1
@@ -443,14 +443,15 @@ export default function CoachPlanModal({
           <button
             type="button"
             onClick={() => onCloseRef.current?.()}
-            aria-label="Cerrar"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border)]"
+              aria-label="Cerrar"
+            className="col-start-1 row-start-1 grid h-11 w-11 shrink-0 place-items-center rounded-full sm:order-last sm:rounded-lg sm:border sm:border-[color:var(--border)]"
           >
-            <X className="h-5 w-5" />
+            <ArrowLeft className="h-7 w-7 sm:hidden" strokeWidth={2.25} />
+            <X className="hidden h-5 w-5 sm:block" />
           </button>
         </header>
 
-        <div className="overflow-y-auto p-4 sm:p-6">
+        <div className="coach-plan-page__content overflow-y-auto bg-[color:var(--bg)] p-4 sm:bg-transparent sm:p-6">
           {templatePickerOpen ? (
             <div className="space-y-5">
               <button

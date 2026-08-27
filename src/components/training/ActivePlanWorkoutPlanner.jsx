@@ -44,7 +44,7 @@ function ProgressRing({ value }) {
 
   return (
     <div
-      className="relative grid h-16 w-16 shrink-0 place-items-center"
+      className="training-schedule__progress-ring relative grid h-16 w-16 shrink-0 place-items-center"
       role="img"
       aria-label={`${progress}% del objetivo completado`}
     >
@@ -96,7 +96,7 @@ export default function ActivePlanWorkoutPlanner({
 
   if (loading) {
     return (
-      <div className="border border-[color:var(--border)] bg-[color:var(--card)]">
+      <div className="training-schedule-state overflow-hidden rounded-3xl bg-[color:var(--card)]">
         <OperationLoader
           active
           delayMs={0}
@@ -110,7 +110,7 @@ export default function ActivePlanWorkoutPlanner({
 
   if (error) {
     return (
-      <div className="border border-red-400/40 bg-red-500/10 p-5">
+      <div className="training-schedule-state rounded-3xl border border-red-400/40 bg-red-500/10 p-5">
         <p className="text-sm font-bold">No se pudo cargar el entrenamiento.</p>
         <button
           type="button"
@@ -125,7 +125,7 @@ export default function ActivePlanWorkoutPlanner({
 
   if (!plan) {
     return (
-      <div className="border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-6 text-center">
+      <div className="training-schedule-state rounded-3xl bg-[color:var(--card)] p-6 text-center">
         <CalendarDays className="mx-auto h-7 w-7 text-[#ff5722] dark:text-[#d8ff00]" />
         <h2 className="mt-4 text-xl font-bold uppercase">
           No hay una planificacion vigente
@@ -244,20 +244,20 @@ export default function ActivePlanWorkoutPlanner({
   return (
     <>
       <section className="training-schedule bg-[#f5f5f5] p-4 text-[#151515] dark:bg-[#050505] dark:text-white md:border md:border-[color:var(--border)] md:p-6">
-        <header className="flex items-start justify-between gap-4">
+        <header className="training-schedule__summary flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
-              Plan vigente
+            <p className="training-schedule__eyebrow text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
+              Plan activo
             </p>
-            <h2 className="mt-1 font-condensed text-[2rem] font-bold uppercase leading-none sm:text-4xl">
-              {sequential ? "Ciclo de entrenamiento" : "Agenda semanal"}
+            <h2 className="training-schedule__title mt-1 font-condensed text-[2rem] font-bold uppercase leading-none sm:text-4xl">
+              {sequential ? "Tu ciclo" : "Esta semana"}
             </h2>
-            <p className="mt-2 truncate text-sm font-semibold text-[#686868] dark:text-[#b8b8a6]">
+            <p className="training-schedule__plan-name mt-2 truncate text-sm font-semibold text-[#686868] dark:text-[#b8b8a6]">
               {plan.name}
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3 border-l border-[#d1d1d1] pl-3 dark:border-[#303030]">
+          <div className="training-schedule__progress flex shrink-0 items-center gap-3 border-l border-[#d1d1d1] pl-3 dark:border-[#303030]">
             <ProgressRing value={progress} />
             <div className="hidden min-w-0 sm:block">
               <p className="text-xs font-bold uppercase text-[#686868] dark:text-[#c8c8aa]">
@@ -272,7 +272,7 @@ export default function ActivePlanWorkoutPlanner({
           </div>
         </header>
 
-        <div className="mt-4 flex items-center justify-between border-y border-[#d7d7d7] py-3 text-xs font-bold dark:border-[#282828]">
+        <div className="training-schedule__period mt-4 flex items-center justify-between border-y border-[#d7d7d7] py-3 text-xs font-bold dark:border-[#282828]">
           <span>
             {sequential
               ? `${schedule.length} bloques del ciclo`
@@ -287,9 +287,9 @@ export default function ActivePlanWorkoutPlanner({
 
         {dayViews.length ? (
           <>
-            <div className="mt-4">
+            <div className="training-schedule__days-wrap mt-4">
               <div
-                className="grid gap-1.5"
+                className="training-schedule__days grid gap-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${dayViews.length}, minmax(0, 1fr))`,
                 }}
@@ -312,7 +312,7 @@ export default function ActivePlanWorkoutPlanner({
                           ? `día ${dayView.index + 1}`
                           : DAY_SHORT_NAMES[dayView.index]
                       }: ${dayView.title}`}
-                      className={`relative flex h-[62px] min-w-0 flex-col items-center justify-center border text-center transition-colors ${
+                      className={`training-schedule__day relative flex h-[62px] min-w-0 flex-col items-center justify-center border text-center transition-colors ${
                         selected
                           ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                           : dayView.completed
@@ -347,14 +347,14 @@ export default function ActivePlanWorkoutPlanner({
             </div>
 
             <article
-              className={`mt-3 border p-4 ${
+              className={`training-schedule__selection mt-3 border p-4 ${
                 selectedDay.current
                   ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(255,87,34,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
                   : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
               <div className="flex items-start gap-3.5">
-                <div className="grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
+                <div className="training-schedule__selected-date grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
                   <div>
                     <span className="block text-sm font-bold uppercase leading-none">
                       {sequential ? "Día" : DAY_SHORT_NAMES[selectedDay.index]}
@@ -370,7 +370,7 @@ export default function ActivePlanWorkoutPlanner({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     {selectedDay.current ? (
-                      <span className="border border-current bg-transparent px-2 py-1 text-[10px] font-bold uppercase text-current">
+                      <span className="training-schedule__today-badge border border-current bg-transparent px-2 py-1 text-[10px] font-bold uppercase text-current">
                         {sequential ? "Actual" : "Hoy"}
                       </span>
                     ) : null}
@@ -380,7 +380,7 @@ export default function ActivePlanWorkoutPlanner({
                       </span>
                     ) : !selectedDay.rest && plan.goal ? (
                       <span
-                        className={`text-xs font-bold uppercase ${
+                        className={`training-schedule__goal text-xs font-bold uppercase ${
                           selectedDay.current
                             ? "text-current"
                             : "text-[#c52d00] dark:text-[#d8ff00]"
@@ -391,7 +391,7 @@ export default function ActivePlanWorkoutPlanner({
                     ) : null}
                   </div>
 
-                  <h3 className="mt-1.5 font-condensed text-2xl font-bold uppercase leading-none sm:text-3xl">
+                  <h3 className="training-schedule__selected-title mt-1.5 font-condensed text-2xl font-bold uppercase leading-none sm:text-3xl">
                     {selectedDay.title}
                   </h3>
 
@@ -412,12 +412,12 @@ export default function ActivePlanWorkoutPlanner({
                     ) : (
                       <>
                         {selectedDay.duration ? (
-                          <span className="inline-flex items-center gap-1.5">
+                          <span className="training-schedule__duration inline-flex items-center gap-1.5">
                             <Clock3 className="h-3.5 w-3.5" />
                             {selectedDay.duration} min estimados
                           </span>
                         ) : null}
-                        <span className="inline-flex items-center gap-1.5">
+                        <span className="training-schedule__exercise-count inline-flex items-center gap-1.5">
                           <Dumbbell className="h-3.5 w-3.5" />
                           {selectedDay.exerciseCount} ejercicios
                         </span>
@@ -442,7 +442,7 @@ export default function ActivePlanWorkoutPlanner({
                     )
                   }
                   disabled={selectedDay.preparing}
-                  className="mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                  className="training-schedule__primary-action mt-5 flex h-14 w-full items-center justify-center gap-3 bg-[#ff5722] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
                 >
                   {selectedDay.preparing ? (
                     <RotateCcw className="h-4 w-4 animate-spin" />

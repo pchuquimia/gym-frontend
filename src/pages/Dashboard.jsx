@@ -165,6 +165,15 @@ function formatDashboardDuration(seconds = 0) {
   return `${hours}h ${rest}m`;
 }
 
+function formatActiveTrainingDuration(seconds = 0) {
+  const minutes = Math.max(0, Math.floor(Number(seconds || 0) / 60));
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
 function parseEventTime(value) {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? null : timestamp;
@@ -1303,6 +1312,7 @@ function MonthDetailView({ detail, onBack }) {
 
 function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
   const compactRest = action.type === "rest";
+  const activeTraining = action.type === "active";
   const toneColor =
     action.tone === "success"
       ? "var(--accent-strong)"
@@ -1386,13 +1396,13 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
                   {action.description}
                 </p>
               </>
-            ) : (
+            ) : action.description ? (
               <p className="dashboard-today-card__description mt-1 max-w-2xl text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
                 {action.description}
               </p>
-            )}
+            ) : null}
 
-            {action.meta?.length ? (
+            {!activeTraining && action.meta?.length ? (
               <div
                 className={`dashboard-today-card__meta flex flex-wrap gap-1.5 ${compactRest ? "mt-2" : "mt-2.5"}`}
               >
@@ -1408,10 +1418,18 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
             ) : null}
 
             {action.progress != null ? (
-              <div className="mt-3 max-w-xl">
+              <div
+                className={`max-w-xl ${activeTraining ? "dashboard-today-card__active-progress mt-4" : "mt-3"}`}
+              >
                 <div className="mb-1.5 flex items-center justify-between gap-3 text-[10px] font-bold text-[color:var(--text-muted)]">
-                  <span>Progreso de la sesión</span>
-                  <span>{action.progress}%</span>
+                  <span>
+                    {activeTraining
+                      ? action.progressLabel
+                      : "Progreso de la sesión"}
+                  </span>
+                  <span>
+                    {activeTraining ? action.elapsedLabel : `${action.progress}%`}
+                  </span>
                 </div>
                 <div
                   className="h-1.5 overflow-hidden rounded-full bg-[color:var(--border)]"
@@ -1455,7 +1473,14 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
                 ) : (
                   <Play className="h-4 w-4 fill-current" />
                 )}
-                {action.primaryLabel}
+                {action.primaryMobileLabel ? (
+                  <>
+                    <span className="sm:hidden">{action.primaryMobileLabel}</span>
+                    <span className="hidden sm:inline">{action.primaryLabel}</span>
+                  </>
+                ) : (
+                  action.primaryLabel
+                )}
               </button>
             )}
             {!readOnly && action.secondaryLabel ? (
@@ -2965,18 +2990,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         tone: "warning",
         eyebrow: "Entrenamiento en curso",
         title: routine?.name || "Continúa donde lo dejaste",
-        description:
-          "Tu sesión sigue guardada. Retómala sin perder el progreso registrado.",
-        meta: [
-          formatExerciseCount(snapshotExercises.length),
-          `${completedSets} de ${plannedSets} series`,
-          formatDashboardDuration(
-            activeTrainingSnapshot.elapsed ||
-              activeTrainingSnapshot.durationSeconds,
-          ),
-        ].filter(Boolean),
+        progressLabel: plannedSets
+          ? `${completedSets} de ${plannedSets} series`
+          : "Sesión iniciada",
+        elapsedLabel: formatActiveTrainingDuration(
+          activeTrainingSnapshot.elapsed ||
+            activeTrainingSnapshot.durationSeconds,
+        ),
         progress,
         primaryLabel: "Continuar entrenamiento",
+        primaryMobileLabel: "Continuar",
       };
     }
 

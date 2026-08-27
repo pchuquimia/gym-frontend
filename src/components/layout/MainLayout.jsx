@@ -173,7 +173,8 @@ function MainLayout({
             useDashboardChrome ||
             useProfileChrome ||
             useLibraryChrome ||
-            useRoutinesChrome
+            useRoutinesChrome ||
+            useTrainingChrome
               ? "max-md:pb-28 max-md:pt-0"
               : "max-md:pb-28"
           }`}

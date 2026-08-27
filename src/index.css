@@ -755,6 +755,13 @@ button,
   position: relative;
 }
 
+.dashboard-weekly-metric {
+  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
 .dashboard-pilot__metric--primary {
   overflow: hidden;
 }
@@ -1205,6 +1212,42 @@ button,
     margin-top: 0.25rem;
   }
 
+  .dashboard-today-card[data-dashboard-action="active"]
+    .dashboard-today-card__body {
+    padding: 1.25rem !important;
+  }
+
+  .dashboard-today-card[data-dashboard-action="active"]
+    .dashboard-today-card__layout {
+    gap: 1.125rem;
+  }
+
+  .dashboard-today-card[data-dashboard-action="active"]
+    .dashboard-today-card__eyebrow
+    > span {
+    height: 2rem;
+    width: 2rem;
+  }
+
+  .dashboard-today-card[data-dashboard-action="active"] h2 {
+    margin-top: 0.75rem;
+    font-size: 1.5rem;
+  }
+
+  .dashboard-today-card__active-progress {
+    margin-top: 1.125rem;
+  }
+
+  .dashboard-today-card__active-progress > div:first-child {
+    margin-bottom: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .dashboard-today-card__active-progress [role="progressbar"] {
+    height: 0.375rem;
+  }
+
   .dashboard-today-card__meta {
     gap: 0;
     margin-top: 1rem;
@@ -1411,6 +1454,502 @@ button,
   }
 }
 /* dashboard-pilot:end */
+
+/* training-setup-refresh:start */
+@media (max-width: 639px) {
+  .training-setup-page {
+    margin-top: 0 !important;
+  }
+
+  .training-setup-page__content {
+    padding-bottom: 1rem;
+  }
+
+  .training-schedule {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--text);
+  }
+
+  .training-schedule__summary {
+    align-items: center;
+    padding: 0 0.375rem 0.875rem;
+  }
+
+  .training-schedule__eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .training-schedule__title {
+    margin-top: 0.3rem;
+    font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    text-transform: none;
+  }
+
+  .training-schedule__plan-name {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .training-schedule__progress {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .training-schedule__progress-ring {
+    height: 3.25rem;
+    width: 3.25rem;
+  }
+
+  .training-schedule__progress-ring strong {
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .training-schedule__period {
+    margin-top: 0;
+    border-color: var(--detail-row-divider);
+    padding: 0.75rem 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .training-schedule__days-wrap {
+    margin-top: 0.875rem;
+  }
+
+  .training-schedule__days {
+    gap: 0.375rem;
+  }
+
+  .training-schedule__day {
+    height: 3.625rem;
+    border: 0 !important;
+    border-radius: 1rem;
+    background: var(--card);
+    color: var(--text-muted);
+  }
+
+  .training-schedule__day[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  .training-schedule__day > span:first-child {
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .training-schedule__day > strong {
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .training-schedule__selection {
+    margin-top: 0.875rem;
+    border: 0 !important;
+    border-radius: 1.5rem;
+    background: var(--card) !important;
+    padding: 1.125rem;
+    color: var(--text) !important;
+    box-shadow: none !important;
+  }
+
+  .training-schedule__selected-date {
+    height: 3.75rem;
+    width: 3.5rem;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--surface-subtle);
+    color: var(--text-muted);
+  }
+
+  .training-schedule__selected-date span {
+    font-size: 0.6875rem;
+    font-weight: 500;
+  }
+
+  .training-schedule__selected-date strong {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .training-schedule__today-badge {
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    padding: 0.25rem 0.625rem;
+    color: var(--accent-contrast);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .training-schedule__goal,
+  .training-schedule__exercise-count {
+    display: none;
+  }
+
+  .training-schedule__selected-title {
+    margin-top: 0.5rem;
+    font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    text-transform: none;
+  }
+
+  .training-schedule__selection [class*="text-current/80"] {
+    color: var(--text-muted);
+  }
+
+  .training-schedule__primary-action {
+    height: 3.25rem;
+    border-radius: 1rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+
+  .training-schedule-state {
+    border: 0;
+    box-shadow: none;
+  }
+}
+/* training-setup-refresh:end */
+
+/* routines-mobile-refresh:start */
+@media (max-width: 767px) {
+  .routines-shell,
+  .routines-shell p,
+  .routines-shell span,
+  .routines-shell a,
+  .routines-shell input,
+  .routines-shell select,
+  .routines-shell textarea,
+  .routines-shell button {
+    font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
+    font-stretch: normal;
+  }
+
+  .routines-shell .font-black {
+    font-weight: 600;
+  }
+
+  .coach-plan-page__eyebrow {
+    display: none;
+  }
+
+  .coach-plan-page__title {
+    margin-top: 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .coach-plan-page__dialog > footer {
+    background: var(--card);
+  }
+
+  .routines-workspace-tabs {
+    gap: 0.25rem;
+    border-radius: 1.125rem;
+    background: var(--surface-subtle);
+    padding: 0.25rem;
+  }
+
+  .routines-workspace-tabs > button {
+    height: 2.75rem;
+    border: 0 !important;
+    border-radius: 0.875rem;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    box-shadow: none !important;
+  }
+
+  .routines-workspace-tabs > button[aria-selected="true"] {
+    background: var(--text) !important;
+    color: var(--card) !important;
+  }
+
+  .current-plan-overview {
+    margin-top: 1rem;
+    border: 0 !important;
+    border-radius: 1.5rem;
+    padding: 1.25rem;
+    box-shadow: none;
+  }
+
+  .current-plan-overview h2 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  .current-plan-overview [role="progressbar"],
+  .current-plan-overview [role="progressbar"] > div {
+    border-radius: 999px;
+  }
+
+  .current-plan-overview button {
+    border-radius: 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .secondary-plan-row,
+  .plan-detail-current {
+    border: 0;
+    border-radius: 1.25rem;
+    box-shadow: none;
+  }
+
+  .routine-toolbar {
+    margin-top: 1rem;
+  }
+
+  .routine-toolbar input {
+    border: 0;
+    border-radius: 1rem;
+    background: var(--card);
+  }
+
+  .routine-toolbar__scope {
+    border: 0;
+    border-radius: 1rem;
+    background: var(--surface-subtle);
+  }
+
+  .routine-toolbar__scope > button {
+    border-radius: 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .routine-toolbar__scope > button[aria-pressed="true"] {
+    background: var(--text);
+    color: var(--card);
+  }
+
+  .routine-toolbar__branches {
+    gap: 0.375rem;
+  }
+
+  .routine-toolbar__branches > button {
+    height: 2.375rem;
+    border: 0 !important;
+    border-radius: 999px;
+    background: var(--surface-subtle) !important;
+    color: var(--text-muted) !important;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: none;
+  }
+
+  .routine-toolbar__branches > button[aria-pressed="true"] {
+    background: var(--accent) !important;
+    color: var(--accent-contrast) !important;
+  }
+
+  .routine-library-list {
+    overflow: hidden;
+    gap: 0;
+    border-radius: 1.5rem;
+    background: var(--card);
+  }
+
+  .routine-library-card {
+    border: 0 !important;
+    border-bottom: 1px solid var(--detail-row-divider) !important;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .routine-library-card:last-of-type {
+    border-bottom: 0 !important;
+  }
+
+  .routine-library-card__content {
+    display: grid;
+    min-height: 6.25rem;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-rows: minmax(4.5rem, auto);
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem;
+  }
+
+  .routine-library-card__header {
+    grid-column: 2;
+    grid-row: 1;
+    align-items: center;
+  }
+
+  .routine-library-card__header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    text-transform: none;
+  }
+
+  .routine-library-card__header p {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .routine-library-card__previews {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .routine-library-card__previews > :not(:first-child) {
+    display: none;
+  }
+
+  .routine-library-card__previews > :first-child {
+    height: 4.5rem;
+    width: 4.5rem;
+    border: 0;
+    border-radius: 1rem;
+  }
+
+  .routine-library-card__footer {
+    display: none;
+  }
+
+  .plan-detail-summary {
+    margin-top: 0.75rem;
+    border: 0;
+    padding: 0;
+  }
+
+  .plan-detail-overview {
+    border-radius: 1.25rem;
+    background: var(--card);
+    padding: 1rem;
+  }
+
+  .plan-detail-info {
+    overflow: hidden;
+    border: 0;
+    border-radius: 1.25rem;
+    background: var(--card);
+    padding-inline: 1rem;
+  }
+
+  .plan-schedule {
+    margin-top: 1rem;
+  }
+
+  .plan-schedule__header {
+    padding-inline: 0.25rem;
+  }
+
+  .plan-schedule__weeks > button {
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+    font-weight: 500;
+    text-transform: none;
+  }
+
+  .plan-schedule__weeks > button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  .plan-schedule__list {
+    overflow: hidden;
+    border: 0;
+    border-radius: 1.5rem;
+    background: var(--card);
+  }
+
+  .plan-schedule__day {
+    min-height: 4.75rem;
+    background: transparent !important;
+    padding: 0.875rem;
+  }
+
+  .plan-schedule__day + .plan-schedule__day {
+    border-top-color: var(--detail-row-divider);
+  }
+
+  .plan-schedule__day[class*="ring-"] {
+    background: var(--surface-subtle) !important;
+    box-shadow: none;
+  }
+
+  .routine-detail-stats {
+    overflow: hidden;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--card);
+    padding-block: 0.875rem;
+  }
+
+  .routine-detail-heading,
+  .plan-template-detail-heading {
+    border-bottom: 0;
+    padding-inline: 0.25rem;
+  }
+
+  .routine-detail-list,
+  .plan-template-detail-list {
+    overflow: hidden;
+    border: 0;
+    border-radius: 1.25rem;
+    background: var(--card);
+  }
+
+  .routine-detail-row,
+  .plan-template-detail-row {
+    padding-inline: 0.875rem;
+  }
+
+  .routine-detail-image,
+  .plan-template-detail-row > span:first-child {
+    border: 0;
+    border-radius: 0.875rem;
+  }
+
+  .routine-detail-row p {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+
+  .routine-detail-sets {
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+    font-weight: 500;
+  }
+}
+/* routines-mobile-refresh:end */
 
 @media (prefers-reduced-motion: reduce) {
   *,

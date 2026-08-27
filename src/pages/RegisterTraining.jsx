@@ -38,6 +38,8 @@ import TrainingCompletionPanel from "../components/training/TrainingCompletionPa
 import TrainingCompleteModal from "../components/training/TrainingCompleteModal";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import OperationLoader from "../components/system/OperationLoader";
 import { useRoutines } from "../context/RoutineContext";
@@ -1294,7 +1296,7 @@ function DevTrainingDateControl({ value, onChange }) {
 
   return (
     <label
-      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center border bg-[color:var(--card)] transition-colors hover:border-[#ff5722] dark:hover:border-[#d8ff00] ${
+      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#ff5722] dark:hover:border-[#d8ff00] ${
         value !== todayISO
           ? "border-[#ff5722] text-[#ff5722] dark:border-[#d8ff00] dark:text-[#d8ff00]"
           : "border-[color:var(--border)] text-[color:var(--text)]"
@@ -5795,7 +5797,9 @@ export default function RegisterTraining({
             ? sessionComplete
               ? "pt-[7.75rem] md:pt-4"
               : "pt-14 md:pt-4"
-            : "pt-4"
+            : !setupStarted && !isEditing
+              ? "pt-0 md:pt-4"
+              : "pt-4"
         } ${!setupStarted && !isEditing ? "pb-0" : "pb-28"}`}
       >
         {showMobileTrainingBar && (
@@ -6066,27 +6070,38 @@ export default function RegisterTraining({
         </div>
 
         {!setupStarted && !isEditing ? (
-          <section className="mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col pb-28 md:min-h-0 md:max-w-4xl md:pb-0">
-            <header
-              data-training-setup-header
-              className="mb-6 flex items-center justify-between border-b border-[color:var(--border)] pb-4 md:hidden"
-            >
-              <MobileMenuButton />
-              <div className="min-w-0 flex-1 px-2 text-center">
-                <h1 className="font-condensed truncate text-xl font-bold uppercase text-[color:var(--text)]">
-                  Apex Performance
-                </h1>
-              </div>
-              <div className="flex items-center gap-2">
-                <DevTrainingDateControl
-                  value={sessionDate}
-                  onChange={handleDevTrainingDateChange}
-                />
-                <ThemeToggle />
-              </div>
-            </header>
+          <section className="training-setup-page mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col px-[6px] pb-28 md:min-h-0 md:max-w-4xl md:px-0 md:pb-0">
+            <MobilePageHeader
+              title="Entrenar"
+              className="training-setup-page__header"
+              actions={
+                <>
+                  <DevTrainingDateControl
+                    value={sessionDate}
+                    onChange={handleDevTrainingDateChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(new Event("open-main-menu"))
+                    }
+                    className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
+                    aria-label="Abrir menú principal"
+                  >
+                    <ProfileAvatar
+                      photoId={
+                        profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
+                      }
+                      name={profile?.name || authUser?.name}
+                      className="h-full w-full"
+                      fallbackClassName="bg-[#ead8dd] text-sm font-semibold text-[#4a2430]"
+                    />
+                  </button>
+                </>
+              }
+            />
 
-            <div className="space-y-8">
+            <div className="training-setup-page__content space-y-8">
               {requiresBranchSelection ? (
                 <div className="space-y-4">
                   <SetupStep

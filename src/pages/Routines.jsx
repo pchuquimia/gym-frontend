@@ -1547,7 +1547,8 @@ function RoutineModal({
 
   return (
     <Modal
-      title={null}
+      mobilePage
+      title={mode === "create" ? "Nueva rutina" : "Editar rutina"}
       subtitle={null}
       onClose={requestClose}
       size={isSetupStep ? "default" : "wide"}
@@ -3199,6 +3200,7 @@ function PlanRoutineChoiceModal({
 
   return (
     <Modal
+      mobilePage
       title={day?.routineId ? "Cambiar rutina" : "Asignar rutina"}
       subtitle={`${dayLabel}${day?.focus ? ` · ${day.focus}` : ""}`}
       onClose={onClose}
@@ -3327,7 +3329,7 @@ function RoutineToolbar({
     },
   ];
   return (
-    <section className="mt-5 space-y-3">
+    <section className="routine-toolbar mt-5 space-y-3">
       <div className="flex items-stretch gap-2">
         {showSearch ? (
           <div className="relative min-w-0 flex-1">
@@ -3361,7 +3363,7 @@ function RoutineToolbar({
         ) : null}
       </div>
       <div
-        className="grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+        className="routine-toolbar__scope grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
         aria-label="Filtrar rutinas por asignación"
       >
         {scopes.map((scope) => (
@@ -3381,7 +3383,10 @@ function RoutineToolbar({
         ))}
       </div>
       {showBranchFilter ? (
-        <div className="grid grid-cols-3 gap-2" aria-label="Filtrar por sede">
+        <div
+          className="routine-toolbar__branches grid grid-cols-3 gap-2"
+          aria-label="Filtrar por sede"
+        >
           {branches.map((item) => (
             <button
               key={item.id}
@@ -3449,7 +3454,7 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
       : isRest
         ? "Hoy no necesitas añadir carga para mantener el avance del plan."
         : routine
-          ? `${getRoutineExerciseSummary(routine)} preparados para hoy.`
+          ? "Esta es la rutina programada para hoy."
           : "Asigna una rutina para completar la planificación.";
   const StatusIcon = !state
     ? CalendarDays
@@ -3463,7 +3468,7 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
   const timeProgress = getPlanTimeProgress(plan);
 
   return (
-    <section className="routines-surface mt-5 border border-[color:var(--border)] border-t-[3px] border-t-[color:var(--accent)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
+    <section className="current-plan-overview routines-surface mt-5 border border-[color:var(--border)] border-t-[3px] border-t-[color:var(--accent)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--accent-strong)]">
@@ -3552,7 +3557,7 @@ function SecondaryPlanRow({ plan, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(plan)}
-      className="routines-surface flex min-h-20 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-left transition hover:border-[color:var(--border-strong)] sm:px-4"
+      className="secondary-plan-row routines-surface flex min-h-20 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-left transition hover:border-[color:var(--border-strong)] sm:px-4"
     >
       <Badge variant={plan.status}>
         {PLAN_STATUS_LABELS[plan.status] || plan.status}
@@ -3648,8 +3653,8 @@ export function TrainingPlanSchedule({
   const progressTotal = Math.max(1, totalTrainingDays);
 
   return (
-    <div className="mt-5">
-      <div className="flex items-start justify-between gap-3">
+    <div className="plan-schedule mt-5">
+      <div className="plan-schedule__header flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
             {isConfiguring
@@ -3712,7 +3717,7 @@ export function TrainingPlanSchedule({
 
       {!sequential && Number(plan.durationWeeks || 1) > 1 ? (
         <div
-          className="mt-4 flex gap-2 overflow-x-auto pb-1"
+          className="plan-schedule__weeks mt-4 flex gap-2 overflow-x-auto pb-1"
           aria-label="Seleccionar semana de la planificación"
         >
           {Array.from(
@@ -3737,7 +3742,7 @@ export function TrainingPlanSchedule({
         </div>
       ) : null}
 
-      <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+      <div className="plan-schedule__list mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {schedule.map((day, index) => {
           const date = sequential
             ? null
@@ -3816,7 +3821,7 @@ export function TrainingPlanSchedule({
                 }
                 onOpenRoutine(routine);
               }}
-              className={`relative flex min-h-[72px] items-center gap-3 px-2 py-3 sm:px-3 ${
+              className={`plan-schedule__day relative flex min-h-[72px] items-center gap-3 px-2 py-3 sm:px-3 ${
                 isCurrent
                   ? "bg-[color:var(--card)] ring-1 ring-inset ring-[color:var(--accent)]"
                   : "bg-[color:var(--card)]"
@@ -4002,6 +4007,7 @@ function PlanTemplateDetailsModal({
 
   return (
     <Modal
+      mobilePage
       title={template.name}
       subtitle={`${ROUTINE_LEVEL_LABELS[template.level] || template.level} · ${template.goal} · ${template.durationWeeks} semanas`}
       onClose={onClose}
@@ -4022,13 +4028,13 @@ function PlanTemplateDetailsModal({
           {template.description}
         </p>
       ) : null}
-      <div className="mb-3 flex items-center justify-between border-b border-[color:var(--border)] pb-2">
+      <div className="plan-template-detail-heading mb-3 flex items-center justify-between border-b border-[color:var(--border)] pb-2">
         <h4 className="text-xs font-black uppercase">Contenido programado</h4>
         <span className="text-xs font-black text-[color:var(--text-muted)]">
           {trainingDays} entrenamientos
         </span>
       </div>
-      <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+      <div className="plan-template-detail-list divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {(template.weeklySchedule || []).map((day, index) => {
           const routine = day.sourceRoutineId
             ? routinesById.get(String(day.sourceRoutineId))
@@ -4046,7 +4052,7 @@ function PlanTemplateDetailsModal({
           return (
             <div
               key={day.slotId || index}
-              className="flex min-h-16 items-center gap-3 py-3"
+              className="plan-template-detail-row flex min-h-16 items-center gap-3 py-3"
             >
               <span className="grid h-11 w-12 shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--bg)] text-[11px] font-black uppercase">
                 {dayLabel.slice(0, 3)}
@@ -4098,6 +4104,7 @@ function RoutineDetailsModal({
     (totalSets > 0 ? Math.max(20, Math.round((totalSets * 2.5) / 5) * 5) : 20);
   return (
     <Modal
+      mobilePage
       title={routine.name}
       subtitle={
         routine.description ||
@@ -4116,7 +4123,7 @@ function RoutineDetailsModal({
         ) : null
       }
     >
-      <div className="mb-4 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-center">
+      <div className="routine-detail-stats mb-4 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-center">
         <div>
           <p className="text-lg font-black">{exercises.length}</p>
           <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
@@ -4136,7 +4143,7 @@ function RoutineDetailsModal({
           </p>
         </div>
       </div>
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="routine-detail-heading mb-2 flex items-center justify-between gap-3">
         <h4 className="text-xs font-black uppercase">Ejercicios</h4>
         <div className="flex items-center gap-1.5">
           {routine.level ? (
@@ -4151,7 +4158,7 @@ function RoutineDetailsModal({
           </span>
         </div>
       </div>
-      <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+      <div className="routine-detail-list divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
         {exercises.map((exercise, index) => {
           const imageUrl = getExerciseImageUrl(exercise, {
             width: 240,
@@ -4160,12 +4167,12 @@ function RoutineDetailsModal({
           return (
             <div
               key={`${exercise.exerciseId || exercise.name}-${index}`}
-              className="flex min-h-20 items-center gap-2.5 py-2.5 sm:min-h-24 sm:gap-3 sm:py-3"
+              className="routine-detail-row flex min-h-20 items-center gap-2.5 py-2.5 sm:min-h-24 sm:gap-3 sm:py-3"
             >
               <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
                 {index + 1}
               </span>
-              <div className="h-16 w-16 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
+              <div className="routine-detail-image h-16 w-16 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
                 <RoutinePreviewImage
                   item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
                 />
@@ -4180,7 +4187,7 @@ function RoutineDetailsModal({
                   </p>
                 ) : null}
               </div>
-              <span className="shrink-0 border border-[color:var(--border)] px-1.5 py-1 text-[11px] font-black sm:px-2 sm:text-xs">
+              <span className="routine-detail-sets shrink-0 border border-[color:var(--border)] px-1.5 py-1 text-[11px] font-black sm:px-2 sm:text-xs">
                 {exercise.sets || 0}{" "}
                 {Number(exercise.sets) === 1 ? "serie" : "series"}
               </span>
@@ -5114,7 +5121,7 @@ function Routines({ onNavigate }) {
   };
 
   return (
-    <div className="routines-shell">
+    <div className="routines-shell mx-auto w-full max-w-md px-[6px] md:max-w-none md:px-0">
       <section className="space-y-5">
         <MobilePageHeader
           title={activePlan ? activePlan.name : "Rutinas"}
@@ -5225,7 +5232,7 @@ function Routines({ onNavigate }) {
 
         {!activePlan && !isCoach ? (
           <div
-            className="grid grid-cols-2 gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b]"
+            className="routines-workspace-tabs grid grid-cols-2 gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b]"
             role="tablist"
             aria-label="Gestionar rutinas y planificaciones"
           >
@@ -5419,7 +5426,7 @@ function Routines({ onNavigate }) {
       currentActivePlan &&
       String(currentActivePlan._id || currentActivePlan.id) !==
         String(activePlan._id || activePlan.id) ? (
-        <section className="routines-surface mt-5 flex items-center justify-between gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3">
+        <section className="plan-detail-current routines-surface mt-5 flex items-center justify-between gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3">
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
               Plan actualmente activo
@@ -5433,8 +5440,9 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {activePlan ? (
-        <section className="mt-4 border-y border-[color:var(--border)] py-4">
-          <div className="flex items-start justify-between gap-3">
+        <section className="plan-detail-summary mt-4 border-y border-[color:var(--border)] py-4">
+          <div className="plan-detail-overview">
+            <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Badge variant={activePlan.status}>
                 {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
@@ -5535,8 +5543,8 @@ function Routines({ onNavigate }) {
                 </div>
               </details>
             ) : null}
-          </div>
-          <div className="mt-4">
+            </div>
+            <div className="mt-4">
             <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
               Calendario del plan
             </p>
@@ -5564,6 +5572,7 @@ function Routines({ onNavigate }) {
                 style={{ width: `${activePlanTimeProgress.percentage}%` }}
               />
             </div>
+            </div>
           </div>
           <TrainingPlanSchedule
             plan={activePlan}
@@ -5581,7 +5590,7 @@ function Routines({ onNavigate }) {
             onAdvanceCycle={advanceCycle}
             advancingCycle={advancingCycle}
           />
-          <details className="group mt-4 border-y border-[color:var(--border)]">
+          <details className="plan-detail-info group mt-4 border-y border-[color:var(--border)]">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-black [&::-webkit-details-marker]:hidden">
               Información del plan
               <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-180" />
@@ -5693,7 +5702,7 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {!activePlan && workspaceReady && workspaceView === "routines" ? (
-        <section className="mt-4 grid gap-3 sm:mt-5 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <section className="routine-library-list mt-4 grid gap-3 sm:mt-5 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false} mode="popLayout">
             {visibleRoutineCards.map((routine) => {
               const isHighlighted = ["active", "scheduled"].includes(
@@ -5730,7 +5739,7 @@ function Routines({ onNavigate }) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.99 }}
                   transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
-                  className={`routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
+                  className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
                     isHighlighted
                       ? "border-t-[#ff5722] dark:border-t-[#e2ff00]"
                       : "border-t-[#626262] dark:border-t-[#6d6d62]"
@@ -5742,8 +5751,8 @@ function Routines({ onNavigate }) {
                     className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ff5722]/35 dark:focus-visible:ring-[#e2ff00]/40"
                     aria-label={`Ver ejercicios de ${routine.name}`}
                   />
-                  <div className="pointer-events-none relative z-[1] p-3 sm:p-4">
-                    <div className="flex items-start justify-between gap-3">
+                  <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
+                    <div className="routine-library-card__header flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         {assignmentLabel ? (
                           <p className="mb-1.5 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
@@ -5813,7 +5822,7 @@ function Routines({ onNavigate }) {
                       ) : null}
                     </div>
 
-                    <div className="mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
+                    <div className="routine-library-card__previews mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
                       {routine.preview.slice(0, 3).map((item, idx) => (
                         <div
                           key={`${routine.id}-preview-${idx}`}
@@ -5834,7 +5843,7 @@ function Routines({ onNavigate }) {
                       ) : null}
                     </div>
 
-                    <div className="mt-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333] sm:mt-5 sm:flex sm:min-h-11 sm:items-center sm:justify-between sm:gap-3">
+                    <div className="routine-library-card__footer mt-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333] sm:mt-5 sm:flex sm:min-h-11 sm:items-center sm:justify-between sm:gap-3">
                       <div className="grid min-w-0 grid-cols-3 gap-2 text-[11px] font-black text-[color:var(--text)] sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:text-xs">
                         <span className="inline-flex min-w-0 items-center gap-1.5">
                           <Dumbbell className="h-3.5 w-3.5 text-[#9f3518] dark:text-[#e2ff00]" />
