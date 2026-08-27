@@ -13,42 +13,42 @@
 
   color-scheme: light;
   --bg: #faf8f1;
-  --surface: #ffffff;
-  --surface-subtle: #eeedea;
+  --surface: #fffdf8;
+  --surface-subtle: #f1ede4;
   --surface-raised: #ffffff;
-  --segmented-surface: #ffffff;
-  --detail-canvas: #f7f5f1;
-  --detail-module: #ffffff;
-  --detail-module-border: #e5e0d8;
-  --detail-row-divider: #eee9e2;
+  --segmented-surface: #fffdf8;
+  --detail-canvas: #f7f2e9;
+  --detail-module: #fffdf8;
+  --detail-module-border: #e4ddcf;
+  --detail-row-divider: #eee8dc;
   --card: var(--surface);
-  --border: #dddcd8;
-  --border-strong: #c9c7c1;
-  --text: #171717;
-  --text-muted: #686868;
-  --text-subtle: #85857f;
+  --border: #ddd6c9;
+  --border-strong: #c9c0b2;
+  --text: #211a13;
+  --text-muted: #6f675d;
+  --text-subtle: #91887b;
   --accent: #ff5722;
-  --accent-hover: #e64712;
-  --accent-strong: #ff5722;
+  --accent-hover: #e64917;
+  --accent-strong: #d94112;
   --accent-soft: var(--accent);
-  --accent-contrast: #171717;
-  --success: #16875b;
-  --success-soft: #edf8f3;
-  --warning: #a96500;
-  --warning-soft: #fff7e7;
-  --danger: #c83c32;
-  --danger-soft: #fff0ef;
+  --accent-contrast: #211a13;
+  --success: #276653;
+  --success-soft: #f1ede4;
+  --warning: #a96816;
+  --warning-soft: #f7efe1;
+  --danger: #b84237;
+  --danger-soft: #f8ebe8;
   --focus-ring: rgba(255, 87, 34, 0.32);
   --overlay: rgba(9, 9, 9, 0.48);
 
   --radius-control: 0.5rem;
   --radius-card: 0.75rem;
   --radius-modal: 1rem;
-  --shadow-xs: 0 1px 2px rgba(23, 23, 23, 0.035);
+  --shadow-xs: 0 1px 2px rgba(46, 34, 18, 0.04);
   --shadow-sm:
-    0 1px 2px rgba(23, 23, 23, 0.04), 0 4px 12px rgba(23, 23, 23, 0.035);
+    0 1px 2px rgba(46, 34, 18, 0.045), 0 4px 12px rgba(46, 34, 18, 0.04);
   --shadow-md:
-    0 2px 4px rgba(23, 23, 23, 0.035), 0 12px 32px rgba(23, 23, 23, 0.07);
+    0 2px 4px rgba(46, 34, 18, 0.04), 0 12px 32px rgba(46, 34, 18, 0.075);
   --shadow-overlay:
     0 4px 12px rgba(9, 9, 9, 0.06), 0 24px 56px rgba(9, 9, 9, 0.16);
   --shadow-drawer:
@@ -140,13 +140,13 @@
 }
 
 .premium-drawer {
-  --drawer-bg: #fcfbf8;
-  --drawer-surface: #f7f3ed;
-  --drawer-surface-hover: #f3efe8;
-  --drawer-border: #e8e2d9;
-  --drawer-text: #211f1c;
-  --drawer-muted: #4f4a44;
-  --drawer-subtle: #918a80;
+  --drawer-bg: #fffdf8;
+  --drawer-surface: #f1ede4;
+  --drawer-surface-hover: #e9e3d8;
+  --drawer-border: #ddd6c9;
+  --drawer-text: #211a13;
+  --drawer-muted: #6f675d;
+  --drawer-subtle: #91887b;
   --drawer-accent: var(--accent);
   --drawer-accent-contrast: var(--accent-contrast);
   --drawer-active: var(--drawer-accent);
@@ -415,6 +415,25 @@ button,
 .settings-shell select,
 .settings-shell textarea {
   font-family: inherit;
+}
+
+.profile-reference-shell,
+.profile-reference-shell p,
+.profile-reference-shell span,
+.profile-reference-shell a,
+.profile-reference-shell button,
+.profile-reference-shell h1,
+.profile-reference-shell h2,
+.profile-reference-shell h3,
+.profile-reference-shell h4,
+.profile-reference-shell label,
+.profile-reference-shell input,
+.profile-reference-shell select,
+.profile-reference-shell textarea {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+    sans-serif;
+  font-stretch: normal;
 }
 
 .settings-shell .font-black {

@@ -7,19 +7,15 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Languages,
   Link2,
   Lock,
   LogOut,
-  MapPin,
   Monitor,
-  Palette,
   Save,
   Smartphone,
   Tablet,
   Unlink,
   Upload,
-  User,
   UserRoundCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -72,7 +68,7 @@ const goalLabels = {
 };
 
 const inputClass =
-  "theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none transition disabled:opacity-60 dark:rounded-[3px]";
+  "theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-normal text-[color:var(--text)] outline-none transition disabled:opacity-60 dark:rounded-[3px]";
 
 const getInitials = (name = "") =>
   name
@@ -129,6 +125,17 @@ const formatSessionTime = (value) => {
   return `Hace ${Math.round(hours / 24)} d`;
 };
 
+const formatProfileDate = (value) => {
+  if (!value) return "Completar";
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "Completar";
+  return new Intl.DateTimeFormat("es-BO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+};
+
 const viewFromUrl = () => {
   if (typeof window === "undefined") return "settings";
   const requested = new URLSearchParams(window.location.search).get("perfil");
@@ -142,7 +149,7 @@ function Field({ id, label, error, children }) {
     <div className="space-y-1.5">
       <label
         htmlFor={id}
-        className="block text-[10px] font-bold uppercase text-[color:var(--text-muted)]"
+        className="block text-[13px] font-medium uppercase tracking-[0.02em] text-[color:var(--text-muted)]"
       >
         {label}
       </label>
@@ -159,13 +166,13 @@ function Field({ id, label, error, children }) {
 function Section({ title, action, children, className = "" }) {
   return (
     <section className={`space-y-2.5 ${className}`}>
-      <div className="flex min-h-6 items-center justify-between gap-3 px-1">
-        <h2 className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+      <div className="flex min-h-6 items-end justify-between gap-3 px-1.5">
+        <h2 className="font-sans text-[14px] font-medium uppercase tracking-[0.01em] text-[color:var(--text)]">
           {title}
         </h2>
         {action}
       </div>
-      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
+      <div className="overflow-hidden rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] shadow-xs dark:shadow-none">
         {children}
       </div>
     </section>
@@ -177,27 +184,32 @@ function SettingsRow({ icon: Icon, title, subtitle, value, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
+      className="group relative flex min-h-[68px] w-full items-center gap-3 px-5 py-3 text-left transition-colors after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden hover:bg-[color:var(--surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)]"
     >
-      <span className="theme-accent-soft grid h-9 w-9 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
-        <Icon className="h-4 w-4" />
-      </span>
+      {Icon ? (
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+      ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-[color:var(--text)]">
+        <span className="block font-sans text-[17px] font-normal leading-tight text-[color:var(--text)]">
           {title}
         </span>
         {subtitle ? (
-          <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+          <span className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">
             {subtitle}
           </span>
         ) : null}
       </span>
-      {value ? (
-        <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+      {value !== undefined && value !== null ? (
+        <span className="max-w-[48%] truncate text-right font-sans text-[17px] font-normal text-[color:var(--text-muted)]">
           {value}
         </span>
       ) : null}
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+      <ChevronRight
+        className="h-5 w-5 shrink-0 text-[color:var(--text-subtle)] transition-transform group-hover:translate-x-0.5"
+        strokeWidth={2}
+      />
     </button>
   );
 }
@@ -211,89 +223,123 @@ function SettingsSelectRow({
   disabled,
 }) {
   return (
-    <div className="flex min-h-16 w-full items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-        <Icon className="h-4 w-4 text-current" />
-      </span>
+    <div className="relative flex min-h-[68px] w-full items-center gap-3 px-5 py-3 after:absolute after:bottom-0 after:left-5 after:right-0 after:h-px after:bg-[color:var(--detail-row-divider)] last:after:hidden">
+      {Icon ? (
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+      ) : null}
       <span className="min-w-0 flex-1">
         <label
           htmlFor="profile-exercise-language"
-          className="block text-sm font-bold text-[color:var(--text)]"
+          className="block font-sans text-[17px] font-normal leading-tight text-[color:var(--text)]"
         >
           {title}
         </label>
-        <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-          {subtitle}
-        </span>
+        {subtitle ? (
+          <span className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">
+            {subtitle}
+          </span>
+        ) : null}
       </span>
-      <select
-        id="profile-exercise-language"
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        className="h-10 min-w-28 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#ff5722] dark:rounded-[3px] dark:focus:border-[#e2ff00]"
-      >
-        <option value="es">Español</option>
-        <option value="en">English</option>
-      </select>
+      <div className="flex shrink-0 items-center gap-1">
+        <select
+          id="profile-exercise-language"
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className="max-w-28 appearance-none bg-transparent text-right font-sans text-[17px] font-normal text-[color:var(--text-muted)] outline-none sm:max-w-36"
+        >
+          <option value="es">Español</option>
+          <option value="en">English</option>
+        </select>
+        <ChevronRight
+          className="h-5 w-5 text-[color:var(--text-subtle)]"
+          strokeWidth={2}
+        />
+      </div>
     </div>
   );
 }
 
 function ProfileHero({ user, profile, avatarUrl, stats, onChangePhoto }) {
   return (
-    <section className="space-y-3 lg:sticky lg:top-6">
-      <div className="flex items-center gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none lg:flex-col lg:px-5 lg:py-6 lg:text-center">
+    <section className="lg:sticky lg:top-6">
+      <div className="rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
         <button
           type="button"
           onClick={onChangePhoto}
           aria-label="Cambiar foto de perfil"
           title="Cambiar foto de perfil"
-          className="group relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-[3px] border-[color:var(--accent)] bg-[color:var(--bg)] text-2xl font-black text-[#ff5722] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-2 dark:text-[#e2ff00] lg:h-24 lg:w-24"
+          className="group relative mx-auto grid h-24 w-24 shrink-0 place-items-center overflow-visible rounded-full bg-[#e7d5da] font-sans text-3xl font-semibold text-[#4a2630] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[color:var(--card)] lg:h-28 lg:w-28"
         >
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt={`Foto de ${user?.name || "perfil"}`}
-              className="h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full rounded-full object-cover"
             />
           ) : (
             getInitials(user?.name)
           )}
-          <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border-2 border-[color:var(--card)] bg-[#ff5722] text-white transition group-hover:scale-105 dark:bg-[#e2ff00] dark:text-black">
-            <Camera className="h-3.5 w-3.5" />
+          <span className="absolute bottom-0 right-0 z-10 grid h-8 w-8 place-items-center rounded-full border-2 border-[color:var(--detail-module-border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-xs transition group-hover:scale-105">
+            <Camera className="h-4 w-4" strokeWidth={2} />
           </span>
         </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-black uppercase text-[color:var(--text)]">
+        <div className="mt-4 min-w-0">
+          <h1 className="truncate font-sans text-[18px] font-medium text-[color:var(--text)]">
             {user?.name || "Usuario"}
           </h1>
-          <p className="mt-1 text-xs font-bold uppercase text-[color:var(--text-muted)]">
+          <p className="mt-1 truncate font-sans text-sm text-[color:var(--text-muted)]">
+            {user?.email || "Cuenta Apex"}
+          </p>
+          <p className="mt-2 text-[12px] font-medium uppercase tracking-[0.035em] text-[color:var(--text-subtle)]">
             {roleLabels[user?.role] || user?.role || "Cuenta"}
             {profile?.goal
               ? ` · ${goalLabels[profile.goal] || profile.goal}`
               : ""}
           </p>
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Stat value={stats.workouts} label="Entrenamientos" />
-        <Stat value={stats.streak} label="Racha actual" />
+        <div className="mt-6 grid grid-cols-2 border-t border-[color:var(--detail-row-divider)] pt-5">
+          <Stat value={stats.workouts} label="Entrenamientos" />
+          <Stat value={stats.streak} label="Racha actual" bordered />
+        </div>
       </div>
     </section>
   );
 }
 
-function Stat({ value, label }) {
+function Stat({ value, label, bordered = false }) {
   return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-center shadow-sm dark:rounded-[4px] dark:shadow-none">
-      <p className="text-2xl font-black leading-none text-[#ff5722] dark:text-[#e2ff00]">
+    <div
+      className={`px-3 text-center ${bordered ? "border-l border-[color:var(--detail-row-divider)]" : ""}`}
+    >
+      <p className="font-sans text-2xl font-semibold leading-none text-[color:var(--text)]">
         {value ?? "--"}
       </p>
-      <p className="mt-1.5 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+      <p className="mt-1.5 text-[12px] font-medium uppercase tracking-[0.025em] text-[color:var(--text-muted)]">
         {label}
       </p>
     </div>
+  );
+}
+
+function ProfilePageHeader({ title, onBack }) {
+  return (
+    <header className="sticky top-0 z-30 -mx-3 grid min-h-[60px] grid-cols-[52px_1fr_52px] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--bg)]/95 px-1 backdrop-blur-md md:hidden">
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Volver"
+        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+      >
+        <ChevronLeft className="h-7 w-7" strokeWidth={2.25} />
+      </button>
+      <h1 className="truncate text-center font-sans text-[22px] font-medium text-[color:var(--text)]">
+        {title}
+      </h1>
+      <span aria-hidden="true" />
+    </header>
   );
 }
 
@@ -302,7 +348,7 @@ function BackButton({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[color:var(--text)] hover:bg-[color:var(--card)]"
+      className="hidden min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-[color:var(--text)] hover:bg-[color:var(--card)] md:inline-flex"
     >
       <ChevronLeft className="h-4 w-4" />
       Perfil
@@ -894,7 +940,11 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (profileLoading) {
     return (
-      <main className="settings-shell mx-auto min-h-[50vh] w-full max-w-5xl border-y border-[color:var(--border)]">
+      <main className="settings-shell profile-reference-shell mx-auto min-h-[50vh] w-full max-w-5xl">
+        <ProfilePageHeader
+          title="Mi perfil"
+          onBack={() => onNavigate?.("dashboard")}
+        />
         <OperationLoader
           active
           delayMs={0}
@@ -908,7 +958,11 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (!profile) {
     return (
-      <main className="settings-shell mx-auto max-w-lg py-12 text-center">
+      <main className="settings-shell profile-reference-shell mx-auto max-w-lg py-12 text-center">
+        <ProfilePageHeader
+          title="Mi perfil"
+          onBack={() => onNavigate?.("dashboard")}
+        />
         <p role="alert" className="text-sm font-semibold text-red-500">
           {profileError || "No se pudo cargar el perfil."}
         </p>
@@ -925,9 +979,10 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "personal" && personalDraft) {
     return (
-      <main className="settings-shell mx-auto w-full max-w-4xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-4xl space-y-5 pb-28">
+        <ProfilePageHeader title="Información personal" onBack={goBack} />
         <BackButton onClick={goBack} />
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Información personal
           </h1>
@@ -1159,9 +1214,10 @@ export default function ProfileSettings({ onNavigate }) {
     const missingRules = passwordStatus(passwordForm.password);
     const otherSessions = sessions.filter((session) => !session.current).length;
     return (
-      <main className="settings-shell mx-auto w-full max-w-3xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-3xl space-y-5 pb-28">
+        <ProfilePageHeader title="Seguridad" onBack={goBack} />
         <BackButton onClick={goBack} />
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Contraseña y sesiones
           </h1>
@@ -1343,9 +1399,10 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "locations" && locationDraft) {
     return (
-      <main className="settings-shell mx-auto w-full max-w-2xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-2xl space-y-5 pb-28">
+        <ProfilePageHeader title="Lugares de entrenamiento" onBack={goBack} />
         <BackButton onClick={goBack} />
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-3xl font-black uppercase leading-none text-[color:var(--text)]">
             Lugares de entrenamiento
           </h1>
@@ -1467,7 +1524,20 @@ export default function ProfileSettings({ onNavigate }) {
   }
 
   return (
-    <main className="settings-shell mx-auto grid w-full max-w-md gap-4 pb-28 text-[color:var(--text)] md:max-w-5xl lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:max-w-6xl 2xl:max-w-[1280px]">
+    <main className="settings-shell profile-reference-shell mx-auto w-full max-w-md pb-28 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
+      <ProfilePageHeader
+        title="Mi perfil"
+        onBack={() => onNavigate?.("dashboard")}
+      />
+      <div className="mb-7 hidden md:block">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          Cuenta
+        </p>
+        <h1 className="mt-1 font-sans text-3xl font-semibold text-[color:var(--text)]">
+          Perfil y ajustes
+        </h1>
+      </div>
+      <div className="mt-5 grid gap-5 md:mt-0 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-7">
       <div>
         <ProfileHero
           user={user}
@@ -1489,31 +1559,61 @@ export default function ProfileSettings({ onNavigate }) {
           </div>
         ) : null}
       </div>
-      <div className="space-y-4">
-        <Section title="Cuenta">
+      <div className="space-y-5">
+        <Section title="General">
           <SettingsRow
-            icon={User}
-            title="Información personal"
-            subtitle="Identidad, medidas y foto de perfil"
+            title="Tema"
+            value={isDark ? "Oscuro" : "Claro"}
+            onClick={toggleTheme}
+          />
+          <SettingsSelectRow
+            title="Idioma de ejercicios"
+            value={profile.language || "es"}
+            onChange={handleLanguageChange}
+            disabled={languageSaving}
+          />
+        </Section>
+        <Section title="Datos personales">
+          <SettingsRow
+            title="Nombre"
+            value={user?.name || "Completar"}
             onClick={openPersonal}
           />
           <SettingsRow
-            icon={Lock}
-            title="Contraseña y sesiones"
-            subtitle="Acceso y dispositivos conectados"
-            onClick={() => navigateView("security")}
+            title="Correo electrónico"
+            value={user?.email || "Completar"}
+            onClick={openPersonal}
+          />
+          <SettingsRow
+            title="Fecha de nacimiento"
+            value={formatProfileDate(profile.birthDate)}
+            onClick={openPersonal}
+          />
+          <SettingsRow
+            title="Altura"
+            value={profile.height ? `${profile.height} cm` : "Completar"}
+            onClick={openPersonal}
+          />
+          <SettingsRow
+            title="Peso actual"
+            value={profile.weight ? `${profile.weight} kg` : "Completar"}
+            onClick={openPersonal}
           />
         </Section>
+        <p className="px-5 font-sans text-sm leading-5 text-[color:var(--text-subtle)]">
+          Estos datos nos ayudan a personalizar tus métricas y estimaciones de
+          entrenamiento.
+        </p>
         {user?.role === "Cliente" ? (
-          <Section title="Acompanamiento">
+          <Section title="Acompañamiento">
             {coachRelationship.loading ? (
               <p className="px-4 py-5 text-sm font-semibold text-[color:var(--text-muted)]">
                 Consultando tu modalidad de entrenamiento...
               </p>
             ) : (
               <div>
-                <div className="flex items-start gap-3 p-4">
-                  <span className="theme-accent-soft grid h-10 w-10 shrink-0 place-items-center rounded-lg border dark:rounded-[3px]">
+                <div className="flex items-start gap-3 px-5 py-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
                     {coachRelationship.connected ? (
                       <UserRoundCheck className="h-5 w-5" />
                     ) : (
@@ -1521,7 +1621,7 @@ export default function ProfileSettings({ onNavigate }) {
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-[color:var(--text)]">
+                    <p className="font-sans text-[15px] font-semibold text-[color:var(--text)]">
                       {coachRelationship.connected
                         ? coachRelationship.coach?.name
                         : "Entrenamiento independiente"}
@@ -1533,14 +1633,14 @@ export default function ProfileSettings({ onNavigate }) {
                     </p>
                   </div>
                   {coachRelationship.connected ? (
-                    <span className="theme-accent-soft shrink-0 rounded border px-2 py-1 text-[9px] font-black uppercase">
+                    <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[9px] font-semibold uppercase text-[color:var(--text-muted)]">
                       Con coach
                     </span>
                   ) : null}
                 </div>
                 <form
                   onSubmit={connectToCoach}
-                  className="grid gap-2 border-t border-[color:var(--border)] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  className="grid gap-2 border-t border-[color:var(--detail-row-divider)] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <label className="min-w-0">
                     <span className="sr-only">Codigo de coach</span>
@@ -1578,7 +1678,7 @@ export default function ProfileSettings({ onNavigate }) {
                     type="button"
                     onClick={disconnectFromCoach}
                     disabled={coachSaving}
-                    className="flex h-11 w-full items-center justify-center gap-2 border-t border-[color:var(--border)] text-xs font-black uppercase text-red-500 hover:bg-red-500/5 disabled:opacity-50"
+                    className="flex h-12 w-full items-center justify-center gap-2 border-t border-[color:var(--detail-row-divider)] text-xs font-semibold uppercase text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
                   >
                     <Unlink className="h-4 w-4" />
                     Entrenar sin coach
@@ -1590,34 +1690,25 @@ export default function ProfileSettings({ onNavigate }) {
         ) : null}
         <Section title="Entrenamiento">
           <SettingsRow
-            icon={MapPin}
             title="Lugares de entrenamiento"
-            subtitle="Cómo utilizar sedes en rutinas y sesiones"
             value={locationSummary}
             onClick={openLocations}
           />
         </Section>
-        <Section title="Apariencia">
+        <Section title="Cuenta y seguridad">
           <SettingsRow
-            icon={Palette}
-            title="Tema"
-            subtitle="Cambia la apariencia de la aplicación"
-            value={isDark ? "Oscuro" : "Claro"}
-            onClick={toggleTheme}
+            title="Contraseña y sesiones"
+            onClick={() => navigateView("security")}
           />
-          <SettingsSelectRow
-            icon={Languages}
-            title="Idioma de ejercicios"
-            subtitle="Nombres del catálogo, rutinas e historial"
-            value={profile.language || "es"}
-            onChange={handleLanguageChange}
-            disabled={languageSaving}
+          <SettingsRow
+            title="Plan y suscripción"
+            onClick={() => onNavigate?.("planes")}
           />
         </Section>
         <button
           type="button"
           onClick={handleLogout}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 text-sm font-bold text-red-500 hover:bg-red-500/10"
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] font-sans text-sm font-semibold text-[color:var(--danger)] shadow-xs transition-colors hover:bg-[color:var(--danger-soft)]"
         >
           <LogOut className="h-4 w-4" />
           Cerrar sesión
@@ -1625,6 +1716,7 @@ export default function ProfileSettings({ onNavigate }) {
         <p className="text-center text-xs text-[color:var(--text-muted)]">
           Apex Performance
         </p>
+      </div>
       </div>
     </main>
   );
