@@ -267,7 +267,7 @@ body {
     right: 0;
     left: 0;
     height: env(safe-area-inset-top, 0px);
-    background-color: var(--bg);
+    background-color: var(--system-chrome-bg, var(--bg));
     pointer-events: none;
   }
 }
@@ -1586,6 +1586,7 @@ button,
     margin-inline: 0;
     margin-top: 0;
     margin-bottom: 1.25rem;
+    padding-inline: var(--mobile-page-gutter);
   }
 
   .training-setup-page__planner-fullbleed {
@@ -1781,6 +1782,7 @@ button,
 
   .training-schedule__action-row {
     margin-top: 1.5rem;
+    padding-inline: var(--mobile-page-gutter);
   }
 
   .training-schedule-state {

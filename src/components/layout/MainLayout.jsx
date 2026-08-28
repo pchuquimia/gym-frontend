@@ -26,6 +26,7 @@ function MainLayout({
 }) {
   const [activeTraining, setActiveTraining] = useState(null);
   const pollRef = useRef(null);
+  const shellRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const { user } = useAuth();
   const useDashboardChrome = activePage === "dashboard";
@@ -43,6 +44,32 @@ function MainLayout({
   const useProfileChrome = activePage === "perfil";
   const useLibraryChrome = activePage === "library";
   const useRoutinesChrome = activePage === "rutinas";
+
+  useLayoutEffect(() => {
+    const syncPageSystemChrome = () => {
+      const shell = shellRef.current;
+      if (!shell) return;
+
+      const shellStyles = window.getComputedStyle(shell);
+      const pageBackground =
+        shellStyles.getPropertyValue("--bg").trim() ||
+        shellStyles.backgroundColor;
+      if (!pageBackground) return;
+
+      shell.style.setProperty("--system-chrome-bg", pageBackground);
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", pageBackground);
+      document.documentElement.style.backgroundColor = pageBackground;
+      document.body.style.backgroundColor = pageBackground;
+    };
+
+    syncPageSystemChrome();
+    window.addEventListener("gym-theme-change", syncPageSystemChrome);
+    return () => {
+      window.removeEventListener("gym-theme-change", syncPageSystemChrome);
+    };
+  }, [activePage]);
 
   useLayoutEffect(() => {
     let secondFrame = 0;
@@ -127,6 +154,7 @@ function MainLayout({
 
   return (
     <div
+      ref={shellRef}
       data-active-page={activePage}
       className={`app-shell flex min-h-dvh flex-col bg-[color:var(--bg)] text-[color:var(--text)] transition-colors ${
         useDashboardBackground ? "dashboard-app-shell" : ""
