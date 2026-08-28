@@ -9,22 +9,28 @@ const completedSets = (count) =>
   Array.from({ length: count }, () => ({ done: true, reps: 10, weightKg: 20 }));
 
 describe("estimateTrainingCalories", () => {
-  it("uses duration, body weight and training density", () => {
+  it("calculates active calories from work and rest segments", () => {
     const estimate = estimateTrainingCalories(
       {
         durationSeconds: 3600,
         workSeconds: 1800,
         restSeconds: 1200,
+        preparationSeconds: 600,
         exercises: [{ sets: completedSets(12) }],
       },
       { weightKg: 80 },
     );
 
     expect(estimate.available).toBe(true);
-    expect(estimate.durationMinutes).toBe(60);
+    expect(estimate.durationMinutes).toBe(50);
+    expect(estimate.sessionMinutes).toBe(60);
+    expect(estimate.workMinutes).toBe(30);
+    expect(estimate.restMinutes).toBe(20);
+    expect(estimate.excludedMinutes).toBe(10);
     expect(estimate.densityPercent).toBe(60);
     expect(estimate.weightKg).toBe(80);
-    expect(estimate.calories).toBeGreaterThan(400);
+    expect(estimate.calories).toBeGreaterThan(130);
+    expect(estimate.calories).toBeLessThan(180);
     expect(estimate.minCalories).toBeLessThan(estimate.calories);
     expect(estimate.maxCalories).toBeGreaterThan(estimate.calories);
   });
@@ -39,8 +45,11 @@ describe("estimateTrainingCalories", () => {
       { weightKg: 80 },
     );
 
-    expect(estimate.durationMinutes).toBe(60);
+    expect(estimate.durationMinutes).toBe(25);
+    expect(estimate.sessionMinutes).toBe(60);
+    expect(estimate.excludedMinutes).toBe(35);
     expect(estimate.durationWasEstimated).toBe(false);
+    expect(estimate.breakdownWasEstimated).toBe(true);
   });
 
   it("uses a clearly identified reference weight when profile weight is missing", () => {
@@ -60,8 +69,80 @@ describe("estimateTrainingCalories", () => {
     );
 
     expect(estimate.durationWasEstimated).toBe(true);
-    expect(estimate.durationMinutes).toBe(20);
+    expect(estimate.durationMinutes).toBe(19);
+    expect(estimate.workMinutes).toBe(5);
+    expect(estimate.restMinutes).toBe(14);
     expect(estimate.available).toBe(true);
+  });
+
+  it("does not turn preparation time into exercise calories", () => {
+    const base = estimateTrainingCalories(
+      {
+        durationSeconds: 4500,
+        workSeconds: 2400,
+        restSeconds: 2100,
+        preparationSeconds: 0,
+        exercises: [{ sets: completedSets(20) }],
+      },
+      { weightKg: 75 },
+    );
+    const withPreparation = estimateTrainingCalories(
+      {
+        durationSeconds: 7680,
+        workSeconds: 2400,
+        restSeconds: 2100,
+        preparationSeconds: 3180,
+        exercises: [{ sets: completedSets(20) }],
+      },
+      { weightKg: 75 },
+    );
+
+    expect(withPreparation.calories).toBe(base.calories);
+    expect(withPreparation.durationMinutes).toBe(75);
+    expect(withPreparation.excludedMinutes).toBe(53);
+  });
+
+  it("estimates legacy work time from completed repetitions", () => {
+    const estimate = estimateTrainingCalories(
+      {
+        durationSeconds: 7680,
+        workSeconds: 5580,
+        restSeconds: 2100,
+        exercises: [{ sets: completedSets(20) }],
+      },
+      { weightKg: 75 },
+    );
+
+    expect(estimate.workMinutes).toBe(13);
+    expect(estimate.restMinutes).toBe(35);
+    expect(estimate.excludedMinutes).toBe(80);
+    expect(estimate.breakdownWasEstimated).toBe(true);
+  });
+
+  it("values rest at a lower intensity than active work", () => {
+    const withoutRest = estimateTrainingCalories(
+      {
+        durationSeconds: 1200,
+        workSeconds: 1200,
+        restSeconds: 0,
+        preparationSeconds: 0,
+        exercises: [{ sets: completedSets(10) }],
+      },
+      { weightKg: 75 },
+    );
+    const withRest = estimateTrainingCalories(
+      {
+        durationSeconds: 2400,
+        workSeconds: 1200,
+        restSeconds: 1200,
+        preparationSeconds: 0,
+        exercises: [{ sets: completedSets(10) }],
+      },
+      { weightKg: 75 },
+    );
+
+    expect(withRest.calories).toBeGreaterThan(withoutRest.calories);
+    expect(withRest.calories - withoutRest.calories).toBeLessThan(20);
   });
 
   it("counts entry-based and normalized completed sets", () => {

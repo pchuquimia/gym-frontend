@@ -46,6 +46,7 @@ function MainLayout({
   const useTrainingChrome = activePage === "registrar";
   const useOnboardingChrome = activePage === "onboarding";
   const useProfileChrome = activePage === "perfil";
+  const useSessionSummaryChrome = activePage === "resumen_sesion";
   const useLibraryChrome = activePage === "library";
   const useRoutinesChrome = activePage === "rutinas";
 
@@ -158,13 +159,12 @@ function MainLayout({
   const hideMobileNavDuringTraining = Boolean(
     useTrainingChrome && activeTraining,
   );
-  const hideMobileNav = hideMobileNavDuringTraining || useProfileChrome;
+  const hideMobileNav =
+    hideMobileNavDuringTraining || useProfileChrome || useSessionSummaryChrome;
   const mobileContentSpacing =
-    useDashboardChrome ||
-    useLibraryChrome ||
-    useRoutinesChrome
+    useDashboardChrome || useLibraryChrome || useRoutinesChrome
       ? "max-md:pb-28 max-md:pt-0"
-      : useProfileChrome
+      : useProfileChrome || useSessionSummaryChrome
         ? "max-md:pb-4 max-md:pt-0"
         : useTrainingChrome
           ? hideMobileNavDuringTraining
@@ -222,10 +222,11 @@ function MainLayout({
           <div
             className={`items-center justify-between mb-4 gap-3 ${
               useDashboardChrome ||
-                useOnboardingChrome ||
-                useProfileChrome ||
-                useLibraryChrome ||
-                useRoutinesChrome
+              useOnboardingChrome ||
+              useProfileChrome ||
+              useSessionSummaryChrome ||
+              useLibraryChrome ||
+              useRoutinesChrome
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"

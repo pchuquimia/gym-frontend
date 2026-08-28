@@ -75,17 +75,17 @@ export default function CalorieEstimateModal({
               id="calorie-estimate-title"
               className="mt-1 text-xl font-black text-[color:var(--text)]"
             >
-              Calorías quemadas
+              Calorías activas
             </h2>
             <p className="mt-1 max-w-md text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
-              Estimación basada en tu sesión, peso e intensidad registrada.
+              Estimación del trabajo efectivo y los descansos registrados.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-            aria-label="Cerrar detalle de calorías quemadas"
+            aria-label="Cerrar detalle de calorías activas"
           >
             <X className="h-4 w-4" />
           </button>
@@ -120,7 +120,7 @@ export default function CalorieEstimateModal({
                 {formatDuration(summary?.durationMinutes)}
               </p>
               <p className="mt-0.5 text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
-                Duración
+                Tiempo calculado
               </p>
             </div>
             <div className="px-3">
@@ -153,8 +153,8 @@ export default function CalorieEstimateModal({
                       : "Datos de la sesión"}
                   </h3>
                   <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    La intensidad combina ritmo de series y relación
-                    trabajo–descanso.
+                    El descanso se calcula con una intensidad menor que las
+                    series.
                   </p>
                 </div>
                 <span className="text-[10px] font-black text-[color:var(--accent-strong)]">
@@ -199,10 +199,10 @@ export default function CalorieEstimateModal({
                   Cómo se obtiene
                 </h3>
                 <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
-                  Se cruzan tu peso, la duración y la intensidad registrada. El
-                  cálculo usa un equivalente metabólico (MET) de entrenamiento
-                  de fuerza y muestra un rango porque técnica, pausas y
-                  condición física cambian el gasto real.
+                  Las series se calculan como trabajo de fuerza y los descansos
+                  con una intensidad ligera. Se descuenta el gasto basal y no
+                  se cuentan la preparación, el tiempo sin clasificar ni las
+                  pausas manuales.
                 </p>
                 {summary?.usesReferenceWeight ? (
                   <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
@@ -213,6 +213,12 @@ export default function CalorieEstimateModal({
                 {summary?.durationWasEstimated ? (
                   <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
                     Una sesión no tenía duración registrada; se estimó a partir
+                    de sus series completadas.
+                  </p>
+                ) : null}
+                {summary?.breakdownWasEstimated ? (
+                  <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
+                    En alguna sesión el trabajo efectivo se normalizó a partir
                     de sus series completadas.
                   </p>
                 ) : null}
@@ -234,9 +240,13 @@ const estimateType = PropTypes.shape({
   minCalories: PropTypes.number,
   maxCalories: PropTypes.number,
   durationMinutes: PropTypes.number,
+  workMinutes: PropTypes.number,
+  restMinutes: PropTypes.number,
+  excludedMinutes: PropTypes.number,
   completedSets: PropTypes.number,
   intensityLabel: PropTypes.string,
   weightKg: PropTypes.number,
+  breakdownWasEstimated: PropTypes.bool,
 });
 
 CalorieEstimateModal.propTypes = {

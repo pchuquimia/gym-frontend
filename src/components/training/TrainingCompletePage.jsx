@@ -150,7 +150,7 @@ export default function TrainingCompletePage({
         <div className="pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
           <div className="overflow-hidden rounded-[1.5rem] bg-[color:var(--surface-subtle)] px-4">
             <div className="flex min-h-16 items-center justify-between gap-4 border-b border-[color:var(--detail-row-divider)]">
-              <span className="text-base font-medium">Calorías estimadas</span>
+              <span className="text-base font-medium">Calorías activas</span>
               <span className="text-base font-normal text-[color:var(--text-muted)]">
                 {calorieEstimate?.available
                   ? `~${calorieEstimate.calories} kcal`

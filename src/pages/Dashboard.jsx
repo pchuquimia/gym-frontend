@@ -16,16 +16,13 @@ import {
   Dumbbell,
   Flame,
   Gauge,
-  ListChecks,
   Minus,
   Play,
   Target,
-  Weight,
   TrendingDown,
   TrendingUp,
   RotateCcw,
   X,
-  Zap,
 } from "lucide-react";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
@@ -64,6 +61,17 @@ import {
 } from "../utils/calorieEstimate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEKLY_MUSCLE_COLORS = [
+  "#352018",
+  "#a85f36",
+  "#4f725e",
+  "#65788b",
+  "#8a6575",
+  "#ad8b45",
+  "#6f675d",
+  "#94715e",
+  "#5f7772",
+];
 
 function toValidDate(value) {
   const dateOnlyMatch =
@@ -300,13 +308,24 @@ function getTimingBreakdown(training = {}) {
   const restSeconds = hasRestTracking
     ? Math.min(sessionSeconds, Math.max(0, Number(training.restSeconds)))
     : null;
+  const hasWorkTracking =
+    training.workSeconds !== null &&
+    training.workSeconds !== undefined &&
+    Number.isFinite(Number(training.workSeconds));
+  const workSeconds = hasWorkTracking
+    ? Math.min(sessionSeconds, Math.max(0, Number(training.workSeconds)))
+    : hasRestTracking
+      ? Math.max(0, sessionSeconds - restSeconds)
+      : null;
 
   return {
     sessionSeconds,
-    workSeconds: hasRestTracking
-      ? Math.max(0, sessionSeconds - restSeconds)
-      : null,
+    workSeconds,
     restSeconds,
+    preparationSeconds:
+      workSeconds !== null && restSeconds !== null
+        ? Math.max(0, sessionSeconds - workSeconds - restSeconds)
+        : null,
     pauseSeconds: getPauseSeconds(training),
     hasRestTracking,
     adjusted:
@@ -701,19 +720,9 @@ function StatCard({
   label,
   value,
   suffix,
-  icon: Icon,
-  tone = "accent",
   children,
   onClick,
-  primary = false,
 }) {
-  const tones = {
-    blue: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
-    amber: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
-    accent: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
-    violet: "bg-transparent text-[#352018] dark:text-[#e2ff00]",
-  };
-
   const Component = onClick ? "button" : "article";
 
   return (
@@ -722,29 +731,18 @@ function StatCard({
       onClick={onClick}
       aria-label={onClick ? `Ver detalle de ${label}` : undefined}
       className={`dashboard-pilot__metric dashboard-weekly-metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${
-        primary ? "dashboard-pilot__metric--primary" : ""
-      } ${
         onClick ? "transition hover:border-[color:var(--border-strong)]" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-          {label}
-        </p>
-        {Icon ? (
-          <span
-            className={`dashboard-pilot__metric-icon grid h-7 w-7 place-items-center rounded-xl dark:rounded-none ${tones[tone] || tones.accent}`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-2 flex items-end gap-1">
-        <span className="text-[34px] font-black leading-none text-[color:var(--text)]">
+      <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
+        {label}
+      </p>
+      <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
+        <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
           {value}
         </span>
         {suffix ? (
-          <span className="pb-0.5 text-xs font-bold text-[color:var(--text-muted)]">
+          <span className="dashboard-weekly-metric__suffix pb-0.5 text-[color:var(--text-muted)]">
             {suffix}
           </span>
         ) : null}
@@ -1428,7 +1426,9 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
                       : "Progreso de la sesión"}
                   </span>
                   <span>
-                    {activeTraining ? action.elapsedLabel : `${action.progress}%`}
+                    {activeTraining
+                      ? action.elapsedLabel
+                      : `${action.progress}%`}
                   </span>
                 </div>
                 <div
@@ -1475,8 +1475,12 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
                 )}
                 {action.primaryMobileLabel ? (
                   <>
-                    <span className="sm:hidden">{action.primaryMobileLabel}</span>
-                    <span className="hidden sm:inline">{action.primaryLabel}</span>
+                    <span className="sm:hidden">
+                      {action.primaryMobileLabel}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {action.primaryLabel}
+                    </span>
                   </>
                 ) : (
                   action.primaryLabel
@@ -1802,6 +1806,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
     : loadedActivePlan;
+  const weeklySessionGoal = Math.max(
+    0,
+    (activePlan?.weeklySchedule || []).filter(
+      (day) => day?.type === "training" && day?.routineId,
+    ).length,
+  );
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -2247,7 +2257,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             date: training.date,
             routine: getRoutineName(training),
             branch: training.branch || training.routineBranch || "",
-            seconds: timing.sessionSeconds,
             ...timing,
           };
         }),
@@ -2255,36 +2264,23 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   );
 
   const durationSummary = useMemo(() => {
-    const trackedRows = durationRows.filter((row) => row.hasRestTracking);
-    const workSeconds = trackedRows.reduce(
-      (sum, row) => sum + row.workSeconds,
+    const sessionSeconds = durationRows.reduce(
+      (sum, row) => sum + row.sessionSeconds,
       0,
     );
-    const restSeconds = trackedRows.reduce(
-      (sum, row) => sum + row.restSeconds,
+    const restSeconds = durationRows.reduce(
+      (sum, row) => sum + Number(row.restSeconds || 0),
       0,
     );
-    const measuredSeconds = workSeconds + restSeconds;
     return {
-      sessionSeconds: durationRows.reduce(
-        (sum, row) => sum + row.sessionSeconds,
-        0,
-      ),
-      workSeconds,
+      sessionSeconds,
       restSeconds,
-      pauseSeconds: durationRows.reduce(
-        (sum, row) => sum + row.pauseSeconds,
-        0,
-      ),
-      trackedCount: trackedRows.length,
-      workPercent: measuredSeconds
-        ? Math.round((workSeconds / measuredSeconds) * 100)
-        : 0,
+      hasRestTracking: durationRows.some((row) => row.hasRestTracking),
     };
   }, [durationRows]);
 
   const weeklySets = useMemo(() => {
-    const byMuscle = new Map();
+    const byPrimaryMuscle = new Map();
     const byRoutine = new Map();
     const comparableScopes = new Set(
       weekData.setsComparison?.comparableScopeKeys || [],
@@ -2314,12 +2310,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         routine.sets += sets;
         getExerciseMuscleExposure(exercise, catalogIndex).forEach(
           (exposure) => {
-            const muscleRow = byMuscle.get(exposure.group) || {
-              name: exposure.group,
-              sets: 0,
-            };
-            muscleRow.sets += exposure.equivalentSets;
-            byMuscle.set(exposure.group, muscleRow);
+            if (exposure.weight >= 1) {
+              const primaryRow = byPrimaryMuscle.get(exposure.group) || {
+                name: exposure.group,
+                sets: 0,
+              };
+              primaryRow.sets += sets;
+              byPrimaryMuscle.set(exposure.group, primaryRow);
+            }
           },
         );
       });
@@ -2343,6 +2341,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             100,
         )
       : 0;
+    const primaryMuscleRows = Array.from(byPrimaryMuscle.values()).sort(
+      (a, b) => b.sets - a.sets,
+    );
     return {
       total: weekData.totalSets,
       recorded: weekData.loadMetrics.recordedSets,
@@ -2375,7 +2376,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         : "Todo completado",
       progressionDescription: comparison.description,
       progressionLabel: comparison.changeLabel,
-      byMuscle: Array.from(byMuscle.values()).sort((a, b) => b.sets - a.sets),
+      byPrimaryMuscle: primaryMuscleRows,
+      primaryMuscleTotal: primaryMuscleRows.reduce(
+        (sum, item) => sum + item.sets,
+        0,
+      ),
       byRoutine: Array.from(byRoutine.values()).sort((a, b) => b.sets - a.sets),
     };
   }, [catalogIndex, weekData]);
@@ -3232,14 +3237,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <button
                 type="button"
                 onClick={() => setQuickWeightOpen(true)}
-                className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
+                className="dashboard-pilot__action dashboard-pilot__action--accent h-10 rounded-full bg-[#352018] px-4 text-xs font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
                 aria-label="Registrar pesaje de hoy"
               >
-                <Weight className="h-5 w-5 motion-safe:animate-pulse" />
-                <span
-                  aria-hidden="true"
-                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018]"
-                />
+                Agregar peso
               </button>
             ) : null}
             <button
@@ -3286,15 +3287,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <button
               type="button"
               onClick={() => setQuickWeightOpen(true)}
-              className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm dark:shadow-none"
+              className="dashboard-pilot__action dashboard-pilot__action--accent h-10 rounded-full bg-[#352018] px-4 text-xs font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
               aria-label="Registrar pesaje de hoy"
               title="Registrar pesaje de hoy"
             >
-              <Weight className="h-5 w-5 motion-safe:animate-pulse" />
-              <span
-                aria-hidden="true"
-                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
-              />
+              Agregar peso
             </button>
           ) : null}
           <ThemeToggle />
@@ -3339,87 +3336,61 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           aria-controls="weekly-extra-metrics"
           className="dashboard-weekly-toggle inline-flex h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
         >
-          {weeklyDetailsOpen ? "Ocultar" : "Ver todas"}
-          <ChevronDown
-            className={`h-3.5 w-3.5 transition-transform ${weeklyDetailsOpen ? "rotate-180" : ""}`}
-          />
+          {weeklyDetailsOpen ? "Ver menos" : "Ver más"}
         </button>
       </div>
 
-      <div className="dashboard-weekly-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Días entrenados"
-          value={`${weekData.activeDays}/7`}
-          icon={CalendarDays}
-          tone="accent"
-          primary
-        >
-          <div className="mt-3 grid grid-cols-7 gap-1">
-            {weekData.days.map((day) => (
-              <span
-                key={day.key}
-                className={`h-1.5 rounded-full ${day.trained ? "bg-[#352018] dark:bg-[#e2ff00]" : "bg-[#e5e5e5] dark:bg-[#292929]"}`}
-              />
-            ))}
+      <div className="dashboard-weekly-grid">
+        <StatCard label="Entrenamientos" value={weekData.sessions}>
+          <div className="dashboard-weekly-metric__footer">
+            <span>Meta</span>
+            <strong>
+              {weeklySessionGoal
+                ? `${weeklySessionGoal} sesiones`
+                : "Sin meta definida"}
+            </strong>
           </div>
         </StatCard>
         <StatCard
-          label="Tiempo semanal"
-          value={formatDashboardDuration(weekData.totalSeconds)}
-          icon={Clock3}
-          tone="amber"
+          label="Tiempo total"
+          value={formatDashboardDuration(
+            durationSummary.sessionSeconds || weekData.totalSeconds,
+          )}
           onClick={() => setDurationModalOpen(true)}
-        />
-        <StatCard
-          label="Calorías quemadas"
-          value={
-            weeklyCalories.available ? `~${weeklyCalories.calories}` : "--"
-          }
-          suffix={weeklyCalories.available ? "kcal" : ""}
-          icon={Flame}
-          tone="accent"
-          onClick={() => setCaloriesModalOpen(true)}
         >
-          <p className="mt-2 text-[10px] font-semibold text-[color:var(--text-muted)]">
-            {weeklyCalories.available
-              ? `${weeklyCalories.minCalories}–${weeklyCalories.maxCalories} kcal · ${formatSessionCount(weeklyCalories.sessions)}`
-              : "Completa una sesión para calcularlas"}
-          </p>
+          <div className="dashboard-weekly-metric__footer">
+            <span>Descanso</span>
+            <strong>
+              {formatActiveTrainingDuration(durationSummary.restSeconds || 0)}
+            </strong>
+          </div>
         </StatCard>
-        <article className="dashboard-pilot__metric dashboard-weekly-metric dashboard-weekly-comparison rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Comparación por ejercicio
-            </p>
-            <TrendingUp className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
+        <StatCard
+          label="Series completadas"
+          value={weeklySets.total}
+          onClick={() => setWeeklySetsModalOpen(true)}
+        >
+          <div className="dashboard-weekly-metric__footer">
+            <span>Promedio</span>
+            <strong>
+              {weeklySets.sessions
+                ? `${Math.round(weeklySets.averagePerSession)} por sesión`
+                : "Sin sesiones"}
+            </strong>
           </div>
-          <div className="dashboard-pilot__split mt-3 grid grid-cols-2 overflow-hidden border border-[color:var(--border)] bg-[color:var(--segmented-surface)]">
-            <button
-              type="button"
-              onClick={() => setPerformanceModalType("declines")}
-              className="border-r border-[color:var(--border)] px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
-            >
-              <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-red-300">
-                Marca menor
-              </p>
-              <p className="mt-1 text-2xl font-black text-[#1a1a1a] dark:text-red-300">
-                {Math.max(0, Number(weekData.declines?.length) || 0)}
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPerformanceModalType("improvements")}
-              className="px-2.5 py-2 text-left transition hover:text-[color:var(--text)] active:opacity-70"
-            >
-              <p className="text-[9px] font-black uppercase tracking-wide text-[#6f6f6f] dark:text-[#e2ff00]">
-                Marca mejor
-              </p>
-              <p className="mt-1 text-2xl font-black text-[#352018] dark:text-[#e2ff00]">
-                {Math.max(0, Number(weekData.improvements?.length) || 0)}
-              </p>
-            </button>
+        </StatCard>
+        <StatCard
+          label="Mejoras registradas"
+          value={Math.max(0, Number(weekData.improvements?.length) || 0)}
+          onClick={() => setPerformanceModalType("improvements")}
+        >
+          <div className="dashboard-weekly-metric__footer">
+            <span>Revisar</span>
+            <strong>
+              {Math.max(0, Number(weekData.declines?.length) || 0)} ejercicios
+            </strong>
           </div>
-        </article>
+        </StatCard>
       </div>
 
       {weeklyDetailsOpen ? (
@@ -3429,43 +3400,51 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         >
           <button
             type="button"
-            onClick={() => setWeeklyLoadModalOpen(true)}
-            aria-label={`Ver detalle del peso levantado: ${formatLiftedWeight(weeklyLoad.current)}`}
-            className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+            onClick={() => setCaloriesModalOpen(true)}
+            aria-label="Ver detalle de calorías activas"
+            className="dashboard-pilot__metric dashboard-weekly-metric text-left"
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                Peso levantado
-              </p>
-              <TrendingUp className="h-3.5 w-3.5 text-[color:var(--accent-strong)]" />
+            <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
+              Calorías activas
+            </p>
+            <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
+              <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
+                {weeklyCalories.available ? `~${weeklyCalories.calories}` : "--"}
+              </span>
+              {weeklyCalories.available ? (
+                <span className="dashboard-weekly-metric__suffix pb-0.5 text-[color:var(--text-muted)]">
+                  kcal
+                </span>
+              ) : null}
             </div>
-            <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-              {formatLiftedWeight(weeklyLoad.current)}
-            </p>
-            <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-              Peso libre × repeticiones ·{" "}
-              {formatSessionCount(weeklyLoad.sessions)}
-            </p>
+            <div className="dashboard-weekly-metric__footer">
+              <span>Calculado con</span>
+              <strong>{formatSessionCount(weeklyCalories.sessions)}</strong>
+            </div>
           </button>
           <button
             type="button"
-            onClick={() => setWeeklySetsModalOpen(true)}
-            aria-label={`Ver detalle del trabajo semanal: ${weeklySets.total} series completadas`}
-            className="dashboard-pilot__metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+            onClick={() => setDurationModalOpen(true)}
+            aria-label="Ver detalle del tiempo promedio por sesión"
+            className="dashboard-pilot__metric dashboard-weekly-metric text-left"
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                Trabajo semanal
-              </p>
-              <ListChecks className="h-3.5 w-3.5 text-[color:var(--accent-strong)]" />
+            <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
+              Promedio por sesión
+            </p>
+            <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
+              <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
+                {weekData.sessions
+                  ? formatActiveTrainingDuration(
+                      (durationSummary.sessionSeconds || weekData.totalSeconds) /
+                        weekData.sessions,
+                    )
+                  : "--"}
+              </span>
             </div>
-            <p className="mt-2 text-2xl font-black text-[color:var(--text)]">
-              {weeklySets.total} series
-            </p>
-            <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-              {formatSessionCount(weeklySets.sessions)} ·{" "}
-              {weeklySets.statusLabel}
-            </p>
+            <div className="dashboard-weekly-metric__footer">
+              <span>Referencia</span>
+              <strong>Incluye descansos</strong>
+            </div>
           </button>
         </div>
       ) : null}
@@ -3491,9 +3470,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         >
           {isPostWorkout ? (
             <div className="flex items-center gap-3 text-left">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-                <Check className="h-5 w-5" strokeWidth={3} />
-              </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
                   Después de {getRoutineName(latestCompletedToday)}
@@ -3518,9 +3494,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
           ) : isPlannedRestDay ? (
             <div className="flex items-center gap-3 text-left">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-                <Gauge className="h-5 w-5" strokeWidth={2.4} />
-              </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
                   Día de descanso
@@ -3544,12 +3517,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           ) : (
             <div className="dashboard-recovery-overview flex items-center gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
-                  <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Disponibilidad muscular
-                  </p>
-                </div>
+                <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Disponibilidad muscular
+                </p>
                 <p className="dashboard-recovery-overview__value mt-2 text-2xl font-black text-[color:var(--text)]">
                   {hasTrainingHistory
                     ? `${recoveryDisplayValue}% disponible`
@@ -3697,7 +3667,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
       {recoveryModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+          className="dashboard-detail-backdrop fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Detalle de recuperación"
@@ -4273,219 +4243,159 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               setWeeklySetsModalOpen(false);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+          <div className="dashboard-detail-sheet dashboard-weekly-work-sheet max-h-[90dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
+            <header className="dashboard-detail-sheet__header flex items-center justify-between gap-4 border-b border-[color:var(--border)] px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                  Semana actual
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
                   Trabajo semanal
-                </p>
-                <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  Series que completaste
                 </h2>
-                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {weeklySets.description}
-                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setWeeklySetsModalOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                className="dashboard-detail-sheet__close grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)] transition active:scale-95"
                 aria-label="Cerrar"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <section className="rounded-2xl bg-[color:var(--bg)] p-4">
-                <div className="flex items-start justify-between gap-3">
+            <div className="dashboard-weekly-work-sheet__body max-h-[calc(90dvh-73px)] overflow-y-auto px-5 pb-7 pt-5">
+              <section className="dashboard-weekly-work-summary rounded-3xl bg-[color:var(--surface-subtle)] p-5">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                  Series completadas
+                </p>
+                <p className="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+                  {weeklySets.total}
+                </p>
+                <p className="mt-1.5 text-sm font-normal text-[color:var(--text-muted)]">
+                  {formatSessionCount(weeklySets.sessions)} esta semana
+                </p>
+
+                <div className="dashboard-weekly-work-summary__metrics mt-4 grid grid-cols-2 gap-3 border-t border-[color:var(--border)] pt-4">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      Completadas esta semana
+                    <p className="text-[11px] font-normal text-[color:var(--text-muted)]">
+                      Promedio por sesión
                     </p>
-                    <p className="mt-1 text-4xl font-black tracking-tight text-[color:var(--text)]">
-                      {weeklySets.total}{" "}
-                      <span className="text-lg text-[color:var(--text-muted)]">
-                        series
-                      </span>
+                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                      {formatSeriesCount(weeklySets.averagePerSession)} series
                     </p>
                   </div>
-                  <span
-                    className="rounded-full px-3 py-1.5 text-[10px] font-black"
-                    style={{
-                      backgroundColor:
-                        weeklySets.completionRate >= 90
-                          ? "var(--accent-soft)"
-                          : "var(--warning-soft)",
-                      color:
-                        weeklySets.completionRate >= 90
-                          ? "var(--accent-contrast)"
-                          : "var(--warning)",
-                    }}
-                  >
-                    {weeklySets.recorded
-                      ? `${weeklySets.completionRate}% terminadas`
-                      : "Sin series registradas"}
-                  </span>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--border)]">
-                  <div
-                    className="h-full rounded-full bg-[color:var(--accent)]"
-                    style={{ width: `${weeklySets.completionRate}%` }}
-                  />
-                </div>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                  <span>{weeklySets.diffLabel}</span>
-                  <span>
-                    {weeklySets.incomplete
-                      ? `${weeklySets.incomplete} sin completar`
-                      : "Todas las registradas fueron completadas"}
-                  </span>
-                </div>
-              </section>
-
-              <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[color:var(--border)] py-4 sm:grid-cols-4 sm:gap-4">
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Sesiones
-                  </p>
-                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
-                    {weeklySets.sessions}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                    esta semana
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Por sesión
-                  </p>
-                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
-                    {formatSeriesCount(weeklySets.averagePerSession)}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                    promedio
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Semana anterior
-                  </p>
-                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
-                    {weeklySets.previousTotal}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                    {formatSessionCount(weeklySets.previousSessions)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                    Antes por sesión
-                  </p>
-                  <p className="mt-1 text-base font-black text-[color:var(--text)]">
-                    {formatSeriesCount(weeklySets.previousAveragePerSession)}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
-                    promedio
-                  </p>
-                </div>
-              </section>
-
-              <p className="mt-5 border-l-2 border-[color:var(--accent)] pl-3 text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
-                Más series no siempre significa mejor entrenamiento. Úsalas para
-                observar constancia y distribución, junto con tu recuperación y
-                progreso.
-              </p>
-
-              <section className="mt-5">
-                <div>
-                  <h3 className="text-sm font-black text-[color:var(--text)]">
-                    Distribución por músculo
-                  </h3>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Estimación del trabajo principal y secundario recibido.
-                  </p>
-                </div>
-                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-                  {weeklySets.byMuscle.length ? (
-                    weeklySets.byMuscle.map((item) => (
-                      <div key={item.name} className="py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
-                            {item.name}
-                          </p>
-                          <span className="shrink-0 text-xs font-black text-[color:var(--accent-strong)]">
-                            {formatSeriesCount(item.sets)} series aprox.
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-                          <div
-                            className="h-full rounded-full bg-[color:var(--accent)]"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                weeklySets.byMuscle[0]?.sets
-                                  ? (item.sets / weeklySets.byMuscle[0].sets) *
-                                      100
-                                  : 0,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                      No hay series completadas esta semana.
+                  <div>
+                    <p className="text-[11px] font-normal text-[color:var(--text-muted)]">
+                      Completadas
                     </p>
-                  )}
+                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
+                      {weeklySets.recorded
+                        ? `${weeklySets.completionRate}%`
+                        : "—"}
+                    </p>
+                  </div>
                 </div>
               </section>
 
-              <section className="mt-5">
-                <div>
-                  <h3 className="text-sm font-black text-[color:var(--text)]">
+              <section className="dashboard-weekly-work-muscles mt-5 rounded-3xl bg-[color:var(--surface-subtle)] p-5">
+                <h3 className="text-base font-semibold text-[color:var(--text)]">
+                  Series por grupo muscular
+                </h3>
+                <p className="mt-1 text-xs font-normal leading-5 text-[color:var(--text-muted)]">
+                  Cada serie se cuenta una vez en el músculo principal.
+                </p>
+
+                {weeklySets.byPrimaryMuscle.length ? (
+                  <>
+                    <div
+                      className="dashboard-weekly-work-stack mt-5 flex h-3 overflow-hidden rounded-full bg-[color:var(--border)]"
+                      role="img"
+                      aria-label="Distribución de series por grupo muscular"
+                    >
+                      {weeklySets.byPrimaryMuscle.map((item, index) => (
+                        <span
+                          key={item.name}
+                          className="h-full"
+                          style={{
+                            width: `${weeklySets.primaryMuscleTotal ? (item.sets / weeklySets.primaryMuscleTotal) * 100 : 0}%`,
+                            backgroundColor:
+                              WEEKLY_MUSCLE_COLORS[
+                                index % WEEKLY_MUSCLE_COLORS.length
+                              ],
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="dashboard-weekly-work-legend mt-4 grid grid-cols-2 gap-x-5 gap-y-3">
+                      {weeklySets.byPrimaryMuscle.map((item, index) => (
+                        <div
+                          key={item.name}
+                          className="flex min-w-0 items-center justify-between gap-2"
+                          aria-label={`${item.name}: ${item.sets} ${item.sets === 1 ? "serie" : "series"}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  WEEKLY_MUSCLE_COLORS[
+                                    index % WEEKLY_MUSCLE_COLORS.length
+                                  ],
+                              }}
+                            />
+                            <span className="truncate text-xs font-normal text-[color:var(--text-muted)]">
+                              {item.name}
+                            </span>
+                          </span>
+                          <strong className="shrink-0 text-sm font-semibold tabular-nums text-[color:var(--text)]">
+                            {item.sets}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-4 rounded-2xl bg-[color:var(--card)] px-4 py-5 text-sm font-normal text-[color:var(--text-muted)]">
+                    Completa una serie para ver el reparto muscular.
+                  </p>
+                )}
+              </section>
+
+              <section className="dashboard-weekly-work-routines mt-5">
+                <div className="px-1">
+                  <h3 className="text-base font-semibold text-[color:var(--text)]">
                     Trabajo por rutina
                   </h3>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Series terminadas en cada entrenamiento.
+                  <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                    Series completadas en cada entrenamiento.
                   </p>
                 </div>
-                <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+                <div className="mt-3 divide-y divide-[color:var(--border)] overflow-hidden rounded-3xl bg-[color:var(--surface-subtle)] px-5">
                   {weeklySets.byRoutine.length ? (
                     weeklySets.byRoutine.map((item) => (
                       <div
                         key={item.key}
-                        className="flex items-center justify-between gap-3 py-3"
+                        className="flex items-center justify-between gap-4 py-4"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
+                          <p className="truncate text-sm font-semibold text-[color:var(--text)]">
                             {item.name}
                           </p>
-                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                          <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
                             {formatSessionCount(item.sessions)}
-                          </p>
-                          {item.incompleteSets ? (
-                            <p className="mt-1 text-[10px] font-bold text-[color:var(--warning)]">
-                              {item.incompleteSets}{" "}
-                              {item.incompleteSets === 1
-                                ? "serie sin completar"
-                                : "series sin completar"}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-black text-[color:var(--accent-strong)]">
-                            {item.sets} series
-                          </p>
-                          <p className="text-[10px] font-semibold text-[color:var(--text-muted)]">
-                            {item.sets} de {item.recordedSets} terminadas
+                            {item.incompleteSets
+                              ? ` · ${item.incompleteSets} ${item.incompleteSets === 1 ? "pendiente" : "pendientes"}`
+                              : ""}
                           </p>
                         </div>
+                        <p className="shrink-0 text-sm font-semibold tabular-nums text-[color:var(--text)]">
+                          {item.sets} {item.sets === 1 ? "serie" : "series"}
+                        </p>
                       </div>
                     ))
                   ) : (
-                    <p className="py-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                    <p className="py-5 text-sm font-normal text-[color:var(--text-muted)]">
                       No hay rutinas registradas esta semana.
                     </p>
                   )}
@@ -4498,7 +4408,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
       {durationModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+          className="dashboard-detail-backdrop fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Detalle del tiempo semanal"
@@ -4507,164 +4417,111 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               setDurationModalOpen(false);
           }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
+          <div className="dashboard-detail-sheet dashboard-duration-sheet max-h-[90dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
+            <header className="dashboard-detail-sheet__header flex items-center justify-between gap-4 border-b border-[color:var(--border)] px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
                   Semana actual
                 </p>
-                <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
+                <h2 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
                   Tiempo semanal
                 </h2>
-                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Tiempo acumulado en tus sesiones. Las pausas manuales no se
-                  suman al total.
-                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setDurationModalOpen(false)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                className="dashboard-detail-sheet__close grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)] transition active:scale-95"
                 aria-label="Cerrar"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <section className="border-b border-[color:var(--border)] pb-5">
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                      Tiempo acumulado
+            <div className="dashboard-duration-sheet__body max-h-[calc(90dvh-73px)] overflow-y-auto px-5 pb-6 pt-5">
+              {durationRows.length ? (
+                <>
+                  <section className="dashboard-duration-summary rounded-3xl bg-[color:var(--surface-subtle)] p-5">
+                    <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                      Duración total
                     </p>
-                    <p className="mt-2 text-4xl font-black text-[color:var(--text)]">
+                    <p className="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
                       {formatSessionMinutes(durationSummary.sessionSeconds)}
                     </p>
-                  </div>
-                  <span className="pb-1 text-xs font-black text-[color:var(--accent-strong)]">
-                    {formatSessionCount(durationRows.length)}
-                  </span>
-                </div>
+                    <p className="mt-1.5 text-sm font-medium text-[color:var(--text-muted)]">
+                      {formatSessionCount(durationRows.length)} esta semana
+                    </p>
 
-                {durationSummary.trackedCount ? (
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                        Distribución medida
+                    <div className="mt-4 flex items-center justify-between gap-4 border-t border-[color:var(--border)] pt-4">
+                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                        Descanso
                       </p>
-                      <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                        {durationSummary.trackedCount} de {durationRows.length}{" "}
-                        sesiones
+                      <p className="text-base font-semibold text-[color:var(--text)]">
+                        {durationSummary.hasRestTracking
+                          ? formatSessionMinutes(durationSummary.restSeconds)
+                          : "—"}
                       </p>
                     </div>
-                    <div
-                      className="mt-3 flex h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]"
-                      role="img"
-                      aria-label={`${durationSummary.workPercent}% trabajo estimado y ${100 - durationSummary.workPercent}% descanso medido`}
-                    >
-                      <span
-                        className="h-full bg-[color:var(--accent)]"
-                        style={{ width: `${durationSummary.workPercent}%` }}
-                      />
-                      <span className="h-full flex-1 bg-[color:var(--border-strong)]" />
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--accent-strong)]">
-                          Trabajo estimado
-                        </p>
-                        <p className="mt-1 text-lg font-black text-[color:var(--text)]">
-                          {formatSessionMinutes(durationSummary.workSeconds)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                          Descanso medido
-                        </p>
-                        <p className="mt-1 text-lg font-black text-[color:var(--text)]">
-                          {formatSessionMinutes(durationSummary.restSeconds)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm font-semibold text-[color:var(--text-muted)]">
-                    Aún no hay sesiones con descansos medidos para mostrar la
-                    distribución.
-                  </p>
-                )}
+                  </section>
 
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3 text-xs font-semibold text-[color:var(--text-muted)]">
-                  <span>Pausas excluidas del total</span>
-                  <span className="font-black text-[color:var(--text)]">
-                    {formatSessionMinutes(durationSummary.pauseSeconds)}
-                  </span>
-                </div>
-
-                {durationSummary.trackedCount < durationRows.length ? (
-                  <p className="mt-3 rounded-lg bg-[color:var(--warning-soft)] px-3 py-2 text-[11px] font-semibold text-[color:var(--warning)]">
-                    Algunas sesiones no tienen descansos medidos; la
-                    distribución solo usa las sesiones disponibles.
+                  <p className="dashboard-duration-note mt-3 px-1 text-xs font-normal text-[color:var(--text-muted)]">
+                    Medido entre series y ejercicios.
                   </p>
-                ) : null}
-              </section>
+                </>
+              ) : null}
 
               {durationRows.length ? (
-                <section className="pt-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-black text-[color:var(--text)]">
-                      Sesiones de esta semana
+                <section className="dashboard-duration-sessions mt-6">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <h3 className="text-base font-semibold text-[color:var(--text)]">
+                      Sesiones de la semana
                     </h3>
-                    <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                      {formatSessionCount(durationRows.length)}
+                    <span className="text-xs font-medium text-[color:var(--text-muted)]">
+                      {durationRows.length}
                     </span>
                   </div>
-                  <div className="mt-2 divide-y divide-[color:var(--border)]">
+                  <div className="mt-3 overflow-hidden rounded-3xl bg-[color:var(--surface-subtle)] px-4">
                     {durationRows.map((row) => (
                       <article
                         key={row.id}
-                        className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                        className="dashboard-duration-session border-b border-[color:var(--border)] py-4 last:border-b-0"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
-                            {row.routine}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                            {formatLongDate(row.date)}
-                            {row.branch ? ` · ${titleCase(row.branch)}` : ""}
-                          </p>
-                          <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {row.hasRestTracking
-                              ? `Trabajo ${formatSessionMinutes(row.workSeconds)} · Descanso ${formatSessionMinutes(row.restSeconds)}`
-                              : "Descanso no medido"}
-                            {row.pauseSeconds
-                              ? ` · Pausa excluida ${formatSessionMinutes(row.pauseSeconds)}`
-                              : ""}
-                            {row.adjusted ? " · Tiempo ajustado" : ""}
-                          </p>
-                        </div>
-                        <div className="sm:text-right">
-                          <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                            Total
-                          </p>
-                          <p className="mt-1 text-lg font-black text-[color:var(--accent-strong)]">
-                            {formatSessionMinutes(row.seconds)}
-                          </p>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                              {row.routine}
+                            </p>
+                            <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                              {formatLongDate(row.date)}
+                            </p>
+                            {row.hasRestTracking ? (
+                              <p className="mt-1 text-[11px] font-normal text-[color:var(--text-muted)]">
+                                {formatSessionMinutes(row.restSeconds)} de
+                                descanso
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <strong className="text-base font-semibold text-[color:var(--text)]">
+                              {formatSessionMinutes(row.sessionSeconds)}
+                            </strong>
+                            <p className="mt-0.5 text-[10px] font-normal text-[color:var(--text-muted)]">
+                              duración total
+                            </p>
+                          </div>
                         </div>
                       </article>
                     ))}
                   </div>
                 </section>
               ) : (
-                <div className="py-10 text-center">
+                <div className="dashboard-duration-empty py-12 text-center">
                   <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
                     <Clock3 className="h-5 w-5" aria-hidden="true" />
                   </span>
-                  <h3 className="mt-4 text-base font-black text-[color:var(--text)]">
+                  <h3 className="mt-4 text-base font-semibold text-[color:var(--text)]">
                     Sin tiempo registrado
                   </h3>
-                  <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
+                  <p className="mx-auto mt-2 max-w-[16rem] text-sm font-normal text-[color:var(--text-muted)]">
                     Completa una sesión para empezar tu resumen semanal.
                   </p>
                 </div>
@@ -4866,6 +4723,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       ) : null}
       <QuickWeightModal
+        currentWeight={profile?.weight}
         open={quickWeightOpen}
         onClose={() => setQuickWeightOpen(false)}
         onSave={saveQuickWeight}

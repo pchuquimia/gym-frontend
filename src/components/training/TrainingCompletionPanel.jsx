@@ -105,7 +105,7 @@ export default function TrainingCompletionPanel({
           <div className="min-w-0 border-l border-[color:var(--border)] py-3 pl-3">
             <p className="font-condensed flex items-center gap-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               <Flame className="h-3 w-3 text-[#352018] dark:text-[#e2ff00]" />
-              Calorías
+              Calorías activas
             </p>
             <p className="mt-1 truncate text-base font-black leading-none text-[color:var(--text)]">
               {calorieEstimate?.available
@@ -116,7 +116,7 @@ export default function TrainingCompletionPanel({
         </div>
         {calorieEstimate?.available ? (
           <p className="mt-2 text-center text-[10px] font-semibold text-[color:var(--text-muted)]">
-            Estimación según tu peso, tiempo e intensidad · rango{" "}
+            Trabajo y descanso según tu peso · rango{" "}
             {calorieEstimate.minCalories}–{calorieEstimate.maxCalories} kcal
           </p>
         ) : null}

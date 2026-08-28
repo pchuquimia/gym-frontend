@@ -1,5 +1,9 @@
+import { estimateSetWorkSeconds } from "./trainingTiming";
+
 const DEFAULT_REFERENCE_WEIGHT_KG = 75;
-const MIN_SESSION_MINUTES = 5;
+const REST_SECONDS_PER_INTERVAL = 2 * 60;
+const REST_MET = 1.5;
+const BASELINE_MET = 1;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -8,9 +12,35 @@ const toPositiveNumber = (value) => {
   return Number.isFinite(number) && number > 0 ? number : 0;
 };
 
+const hasTrackedNumber = (value) =>
+  value !== null &&
+  value !== undefined &&
+  value !== "" &&
+  Number.isFinite(Number(value)) &&
+  Number(value) >= 0;
+
 const getDurationSeconds = (training = {}) =>
   toPositiveNumber(training.durationOverrideSeconds) ||
   toPositiveNumber(training.durationSeconds);
+
+const fitSegmentsToDuration = (workSeconds, restSeconds, durationSeconds) => {
+  const total = workSeconds + restSeconds;
+  if (!durationSeconds || total <= durationSeconds || total <= 0) {
+    return { workSeconds, restSeconds };
+  }
+  const scale = durationSeconds / total;
+  return {
+    workSeconds: workSeconds * scale,
+    restSeconds: restSeconds * scale,
+  };
+};
+
+const getActiveSegmentCalories = (met, seconds, weightKg) =>
+  (Math.max(0, met - BASELINE_MET) *
+    3.5 *
+    weightKg *
+    (seconds / 60)) /
+  200;
 
 const setLooksCompleted = (set = {}) => {
   const entries = Array.isArray(set.entries) ? set.entries : [];
@@ -45,28 +75,90 @@ export const countCompletedTrainingSets = (training = {}) =>
     0,
   );
 
+const estimateCompletedWorkSeconds = (training = {}) =>
+  (Array.isArray(training.exercises) ? training.exercises : []).reduce(
+    (total, exercise) =>
+      total +
+      (Array.isArray(exercise?.sets) ? exercise.sets : []).reduce(
+        (exerciseTotal, set) =>
+          setLooksCompleted(set)
+            ? exerciseTotal + estimateSetWorkSeconds(set)
+            : exerciseTotal,
+        0,
+      ),
+    0,
+  );
+
 export function estimateTrainingCalories(
   training = {},
   { weightKg, referenceWeightKg = DEFAULT_REFERENCE_WEIGHT_KG } = {},
 ) {
   const recordedSeconds = getDurationSeconds(training);
   const completedSets = countCompletedTrainingSets(training);
+  const hasWorkTracking = hasTrackedNumber(training.workSeconds);
+  const hasRestTracking = hasTrackedNumber(training.restSeconds);
+  const hasTimingBreakdown = hasWorkTracking || hasRestTracking;
+  const eventWorkSeconds = (Array.isArray(training.timeEvents)
+    ? training.timeEvents
+    : []
+  )
+    .filter((event) => event?.type === "set_complete")
+    .reduce((sum, event) => sum + toPositiveNumber(event.workSeconds), 0);
+  const hasReliableStoredWork =
+    hasWorkTracking &&
+    (eventWorkSeconds > 0 || hasTrackedNumber(training.preparationSeconds));
+  const estimatedWorkSeconds = estimateCompletedWorkSeconds(training);
+  const recordedWorkSeconds = eventWorkSeconds ||
+    (hasReliableStoredWork ? Number(training.workSeconds) : 0);
+  const workWasEstimated =
+    completedSets > 0 && recordedWorkSeconds <= 0;
   const durationWasEstimated = !recordedSeconds && completedSets > 0;
-  const durationMinutes = recordedSeconds
-    ? recordedSeconds / 60
-    : completedSets
-      ? Math.max(MIN_SESSION_MINUTES, completedSets * 2.5)
-      : 0;
+  const breakdownWasEstimated =
+    completedSets > 0 &&
+    (!hasTimingBreakdown || workWasEstimated);
 
+  let workSeconds = recordedWorkSeconds > 0
+    ? recordedWorkSeconds
+    : estimatedWorkSeconds;
+  let restSeconds = hasRestTracking
+    ? Number(training.restSeconds)
+    : Math.max(0, completedSets - 1) * REST_SECONDS_PER_INTERVAL;
+
+  ({ workSeconds, restSeconds } = fitSegmentsToDuration(
+    workSeconds,
+    restSeconds,
+    recordedSeconds,
+  ));
+
+  const usesWholeSessionFallback =
+    !completedSets && !hasTimingBreakdown && recordedSeconds > 0;
+  if (usesWholeSessionFallback) {
+    workSeconds = recordedSeconds;
+    restSeconds = 0;
+  }
+
+  const calculatedSeconds = workSeconds + restSeconds;
+  const durationMinutes = calculatedSeconds / 60;
+  const sessionMinutes = recordedSeconds
+    ? recordedSeconds / 60
+    : durationMinutes;
+  const excludedSeconds = recordedSeconds
+    ? Math.max(0, recordedSeconds - calculatedSeconds)
+    : 0;
   const validWeight = toPositiveNumber(weightKg);
   const effectiveWeightKg = validWeight || toPositiveNumber(referenceWeightKg);
   const usesReferenceWeight = !validWeight;
+
   if (!durationMinutes || !effectiveWeightKg) {
     return {
       calories: 0,
       minCalories: 0,
       maxCalories: 0,
       durationMinutes: 0,
+      sessionMinutes: Math.round(sessionMinutes),
+      workMinutes: 0,
+      restMinutes: 0,
+      excludedMinutes: Math.round(excludedSeconds / 60),
       completedSets,
       met: 0,
       intensityLabel: "Sin datos",
@@ -74,27 +166,41 @@ export function estimateTrainingCalories(
       weightKg: effectiveWeightKg || 0,
       usesReferenceWeight,
       durationWasEstimated,
+      breakdownWasEstimated,
+      activeCalories: true,
       available: false,
     };
   }
 
-  const workSeconds = toPositiveNumber(training.workSeconds);
-  const restSeconds = toPositiveNumber(training.restSeconds);
-  const trackedSeconds = workSeconds + restSeconds;
-  const hasTimingBreakdown = trackedSeconds > 0;
-  const density = hasTimingBreakdown
-    ? clamp(workSeconds / trackedSeconds, 0, 1)
+  const density = calculatedSeconds
+    ? clamp(workSeconds / calculatedSeconds, 0, 1)
     : 0;
-  const setsPerMinute = completedSets / durationMinutes;
-  const setPaceScore = clamp(setsPerMinute / 0.45, 0, 1);
-
-  // Resistance training commonly spans roughly 3.5–6 MET. We place each
-  // session within that range using its recorded work/rest density and set pace.
-  const met = hasTimingBreakdown
-    ? 3.5 + density * 1.5 + setPaceScore
+  const workMinutes = workSeconds / 60;
+  const setsPerWorkMinute = workMinutes ? completedSets / workMinutes : 0;
+  const setPaceScore = completedSets
+    ? clamp(setsPerWorkMinute / 0.5, 0, 1)
+    : 0;
+  const workMet = usesWholeSessionFallback
+    ? 3.5
     : 3.5 + setPaceScore * 1.5;
-  const calories = (met * 3.5 * effectiveWeightKg * durationMinutes) / 200;
-  const uncertainty = usesReferenceWeight || durationWasEstimated ? 0.25 : 0.18;
+  const workCalories = getActiveSegmentCalories(
+    workMet,
+    workSeconds,
+    effectiveWeightKg,
+  );
+  const restCalories = getActiveSegmentCalories(
+    REST_MET,
+    restSeconds,
+    effectiveWeightKg,
+  );
+  const calories = workCalories + restCalories;
+  const met = calculatedSeconds
+    ? (workMet * workSeconds + REST_MET * restSeconds) / calculatedSeconds
+    : 0;
+  const uncertainty =
+    usesReferenceWeight || durationWasEstimated || breakdownWasEstimated
+      ? 0.3
+      : 0.2;
   const roundedCalories = Math.max(1, Math.round(calories));
 
   return {
@@ -102,14 +208,20 @@ export function estimateTrainingCalories(
     minCalories: Math.max(1, Math.round(calories * (1 - uncertainty))),
     maxCalories: Math.max(1, Math.round(calories * (1 + uncertainty))),
     durationMinutes: Math.round(durationMinutes),
+    sessionMinutes: Math.round(sessionMinutes),
+    workMinutes: Math.round(workMinutes),
+    restMinutes: Math.round(restSeconds / 60),
+    excludedMinutes: Math.round(excludedSeconds / 60),
     completedSets,
     met: Number(met.toFixed(1)),
     intensityLabel:
       met >= 5.35 ? "Alta" : met >= 4.25 ? "Media-alta" : "Moderada",
-    densityPercent: hasTimingBreakdown ? Math.round(density * 100) : 0,
+    densityPercent: Math.round(density * 100),
     weightKg: Number(effectiveWeightKg.toFixed(1)),
     usesReferenceWeight,
     durationWasEstimated,
+    breakdownWasEstimated,
+    activeCalories: true,
     available: true,
   };
 }
@@ -139,6 +251,18 @@ export function summarizeCalorieEstimates(estimates = []) {
       0,
     ),
     durationMinutes,
+    workMinutes: available.reduce(
+      (sum, estimate) => sum + Number(estimate.workMinutes || 0),
+      0,
+    ),
+    restMinutes: available.reduce(
+      (sum, estimate) => sum + Number(estimate.restMinutes || 0),
+      0,
+    ),
+    excludedMinutes: available.reduce(
+      (sum, estimate) => sum + Number(estimate.excludedMinutes || 0),
+      0,
+    ),
     completedSets: available.reduce(
       (sum, estimate) => sum + Number(estimate.completedSets || 0),
       0,
@@ -153,6 +277,10 @@ export function summarizeCalorieEstimates(estimates = []) {
     durationWasEstimated: available.some(
       (estimate) => estimate.durationWasEstimated,
     ),
+    breakdownWasEstimated: available.some(
+      (estimate) => estimate.breakdownWasEstimated,
+    ),
+    activeCalories: true,
     available: available.length > 0,
   };
 }

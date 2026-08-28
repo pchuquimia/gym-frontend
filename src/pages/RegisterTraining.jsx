@@ -62,6 +62,16 @@ import {
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
+import {
+  buildFallbackTimeEvents,
+  calculateTimingSummary,
+  createTimeEvent,
+  getEventTime,
+  hasOpenRestInterval,
+  normalizeTimeEvents,
+  removeLatestSetCompletion,
+  resolveSetWorkEstimate,
+} from "../utils/trainingTiming";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -180,158 +190,6 @@ const formatDuration = (sec) => {
   return [hours, minutes, seconds]
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
-};
-
-const createTimeEvent = (type, exerciseId = null, atMs = Date.now()) => ({
-  type,
-  exerciseId,
-  at: new Date(atMs).toISOString(),
-});
-
-const getEventTime = (event) => {
-  const ts = Date.parse(event?.at);
-  return Number.isNaN(ts) ? null : ts;
-};
-
-const normalizeTimeEvents = (events = []) =>
-  (Array.isArray(events) ? events : [])
-    .filter((event) => event?.type && event?.at && getEventTime(event) != null)
-    .map((event) => ({
-      type: event.type,
-      at: new Date(getEventTime(event)).toISOString(),
-      exerciseId: event.exerciseId || null,
-    }))
-    .sort((a, b) => getEventTime(a) - getEventTime(b));
-
-const hasOpenRestInterval = (events = []) => {
-  let open = false;
-  normalizeTimeEvents(events).forEach((event) => {
-    if (event.type === "rest_start") open = true;
-    if (
-      event.type === "rest_end" ||
-      event.type === "session_pause" ||
-      event.type === "session_end"
-    ) {
-      open = false;
-    }
-  });
-  return open;
-};
-
-const calculateTimingSummary = (events = [], nowMs = Date.now()) => {
-  let running = false;
-  let resting = false;
-  let activeExerciseId = null;
-  let lastAt = null;
-  let pauseStartedAt = null;
-  let durationSeconds = 0;
-  let restSeconds = 0;
-  let pauseSeconds = 0;
-  const exerciseDurations = new Map();
-  const exerciseRestDurations = new Map();
-  const normalizedEvents = normalizeTimeEvents(events);
-  const hasRestEvents = normalizedEvents.some((event) =>
-    ["rest_start", "rest_end"].includes(event.type),
-  );
-
-  const accrue = (nextAt) => {
-    if (!running || lastAt == null || nextAt <= lastAt) return;
-    const delta = Math.floor((nextAt - lastAt) / 1000);
-    if (delta <= 0) return;
-    durationSeconds += delta;
-    if (resting) restSeconds += delta;
-    if (activeExerciseId) {
-      exerciseDurations.set(
-        activeExerciseId,
-        (exerciseDurations.get(activeExerciseId) || 0) + delta,
-      );
-      if (resting) {
-        exerciseRestDurations.set(
-          activeExerciseId,
-          (exerciseRestDurations.get(activeExerciseId) || 0) + delta,
-        );
-      }
-    }
-  };
-
-  normalizedEvents.forEach((event) => {
-    const at = getEventTime(event);
-    accrue(at);
-    if (event.type === "session_start" || event.type === "session_resume") {
-      if (pauseStartedAt != null && at > pauseStartedAt) {
-        pauseSeconds += Math.floor((at - pauseStartedAt) / 1000);
-      }
-      running = true;
-      resting = false;
-      pauseStartedAt = null;
-      lastAt = at;
-      return;
-    }
-    if (event.type === "session_pause" || event.type === "session_end") {
-      if (pauseStartedAt != null && at > pauseStartedAt) {
-        pauseSeconds += Math.floor((at - pauseStartedAt) / 1000);
-      }
-      running = false;
-      resting = false;
-      pauseStartedAt = event.type === "session_pause" ? at : null;
-      lastAt = at;
-      return;
-    }
-    if (event.type === "exercise_start") {
-      if (!running) running = true;
-      activeExerciseId = event.exerciseId || null;
-      lastAt = at;
-      return;
-    }
-    if (event.type === "rest_start" && running) {
-      resting = true;
-      lastAt = at;
-      return;
-    }
-    if (event.type === "rest_end") {
-      resting = false;
-      lastAt = at;
-    }
-  });
-
-  if (running) accrue(nowMs);
-  else if (pauseStartedAt != null && nowMs > pauseStartedAt) {
-    pauseSeconds += Math.floor((nowMs - pauseStartedAt) / 1000);
-  }
-
-  return {
-    durationSeconds,
-    workSeconds: hasRestEvents
-      ? Math.max(0, durationSeconds - restSeconds)
-      : null,
-    restSeconds: hasRestEvents ? restSeconds : null,
-    pauseSeconds,
-    hasRestEvents,
-    activeExerciseId: running ? activeExerciseId : "",
-    exerciseDurations,
-    exerciseDurationsPayload: Array.from(exerciseDurations.entries()).map(
-      ([exerciseId, seconds]) => {
-        const exerciseRestSeconds = exerciseRestDurations.get(exerciseId) || 0;
-        return {
-          exerciseId,
-          durationSeconds: seconds,
-          workSeconds: hasRestEvents
-            ? Math.max(0, seconds - exerciseRestSeconds)
-            : null,
-          restSeconds: hasRestEvents ? exerciseRestSeconds : null,
-        };
-      },
-    ),
-  };
-};
-
-const buildFallbackTimeEvents = (durationSeconds = 0, endMs = Date.now()) => {
-  const seconds = Number(durationSeconds) || 0;
-  if (seconds <= 0) return [];
-  return [
-    createTimeEvent("session_start", null, endMs - seconds * 1000),
-    createTimeEvent("session_pause", null, endMs),
-  ];
 };
 
 const branchMeta = {
@@ -2864,7 +2722,7 @@ export default function RegisterTraining({
             ),
           ]
         : []),
-      createTimeEvent("exercise_start", exerciseId, now),
+      createTimeEvent("exercise_selected", exerciseId, now),
     ]);
     lastUpdateRef.current = now;
     setNowMs(now);
@@ -2909,6 +2767,42 @@ export default function RegisterTraining({
   };
   completeAutoFlowRef.current = completeAutoFlow;
 
+  const beginFlowDestination = (destination) => {
+    if (!destination || destination.type === "complete") return;
+    const destinationExercise = exercisesRef.current.find(
+      (exercise) =>
+        String(exercise.id) === String(destination.exerciseId || ""),
+    );
+    const destinationSet =
+      destination.type === "set"
+        ? (destinationExercise?.sets || []).find(
+            (set) => String(set.id) === String(destination.setId || ""),
+          )
+        : (destinationExercise?.sets || []).find((set) => !isSetDone(set));
+    const now = Date.now();
+
+    if (destination.type === "exercise") {
+      handleStartExerciseNow(destination.exerciseId, { silent: true });
+    } else {
+      setExpandedExerciseId(destination.exerciseId);
+    }
+    if (destinationSet) {
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("set_start", destination.exerciseId, now, {
+          setId: destinationSet.id,
+          source: "manual",
+        }),
+      ]);
+    }
+
+    focusExerciseBelowToolbar(destination.exerciseId, {
+      delay: destination.type === "exercise" ? 380 : 340,
+      setId: destinationSet?.id || "",
+      highlight: true,
+    });
+  };
+
   const handleConfirmAutoFlowAdvance = () => {
     const destination = autoFlowPromptRef.current;
     if (!destination) return;
@@ -2925,19 +2819,30 @@ export default function RegisterTraining({
       return;
     }
 
-    if (destination.type === "exercise") {
-      handleStartExerciseNow(destination.exerciseId, { silent: true });
-      toast.success("Siguiente ejercicio iniciado.");
-    } else {
-      setExpandedExerciseId(destination.exerciseId);
-      toast.success("Siguiente serie preparada.");
-    }
+    beginFlowDestination(destination);
+    toast.success(
+      destination.type === "exercise"
+        ? "Siguiente ejercicio preparado."
+        : "Siguiente serie iniciada.",
+    );
+  };
 
-    focusExerciseBelowToolbar(destination.exerciseId, {
-      delay: destination.type === "exercise" ? 380 : 340,
-      setId: destination.type === "set" ? destination.setId : "",
-      highlight: true,
-    });
+  const handleBeginNextSeries = () => {
+    const pendingTarget = autoFlowTargetRef.current;
+    if (!pendingTarget) return;
+    const destination = findAutoFlowDestination(
+      exercisesRef.current,
+      pendingTarget.exerciseId,
+    );
+    updateAutoFlowPrompt(null);
+    updateAutoFlowTarget(null);
+    setRestTimerOpen(false);
+    setRestTimerMinimized(true);
+    setRestTimerStarted(false);
+    setRestRemainingSeconds(restDurationSeconds);
+    setRestDeadlineMs(null);
+    if (!destination || destination.type === "complete") return;
+    beginFlowDestination(destination);
   };
 
   const loadTrainingForDate = async (
@@ -3968,7 +3873,7 @@ export default function RegisterTraining({
 
   const handleStartRestTimer = (
     minutes = restMinutesInput,
-    { minimized = false } = {},
+    { minimized = false, origin, restType = "between_sets" } = {},
   ) => {
     const parsedMinutes = Math.max(1, Number(minutes) || 1);
     const seconds = parsedMinutes * 60;
@@ -3981,12 +3886,25 @@ export default function RegisterTraining({
     const now = Date.now();
     const nextDeadline = now + seconds * 1000;
     const wasResting = restEventOpenRef.current;
+    if (origin) updateAutoFlowTarget(origin);
     restEventOpenRef.current = isRunning;
     if (wasResting || isRunning) {
       setTimeEvents((prev) => [
         ...prev,
         ...(wasResting ? [createTimeEvent("rest_end", null, now)] : []),
-        ...(isRunning ? [createTimeEvent("rest_start", null, now)] : []),
+        ...(isRunning
+          ? [
+              createTimeEvent(
+                "rest_start",
+                origin?.exerciseId || activeExerciseId || null,
+                now,
+                {
+                  setId: origin?.setId,
+                  restType,
+                },
+              ),
+            ]
+          : []),
       ]);
     }
     setRestDeadlineMs(nextDeadline);
@@ -4958,6 +4876,9 @@ export default function RegisterTraining({
       (targetSet?.entries || []).every(
         (entry) => entry.id === entryId || entry.done,
       );
+    const reopensCompletedSet =
+      targetEntry?.done &&
+      (targetSet?.entries || []).every((entry) => entry.done);
     const completesExercise =
       targetEntry &&
       !targetEntry.done &&
@@ -4973,6 +4894,7 @@ export default function RegisterTraining({
         if (exercise.id === exerciseId) return true;
         return (exercise.sets || []).every((set) => isSetDone(set));
       });
+    const completedAtMs = Date.now();
     if (targetEntry && !targetEntry.done) {
       handleStartExerciseNow(exerciseId, { silent: true });
       if (
@@ -4982,7 +4904,7 @@ export default function RegisterTraining({
         navigator.vibrate(completesExercise ? [18, 24, 18] : 12);
       }
     }
-    const completedAt = new Date().toISOString();
+    const completedAt = new Date(completedAtMs).toISOString();
     setExercises((prev) =>
       prev.map((ex) =>
         ex.id === exerciseId
@@ -5009,9 +4931,40 @@ export default function RegisterTraining({
           : ex,
       ),
     );
-    if (isAdmin && autoFlowEnabled && completesSet && !completesRoutine) {
-      updateAutoFlowTarget({ exerciseId, setId });
-      handleStartRestTimer(restDurationSeconds / 60, { minimized: false });
+    if (completesSet && !isEditing && !isHistoryReadOnly && targetSet) {
+      const workEstimate = resolveSetWorkEstimate({
+        events: timeEvents,
+        exerciseId,
+        setId,
+        set: targetSet,
+        completedAtMs,
+      });
+      setTimeEvents((prev) => [
+        ...prev,
+        createTimeEvent("set_complete", exerciseId, completedAtMs, {
+          setId,
+          ...workEstimate,
+        }),
+      ]);
+    } else if (reopensCompletedSet && !isEditing && !isHistoryReadOnly) {
+      setTimeEvents((prev) =>
+        removeLatestSetCompletion(prev, exerciseId, setId),
+      );
+      const pendingTarget = autoFlowTargetRef.current;
+      if (
+        pendingTarget &&
+        String(pendingTarget.exerciseId) === String(exerciseId) &&
+        String(pendingTarget.setId) === String(setId)
+      ) {
+        handleCloseRestTimer();
+      }
+    }
+    if (completesSet && !completesRoutine && !isEditing && !isHistoryReadOnly) {
+      handleStartRestTimer(restDurationSeconds / 60, {
+        minimized: false,
+        origin: { exerciseId, setId },
+        restType: completesExercise ? "between_exercises" : "between_sets",
+      });
     }
     if (completesRoutine && !isEditing && !isHistoryReadOnly) {
       pauseForRoutineCompletion();
@@ -5360,6 +5313,7 @@ export default function RegisterTraining({
         durationSeconds: finalTimingSummary.durationSeconds || durationSeconds,
         workSeconds: finalTimingSummary.workSeconds,
         restSeconds: finalTimingSummary.restSeconds,
+        preparationSeconds: finalTimingSummary.preparationSeconds,
         pauseSeconds: finalTimingSummary.pauseSeconds,
         timeEvents: finalTimeEvents,
         exerciseDurations: finalTimingSummary.exerciseDurationsPayload,
@@ -5581,6 +5535,7 @@ export default function RegisterTraining({
           durationSeconds,
           workSeconds: timingSummary.workSeconds,
           restSeconds: timingSummary.restSeconds,
+          preparationSeconds: timingSummary.preparationSeconds,
           exercises,
         },
         { weightKg: profile?.weight },
@@ -5590,6 +5545,7 @@ export default function RegisterTraining({
       exercises,
       profile?.weight,
       timingSummary.restSeconds,
+      timingSummary.preparationSeconds,
       timingSummary.workSeconds,
     ],
   );
@@ -6162,7 +6118,8 @@ export default function RegisterTraining({
                   >
                     <ProfileAvatar
                       photoId={
-                        profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
+                        profile?.avatarPhotoId ||
+                        authUser?.profile?.avatarPhotoId
                       }
                       name={profile?.name || authUser?.name}
                       className="h-full w-full"
@@ -7768,36 +7725,46 @@ export default function RegisterTraining({
                       />
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    {restTimerDone && autoFlowTarget ? (
                       <Button
-                        className={`h-12 rounded-full ${
-                          restTimerRunning
-                            ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
-                            : "bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
-                        }`}
-                        onClick={handleToggleRestTimer}
+                        className="h-12 w-full rounded-full bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                        onClick={handleBeginNextSeries}
                       >
-                        {restTimerRunning ? (
-                          <Pause className="h-4 w-4" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                        <span>
-                          {restTimerRunning
-                            ? "Pausar"
-                            : restTimerStarted
-                              ? "Continuar"
-                              : "Iniciar"}
-                        </span>
+                        <Play className="h-4 w-4" />
+                        Empezar siguiente serie
                       </Button>
-                      <Button
-                        variant="outline"
-                        className="h-12 rounded-full"
-                        onClick={handleResetRestTimer}
-                      >
-                        Reiniciar cronómetro
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          className={`h-12 rounded-full ${
+                            restTimerRunning
+                              ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
+                              : "bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                          }`}
+                          onClick={handleToggleRestTimer}
+                        >
+                          {restTimerRunning ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                          <span>
+                            {restTimerRunning
+                              ? "Pausar"
+                              : restTimerStarted
+                                ? "Continuar"
+                                : "Iniciar"}
+                          </span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="h-12 rounded-full"
+                          onClick={handleResetRestTimer}
+                        >
+                          Reiniciar cronómetro
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
