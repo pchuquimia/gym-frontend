@@ -5,7 +5,14 @@
     <meta http-equiv="Content-Language" content="es" />
     <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#faf8f1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,6 +27,17 @@
         const theme = stored || (prefersDark ? 'dark' : 'light');
         if (theme === 'dark') document.documentElement.classList.add('dark');
         document.documentElement.dataset.theme = theme;
+        const themeColor = theme === 'dark' ? '#090909' : '#faf8f1';
+        document.documentElement.style.backgroundColor = themeColor;
+        document
+          .querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', themeColor);
+        document
+          .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+          ?.setAttribute(
+            'content',
+            theme === 'dark' ? 'black-translucent' : 'default',
+          );
       })();
     </script>
     <title>Apex Performance</title>

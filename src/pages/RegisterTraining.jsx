@@ -6166,25 +6166,27 @@ export default function RegisterTraining({
               ) : null}
 
               {branchReady ? (
-                <ActivePlanWorkoutPlanner
-                  plan={activeTrainingPlan}
-                  routines={allRoutineOptions}
-                  trainings={trainings}
-                  loading={trainingPlanLoading || routinesLoading}
-                  error={trainingPlanError || routinesError}
-                  selectedWeek={selectedPlanWeek}
-                  currentDate={sessionDate}
-                  onRetry={() => {
-                    loadActiveTrainingPlan();
-                    reloadRoutines?.();
-                  }}
-                  onOpenPlans={() => onNavigate?.("rutinas")}
-                  onStart={handleStartPlanRoutine}
-                  onAdvance={handleAdvancePlanCycle}
-                  advancing={advancingPlanCycle}
-                  preparingRoutineId={pendingPlanRoutineId}
-                  weightKg={profile?.weight}
-                />
+                <div className="training-setup-page__planner-fullbleed">
+                  <ActivePlanWorkoutPlanner
+                    plan={activeTrainingPlan}
+                    routines={allRoutineOptions}
+                    trainings={trainings}
+                    loading={trainingPlanLoading || routinesLoading}
+                    error={trainingPlanError || routinesError}
+                    selectedWeek={selectedPlanWeek}
+                    currentDate={sessionDate}
+                    onRetry={() => {
+                      loadActiveTrainingPlan();
+                      reloadRoutines?.();
+                    }}
+                    onOpenPlans={() => onNavigate?.("rutinas")}
+                    onStart={handleStartPlanRoutine}
+                    onAdvance={handleAdvancePlanCycle}
+                    advancing={advancingPlanCycle}
+                    preparingRoutineId={pendingPlanRoutineId}
+                    weightKg={profile?.weight}
+                  />
+                </div>
               ) : null}
 
               {branchReady &&

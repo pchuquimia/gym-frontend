@@ -2,6 +2,27 @@ import { useCallback, useEffect, useState } from "react";
 
 const storageKey = "theme";
 const themeChangeEvent = "gym-theme-change";
+const systemThemeColors = {
+  light: "#faf8f1",
+  dark: "#090909",
+};
+
+const syncSystemChrome = (theme) => {
+  const themeColor = systemThemeColors[theme] || systemThemeColors.light;
+  const root = document.documentElement;
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  const appleStatusBarMeta = document.querySelector(
+    'meta[name="apple-mobile-web-app-status-bar-style"]',
+  );
+
+  themeMeta?.setAttribute("content", themeColor);
+  appleStatusBarMeta?.setAttribute(
+    "content",
+    theme === "dark" ? "black-translucent" : "default",
+  );
+  root.style.backgroundColor = themeColor;
+  if (document.body) document.body.style.backgroundColor = themeColor;
+};
 
 const getCurrentTheme = () => {
   if (typeof document === "undefined") return "light";
@@ -19,6 +40,7 @@ const applyTheme = (theme) => {
     root.classList.remove("dark");
   }
   root.dataset.theme = theme;
+  syncSystemChrome(theme);
   localStorage.setItem(storageKey, theme);
   window.dispatchEvent(new CustomEvent(themeChangeEvent, { detail: theme }));
 };

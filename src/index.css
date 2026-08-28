@@ -227,6 +227,7 @@ html {
   width: 100%;
   overflow-x: clip;
   overscroll-behavior-x: none;
+  background-color: var(--bg);
 }
 
 body {
@@ -245,6 +246,30 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+}
+
+#root {
+  min-height: 100%;
+  background-color: var(--bg);
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    position: relative;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    z-index: 70;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: var(--bg);
+    pointer-events: none;
+  }
 }
 
 @keyframes drawer-backdrop-in {
@@ -1481,8 +1506,19 @@ button,
 
 /* training-setup-refresh:start */
 @media (max-width: 639px) {
+  .mobile-app-content:has(.training-setup-page) {
+    padding-inline: 0;
+  }
+
   .training-setup-page {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
     margin-top: 0 !important;
+  }
+
+  .training-setup-page__header {
+    padding-inline: var(--mobile-page-gutter);
   }
 
   .training-setup-page__content {
@@ -1547,9 +1583,13 @@ button,
     order: 1;
     width: auto;
     max-width: none;
-    margin-inline: calc(var(--mobile-page-gutter) * -1);
+    margin-inline: 0;
     margin-top: 0;
     margin-bottom: 1.25rem;
+  }
+
+  .training-setup-page__planner-fullbleed {
+    margin-inline: 0;
   }
 
   .training-schedule__days {
@@ -1595,7 +1635,7 @@ button,
   .training-schedule__selection--hero {
     width: auto;
     max-width: none;
-    margin-inline: calc(var(--mobile-page-gutter) * -1);
+    margin-inline: 0;
     border-radius: 0 0 2rem 2rem;
     padding: 0 0 1.5rem;
   }
