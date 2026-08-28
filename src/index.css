@@ -1590,17 +1590,17 @@ button,
   }
 
   .training-schedule__selection--hero {
-    width: auto;
-    margin-inline: -1.125rem;
+    width: calc(100% + (var(--mobile-page-gutter) * 2));
+    margin-inline: calc(var(--mobile-page-gutter) * -1);
     border-radius: 0 0 2rem 2rem;
-    padding: 0 1.125rem 1.5rem;
+    padding: 0 var(--mobile-page-gutter) 1.5rem;
   }
 
   .training-schedule__hero {
     position: relative;
     display: block !important;
     height: min(92vw, 22.5rem);
-    margin-inline: -1.125rem;
+    margin-inline: calc(var(--mobile-page-gutter) * -1);
     overflow: hidden;
     background: #171512;
   }
@@ -1657,10 +1657,10 @@ button,
     position: relative;
     z-index: 4;
     justify-content: center;
-    margin: -2rem -1.125rem 0;
+    margin: -2rem calc(var(--mobile-page-gutter) * -1) 0;
     border-radius: 2rem 2rem 0 0;
     background: var(--card);
-    padding: 2.25rem 1.125rem 0;
+    padding: 2.25rem var(--mobile-page-gutter) 0;
     text-align: center;
   }
 

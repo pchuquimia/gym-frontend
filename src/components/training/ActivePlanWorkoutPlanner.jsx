@@ -10,6 +10,10 @@ import {
 import Modal from "../shared/Modal";
 import OperationLoader from "../system/OperationLoader";
 import { estimateTrainingCalories } from "../../utils/calorieEstimate";
+import {
+  estimateFullSessionDuration,
+  formatSessionDuration,
+} from "../../utils/sessionDurationEstimate";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
@@ -31,17 +35,6 @@ const shortDate = (date) =>
 
 const getRoutineExerciseCount = (routine) =>
   Number(routine?.exerciseCount ?? routine?.exercises?.length ?? 0);
-
-const getRoutineDuration = (routine) =>
-  Number(
-    routine?.estimatedDuration ??
-      routine?.raw?.estimatedDuration ??
-      routine?.raw?.durationMinutes ??
-      routine?.raw?.duration ??
-      routine?.durationMinutes ??
-      routine?.duration ??
-      0,
-  );
 
 function ProgressRing({ value }) {
   const progress = Math.min(100, Math.max(0, Math.round(value || 0)));
@@ -213,6 +206,9 @@ export default function ActivePlanWorkoutPlanner({
     const completed =
       Boolean(completedTraining) ||
       (sequential && index < currentCycleIndex && !rest);
+    const sessionDuration = routine
+      ? estimateFullSessionDuration(routine, trainings)
+      : null;
 
     return {
       day,
@@ -225,7 +221,9 @@ export default function ActivePlanWorkoutPlanner({
       completed,
       preparing: preparingRoutineId === String(day.routineId),
       exerciseCount: getRoutineExerciseCount(routine),
-      duration: getRoutineDuration(routine),
+      duration: sessionDuration?.minutes || 0,
+      durationSource: sessionDuration?.source || "estimate",
+      durationSampleSize: sessionDuration?.sampleSize || 0,
       title: rest
         ? day.type === "rest"
           ? "Descanso completo"
@@ -245,6 +243,9 @@ export default function ActivePlanWorkoutPlanner({
     Math.max(0, dayViews.length - 1),
   );
   const selectedDay = dayViews[selectedIndex] || null;
+  const selectedDurationLabel = selectedDay?.duration
+    ? formatSessionDuration(selectedDay.duration)
+    : "";
   const plannedCalories = selectedDay?.duration
     ? estimateTrainingCalories(
         { durationSeconds: selectedDay.duration * 60 },
@@ -446,8 +447,22 @@ export default function ActivePlanWorkoutPlanner({
                       <>
                         {selectedDay.duration ? (
                           <>
-                            <span className="training-schedule__duration">
-                              {selectedDay.duration} Min
+                            <span
+                              className="training-schedule__duration"
+                              title={
+                                selectedDay.durationSource === "history"
+                                  ? `Promedio total de ${selectedDay.durationSampleSize} ${selectedDay.durationSampleSize === 1 ? "sesión" : "sesiones"}, incluidos los descansos`
+                                  : "Duración total estimada, incluidos los descansos entre series"
+                              }
+                              aria-label={
+                                selectedDay.durationSource === "history"
+                                  ? `${selectedDurationLabel} en promedio por sesión, incluidos los descansos`
+                                  : `${selectedDurationLabel} estimados para la sesión completa, incluidos los descansos`
+                              }
+                            >
+                              {selectedDay.durationSource === "history"
+                                ? `${selectedDurationLabel} prom.`
+                                : `~${selectedDurationLabel} total`}
                             </span>
                             {plannedCalories ? (
                               <>
