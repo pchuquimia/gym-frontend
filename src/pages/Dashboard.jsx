@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ResponsiveBar } from "@nivo/bar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
@@ -12,7 +13,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Clock3,
   Dumbbell,
   Flame,
   Gauge,
@@ -21,6 +21,7 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  Weight,
   RotateCcw,
   X,
 } from "lucide-react";
@@ -37,7 +38,9 @@ import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
+import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import { useUserProfile } from "../context/UserContext";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 import {
   buildScopedPeriodComparison,
   getScopedExerciseKey,
@@ -45,6 +48,7 @@ import {
 } from "../utils/progressScope";
 import {
   buildExerciseCatalogIndex,
+  getCatalogExercise,
   getExerciseLoadMetrics,
   getExerciseMuscleExposure,
   getExerciseMuscleWeights,
@@ -61,17 +65,11 @@ import {
 } from "../utils/calorieEstimate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEKLY_MUSCLE_COLORS = [
-  "#352018",
-  "#a85f36",
-  "#4f725e",
-  "#65788b",
-  "#8a6575",
-  "#ad8b45",
-  "#6f675d",
-  "#94715e",
-  "#5f7772",
-];
+
+function DashboardFullscreenPortal({ children }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
+}
 
 function toValidDate(value) {
   const dateOnlyMatch =
@@ -164,6 +162,16 @@ function formatAdminPreviewDate(dateKey) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatRecoveryDate(value) {
+  const date = toValidDate(value) || new Date();
+  const formatted = new Intl.DateTimeFormat("es-BO", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 function formatDashboardDuration(seconds = 0) {
@@ -654,9 +662,44 @@ function getPerformanceChange(current, previous) {
   return {
     direction: difference > 0 ? "improvement" : "decline",
     type,
+    currentSetNumber: Math.max(1, Number(current.setIndex) + 1 || 1),
+    previousSetNumber: Math.max(1, Number(previous.setIndex) + 1 || 1),
+    previousWeight: previous.weight,
+    previousReps: previous.reps,
+    currentWeight: current.weight,
+    currentReps: current.reps,
     previousValue: `${previous.weight} kg × ${previous.reps}`,
     currentValue: `${current.weight} kg × ${current.reps}`,
   };
+}
+
+function formatPerformanceNumber(value) {
+  const number = Number(value) || 0;
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString("es-BO", { maximumFractionDigits: 1 });
+}
+
+function getImprovementGain(item = {}) {
+  const weightGain =
+    Number(item.currentWeight || 0) - Number(item.previousWeight || 0);
+  const repsGain = Number(item.currentReps || 0) - Number(item.previousReps || 0);
+
+  if (weightGain > 0) return `+${formatPerformanceNumber(weightGain)} kg`;
+  if (repsGain > 0)
+    return `+${formatPerformanceNumber(repsGain)} ${repsGain === 1 ? "rep" : "reps"}`;
+  return "Nueva marca";
+}
+
+function getDeclineLoss(item = {}) {
+  const weightLoss =
+    Number(item.previousWeight || 0) - Number(item.currentWeight || 0);
+  const repsLoss = Number(item.previousReps || 0) - Number(item.currentReps || 0);
+
+  if (weightLoss > 0) return `-${formatPerformanceNumber(weightLoss)} kg`;
+  if (repsLoss > 0)
+    return `-${formatPerformanceNumber(repsLoss)} ${repsLoss === 1 ? "rep" : "reps"}`;
+  return "Por recuperar";
 }
 
 function collectPerformanceChangesInRange(trainings, startDate, endDate) {
@@ -685,10 +728,8 @@ function collectPerformanceChangesInRange(trainings, startDate, endDate) {
           change
             ? {
                 ...current,
+                ...change,
                 changeType: change.type,
-                direction: change.direction,
-                previousValue: change.previousValue,
-                currentValue: change.currentValue,
               }
             : null,
         );
@@ -737,6 +778,12 @@ function StatCard({
       <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
         {label}
       </p>
+      {onClick ? (
+        <ChevronRight
+          className="dashboard-weekly-metric__chevron"
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
         <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
           {value}
@@ -1638,81 +1685,39 @@ function AdminDateControl({ value, actualDateKey, onChange }) {
   );
 }
 
-function RecoveryMuscleSection({ muscles, prioritizeRecovery = false }) {
+function RecoveryMuscleSection({ muscles }) {
+  const visibleMuscles = [...muscles]
+    .sort((left, right) => left.value - right.value)
+    .slice(0, 4);
+
   return (
-    <section className="mt-5">
-      <div>
-        <h3 className="text-sm font-black text-[color:var(--text)]">
-          {prioritizeRecovery
-            ? "Músculos por recuperar"
-            : "Recuperación muscular"}
-        </h3>
-        <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-          {prioritizeRecovery
-            ? "Los grupos con menor disponibilidad aparecen primero."
-            : "Disponibilidad estimada por grupo trabajado."}
-        </p>
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-3 sm:gap-x-6">
-        {muscles.length ? (
-          muscles.map((muscle) => (
-            <article
+    <section className="mt-8">
+      <h3 className="text-sm font-medium uppercase tracking-[0.01em]">
+        Estado muscular
+      </h3>
+      <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+        Los grupos que requieren más atención aparecen primero.
+      </p>
+      <div className="recovery-detail-muscles mt-3 divide-y divide-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-5">
+        {visibleMuscles.length ? (
+          visibleMuscles.map((muscle) => (
+            <div
               key={muscle.muscle}
-              className="border-t border-[color:var(--border)] py-3"
+              className="flex min-h-16 items-center justify-between gap-4 py-3"
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs font-black text-[color:var(--text)] sm:text-sm">
-                  {muscle.muscle}
-                </p>
-                <span
-                  className="text-xs font-black"
-                  style={{
-                    color:
-                      muscle.value >= 70
-                        ? "var(--accent-strong)"
-                        : muscle.value >= 55
-                          ? "var(--warning)"
-                          : "var(--danger)",
-                  }}
-                >
-                  {muscle.value}%
-                </span>
-              </div>
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${muscle.value}%`,
-                    backgroundColor:
-                      muscle.value >= 70
-                        ? "var(--accent)"
-                        : muscle.value >= 55
-                          ? "var(--warning)"
-                          : "var(--danger)",
-                  }}
-                />
-              </div>
-              <p className="mt-2 text-[10px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
-                <span className="block">
-                  {muscle.daysSinceLast === 0
-                    ? "Entrenado hoy"
-                    : muscle.daysSinceLast === 1
-                      ? "Entrenado ayer"
-                      : `${muscle.daysSinceLast} días sin entrenar`}
-                </span>
-                <span className="block">
-                  Carga: {formatSeriesCount(muscle.latestSets)} series ·
-                  habitual{" "}
-                  {muscle.typicalSets
-                    ? formatSeriesCount(muscle.typicalSets)
-                    : "--"}
-                </span>
-              </p>
-            </article>
+              <span className="text-sm font-normal">{muscle.muscle}</span>
+              <strong className="text-right text-sm font-medium">
+                {muscle.value >= 70
+                  ? "Listo"
+                  : muscle.value >= 55
+                    ? "Recuperación media"
+                    : "Necesita descanso"}
+              </strong>
+            </div>
           ))
         ) : (
-          <p className="col-span-2 border-t border-[color:var(--border)] py-4 text-sm font-semibold text-[color:var(--text-muted)]">
-            Sin grupos musculares registrados.
+          <p className="py-5 text-sm font-normal text-[color:var(--text-muted)]">
+            Aún no hay grupos musculares registrados.
           </p>
         )}
       </div>
@@ -1815,7 +1820,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
-  const [performanceModalType, setPerformanceModalType] = useState(null);
+  const [performanceDetailType, setPerformanceDetailType] = useState(null);
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
   const [weeklyLoadModalOpen, setWeeklyLoadModalOpen] = useState(false);
   const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
@@ -1825,7 +1830,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(null);
   const hasOpenModal = Boolean(
     durationModalOpen ||
-    performanceModalType ||
+    performanceDetailType ||
     recoveryModalOpen ||
     weeklyLoadModalOpen ||
     weeklySetsModalOpen ||
@@ -1878,7 +1883,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const handleKeyDown = (event) => {
       if (event.key !== "Escape") return;
       setDurationModalOpen(false);
-      setPerformanceModalType(null);
+      setPerformanceDetailType(null);
       setRecoveryModalOpen(false);
       setWeeklyLoadModalOpen(false);
       setWeeklySetsModalOpen(false);
@@ -2377,92 +2382,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       progressionDescription: comparison.description,
       progressionLabel: comparison.changeLabel,
       byPrimaryMuscle: primaryMuscleRows,
-      primaryMuscleTotal: primaryMuscleRows.reduce(
-        (sum, item) => sum + item.sets,
-        0,
-      ),
       byRoutine: Array.from(byRoutine.values()).sort((a, b) => b.sets - a.sets),
     };
   }, [catalogIndex, weekData]);
-
-  const improvementsByMuscle = useMemo(() => {
-    const groups = new Map();
-    (weekData.improvements || []).forEach((item) => {
-      const group = titleCase(item.muscleGroup || "Sin grupo");
-      const list = groups.get(group) || [];
-      list.push(item);
-      groups.set(group, list);
-    });
-    return Array.from(groups.entries()).map(([group, items]) => ({
-      group,
-      items: [...items].sort(
-        (a, b) =>
-          getDateTimestamp(b.date) - getDateTimestamp(a.date) ||
-          a.exerciseName.localeCompare(b.exerciseName),
-      ),
-    }));
-  }, [weekData.improvements]);
-
-  const declinesByMuscle = useMemo(() => {
-    const groups = new Map();
-    (weekData.declines || []).forEach((item) => {
-      const group = titleCase(item.muscleGroup || "Sin grupo");
-      const list = groups.get(group) || [];
-      list.push(item);
-      groups.set(group, list);
-    });
-    return Array.from(groups.entries()).map(([group, items]) => ({
-      group,
-      items: [...items].sort(
-        (a, b) =>
-          getDateTimestamp(b.date) - getDateTimestamp(a.date) ||
-          a.exerciseName.localeCompare(b.exerciseName),
-      ),
-    }));
-  }, [weekData.declines]);
-
-  const performanceModalConfig =
-    performanceModalType === "declines"
-      ? {
-          count: weekData.declines?.length || 0,
-          groups: declinesByMuscle,
-          tone: "red",
-          typeKey: "declineType",
-          emptyTitle: "Sin marcas por recuperar",
-          empty:
-            "Ningún ejercicio quedó por debajo de su ejecución anterior esta semana.",
-        }
-      : {
-          count: weekData.improvements?.length || 0,
-          groups: improvementsByMuscle,
-          tone: "accent",
-          typeKey: "improvementType",
-          emptyTitle: "Aún no hay nuevas marcas",
-          empty:
-            "Tu próxima sesión puede registrar la primera mejora de esta semana.",
-        };
-
-  const performanceSummary =
-    performanceModalType === "declines"
-      ? performanceModalConfig.count === 1
-        ? "1 ejercicio quedó por debajo de su marca anterior"
-        : `${performanceModalConfig.count} ejercicios quedaron por debajo de su marca anterior`
-      : performanceModalConfig.count === 1
-        ? "1 ejercicio superó su marca anterior"
-        : `${performanceModalConfig.count} ejercicios superaron su marca anterior`;
-
-  const performanceTabs = [
-    {
-      key: "improvements",
-      label: "Mejoraron",
-      count: weekData.improvements?.length || 0,
-    },
-    {
-      key: "declines",
-      label: "Por recuperar",
-      count: weekData.declines?.length || 0,
-    },
-  ];
 
   const recovery = useMemo(() => {
     const todayStart = new Date(todayKey).getTime();
@@ -2954,6 +2876,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         : recovery.muscleReadiness,
     [isPlannedRestDay, isPostWorkout, recovery.muscleReadiness],
   );
+  const recoveryPriorityMuscle = useMemo(
+    () =>
+      [...recoveryMusclesForDisplay].sort(
+        (left, right) => left.value - right.value,
+      )[0] || null,
+    [recoveryMusclesForDisplay],
+  );
   const postWorkoutPriorityMuscles = recoveryMusclesForDisplay
     .filter((muscle) => muscle.daysSinceLast === 0)
     .slice(0, 2);
@@ -3174,6 +3103,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
+  const performanceDetailIsDecline = performanceDetailType === "declines";
+  const performanceDetailItems = performanceDetailIsDecline
+    ? weekData.declines || []
+    : weekData.improvements || [];
 
   if (trainingsLoading) {
     return (
@@ -3237,10 +3170,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <button
                 type="button"
                 onClick={() => setQuickWeightOpen(true)}
-                className="dashboard-pilot__action dashboard-pilot__action--accent h-10 rounded-full bg-[#352018] px-4 text-xs font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
+                className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
                 aria-label="Registrar pesaje de hoy"
               >
-                Agregar peso
+                <Weight className="h-5 w-5 motion-safe:animate-pulse" />
+                <span
+                  aria-hidden="true"
+                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
+                />
               </button>
             ) : null}
             <button
@@ -3287,11 +3224,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <button
               type="button"
               onClick={() => setQuickWeightOpen(true)}
-              className="dashboard-pilot__action dashboard-pilot__action--accent h-10 rounded-full bg-[#352018] px-4 text-xs font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
+              className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm dark:shadow-none"
               aria-label="Registrar pesaje de hoy"
               title="Registrar pesaje de hoy"
             >
-              Agregar peso
+              <Weight className="h-5 w-5 motion-safe:animate-pulse" />
+              <span
+                aria-hidden="true"
+                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
+              />
             </button>
           ) : null}
           <ThemeToggle />
@@ -3341,7 +3282,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       </div>
 
       <div className="dashboard-weekly-grid">
-        <StatCard label="Entrenamientos" value={weekData.sessions}>
+        <StatCard
+          label="Entrenamientos"
+          value={weekData.sessions}
+          onClick={() => setDurationModalOpen(true)}
+        >
           <div className="dashboard-weekly-metric__footer">
             <span>Meta</span>
             <strong>
@@ -3349,6 +3294,19 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 ? `${weeklySessionGoal} sesiones`
                 : "Sin meta definida"}
             </strong>
+          </div>
+        </StatCard>
+        <StatCard
+          label="Calorías activas"
+          value={
+            weeklyCalories.available ? weeklyCalories.calories : "--"
+          }
+          suffix={weeklyCalories.available ? "cal" : ""}
+          onClick={() => setCaloriesModalOpen(true)}
+        >
+          <div className="dashboard-weekly-metric__footer">
+            <span>Basado en</span>
+            <strong>{formatSessionCount(weeklyCalories.sessions)}</strong>
           </div>
         </StatCard>
         <StatCard
@@ -3366,29 +3324,16 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           </div>
         </StatCard>
         <StatCard
-          label="Series completadas"
-          value={weeklySets.total}
-          onClick={() => setWeeklySetsModalOpen(true)}
+          label="Cambios registrados"
+          value={
+            Math.max(0, Number(weekData.improvements?.length) || 0) +
+            Math.max(0, Number(weekData.declines?.length) || 0)
+          }
+          onClick={() => setPerformanceDetailType("improvements")}
         >
           <div className="dashboard-weekly-metric__footer">
-            <span>Promedio</span>
-            <strong>
-              {weeklySets.sessions
-                ? `${Math.round(weeklySets.averagePerSession)} por sesión`
-                : "Sin sesiones"}
-            </strong>
-          </div>
-        </StatCard>
-        <StatCard
-          label="Mejoras registradas"
-          value={Math.max(0, Number(weekData.improvements?.length) || 0)}
-          onClick={() => setPerformanceModalType("improvements")}
-        >
-          <div className="dashboard-weekly-metric__footer">
-            <span>Revisar</span>
-            <strong>
-              {Math.max(0, Number(weekData.declines?.length) || 0)} ejercicios
-            </strong>
+            <span>{weekData.improvements?.length || 0} mejoras</span>
+            <strong>{weekData.declines?.length || 0} por recuperar</strong>
           </div>
         </StatCard>
       </div>
@@ -3398,54 +3343,37 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           id="weekly-extra-metrics"
           className="dashboard-weekly-extra grid grid-cols-2 gap-3"
         >
-          <button
-            type="button"
-            onClick={() => setCaloriesModalOpen(true)}
-            aria-label="Ver detalle de calorías activas"
-            className="dashboard-pilot__metric dashboard-weekly-metric text-left"
+          <StatCard
+            label="Series completadas"
+            value={weeklySets.total}
+            onClick={() => setWeeklySetsModalOpen(true)}
           >
-            <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
-              Calorías activas
-            </p>
-            <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
-              <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
-                {weeklyCalories.available ? `~${weeklyCalories.calories}` : "--"}
-              </span>
-              {weeklyCalories.available ? (
-                <span className="dashboard-weekly-metric__suffix pb-0.5 text-[color:var(--text-muted)]">
-                  kcal
-                </span>
-              ) : null}
-            </div>
             <div className="dashboard-weekly-metric__footer">
-              <span>Calculado con</span>
-              <strong>{formatSessionCount(weeklyCalories.sessions)}</strong>
+              <span>Promedio</span>
+              <strong>
+                {weeklySets.sessions
+                  ? `${Math.round(weeklySets.averagePerSession)} por sesión`
+                  : "Sin sesiones"}
+              </strong>
             </div>
-          </button>
-          <button
-            type="button"
+          </StatCard>
+          <StatCard
+            label="Promedio por sesión"
+            value={
+              weekData.sessions
+                ? formatActiveTrainingDuration(
+                    (durationSummary.sessionSeconds || weekData.totalSeconds) /
+                      weekData.sessions,
+                  )
+                : "--"
+            }
             onClick={() => setDurationModalOpen(true)}
-            aria-label="Ver detalle del tiempo promedio por sesión"
-            className="dashboard-pilot__metric dashboard-weekly-metric text-left"
           >
-            <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
-              Promedio por sesión
-            </p>
-            <div className="dashboard-weekly-metric__value-row mt-3 flex items-end gap-1.5">
-              <span className="dashboard-weekly-metric__value text-[color:var(--text)]">
-                {weekData.sessions
-                  ? formatActiveTrainingDuration(
-                      (durationSummary.sessionSeconds || weekData.totalSeconds) /
-                        weekData.sessions,
-                    )
-                  : "--"}
-              </span>
-            </div>
             <div className="dashboard-weekly-metric__footer">
               <span>Referencia</span>
               <strong>Incluye descansos</strong>
             </div>
-          </button>
+          </StatCard>
         </div>
       ) : null}
 
@@ -3667,17 +3595,140 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
       {recoveryModalOpen ? (
         <div
-          className="dashboard-detail-backdrop fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+          className="recovery-detail-page fixed inset-0 z-[100] overflow-y-auto bg-[color:var(--bg)] text-[color:var(--text)]"
           role="dialog"
           aria-modal="true"
           aria-label="Detalle de recuperación"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget)
-              setRecoveryModalOpen(false);
-          }}
         >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
+          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--bg)]">
+            <header className="recovery-detail-page__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--bg)] px-[var(--mobile-page-gutter)]">
+              <button
+                type="button"
+                onClick={() => setRecoveryModalOpen(false)}
+                className="grid h-11 w-11 place-items-center text-[color:var(--text)]"
+                aria-label="Volver al inicio"
+              >
+                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
+              </button>
+              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                Recuperación
+              </h2>
+              <span aria-hidden="true" />
+            </header>
+
+            <main className="recovery-detail-page__content px-[var(--mobile-page-gutter)] pb-12 pt-7">
+              <div className="text-center">
+                <p className="text-xl font-medium tracking-[-0.025em]">Hoy</p>
+                <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                  {formatRecoveryDate(now)}
+                </p>
+              </div>
+
+              <section className="recovery-detail-score mt-7 overflow-hidden bg-[color:var(--card)]">
+                <div className="px-5 pb-4 pt-5">
+                  <p className="text-sm font-normal uppercase text-[color:var(--text-muted)]">
+                    Tu recuperación
+                  </p>
+                  <div
+                    className="recovery-detail-gauge mx-auto mt-4"
+                    role="img"
+                    aria-label={`${recoveryDisplayValue}% de recuperación disponible`}
+                  >
+                    <svg
+                      viewBox="0 0 260 220"
+                      aria-hidden="true"
+                      className="h-full w-full"
+                    >
+                      <path
+                        d="M 40 190 A 100 100 0 1 1 220 190"
+                        pathLength="100"
+                        className="recovery-detail-gauge__track"
+                      />
+                      <path
+                        d="M 40 190 A 100 100 0 1 1 220 190"
+                        pathLength="100"
+                        className="recovery-detail-gauge__value"
+                        style={{
+                          strokeDasharray: `${Math.max(0, Math.min(100, recoveryDisplayValue))} 100`,
+                        }}
+                      />
+                    </svg>
+                    <div className="recovery-detail-gauge__label">
+                      <strong>{recoveryDisplayValue}%</strong>
+                      <span>{getRecoveryLabel(recoveryDisplayValue)}</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="border-t border-[color:var(--detail-row-divider)] px-5 py-4 text-sm font-normal leading-relaxed text-[color:var(--text-muted)]">
+                  {isPostWorkout
+                    ? `Ya completaste ${getRoutineName(latestCompletedToday)}. Tu cuerpo comenzó a recuperarse para la próxima sesión.`
+                    : isPlannedRestDay
+                      ? "Hoy tu plan prioriza el descanso. No necesitas añadir otro entrenamiento."
+                      : recoveryDisplayValue >= 70
+                        ? "Tienes buena disponibilidad para entrenar. Mantén la rutina recomendada y ajusta si sientes fatiga."
+                        : recoveryDisplayValue >= 55
+                          ? "Puedes entrenar, pero conviene reducir la intensidad en los músculos más cansados."
+                          : "Tu cuerpo necesita más descanso. Prioriza recuperación antes de una sesión exigente."}
+                </p>
+              </section>
+
+              <section className="recovery-detail-recommendation mt-5 flex items-center justify-between gap-5 bg-[color:var(--card)] px-5 py-5">
+                <div className="min-w-0">
+                  <h3 className="text-base font-medium">Recomendación de hoy</h3>
+                  <p className="mt-1 text-sm font-normal leading-relaxed text-[color:var(--text-muted)]">
+                    {isPlannedRestDay
+                      ? "Descansa y vuelve en tu próxima sesión planificada."
+                      : isPostWorkout
+                        ? futurePlanRoutine
+                          ? `Tu próxima rutina será ${futurePlanRoutine.name}.`
+                          : "Espera a tu próxima sesión planificada."
+                        : recovery.recommended
+                          ? `La mejor opción disponible es ${recovery.recommended.name}.`
+                          : recovery.label}
+                  </p>
+                </div>
+                <strong className="shrink-0 text-2xl font-medium tabular-nums">
+                  {recoveryDisplayValue}%
+                </strong>
+              </section>
+
+              <h3 className="mb-3 mt-8 text-sm font-medium uppercase tracking-[0.01em]">
+                Qué influye hoy
+              </h3>
+              <section className="recovery-detail-factors divide-y divide-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-5">
+                <div className="flex min-h-16 items-center justify-between gap-4 py-3">
+                  <span className="text-sm font-normal">Último entrenamiento</span>
+                  <strong className="text-right text-sm font-medium">
+                    {recovery.daysSinceLast == null
+                      ? "Sin datos"
+                      : recovery.daysSinceLast === 0
+                        ? "Hoy"
+                        : recovery.daysSinceLast === 1
+                          ? "Ayer"
+                          : `Hace ${recovery.daysSinceLast} días`}
+                  </strong>
+                </div>
+                <div className="flex min-h-16 items-center justify-between gap-4 py-3">
+                  <span className="text-sm font-normal">Trabajo esta semana</span>
+                  <strong className="text-right text-sm font-medium">
+                    {formatSeriesCount(recovery.weeklySets)} series
+                  </strong>
+                </div>
+                <div className="flex min-h-16 items-center justify-between gap-4 py-3">
+                  <span className="text-sm font-normal">Mayor atención</span>
+                  <strong className="max-w-[55%] text-right text-sm font-medium">
+                    {recoveryPriorityMuscle?.muscle || "Sin limitantes"}
+                  </strong>
+                </div>
+              </section>
+
+              <RecoveryMuscleSection
+                muscles={recoveryMusclesForDisplay}
+                prioritizeRecovery
+              />
+            </main>
+
+            <div className="hidden">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
                   {isPostWorkout
@@ -3711,7 +3762,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               </button>
             </div>
 
-            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
+            <div className="hidden max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
               {isPostWorkout ? (
                 <section className="rounded-2xl bg-[color:var(--bg)] p-4">
                   <div className="flex items-center gap-3">
@@ -4233,153 +4284,126 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       ) : null}
 
       {weeklySetsModalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Detalle de series semanales"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget)
-              setWeeklySetsModalOpen(false);
-          }}
-        >
-          <div className="dashboard-detail-sheet dashboard-weekly-work-sheet max-h-[90dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-            <header className="dashboard-detail-sheet__header flex items-center justify-between gap-4 border-b border-[color:var(--border)] px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                  Semana actual
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
-                  Trabajo semanal
-                </h2>
-              </div>
+        <DashboardFullscreenPortal>
+          <div
+            className="dashboard-sets-detail fixed inset-0 z-[100] h-[100dvh] w-screen overflow-y-auto bg-[color:var(--card)] text-[color:var(--text)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalle de series semanales"
+          >
+          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+            <header className="dashboard-sets-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
               <button
                 type="button"
                 onClick={() => setWeeklySetsModalOpen(false)}
-                className="dashboard-detail-sheet__close grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)] transition active:scale-95"
-                aria-label="Cerrar"
+                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                aria-label="Volver al inicio"
               >
-                <X className="h-5 w-5" />
+                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
               </button>
+              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                Series completadas
+              </h2>
+              <span aria-hidden="true" />
             </header>
 
-            <div className="dashboard-weekly-work-sheet__body max-h-[calc(90dvh-73px)] overflow-y-auto px-5 pb-7 pt-5">
-              <section className="dashboard-weekly-work-summary rounded-3xl bg-[color:var(--surface-subtle)] p-5">
-                <p className="text-xs font-medium text-[color:var(--text-muted)]">
-                  Series completadas
+            <main className="px-[var(--mobile-page-gutter)] pb-12 pt-8">
+              <section className="dashboard-sets-detail__summary pb-7 text-center">
+                <p className="text-sm font-normal text-[color:var(--text-muted)]">
+                  Esta semana
                 </p>
-                <p className="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+                <p className="mt-2 text-5xl font-medium tracking-[-0.045em] tabular-nums">
                   {weeklySets.total}
                 </p>
-                <p className="mt-1.5 text-sm font-normal text-[color:var(--text-muted)]">
-                  {formatSessionCount(weeklySets.sessions)} esta semana
+                <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                  {weeklySets.total === 1
+                    ? "serie completada"
+                    : "series completadas"}
                 </p>
 
-                <div className="dashboard-weekly-work-summary__metrics mt-4 grid grid-cols-2 gap-3 border-t border-[color:var(--border)] pt-4">
-                  <div>
-                    <p className="text-[11px] font-normal text-[color:var(--text-muted)]">
-                      Promedio por sesión
+                <div className="dashboard-sets-detail__summary-meta mx-auto mt-6 grid max-w-sm grid-cols-2 border-y border-[color:var(--detail-row-divider)] py-4 text-left">
+                  <div className="pr-4">
+                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                      Entrenamientos
                     </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {formatSeriesCount(weeklySets.averagePerSession)} series
+                    <p className="mt-1 text-lg font-medium tabular-nums">
+                      {weeklySets.sessions}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-[11px] font-normal text-[color:var(--text-muted)]">
-                      Completadas
+                  <div className="border-l border-[color:var(--detail-row-divider)] pl-4">
+                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                      Promedio
                     </p>
-                    <p className="mt-1 text-lg font-semibold text-[color:var(--text)]">
-                      {weeklySets.recorded
-                        ? `${weeklySets.completionRate}%`
+                    <p className="mt-1 text-lg font-medium tabular-nums">
+                      {weeklySets.sessions
+                        ? `${formatSeriesCount(weeklySets.averagePerSession)} por sesión`
                         : "—"}
                     </p>
                   </div>
                 </div>
               </section>
 
-              <section className="dashboard-weekly-work-muscles mt-5 rounded-3xl bg-[color:var(--surface-subtle)] p-5">
-                <h3 className="text-base font-semibold text-[color:var(--text)]">
+              <section className="dashboard-sets-detail__muscles border-t border-[color:var(--detail-row-divider)] pt-7">
+                <h3 className="text-lg font-medium tracking-[-0.02em]">
                   Series por grupo muscular
                 </h3>
-                <p className="mt-1 text-xs font-normal leading-5 text-[color:var(--text-muted)]">
-                  Cada serie se cuenta una vez en el músculo principal.
+                <p className="mt-1 text-sm font-normal leading-5 text-[color:var(--text-muted)]">
+                  Así se distribuyó tu trabajo de la semana.
                 </p>
 
                 {weeklySets.byPrimaryMuscle.length ? (
-                  <>
-                    <div
-                      className="dashboard-weekly-work-stack mt-5 flex h-3 overflow-hidden rounded-full bg-[color:var(--border)]"
-                      role="img"
-                      aria-label="Distribución de series por grupo muscular"
-                    >
-                      {weeklySets.byPrimaryMuscle.map((item, index) => (
-                        <span
-                          key={item.name}
-                          className="h-full"
-                          style={{
-                            width: `${weeklySets.primaryMuscleTotal ? (item.sets / weeklySets.primaryMuscleTotal) * 100 : 0}%`,
-                            backgroundColor:
-                              WEEKLY_MUSCLE_COLORS[
-                                index % WEEKLY_MUSCLE_COLORS.length
-                              ],
-                          }}
-                        />
-                      ))}
-                    </div>
+                  <div className="mt-6 space-y-5">
+                    {weeklySets.byPrimaryMuscle.map((item) => {
+                      const maxSets = weeklySets.byPrimaryMuscle[0]?.sets || 1;
+                      const width = Math.max(6, (item.sets / maxSets) * 100);
 
-                    <div className="dashboard-weekly-work-legend mt-4 grid grid-cols-2 gap-x-5 gap-y-3">
-                      {weeklySets.byPrimaryMuscle.map((item, index) => (
+                      return (
                         <div
                           key={item.name}
-                          className="flex min-w-0 items-center justify-between gap-2"
+                          className="dashboard-sets-detail__muscle-row"
                           aria-label={`${item.name}: ${item.sets} ${item.sets === 1 ? "serie" : "series"}`}
                         >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  WEEKLY_MUSCLE_COLORS[
-                                    index % WEEKLY_MUSCLE_COLORS.length
-                                  ],
-                              }}
-                            />
-                            <span className="truncate text-xs font-normal text-[color:var(--text-muted)]">
+                          <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <span className="truncate text-sm font-normal">
                               {item.name}
                             </span>
-                          </span>
-                          <strong className="shrink-0 text-sm font-semibold tabular-nums text-[color:var(--text)]">
-                            {item.sets}
-                          </strong>
+                            <strong className="shrink-0 text-sm font-medium tabular-nums">
+                              {item.sets} {item.sets === 1 ? "serie" : "series"}
+                            </strong>
+                          </div>
+                          <div className="dashboard-sets-detail__bar h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
+                            <span
+                              className="block h-full rounded-full bg-[color:var(--accent)]"
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <p className="mt-4 rounded-2xl bg-[color:var(--card)] px-4 py-5 text-sm font-normal text-[color:var(--text-muted)]">
+                  <p className="mt-5 border-y border-[color:var(--detail-row-divider)] py-5 text-sm font-normal text-[color:var(--text-muted)]">
                     Completa una serie para ver el reparto muscular.
                   </p>
                 )}
               </section>
 
-              <section className="dashboard-weekly-work-routines mt-5">
-                <div className="px-1">
-                  <h3 className="text-base font-semibold text-[color:var(--text)]">
-                    Trabajo por rutina
-                  </h3>
-                  <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
-                    Series completadas en cada entrenamiento.
-                  </p>
-                </div>
-                <div className="mt-3 divide-y divide-[color:var(--border)] overflow-hidden rounded-3xl bg-[color:var(--surface-subtle)] px-5">
+              <section className="dashboard-sets-detail__routines mt-9 border-t border-[color:var(--detail-row-divider)] pt-7">
+                <h3 className="text-lg font-medium tracking-[-0.02em]">
+                  Por entrenamiento
+                </h3>
+                <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                  Dónde completaste esas series.
+                </p>
+                <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
                   {weeklySets.byRoutine.length ? (
                     weeklySets.byRoutine.map((item) => (
                       <div
                         key={item.key}
-                        className="flex items-center justify-between gap-4 py-4"
+                        className="flex min-h-[4.5rem] items-center justify-between gap-4 py-4"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                          <p className="truncate text-sm font-medium">
                             {item.name}
                           </p>
                           <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
@@ -4389,7 +4413,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                               : ""}
                           </p>
                         </div>
-                        <p className="shrink-0 text-sm font-semibold tabular-nums text-[color:var(--text)]">
+                        <p className="shrink-0 text-sm font-medium tabular-nums">
                           {item.sets} {item.sets === 1 ? "serie" : "series"}
                         </p>
                       </div>
@@ -4401,326 +4425,267 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   )}
                 </div>
               </section>
-            </div>
+            </main>
           </div>
-        </div>
+          </div>
+        </DashboardFullscreenPortal>
       ) : null}
 
       {durationModalOpen ? (
-        <div
-          className="dashboard-detail-backdrop fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Detalle del tiempo semanal"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget)
-              setDurationModalOpen(false);
-          }}
-        >
-          <div className="dashboard-detail-sheet dashboard-duration-sheet max-h-[90dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-            <header className="dashboard-detail-sheet__header flex items-center justify-between gap-4 border-b border-[color:var(--border)] px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                  Semana actual
-                </p>
-                <h2 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
-                  Tiempo semanal
-                </h2>
-              </div>
+        <DashboardFullscreenPortal>
+          <div
+            className="dashboard-duration-detail fixed inset-0 z-[100] h-[100dvh] w-screen overflow-y-auto bg-[color:var(--card)] text-[color:var(--text)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalle del tiempo semanal"
+          >
+          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+            <header className="dashboard-duration-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
               <button
                 type="button"
                 onClick={() => setDurationModalOpen(false)}
-                className="dashboard-detail-sheet__close grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)] transition active:scale-95"
-                aria-label="Cerrar"
+                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                aria-label="Volver al inicio"
               >
-                <X className="h-5 w-5" />
+                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
               </button>
+              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                Tiempo semanal
+              </h2>
+              <span aria-hidden="true" />
             </header>
 
-            <div className="dashboard-duration-sheet__body max-h-[calc(90dvh-73px)] overflow-y-auto px-5 pb-6 pt-5">
+            <main className="px-[var(--mobile-page-gutter)] pb-8 pt-5">
               {durationRows.length ? (
-                <>
-                  <section className="dashboard-duration-summary rounded-3xl bg-[color:var(--surface-subtle)] p-5">
-                    <p className="text-xs font-medium text-[color:var(--text-muted)]">
-                      Duración total
+                <section>
+                  <div className="pb-6">
+                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                      Esta semana
                     </p>
-                    <p className="mt-2 text-4xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+                    <p className="mt-1 text-4xl font-medium tracking-[-0.04em] tabular-nums">
                       {formatSessionMinutes(durationSummary.sessionSeconds)}
                     </p>
-                    <p className="mt-1.5 text-sm font-medium text-[color:var(--text-muted)]">
-                      {formatSessionCount(durationRows.length)} esta semana
+                    <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                      Tiempo total en el gimnasio
                     </p>
-
-                    <div className="mt-4 flex items-center justify-between gap-4 border-t border-[color:var(--border)] pt-4">
-                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                        Descanso
-                      </p>
-                      <p className="text-base font-semibold text-[color:var(--text)]">
+                    <p className="mt-3 text-sm font-normal text-[color:var(--text-muted)]">
+                      <span className="text-[color:var(--text)]">
+                        {formatSessionCount(durationRows.length)}
+                      </span>
+                      <span className="mx-2 text-[color:var(--text-subtle)]">·</span>
+                      <span>
                         {durationSummary.hasRestTracking
-                          ? formatSessionMinutes(durationSummary.restSeconds)
-                          : "—"}
-                      </p>
-                    </div>
-                  </section>
-
-                  <p className="dashboard-duration-note mt-3 px-1 text-xs font-normal text-[color:var(--text-muted)]">
-                    Medido entre series y ejercicios.
-                  </p>
-                </>
-              ) : null}
-
-              {durationRows.length ? (
-                <section className="dashboard-duration-sessions mt-6">
-                  <div className="flex items-center justify-between gap-3 px-1">
-                    <h3 className="text-base font-semibold text-[color:var(--text)]">
-                      Sesiones de la semana
-                    </h3>
-                    <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                      {durationRows.length}
-                    </span>
+                          ? `${formatSessionMinutes(durationSummary.restSeconds)} de descanso`
+                          : "Descanso sin registrar"}
+                      </span>
+                    </p>
                   </div>
-                  <div className="mt-3 overflow-hidden rounded-3xl bg-[color:var(--surface-subtle)] px-4">
-                    {durationRows.map((row) => (
-                      <article
-                        key={row.id}
-                        className="dashboard-duration-session border-b border-[color:var(--border)] py-4 last:border-b-0"
-                      >
-                        <div className="flex items-center justify-between gap-4">
+
+                  <div className="border-t border-[color:var(--detail-row-divider)] pt-5">
+                    <h3 className="text-base font-medium tracking-[-0.015em]">
+                      Por entrenamiento
+                    </h3>
+                    <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)]">
+                      {durationRows.map((row) => (
+                        <article
+                          key={row.id}
+                          className="flex min-h-[4.5rem] items-center justify-between gap-4 py-3"
+                        >
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                            <p className="truncate text-sm font-medium">
                               {row.routine}
                             </p>
                             <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
                               {formatLongDate(row.date)}
+                              {row.hasRestTracking
+                                ? ` · ${formatSessionMinutes(row.restSeconds)} descanso`
+                                : ""}
                             </p>
-                            {row.hasRestTracking ? (
-                              <p className="mt-1 text-[11px] font-normal text-[color:var(--text-muted)]">
-                                {formatSessionMinutes(row.restSeconds)} de
-                                descanso
-                              </p>
-                            ) : null}
                           </div>
                           <div className="shrink-0 text-right">
-                            <strong className="text-base font-semibold text-[color:var(--text)]">
+                            <strong className="text-sm font-medium tabular-nums">
                               {formatSessionMinutes(row.sessionSeconds)}
                             </strong>
-                            <p className="mt-0.5 text-[10px] font-normal text-[color:var(--text-muted)]">
-                              duración total
-                            </p>
                           </div>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      ))}
+                    </div>
                   </div>
                 </section>
               ) : (
-                <div className="dashboard-duration-empty py-12 text-center">
-                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-                    <Clock3 className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <h3 className="mt-4 text-base font-semibold text-[color:var(--text)]">
+                <div className="border-y border-[color:var(--detail-row-divider)] py-8 text-center">
+                  <h3 className="text-base font-medium">
                     Sin tiempo registrado
                   </h3>
-                  <p className="mx-auto mt-2 max-w-[16rem] text-sm font-normal text-[color:var(--text-muted)]">
+                  <p className="mx-auto mt-1 max-w-[16rem] text-sm font-normal text-[color:var(--text-muted)]">
                     Completa una sesión para empezar tu resumen semanal.
                   </p>
                 </div>
               )}
-            </div>
+            </main>
           </div>
-        </div>
+          </div>
+        </DashboardFullscreenPortal>
       ) : null}
 
-      {performanceModalType ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Comparación semanal por ejercicio"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget)
-              setPerformanceModalType(null);
-          }}
-        >
-          <div className="max-h-[86dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-2xl sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
-                  Progreso semanal
-                </p>
-                <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                  Comparación por ejercicio
-                </h2>
-                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Tu mejor serie de esta semana frente a la ejecución anterior.
-                </p>
-              </div>
+      {performanceDetailType ? (
+        <DashboardFullscreenPortal>
+          <div
+            className="dashboard-improvements-detail fixed inset-0 z-[100] h-[100dvh] w-screen overflow-y-auto bg-[color:var(--card)] text-[color:var(--text)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Cambios de rendimiento esta semana"
+          >
+          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+            <header className="dashboard-improvements-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
               <button
                 type="button"
-                onClick={() => setPerformanceModalType(null)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                aria-label="Cerrar"
+                onClick={() => setPerformanceDetailType(null)}
+                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                aria-label="Volver al inicio"
               >
-                <X className="h-4 w-4" />
+                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
               </button>
-            </div>
+              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                Cambios registrados
+              </h2>
+              <span aria-hidden="true" />
+            </header>
 
-            <div className="max-h-[calc(86dvh-112px)] overflow-y-auto p-4">
-              <div className="sticky -top-4 z-10 -mx-4 bg-[color:var(--card)] px-4">
-                <div
-                  className="grid grid-cols-2 border-b border-[color:var(--border)]"
-                  role="group"
-                  aria-label="Resultado de la comparación"
-                >
-                  {performanceTabs.map((tab) => {
-                    const active = performanceModalType === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        aria-pressed={active}
-                        aria-controls="performance-comparison-results"
-                        onClick={() => setPerformanceModalType(tab.key)}
-                        className={`flex min-h-12 min-w-0 items-center justify-center gap-2 border-b-2 px-3 py-2 text-center transition ${
-                          active
-                            ? tab.key === "improvements"
-                              ? "border-[color:var(--accent)] text-[color:var(--text)]"
-                              : "border-[color:var(--danger)] text-[color:var(--text)]"
-                            : "border-transparent text-[color:var(--text-muted)]"
-                        }`}
-                      >
-                        <span className="truncate text-xs font-black">
-                          {tab.label}
-                        </span>
-                        <span
-                          className={`grid h-7 min-w-7 shrink-0 place-items-center rounded-full px-1.5 text-xs font-black ${
-                            active
-                              ? tab.key === "improvements"
-                                ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-                                : "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-                              : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                          }`}
-                        >
-                          {tab.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
+            <main className="px-[var(--mobile-page-gutter)] pb-8 pt-4">
               <div
-                className="flex items-start justify-between gap-4 border-b border-[color:var(--border)] py-4"
-                aria-live="polite"
+                className="grid grid-cols-2 border-b border-[color:var(--detail-row-divider)]"
+                role="group"
+                aria-label="Tipo de cambio"
               >
-                <p className="text-sm font-black text-[color:var(--text)]">
-                  {performanceSummary}
-                </p>
-                <span className="shrink-0 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  Semana actual
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setPerformanceDetailType("improvements")}
+                  aria-pressed={!performanceDetailIsDecline}
+                  className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
+                    !performanceDetailIsDecline
+                      ? "border-[color:var(--accent)] text-[color:var(--text)]"
+                      : "border-transparent text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  Mejoras {weekData.improvements?.length || 0}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPerformanceDetailType("declines")}
+                  aria-pressed={performanceDetailIsDecline}
+                  className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
+                    performanceDetailIsDecline
+                      ? "border-[color:var(--accent)] text-[color:var(--text)]"
+                      : "border-transparent text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  Por recuperar {weekData.declines?.length || 0}
+                </button>
               </div>
 
-              {performanceModalConfig.groups.length ? (
-                <div
-                  id="performance-comparison-results"
-                  className="divide-y divide-[color:var(--border)]"
-                >
-                  {performanceModalConfig.groups.map(({ group, items }) => (
-                    <section
-                      key={`${performanceModalType}-${group}`}
-                      className="py-5 first:pt-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-base font-black text-[color:var(--text)]">
-                          {group}
-                        </h3>
-                        <span className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                          {formatExerciseCount(items.length)}
-                        </span>
-                      </div>
-                      <div className="mt-1 divide-y divide-[color:var(--border)]">
-                        {items.map((item) => (
-                          <article
-                            key={`${performanceModalType}-${item.key}-${item.date}`}
-                            className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(240px,0.9fr)] sm:items-center sm:gap-5"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-[color:var(--text)]">
+              <section className="dashboard-improvements-detail__summary border-b border-[color:var(--detail-row-divider)] py-4">
+                <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                  Esta semana
+                </p>
+                <p className="mt-1 text-2xl font-medium tracking-[-0.025em] tabular-nums">
+                  {performanceDetailItems.length}{" "}
+                  {performanceDetailIsDecline
+                    ? performanceDetailItems.length === 1
+                      ? "marca por recuperar"
+                      : "marcas por recuperar"
+                    : performanceDetailItems.length === 1
+                      ? "nueva marca"
+                      : "nuevas marcas"}
+                </p>
+              </section>
+
+              {performanceDetailItems.length ? (
+                <section>
+                  <div className="divide-y divide-[color:var(--detail-row-divider)] border-b border-[color:var(--detail-row-divider)]">
+                    {performanceDetailItems.map((item) => {
+                      const catalogExercise =
+                        getCatalogExercise(
+                          {
+                            exerciseId: item.exerciseKey,
+                            exerciseName: item.exerciseName,
+                          },
+                          catalogIndex,
+                        ) || item;
+                      const imageSrc = getExerciseImageUrl(catalogExercise, {
+                        preset: "thumbnail",
+                      });
+                      const setNumber = Math.max(
+                        1,
+                        Number(item.currentSetNumber) ||
+                          Number(item.setIndex) + 1 ||
+                          1,
+                      );
+
+                      return (
+                        <article
+                          key={`${item.key}-${item.date}`}
+                          className="dashboard-improvements-detail__item flex items-center gap-3 py-3"
+                        >
+                          <ExerciseThumbnail
+                            src={imageSrc}
+                            alt={item.exerciseName}
+                            className="h-14 w-14 rounded-xl"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <p className="min-w-0 truncate text-sm font-medium">
                                 {item.exerciseName}
                               </p>
-                              <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                                {formatLongDate(item.date)}
-                              </p>
-                              <p
-                                className={`mt-2 text-[10px] font-black uppercase tracking-wide ${
-                                  performanceModalConfig.tone === "red"
-                                    ? "text-[color:var(--danger)]"
-                                    : "text-[color:var(--accent-strong)]"
-                                }`}
-                              >
-                                {item[performanceModalConfig.typeKey]}
-                              </p>
+                              <strong className="shrink-0 text-sm font-medium tabular-nums">
+                                {performanceDetailIsDecline
+                                  ? getDeclineLoss(item)
+                                  : getImprovementGain(item)}
+                              </strong>
                             </div>
                             {item.previousValue ? (
-                              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                                <div className="min-w-0 rounded-xl bg-[color:var(--bg)] p-3">
-                                  <p className="text-[9px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-                                    Anterior
-                                  </p>
-                                  <p className="mt-1 truncate text-xs font-black text-[color:var(--text)]">
-                                    {item.previousValue}
-                                  </p>
-                                </div>
-                                <ArrowRight
-                                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]"
-                                  aria-hidden="true"
-                                />
-                                <div
-                                  className={`min-w-0 rounded-xl p-3 ${
-                                    performanceModalConfig.tone === "red"
-                                      ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-                                      : "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-                                  }`}
-                                >
-                                  <p className="text-[9px] font-black uppercase tracking-wide opacity-70">
-                                    Actual
-                                  </p>
-                                  <p className="mt-1 truncate text-xs font-black">
-                                    {item.currentValue}
-                                  </p>
-                                </div>
-                              </div>
+                              <p className="mt-1.5 truncate text-xs font-normal tabular-nums text-[color:var(--text-muted)]">
+                                <span className="font-medium text-[color:var(--text)]">
+                                  Serie {setNumber}
+                                </span>
+                                <span className="mx-1.5 text-[color:var(--text-subtle)]">
+                                  ·
+                                </span>
+                                <span>{item.previousValue}</span>
+                                <span className="mx-2 text-[color:var(--text-subtle)]">
+                                  →
+                                </span>
+                                <span>{item.currentValue}</span>
+                              </p>
                             ) : (
-                              <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-                                Primer registro comparativo.
+                              <p className="mt-1.5 text-xs font-normal text-[color:var(--text-muted)]">
+                                Primer registro
                               </p>
                             )}
-                          </article>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               ) : (
-                <div
-                  id="performance-comparison-results"
-                  className="py-10 text-center"
-                >
-                  <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-                    <Check className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <h3 className="mt-4 text-base font-black text-[color:var(--text)]">
-                    {performanceModalConfig.emptyTitle}
+                <section className="mt-5 border-y border-[color:var(--detail-row-divider)] py-8 text-center">
+                  <h3 className="text-base font-medium">
+                    {performanceDetailIsDecline
+                      ? "No hay marcas por recuperar"
+                      : "Aún no hay nuevas marcas"}
                   </h3>
-                  <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-[color:var(--text-muted)]">
-                    {performanceModalConfig.empty}
+                  <p className="mx-auto mt-1 max-w-sm text-sm font-normal leading-5 text-[color:var(--text-muted)]">
+                    {performanceDetailIsDecline
+                      ? "Ningún ejercicio bajó frente a su registro anterior."
+                      : "Tus próximas mejoras aparecerán aquí."}
                   </p>
-                </div>
+                </section>
               )}
-            </div>
+            </main>
           </div>
-        </div>
+          </div>
+        </DashboardFullscreenPortal>
       ) : null}
       <QuickWeightModal
         currentWeight={profile?.weight}

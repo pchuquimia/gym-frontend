@@ -598,12 +598,12 @@ export default function SessionSummaryPage({
               label="Calorías activas"
               value={
                 calorieEstimate.available
-                  ? `~${calorieEstimate.calories} kcal`
+                  ? `${calorieEstimate.calories} cal`
                   : "--"
               }
               detail={
                 calorieEstimate.available
-                  ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} kcal · ver detalle`
+                  ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} cal · ver detalle`
                   : "sin datos suficientes"
               }
               icon={Flame}

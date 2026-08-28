@@ -42,7 +42,16 @@
   --overlay: rgba(9, 9, 9, 0.48);
 
   --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
+  --app-page-gutter: 1.25rem;
+  --app-card-radius: 1rem;
+  --app-card-gap: 0.5rem;
+  --app-card-padding: 1rem;
+  --app-metric-card-height: 7.25rem;
+  --app-metric-label-size: 0.8125rem;
+  --app-metric-value-size: 1.5rem;
+  --app-metric-footer-size: 0.75rem;
+
+  --radius-card: var(--app-card-radius);
   --radius-modal: 1rem;
   --shadow-xs: 0 1px 2px rgba(46, 34, 18, 0.04);
   --shadow-sm:
@@ -81,12 +90,12 @@
   --mobile-display-font:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
     "Helvetica Neue", Arial, sans-serif;
-  --mobile-page-gutter: 1.125rem;
-  --mobile-section-gap: 1.5rem;
-  --mobile-card-radius: 1.5rem;
+  --mobile-page-gutter: var(--app-page-gutter);
+  --mobile-section-gap: 1.25rem;
+  --mobile-card-radius: var(--app-card-radius);
   --mobile-control-radius: 0.75rem;
   --mobile-control-height: 3.25rem;
-  --mobile-header-main-height: 4.75rem;
+  --mobile-header-main-height: 5.25rem;
   --mobile-header-detail-height: 3.75rem;
   --mobile-text-caption: 0.6875rem;
   --mobile-text-xs: 0.75rem;
@@ -1148,7 +1157,7 @@ button,
   }
 
   .dashboard-pilot {
-    --dashboard-card-radius: 1.5rem;
+    --dashboard-card-radius: var(--app-card-radius);
     --dashboard-card-shadow: none;
     --dashboard-card-shadow-hover: none;
   }
@@ -1172,7 +1181,7 @@ button,
       var(--detail-module-border) 72%,
       transparent
     );
-    border-radius: 1.5rem;
+    border-radius: var(--app-card-radius);
     box-shadow: none;
   }
 
@@ -1184,7 +1193,7 @@ button,
   }
 
   .profile-reference-hero-wrap {
-    margin-inline: -1.125rem;
+    margin-inline: calc(var(--mobile-page-gutter) * -1);
   }
 
   .profile-reference-hero {
@@ -1220,7 +1229,7 @@ button,
     margin-top: 0.75rem !important;
     overflow: hidden;
     gap: 0;
-    border-radius: 1.5rem;
+    border-radius: var(--app-card-radius);
     background: var(--card);
   }
 
@@ -1406,16 +1415,16 @@ button,
 
   .dashboard-weekly-grid {
     overflow: visible;
-    gap: 0.875rem;
+    gap: var(--app-card-gap);
     background: transparent;
   }
 
   .dashboard-weekly-grid .dashboard-weekly-metric {
-    min-height: 8.25rem;
+    min-height: var(--app-metric-card-height);
     border: 0;
-    border-radius: 1.5rem !important;
+    border-radius: var(--app-card-radius) !important;
     background: var(--card);
-    padding: 1.25rem;
+    padding: var(--app-card-padding);
     box-shadow: none;
   }
 
@@ -1452,14 +1461,14 @@ button,
 
   .dashboard-weekly-extra {
     overflow: visible;
-    gap: 0.875rem;
+    gap: var(--app-card-gap);
     background: transparent;
   }
 
   .dashboard-weekly-extra > button {
-    min-height: 8.5rem;
+    min-height: var(--app-metric-card-height);
     border: 0;
-    border-radius: 1.5rem !important;
+    border-radius: var(--app-card-radius) !important;
     background: var(--card);
     box-shadow: none;
   }
@@ -1469,18 +1478,18 @@ button,
   }
 
   .dashboard-weekly-extra > button p:first-child {
-    font-size: 0.75rem !important;
-    font-weight: 500;
-    letter-spacing: 0 !important;
+    font-size: var(--app-metric-label-size) !important;
+    font-weight: 400;
+    letter-spacing: 0.005em !important;
     line-height: 1.25;
-    text-transform: none;
+    text-transform: uppercase;
   }
 
   .dashboard-recovery-card,
   .dashboard-month-card,
   .dashboard-trend-card {
     border: 0 !important;
-    border-radius: 1.5rem !important;
+    border-radius: var(--app-card-radius) !important;
     background: var(--card);
     box-shadow: none;
   }
@@ -1540,70 +1549,115 @@ button,
     font-weight: 500;
   }
 
-  .dashboard-duration-sheet,
-  .dashboard-weekly-work-sheet {
-    border: 0;
-    border-radius: 1.75rem 1.75rem 0 0 !important;
-    box-shadow: 0 -16px 48px rgba(9, 9, 9, 0.18);
-  }
-
-  .dashboard-detail-sheet__header {
-    min-height: 4.75rem;
-    border-color: var(--detail-row-divider);
-  }
-
-  .dashboard-detail-sheet__header h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-  }
-
-  .dashboard-detail-sheet__close {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-
-  .dashboard-duration-summary,
-  .dashboard-duration-sessions > div:last-child {
-    border-radius: 1.5rem;
-  }
-
-  .dashboard-duration-summary__metrics > div + div {
-    border-left: 1px solid var(--detail-row-divider);
-    padding-left: 0.75rem;
-  }
-
-  .dashboard-weekly-work-summary,
-  .dashboard-weekly-work-muscles,
-  .dashboard-weekly-work-routines > div:last-child {
-    border-radius: 1.5rem;
-  }
-
-  .dashboard-weekly-work-summary__metrics > div + div {
-    border-left: 1px solid var(--detail-row-divider);
-    padding-left: 0.75rem;
-  }
-
-  .dashboard-weekly-work-stack {
-    height: 0.75rem;
-  }
-
-  .dashboard-weekly-work-legend > div {
-    min-height: 1.5rem;
-  }
-
-  .dashboard-duration-session {
-    border-color: var(--detail-row-divider);
-  }
 }
 /* dashboard-pilot:end */
 
 /* Weekly performance cards follow the clean Progress reference on every viewport. */
+.dashboard-sets-detail {
+  font-family: var(--mobile-ui-font);
+}
+
+.dashboard-improvements-detail {
+  font-family: var(--mobile-ui-font);
+}
+
+.dashboard-duration-detail {
+  font-family: var(--mobile-ui-font);
+}
+
+.calorie-estimate-detail {
+  font-family: var(--mobile-ui-font);
+}
+
+.dashboard-sets-detail__header {
+  min-height: var(--mobile-header-detail-height);
+}
+
+.dashboard-improvements-detail__header {
+  min-height: var(--mobile-header-detail-height);
+}
+
+.dashboard-duration-detail__header {
+  min-height: var(--mobile-header-detail-height);
+}
+
+.calorie-estimate-detail__header {
+  min-height: var(--mobile-header-detail-height);
+}
+
+.dashboard-sets-detail__bar > span {
+  min-width: 0.5rem;
+  transition: width 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.recovery-detail-page {
+  font-family: var(--mobile-ui-font);
+}
+
+.recovery-detail-page__header {
+  min-height: var(--mobile-header-detail-height);
+}
+
+.recovery-detail-score,
+.recovery-detail-recommendation,
+.recovery-detail-factors,
+.recovery-detail-muscles {
+  border-radius: var(--app-card-radius);
+}
+
+.recovery-detail-gauge {
+  position: relative;
+  width: min(100%, 17rem);
+  aspect-ratio: 260 / 220;
+}
+
+.recovery-detail-gauge__track,
+.recovery-detail-gauge__value {
+  fill: none;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+
+.recovery-detail-gauge__track {
+  stroke: var(--surface-subtle);
+}
+
+.recovery-detail-gauge__value {
+  stroke: var(--accent);
+  transition: stroke-dasharray 420ms ease;
+}
+
+.recovery-detail-gauge__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2.5rem;
+  text-align: center;
+}
+
+.recovery-detail-gauge__label strong {
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.recovery-detail-gauge__label span {
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.125rem;
+}
+
 .dashboard-weekly-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.875rem !important;
+  gap: var(--app-card-gap) !important;
   overflow: visible;
   background: transparent;
 }
@@ -1611,115 +1665,96 @@ button,
 .dashboard-weekly-grid .dashboard-weekly-metric,
 .dashboard-weekly-extra .dashboard-weekly-metric {
   display: flex;
-  min-height: 8.5rem;
+  min-height: var(--app-metric-card-height);
   flex-direction: column;
   justify-content: flex-start;
   border: 0 !important;
-  border-radius: 1rem !important;
+  border-radius: var(--app-card-radius) !important;
   background: var(--card) !important;
-  padding: 1rem !important;
+  padding: var(--app-card-padding) !important;
   box-shadow: none !important;
 }
 
 .dashboard-weekly-metric__label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.25rem;
-  letter-spacing: 0;
-  text-transform: none;
+  padding-right: 1.5rem;
+  font-size: var(--app-metric-label-size);
+  font-weight: 400;
+  line-height: 1rem;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+}
+
+.dashboard-weekly-metric__value-row {
+  margin-top: 0.25rem !important;
+}
+
+.dashboard-weekly-metric__chevron {
+  position: absolute;
+  top: var(--app-card-padding);
+  right: var(--app-card-padding);
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--text-subtle);
+  stroke-width: 2.25;
 }
 
 .dashboard-weekly-metric__value {
-  font-size: 2rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: var(--app-metric-value-size);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
 }
 
 .dashboard-weekly-metric__suffix {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--app-metric-label-size);
+  font-weight: 400;
 }
 
 .dashboard-weekly-metric__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: auto -1rem -1rem;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  margin: auto calc(var(--app-card-padding) * -1)
+    calc(var(--app-card-padding) * -1);
   border-top: 1px solid var(--detail-row-divider);
-  padding: 0.75rem 1rem;
+  padding: 0.5rem var(--app-card-padding);
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--app-metric-footer-size);
+  font-weight: 400;
 }
 
 .dashboard-weekly-metric__footer strong {
-  color: var(--text);
-  font-weight: 600;
+  color: inherit;
+  font-weight: 400;
   white-space: nowrap;
 }
 
 @media (min-width: 640px) {
   .dashboard-weekly-grid {
-    gap: 1rem !important;
+    gap: 0.75rem !important;
   }
 
   .dashboard-weekly-grid .dashboard-weekly-metric,
   .dashboard-weekly-extra .dashboard-weekly-metric {
-    min-height: 9rem;
-    border-radius: 1.25rem !important;
+    min-height: 8rem;
+    border-radius: var(--app-card-radius) !important;
     padding: 1.25rem !important;
   }
 
   .dashboard-weekly-metric__value {
-    font-size: 2.5rem;
+    font-size: var(--app-metric-value-size);
+  }
+
+  .dashboard-weekly-metric__chevron {
+    top: 1.25rem;
+    right: 1.25rem;
   }
 
   .dashboard-weekly-metric__footer {
     margin: auto -1.25rem -1.25rem;
-    padding: 0.875rem 1.25rem;
-  }
-}
-
-@keyframes dashboard-detail-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dashboard-detail-sheet-in {
-  from {
-    transform: translateY(2rem);
-    opacity: 0.82;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.dashboard-detail-backdrop {
-  animation: dashboard-detail-backdrop-in 180ms ease-out both;
-}
-
-.dashboard-detail-sheet {
-  animation: dashboard-detail-sheet-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@media (min-width: 640px) {
-  @keyframes dashboard-detail-sheet-in {
-    from {
-      transform: translateY(0.75rem) scale(0.985);
-      opacity: 0.82;
-    }
-    to {
-      transform: translateY(0) scale(1);
-      opacity: 1;
-    }
+    padding: 0.75rem 1.25rem;
   }
 }
 
@@ -2707,7 +2742,7 @@ button,
   .mobile-page-header--main {
     min-height: var(--mobile-header-main-height);
     gap: 1rem;
-    padding-top: 0.5rem;
+    padding-top: 1rem;
     padding-bottom: 0.875rem;
   }
 

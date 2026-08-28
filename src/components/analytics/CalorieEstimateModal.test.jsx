@@ -32,8 +32,8 @@ describe("CalorieEstimateModal", () => {
     expect(
       screen.getByRole("dialog", { name: "Calorías activas" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("~420")).toBeInTheDocument();
-    expect(screen.getByText(/344–496 kcal/)).toBeInTheDocument();
+    expect(screen.getByText("420")).toBeInTheDocument();
+    expect(screen.getByText(/344–496 cal/)).toBeInTheDocument();
     expect(
       screen.getByText(/trabajo efectivo y los descansos registrados/i),
     ).toBeInTheDocument();

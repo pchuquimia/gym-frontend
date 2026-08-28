@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
-import { Clock3, Flame, Gauge, Info, Scale, X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 const formatDate = (value) => {
   if (!value) return "Sesión registrada";
@@ -45,187 +45,106 @@ export default function CalorieEstimateModal({
 
   if (!open || typeof document === "undefined") return null;
 
-  const weight = estimates.find((item) => item?.weightKg)?.weightKg || 0;
-  const intensity =
-    estimates.length === 1
-      ? estimates[0]?.intensityLabel
-      : summary?.met >= 5.35
-        ? "Alta"
-        : summary?.met >= 4.25
-          ? "Media-alta"
-          : "Moderada";
-
   return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-end bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      className="calorie-estimate-detail fixed inset-0 z-[110] overflow-y-auto bg-[color:var(--card)] text-[color:var(--text)]"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="calorie-estimate-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      aria-label="Calorías activas"
     >
-      <section className="max-h-[90dvh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-xl sm:rounded-3xl">
-        <header className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
-              {periodLabel}
-            </p>
-            <h2
-              id="calorie-estimate-title"
-              className="mt-1 text-xl font-black text-[color:var(--text)]"
-            >
-              Calorías activas
-            </h2>
-            <p className="mt-1 max-w-md text-xs font-semibold leading-relaxed text-[color:var(--text-muted)]">
-              Estimación del trabajo efectivo y los descansos registrados.
-            </p>
-          </div>
+      <section className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+        <header className="calorie-estimate-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+            className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
             aria-label="Cerrar detalle de calorías activas"
           >
-            <X className="h-4 w-4" />
+            <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
           </button>
+          <h2
+            id="calorie-estimate-title"
+            className="text-center text-lg font-medium tracking-[-0.025em]"
+          >
+              Calorías activas
+          </h2>
+          <span aria-hidden="true" />
         </header>
 
-        <div className="max-h-[calc(90dvh-112px)] overflow-y-auto p-4 sm:p-5">
-          <section className="border-b border-[color:var(--border)] pb-5">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Total estimado
-                </p>
-                <p className="mt-1 text-4xl font-black tracking-tight text-[color:var(--text)]">
-                  ~{summary?.calories || 0}{" "}
-                  <span className="text-lg">kcal</span>
-                </p>
-                <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">
-                  Rango probable: {summary?.minCalories || 0}–
-                  {summary?.maxCalories || 0} kcal
-                </p>
-              </div>
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--accent-strong)] dark:rounded-[4px]">
-                <Flame className="h-5 w-5" />
-              </span>
-            </div>
+        <main className="px-[var(--mobile-page-gutter)] pb-8 pt-5">
+          <section className="border-b border-[color:var(--detail-row-divider)] pb-5">
+            <p className="text-xs font-normal text-[color:var(--text-muted)]">
+              {periodLabel}
+            </p>
+            <p className="mt-1 text-4xl font-medium tracking-[-0.04em] tabular-nums">
+              {summary?.calories || 0}{" "}
+              <span className="text-lg font-normal">cal</span>
+            </p>
+            <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+              Rango estimado: {summary?.minCalories || 0}–
+              {summary?.maxCalories || 0} cal
+            </p>
           </section>
 
-          <section className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] border-y border-[color:var(--border)] py-4">
-            <div className="px-2 first:pl-0">
-              <Clock3 className="h-4 w-4 text-[color:var(--accent-strong)]" />
-              <p className="mt-2 text-sm font-black text-[color:var(--text)]">
-                {formatDuration(summary?.durationMinutes)}
+          <section className="grid grid-cols-2 border-b border-[color:var(--detail-row-divider)] py-4">
+            <div className="pr-4">
+              <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                Tiempo
               </p>
-              <p className="mt-0.5 text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
-                Tiempo calculado
-              </p>
-            </div>
-            <div className="px-3">
-              <Scale className="h-4 w-4 text-[color:var(--accent-strong)]" />
-              <p className="mt-2 text-sm font-black text-[color:var(--text)]">
-                {weight ? `${weight} kg` : "Referencia"}
-              </p>
-              <p className="mt-0.5 text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
-                Peso usado
+              <p className="mt-1 text-lg font-medium tabular-nums">
+                {formatDuration(summary?.durationMinutes || 0)}
               </p>
             </div>
-            <div className="px-3 pr-0">
-              <Gauge className="h-4 w-4 text-[color:var(--accent-strong)]" />
-              <p className="mt-2 text-sm font-black text-[color:var(--text)]">
-                {intensity || "Moderada"}
+            <div className="border-l border-[color:var(--detail-row-divider)] pl-4">
+              <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                Entrenamientos
               </p>
-              <p className="mt-0.5 text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
-                Intensidad
+              <p className="mt-1 text-lg font-medium tabular-nums">
+                {estimates.length}
               </p>
             </div>
           </section>
 
           {estimates.length ? (
-            <section className="mt-5">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-black text-[color:var(--text)]">
-                    {estimates.length > 1
-                      ? "Por entrenamiento"
-                      : "Datos de la sesión"}
-                  </h3>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    El descanso se calcula con una intensidad menor que las
-                    series.
-                  </p>
-                </div>
-                <span className="text-[10px] font-black text-[color:var(--accent-strong)]">
-                  {summary?.completedSets || 0} series
-                </span>
-              </div>
-              <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            <section className="pt-5">
+              <h3 className="text-base font-medium tracking-[-0.015em]">
+                {estimates.length > 1 ? "Por entrenamiento" : "Entrenamiento"}
+              </h3>
+              <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
                 {estimates.map((item, index) => (
                   <article
                     key={item.id || `${item.date}-${index}`}
-                    className="flex items-center justify-between gap-3 py-3"
+                    className="flex min-h-16 items-center justify-between gap-4 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[color:var(--text)]">
+                      <p className="truncate text-sm font-medium">
                         {item.routineName || "Entrenamiento"}
                       </p>
-                      <p className="mt-0.5 text-[10px] font-semibold capitalize text-[color:var(--text-muted)]">
-                        {formatDate(item.date)} ·{" "}
-                        {formatDuration(item.durationMinutes)} ·{" "}
-                        {item.intensityLabel}
+                      <p className="mt-1 text-xs font-normal capitalize text-[color:var(--text-muted)]">
+                        {formatDate(item.date)} · {formatDuration(item.durationMinutes)}
                       </p>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-black text-[color:var(--accent-strong)]">
-                        ~{item.calories} kcal
-                      </p>
-                      <p className="text-[9px] font-semibold text-[color:var(--text-muted)]">
-                        {item.minCalories}–{item.maxCalories}
-                      </p>
-                    </div>
+                    <strong className="shrink-0 text-sm font-medium tabular-nums">
+                      {item.calories} cal
+                    </strong>
                   </article>
                 ))}
               </div>
             </section>
           ) : null}
 
-          <section className="mt-5 border-l-2 border-[color:var(--accent)] pl-3">
-            <div className="flex items-start gap-3">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--accent-strong)]" />
-              <div>
-                <h3 className="text-xs font-black text-[color:var(--text)]">
-                  Cómo se obtiene
-                </h3>
-                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
-                  Las series se calculan como trabajo de fuerza y los descansos
-                  con una intensidad ligera. Se descuenta el gasto basal y no
-                  se cuentan la preparación, el tiempo sin clasificar ni las
-                  pausas manuales.
-                </p>
-                {summary?.usesReferenceWeight ? (
-                  <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
-                    No encontramos tu peso: se usó una referencia de 75 kg.
-                    Registra tu peso para personalizarlo.
-                  </p>
-                ) : null}
-                {summary?.durationWasEstimated ? (
-                  <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
-                    Una sesión no tenía duración registrada; se estimó a partir
-                    de sus series completadas.
-                  </p>
-                ) : null}
-                {summary?.breakdownWasEstimated ? (
-                  <p className="mt-2 text-[10px] font-black text-[color:var(--warning)]">
-                    En alguna sesión el trabajo efectivo se normalizó a partir
-                    de sus series completadas.
-                  </p>
-                ) : null}
-              </div>
-            </div>
+          <section className="mt-5 border-t border-[color:var(--detail-row-divider)] pt-4">
+            <p className="text-xs font-normal leading-5 text-[color:var(--text-muted)]">
+              Estimación basada en tu trabajo efectivo y los descansos
+              registrados.
+            </p>
+            {summary?.usesReferenceWeight ? (
+              <p className="mt-2 text-xs font-medium text-[color:var(--warning)]">
+                Registra tu peso para obtener un cálculo más personalizado.
+              </p>
+            ) : null}
           </section>
-        </div>
+        </main>
       </section>
     </div>,
     document.body,
