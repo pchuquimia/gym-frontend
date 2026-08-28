@@ -17,6 +17,22 @@ import {
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
+const ROUTINE_HERO_IMAGES = Object.freeze({
+  "lower a": "/images/routine-lower-a.webp",
+  upper: "/images/routine-upper.webp",
+  "lower b": WORKOUT_HERO_IMAGE,
+  push: "/images/routine-push.webp",
+  pull: "/images/routine-pull.webp",
+});
+
+const getRoutineHeroImage = (routine) => {
+  const routineName = String(routine?.name || routine?.raw?.name || "")
+    .trim()
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ");
+
+  return ROUTINE_HERO_IMAGES[routineName] || WORKOUT_HERO_IMAGE;
+};
 
 const getPlanDayDate = (plan, weekIndex, dayIndex) => {
   const date = new Date(plan.startDate);
@@ -224,6 +240,7 @@ export default function ActivePlanWorkoutPlanner({
       duration: sessionDuration?.minutes || 0,
       durationSource: sessionDuration?.source || "estimate",
       durationSampleSize: sessionDuration?.sampleSize || 0,
+      heroImage: routine ? getRoutineHeroImage(routine) : "",
       title: rest
         ? day.type === "rest"
           ? "Descanso completo"
@@ -366,12 +383,15 @@ export default function ActivePlanWorkoutPlanner({
               }`}
             >
               {selectedDay.routine ? (
-                <div className="training-schedule__hero hidden" aria-hidden="true">
+                <div
+                  className="training-schedule__hero hidden"
+                  aria-hidden="true"
+                >
                   <div className="training-schedule__hero-fallback">
                     <Dumbbell className="h-12 w-12" />
                   </div>
                   <img
-                    src={WORKOUT_HERO_IMAGE}
+                    src={selectedDay.heroImage}
                     alt=""
                     loading="eager"
                     decoding="async"
@@ -461,7 +481,7 @@ export default function ActivePlanWorkoutPlanner({
                               }
                             >
                               {selectedDay.durationSource === "history"
-                                ? `${selectedDurationLabel} prom.`
+                                ? `${selectedDurationLabel} `
                                 : `~${selectedDurationLabel} total`}
                             </span>
                             {plannedCalories ? (

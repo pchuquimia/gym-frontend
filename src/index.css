@@ -1545,6 +1545,9 @@ button,
 
   .training-schedule__days-wrap {
     order: 1;
+    width: auto;
+    max-width: none;
+    margin-inline: calc(var(--mobile-page-gutter) * -1);
     margin-top: 0;
     margin-bottom: 1.25rem;
   }
@@ -1590,17 +1593,18 @@ button,
   }
 
   .training-schedule__selection--hero {
-    width: calc(100% + (var(--mobile-page-gutter) * 2));
+    width: auto;
+    max-width: none;
     margin-inline: calc(var(--mobile-page-gutter) * -1);
     border-radius: 0 0 2rem 2rem;
-    padding: 0 var(--mobile-page-gutter) 1.5rem;
+    padding: 0 0 1.5rem;
   }
 
   .training-schedule__hero {
     position: relative;
     display: block !important;
     height: min(92vw, 22.5rem);
-    margin-inline: calc(var(--mobile-page-gutter) * -1);
+    margin-inline: 0;
     overflow: hidden;
     background: #171512;
   }
@@ -1616,6 +1620,7 @@ button,
 
   .training-schedule__hero img {
     z-index: 1;
+    display: block;
     object-fit: cover;
     object-position: center;
   }
@@ -1657,7 +1662,7 @@ button,
     position: relative;
     z-index: 4;
     justify-content: center;
-    margin: -2rem calc(var(--mobile-page-gutter) * -1) 0;
+    margin: -2rem 0 0;
     border-radius: 2rem 2rem 0 0;
     background: var(--card);
     padding: 2.25rem var(--mobile-page-gutter) 0;
