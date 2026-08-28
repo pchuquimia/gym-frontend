@@ -331,7 +331,7 @@ export default function ExerciseCard({
   return (
     <motion.div
       data-exercise-id={exercise.id}
-      className={`relative w-full max-w-full overflow-hidden transition-shadow ${
+      className={`training-exercise-card relative w-full max-w-full overflow-hidden transition-shadow ${
         isHoldingExercise
           ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45"
           : ""
@@ -374,18 +374,18 @@ export default function ExerciseCard({
         ) : null}
       </AnimatePresence>
       <Card
-        className={`overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
+        className={`training-exercise-card__surface overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
           exercise.isActive && !isComplete
             ? "border-[#352018]/65 shadow-[0_8px_24px_rgba(53,32,24,0.12)] dark:border-[#e2ff00]/55 dark:shadow-[0_8px_26px_rgba(226,255,0,0.08)]"
             : "border-[color:var(--border)] shadow-lg"
         }`}
       >
-        <div className="relative z-30 flex items-center gap-2 p-3 transition-colors hover:bg-[color:var(--bg)]/40 sm:p-4">
+        <div className="training-exercise-card__summary relative z-30 flex items-center gap-2 p-3 transition-colors hover:bg-[color:var(--bg)]/40 sm:p-4">
           <button
             type="button"
             onClick={handleOpenDetails}
             onPointerDown={(event) => event.stopPropagation()}
-            className="group relative h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#352018] sm:h-24 sm:w-[92px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
+            className="training-exercise-card__thumbnail group relative h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] focus:outline-none focus:ring-2 focus:ring-[#352018] sm:h-24 sm:w-[92px] dark:rounded-[3px] dark:focus:ring-[#e2ff00]"
             aria-label={`Ver técnica de ${exercise.name}`}
             title="Ver técnica"
           >
@@ -411,7 +411,7 @@ export default function ExerciseCard({
           >
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-lg font-bold leading-tight text-[color:var(--text)]">
+                <p className="training-exercise-card__title truncate text-lg font-bold leading-tight text-[color:var(--text)]">
                   {exercise.name}
                 </p>
                 {exercise.isActive && !isComplete && (
@@ -446,7 +446,7 @@ export default function ExerciseCard({
                   </span>
                 )}
               </div>
-              <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
+              <p className="training-exercise-card__meta mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
                 {referenceDateLabel
                   ? `Última vez: ${referenceDateLabel}${
                       exercise.referenceSourceText
@@ -623,7 +623,7 @@ export default function ExerciseCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.18 }}
-              className="flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
+              className="training-exercise-card__expanded flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
               <AnimatePresence initial={false}>
                 {showOptions && (
@@ -709,8 +709,8 @@ export default function ExerciseCard({
                 )}
               </AnimatePresence>
 
-              <div className="order-1 space-y-2 px-2 py-3 sm:px-3">
-                <div className="space-y-2">
+              <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
+                <div className="training-exercise-card__set-list space-y-2">
                   <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
                       <SetRow
@@ -740,7 +740,7 @@ export default function ExerciseCard({
                   <motion.div whileTap={{ scale: 0.97 }}>
                     <Button
                       variant="outline"
-                      className="w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
+                      className="training-exercise-card__add-set w-full rounded-xl border-dashed border-[color:var(--border)] text-[color:var(--text)]"
                       onClick={onAddSet}
                     >
                       + Agregar serie

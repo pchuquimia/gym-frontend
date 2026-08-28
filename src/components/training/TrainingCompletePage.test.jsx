@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import TrainingCompleteModal from "./TrainingCompleteModal";
+import TrainingCompletePage from "./TrainingCompletePage";
 
 const renderModal = (overrides = {}) => {
   const props = {
@@ -20,16 +20,16 @@ const renderModal = (overrides = {}) => {
     onDismiss: vi.fn(),
     ...overrides,
   };
-  const result = render(<TrainingCompleteModal {...props} />);
+  const result = render(<TrainingCompletePage {...props} />);
   return { ...result, props };
 };
 
-describe("TrainingCompleteModal", () => {
+describe("TrainingCompletePage", () => {
   it("muestra el cierre de la rutina y permite guardarla", () => {
     const { props } = renderModal();
 
     expect(
-      screen.getByRole("dialog", { name: "Rutina completada" }),
+      screen.getByRole("heading", { name: "Rutina completada" }),
     ).toBeInTheDocument();
     expect(screen.getByText("5/5")).toBeInTheDocument();
     expect(screen.getByText("16")).toBeInTheDocument();
@@ -43,11 +43,11 @@ describe("TrainingCompleteModal", () => {
     expect(props.onFinish).toHaveBeenCalledOnce();
   });
 
-  it("vuelve al entrenamiento al pulsar fuera del contenido", () => {
+  it("vuelve al entrenamiento desde la acción secundaria", () => {
     const { props } = renderModal();
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Volver al entrenamiento" })[0],
+      screen.getByRole("button", { name: "Volver al entrenamiento" }),
     );
     expect(props.onDismiss).toHaveBeenCalledOnce();
   });

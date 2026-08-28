@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Activity,
-  AlertTriangle,
   ArrowLeft,
   Dumbbell,
   MapPin,
@@ -195,6 +194,7 @@ export default function DetailModal({
   const secondaryMuscles = toArray(exercise.secondaryMuscles);
   const stabilizerMuscles = toArray(exercise.stabilizerMuscles);
   const precautions = toArray(exercise.precautions);
+  const commonMistakes = toArray(exercise.commonMistakes);
   const aliases = toArray(exercise.aliases);
   const alternateName = [
     exercise.nameSpanish,
@@ -264,37 +264,7 @@ export default function DetailModal({
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
         >
-          <div className="px-4 pb-4 pt-5 sm:px-6">
-            {isPersonal ? (
-              <div className="mb-4 flex items-center gap-2 border-l-4 border-l-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-xs font-black uppercase text-[color:var(--accent-contrast)]">
-                <UserRound className="h-4 w-4" />
-                Ejercicio personal
-              </div>
-            ) : null}
-            {alternateName ? (
-              <p className="text-xs font-semibold uppercase text-[color:var(--text-muted)]">
-                {alternateName}
-              </p>
-            ) : null}
-            <h2
-              id="exercise-detail-title"
-              className="mt-1 break-words font-condensed text-3xl font-black uppercase leading-[0.95] text-[color:var(--text)] sm:text-4xl"
-            >
-              {capitalizeName(exercise.name)}
-            </h2>
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {headerTags.map((tag, index) => (
-                <TaxonomyTag
-                  key={`${tag}-${index}`}
-                  accent={index === headerTags.length - 1}
-                >
-                  {tag}
-                </TaxonomyTag>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative border-y border-[color:var(--border)] bg-black/5 dark:bg-black/30">
+          <div className="exercise-detail-editorial__media relative bg-black/5 dark:bg-black/30">
             {showAnimation && animationUrl ? (
               <img
                 src={animationUrl}
@@ -308,7 +278,7 @@ export default function DetailModal({
                 className="aspect-video w-full object-cover"
               />
             ) : (
-              <div className="grid aspect-video place-items-center font-condensed text-sm font-bold uppercase text-[color:var(--text-muted)]">
+              <div className="grid aspect-video place-items-center text-sm font-semibold text-[color:var(--text-muted)]">
                 Sin imagen disponible
               </div>
             )}
@@ -329,6 +299,112 @@ export default function DetailModal({
                   <Play className="ml-0.5 h-7 w-7" />
                 )}
               </button>
+            ) : null}
+          </div>
+
+          <div className="exercise-detail-editorial">
+            {isPersonal ? (
+              <div className="exercise-detail-editorial__personal hidden items-center gap-2 sm:flex">
+                <UserRound className="h-4 w-4" />
+                Ejercicio personal
+              </div>
+            ) : null}
+            {alternateName ? (
+              <p className="exercise-detail-editorial__alternate hidden sm:block">
+                {alternateName}
+              </p>
+            ) : null}
+            <h2
+              id="exercise-detail-title"
+              className="exercise-detail-editorial__title"
+            >
+              {capitalizeName(exercise.name)}
+            </h2>
+            <div className="exercise-detail-editorial__tags hidden flex-wrap gap-1.5 sm:flex">
+              {headerTags.map((tag, index) => (
+                <TaxonomyTag
+                  key={`${tag}-${index}`}
+                  accent={index === headerTags.length - 1}
+                >
+                  {tag}
+                </TaxonomyTag>
+              ))}
+            </div>
+
+            {exercise.description ? (
+              <p className="exercise-detail-editorial__intro whitespace-pre-line">
+                {exercise.description}
+              </p>
+            ) : null}
+
+            <section className="exercise-detail-editorial__section">
+              <h3 className="exercise-detail-editorial__heading">
+                Cómo realizarlo:
+              </h3>
+              {instructions.length ? (
+                <ol className="exercise-detail-editorial__list">
+                  {instructions.map((instruction, index) => (
+                    <li key={`${index}-${instruction}`}>
+                      <span className="exercise-detail-editorial__marker">
+                        {index + 1}.
+                      </span>
+                      <p>{instruction}</p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="exercise-detail-editorial__copy">
+                  Este ejercicio todavía no tiene instrucciones cargadas.
+                </p>
+              )}
+            </section>
+
+            {commonMistakes.length ? (
+              <section className="exercise-detail-editorial__section">
+                <h3 className="exercise-detail-editorial__heading">
+                  Errores comunes:
+                </h3>
+                <ul className="exercise-detail-editorial__list">
+                  {commonMistakes.map((mistake) => (
+                    <li key={mistake}>
+                      <span
+                        className="exercise-detail-editorial__marker"
+                        aria-hidden="true"
+                      >
+                        •
+                      </span>
+                      <p>{mistake}</p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {precautions.length ? (
+              <section className="exercise-detail-editorial__section">
+                <h3 className="exercise-detail-editorial__heading">
+                  Consejos:
+                </h3>
+                {precautions.length === 1 ? (
+                  <p className="exercise-detail-editorial__copy">
+                    {precautions[0]}
+                  </p>
+                ) : (
+                  <ul className="exercise-detail-editorial__list">
+                    {precautions.map((precaution) => (
+                      <li key={precaution}>
+                        <span
+                          className="exercise-detail-editorial__marker"
+                          aria-hidden="true"
+                        >
+                          •
+                        </span>
+                        <p>{precaution}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             ) : null}
           </div>
 
@@ -397,49 +473,6 @@ export default function DetailModal({
                   </div>
                 </div>
               ) : null}
-            </section>
-          ) : null}
-
-          <section className="mt-4 border-y border-[color:var(--border)] px-4 py-5 sm:px-6">
-            <SectionHeading icon={Activity}>Ejecución</SectionHeading>
-            {instructions.length ? (
-              <ol className="mt-5">
-                {instructions.map((instruction, index) => (
-                  <li
-                    key={`${index}-${instruction}`}
-                    className="relative flex gap-3 pb-5 last:pb-0"
-                  >
-                    {index < instructions.length - 1 ? (
-                      <span className="absolute bottom-0 left-[11px] top-6 w-px bg-[color:var(--border)]" />
-                    ) : null}
-                    <span className="relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#1a1a1a] font-condensed text-xs font-black text-white dark:bg-[#e2ff00] dark:text-black">
-                      {index + 1}
-                    </span>
-                    <p className="pt-0.5 text-sm leading-6 text-[color:var(--text-muted)]">
-                      {instruction}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            ) : exercise.description ? (
-              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-[color:var(--text-muted)]">
-                {exercise.description}
-              </p>
-            ) : (
-              <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-                Este ejercicio todavía no tiene instrucciones cargadas.
-              </p>
-            )}
-          </section>
-
-          {precautions.length ? (
-            <section className="mt-4 border-l-4 border-l-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-5 text-[color:var(--accent-contrast)] sm:px-6">
-              <SectionHeading icon={AlertTriangle} contrast>
-                Consejo técnico
-              </SectionHeading>
-              <p className="mt-3 text-sm leading-6 text-current/80">
-                {formatList(precautions)}
-              </p>
             </section>
           ) : null}
 

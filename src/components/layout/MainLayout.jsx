@@ -32,6 +32,10 @@ function MainLayout({
   const useDashboardChrome = activePage === "dashboard";
   const useDashboardBackground =
     useDashboardChrome ||
+    activePage === "registrar" ||
+    activePage === "rutinas" ||
+    activePage === "library" ||
+    activePage === "trainer" ||
     activePage === "perfil" ||
     activePage === "fotos" ||
     activePage === "admin_sesiones" ||
@@ -151,6 +155,22 @@ function MainLayout({
   };
 
   const showReturnTraining = activePage !== "registrar" && activeTraining;
+  const hideMobileNavDuringTraining = Boolean(
+    useTrainingChrome && activeTraining,
+  );
+  const hideMobileNav = hideMobileNavDuringTraining || useProfileChrome;
+  const mobileContentSpacing =
+    useDashboardChrome ||
+    useLibraryChrome ||
+    useRoutinesChrome
+      ? "max-md:pb-28 max-md:pt-0"
+      : useProfileChrome
+        ? "max-md:pb-4 max-md:pt-0"
+        : useTrainingChrome
+          ? hideMobileNavDuringTraining
+            ? "max-md:pb-4 max-md:pt-0"
+            : "max-md:pb-28 max-md:pt-0"
+          : "max-md:pb-28";
 
   return (
     <div
@@ -197,15 +217,7 @@ function MainLayout({
           </div>
         ) : null}
         <div
-          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${
-            useDashboardChrome ||
-            useProfileChrome ||
-            useLibraryChrome ||
-            useRoutinesChrome ||
-            useTrainingChrome
-              ? "max-md:pb-28 max-md:pt-0"
-              : "max-md:pb-28"
-          }`}
+          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${mobileContentSpacing}`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
@@ -286,8 +298,8 @@ function MainLayout({
         </div>
       )}
 
-      {!useOnboardingChrome ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+      {!useOnboardingChrome && !hideMobileNav ? (
+        <div className="mobile-nav-slot fixed inset-x-0 bottom-0 z-40 md:hidden">
           <MobileNav activePage={activePage} onNavigate={handleNavigate} />
         </div>
       ) : null}

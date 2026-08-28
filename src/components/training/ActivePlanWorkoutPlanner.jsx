@@ -499,7 +499,10 @@ export default function ActivePlanWorkoutPlanner({
                         ) : null}
                         <span className="training-schedule__exercise-count inline-flex items-center gap-1.5">
                           <Dumbbell className="h-3.5 w-3.5" />
-                          {selectedDay.exerciseCount} ejercicios
+                          {selectedDay.exerciseCount}{" "}
+                          {Number(selectedDay.exerciseCount) === 1
+                            ? "ejercicio"
+                            : "ejercicios"}
                         </span>
                       </>
                     )}

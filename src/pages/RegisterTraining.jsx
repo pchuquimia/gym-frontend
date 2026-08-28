@@ -35,7 +35,7 @@ import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPl
 import AutoRestCountdownModal from "../components/training/AutoRestCountdownModal";
 import AutoRestCompleteModal from "../components/training/AutoRestCompleteModal";
 import TrainingCompletionPanel from "../components/training/TrainingCompletionPanel";
-import TrainingCompleteModal from "../components/training/TrainingCompleteModal";
+import TrainingCompletePage from "../components/training/TrainingCompletePage";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
@@ -90,6 +90,27 @@ const MAX_TRAINING_PHOTO_BYTES = 5 * 1024 * 1024;
 const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
+const formatExerciseCount = (count) => {
+  const total = Number(count) || 0;
+  return `${total} ${total === 1 ? "ejercicio" : "ejercicios"}`;
+};
+const TRAINING_COMPLETION_HERO_IMAGES = Object.freeze({
+  "lower a": "/images/routine-lower-a.webp",
+  upper: "/images/routine-upper.webp",
+  "lower b": "/images/workout-hero-model.webp",
+  push: "/images/routine-push.webp",
+  pull: "/images/routine-pull.webp",
+});
+const getTrainingCompletionHeroImage = (routine) => {
+  const routineName = String(routine?.name || routine?.raw?.name || "")
+    .trim()
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ");
+  return (
+    TRAINING_COMPLETION_HERO_IMAGES[routineName] ||
+    "/images/workout-hero-model.webp"
+  );
+};
 const createTrainingRequestId = () => {
   const browserCrypto = typeof window !== "undefined" ? window.crypto : null;
   const id =
@@ -465,7 +486,7 @@ function RoutineSetupCard({ routine, selected, onClick }) {
         </p>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase text-[#60443e] dark:text-white">
           <Dumbbell className="h-3.5 w-3.5" />
-          {routine.exerciseCount} ejercicios
+          {formatExerciseCount(routine.exerciseCount)}
         </span>
       </div>
     </button>
@@ -1448,7 +1469,7 @@ export default function RegisterTraining({
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
-  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [completionPageOpen, setCompletionPageOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [loadingTraining, setLoadingTraining] = useState(false);
@@ -4216,12 +4237,12 @@ export default function RegisterTraining({
     updateAutoFlowTarget(null);
     updateAutoFlowPrompt(null);
     resumedAfterCompletionRef.current = false;
-    setCompletionModalOpen(true);
+    setCompletionPageOpen(true);
   };
 
-  const handleDismissCompletionModal = () => {
+  const handleDismissCompletionPage = () => {
     if (finalizingRef.current) return;
-    setCompletionModalOpen(false);
+    setCompletionPageOpen(false);
     resumedAfterCompletionRef.current = true;
     handleStart();
   };
@@ -4285,7 +4306,7 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
-    setCompletionModalOpen(false);
+    setCompletionPageOpen(false);
     resumedAfterCompletionRef.current = false;
     finalizingRef.current = false;
     trainingRequestIdRef.current = "";
@@ -5629,7 +5650,7 @@ export default function RegisterTraining({
     if (!sessionComplete) {
       completionAnnouncedRef.current = false;
       resumedAfterCompletionRef.current = false;
-      setCompletionModalOpen(false);
+      setCompletionPageOpen(false);
       if (completionFocusTimerRef.current) {
         window.clearTimeout(completionFocusTimerRef.current);
         completionFocusTimerRef.current = null;
@@ -5638,6 +5659,9 @@ export default function RegisterTraining({
     }
     if (completionAnnouncedRef.current) return undefined;
     completionAnnouncedRef.current = true;
+    if (!resumedAfterCompletionRef.current) {
+      setCompletionPageOpen(true);
+    }
     completionFocusTimerRef.current = window.setTimeout(
       () => {
         completionFocusTimerRef.current = null;
@@ -5800,6 +5824,23 @@ export default function RegisterTraining({
     restTimerOpen &&
     !restTimerMinimized,
   );
+
+  if (completionPageOpen && sessionComplete) {
+    return (
+      <TrainingCompletePage
+        routineName={selectorRoutine?.name || "Entrenamiento"}
+        heroImage={getTrainingCompletionHeroImage(selectorRoutine)}
+        completedExercises={completedExercises}
+        totalExercises={exercises.length}
+        totalSets={totalSets}
+        durationLabel={formatDuration(durationSeconds)}
+        calorieEstimate={calorieEstimate}
+        isFinalizing={isFinalizing}
+        onFinish={handleFinish}
+        onDismiss={handleDismissCompletionPage}
+      />
+    );
+  }
 
   return (
     <main className="training-shell relative min-h-0 w-full max-w-full overflow-x-clip bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -6608,7 +6649,7 @@ export default function RegisterTraining({
                     {progressPct}%
                   </span>
                   <span className="shrink-0 border-l border-[color:var(--border)] pl-3 font-semibold text-[color:var(--text)]">
-                    {completedExercises}/{exercises.length} ejercicios
+                    {completedExercises}/{formatExerciseCount(exercises.length)}
                   </span>
                 </div>
               </div>
@@ -6654,7 +6695,7 @@ export default function RegisterTraining({
                   </p>
                 </div>
                 <p className="pb-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {completedExercises}/{exercises.length} ejercicios
+                  {completedExercises}/{formatExerciseCount(exercises.length)}
                 </p>
               </div>
 
@@ -6767,9 +6808,9 @@ export default function RegisterTraining({
                               {muscle}
                             </p>
                           </div>
-                          <Badge variant="secondary" className="text-[11px]">
-                            {items.length} ejercicios
-                          </Badge>
+                          <span className="training-exercise-group-count text-sm font-medium uppercase">
+                            {formatExerciseCount(items.length)}
+                          </span>
                         </div>
                         {items.map((ex) => {
                           const movementConfig = getRoutineMovementConfig(
@@ -6851,9 +6892,9 @@ export default function RegisterTraining({
                               {muscle}
                             </p>
                           </div>
-                          <Badge variant="secondary" className="text-[11px]">
-                            {items.length} ejercicios
-                          </Badge>
+                          <span className="training-exercise-group-count text-sm font-medium uppercase">
+                            {formatExerciseCount(items.length)}
+                          </span>
                         </div>
                         {items.map((ex) => {
                           const movementConfig = getRoutineMovementConfig(
@@ -7445,22 +7486,6 @@ export default function RegisterTraining({
           </p>
         </Modal>
       ) : null}
-
-      <AnimatePresence>
-        {completionModalOpen && sessionComplete ? (
-          <TrainingCompleteModal
-            routineName={selectorRoutine?.name || "Entrenamiento"}
-            completedExercises={completedExercises}
-            totalExercises={exercises.length}
-            totalSets={totalSets}
-            durationLabel={formatDuration(durationSeconds)}
-            calorieEstimate={calorieEstimate}
-            isFinalizing={isFinalizing}
-            onFinish={handleFinish}
-            onDismiss={handleDismissCompletionModal}
-          />
-        ) : null}
-      </AnimatePresence>
 
       <OperationLoader
         active={loadingTraining && Boolean(selectedRoutineId)}

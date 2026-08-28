@@ -5121,11 +5121,12 @@ function Routines({ onNavigate }) {
   };
 
   return (
-    <div className="routines-shell mx-auto w-full max-w-md px-[6px] md:max-w-none md:px-0">
+    <div className="routines-shell w-full max-w-none">
       <section className="space-y-5">
         <MobilePageHeader
           title={activePlan ? activePlan.name : "Rutinas"}
           variant={activePlan ? "detail" : "main"}
+          className={!activePlan ? "routines-page-header" : ""}
           onBack={() => setActivePlan(null)}
           actions={
             !activePlan ? (
@@ -5443,135 +5444,135 @@ function Routines({ onNavigate }) {
         <section className="plan-detail-summary mt-4 border-y border-[color:var(--border)] py-4">
           <div className="plan-detail-overview">
             <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Badge variant={activePlan.status}>
-                {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
-              </Badge>
-              <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                {activePlan.goal || "Objetivo general"}
-              </p>
-            </div>
-            {!isManagedClient || user?.role === "Admin" ? (
-              <details className="relative shrink-0">
-                <summary
-                  className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
-                  aria-label="Opciones de la planificación"
-                >
-                  <MoreVertical className="h-5 w-5" />
-                </summary>
-                <div className="absolute right-0 top-11 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
-                  {!isManagedClient &&
-                  !["completed", "cancelled"].includes(activePlan.status) ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget
-                          .closest("details")
-                          ?.removeAttribute("open");
-                        setEditingPlan(activePlan);
-                        setPlanModalOpen(true);
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <Pencil className="h-4 w-4" /> Editar planificación
-                    </button>
-                  ) : null}
-                  {!isManagedClient &&
-                  ["draft", "paused"].includes(activePlan.status) ? (
-                    <button
-                      type="button"
-                      disabled={missingPlanRoutines > 0}
-                      onClick={(event) => {
-                        event.currentTarget
-                          .closest("details")
-                          ?.removeAttribute("open");
-                        activateTrainingPlan();
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Play className="h-4 w-4" />
-                      {missingPlanRoutines
-                        ? "Completa las rutinas"
-                        : activePlanStartsInFuture
-                          ? "Programar planificación"
-                          : "Activar planificación"}
-                    </button>
-                  ) : null}
-                  {!isManagedClient &&
-                  ["active", "scheduled"].includes(activePlan.status) ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget
-                          .closest("details")
-                          ?.removeAttribute("open");
-                        deactivateTrainingPlan();
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <Pause className="h-4 w-4" /> Desactivar planificación
-                    </button>
-                  ) : null}
-                  {!isManagedClient && activePlan.status === "draft" ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget
-                          .closest("details")
-                          ?.removeAttribute("open");
-                        setArchivePlanConfirmOpen(true);
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <Archive className="h-4 w-4" /> Archivar planificación
-                    </button>
-                  ) : null}
-                  {user?.role === "Admin" ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget
-                          .closest("details")
-                          ?.removeAttribute("open");
-                        setDeletePlanConfirmOpen(true);
-                      }}
-                      className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-4 w-4" /> Eliminar planificación
-                    </button>
-                  ) : null}
-                </div>
-              </details>
-            ) : null}
+              <div className="min-w-0">
+                <Badge variant={activePlan.status}>
+                  {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
+                </Badge>
+                <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                  {activePlan.goal || "Objetivo general"}
+                </p>
+              </div>
+              {!isManagedClient || user?.role === "Admin" ? (
+                <details className="relative shrink-0">
+                  <summary
+                    className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                    aria-label="Opciones de la planificación"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </summary>
+                  <div className="absolute right-0 top-11 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                    {!isManagedClient &&
+                    !["completed", "cancelled"].includes(activePlan.status) ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          setEditingPlan(activePlan);
+                          setPlanModalOpen(true);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <Pencil className="h-4 w-4" /> Editar planificación
+                      </button>
+                    ) : null}
+                    {!isManagedClient &&
+                    ["draft", "paused"].includes(activePlan.status) ? (
+                      <button
+                        type="button"
+                        disabled={missingPlanRoutines > 0}
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          activateTrainingPlan();
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Play className="h-4 w-4" />
+                        {missingPlanRoutines
+                          ? "Completa las rutinas"
+                          : activePlanStartsInFuture
+                            ? "Programar planificación"
+                            : "Activar planificación"}
+                      </button>
+                    ) : null}
+                    {!isManagedClient &&
+                    ["active", "scheduled"].includes(activePlan.status) ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          deactivateTrainingPlan();
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <Pause className="h-4 w-4" /> Desactivar planificación
+                      </button>
+                    ) : null}
+                    {!isManagedClient && activePlan.status === "draft" ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          setArchivePlanConfirmOpen(true);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                      >
+                        <Archive className="h-4 w-4" /> Archivar planificación
+                      </button>
+                    ) : null}
+                    {user?.role === "Admin" ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          setDeletePlanConfirmOpen(true);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" /> Eliminar planificación
+                      </button>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
             </div>
             <div className="mt-4">
-            <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-              Calendario del plan
-            </p>
-            <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
-              <span className="text-[color:var(--text-muted)]">
-                {activePlanTimeProgress.message}
-              </span>
-              <span className="shrink-0">
-                <strong className="theme-accent-text">
-                  {activePlanTimeProgress.percentage}%
-                </strong>{" "}
-                transcurrido
-              </span>
-            </div>
-            <div
-              className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
-              role="progressbar"
-              aria-label="Calendario transcurrido de la planificación"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={activePlanTimeProgress.percentage}
-            >
+              <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                Calendario del plan
+              </p>
+              <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+                <span className="text-[color:var(--text-muted)]">
+                  {activePlanTimeProgress.message}
+                </span>
+                <span className="shrink-0">
+                  <strong className="theme-accent-text">
+                    {activePlanTimeProgress.percentage}%
+                  </strong>{" "}
+                  transcurrido
+                </span>
+              </div>
               <div
-                className="theme-accent-solid h-full border-0 transition-all"
-                style={{ width: `${activePlanTimeProgress.percentage}%` }}
-              />
-            </div>
+                className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
+                role="progressbar"
+                aria-label="Calendario transcurrido de la planificación"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={activePlanTimeProgress.percentage}
+              >
+                <div
+                  className="theme-accent-solid h-full border-0 transition-all"
+                  style={{ width: `${activePlanTimeProgress.percentage}%` }}
+                />
+              </div>
             </div>
           </div>
           <TrainingPlanSchedule

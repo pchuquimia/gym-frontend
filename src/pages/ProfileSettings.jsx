@@ -315,8 +315,8 @@ function ProfilePageHeader({ title, onBack, variant = "detail" }) {
       onBack={onBack}
       className={
         variant === "detail"
-          ? "sticky top-0 z-30 -mx-3 border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-1"
-          : "px-[6px]"
+          ? "sticky top-0 z-30 -mx-[var(--mobile-page-gutter)] border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-1"
+          : ""
       }
     />
   );
@@ -921,8 +921,8 @@ export default function ProfileSettings({ onNavigate }) {
     return (
       <main className="settings-shell profile-reference-shell mx-auto min-h-[50vh] w-full max-w-5xl">
         <ProfilePageHeader
-          title="Perfil"
-          variant="main"
+          title="Mi perfil"
+          onBack={() => onNavigate?.("dashboard")}
         />
         <OperationLoader
           active
@@ -939,8 +939,8 @@ export default function ProfileSettings({ onNavigate }) {
     return (
       <main className="settings-shell profile-reference-shell mx-auto max-w-lg py-12 text-center">
         <ProfilePageHeader
-          title="Perfil"
-          variant="main"
+          title="Mi perfil"
+          onBack={() => onNavigate?.("dashboard")}
         />
         <p role="alert" className="text-sm font-semibold text-red-500">
           {profileError || "No se pudo cargar el perfil."}
@@ -958,7 +958,7 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "personal" && personalDraft) {
     return (
-      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-4xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-4xl space-y-5 pb-8">
         <ProfilePageHeader title="Información personal" onBack={goBack} />
         <BackButton onClick={goBack} />
         <div className="hidden md:block">
@@ -1193,7 +1193,7 @@ export default function ProfileSettings({ onNavigate }) {
     const missingRules = passwordStatus(passwordForm.password);
     const otherSessions = sessions.filter((session) => !session.current).length;
     return (
-      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-3xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-3xl space-y-5 pb-8">
         <ProfilePageHeader title="Seguridad" onBack={goBack} />
         <BackButton onClick={goBack} />
         <div className="hidden md:block">
@@ -1378,7 +1378,7 @@ export default function ProfileSettings({ onNavigate }) {
 
   if (view === "locations" && locationDraft) {
     return (
-      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-2xl space-y-5 pb-28">
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-2xl space-y-5 pb-8">
         <ProfilePageHeader title="Lugares de entrenamiento" onBack={goBack} />
         <BackButton onClick={goBack} />
         <div className="hidden md:block">
@@ -1480,7 +1480,7 @@ export default function ProfileSettings({ onNavigate }) {
             })}
           </Section>
         ) : null}
-        <div className="sticky bottom-20 rounded-lg bg-[color:var(--bg)]/95 py-2 backdrop-blur md:bottom-4">
+        <div className="sticky bottom-0 rounded-lg bg-[color:var(--bg)]/95 py-2 backdrop-blur md:bottom-4">
           <button
             type="button"
             onClick={saveLocations}
@@ -1503,10 +1503,10 @@ export default function ProfileSettings({ onNavigate }) {
   }
 
   return (
-    <main className="settings-shell profile-reference-shell mx-auto w-full max-w-md pb-28 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
+    <main className="settings-shell profile-reference-shell mx-auto w-full max-w-md pb-8 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <ProfilePageHeader
-        title="Perfil"
-        variant="main"
+        title="Mi perfil"
+        onBack={() => onNavigate?.("dashboard")}
       />
       <div className="mb-7 hidden md:block">
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
@@ -1516,185 +1516,187 @@ export default function ProfileSettings({ onNavigate }) {
           Perfil y ajustes
         </h1>
       </div>
-      <div className="grid gap-5 px-[6px] md:px-0 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-7">
-      <div className="min-w-0">
-        <ProfileHero
-          user={user}
-          avatarUrl={avatarUrl}
-          stats={stats}
-          onChangePhoto={openPersonalPhoto}
-        />
-        {summaryError ? (
-          <div className="mt-3 text-center">
-            <p className="text-xs font-semibold text-red-500">{summaryError}</p>
-            <button
-              type="button"
-              onClick={loadSummary}
-              className="mt-1 text-xs font-bold text-[#352018] dark:text-[#e2ff00]"
-            >
-              Reintentar resumen
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <div className="min-w-0 space-y-5">
-        <Section title="General">
-          <SettingsRow
-            title="Tema"
-            value={isDark ? "Oscuro" : "Claro"}
-            onClick={toggleTheme}
+      <div className="grid gap-5 md:px-0 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-7">
+        <div className="min-w-0">
+          <ProfileHero
+            user={user}
+            avatarUrl={avatarUrl}
+            stats={stats}
+            onChangePhoto={openPersonalPhoto}
           />
-          <SettingsSelectRow
-            title="Idioma de ejercicios"
-            value={profile.language || "es"}
-            onChange={handleLanguageChange}
-            disabled={languageSaving}
-          />
-        </Section>
-        <Section title="Datos personales">
-          <SettingsRow
-            title="Nombre"
-            value={user?.name || "Completar"}
-            onClick={openPersonal}
-          />
-          <SettingsRow
-            title="Correo electrónico"
-            value={user?.email || "Completar"}
-            onClick={openPersonal}
-          />
-          <SettingsRow
-            title="Fecha de nacimiento"
-            value={formatProfileDate(profile.birthDate)}
-            onClick={openPersonal}
-          />
-          <SettingsRow
-            title="Altura"
-            value={profile.height ? `${profile.height} cm` : "Completar"}
-            onClick={openPersonal}
-          />
-          <SettingsRow
-            title="Peso actual"
-            value={profile.weight ? `${profile.weight} kg` : "Completar"}
-            onClick={openPersonal}
-          />
-        </Section>
-        <p className="px-5 font-sans text-sm leading-5 text-[color:var(--text-subtle)]">
-          Estos datos nos ayudan a personalizar tus métricas y estimaciones de
-          entrenamiento.
-        </p>
-        {user?.role === "Cliente" ? (
-          <Section title="Acompañamiento">
-            {coachRelationship.loading ? (
-              <p className="px-4 py-5 text-sm font-semibold text-[color:var(--text-muted)]">
-                Consultando tu modalidad de entrenamiento...
+          {summaryError ? (
+            <div className="mt-3 text-center">
+              <p className="text-xs font-semibold text-red-500">
+                {summaryError}
               </p>
-            ) : (
-              <div>
-                <div className="flex items-start gap-3 px-5 py-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
-                    {coachRelationship.connected ? (
-                      <UserRoundCheck className="h-5 w-5" />
-                    ) : (
-                      <Link2 className="h-5 w-5" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-sans text-[15px] font-semibold text-[color:var(--text)]">
-                      {coachRelationship.connected
-                        ? coachRelationship.coach?.name
-                        : "Entrenamiento independiente"}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                      {coachRelationship.connected
-                        ? `${coachRelationship.coach?.email} · Tu coach puede asignarte planes y supervisar tus sesiones.`
-                        : "Tu cuenta beta inicia con permisos basicos y control de tus propias rutinas. Vincula un coach solo si decides trabajar con uno."}
-                    </p>
-                  </div>
-                  {coachRelationship.connected ? (
-                    <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[9px] font-semibold uppercase text-[color:var(--text-muted)]">
-                      Con coach
+              <button
+                type="button"
+                onClick={loadSummary}
+                className="mt-1 text-xs font-bold text-[#352018] dark:text-[#e2ff00]"
+              >
+                Reintentar resumen
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="min-w-0 space-y-5">
+          <Section title="General">
+            <SettingsRow
+              title="Tema"
+              value={isDark ? "Oscuro" : "Claro"}
+              onClick={toggleTheme}
+            />
+            <SettingsSelectRow
+              title="Idioma de ejercicios"
+              value={profile.language || "es"}
+              onChange={handleLanguageChange}
+              disabled={languageSaving}
+            />
+          </Section>
+          <Section title="Datos personales">
+            <SettingsRow
+              title="Nombre"
+              value={user?.name || "Completar"}
+              onClick={openPersonal}
+            />
+            <SettingsRow
+              title="Correo electrónico"
+              value={user?.email || "Completar"}
+              onClick={openPersonal}
+            />
+            <SettingsRow
+              title="Fecha de nacimiento"
+              value={formatProfileDate(profile.birthDate)}
+              onClick={openPersonal}
+            />
+            <SettingsRow
+              title="Altura"
+              value={profile.height ? `${profile.height} cm` : "Completar"}
+              onClick={openPersonal}
+            />
+            <SettingsRow
+              title="Peso actual"
+              value={profile.weight ? `${profile.weight} kg` : "Completar"}
+              onClick={openPersonal}
+            />
+          </Section>
+          <p className="px-5 font-sans text-sm leading-5 text-[color:var(--text-subtle)]">
+            Estos datos nos ayudan a personalizar tus métricas y estimaciones de
+            entrenamiento.
+          </p>
+          {user?.role === "Cliente" ? (
+            <Section title="Acompañamiento">
+              {coachRelationship.loading ? (
+                <p className="px-4 py-5 text-sm font-semibold text-[color:var(--text-muted)]">
+                  Consultando tu modalidad de entrenamiento...
+                </p>
+              ) : (
+                <div>
+                  <div className="flex items-start gap-3 px-5 py-4">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+                      {coachRelationship.connected ? (
+                        <UserRoundCheck className="h-5 w-5" />
+                      ) : (
+                        <Link2 className="h-5 w-5" />
+                      )}
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-sans text-[15px] font-semibold text-[color:var(--text)]">
+                        {coachRelationship.connected
+                          ? coachRelationship.coach?.name
+                          : "Entrenamiento independiente"}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                        {coachRelationship.connected
+                          ? `${coachRelationship.coach?.email} · Tu coach puede asignarte planes y supervisar tus sesiones.`
+                          : "Tu cuenta beta inicia con permisos basicos y control de tus propias rutinas. Vincula un coach solo si decides trabajar con uno."}
+                      </p>
+                    </div>
+                    {coachRelationship.connected ? (
+                      <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[9px] font-semibold uppercase text-[color:var(--text-muted)]">
+                        Con coach
+                      </span>
+                    ) : null}
+                  </div>
+                  <form
+                    onSubmit={connectToCoach}
+                    className="grid gap-2 border-t border-[color:var(--detail-row-divider)] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+                  >
+                    <label className="min-w-0">
+                      <span className="sr-only">Codigo de coach</span>
+                      <input
+                        value={coachCode}
+                        onChange={(event) =>
+                          setCoachCode(event.target.value.toUpperCase())
+                        }
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck="false"
+                        maxLength={13}
+                        placeholder={
+                          coachRelationship.connected
+                            ? "Codigo de otro coach"
+                            : "Codigo del coach · APEX-XXXXXXXX"
+                        }
+                        className={`${inputClass} font-mono uppercase`}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={coachSaving || !coachCode.trim()}
+                      className="theme-accent-solid h-11 px-4 text-xs font-black uppercase disabled:opacity-50"
+                    >
+                      {coachSaving
+                        ? "Vinculando..."
+                        : coachRelationship.connected
+                          ? "Cambiar coach"
+                          : "Vincular coach"}
+                    </button>
+                  </form>
+                  {coachRelationship.connected ? (
+                    <button
+                      type="button"
+                      onClick={disconnectFromCoach}
+                      disabled={coachSaving}
+                      className="flex h-12 w-full items-center justify-center gap-2 border-t border-[color:var(--detail-row-divider)] text-xs font-semibold uppercase text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
+                    >
+                      <Unlink className="h-4 w-4" />
+                      Entrenar sin coach
+                    </button>
                   ) : null}
                 </div>
-                <form
-                  onSubmit={connectToCoach}
-                  className="grid gap-2 border-t border-[color:var(--detail-row-divider)] p-4 sm:grid-cols-[minmax(0,1fr)_auto]"
-                >
-                  <label className="min-w-0">
-                    <span className="sr-only">Codigo de coach</span>
-                    <input
-                      value={coachCode}
-                      onChange={(event) =>
-                        setCoachCode(event.target.value.toUpperCase())
-                      }
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                      spellCheck="false"
-                      maxLength={13}
-                      placeholder={
-                        coachRelationship.connected
-                          ? "Codigo de otro coach"
-                          : "Codigo del coach · APEX-XXXXXXXX"
-                      }
-                      className={`${inputClass} font-mono uppercase`}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={coachSaving || !coachCode.trim()}
-                    className="theme-accent-solid h-11 px-4 text-xs font-black uppercase disabled:opacity-50"
-                  >
-                    {coachSaving
-                      ? "Vinculando..."
-                      : coachRelationship.connected
-                        ? "Cambiar coach"
-                        : "Vincular coach"}
-                  </button>
-                </form>
-                {coachRelationship.connected ? (
-                  <button
-                    type="button"
-                    onClick={disconnectFromCoach}
-                    disabled={coachSaving}
-                    className="flex h-12 w-full items-center justify-center gap-2 border-t border-[color:var(--detail-row-divider)] text-xs font-semibold uppercase text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)] disabled:opacity-50"
-                  >
-                    <Unlink className="h-4 w-4" />
-                    Entrenar sin coach
-                  </button>
-                ) : null}
-              </div>
-            )}
+              )}
+            </Section>
+          ) : null}
+          <Section title="Entrenamiento">
+            <SettingsRow
+              title="Lugares de entrenamiento"
+              value={locationSummary}
+              onClick={openLocations}
+            />
           </Section>
-        ) : null}
-        <Section title="Entrenamiento">
-          <SettingsRow
-            title="Lugares de entrenamiento"
-            value={locationSummary}
-            onClick={openLocations}
-          />
-        </Section>
-        <Section title="Cuenta y seguridad">
-          <SettingsRow
-            title="Contraseña y sesiones"
-            onClick={() => navigateView("security")}
-          />
-          <SettingsRow
-            title="Plan y suscripción"
-            onClick={() => onNavigate?.("planes")}
-          />
-        </Section>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] font-sans text-sm font-semibold text-[color:var(--danger)] shadow-xs transition-colors hover:bg-[color:var(--danger-soft)]"
-        >
-          <LogOut className="h-4 w-4" />
-          Cerrar sesión
-        </button>
-        <p className="text-center text-xs text-[color:var(--text-muted)]">
-          Apex Performance
-        </p>
-      </div>
+          <Section title="Cuenta y seguridad">
+            <SettingsRow
+              title="Contraseña y sesiones"
+              onClick={() => navigateView("security")}
+            />
+            <SettingsRow
+              title="Plan y suscripción"
+              onClick={() => onNavigate?.("planes")}
+            />
+          </Section>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] font-sans text-sm font-semibold text-[color:var(--danger)] shadow-xs transition-colors hover:bg-[color:var(--danger-soft)]"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
+          <p className="text-center text-xs text-[color:var(--text-muted)]">
+            Apex Performance
+          </p>
+        </div>
       </div>
     </main>
   );

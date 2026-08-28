@@ -423,6 +423,14 @@ button,
   color: var(--accent-strong);
 }
 
+.training-exercise-group-count {
+  color: #e49a32;
+}
+
+.dark .training-exercise-group-count {
+  color: #f0ad4e;
+}
+
 .theme-accent-solid {
   border-color: var(--accent);
   background: var(--accent);
@@ -948,7 +956,12 @@ button,
     background-image: none;
   }
 
-  :root:not(.dark) .app-shell[data-active-page="dashboard"] {
+  :root:not(.dark) .app-shell[data-active-page="dashboard"],
+  :root:not(.dark) .app-shell[data-active-page="registrar"],
+  :root:not(.dark) .app-shell[data-active-page="rutinas"],
+  :root:not(.dark) .app-shell[data-active-page="library"],
+  :root:not(.dark) .app-shell[data-active-page="perfil"],
+  :root:not(.dark) .app-shell[data-active-page="trainer"] {
     --bg: #f5f1e8;
     --surface: #fffdf8;
     --surface-subtle: #efebe2;
@@ -965,6 +978,7 @@ button,
     --text-muted: #7c776e;
     --text-subtle: #aaa49a;
     background-color: #f5f1e8 !important;
+    background-image: none;
   }
 
   .dashboard-shell,
@@ -1077,6 +1091,20 @@ button,
   .library-filter-strip {
     overflow-anchor: none;
     scrollbar-width: none;
+  }
+
+  .library-filter-strip--interactive {
+    -webkit-overflow-scrolling: touch;
+    cursor: grab;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+    touch-action: pan-x;
+    user-select: none;
+  }
+
+  .library-filter-strip--interactive.is-dragging {
+    cursor: grabbing;
+    scroll-behavior: auto;
   }
 
   .library-filter-strip > * {
@@ -2114,6 +2142,207 @@ button,
 }
 /* routines-mobile-refresh:end */
 
+/* library-muscle-index:start */
+@media (max-width: 639px) {
+  .library-muscle-list {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .library-muscle-row {
+    display: grid;
+    min-height: 7.25rem;
+    grid-template-columns: 5rem minmax(0, 1fr) 1.75rem;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--detail-row-divider);
+    padding: 1.125rem 0;
+    color: var(--text);
+    font-family: var(--mobile-ui-font);
+  }
+
+  .library-muscle-row__image {
+    display: grid;
+    width: 5rem;
+    height: 5rem;
+    flex: none;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 0.8125rem;
+    background-color: var(--surface-subtle);
+    color: var(--text-muted);
+  }
+
+  .library-muscle-row__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .library-muscle-row__image svg {
+    width: 1.75rem;
+    height: 1.75rem;
+    stroke-width: 1.5;
+  }
+
+  .library-muscle-row__content {
+    min-width: 0;
+  }
+
+  .library-muscle-row__title,
+  .library-muscle-row__count {
+    display: block;
+  }
+
+  .library-muscle-row__title {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .library-muscle-row__count {
+    margin-top: 0.125rem;
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.375rem;
+  }
+
+  .library-muscle-row__chevron {
+    width: 1.75rem;
+    height: 1.75rem;
+    color: var(--text-subtle);
+    stroke-width: 2;
+    transition: transform 160ms ease;
+  }
+
+  .library-muscle-row:active .library-muscle-row__chevron {
+    transform: translateX(0.125rem);
+  }
+}
+/* library-muscle-index:end */
+
+/* exercise-detail-editorial:start */
+.exercise-detail-editorial__media {
+  margin: 1rem 1.125rem 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.exercise-detail-editorial {
+  --exercise-detail-copy: #747981;
+  padding: 2.625rem 1.25rem 4rem;
+  font-family: var(--mobile-ui-font);
+}
+
+.dark .exercise-detail-editorial {
+  --exercise-detail-copy: var(--text-muted);
+}
+
+.exercise-detail-editorial__personal,
+.exercise-detail-editorial__alternate {
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.exercise-detail-editorial__title {
+  max-width: 100%;
+  color: var(--text);
+  font-family: var(--mobile-display-font);
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.exercise-detail-editorial__tags {
+  margin-top: 1rem;
+}
+
+.exercise-detail-editorial__intro,
+.exercise-detail-editorial__section {
+  margin-right: 1rem;
+  margin-left: 1rem;
+}
+
+.exercise-detail-editorial__intro {
+  margin-top: 3rem;
+  color: var(--exercise-detail-copy);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  line-height: 1.58;
+}
+
+.exercise-detail-editorial__section {
+  margin-top: 3.25rem;
+}
+
+.exercise-detail-editorial__heading {
+  color: var(--text);
+  font-family: var(--mobile-display-font);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.exercise-detail-editorial__list,
+.exercise-detail-editorial__copy {
+  margin-top: 2rem;
+  color: var(--exercise-detail-copy);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  line-height: 1.58;
+}
+
+.exercise-detail-editorial__list {
+  display: grid;
+  gap: 2.25rem;
+}
+
+.exercise-detail-editorial__list li {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.exercise-detail-editorial__marker {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .exercise-detail-editorial__media {
+    margin: 1.5rem 1.5rem 0;
+  }
+
+  .exercise-detail-editorial {
+    padding: 2.75rem 2.5rem 4rem;
+  }
+
+  .exercise-detail-editorial__title {
+    font-size: 1.75rem;
+  }
+
+  .exercise-detail-editorial__intro,
+  .exercise-detail-editorial__section {
+    max-width: 36rem;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+/* exercise-detail-editorial:end */
+
 /* mobile-reference-type-scale:start */
 @media (max-width: 767px) {
   :root {
@@ -2219,6 +2448,50 @@ button,
     padding-inline: var(--mobile-page-gutter);
   }
 
+  .app-shell:has(.library-reference-shell[data-library-child="true"])
+    .mobile-nav-slot {
+    display: none;
+  }
+
+  .mobile-app-content:has(
+      .library-reference-shell[data-library-child="true"]
+    ) {
+    padding-bottom: 1rem !important;
+  }
+
+  .mobile-page-header {
+    position: sticky;
+    z-index: 46;
+    top: 0;
+    background-color: var(--bg);
+    isolation: isolate;
+  }
+
+  .app-shell:has([data-active-training-banner]) .mobile-page-header {
+    top: 3.5rem;
+  }
+
+  .library-reference-shell > .library-reference-shell__controls {
+    margin-top: 0 !important;
+  }
+
+  .library-reference-shell > .library-reference-shell__controls--home {
+    display: none;
+  }
+
+  .library-reference-shell > .library-muscle-list {
+    margin-top: 0 !important;
+    padding-top: 0;
+  }
+
+  .library-reference-shell
+    > .library-muscle-list
+    > .library-muscle-row:first-child {
+    min-height: 6rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
   .dashboard-shell,
   .routines-shell,
   .library-reference-shell,
@@ -2254,6 +2527,10 @@ button,
     font-weight: 500;
     line-height: 1.05;
     letter-spacing: -0.032em;
+  }
+
+  .routines-page-header h1 {
+    transform: translateX(-0.0625rem);
   }
 
   .mobile-page-header--detail {
@@ -2305,6 +2582,130 @@ button,
 
   .training-shell .uppercase {
     letter-spacing: 0.015em !important;
+  }
+
+  .training-exercise-card {
+    border-radius: 1rem;
+  }
+
+  .training-exercise-card__surface {
+    border: 0 !important;
+    border-radius: 1rem !important;
+    background: var(--card) !important;
+    box-shadow: none !important;
+    backdrop-filter: none;
+  }
+
+  .training-exercise-card__summary {
+    min-height: 5.75rem;
+    gap: 1rem !important;
+    padding: 0.375rem 0.75rem 0.375rem 0.375rem !important;
+  }
+
+  .training-exercise-card__thumbnail {
+    width: 5rem !important;
+    height: 5rem !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+  }
+
+  .training-exercise-card__title {
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.02em;
+  }
+
+  .training-exercise-card__meta {
+    margin-top: 0.25rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 400 !important;
+    line-height: 1.2 !important;
+  }
+
+  .training-exercise-card__expanded {
+    border-top-color: var(--detail-row-divider) !important;
+    background: var(--card) !important;
+  }
+
+  .training-exercise-card__sets {
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  .training-exercise-card__set-list {
+    gap: 0 !important;
+  }
+
+  .training-set-row {
+    border-radius: 0 !important;
+  }
+
+  .training-set-row__content {
+    gap: 0.625rem !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--detail-row-divider) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0.75rem 0.75rem 0.875rem !important;
+  }
+
+  .training-exercise-card__set-list
+    > .training-set-row:last-child
+    .training-set-row__content {
+    border-bottom: 0 !important;
+  }
+
+  .training-set-row__header {
+    padding-inline: 0 !important;
+  }
+
+  .training-set-row__index {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+  }
+
+  .training-set-entry {
+    grid-template-columns: 1.5rem minmax(0, 1fr) 4.5rem 4.25rem 2.75rem !important;
+    gap: 0.5rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0.25rem 0 0 !important;
+  }
+
+  .training-set-entry__previous {
+    font-size: 0.8125rem !important;
+    font-weight: 400 !important;
+  }
+
+  .training-set-entry__field {
+    height: 2.75rem !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+    background: var(--surface-subtle) !important;
+  }
+
+  .training-set-entry__field input {
+    font-size: 0.9375rem !important;
+    font-weight: 500 !important;
+  }
+
+  .training-set-entry__check {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .training-exercise-card__add-set {
+    height: 3rem !important;
+    border: 0 !important;
+    border-top: 1px solid var(--detail-row-divider) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
   }
 
   .training-schedule__days-wrap {

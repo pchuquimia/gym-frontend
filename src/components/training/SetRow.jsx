@@ -134,7 +134,7 @@ export default function SetRow({
           event.preventDefault();
         }
       }}
-      className={`relative max-w-full rounded-lg transition-shadow dark:rounded-[4px] ${
+      className={`training-set-row relative max-w-full rounded-lg transition-shadow dark:rounded-[4px] ${
         isHolding ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45" : ""
       }`}
     >
@@ -149,11 +149,14 @@ export default function SetRow({
           />
         ) : null}
       </AnimatePresence>
-      <div data-set-content className={`${baseClasses} ${stateClasses}`}>
-        <div className="flex min-w-0 items-center justify-between gap-2 px-1 sm:px-2">
+      <div
+        data-set-content
+        className={`training-set-row__content ${baseClasses} ${stateClasses}`}
+      >
+        <div className="training-set-row__header flex min-w-0 items-center justify-between gap-2 px-1 sm:px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+              className={`training-set-row__index flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 setDone
                   ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
                   : "bg-[#1a1a1a] text-white dark:bg-[#252525]"
@@ -216,7 +219,7 @@ export default function SetRow({
             return (
               <div
                 key={entry.id || `${index}-${entryIdx}`}
-                className={`grid max-w-full grid-cols-[28px_minmax(0,1fr)_74px_68px_44px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_88px_80px_44px] sm:gap-2 sm:px-2 ${
+                className={`training-set-entry grid max-w-full grid-cols-[28px_minmax(0,1fr)_74px_68px_44px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_88px_80px_44px] sm:gap-2 sm:px-2 ${
                   entryDone
                     ? "bg-[#f0f0f0] text-[color:var(--text-muted)] dark:bg-[#1b1b1b]"
                     : "bg-[color:var(--card)]"
@@ -226,7 +229,7 @@ export default function SetRow({
                   {entryLabel}
                 </div>
                 <div
-                  className={`flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
+                  className={`training-set-entry__previous flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
                   title={
                     entry.previousText
                       ? `Última sesión: ${entry.previousText}${
@@ -247,7 +250,7 @@ export default function SetRow({
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
-                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                   <input
                     className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                     type="text"
@@ -271,7 +274,7 @@ export default function SetRow({
                     {weightUnitLabel}
                   </span>
                 </label>
-                <label className="flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
                   <input
                     className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
                     type="text"
@@ -301,7 +304,7 @@ export default function SetRow({
                     type="button"
                     disabled={readOnly}
                     onClick={() => onToggleEntry?.(entry.id)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                    className="training-set-entry__check flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
                     aria-label={
                       entryDone
                         ? `Marcar ${exerciseName}, serie ${index} como pendiente`
