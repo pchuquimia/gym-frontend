@@ -14,6 +14,7 @@ import {
   estimateFullSessionDuration,
   formatSessionDuration,
 } from "../../utils/sessionDurationEstimate";
+import restDayRecoveryImage from "../../assets/rest-day-recovery.webp";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
@@ -376,33 +377,45 @@ export default function ActivePlanWorkoutPlanner({
             </div>
 
             <article
-              className={`training-schedule__selection ${selectedDay.routine ? "training-schedule__selection--hero" : ""} mt-3 border p-4 ${
+              className={`training-schedule__selection ${selectedDay.routine || selectedDay.rest ? "training-schedule__selection--hero" : ""} mt-3 border p-4 ${
                 selectedDay.current
                   ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(53,32,24,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
                   : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
-              {selectedDay.routine ? (
+              {selectedDay.routine || selectedDay.rest ? (
                 <div
                   className="training-schedule__hero hidden"
                   aria-hidden="true"
                 >
                   <div className="training-schedule__hero-fallback">
-                    <Dumbbell className="h-12 w-12" />
+                    {selectedDay.rest ? (
+                      <BedDouble className="h-12 w-12" />
+                    ) : (
+                      <Dumbbell className="h-12 w-12" />
+                    )}
                   </div>
                   <img
-                    src={selectedDay.heroImage}
+                    src={
+                      selectedDay.rest
+                        ? restDayRecoveryImage
+                        : selectedDay.heroImage
+                    }
                     alt=""
                     loading="eager"
                     decoding="async"
                   />
                   <div className="training-schedule__hero-shade" />
                   <span className="training-schedule__hero-badge">
-                    {selectedDay.current
-                      ? "Entrenamiento de hoy"
-                      : sequential
-                        ? `Día ${selectedDay.index + 1}`
-                        : DAY_SHORT_NAMES[selectedDay.index]}
+                    {selectedDay.rest
+                      ? selectedDay.current
+                        ? "Descanso de hoy"
+                        : "Descanso programado"
+                      : selectedDay.current
+                        ? "Entrenamiento de hoy"
+                        : sequential
+                          ? `Día ${selectedDay.index + 1}`
+                          : DAY_SHORT_NAMES[selectedDay.index]}
                   </span>
                 </div>
               ) : null}
@@ -564,7 +577,7 @@ export default function ActivePlanWorkoutPlanner({
               ) : null}
 
               {!sequential && selectedDay.current && selectedDay.rest ? (
-                <p className="mt-4 border-t border-[#d7d7d7] pt-3 text-sm leading-6 text-[#686868] dark:border-[#303030] dark:text-[#b8b8a6]">
+                <p className="mx-4 mt-4 border-t border-[#d7d7d7] pt-3 text-sm leading-6 text-[#686868] dark:border-[#303030] dark:text-[#b8b8a6] sm:mx-5">
                   La recuperación forma parte del plan. Si entrenarás hoy,
                   selecciona otro día de la agenda.
                 </p>

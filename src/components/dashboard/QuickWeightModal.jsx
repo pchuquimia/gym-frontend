@@ -209,7 +209,7 @@ export default function QuickWeightModal({
                             setWeight(sanitizeWeight(event.target.value))
                           }
                           placeholder="0"
-                          className="min-w-0 max-w-[205px] bg-transparent text-right text-[62px] font-semibold leading-none tracking-[-0.065em] tabular-nums outline-none placeholder:text-[color:var(--border-strong)] sm:text-[70px]"
+                          className="min-w-0 max-w-[205px] bg-transparent text-right text-[62px] font-semibold leading-none tracking-[-0.065em] tabular-nums outline-none placeholder:text-[color:var(--border-strong)] focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:text-[70px]"
                         />
                         <span className="mb-1.5 ml-3 text-2xl font-semibold">kg</span>
                       </span>

@@ -28,7 +28,6 @@ import {
   Dumbbell,
   GripVertical,
   History,
-  Settings2,
   Layers3,
   Loader2,
   MoreVertical,
@@ -56,6 +55,8 @@ import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
+import planningOverviewImage from "../assets/planning-overview.webp";
+import { optionMatches, toArray } from "../constants/exerciseTaxonomy";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -63,6 +64,60 @@ const ROUTINE_LEVEL_LABELS = {
   beginner: "Principiante",
   intermediate: "Intermedio",
   advanced: "Avanzado",
+};
+const ROUTINE_EXERCISE_FILTERS = [
+  { key: "difficulty", value: "Principiante", label: "Principiante" },
+  { key: "difficulty", value: "Intermedio", label: "Medio" },
+  { key: "difficulty", value: "Avanzado", label: "Avanzado" },
+  { key: "equipment", value: "Sin equipamiento", label: "Sin equipo" },
+  { key: "equipment", value: "Mancuernas", label: "Mancuernas" },
+  { key: "equipment", value: "Barra", label: "Barra" },
+  { key: "equipment", value: "Máquina", label: "Máquinas" },
+  { key: "equipment", value: "Polea", label: "Polea" },
+  { key: "equipment", value: "Banda elástica", label: "Bandas" },
+];
+
+const exerciseMatchesRoutineFilter = (exercise, filter) => {
+  if (!filter) return true;
+  if (filter.key === "difficulty") {
+    const difficultyAliases = {
+      beginner: "Principiante",
+      intermediate: "Intermedio",
+      advanced: "Avanzado",
+    };
+    const difficulty =
+      difficultyAliases[normalizeTextKey(exercise.difficulty)] ||
+      exercise.difficulty;
+    return optionMatches(difficulty, filter.value);
+  }
+  const equipment = toArray(exercise.equipment);
+  if (filter.value === "Sin equipamiento") {
+    return (
+      !equipment.length ||
+      equipment.some(
+        (item) =>
+          optionMatches(item, "Sin equipamiento") ||
+          optionMatches(item, "Peso corporal"),
+      )
+    );
+  }
+  return equipment.some((item) => optionMatches(item, filter.value));
+};
+const ROUTINE_DETAIL_HERO_IMAGES = Object.freeze({
+  "lower a": "/images/routine-lower-a.webp",
+  upper: "/images/routine-upper.webp",
+  "lower b": "/images/workout-hero-model.webp",
+  push: "/images/routine-push.webp",
+  pull: "/images/routine-pull.webp",
+});
+const getRoutineDetailHeroImage = (routine) => {
+  const routineName = String(routine?.name || routine?.raw?.name || "")
+    .trim()
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ");
+  return (
+    ROUTINE_DETAIL_HERO_IMAGES[routineName] || "/images/workout-hero-model.webp"
+  );
 };
 const ROUTINE_EXERCISE_SEARCH_FIELDS =
   "name,localizedNames,nameSpanish,nameEnglish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,loadType,weightConfig,exerciseType,laterality,difficulty,goals,tags,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive";
@@ -83,54 +138,16 @@ const getPlanEndDate = (plan) => {
   end.setUTCDate(end.getUTCDate() + Number(plan.durationWeeks || 1) * 7 - 1);
   return end;
 };
-const getPlanTimeProgress = (plan, now = new Date()) => {
-  if (!plan?.startDate) {
-    return { percentage: 0, message: "Sin fecha de inicio" };
-  }
-  const start = new Date(plan.startDate);
-  const end = new Date(getPlanEndDate(plan));
-  start.setUTCHours(0, 0, 0, 0);
-  end.setUTCHours(0, 0, 0, 0);
-  const endExclusive = new Date(end);
-  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-  const totalMs = Math.max(1, endExclusive.getTime() - start.getTime());
-  const elapsedMs = Math.min(
-    totalMs,
-    Math.max(0, now.getTime() - start.getTime()),
-  );
-  const percentage = Math.round((elapsedMs / totalMs) * 100);
-
-  if (now < start) {
-    const days = Math.max(
-      1,
-      Math.ceil((start.getTime() - now.getTime()) / 86400000),
-    );
-    return {
-      percentage,
-      message: `Comienza en ${days} ${days === 1 ? "dia" : "dias"}`,
-    };
-  }
-  if (now >= endExclusive) {
-    return { percentage: 100, message: "Periodo finalizado" };
-  }
-  const days = Math.max(
-    1,
-    Math.ceil((endExclusive.getTime() - now.getTime()) / 86400000),
-  );
-  return {
-    percentage,
-    message: `${days} ${days === 1 ? "dia restante" : "dias restantes"}`,
-  };
-};
 const PLAN_DAY_NAMES = [
   "Lunes",
   "Martes",
-  "Miercoles",
+  "Miércoles",
   "Jueves",
   "Viernes",
-  "Sabado",
+  "Sábado",
   "Domingo",
 ];
+const PLAN_DAY_INITIALS = ["L", "M", "X", "J", "V", "S", "D"];
 const PLAN_STATUS_LABELS = {
   active: "Vigente",
   scheduled: "Programada",
@@ -656,34 +673,35 @@ function ExercisePickerOption({
     <button
       type="button"
       onClick={() => onToggle(option.id)}
-      className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-        selected
-          ? "border-blue-400 bg-blue-500/10"
-          : "border-[color:var(--border)] bg-[color:var(--bg)]"
-      }`}
+      aria-pressed={selected}
+      className={`grid w-full grid-cols-[64px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
     >
-      <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
+      <div className="h-16 w-16 overflow-hidden rounded-xl bg-[color:var(--bg)]">
         <ExerciseThumbnail
           src={thumb}
           alt=""
           fallback={(option.name || "?").charAt(0).toUpperCase()}
-          className="h-full w-full text-xs font-black"
+          className="h-full w-full text-xs font-semibold"
         />
       </div>
       <div className="min-w-0">
-        <p className="truncate text-sm font-black text-[color:var(--text)]">
+        <p
+          className={`line-clamp-2 text-sm font-medium leading-snug ${selected ? "text-[color:var(--accent-contrast)]" : "text-[color:var(--text)]"}`}
+        >
           {option.name}
         </p>
-        <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+        <p
+          className={`mt-1 text-xs ${selected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
+        >
           {showUsage && usageCount
-            ? `${usageCount} ${usageCount === 1 ? "sesion" : "sesiones"}`
+            ? `${usageCount} ${usageCount === 1 ? "sesión" : "sesiones"}`
             : option.muscle}
         </p>
       </div>
       <span
-        className={`grid h-7 w-7 place-items-center rounded-full border ${
+        className={`grid h-7 w-7 place-items-center rounded-full border transition ${
           selected
-            ? "border-blue-600 bg-blue-600 text-white"
+            ? "border-[color:var(--accent-contrast)] bg-[color:var(--accent-contrast)] text-[color:var(--accent)]"
             : "border-[color:var(--border)] text-transparent"
         }`}
       >
@@ -781,6 +799,8 @@ function RoutineModal({
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState([]);
+  const [exercisePickerFilter, setExercisePickerFilter] = useState(null);
+  const exercisePickerFilterStripRef = useRef(null);
   const [isSaving, setIsSaving] = useState(false);
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const sensors = useSensors(
@@ -909,6 +929,29 @@ function RoutineModal({
     [availableExercises, remoteExerciseOptions],
   );
 
+  const orderedExercisePickerFilters = useMemo(() => {
+    if (!exercisePickerFilter) return ROUTINE_EXERCISE_FILTERS;
+    return [
+      exercisePickerFilter,
+      ...ROUTINE_EXERCISE_FILTERS.filter(
+        (option) =>
+          option.key !== exercisePickerFilter.key ||
+          option.value !== exercisePickerFilter.value,
+      ),
+    ];
+  }, [exercisePickerFilter]);
+
+  useEffect(() => {
+    if (!exercisePickerOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      exercisePickerFilterStripRef.current?.scrollTo({
+        left: 0,
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [exercisePickerFilter, exercisePickerOpen]);
+
   const exercisePickerOptions = useMemo(() => {
     const query = normalizeSearchText(search);
     const debouncedQuery = normalizeSearchText(debouncedExerciseSearch);
@@ -923,6 +966,7 @@ function RoutineModal({
     const sortedOptions = sourceExercises
       .filter((ex) => exerciseMatchesBranch(ex, exerciseFilterBranch))
       .filter((ex) => query || !selectedMuscle || ex.muscle === selectedMuscle)
+      .filter((ex) => exerciseMatchesRoutineFilter(ex, exercisePickerFilter))
       .filter((ex) => !currentIds.has(ex.id))
       .sort(
         (a, b) =>
@@ -948,6 +992,7 @@ function RoutineModal({
     debouncedExerciseSearch,
     exerciseFilterBranch,
     exercises,
+    exercisePickerFilter,
     remoteExerciseOptions,
     selectedMuscle,
     search,
@@ -1128,6 +1173,8 @@ function RoutineModal({
 
   const openExercisePicker = () => {
     setSelectedExerciseIds([]);
+    setExercisePickerFilter(null);
+    setSearch("");
     setExercisePickerOpen(true);
   };
 
@@ -1161,6 +1208,7 @@ function RoutineModal({
     );
     if (mode === "create" && nextMuscle) {
       setSelectedMuscle(nextMuscle);
+      setExercisePickerFilter(null);
       setSearch("");
       return;
     }
@@ -1555,10 +1603,7 @@ function RoutineModal({
       footer={
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-center text-xs font-semibold text-[color:var(--text-muted)] sm:text-left">
-            {error ||
-              (isSetupStep
-                ? "Después elegirás los ejercicios y su orden."
-                : `${exercises.length} ejercicios listos para guardar`)}
+            {error || (isSetupStep ? "Luego añadirás los ejercicios." : "")}
           </span>
           <div className="grid grid-cols-1 gap-2 sm:flex">
             <Button
@@ -1582,7 +1627,7 @@ function RoutineModal({
               ) : mode === "create" ? (
                 "Crear rutina"
               ) : (
-                "Guardar"
+                "Guardar cambios"
               )}
             </Button>
           </div>
@@ -1590,66 +1635,82 @@ function RoutineModal({
       }
     >
       <div className="pb-3 text-[color:var(--text)]">
-        <div className="mb-4 flex items-center gap-2 overflow-x-auto text-xs font-black text-[color:var(--text-muted)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <span
-            className={`shrink-0 rounded-full px-3 py-1.5 ${
-              isSetupStep ? "theme-accent-solid" : "bg-[color:var(--bg)]"
-            }`}
-          >
-            1. Enfoque
-          </span>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1.5 ${
-              !isSetupStep ? "theme-accent-solid" : "bg-[color:var(--bg)]"
-            }`}
-          >
-            2. Ejercicios
-          </span>
-        </div>
+        {mode === "create" ? (
+          <div className="mb-5 flex items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)] sm:px-2">
+            <span>Paso {isSetupStep ? "1" : "2"} de 2</span>
+            <span>{isSetupStep ? "Datos básicos" : "Ejercicios"}</span>
+          </div>
+        ) : null}
         {isSetupStep ? (
           <div className="mx-auto max-w-xl space-y-4">
             <div className="px-1 sm:px-2">
-              <div className="mb-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Nueva rutina
-                </p>
-                <h2 className="mt-1 text-2xl font-black leading-tight text-[color:var(--text)]">
-                  ¿Qué quieres entrenar?
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold leading-tight text-[color:var(--text)]">
+                  Crea tu rutina
                 </h2>
+                <p className="mt-1 text-sm leading-relaxed text-[color:var(--text-muted)]">
+                  Ponle un nombre y elige qué vas a entrenar.
+                </p>
               </div>
 
-              <div className="block space-y-2">
-                <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Tipo de rutina
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-[color:var(--text)]">
+                  Nombre
                 </span>
+                <input
+                  className="theme-accent-focus h-14 w-full rounded-2xl border-0 bg-[color:var(--card)] px-4 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+                  placeholder="Ej. Empuje"
+                  value={effectiveRoutineName}
+                  onChange={(e) => {
+                    setNameEdited(true);
+                    setName(e.target.value);
+                  }}
+                />
+              </label>
+
+              <div className="mt-6 space-y-2.5">
+                <div>
+                  <p className="text-sm font-medium text-[color:var(--text)]">
+                    ¿Qué vas a entrenar?
+                  </p>
+                  <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                    Elige una base. Podrás cambiar los ejercicios después.
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {ROUTINE_TYPES.map((type) => (
                     <button
                       key={type.id}
                       type="button"
                       onClick={() => handleRoutineTypeSelect(type.id)}
-                      className={`rounded-2xl border p-3 text-left transition ${
+                      className={`h-12 rounded-xl border px-3 text-left text-sm font-semibold transition ${
                         routineType === type.id
-                          ? "theme-accent-soft"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                          ? "theme-accent-solid border-transparent"
+                          : "border-transparent bg-[color:var(--card)] text-[color:var(--text)]"
                       }`}
                     >
-                      <p className="text-sm font-black">{type.label}</p>
-                      <p className="mt-1 min-h-[28px] text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                        {type.description}
-                      </p>
+                      {type.label}
                     </button>
                   ))}
                 </div>
+                <p className="px-1 text-xs text-[color:var(--text-muted)]">
+                  {selectedRoutineType.description}
+                </p>
               </div>
 
               {routineType === "custom" ? (
-                <div className="mt-5 space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    Grupos musculares
-                  </span>
+                <div className="mt-6 space-y-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-[color:var(--text)]">
+                      Grupos musculares
+                    </p>
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      Selecciona uno o varios.
+                    </p>
+                  </div>
+                  <span className="sr-only">Grupos musculares</span>
                   {libraryLoading ? (
-                    <div className="flex h-16 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-bold text-[color:var(--text-muted)]">
+                    <div className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-[color:var(--card)] text-xs font-medium text-[color:var(--text-muted)]">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Cargando grupos musculares
                     </div>
@@ -1675,10 +1736,10 @@ function RoutineModal({
                             key={muscle}
                             type="button"
                             onClick={() => toggleSetupMuscle(muscle)}
-                            className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                            className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
                               active
-                                ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                                ? "theme-accent-solid border-transparent"
+                                : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"
                             }`}
                           >
                             {muscle}
@@ -1687,21 +1748,21 @@ function RoutineModal({
                       })}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                    <div className="rounded-2xl bg-[color:var(--card)] p-4 text-xs text-[color:var(--text-muted)]">
                       No hay grupos musculares disponibles en la biblioteca.
                     </div>
                   )}
                 </div>
               ) : null}
 
-              <div className="mt-5 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Secuencia de entrenamiento
-                </span>
+              <div className="mt-6 space-y-2.5">
+                <p className="text-sm font-medium text-[color:var(--text)]">
+                  Orden de la rutina
+                </p>
                 <div
-                  className="grid grid-cols-2 gap-2"
+                  className="grid grid-cols-2 gap-1 rounded-2xl bg-[color:var(--card)] p-1"
                   role="radiogroup"
-                  aria-label="Secuencia de entrenamiento"
+                  aria-label="Orden de la rutina"
                 >
                   <button
                     type="button"
@@ -1710,177 +1771,155 @@ function RoutineModal({
                     onClick={() =>
                       handleExerciseOrderModeChange("muscle_blocks")
                     }
-                    className={`min-h-20 border p-3 text-left transition ${
+                    className={`h-11 rounded-xl px-3 text-sm font-semibold transition ${
                       exerciseOrderMode === "muscle_blocks"
-                        ? "theme-accent-soft"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                        ? "theme-accent-solid"
+                        : "text-[color:var(--text-muted)]"
                     }`}
                   >
-                    <Layers3 className="h-5 w-5" />
-                    <span className="mt-2 block text-sm font-black">
-                      Por bloques
-                    </span>
-                    <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                      Termina un grupo muscular antes del siguiente.
-                    </span>
+                    Por bloques
                   </button>
                   <button
                     type="button"
                     role="radio"
                     aria-checked={exerciseOrderMode === "free"}
                     onClick={() => handleExerciseOrderModeChange("free")}
-                    className={`min-h-20 border p-3 text-left transition ${
+                    className={`h-11 rounded-xl px-3 text-sm font-semibold transition ${
                       exerciseOrderMode === "free"
-                        ? "theme-accent-soft"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
+                        ? "theme-accent-solid"
+                        : "text-[color:var(--text-muted)]"
                     }`}
                   >
-                    <GripVertical className="h-5 w-5" />
-                    <span className="mt-2 block text-sm font-black">
-                      Orden libre
-                    </span>
-                    <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                      Permite intercalar músculos en cualquier secuencia.
-                    </span>
+                    Orden libre
                   </button>
                 </div>
+                <p className="px-1 text-xs text-[color:var(--text-muted)]">
+                  {exerciseOrderMode === "muscle_blocks"
+                    ? "Completa un grupo muscular antes de pasar al siguiente."
+                    : "Intercala los ejercicios en el orden que prefieras."}
+                </p>
               </div>
 
-              {locationMode === "multiple" ? (
-                <div className="mt-5 space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    Sucursal
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectableBranches.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => handleBranchChange(option)}
-                        className={`flex h-12 items-center justify-between rounded-xl border px-3 text-left transition ${
-                          branch === option
-                            ? "theme-accent-soft"
-                            : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                        }`}
-                      >
-                        <span className="font-black">
-                          {branchLabel(option)}
-                        </span>
-                        <span
-                          className={`h-5 w-5 rounded-full border ${
-                            branch === option
-                              ? "border-[color:var(--accent)] bg-[color:var(--accent)] shadow-[inset_0_0_0_4px_var(--card)]"
-                              : "border-[color:var(--border)]"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {progressSourceOptions.length ? (
-                <div className="mt-5 space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    Historial de progreso
-                  </span>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProgressMode("fresh");
-                        setSourceRoutineId("");
-                        setError("");
-                      }}
-                      className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition ${
-                        progressMode === "fresh"
-                          ? "theme-accent-soft"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                      }`}
-                    >
-                      <RotateCcw className="mt-0.5 h-5 w-5 shrink-0" />
-                      <span>
-                        <span className="block text-sm font-black">
-                          Nuevo ciclo
-                        </span>
-                        <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                          Pesos, comparaciones y PR desde cero.
-                        </span>
+              {locationMode === "multiple" || progressSourceOptions.length ? (
+                <details className="group mt-6 rounded-2xl bg-[color:var(--card)] px-4 py-1">
+                  <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[color:var(--text)] [&::-webkit-details-marker]:hidden">
+                    <span>
+                      Opciones avanzadas
+                      <span className="ml-2 text-xs font-normal text-[color:var(--text-muted)]">
+                        Sede e historial
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProgressMode("inherit");
-                        setSourceRoutineId(
-                          sourceRoutineId ||
-                            progressSourceOptions[0]?._id ||
-                            progressSourceOptions[0]?.id ||
-                            "",
-                        );
-                        setError("");
-                      }}
-                      className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                        progressMode === "inherit"
-                          ? "border-emerald-400 bg-emerald-500/10 text-emerald-700 shadow-sm dark:text-emerald-200"
-                          : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                      }`}
-                    >
-                      <Layers3 className="mt-0.5 h-5 w-5 shrink-0" />
-                      <span>
-                        <span className="block text-sm font-black">
-                          Continuar historial
-                        </span>
-                        <span className="mt-1 block text-[11px] font-semibold leading-tight text-[color:var(--text-muted)]">
-                          Conserva pesos, comparaciones y PR anteriores.
-                        </span>
-                      </span>
-                    </button>
-                  </div>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="space-y-5 border-t border-[color:var(--border)] py-4">
+                    {locationMode === "multiple" ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                          Sucursal
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectableBranches.map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleBranchChange(option)}
+                              className={`flex h-11 items-center justify-between rounded-xl border px-3 text-left text-sm transition ${
+                                branch === option
+                                  ? "theme-accent-solid border-transparent"
+                                  : "border-[color:var(--border)] text-[color:var(--text)]"
+                              }`}
+                            >
+                              <span className="font-medium">
+                                {branchLabel(option)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
 
-                  {progressMode === "inherit" ? (
-                    <label className="block pt-1">
-                      <span className="sr-only">Rutina de origen</span>
-                      <select
-                        value={sourceRoutineId}
-                        onChange={(event) =>
-                          setSourceRoutineId(event.target.value)
-                        }
-                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
-                      >
-                        <option value="">Selecciona una rutina anterior</option>
-                        {progressSourceOptions.map((routine) => (
-                          <option
-                            key={routine._id || routine.id}
-                            value={routine._id || routine.id}
+                    {progressSourceOptions.length ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                          Historial de progreso
+                        </p>
+                        <div className="grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--bg)] p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProgressMode("fresh");
+                              setSourceRoutineId("");
+                              setError("");
+                            }}
+                            className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
+                              progressMode === "fresh"
+                                ? "theme-accent-solid"
+                                : "text-[color:var(--text-muted)]"
+                            }`}
                           >
-                            {routine.name}
-                            {locationMode === "multiple"
-                              ? ` · ${branchLabel(routine.branch)}`
-                              : ""}{" "}
-                            · {routine.compatibilityPercent}% compatible
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-                </div>
-              ) : null}
+                            Nuevo ciclo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProgressMode("inherit");
+                              setSourceRoutineId(
+                                sourceRoutineId ||
+                                  progressSourceOptions[0]?._id ||
+                                  progressSourceOptions[0]?.id ||
+                                  "",
+                              );
+                              setError("");
+                            }}
+                            className={`h-10 rounded-lg px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                              progressMode === "inherit"
+                                ? "theme-accent-solid"
+                                : "text-[color:var(--text-muted)]"
+                            }`}
+                          >
+                            Continuar historial
+                          </button>
+                        </div>
 
-              <label className="mt-5 block space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                  Nombre de la rutina
-                </span>
-                <input
-                  className="theme-accent-focus h-13 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3 text-base font-bold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
-                  placeholder="Ej. Pecho · Biceps"
-                  value={effectiveRoutineName}
-                  onChange={(e) => {
-                    setNameEdited(true);
-                    setName(e.target.value);
-                  }}
-                />
-              </label>
+                        <p className="text-xs text-[color:var(--text-muted)]">
+                          {progressMode === "fresh"
+                            ? "Empieza las marcas desde cero."
+                            : "Conserva los pesos y mejoras de otra rutina."}
+                        </p>
+
+                        {progressMode === "inherit" ? (
+                          <label className="block pt-1">
+                            <span className="sr-only">Rutina de origen</span>
+                            <select
+                              value={sourceRoutineId}
+                              onChange={(event) =>
+                                setSourceRoutineId(event.target.value)
+                              }
+                              className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-medium text-[color:var(--text)] outline-none"
+                            >
+                              <option value="">
+                                Selecciona una rutina anterior
+                              </option>
+                              {progressSourceOptions.map((routine) => (
+                                <option
+                                  key={routine._id || routine.id}
+                                  value={routine._id || routine.id}
+                                >
+                                  {routine.name}
+                                  {locationMode === "multiple"
+                                    ? ` · ${branchLabel(routine.branch)}`
+                                    : ""}{" "}
+                                  · {routine.compatibilityPercent}% compatible
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -1914,85 +1953,71 @@ function RoutineModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
-                  <div
-                    className={`grid gap-3 ${
-                      locationMode === "multiple"
-                        ? "sm:grid-cols-[minmax(0,1fr)_260px]"
-                        : ""
-                    }`}
-                  >
-                    <label className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                        Nombre
-                      </span>
-                      <input
-                        className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-bold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
-                        placeholder="Ej. Pecho - Biceps"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
-                    </label>
-                    {locationMode === "multiple" ? (
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                          Sede
-                        </span>
-                        <div className="grid grid-cols-2 gap-2">
-                          {selectableBranches.map((option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => handleBranchChange(option)}
-                              className={`h-12 rounded-xl border px-2 text-xs font-black transition ${
-                                branch === option
-                                  ? "theme-accent-soft"
-                                  : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
-                              }`}
-                            >
-                              {branchLabel(option)}
-                            </button>
-                          ))}
-                        </div>
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="text-sm font-medium">
+                      Nombre de la rutina
+                    </span>
+                    <input
+                      className="theme-accent-focus mt-2 h-14 w-full rounded-2xl border-0 bg-[color:var(--card)] px-4 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+                      placeholder="Ej. Pecho · Bíceps"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </label>
+                  {locationMode === "multiple" ? (
+                    <div>
+                      <span className="text-sm font-medium">Sede</span>
+                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-[color:var(--card)] p-2">
+                        {selectableBranches.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => handleBranchChange(option)}
+                            className={`h-11 rounded-xl px-2 text-xs font-medium transition ${
+                              branch === option
+                                ? "theme-accent-solid"
+                                : "text-[color:var(--text-muted)]"
+                            }`}
+                          >
+                            {branchLabel(option)}
+                          </button>
+                        ))}
                       </div>
-                    ) : null}
-                  </div>
-                  {error && (
-                    <p className="mt-3 text-xs font-semibold text-red-500">
-                      {error}
-                    </p>
-                  )}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-2 px-1 pt-1">
+              <div className="flex items-end justify-between gap-3 pt-2">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                    {exerciseOrderMode === "muscle_blocks"
-                      ? "Bloques musculares"
-                      : "Orden de ejercicios"}
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    {exerciseOrderMode === "muscle_blocks"
-                      ? "Los ejercicios del mismo grupo se mantienen juntos."
-                      : "Arrastra para definir una secuencia intercalada."}
+                  <h2 className="text-xl font-medium tracking-[-0.025em]">
+                    Ejercicios
+                  </h2>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {exercises.length}{" "}
+                    {exercises.length === 1 ? "ejercicio" : "ejercicios"} ·{" "}
+                    {exercises.reduce(
+                      (sum, exercise) => sum + (Number(exercise.sets) || 0),
+                      0,
+                    )}{" "}
+                    series
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="rounded-xl px-2 sm:px-3"
+                    className="h-10 rounded-full px-3 text-xs"
                     onClick={handleOpenLibrary}
                     aria-label="Abrir biblioteca de ejercicios"
                     title="Abrir biblioteca de ejercicios"
                   >
-                    <Dumbbell className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Biblioteca</span>
+                    Biblioteca
                   </Button>
                   <Button
                     size="sm"
-                    className="rounded-xl"
+                    className="h-10 rounded-full px-3 text-xs"
                     onClick={openExercisePicker}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -2001,38 +2026,60 @@ function RoutineModal({
                 </div>
               </div>
 
-              <div
-                className="grid grid-cols-2 border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1"
-                role="radiogroup"
-                aria-label="Cambiar secuencia de entrenamiento"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={exerciseOrderMode === "muscle_blocks"}
-                  onClick={() => handleExerciseOrderModeChange("muscle_blocks")}
-                  className={`h-10 text-[10px] font-black uppercase ${
-                    exerciseOrderMode === "muscle_blocks"
-                      ? "theme-accent-solid"
-                      : "text-[color:var(--text-muted)]"
-                  }`}
+              <section aria-labelledby="routine-order-title">
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <h3 id="routine-order-title" className="text-sm font-medium">
+                    Organización
+                  </h3>
+                  <span className="text-xs text-[color:var(--text-muted)]">
+                    Al entrenar
+                  </span>
+                </div>
+                <div
+                  className="grid grid-cols-2 gap-2"
+                  role="radiogroup"
+                  aria-label="Organización de la rutina"
                 >
-                  Por bloques
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={exerciseOrderMode === "free"}
-                  onClick={() => handleExerciseOrderModeChange("free")}
-                  className={`h-10 text-[10px] font-black uppercase ${
-                    exerciseOrderMode === "free"
-                      ? "theme-accent-solid"
-                      : "text-[color:var(--text-muted)]"
-                  }`}
-                >
-                  Orden libre
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exerciseOrderMode === "muscle_blocks"}
+                    onClick={() =>
+                      handleExerciseOrderModeChange("muscle_blocks")
+                    }
+                    className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                      exerciseOrderMode === "muscle_blocks"
+                        ? "theme-accent-solid"
+                        : "bg-[color:var(--card)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">
+                      Por grupos
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
+                      Agrupa músculos
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={exerciseOrderMode === "free"}
+                    onClick={() => handleExerciseOrderModeChange("free")}
+                    className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                      exerciseOrderMode === "free"
+                        ? "theme-accent-solid"
+                        : "bg-[color:var(--card)] text-[color:var(--text)]"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">
+                      Orden libre
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
+                      Mezcla y arrastra
+                    </span>
+                  </button>
+                </div>
+              </section>
 
               <div className="space-y-2">
                 {groupedSelected.map(([muscle, list]) => {
@@ -2042,51 +2089,74 @@ function RoutineModal({
                       option.muscle === muscle,
                   );
                   const selectedExtraIds = selectedExtraByMuscle[muscle] || [];
+                  const isGlobalOrderGroup = muscle === GLOBAL_ORDER_GROUP;
 
                   return (
                     <div
                       key={muscle}
-                      className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+                      className="overflow-hidden rounded-2xl bg-[color:var(--card)]"
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleMuscleGroup(muscle)}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[color:var(--bg)]"
-                        aria-expanded={!collapsedMuscles.has(muscle)}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p className="truncate text-sm font-black leading-tight text-[color:var(--text)]">
-                              {muscle === GLOBAL_ORDER_GROUP
-                                ? "Orden global"
-                                : muscle}
+                      {!isGlobalOrderGroup ? (
+                        <div className="flex min-h-[62px] items-center gap-1.5 px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleMuscleGroup(muscle)}
+                            className="min-w-0 flex-1 px-1 py-1 text-left"
+                            aria-expanded={!collapsedMuscles.has(muscle)}
+                          >
+                            <p className="truncate text-sm font-semibold leading-tight text-[color:var(--text)]">
+                              {muscle}
                             </p>
-                          </div>
-                          <div className="mt-2 flex items-center gap-2">
-                            <Badge
-                              variant="secondary"
-                              className="uppercase tracking-wide text-[10px]"
-                            >
-                              {list.length} ejercicios
-                            </Badge>
-                            <Badge className="text-[10px]">
+                            <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                              {list.length}{" "}
+                              {list.length === 1 ? "ejercicio" : "ejercicios"} ·{" "}
                               {list.reduce(
                                 (sum, item) => sum + (Number(item.sets) || 0),
                                 0,
                               )}{" "}
                               series
-                            </Badge>
-                          </div>
+                            </p>
+                          </button>
+                          {extraOptions.length ? (
+                            <button
+                              type="button"
+                              onClick={() => openExtraPicker(muscle)}
+                              className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:text-[color:var(--accent)]"
+                              aria-label={`Añadir ejercicio extra a ${muscle}`}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Extra
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => toggleMuscleGroup(muscle)}
+                            className="grid h-9 w-8 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)]"
+                            aria-label={`${
+                              collapsedMuscles.has(muscle)
+                                ? "Mostrar"
+                                : "Ocultar"
+                            } ejercicios de ${muscle}`}
+                            aria-expanded={!collapsedMuscles.has(muscle)}
+                          >
+                            <ChevronDown
+                              className={`h-5 w-5 transition-transform ${
+                                collapsedMuscles.has(muscle) ? "" : "rotate-180"
+                              }`}
+                            />
+                          </button>
                         </div>
-                        <ChevronDown
-                          className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${
-                            collapsedMuscles.has(muscle) ? "" : "rotate-180"
-                          }`}
-                        />
-                      </button>
+                      ) : null}
 
-                      {!collapsedMuscles.has(muscle) && (
-                        <div className="grid gap-3 border-t border-[color:var(--border)] bg-[color:var(--bg)]/70 p-3">
+                      {(isGlobalOrderGroup ||
+                        !collapsedMuscles.has(muscle)) && (
+                        <div
+                          className={`divide-y divide-[color:var(--detail-row-divider)] ${
+                            isGlobalOrderGroup
+                              ? ""
+                              : "border-t border-[color:var(--detail-row-divider)]"
+                          }`}
+                        >
                           <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -2130,14 +2200,17 @@ function RoutineModal({
                                       <div
                                         ref={setNodeRef}
                                         style={style}
-                                        className={`rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm ${
+                                        className={`min-h-[100px] px-3 py-3.5 ${
                                           isDragging
-                                            ? "shadow-xl ring-2 ring-blue-500/30"
+                                            ? "relative z-10 rounded-xl bg-[color:var(--card)] shadow-xl ring-2 ring-[color:var(--accent)]/20"
                                             : ""
                                         }`}
                                       >
-                                        <div className="grid grid-cols-[64px_minmax(0,1fr)_44px_84px] items-center gap-1.5 sm:grid-cols-[80px_minmax(0,1fr)_60px_auto] sm:gap-3">
-                                          <div className="h-16 w-16 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-20 sm:w-20 sm:rounded-xl">
+                                        <div className="grid grid-cols-[20px_72px_minmax(0,1fr)_44px_32px] items-center gap-2 sm:grid-cols-[24px_72px_minmax(0,1fr)_52px_36px] sm:gap-3">
+                                          <span className="text-center text-xs font-medium tabular-nums text-[color:var(--text-muted)]">
+                                            {ex.idx + 1}
+                                          </span>
+                                          <div className="h-[72px] w-[72px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
                                             <ExerciseThumbnail
                                               src={thumb}
                                               alt=""
@@ -2150,10 +2223,7 @@ function RoutineModal({
 
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-2">
-                                              <span className="shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 py-0.5 text-[9px] font-black text-[color:var(--text-muted)] sm:rounded-lg sm:px-2 sm:py-1 sm:text-[10px]">
-                                                {ex.idx + 1}
-                                              </span>
-                                              <p className="min-w-0 line-clamp-2 text-xs font-black leading-tight sm:text-sm">
+                                              <p className="min-w-0 line-clamp-2 text-sm font-semibold leading-tight">
                                                 {ex.name}
                                               </p>
                                               {ex.isExtra && (
@@ -2170,13 +2240,27 @@ function RoutineModal({
                                                   .join(", ")}
                                               </p>
                                             )}
-                                            <p className="mt-1 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
-                                              {ex.muscle || "Sin grupo"}
-                                            </p>
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                              <p className="min-w-0 truncate text-xs font-normal text-[color:var(--text-muted)]">
+                                                {ex.muscle || "Sin grupo"}
+                                              </p>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setOptionsExerciseId(
+                                                    ex.exerciseId,
+                                                  )
+                                                }
+                                                className="h-7 shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 text-[11px] font-semibold text-[color:var(--text)] transition hover:text-[color:var(--accent)]"
+                                                aria-label={`Configurar ${ex.name}`}
+                                              >
+                                                Configurar
+                                              </button>
+                                            </div>
                                           </div>
 
                                           <label className="space-y-0.5">
-                                            <span className="block text-center text-[8px] font-black uppercase text-[color:var(--text-muted)] sm:text-[9px]">
+                                            <span className="block text-center text-[8px] font-medium uppercase text-[color:var(--text-muted)] sm:text-[9px]">
                                               Series
                                             </span>
                                             <input
@@ -2185,7 +2269,7 @@ function RoutineModal({
                                               pattern="[0-9]*"
                                               enterKeyHint="done"
                                               aria-label={`Series de ${ex.name}`}
-                                              className="theme-accent-focus h-11 w-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 text-center text-sm font-black tabular-nums text-[color:var(--text)] outline-none sm:h-10 sm:w-14 sm:rounded-xl"
+                                              className="theme-accent-focus h-10 w-11 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-1 text-center text-sm font-semibold tabular-nums text-[color:var(--text)] outline-none sm:w-14"
                                               value={ex.sets}
                                               onChange={(event) =>
                                                 updateExercise(ex.idx, {
@@ -2204,23 +2288,10 @@ function RoutineModal({
                                             />
                                           </label>
 
-                                          <div className="grid grid-cols-2 gap-1 sm:flex sm:items-center sm:justify-end sm:gap-1">
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="theme-accent-text h-11 w-10 rounded-lg p-0 sm:h-10 sm:w-10 sm:rounded-xl"
-                                              onClick={() =>
-                                                setOptionsExerciseId(
-                                                  ex.exerciseId,
-                                                )
-                                              }
-                                              aria-label={`Opciones de ${ex.name}`}
-                                            >
-                                              <Settings2 className="h-3.5 w-3.5" />
-                                            </Button>
+                                          <div className="flex items-center justify-end">
                                             <button
                                               type="button"
-                                              className="grid h-11 w-10 touch-none place-items-center rounded-lg p-0 text-[color:var(--text-muted)] hover:bg-[color:var(--bg)] sm:h-10 sm:w-10 sm:rounded-xl"
+                                              className="grid h-10 w-8 touch-none place-items-center rounded-full p-0 text-[color:var(--text-muted)] sm:w-9"
                                               aria-label={`Ordenar ${ex.name}`}
                                               {...attributes}
                                               {...listeners}
@@ -2374,19 +2445,6 @@ function RoutineModal({
                               })}
                             </SortableContext>
                           </DndContext>
-                          {muscle !== GLOBAL_ORDER_GROUP ? (
-                            <button
-                              type="button"
-                              onClick={() => openExtraPicker(muscle)}
-                              disabled={!extraOptions.length}
-                              className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:text-[color:var(--text-muted)] disabled:opacity-60 dark:text-blue-200"
-                            >
-                              <Plus className="h-4 w-4" />
-                              {extraOptions.length
-                                ? "Agregar extras"
-                                : "Sin extras disponibles"}
-                            </button>
-                          ) : null}
                           <div className="hidden rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 p-3">
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
                               Agregar ejercicio extra
@@ -2496,117 +2554,111 @@ function RoutineModal({
           </div>
         )}
         {extraPickerMuscle && (
-          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
-              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+          <div className="fixed inset-0 z-[90] flex items-end bg-black/45 px-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="flex max-h-[86vh] w-full flex-col overflow-hidden rounded-t-[1.75rem] bg-[color:var(--bg)] shadow-2xl sm:max-w-lg sm:rounded-[1.75rem]">
+              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[color:var(--border)] sm:hidden" />
+              <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                    Extras
+                  <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                    Añadir extras
                   </p>
-                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                  <h3 className="mt-0.5 truncate text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
                     {extraPickerMuscle}
                   </h3>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    Marca cuales ejercicios de este grupo seran extras.
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    Quedarán disponibles fuera del recorrido principal.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setExtraPickerMuscle(null)}
-                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                  className="h-9 shrink-0 px-1 text-sm font-semibold text-[color:var(--accent)]"
                 >
-                  Cerrar
+                  Cancelar
                 </button>
               </div>
 
-              <div className="grid max-h-[52vh] gap-2 overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
                 {extraPickerOptions.length ? (
-                  extraPickerOptions.map((option) => {
-                    const selected = pickerSelectedExtraIds.includes(option.id);
-                    const thumb = getExerciseImageUrl(option, {
-                      width: 192,
-                      height: 192,
-                    });
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() =>
-                          toggleExtraSelection(extraPickerMuscle, option.id)
-                        }
-                        className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-                          selected
-                            ? "border-blue-400 bg-blue-500/10"
-                            : "border-[color:var(--border)] bg-[color:var(--bg)]"
-                        }`}
-                      >
-                        <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                          <ExerciseThumbnail
-                            src={thumb}
-                            alt=""
-                            fallback={(option.name || "?")
-                              .charAt(0)
-                              .toUpperCase()}
-                            className="h-full w-full text-xs font-black"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
-                            {option.name}
-                          </p>
-                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            Se agregara como extra
-                          </p>
-                        </div>
-                        <span
-                          className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
+                  <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                    {extraPickerOptions.map((option) => {
+                      const selected = pickerSelectedExtraIds.includes(
+                        option.id,
+                      );
+                      const thumb = getExerciseImageUrl(option, {
+                        width: 160,
+                        height: 160,
+                      });
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() =>
+                            toggleExtraSelection(extraPickerMuscle, option.id)
+                          }
+                          className={`grid min-h-[82px] w-full grid-cols-[60px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${
                             selected
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-[color:var(--border)] text-transparent"
+                              ? "bg-[color:var(--surface-subtle)]"
+                              : "hover:bg-[color:var(--surface-subtle)]"
                           }`}
                         >
-                          <Check className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                      </button>
-                    );
-                  })
+                          <div className="h-[60px] w-[60px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                            <ExerciseThumbnail
+                              src={thumb}
+                              alt=""
+                              fallback={(option.name || "?")
+                                .charAt(0)
+                                .toUpperCase()}
+                              className="h-full w-full text-xs font-semibold"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 text-sm font-medium leading-snug text-[color:var(--text)]">
+                              {option.name}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                              {option.muscle || extraPickerMuscle}
+                            </p>
+                          </div>
+                          <span
+                            className={`grid h-7 w-7 place-items-center rounded-full border transition ${
+                              selected
+                                ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white"
+                                : "border-[color:var(--border)] text-transparent"
+                            }`}
+                          >
+                            <Check className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                  <div className="rounded-2xl bg-[color:var(--card)] p-5 text-center text-sm text-[color:var(--text-muted)]">
                     No hay ejercicios disponibles para este grupo.
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-[color:var(--border)] p-4">
+              <div className="shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
                 <Button
                   className="h-12 w-full rounded-2xl text-sm"
                   disabled={!pickerSelectedExtraIds.length}
                   onClick={() => confirmExtraSelection(extraPickerMuscle)}
                 >
-                  Guardar extras
                   {pickerSelectedExtraIds.length
-                    ? ` (${pickerSelectedExtraIds.length})`
-                    : ""}
+                    ? `Añadir ${pickerSelectedExtraIds.length} extra${pickerSelectedExtraIds.length === 1 ? "" : "s"}`
+                    : "Selecciona un ejercicio"}
                 </Button>
               </div>
             </div>
           </div>
         )}
         {exercisePickerOpen && (
-          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="max-h-[88vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
-              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                    Paso 2
-                  </p>
-                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
-                    Elige ejercicios
-                  </h3>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    Marca los ejercicios que formarán parte de la rutina.
-                  </p>
-                </div>
+          <div className="fixed inset-0 z-[80] flex justify-center bg-[color:var(--bg)]">
+            <div className="flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden bg-[color:var(--bg)]">
+              <div className="grid h-16 shrink-0 grid-cols-[44px_minmax(0,1fr)_44px] items-center border-b border-[color:var(--border)] px-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -2617,18 +2669,54 @@ function RoutineModal({
                       setSelectedExerciseIds([]);
                     }
                   }}
-                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                  className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition hover:bg-[color:var(--card)]"
+                  aria-label="Volver"
                 >
-                  {canReturnToSetupFromPicker ? "Volver" : "Cerrar"}
+                  <ArrowLeft className="h-5 w-5" />
                 </button>
+                <h3 className="truncate text-center text-base font-medium text-[color:var(--text)]">
+                  Elegir ejercicios
+                </h3>
+                <span aria-hidden="true" />
               </div>
 
-              <div className="border-b border-[color:var(--border)] p-4">
-                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="shrink-0 px-4 pb-3 pt-4">
+                <div className="mb-3 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-medium text-[color:var(--text)]">
+                      Añade tus ejercicios
+                    </p>
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      Toca un ejercicio para seleccionarlo.
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs font-medium text-[color:var(--text-muted)]">
+                    {selectedExerciseIds.length
+                      ? `${selectedExerciseIds.length} elegido${selectedExerciseIds.length === 1 ? "" : "s"}`
+                      : "Ninguno elegido"}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                  <input
+                    type="search"
+                    autoComplete="off"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar ejercicio"
+                    className="theme-accent-focus h-12 w-full rounded-2xl border-0 bg-[color:var(--card)] pl-11 pr-4 text-sm text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+                  />
+                </div>
+                <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {pickerMuscleOptions.map((muscle) => {
-                    const selectedCount = exercises.filter(
-                      (exercise) => exercise.muscle === muscle,
-                    ).length;
+                    const selectedCount =
+                      exercises.filter((exercise) => exercise.muscle === muscle)
+                        .length +
+                      selectedExerciseIds.filter(
+                        (exerciseId) =>
+                          selectableExerciseById.get(String(exerciseId))
+                            ?.muscle === muscle,
+                      ).length;
                     const isActive =
                       !isExerciseSearchActive && selectedMuscle === muscle;
                     return (
@@ -2637,12 +2725,13 @@ function RoutineModal({
                         type="button"
                         onClick={() => {
                           setSelectedMuscle(muscle);
+                          setExercisePickerFilter(null);
                           setSearch("");
                         }}
-                        className={`h-9 shrink-0 rounded-full border px-3 text-[11px] font-black transition ${
+                        className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
                           isActive
-                            ? "border-blue-400 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                            : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+                            ? "theme-accent-solid border-transparent"
+                            : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"
                         }`}
                       >
                         {muscle}
@@ -2651,26 +2740,69 @@ function RoutineModal({
                     );
                   })}
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-                  <input
-                    type="search"
-                    autoComplete="off"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar en todos los ejercicios"
-                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <motion.div
+                  layout
+                  ref={exercisePickerFilterStripRef}
+                  className="-mx-4 mt-2 flex gap-2.5 overflow-x-auto border-t border-[color:var(--detail-row-divider)] px-4 pb-1 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  role="group"
+                  aria-label="Filtrar ejercicios por nivel o equipo"
+                >
+                  <AnimatePresence initial={false}>
+                    {exercisePickerFilter ? (
+                      <motion.button
+                        layout
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -12 }}
+                        type="button"
+                        onClick={() => setExercisePickerFilter(null)}
+                        className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-[color:var(--border-strong)] px-4 text-sm font-medium text-[color:var(--text)]"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Restablecer
+                      </motion.button>
+                    ) : null}
+                  </AnimatePresence>
+                  {orderedExercisePickerFilters.map((option) => {
+                    const active =
+                      exercisePickerFilter?.key === option.key &&
+                      exercisePickerFilter?.value === option.value;
+                    const locked = Boolean(exercisePickerFilter && !active);
+                    return (
+                      <motion.button
+                        layout
+                        key={`${option.key}-${option.value}`}
+                        type="button"
+                        aria-pressed={active}
+                        aria-disabled={locked}
+                        tabIndex={locked ? -1 : 0}
+                        onClick={() => {
+                          if (!locked) setExercisePickerFilter(option);
+                        }}
+                        className={`h-11 shrink-0 rounded-full px-3 text-sm font-medium transition-[opacity,transform,background-color,color] duration-300 ${
+                          active
+                            ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            : locked
+                              ? "cursor-default bg-[#ece8e0] text-[#c8c2b8] dark:bg-[#20201e] dark:text-[#666661]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                        }`}
+                      >
+                        {option.label}
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
               </div>
 
-              <div className="max-h-[46vh] overflow-y-auto p-4">
-                {isExerciseSearchActive ? (
-                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-2">
-                    <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                      Resultados en todos los grupos
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                {isExerciseSearchActive || exercisePickerFilter ? (
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                      {exercisePickerFilter
+                        ? exercisePickerFilter.label
+                        : "Resultados"}
                     </p>
-                    <span className="theme-accent-text text-xs font-black tabular-nums">
+                    <span className="text-xs tabular-nums text-[color:var(--text-muted)]">
                       {isExerciseSearchPending
                         ? "..."
                         : exercisePickerOptions.length}
@@ -2678,23 +2810,23 @@ function RoutineModal({
                   </div>
                 ) : null}
                 {isExerciseSearchPending ? (
-                  <div className="grid min-h-32 place-items-center border border-dashed border-[color:var(--border)] text-center text-[color:var(--text-muted)]">
+                  <div className="grid min-h-32 place-items-center rounded-2xl bg-[color:var(--card)] text-center text-[color:var(--text-muted)]">
                     <span>
                       <Loader2 className="theme-accent-text mx-auto h-5 w-5 animate-spin" />
-                      <span className="mt-2 block text-xs font-black uppercase">
+                      <span className="mt-2 block text-xs font-medium">
                         Buscando ejercicios
                       </span>
                     </span>
                   </div>
                 ) : isExerciseSearchActive && remoteExerciseSearch.isError ? (
-                  <div className="border border-dashed border-red-400/50 p-4 text-center">
-                    <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+                  <div className="rounded-2xl bg-[color:var(--card)] p-4 text-center">
+                    <p className="text-sm text-[color:var(--text-muted)]">
                       No se pudo consultar el catálogo.
                     </p>
                     <button
                       type="button"
                       onClick={() => remoteExerciseSearch.refetch()}
-                      className="theme-accent-text mt-3 text-xs font-black uppercase"
+                      className="theme-accent-text mt-3 text-xs font-semibold"
                     >
                       Reintentar
                     </button>
@@ -2702,27 +2834,24 @@ function RoutineModal({
                 ) : exercisePickerOptions.length ? (
                   <>
                     {frequentExerciseOptions.length ? (
-                      <section className="mb-4">
-                        <div className="mb-2 flex items-center justify-between gap-3">
+                      <section className="mb-5">
+                        <div className="mb-2 flex items-end justify-between gap-3 px-1">
                           <div>
-                            <p className="text-xs font-black text-[color:var(--text)]">
-                              Tu base más utilizada
-                            </p>
-                            <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                              Según tus entrenamientos en esta sede
+                            <p className="text-sm font-medium text-[color:var(--text)]">
+                              Usados recientemente
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={toggleFrequentSelection}
-                            className="h-8 shrink-0 rounded-xl border border-blue-500/30 bg-blue-500/10 px-2.5 text-[11px] font-black text-blue-700 dark:text-blue-200"
+                            className="theme-accent-text h-8 shrink-0 px-1 text-xs font-medium"
                           >
                             {allFrequentSelected
-                              ? "Quitar base"
-                              : "Elegir base"}
+                              ? "Quitar selección"
+                              : "Seleccionar todos"}
                           </button>
                         </div>
-                        <div className="grid gap-2">
+                        <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
                           {frequentExerciseOptions.map((option) => (
                             <ExercisePickerOption
                               key={option.id}
@@ -2737,108 +2866,63 @@ function RoutineModal({
                       </section>
                     ) : null}
                     {frequentExerciseOptions.length ? (
-                      <p className="mb-2 text-xs font-black text-[color:var(--text-muted)]">
+                      <p className="mb-2 px-1 text-sm font-medium text-[color:var(--text)]">
                         Todos los ejercicios
                       </p>
                     ) : null}
-                    <div className="grid gap-2">
-                      {regularExerciseOptions.map((option) => {
-                        const selected = selectedExerciseIds.includes(
-                          option.id,
-                        );
-                        const thumb = getExerciseImageUrl(option, {
-                          width: 192,
-                          height: 192,
-                        });
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => toggleExerciseSelection(option.id)}
-                            className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-                              selected
-                                ? "border-blue-400 bg-blue-500/10"
-                                : "border-[color:var(--border)] bg-[color:var(--bg)]"
-                            }`}
-                          >
-                            <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                              <ExerciseThumbnail
-                                src={thumb}
-                                alt=""
-                                fallback={(option.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()}
-                                className="h-full w-full text-xs font-black"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-[color:var(--text)]">
-                                {option.name}
-                              </p>
-                              <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                                {option.muscle}
-                              </p>
-                            </div>
-                            <span
-                              className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
-                                selected
-                                  ? "border-blue-600 bg-blue-600 text-white"
-                                  : "border-[color:var(--border)] text-transparent"
-                              }`}
-                            >
-                              <Check className="h-4 w-4" aria-hidden="true" />
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                      {regularExerciseOptions.map((option) => (
+                        <ExercisePickerOption
+                          key={option.id}
+                          option={option}
+                          selected={selectedExerciseIds.includes(option.id)}
+                          branch={exerciseFilterBranch}
+                          onToggle={toggleExerciseSelection}
+                        />
+                      ))}
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                  <div className="rounded-2xl bg-[color:var(--card)] p-5 text-center text-sm text-[color:var(--text-muted)]">
                     {isExerciseSearchActive
                       ? `No encontramos “${search.trim()}”. Prueba con otro nombre, alias o grupo muscular.`
-                      : "No hay ejercicios disponibles con este filtro."}
+                      : exercisePickerFilter
+                        ? "No hay ejercicios disponibles. Restablece el filtro para ver todas las opciones."
+                        : "No hay ejercicios disponibles con este filtro."}
                   </div>
                 )}
               </div>
 
-              <div className="grid gap-2 border-t border-[color:var(--border)] p-4">
-                {exercisePickerOptions.length === 80 && !search.trim() ? (
-                  <p className="text-center text-[11px] font-semibold text-[color:var(--text-muted)]">
-                    Mostrando los primeros 80. Usa la búsqueda para encontrar
-                    uno específico.
-                  </p>
-                ) : null}
+              <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--card)] px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
                 <Button
-                  className="h-12 w-full rounded-lg text-sm"
+                  className="h-12 w-full rounded-2xl text-sm"
                   disabled={!selectedExerciseIds.length}
                   onClick={addSelectedExercises}
                 >
-                  {nextPendingMuscle
-                    ? "Agregar y seguir"
-                    : "Agregar ejercicios"}
                   {selectedExerciseIds.length
-                    ? ` (${selectedExerciseIds.length})`
-                    : ""}
+                    ? nextPendingMuscle
+                      ? `Añadir ${selectedExerciseIds.length} y seguir con ${nextPendingMuscle}`
+                      : `Añadir ${selectedExerciseIds.length} ejercicio${selectedExerciseIds.length === 1 ? "" : "s"}`
+                    : "Selecciona ejercicios"}
                 </Button>
               </div>
             </div>
           </div>
         )}
         {alternativePickerExercise && (
-          <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
-              <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+          <div className="fixed inset-0 z-[90] flex items-end bg-black/45 px-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="flex max-h-[86vh] w-full flex-col overflow-hidden rounded-t-[1.75rem] bg-[color:var(--bg)] shadow-2xl sm:max-w-lg sm:rounded-[1.75rem]">
+              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[color:var(--border)] sm:hidden" />
+              <div className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                    Alternativas
+                  <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                    Elegir alternativas
                   </p>
-                  <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                  <h3 className="mt-0.5 truncate text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
                     {alternativePickerExercise.name}
                   </h3>
-                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    Selecciona ejercicios del mismo grupo para usarlos como
-                    reemplazo.
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    Se usarán como reemplazo cuando lo necesites.
                   </p>
                 </div>
                 <button
@@ -2847,78 +2931,82 @@ function RoutineModal({
                     setAlternativePickerExercise(null);
                     setSelectedAlternativeIds([]);
                   }}
-                  className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                  className="h-9 shrink-0 px-1 text-sm font-semibold text-[color:var(--accent)]"
                 >
-                  Cerrar
+                  Cancelar
                 </button>
               </div>
 
-              <div className="grid max-h-[52vh] gap-2 overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
                 {alternativePickerOptions.length ? (
-                  alternativePickerOptions.map((option) => {
-                    const selected = selectedAlternativeIds.includes(option.id);
-                    const thumb = getExerciseImageUrl(option, {
-                      width: 192,
-                      height: 192,
-                    });
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => toggleAlternativeSelection(option.id)}
-                        className={`grid grid-cols-[76px_minmax(0,1fr)_28px] items-center gap-3 rounded-2xl border p-2.5 text-left transition ${
-                          selected
-                            ? "border-blue-400 bg-blue-500/10"
-                            : "border-[color:var(--border)] bg-[color:var(--bg)]"
-                        }`}
-                      >
-                        <div className="h-20 w-[76px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)]">
-                          <ExerciseThumbnail
-                            src={thumb}
-                            alt=""
-                            fallback={(option.name || "?")
-                              .charAt(0)
-                              .toUpperCase()}
-                            className="h-full w-full text-xs font-black"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-[color:var(--text)]">
-                            {option.name}
-                          </p>
-                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            Se agregara como alternativa
-                          </p>
-                        </div>
-                        <span
-                          className={`grid h-7 w-7 place-items-center rounded-full border text-xs font-black ${
+                  <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                    {alternativePickerOptions.map((option) => {
+                      const selected = selectedAlternativeIds.includes(
+                        option.id,
+                      );
+                      const thumb = getExerciseImageUrl(option, {
+                        width: 160,
+                        height: 160,
+                      });
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggleAlternativeSelection(option.id)}
+                          className={`grid min-h-[82px] w-full grid-cols-[60px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${
                             selected
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-[color:var(--border)] text-transparent"
+                              ? "bg-[color:var(--surface-subtle)]"
+                              : "hover:bg-[color:var(--surface-subtle)]"
                           }`}
                         >
-                          <Check className="h-4 w-4" aria-hidden="true" />
-                        </span>
-                      </button>
-                    );
-                  })
+                          <div className="h-[60px] w-[60px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                            <ExerciseThumbnail
+                              src={thumb}
+                              alt=""
+                              fallback={(option.name || "?")
+                                .charAt(0)
+                                .toUpperCase()}
+                              className="h-full w-full text-xs font-semibold"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 text-sm font-medium leading-snug text-[color:var(--text)]">
+                              {option.name}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                              {option.muscle || "Mismo grupo muscular"}
+                            </p>
+                          </div>
+                          <span
+                            className={`grid h-7 w-7 place-items-center rounded-full border transition ${
+                              selected
+                                ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white"
+                                : "border-[color:var(--border)] text-transparent"
+                            }`}
+                          >
+                            <Check className="h-4 w-4" aria-hidden="true" />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+                  <div className="rounded-2xl bg-[color:var(--card)] p-5 text-center text-sm text-[color:var(--text-muted)]">
                     No hay alternativas disponibles para este ejercicio.
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-[color:var(--border)] p-4">
+              <div className="shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
                 <Button
                   className="h-12 w-full rounded-2xl text-sm"
                   disabled={!selectedAlternativeIds.length}
                   onClick={confirmAlternativeSelection}
                 >
-                  Agregar alternativas
                   {selectedAlternativeIds.length
-                    ? ` (${selectedAlternativeIds.length})`
-                    : ""}
+                    ? `Añadir ${selectedAlternativeIds.length} alternativa${selectedAlternativeIds.length === 1 ? "" : "s"}`
+                    : "Selecciona una alternativa"}
                 </Button>
               </div>
             </div>
@@ -2944,115 +3032,128 @@ function RoutineModal({
             );
 
             return (
-              <div className="fixed inset-0 z-[80] flex items-end bg-black/50 px-0 sm:items-center sm:justify-center sm:p-4">
-                <div className="max-h-[82vh] w-full overflow-hidden rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl sm:max-w-lg sm:rounded-3xl">
-                  <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+              <div className="fixed inset-0 z-[80] flex items-end bg-black/45 px-0 sm:items-center sm:justify-center sm:p-4">
+                <div className="max-h-[82vh] w-full overflow-hidden rounded-t-[1.75rem] bg-[color:var(--bg)] shadow-2xl sm:max-w-lg sm:rounded-[1.75rem]">
+                  <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-[color:var(--border)] sm:hidden" />
+                  <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-4">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-200">
-                        Opciones
+                      <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                        Ajustar ejercicio
                       </p>
-                      <h3 className="truncate text-lg font-black text-[color:var(--text)]">
+                      <h3 className="mt-0.5 truncate text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
                         {current.name}
                       </h3>
-                      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                        Movimiento y alternativas del ejercicio.
-                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setOptionsExerciseId(null)}
-                      className="h-9 rounded-xl border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)]"
+                      className="h-9 shrink-0 px-1 text-sm font-semibold text-[color:var(--accent)]"
                     >
-                      Cerrar
+                      Listo
                     </button>
                   </div>
 
-                  <div className="grid gap-3 overflow-y-auto p-4">
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                          Unilateral
-                        </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                          Activar si se trabaja un lado a la vez.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateExercise(
-                            currentIndex,
-                            applyUnilateralMode(!isUnilateralMovement(current)),
-                          )
-                        }
-                        className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                          isUnilateralMovement(current)
-                            ? "bg-blue-600"
-                            : "bg-slate-300 dark:bg-slate-700"
-                        }`}
-                        aria-pressed={isUnilateralMovement(current)}
-                      >
-                        <span
-                          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                            isUnilateralMovement(current) ? "left-6" : "left-1"
+                  <div className="grid gap-4 overflow-y-auto px-4 pb-[max(20px,env(safe-area-inset-bottom))]">
+                    <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                      <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[color:var(--text)]">
+                            Un lado a la vez
+                          </p>
+                          <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                            Actívalo para movimientos unilaterales.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateExercise(
+                              currentIndex,
+                              applyUnilateralMode(
+                                !isUnilateralMovement(current),
+                              ),
+                            )
+                          }
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                            isUnilateralMovement(current)
+                              ? "bg-[color:var(--accent)]"
+                              : "bg-[color:var(--surface-subtle)]"
                           }`}
-                        />
-                      </button>
-                    </div>
+                          aria-label="Trabajar un lado a la vez"
+                          aria-pressed={isUnilateralMovement(current)}
+                        >
+                          <span
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                              isUnilateralMovement(current)
+                                ? "left-6"
+                                : "left-1"
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-3">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                          Ejercicio extra
-                        </p>
-                        <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
-                          Queda disponible como opcion, fuera del plan
-                          principal.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateExercise(currentIndex, {
-                            isExtra: !current.isExtra,
-                          })
-                        }
-                        className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                          current.isExtra
-                            ? "bg-emerald-600"
-                            : "bg-slate-300 dark:bg-slate-700"
-                        }`}
-                        aria-label="Marcar como ejercicio extra"
-                        aria-pressed={Boolean(current.isExtra)}
-                      >
-                        <span
-                          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
-                            current.isExtra ? "left-6" : "left-1"
+                      <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[color:var(--text)]">
+                            Ejercicio opcional
+                          </p>
+                          <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                            No se incluye en el recorrido principal.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateExercise(currentIndex, {
+                              isExtra: !current.isExtra,
+                            })
+                          }
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                            current.isExtra
+                              ? "bg-[color:var(--accent)]"
+                              : "bg-[color:var(--surface-subtle)]"
                           }`}
-                        />
-                      </button>
+                          aria-label="Marcar como ejercicio extra"
+                          aria-pressed={Boolean(current.isExtra)}
+                        >
+                          <span
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                              current.isExtra ? "left-6" : "left-1"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
                     <button
                       type="button"
                       disabled={!alternativeOptions.length}
                       onClick={() => openAlternativePicker(current)}
-                      className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-dashed border-blue-400/40 bg-blue-500/5 px-3 text-xs font-black text-blue-700 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:text-[color:var(--text-muted)] disabled:opacity-60 dark:text-blue-200"
+                      className="flex min-h-[64px] items-center justify-between gap-3 rounded-2xl bg-[color:var(--card)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-55"
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      {alternativeOptions.length
-                        ? "Agregar alternativas"
-                        : "Sin alternativas disponibles"}
+                      <span>
+                        <span className="block text-sm font-medium text-[color:var(--text)]">
+                          Alternativas
+                        </span>
+                        <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                          {alternativeOptions.length
+                            ? (current.alternatives || []).length
+                              ? `${(current.alternatives || []).length} configurada${(current.alternatives || []).length === 1 ? "" : "s"}`
+                              : "Añade un reemplazo"
+                            : "No hay reemplazos disponibles"}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
                     </button>
 
                     {(current.alternatives || []).length > 0 && (
-                      <div className="grid gap-1.5">
+                      <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
                         {(current.alternatives || []).map((alt) => (
                           <div
                             key={alt.exerciseId}
-                            className="grid grid-cols-[minmax(0,1fr)_74px_34px] items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2.5 py-2"
+                            className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_78px_36px] items-center gap-2 px-4 py-2"
                           >
-                            <p className="truncate text-xs font-black leading-tight text-[color:var(--text)]">
+                            <p className="truncate text-sm font-medium leading-tight text-[color:var(--text)]">
                               {alt.name}
                             </p>
                             <button
@@ -3066,10 +3167,10 @@ function RoutineModal({
                                   ),
                                 )
                               }
-                              className={`h-8 rounded-lg border px-1.5 text-[9px] font-black transition ${
+                              className={`h-8 rounded-full px-2 text-[10px] font-medium transition ${
                                 isUnilateralMovement(alt)
-                                  ? "border-blue-400 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                                  : "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                                  ? "bg-[color:var(--surface-subtle)] text-[color:var(--accent)]"
+                                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                               }`}
                             >
                               {isUnilateralMovement(alt)
@@ -3078,7 +3179,7 @@ function RoutineModal({
                             </button>
                             <button
                               type="button"
-                              className="grid h-8 w-8 place-items-center rounded-lg text-xs text-red-500 hover:bg-red-500/10"
+                              className="grid h-9 w-9 place-items-center rounded-full text-xs text-red-500 transition hover:bg-red-500/10"
                               onClick={() =>
                                 removeAlternative(currentIndex, alt.exerciseId)
                               }
@@ -3097,9 +3198,8 @@ function RoutineModal({
                         removeExercise(currentIndex);
                         setOptionsExerciseId(null);
                       }}
-                      className="mt-1 flex h-11 items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 text-sm font-black text-red-600 transition hover:bg-red-500/15"
+                      className="h-11 text-sm font-medium text-red-600 transition hover:text-red-700"
                     >
-                      <Trash2 className="h-4 w-4" />
                       Eliminar ejercicio
                     </button>
                   </div>
@@ -3108,17 +3208,24 @@ function RoutineModal({
             );
           })()}
         {closeConfirmationOpen ? (
-          <div className="fixed inset-0 z-[100] flex items-end bg-black/55 p-0 sm:items-center sm:justify-center sm:p-4">
-            <div className="w-full rounded-t-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl sm:max-w-sm sm:rounded-2xl">
-              <h3 className="text-lg font-black text-[color:var(--text)]">
-                Descartar cambios
-              </h3>
-              <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-                Los cambios de esta rutina todavia no se guardaron.
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="fixed inset-0 z-[100] flex items-end bg-black/45 p-0 sm:items-center sm:justify-center sm:p-4">
+            <div className="w-full rounded-t-[1.75rem] bg-[color:var(--bg)] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 shadow-2xl sm:max-w-sm sm:rounded-[1.75rem]">
+              <div className="mx-auto h-1 w-10 rounded-full bg-[color:var(--border)] sm:hidden" />
+              <div className="px-1 pb-2 pt-5">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                  Cambios sin guardar
+                </p>
+                <h3 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
+                  ¿Salir de la edición?
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
+                  Si sales ahora, perderás los cambios realizados en esta
+                  rutina.
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2">
                 <Button
-                  variant="outline"
+                  className="h-12 rounded-2xl text-sm"
                   onClick={() => setCloseConfirmationOpen(false)}
                 >
                   Seguir editando
@@ -3126,9 +3233,9 @@ function RoutineModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-11 rounded-lg bg-red-600 px-3 text-sm font-black text-white"
+                  className="h-12 rounded-2xl bg-[color:var(--card)] px-3 text-sm font-medium text-red-600 transition hover:bg-red-500/10"
                 >
-                  Descartar
+                  Descartar cambios
                 </button>
               </div>
             </div>
@@ -3150,8 +3257,8 @@ function PlanRoutineChoiceModal({
 }) {
   const [query, setQuery] = useState("");
   const [assigningId, setAssigningId] = useState(null);
-  const [pendingRepeatId, setPendingRepeatId] = useState(null);
   const currentRoutineId = String(day?.routineId || "");
+  const [selectedRoutineId, setSelectedRoutineId] = useState(currentRoutineId);
   const dayLabel =
     scheduleMode === "fixed"
       ? PLAN_DAY_NAMES[Number(day?.dayIndex || 1) - 1] || "Día"
@@ -3185,14 +3292,17 @@ function PlanRoutineChoiceModal({
     return result;
   }, [day?.slotId, plan?.weeklySchedule, scheduleMode]);
 
-  const assign = async (routineId) => {
-    if (usageDays.has(routineId) && pendingRepeatId !== routineId) {
-      setPendingRepeatId(routineId);
-      return;
-    }
-    setAssigningId(routineId);
+  const selectedRoutine = routines.find(
+    (routine) =>
+      String(routine.id || routine._id) === String(selectedRoutineId),
+  );
+  const selectedUsageDays = usageDays.get(selectedRoutineId) || [];
+
+  const assign = async () => {
+    if (!selectedRoutineId || selectedRoutineId === currentRoutineId) return;
+    setAssigningId(selectedRoutineId);
     try {
-      await onAssign(routineId);
+      await onAssign(selectedRoutineId);
     } finally {
       setAssigningId(null);
     }
@@ -3202,81 +3312,155 @@ function PlanRoutineChoiceModal({
     <Modal
       mobilePage
       title={day?.routineId ? "Cambiar rutina" : "Asignar rutina"}
-      subtitle={`${dayLabel}${day?.focus ? ` · ${day.focus}` : ""}`}
+      subtitle={null}
       onClose={onClose}
+      footer={
+        <div className="w-full">
+          {selectedRoutine ? (
+            <p className="mb-2 truncate text-center text-xs text-[color:var(--text-muted)]">
+              {selectedRoutineId === currentRoutineId
+                ? "Esta rutina ya está asignada"
+                : selectedUsageDays.length
+                  ? `También se usa en ${selectedUsageDays.join(", ")}`
+                  : selectedRoutine.name}
+            </p>
+          ) : null}
+          <Button
+            className="h-12 w-full rounded-2xl text-sm"
+            disabled={
+              !selectedRoutineId ||
+              selectedRoutineId === currentRoutineId ||
+              Boolean(assigningId)
+            }
+            onClick={assign}
+          >
+            {assigningId ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Asignando
+              </>
+            ) : day?.routineId ? (
+              "Cambiar rutina"
+            ) : (
+              "Asignar rutina"
+            )}
+          </Button>
+        </div>
+      }
     >
-      <div className="space-y-3 pb-2">
+      <div className="mx-auto max-w-xl space-y-5 pb-2">
+        <div className="flex items-end justify-between gap-3 px-1">
+          <div className="min-w-0">
+            <p className="text-xs text-[color:var(--text-muted)]">
+              Entrenamiento para
+            </p>
+            <h2 className="mt-0.5 truncate text-2xl font-medium tracking-[-0.025em] text-[color:var(--text)]">
+              {dayLabel}
+            </h2>
+          </div>
+          {day?.focus ? (
+            <span className="shrink-0 rounded-full bg-[color:var(--card)] px-3 py-2 text-xs font-medium text-[color:var(--text-muted)]">
+              {day.focus}
+            </span>
+          ) : null}
+        </div>
         {routines.length ? (
           <>
             <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar rutina guardada"
-                autoFocus
-                className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm font-semibold outline-none"
+                placeholder="Buscar rutina"
+                className="theme-accent-focus h-12 w-full rounded-2xl border-0 bg-[color:var(--card)] pl-11 pr-4 text-sm outline-none placeholder:text-[color:var(--text-muted)]"
               />
             </div>
-            <div className="max-h-[48dvh] divide-y divide-[color:var(--border)] overflow-y-auto border-y border-[color:var(--border)] pr-1">
-              {options.length ? (
-                options.map((routine) => {
-                  const routineId = String(routine.id || routine._id);
-                  const isCurrent = routineId === currentRoutineId;
-                  const usedIn = usageDays.get(routineId) || [];
-                  const muscles = [
-                    ...new Set(
-                      (routine.exercises || [])
-                        .map((exercise) => exercise.muscle)
-                        .filter(Boolean),
-                    ),
-                  ].slice(0, 2);
-                  return (
-                    <button
-                      key={routineId}
-                      type="button"
-                      onClick={() => assign(routineId)}
-                      disabled={Boolean(assigningId) || isCurrent}
-                      className="flex min-h-14 w-full items-center justify-between gap-3 py-3 text-left disabled:opacity-60"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-black text-[color:var(--text)]">
-                          {routine.name}
-                        </span>
-                        <span className="mt-0.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                          {getRoutineExerciseSummary(routine)} ·{" "}
-                          {branchLabel(routine.branch)}
-                          {muscles.length ? ` · ${muscles.join(" + ")}` : ""}
-                        </span>
-                        {usedIn.length ? (
-                          <span className="mt-1 block text-[11px] font-black text-amber-700 dark:text-amber-300">
-                            Ya usada: {usedIn.join(", ")}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="theme-accent-text shrink-0 text-xs font-black">
-                        {isCurrent
-                          ? "Actual"
-                          : assigningId === routineId
-                            ? "Vinculando..."
-                            : pendingRepeatId === routineId
-                              ? "Confirmar repetición"
-                              : "Usar"}
-                      </span>
-                    </button>
-                  );
-                })
-              ) : (
-                <p className="py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
-                  No hay coincidencias
+            <div>
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="text-sm font-medium text-[color:var(--text)]">
+                  Tus rutinas
                 </p>
-              )}
+                <span className="text-xs text-[color:var(--text-muted)]">
+                  {options.length}
+                </span>
+              </div>
+              <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                {options.length ? (
+                  options.map((routine) => {
+                    const routineId = String(routine.id || routine._id);
+                    const isSelected = routineId === selectedRoutineId;
+                    const usedIn = usageDays.get(routineId) || [];
+                    const muscles = [
+                      ...new Set(
+                        (routine.exercises || [])
+                          .map((exercise) => exercise.muscle)
+                          .filter(Boolean),
+                      ),
+                    ].slice(0, 2);
+                    const firstExercise = routine.exercises?.[0];
+                    const thumb = getExerciseImageUrl(firstExercise, {
+                      width: 160,
+                      height: 160,
+                    });
+                    return (
+                      <button
+                        key={routineId}
+                        type="button"
+                        onClick={() => setSelectedRoutineId(routineId)}
+                        disabled={Boolean(assigningId)}
+                        aria-pressed={isSelected}
+                        className={`grid min-h-[76px] w-full grid-cols-[56px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition disabled:opacity-60 ${isSelected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
+                      >
+                        <div className="h-14 w-14 overflow-hidden rounded-xl bg-[color:var(--bg)]">
+                          <ExerciseThumbnail
+                            src={thumb}
+                            alt=""
+                            fallback={(routine.name || "?")
+                              .charAt(0)
+                              .toUpperCase()}
+                            className="h-full w-full text-xs font-semibold"
+                          />
+                        </div>
+                        <span className="min-w-0">
+                          <span
+                            className={`block truncate text-sm font-medium ${isSelected ? "text-[color:var(--accent-contrast)]" : "text-[color:var(--text)]"}`}
+                          >
+                            {routine.name}
+                          </span>
+                          <span
+                            className={`mt-1 block truncate text-xs ${isSelected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
+                          >
+                            {getRoutineExerciseSummary(routine)}
+                            {muscles.length ? ` · ${muscles.join(" + ")}` : ""}
+                          </span>
+                          {usedIn.length ? (
+                            <span
+                              className={`mt-1 block truncate text-[11px] ${isSelected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
+                            >
+                              También en {usedIn.join(", ")}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span
+                          className={`grid h-7 w-7 place-items-center rounded-full border transition ${isSelected ? "border-[color:var(--accent-contrast)] bg-[color:var(--accent-contrast)] text-[color:var(--accent)]" : "border-[color:var(--border)] text-transparent"}`}
+                        >
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                    No hay coincidencias
+                  </p>
+                )}
+              </div>
             </div>
           </>
         ) : (
-          <div className="border-y border-[color:var(--border)] py-8 text-center">
-            <p className="text-sm font-black">No tienes rutinas disponibles</p>
-            <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          <div className="rounded-2xl bg-[color:var(--card)] px-4 py-8 text-center">
+            <p className="text-sm font-medium">No tienes rutinas disponibles</p>
+            <p className="mt-1 text-xs text-[color:var(--text-muted)]">
               Crea una para poder asignarla a este día.
             </p>
           </div>
@@ -3284,7 +3468,7 @@ function PlanRoutineChoiceModal({
         <button
           type="button"
           onClick={onCreate}
-          className="flex h-11 w-full items-center justify-center gap-2 border border-[color:var(--border)] text-xs font-black text-[color:var(--text)] transition hover:border-[#352018] dark:hover:border-[#e2ff00]"
+          className="theme-accent-text flex h-11 w-full items-center justify-center gap-2 text-sm font-medium"
         >
           <Plus className="h-4 w-4" /> Crear rutina nueva
         </button>
@@ -3327,53 +3511,52 @@ function RoutineToolbar({
       label: "Sin asignar",
       count: routineScopeCounts.unassigned,
     },
+    ...(showArchivedControl && archivedCount > 0
+      ? [{ id: "archived", label: "Archivadas", count: archivedCount }]
+      : []),
   ];
   return (
     <section className="routine-toolbar mt-5 space-y-3">
-      <div className="flex items-stretch gap-2">
-        {showSearch ? (
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              type="search"
-              inputMode="search"
-              placeholder="Buscar rutina..."
-              className="theme-accent-focus h-11 w-full rounded-none border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:focus:border-[#e2ff00]"
-            />
-          </div>
-        ) : null}
-        {showArchivedControl ? (
-          <button
-            type="button"
-            onClick={onToggleArchived}
-            className={`inline-flex h-11 shrink-0 items-center justify-center gap-1.5 border px-3 text-xs font-black transition ${
-              showArchived
-                ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]"
-                : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]"
-            }`}
-            aria-expanded={showArchived}
-            aria-label={`${showArchived ? "Ocultar" : "Ver"} rutinas archivadas (${archivedCount})`}
-          >
-            <Archive className="h-4 w-4" />
-            <span className="hidden min-[360px]:inline">Archivadas</span>
-            <span aria-hidden="true">{archivedCount}</span>
-          </button>
-        ) : null}
-      </div>
+      {showSearch ? (
+        <div className="relative min-w-0">
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            type="search"
+            inputMode="search"
+            placeholder="Buscar rutina..."
+            className="theme-accent-focus h-11 w-full rounded-none border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:focus:border-[#e2ff00]"
+          />
+        </div>
+      ) : null}
       <div
-        className="routine-toolbar__scope grid grid-cols-3 border border-[color:var(--border)] bg-[color:var(--card)] p-1"
+        className="routine-toolbar__scope flex overflow-x-auto border border-[color:var(--border)] bg-[color:var(--card)] p-1"
         aria-label="Filtrar rutinas por asignación"
       >
         {scopes.map((scope) => (
           <button
             key={scope.id}
             type="button"
-            onClick={() => setRoutineScope(scope.id)}
-            aria-pressed={routineScope === scope.id}
-            className={`min-h-9 px-2 text-[10px] font-black uppercase transition sm:text-xs ${
-              routineScope === scope.id
+            onClick={() => {
+              if (scope.id === "archived") {
+                if (!showArchived) onToggleArchived();
+                return;
+              }
+              if (showArchived) onToggleArchived();
+              setRoutineScope(scope.id);
+            }}
+            aria-pressed={
+              scope.id === "archived"
+                ? showArchived
+                : !showArchived && routineScope === scope.id
+            }
+            className={`min-h-9 min-w-0 flex-1 shrink-0 px-3 text-[10px] font-black uppercase transition sm:text-xs ${
+              (
+                scope.id === "archived"
+                  ? showArchived
+                  : !showArchived && routineScope === scope.id
+              )
                 ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
             }`}
@@ -3436,6 +3619,9 @@ function RoutinePreviewImage({ item }) {
 
 function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
   if (!plan) return null;
+  const schedule = Array.isArray(plan.weeklySchedule)
+    ? plan.weeklySchedule
+    : [];
   const day = state?.day;
   const isCompleted = Boolean(state?.isCompleted);
   const isRest = Boolean(state?.isRest);
@@ -3447,103 +3633,96 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
         ? "Recuperación activa"
         : "Descanso programado"
       : routine?.name || "Rutina pendiente de asignar";
-  const detail = !state
-    ? "Revisa la programación para conocer tu siguiente sesión."
+  const currentWeek = Math.min(
+    Math.max(1, getPlanWeekIndex(plan) + 1),
+    Math.max(1, Number(plan.durationWeeks || 1)),
+  );
+  const planContext =
+    plan.scheduleMode === "fixed"
+      ? `Semana ${currentWeek} de ${Math.max(1, Number(plan.durationWeeks || 1))}`
+      : `${plan.weeklySchedule?.length || 0} días en orden`;
+  const todayContext = !state
+    ? "Revisa qué toca esta semana"
     : isCompleted
-      ? "La sesión de hoy ya está registrada."
+      ? "Entrenamiento completado"
       : isRest
-        ? "Hoy no necesitas añadir carga para mantener el avance del plan."
+        ? day.type === "recovery"
+          ? "Movilidad o actividad ligera"
+          : "Día sin entrenamiento"
         : routine
-          ? "Esta es la rutina programada para hoy."
-          : "Asigna una rutina para completar la planificación.";
-  const StatusIcon = !state
-    ? CalendarDays
-    : isCompleted
-      ? Check
-      : isRest
-        ? Bed
-        : Dumbbell;
+          ? getRoutineExerciseSummary(routine)
+          : "Falta asignar una rutina";
   const canStart =
     plan.status === "active" && !isCompleted && !isRest && Boolean(routine);
-  const timeProgress = getPlanTimeProgress(plan);
-
+  const currentDayIndex = Number.isInteger(state?.index) ? state.index : -1;
+  let nextTrainingDay = null;
+  let nextTrainingIndex = -1;
+  if (currentDayIndex >= 0 && schedule.length) {
+    for (let offset = 1; offset <= schedule.length; offset += 1) {
+      const index = (currentDayIndex + offset) % schedule.length;
+      if (schedule[index]?.type === "training") {
+        nextTrainingDay = schedule[index];
+        nextTrainingIndex = index;
+        break;
+      }
+    }
+  }
+  const nextTrainingContext = nextTrainingDay
+    ? `Próximo: ${nextTrainingDay.focus || "Entrenamiento"} · ${
+        plan.scheduleMode === "fixed"
+          ? PLAN_DAY_NAMES[nextTrainingIndex] || `Día ${nextTrainingIndex + 1}`
+          : `Día ${nextTrainingIndex + 1}`
+      }`
+    : "Consulta la agenda del plan";
   return (
-    <section className="current-plan-overview routines-surface mt-5 border border-[color:var(--border)] border-t-[3px] border-t-[color:var(--accent)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--accent-strong)]">
-            Plan actual
-          </p>
-          <h2 className="mt-1 truncate text-xl font-black leading-tight text-[color:var(--text)] sm:text-2xl">
-            {plan.name}
-          </h2>
-          <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-            {plan.goal || "Objetivo general"} · {plan.durationWeeks} semanas
-          </p>
-        </div>
-        <Badge variant="active">Vigente</Badge>
-      </div>
-      <div className="mt-3">
-        <div className="flex items-center justify-between text-[10px] font-black uppercase">
-          <span className="text-[color:var(--text-muted)]">
-            Periodo transcurrido
-          </span>
-          <span className="text-[color:var(--accent-strong)]">
-            {timeProgress.percentage}%
-          </span>
-        </div>
-        <div
-          className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]"
-          role="progressbar"
-          aria-label={`Periodo transcurrido de ${plan.name}`}
-          aria-valuemin="0"
-          aria-valuemax="100"
-          aria-valuenow={timeProgress.percentage}
-        >
-          <div
-            className="h-full bg-[color:var(--accent)]"
-            style={{ width: `${timeProgress.percentage}%` }}
-          />
-        </div>
-      </div>
-      <div className="mt-4 border-t border-[color:var(--border)] pt-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 items-start gap-3 sm:flex-1">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-            <StatusIcon className="h-4 w-4" />
-          </span>
+    <section className="current-plan-overview overflow-hidden rounded-3xl bg-[color:var(--card)]">
+      <div className="relative h-32 overflow-hidden">
+        <img
+          src={planningOverviewImage}
+          alt=""
+          className="h-full w-full object-cover object-[center_62%]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 py-3 text-white">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-              Hoy
-            </p>
-            <h3 className="mt-0.5 truncate text-base font-black leading-tight text-[color:var(--text)]">
-              {title}
-            </h3>
-            <p className="mt-1 text-xs font-semibold leading-4 text-[color:var(--text-muted)]">
-              {detail}
-            </p>
+            <p className="text-xs text-white/75">Plan actual</p>
+            <h2 className="mt-0.5 truncate text-xl font-medium leading-tight">
+              {plan.name}
+            </h2>
           </div>
+          <span className="shrink-0 rounded-full bg-white/90 px-3 py-2 text-xs font-medium text-[#251a12] backdrop-blur-sm">
+            {planContext}
+          </span>
         </div>
-        <div
-          className={`mt-3 grid gap-2 sm:mt-0 sm:flex sm:shrink-0 ${
-            canStart ? "grid-cols-2" : "grid-cols-1"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={onOpen}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--border)] px-3 text-xs font-black text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
-          >
-            Ver agenda
-          </button>
+      </div>
+
+      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-4">
+        <p className="text-xs font-medium text-[color:var(--text-muted)]">
+          Hoy
+        </p>
+        <h3 className="mt-1 text-xl font-medium leading-tight text-[color:var(--text)]">
+          {title}
+        </h3>
+        <p className="mt-1 truncate text-sm text-[color:var(--text-muted)]">
+          {isRest ? nextTrainingContext : todayContext}
+        </p>
+        <div className="mt-4 flex items-center gap-2">
           {canStart ? (
             <button
               type="button"
               onClick={() => onStart(day, plan)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--accent)] px-3 text-xs font-black text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)]"
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-[color:var(--accent)] px-4 text-sm font-medium text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)]"
             >
-              <Play className="h-4 w-4" /> Iniciar
+              Iniciar entrenamiento
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={onOpen}
+            className={`inline-flex h-11 items-center justify-center rounded-2xl border border-[color:var(--border)] px-4 text-sm font-medium text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] ${canStart ? "shrink-0" : "w-full"}`}
+          >
+            Ver planificación
+          </button>
         </div>
       </div>
     </section>
@@ -3551,34 +3730,18 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
 }
 
 function SecondaryPlanRow({ plan, onOpen }) {
-  const timeProgress = getPlanTimeProgress(plan);
-  const sequential = plan.scheduleMode !== "fixed";
   return (
     <button
       type="button"
       onClick={() => onOpen(plan)}
-      className="secondary-plan-row routines-surface flex min-h-20 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3 text-left transition hover:border-[color:var(--border-strong)] sm:px-4"
+      className="secondary-plan-row flex min-h-[76px] w-full items-center gap-3 bg-[color:var(--card)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)]"
     >
-      <Badge variant={plan.status}>
-        {PLAN_STATUS_LABELS[plan.status] || plan.status}
-      </Badge>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-[color:var(--text)] sm:text-base">
+        <span className="block truncate text-sm font-medium text-[color:var(--text)] sm:text-base">
           {plan.name}
         </span>
-        <span className="mt-1 block truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
-          {sequential
-            ? `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`
-            : "Semana recurrente"}{" "}
-          · {plan.durationWeeks} semanas
-        </span>
-      </span>
-      <span className="shrink-0 text-right">
-        <span className="block text-[9px] font-bold uppercase text-[color:var(--text-muted)]">
-          Periodo
-        </span>
-        <span className="block text-xs font-black text-[color:var(--text)]">
-          {timeProgress.percentage}%
+        <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+          {PLAN_STATUS_LABELS[plan.status] || plan.status}
         </span>
       </span>
       <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
@@ -3656,31 +3819,31 @@ export function TrainingPlanSchedule({
     <div className="plan-schedule mt-5">
       <div className="plan-schedule__header flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-black uppercase text-[color:var(--text-muted)]">
+          <p className="text-base font-medium text-[color:var(--text)]">
             {isConfiguring
-              ? "Asignación de rutinas"
+              ? "Rutinas del plan"
               : sequential
-                ? "Orden del ciclo"
+                ? "Próxima sesión"
                 : `Semana ${selectedWeek + 1} de ${Math.max(1, Number(plan.durationWeeks || 1))}`}
           </p>
-          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
             {isConfiguring
               ? sequential
-                ? `${schedule.length} días en orden libre`
-                : "La misma distribución se repite cada semana"
+                ? `${schedule.length} días`
+                : `${configuredTrainingDays} de ${totalTrainingDays} asignadas`
               : sequential
-                ? "Avanza al completar cada entrenamiento o descanso"
+                ? `Día ${currentCycleIndex + 1} de ${schedule.length}`
                 : `${formatPlanDayDate(weekStart)} - ${formatPlanDayDate(weekEnd)}`}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <strong className="theme-accent-text text-xs uppercase">
-            {isConfiguring
-              ? `${configuredTrainingDays}/${totalTrainingDays} asignadas`
-              : sequential
-                ? `Día ${currentCycleIndex + 1}/${schedule.length}`
-                : `${completedTrainingDays}/${totalTrainingDays} sesiones esta semana`}
-          </strong>
+          {isConfiguring || !sequential ? (
+            <strong className="text-sm font-medium text-[color:var(--text)]">
+              {isConfiguring
+                ? `${configuredTrainingDays}/${totalTrainingDays}`
+                : `${completedTrainingDays} de ${totalTrainingDays} realizados`}
+            </strong>
+          ) : null}
           {!isConfiguring && isEditable && !isManagedClient ? (
             <button
               type="button"
@@ -3689,13 +3852,13 @@ export function TrainingPlanSchedule({
                   current === planId ? "" : planId,
                 )
               }
-              className={`h-8 border px-2.5 text-[10px] font-black uppercase transition ${
+              className={`h-8 rounded-full border px-3 text-xs font-medium transition ${
                 editingSchedule
                   ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]"
                   : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
               }`}
             >
-              {editingSchedule ? "Cerrar edición" : "Editar distribución"}
+              {editingSchedule ? "Listo" : "Editar"}
             </button>
           ) : null}
         </div>
@@ -3707,12 +3870,6 @@ export function TrainingPlanSchedule({
             style={{ width: `${(progressValue / progressTotal) * 100}%` }}
           />
         </div>
-      ) : null}
-
-      {showEditingControls && !sequential ? (
-        <p className="mt-3 border-l-2 border-[color:var(--accent)] pl-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-          Los cambios se aplican a la semana recurrente completa.
-        </p>
       ) : null}
 
       {!sequential && Number(plan.durationWeeks || 1) > 1 ? (
@@ -3728,7 +3885,7 @@ export function TrainingPlanSchedule({
                 type="button"
                 onClick={() => onSelectWeek?.(weekIndex)}
                 aria-pressed={selectedWeek === weekIndex}
-                className={`h-9 shrink-0 border px-3 text-[10px] font-black uppercase transition ${
+                className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
                   selectedWeek === weekIndex
                     ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                     : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]"
@@ -3767,17 +3924,17 @@ export function TrainingPlanSchedule({
           const isRest = day.type !== "training";
           const primaryLabel = isRest
             ? day.type === "rest"
-              ? "Descanso completo"
-              : "Recuperación activa"
+              ? "Descanso"
+              : "Recuperación"
             : routine?.name || day.focus || "Rutina sin asignar";
           const focusDiffers =
             routine &&
             day.focus?.trim().toLowerCase() !==
               routine.name?.trim().toLowerCase();
           const secondaryLabel = isRest
-            ? day.type === "rest"
-              ? "Recuperación"
-              : "Movilidad y actividad ligera"
+            ? day.type === "recovery"
+              ? "Actividad ligera"
+              : "Sin entrenamiento"
             : routine
               ? [
                   focusDiffers ? day.focus : "",
@@ -3798,7 +3955,7 @@ export function TrainingPlanSchedule({
                 ? "Actual"
                 : "Hoy"
               : !sequential && !isRest && dateIso < todayIso
-                ? "No registrada"
+                ? "Pendiente"
                 : !sequential && !isRest && dateIso > todayIso
                   ? "Programada"
                   : "";
@@ -3832,7 +3989,7 @@ export function TrainingPlanSchedule({
               ) : null}
               <div className="w-12 shrink-0 border-r border-[color:var(--border)] pr-3 text-center sm:w-16">
                 <p
-                  className={`text-xs font-black uppercase ${isCurrent ? "text-[color:var(--accent-strong)]" : ""}`}
+                  className={`text-xs font-medium uppercase ${isCurrent ? "text-[color:var(--accent-strong)]" : ""}`}
                 >
                   {sequential
                     ? `Día ${index + 1}`
@@ -3851,14 +4008,14 @@ export function TrainingPlanSchedule({
                       <button
                         type="button"
                         onClick={() => onOpenRoutine(routine)}
-                        className="block max-w-full truncate text-left text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                        className="block max-w-full truncate text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
                         aria-label={`Ver ejercicios de ${routine.name}`}
                       >
                         {primaryLabel}
                       </button>
                     ) : (
                       <p
-                        className={`truncate text-sm font-black ${!routine && !isRest ? "text-[color:var(--text-muted)]" : ""}`}
+                        className={`truncate text-sm font-medium ${!routine && !isRest ? "text-[color:var(--text-muted)]" : ""}`}
                       >
                         {primaryLabel}
                       </p>
@@ -3866,18 +4023,17 @@ export function TrainingPlanSchedule({
                   </div>
                   {dayStateLabel ? (
                     <span
-                      className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${dayStateClass}`}
+                      className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide ${dayStateClass}`}
                     >
                       {dayStateLabel}
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-1 truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  {secondaryLabel}
-                  {training
-                    ? ` · ${Math.round(Number(training.totalVolume || 0)).toLocaleString("es-BO")} kg`
-                    : ""}
-                </p>
+                {secondaryLabel ? (
+                  <p className="mt-1 truncate text-xs font-normal text-[color:var(--text-muted)]">
+                    {secondaryLabel}
+                  </p>
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {training ? (
@@ -3911,14 +4067,14 @@ export function TrainingPlanSchedule({
                 routine &&
                 !isManagedClient &&
                 showEditingControls ? (
-                  <details className="relative">
+                  <details className="overflow-menu relative">
                     <summary
-                      className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                      className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                       aria-label={`Opciones de ${routine.name}`}
                     >
                       <MoreVertical className="h-5 w-5" />
                     </summary>
-                    <div className="absolute bottom-10 right-0 z-30 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                    <div className="overflow-menu-panel overflow-menu-panel--up absolute bottom-12 right-0 z-30 w-48">
                       <button
                         type="button"
                         onClick={(event) => {
@@ -4106,11 +4262,11 @@ function RoutineDetailsModal({
     <Modal
       mobilePage
       title={routine.name}
-      subtitle={
-        routine.description ||
-        `${exercises.length} ejercicios · ${totalSets} series`
-      }
       onClose={onClose}
+      hideHeader
+      dialogClassName="routine-detail-dialog"
+      contentClassName="routine-detail-page !p-0 sm:!p-0"
+      footerClassName="routine-detail-footer"
       footer={
         canEdit ? (
           <Button onClick={() => onEdit(routine)}>
@@ -4123,88 +4279,118 @@ function RoutineDetailsModal({
         ) : null
       }
     >
-      <div className="routine-detail-stats mb-4 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-center">
-        <div>
-          <p className="text-lg font-black">{exercises.length}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-            Ejercicios
+      <section className="routine-detail-hero relative h-[19rem] overflow-hidden bg-[#17130f] text-white sm:h-[22rem]">
+        <img
+          src={getRoutineDetailHeroImage(routine)}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/35" />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Volver a rutinas"
+          className="absolute left-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        >
+          <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
+        </button>
+        <div className="absolute inset-x-0 bottom-0 z-10 px-5 pb-10 pt-16 sm:px-6 sm:pb-10">
+          <p className="text-xs font-medium text-white/75">Rutina</p>
+          <h1 className="mt-1 line-clamp-2 text-3xl font-medium leading-none tracking-[-0.035em] text-white sm:text-4xl">
+            {routine.name}
+          </h1>
+          <p className="mt-2 line-clamp-1 text-sm font-normal text-white/80">
+            {routine.description ||
+              (routine.level
+                ? ROUTINE_LEVEL_LABELS[routine.level] || routine.level
+                : "Rutina personalizada")}
           </p>
         </div>
-        <div className="border-x border-[color:var(--border)]">
-          <p className="text-lg font-black">{totalSets}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-            Series
-          </p>
+      </section>
+      <div className="routine-detail-body relative z-10 -mt-6 rounded-t-[1.75rem] bg-[color:var(--bg)] px-4 pb-5 pt-6 sm:px-5">
+        <div className="routine-detail-stats mb-4 grid grid-cols-3 border-y border-[color:var(--border)] py-3 text-center">
+          <div>
+            <p className="text-lg font-black">{exercises.length}</p>
+            <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Ejercicios
+            </p>
+          </div>
+          <div className="border-x border-[color:var(--border)]">
+            <p className="text-lg font-black">{totalSets}</p>
+            <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Series
+            </p>
+          </div>
+          <div>
+            <p className="text-lg font-black">{estimatedMinutes}</p>
+            <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              Minutos
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-lg font-black">{estimatedMinutes}</p>
-          <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-            Minutos
-          </p>
-        </div>
-      </div>
-      <div className="routine-detail-heading mb-2 flex items-center justify-between gap-3">
-        <h4 className="text-xs font-black uppercase">Ejercicios</h4>
-        <div className="flex items-center gap-1.5">
-          {routine.level ? (
-            <span className="border border-[color:var(--border)] px-2 py-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-              {ROUTINE_LEVEL_LABELS[routine.level] || routine.level}
+        <div className="routine-detail-heading mb-2 flex items-center justify-between gap-3">
+          <h4 className="text-xs font-black uppercase">Ejercicios</h4>
+          <div className="flex items-center gap-1.5">
+            {routine.level ? (
+              <span className="border border-[color:var(--border)] px-2 py-1 text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                {ROUTINE_LEVEL_LABELS[routine.level] || routine.level}
+              </span>
+            ) : null}
+            <span className="theme-accent-soft border px-2 py-1 text-[9px] font-black uppercase">
+              {routine.exerciseOrderMode === "muscle_blocks"
+                ? "Por bloques"
+                : "Orden libre"}
             </span>
-          ) : null}
-          <span className="theme-accent-soft border px-2 py-1 text-[9px] font-black uppercase">
-            {routine.exerciseOrderMode === "muscle_blocks"
-              ? "Por bloques"
-              : "Orden libre"}
-          </span>
+          </div>
         </div>
-      </div>
-      <div className="routine-detail-list divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-        {exercises.map((exercise, index) => {
-          const imageUrl = getExerciseImageUrl(exercise, {
-            width: 240,
-            height: 240,
-          });
-          return (
-            <div
-              key={`${exercise.exerciseId || exercise.name}-${index}`}
-              className="routine-detail-row flex min-h-20 items-center gap-2.5 py-2.5 sm:min-h-24 sm:gap-3 sm:py-3"
-            >
-              <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
-                {index + 1}
-              </span>
-              <div className="routine-detail-image h-16 w-16 shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
-                <RoutinePreviewImage
-                  item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-xs font-black uppercase leading-tight sm:text-sm">
-                  {exercise.name}
-                </p>
-                {exercise.muscle ? (
-                  <p className="mt-1 truncate text-[10px] font-bold uppercase text-[color:var(--text-muted)]">
-                    {exercise.muscle}
+        <div className="routine-detail-list divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+          {exercises.map((exercise, index) => {
+            const imageUrl = getExerciseImageUrl(exercise, {
+              width: 240,
+              height: 240,
+            });
+            return (
+              <div
+                key={`${exercise.exerciseId || exercise.name}-${index}`}
+                className="routine-detail-row flex min-h-[100px] items-center gap-3 py-3.5 sm:min-h-24 sm:py-3"
+              >
+                <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
+                  {index + 1}
+                </span>
+                <div className="routine-detail-image h-[72px] w-[72px] shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
+                  <RoutinePreviewImage
+                    item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-sm font-semibold leading-tight">
+                    {exercise.name}
                   </p>
-                ) : null}
+                  {exercise.muscle ? (
+                    <p className="mt-1 truncate text-xs font-normal text-[color:var(--text-muted)]">
+                      {exercise.muscle}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="routine-detail-sets shrink-0 border border-[color:var(--border)] px-2 py-1 text-xs font-medium">
+                  {exercise.sets || 0}{" "}
+                  {Number(exercise.sets) === 1 ? "serie" : "series"}
+                </span>
               </div>
-              <span className="routine-detail-sets shrink-0 border border-[color:var(--border)] px-1.5 py-1 text-[11px] font-black sm:px-2 sm:text-xs">
-                {exercise.sets || 0}{" "}
-                {Number(exercise.sets) === 1 ? "serie" : "series"}
-              </span>
-            </div>
-          );
-        })}
-        {!exercises.length ? (
-          <p className="py-10 text-center text-sm font-semibold text-[color:var(--text-muted)]">
-            Esta rutina todavia no tiene ejercicios.
-          </p>
-        ) : null}
+            );
+          })}
+          {!exercises.length ? (
+            <p className="py-10 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+              Esta rutina todavia no tiene ejercicios.
+            </p>
+          ) : null}
+        </div>
       </div>
     </Modal>
   );
 }
 
-function Routines({ onNavigate }) {
+function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const { user } = useAuth();
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
@@ -4267,12 +4453,30 @@ function Routines({ onNavigate }) {
   const [viewingRoutine, setViewingRoutine] = useState(null);
   const [planDayChoice, setPlanDayChoice] = useState(null);
   const [replacementPlanDay, setReplacementPlanDay] = useState(null);
-  const [archivePlanConfirmOpen, setArchivePlanConfirmOpen] = useState(false);
   const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
   const [showArchivedRoutines, setShowArchivedRoutines] = useState(false);
+  const hasOpenSubpage = Boolean(
+    activePlan ||
+    modalMode ||
+    viewingPlanTemplate ||
+    viewingRoutine ||
+    planDayChoice ||
+    planModalOpen ||
+    routineToDuplicate ||
+    routineToDelete,
+  );
+
+  useEffect(() => {
+    onMobileNavVisibilityChange?.(hasOpenSubpage);
+  }, [hasOpenSubpage, onMobileNavVisibilityChange]);
+
+  useEffect(
+    () => () => onMobileNavVisibilityChange?.(false),
+    [onMobileNavVisibilityChange],
+  );
   const { data: archivedRoutineData = [], refetch: refreshArchivedRoutines } =
     useQuery({
       queryKey: ["archived-routines", user?.id || user?._id || "self"],
@@ -4334,19 +4538,10 @@ function Routines({ onNavigate }) {
         getDateTimestamp(b.updatedAt) - getDateTimestamp(a.updatedAt),
     );
   }, [trainingPlans]);
-  const upcomingTrainingPlans = useMemo(
-    () =>
-      orderedTrainingPlans.filter((plan) =>
-        ["scheduled", "draft"].includes(plan.status),
-      ),
-    [orderedTrainingPlans],
-  );
-  const otherTrainingPlans = useMemo(
+  const secondaryTrainingPlans = useMemo(
     () =>
       orderedTrainingPlans.filter(
-        (plan) =>
-          getEntityId(plan) !== getEntityId(currentActivePlan) &&
-          !["scheduled", "draft"].includes(plan.status),
+        (plan) => getEntityId(plan) !== getEntityId(currentActivePlan),
       ),
     [currentActivePlan, orderedTrainingPlans],
   );
@@ -4519,6 +4714,8 @@ function Routines({ onNavigate }) {
           image: ex.image || "",
           imagePublicId: ex.imagePublicId || "",
           branches: ex.branches || ["general"],
+          difficulty: ex.difficulty || "",
+          equipment: ex.equipment || [],
           supportsUnilateral: Boolean(ex.supportsUnilateral),
           usageCount: exerciseUsage?.count || 0,
           lastUsedAt: exerciseUsage?.lastUsedAt || 0,
@@ -4945,33 +5142,22 @@ function Routines({ onNavigate }) {
     }
   };
 
-  const archiveDraftPlan = async () => {
-    if (!activePlan || activePlan.status !== "draft") return;
-    try {
-      await api.updateTrainingPlanStatus(
-        activePlan._id || activePlan.id,
-        "cancelled",
-      );
-      setArchivePlanConfirmOpen(false);
-      setActivePlan(null);
-      await refreshPlans();
-      await reloadRoutines({ silent: true });
-      toast.success("Planificación archivada");
-    } catch (error) {
-      toast.error(error.message || "No se pudo archivar la planificación");
-    }
-  };
-
   const deleteCurrentPlan = async () => {
-    if (!activePlan || user?.role !== "Admin") return;
+    if (!activePlan || isManagedClient) return;
     try {
-      await api.deleteTrainingPlan(activePlan._id || activePlan.id);
+      const result = await api.deleteTrainingPlan(
+        activePlan._id || activePlan.id,
+      );
       setDeletePlanConfirmOpen(false);
       setActivePlan(null);
       await Promise.all([refreshPlans(), reloadRoutines({ silent: true })]);
-      toast.success("Planificación eliminada");
+      toast.success(
+        result?.disposition === "deleted"
+          ? "Planificación eliminada"
+          : "Planificación archivada para conservar su historial",
+      );
     } catch (error) {
-      toast.error(error.message || "No se pudo eliminar la planificación");
+      toast.error(error.message || "No se pudo eliminar el borrador");
     }
   };
 
@@ -5091,9 +5277,6 @@ function Routines({ onNavigate }) {
     onNavigate?.("registrar");
   };
 
-  const activePlanTimeProgress = activePlan
-    ? getPlanTimeProgress(activePlan)
-    : null;
   const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
   const visiblePlans = isCoach ? planTemplates : trainingPlans;
   const workspaceLoading =
@@ -5121,15 +5304,17 @@ function Routines({ onNavigate }) {
   };
 
   return (
-    <div className="routines-shell w-full max-w-none">
+    <div
+      className={`routines-shell w-full max-w-none ${activePlan ? "routines-shell--plan-detail" : ""}`}
+    >
       <section className="space-y-5">
-        <MobilePageHeader
-          title={activePlan ? activePlan.name : "Rutinas"}
-          variant={activePlan ? "detail" : "main"}
-          className={!activePlan ? "routines-page-header" : ""}
-          onBack={() => setActivePlan(null)}
-          actions={
-            !activePlan ? (
+        {!activePlan ? (
+          <MobilePageHeader
+            title="Rutinas"
+            variant="main"
+            className="routines-page-header"
+            onBack={() => setActivePlan(null)}
+            actions={
               <>
                 {canReturnToTraining ? (
                   <button
@@ -5160,9 +5345,9 @@ function Routines({ onNavigate }) {
                   </button>
                 ) : null}
               </>
-            ) : null
-          }
-        />
+            }
+          />
+        ) : null}
         <div className="hidden items-start justify-between gap-2 md:flex md:items-center md:gap-3">
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
@@ -5363,7 +5548,7 @@ function Routines({ onNavigate }) {
       !activePlan &&
       workspaceView === "plans" &&
       trainingPlans.length ? (
-        <section className="mt-6 space-y-5">
+        <section className="mt-5 space-y-5">
           {currentActivePlan ? (
             <CurrentPlanOverview
               plan={currentActivePlan}
@@ -5371,19 +5556,34 @@ function Routines({ onNavigate }) {
               onOpen={() => openTrainingPlan(currentActivePlan)}
               onStart={startPlanRoutine}
             />
-          ) : null}
-          {upcomingTrainingPlans.length ? (
+          ) : (
+            <section className="rounded-3xl bg-[color:var(--card)] px-4 py-5">
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Estado actual
+              </p>
+              <h2 className="mt-1 text-xl font-medium text-[color:var(--text)]">
+                Sin plan activo
+              </h2>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                Abre una planificación para completarla, programarla o
+                activarla.
+              </p>
+            </section>
+          )}
+          {secondaryTrainingPlans.length ? (
             <div>
-              <div className="mb-3 border-b border-[color:var(--border)] pb-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                  Próximas planificaciones
-                </p>
-                <h2 className="mt-1 text-lg font-black">
-                  Preparadas para después
+              <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                <h2 className="text-base font-medium">
+                  {currentActivePlan
+                    ? "Otras planificaciones"
+                    : "Tus planificaciones"}
                 </h2>
+                <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
+                  {secondaryTrainingPlans.length}
+                </span>
               </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                {upcomingTrainingPlans.map((plan) => (
+              <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-3xl bg-[color:var(--card)] md:grid md:grid-cols-2 md:divide-x md:divide-y-0">
+                {secondaryTrainingPlans.map((plan) => (
                   <SecondaryPlanRow
                     key={plan._id || plan.id}
                     plan={plan}
@@ -5392,33 +5592,6 @@ function Routines({ onNavigate }) {
                 ))}
               </div>
             </div>
-          ) : null}
-          {otherTrainingPlans.length ? (
-            <details className="group border-y border-[color:var(--border)]">
-              <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 [&::-webkit-details-marker]:hidden">
-                <span>
-                  <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                    Historial y pausadas
-                  </span>
-                  <span className="mt-1 block text-base font-black">
-                    Otros planes
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 text-xs font-black text-[color:var(--text-muted)]">
-                  {otherTrainingPlans.length}
-                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                </span>
-              </summary>
-              <div className="grid gap-2 border-t border-[color:var(--border)] py-3 md:grid-cols-2">
-                {otherTrainingPlans.map((plan) => (
-                  <SecondaryPlanRow
-                    key={plan._id || plan.id}
-                    plan={plan}
-                    onOpen={openTrainingPlan}
-                  />
-                ))}
-              </div>
-            </details>
           ) : null}
         </section>
       ) : null}
@@ -5441,26 +5614,38 @@ function Routines({ onNavigate }) {
       ) : null}
 
       {activePlan ? (
-        <section className="plan-detail-summary mt-4 border-y border-[color:var(--border)] py-4">
-          <div className="plan-detail-overview">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Badge variant={activePlan.status}>
-                  {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
-                </Badge>
-                <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                  {activePlan.goal || "Objetivo general"}
-                </p>
-              </div>
+        <section className="plan-detail-summary pb-4">
+          <div className="plan-detail-hero relative h-[19rem] overflow-hidden bg-[#17130f] text-white sm:h-[22rem] md:h-[24rem] md:rounded-3xl">
+            <img
+              src={planningOverviewImage}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/35" />
+            <button
+              type="button"
+              onClick={() => setActivePlan(null)}
+              aria-label="Volver a planificaciones"
+              className="absolute left-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60 md:hidden"
+            >
+              <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
+            </button>
+            <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+              <Badge
+                variant={activePlan.status}
+                className="!min-h-9 !rounded-full !border-white/20 !bg-white/90 !px-3 !text-[#251a12] backdrop-blur-md"
+              >
+                {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
+              </Badge>
               {!isManagedClient || user?.role === "Admin" ? (
-                <details className="relative shrink-0">
+                <details className="overflow-menu relative shrink-0">
                   <summary
-                    className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                    className="overflow-menu-trigger overflow-menu-trigger--overlay touch-manipulation cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                     aria-label="Opciones de la planificación"
                   >
                     <MoreVertical className="h-5 w-5" />
                   </summary>
-                  <div className="absolute right-0 top-11 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                  <div className="overflow-menu-panel absolute right-0 top-12 z-50 w-52 max-w-[calc(100vw-2rem)]">
                     {!isManagedClient &&
                     !["completed", "cancelled"].includes(activePlan.status) ? (
                       <button
@@ -5472,7 +5657,7 @@ function Routines({ onNavigate }) {
                           setEditingPlan(activePlan);
                           setPlanModalOpen(true);
                         }}
-                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                        className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-[color:var(--surface-subtle)]"
                       >
                         <Pencil className="h-4 w-4" /> Editar planificación
                       </button>
@@ -5488,7 +5673,7 @@ function Routines({ onNavigate }) {
                             ?.removeAttribute("open");
                           activateTrainingPlan();
                         }}
-                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Play className="h-4 w-4" />
                         {missingPlanRoutines
@@ -5508,26 +5693,13 @@ function Routines({ onNavigate }) {
                             ?.removeAttribute("open");
                           deactivateTrainingPlan();
                         }}
-                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
+                        className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-[color:var(--surface-subtle)]"
                       >
                         <Pause className="h-4 w-4" /> Desactivar planificación
                       </button>
                     ) : null}
-                    {!isManagedClient && activePlan.status === "draft" ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.currentTarget
-                            .closest("details")
-                            ?.removeAttribute("open");
-                          setArchivePlanConfirmOpen(true);
-                        }}
-                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                      >
-                        <Archive className="h-4 w-4" /> Archivar planificación
-                      </button>
-                    ) : null}
-                    {user?.role === "Admin" ? (
+                    {!isManagedClient &&
+                    ["draft", "cancelled"].includes(activePlan.status) ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -5536,43 +5708,28 @@ function Routines({ onNavigate }) {
                             ?.removeAttribute("open");
                           setDeletePlanConfirmOpen(true);
                         }}
-                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                        className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                       >
-                        <Trash2 className="h-4 w-4" /> Eliminar planificación
+                        <Trash2 className="h-4 w-4" />
+                        {activePlan.status === "draft"
+                          ? "Eliminar borrador"
+                          : "Eliminar planificación"}
                       </button>
                     ) : null}
                   </div>
                 </details>
               ) : null}
             </div>
-            <div className="mt-4">
-              <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                Calendario del plan
+            <div className="absolute inset-x-0 bottom-0 z-10 px-5 pb-10 pt-16 sm:px-6 sm:pb-10 md:pb-7">
+              <p className="text-xs font-medium text-white/75">Planificación</p>
+              <h1 className="mt-1 truncate text-3xl font-medium leading-none tracking-[-0.035em] text-white sm:text-4xl">
+                {activePlan.name}
+              </h1>
+              <p className="mt-2 text-sm font-normal text-white/80">
+                {activePlan.goal || "Objetivo general"} ·{" "}
+                {activePlan.durationWeeks}{" "}
+                {Number(activePlan.durationWeeks) === 1 ? "semana" : "semanas"}
               </p>
-              <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
-                <span className="text-[color:var(--text-muted)]">
-                  {activePlanTimeProgress.message}
-                </span>
-                <span className="shrink-0">
-                  <strong className="theme-accent-text">
-                    {activePlanTimeProgress.percentage}%
-                  </strong>{" "}
-                  transcurrido
-                </span>
-              </div>
-              <div
-                className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]"
-                role="progressbar"
-                aria-label="Calendario transcurrido de la planificación"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={activePlanTimeProgress.percentage}
-              >
-                <div
-                  className="theme-accent-solid h-full border-0 transition-all"
-                  style={{ width: `${activePlanTimeProgress.percentage}%` }}
-                />
-              </div>
             </div>
           </div>
           <TrainingPlanSchedule
@@ -5591,9 +5748,9 @@ function Routines({ onNavigate }) {
             onAdvanceCycle={advanceCycle}
             advancingCycle={advancingCycle}
           />
-          <details className="plan-detail-info group mt-4 border-y border-[color:var(--border)]">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-black [&::-webkit-details-marker]:hidden">
-              Información del plan
+          <details className="plan-detail-info group mt-3 border-y border-[color:var(--detail-row-divider)]">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+              Detalles
               <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-180" />
             </summary>
             <dl className="grid gap-3 border-t border-[color:var(--border)] py-3 text-xs sm:grid-cols-2">
@@ -5702,18 +5859,16 @@ function Routines({ onNavigate }) {
         </div>
       ) : null}
 
-      {!activePlan && workspaceReady && workspaceView === "routines" ? (
+      {!activePlan &&
+      workspaceReady &&
+      workspaceView === "routines" &&
+      !showArchivedRoutines ? (
         <section className="routine-library-list mt-4 grid gap-3 sm:mt-5 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false} mode="popLayout">
             {visibleRoutineCards.map((routine) => {
               const isHighlighted = ["active", "scheduled"].includes(
                 routine.plan?.status,
               );
-              const focusLabel =
-                routine.plan?.goal ||
-                routine.goal ||
-                routine.muscles.slice(0, 2).join(" · ") ||
-                "Rutina personalizada";
               const assignmentDays = (routine.assignment?.dayIndexes || [])
                 .map((dayIndex) =>
                   routine.plan?.scheduleMode === "fixed"
@@ -5723,13 +5878,13 @@ function Routines({ onNavigate }) {
                 .filter(Boolean)
                 .join(" / ");
               const assignmentLabel = routine.plan
-                ? `${
-                    isCoach
-                      ? "En plantilla"
-                      : routine.plan.status === "active"
-                        ? "En"
-                        : `${PLAN_STATUS_LABELS[routine.plan.status] || "En plan"} ·`
-                  } ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
+                ? isCoach
+                  ? `En plantilla · ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
+                  : routine.plan.status === "active"
+                    ? `En ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
+                    : routine.plan.status === "paused"
+                      ? `Plan pausado${assignmentDays ? ` · ${assignmentDays}` : ""}`
+                      : `${PLAN_STATUS_LABELS[routine.plan.status] || "En plan"}${assignmentDays ? ` · ${assignmentDays}` : ""}`
                 : "";
 
               return (
@@ -5764,18 +5919,22 @@ function Routines({ onNavigate }) {
                           {routine.name}
                         </h2>
                         <p className="mt-2 truncate text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-                          {focusLabel} · {routine.estimatedMinutes} min
+                          {routine.totalExerciseCount}{" "}
+                          {routine.totalExerciseCount === 1
+                            ? "ejercicio"
+                            : "ejercicios"}{" "}
+                          · {routine.estimatedMinutes} min
                         </p>
                       </div>
                       {!isManagedClient ? (
-                        <details className="pointer-events-auto relative -mr-2 -mt-2 shrink-0">
+                        <details className="overflow-menu pointer-events-auto relative -mr-2 -mt-2 shrink-0">
                           <summary
-                            className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] [&::-webkit-details-marker]:hidden"
+                            className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                             aria-label={`Opciones de ${routine.name}`}
                           >
                             <MoreVertical className="h-5 w-5" />
                           </summary>
-                          <div className="absolute right-0 top-10 z-20 w-44 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                          <div className="overflow-menu-panel absolute right-0 top-12 z-20 w-48">
                             <button
                               type="button"
                               onClick={(event) => {
@@ -5974,32 +6133,13 @@ function Routines({ onNavigate }) {
           onClose={() => setPlanDayChoice(null)}
         />
       ) : null}
-      {archivePlanConfirmOpen ? (
-        <Modal
-          title="Archivar planificación"
-          subtitle={activePlan?.name}
-          onClose={() => setArchivePlanConfirmOpen(false)}
-          footer={
-            <div className="flex w-full justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setArchivePlanConfirmOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={archiveDraftPlan}>Archivar</Button>
-            </div>
-          }
-        >
-          <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
-            Las rutinas guardadas se conservarán. La planificación dejará de
-            aparecer entre las opciones disponibles.
-          </p>
-        </Modal>
-      ) : null}
       {deletePlanConfirmOpen ? (
         <Modal
-          title="Eliminar planificación"
+          title={
+            activePlan?.status === "draft"
+              ? "Eliminar borrador"
+              : "Eliminar planificación"
+          }
           subtitle={activePlan?.name}
           onClose={() => setDeletePlanConfirmOpen(false)}
           footer={
@@ -6015,14 +6155,17 @@ function Routines({ onNavigate }) {
                 className="border-red-500/30 text-red-600 hover:border-red-500"
                 onClick={deleteCurrentPlan}
               >
-                Eliminar
+                {activePlan?.status === "draft"
+                  ? "Eliminar borrador"
+                  : "Eliminar planificación"}
               </Button>
             </div>
           }
         >
-          <p className="py-2 text-sm font-semibold text-[color:var(--text-muted)]">
-            Se eliminará la planificación. Las rutinas personales utilizadas en
-            ella se conservarán.
+          <p className="py-2 text-sm text-[color:var(--text-muted)]">
+            Si no tiene entrenamientos, se eliminará definitivamente junto con
+            las rutinas creadas solo para este plan. Si contiene historial, se
+            conservará archivada.
           </p>
         </Modal>
       ) : null}

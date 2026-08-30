@@ -100,15 +100,9 @@ describe("TrainingPlanSchedule", () => {
     );
 
     expect(screen.queryByLabelText("Opciones de Empuje A")).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Editar distribución" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
     expect(screen.getByLabelText("Opciones de Empuje A")).toBeVisible();
-    expect(
-      screen.getByText(
-        "Los cambios se aplican a la semana recurrente completa.",
-      ),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Listo" })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Cambiar rutina de Lunes" }),
     ).toBeNull();

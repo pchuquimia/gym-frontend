@@ -10,6 +10,10 @@ function Modal({
   floatingAction,
   size = "default",
   mobilePage = false,
+  hideHeader = false,
+  dialogClassName = "",
+  contentClassName = "",
+  footerClassName = "",
 }) {
   const sizeClasses = {
     small: "max-w-xl",
@@ -29,7 +33,9 @@ function Modal({
     scrollRef.current?.scrollTo({ top: 0 });
     const previouslyFocused = document.activeElement;
     const previousOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     dialogRef.current?.focus();
     const handleKeyDown = (event) => {
       if (event.key === "Escape") onCloseRef.current?.();
@@ -53,6 +59,7 @@ function Modal({
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
       window.removeEventListener("keydown", handleKeyDown);
       previouslyFocused?.focus?.();
     };
@@ -76,66 +83,70 @@ function Modal({
           mobilePage
             ? "h-dvh max-h-dvh rounded-none border-0 shadow-none sm:h-auto"
             : "max-h-[96dvh] min-h-0 rounded-t-modal border border-[color:var(--border)] shadow-overlay"
-        }`}
+        } ${dialogClassName}`}
       >
-        <div
-          className={`modal-page-header gap-3 border-b border-[color:var(--border)] px-4 ${title || subtitle ? "py-3" : "py-2"} ${
-            mobilePage
-              ? "grid min-h-16 grid-cols-[48px_minmax(0,1fr)_48px] items-center border-b-0 px-0 max-sm:py-0 sm:flex sm:min-h-0 sm:items-start sm:px-4"
-              : "flex items-start justify-between"
-          }`}
-        >
-          {title || subtitle ? (
-            <div
-              className={`min-w-0 ${mobilePage ? "col-start-2 row-start-1 text-center sm:text-left" : ""}`}
-            >
-              {title ? (
-                <h3
-                  className={`${mobilePage ? "truncate text-xl font-medium tracking-[-0.015em]" : "truncate text-xl font-bold sm:text-2xl"}`}
-                >
-                  {title}
-                </h3>
-              ) : null}
-              {subtitle && (
-                <p
-                  className={`mt-1 line-clamp-2 font-sans text-sm text-[color:var(--text-muted)] ${mobilePage ? "max-sm:hidden" : ""}`}
-                >
-                  {subtitle}
-                </p>
-              )}
-            </div>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-          <button
-            type="button"
-            className={`grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] ${
+        {!hideHeader ? (
+          <div
+            className={`modal-page-header gap-3 border-b border-[color:var(--border)] px-4 ${title || subtitle ? "py-3" : "py-2"} ${
               mobilePage
-                ? "col-start-1 row-start-1 rounded-full border-0 bg-transparent sm:order-last sm:ml-auto sm:rounded-control sm:border sm:border-[color:var(--border)] sm:bg-[color:var(--surface)]"
-                : "rounded-control border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]"
+                ? "grid min-h-16 grid-cols-[48px_minmax(0,1fr)_48px] items-center border-b-0 px-0 max-sm:py-0 sm:flex sm:min-h-0 sm:items-start sm:px-4"
+                : "flex items-start justify-between"
             }`}
-            onClick={onClose}
-            aria-label={mobilePage ? "Volver" : "Cerrar"}
-            title={mobilePage ? "Volver" : "Cerrar"}
           >
-            {mobilePage ? (
-              <>
-                <ArrowLeft className="h-7 w-7 sm:hidden" strokeWidth={2.25} />
-                <X className="hidden h-4 w-4 sm:block" />
-              </>
+            {title || subtitle ? (
+              <div
+                className={`min-w-0 ${mobilePage ? "col-start-2 row-start-1 text-center sm:text-left" : ""}`}
+              >
+                {title ? (
+                  <h3
+                    className={`${mobilePage ? "truncate text-xl font-medium tracking-[-0.015em]" : "truncate text-xl font-bold sm:text-2xl"}`}
+                  >
+                    {title}
+                  </h3>
+                ) : null}
+                {subtitle && (
+                  <p
+                    className={`mt-1 line-clamp-2 font-sans text-sm text-[color:var(--text-muted)] ${mobilePage ? "max-sm:hidden" : ""}`}
+                  >
+                    {subtitle}
+                  </p>
+                )}
+              </div>
             ) : (
-              <X className="h-4 w-4" />
+              <span aria-hidden="true" />
             )}
-          </button>
-        </div>
+            <button
+              type="button"
+              className={`grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] ${
+                mobilePage
+                  ? "col-start-1 row-start-1 rounded-full border-0 bg-transparent sm:order-last sm:ml-auto sm:rounded-control sm:border sm:border-[color:var(--border)] sm:bg-[color:var(--surface)]"
+                  : "rounded-control border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]"
+              }`}
+              onClick={onClose}
+              aria-label={mobilePage ? "Volver" : "Cerrar"}
+              title={mobilePage ? "Volver" : "Cerrar"}
+            >
+              {mobilePage ? (
+                <>
+                  <ArrowLeft className="h-7 w-7 sm:hidden" strokeWidth={2.25} />
+                  <X className="hidden h-4 w-4 sm:block" />
+                </>
+              ) : (
+                <X className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        ) : null}
         <div
           ref={scrollRef}
-          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 ${mobilePage ? "bg-[color:var(--bg)]" : ""}`}
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 ${mobilePage ? "bg-[color:var(--bg)]" : ""} ${contentClassName}`}
         >
           {children}
         </div>
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 sm:px-5">
+          <div
+            className={`flex items-center justify-end gap-3 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 sm:px-5 ${footerClassName}`}
+          >
             {footer}
           </div>
         )}

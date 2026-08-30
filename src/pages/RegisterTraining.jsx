@@ -5832,8 +5832,10 @@ export default function RegisterTraining({
                   <button
                     type="button"
                     onClick={() => setSessionMenuOpen(true)}
-                    className="grid h-10 w-8 shrink-0 place-items-center text-[#352018] dark:text-[#e2ff00]"
+                    className="overflow-menu-trigger !h-10 !w-10"
                     aria-label="Opciones del entrenamiento"
+                    aria-expanded={sessionMenuOpen}
+                    aria-haspopup="menu"
                   >
                     <MoreVertical className="h-5 w-5" />
                   </button>
@@ -5987,7 +5989,7 @@ export default function RegisterTraining({
               aria-label="Cerrar menu"
               onClick={() => setSessionMenuOpen(false)}
             />
-            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl">
+            <div className="overflow-menu-sheet absolute inset-x-0 bottom-0 rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl">
               <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)]" />
               <div className="space-y-2">
                 {isAdmin ? (
@@ -6478,7 +6480,7 @@ export default function RegisterTraining({
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-10 rounded-md px-3"
+                        className="overflow-menu-trigger !h-10 !w-10 !p-0"
                         onClick={() =>
                           setDesktopSessionMenuOpen((current) => !current)
                         }
@@ -6486,12 +6488,11 @@ export default function RegisterTraining({
                         aria-haspopup="menu"
                       >
                         <MoreVertical className="h-4 w-4" />
-                        <span className="hidden lg:inline">Opciones</span>
                       </Button>
                       {desktopSessionMenuOpen ? (
                         <div
                           role="menu"
-                          className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64 border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl"
+                          className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64"
                         >
                           {isAdmin ? (
                             <div className="mb-1.5">

@@ -26,16 +26,22 @@ export default function CoachPlanTemplates({
   onArchive,
 }) {
   const routineNames = new Map(
-    routines.map((routine) => [String(routine._id || routine.id), routine.name]),
+    routines.map((routine) => [
+      String(routine._id || routine.id),
+      routine.name,
+    ]),
   );
 
   if (!templates.length) {
     return (
       <section className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
         <CalendarDays className="theme-accent-text mx-auto h-8 w-8" />
-        <h2 className="mt-4 text-lg font-black">Crea tu primera planificacion</h2>
+        <h2 className="mt-4 text-lg font-black">
+          Crea tu primera planificacion
+        </h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
-          Define la estructura y las rutinas una sola vez para reutilizarla con tus atletas.
+          Define la estructura y las rutinas una sola vez para reutilizarla con
+          tus atletas.
         </p>
         <Button className="mt-5 h-11 gap-2" onClick={onCreate}>
           <Plus className="h-4 w-4" /> Nueva planificacion
@@ -77,18 +83,20 @@ export default function CoachPlanTemplates({
                   {LEVELS[template.level] || template.level} · {template.goal}
                 </span>
               </div>
-              <details className="pointer-events-auto relative shrink-0">
+              <details className="overflow-menu pointer-events-auto relative shrink-0">
                 <summary
-                  className="grid h-10 w-10 cursor-pointer list-none place-items-center text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden"
+                  className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                   aria-label={`Opciones de ${template.name}`}
                 >
                   <MoreVertical className="h-5 w-5" />
                 </summary>
-                <div className="absolute right-0 top-10 z-30 w-48 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                <div className="overflow-menu-panel absolute right-0 top-12 z-30 w-48">
                   <button
                     type="button"
                     onClick={(event) => {
-                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
                       onEdit(template);
                     }}
                     className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
@@ -99,7 +107,9 @@ export default function CoachPlanTemplates({
                     type="button"
                     disabled={Boolean(processingId)}
                     onClick={(event) => {
-                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
                       onDuplicate(template);
                     }}
                     className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)] disabled:opacity-50"
@@ -111,7 +121,9 @@ export default function CoachPlanTemplates({
                     type="button"
                     disabled={Boolean(processingId)}
                     onClick={(event) => {
-                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
                       onArchive(template);
                     }}
                     className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
@@ -124,16 +136,23 @@ export default function CoachPlanTemplates({
 
             <div className="pointer-events-none relative z-[1] mt-4 space-y-1.5 border-y border-[color:var(--border)] py-3">
               {(template.weeklySchedule || []).slice(0, 7).map((day, index) => (
-                <div key={day.slotId || index} className="flex items-center justify-between gap-2 text-xs">
+                <div
+                  key={day.slotId || index}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
                   <span className="font-black text-[color:var(--text-muted)]">
-                    {template.scheduleMode === "fixed" ? ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"][index] : `Dia ${index + 1}`}
+                    {template.scheduleMode === "fixed"
+                      ? ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"][index]
+                      : `Dia ${index + 1}`}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-right font-semibold">
                     {day.type === "rest"
                       ? "Descanso"
                       : day.type === "recovery"
                         ? "Recuperacion"
-                        : routineNames.get(String(day.sourceRoutineId)) || day.focus || "Rutina pendiente"}
+                        : routineNames.get(String(day.sourceRoutineId)) ||
+                          day.focus ||
+                          "Rutina pendiente"}
                   </span>
                 </div>
               ))}
@@ -145,7 +164,8 @@ export default function CoachPlanTemplates({
                 {template.durationWeeks} semanas
               </span>
               <span className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
-                <Dumbbell className="h-4 w-4" /> {configured}/{trainingDays.length} rutinas
+                <Dumbbell className="h-4 w-4" /> {configured}/
+                {trainingDays.length} rutinas
               </span>
             </div>
           </article>

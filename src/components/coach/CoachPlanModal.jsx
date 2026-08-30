@@ -3,24 +3,19 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertCircle,
-  Bed,
-  CalendarDays,
   Check,
-  Dumbbell,
   Minus,
   Plus,
-  Sparkles,
-  X,
 } from "lucide-react";
 import Button from "../ui/button";
 
 const DAY_NAMES = [
   "Lunes",
   "Martes",
-  "Miercoles",
+  "Miércoles",
   "Jueves",
   "Viernes",
-  "Sabado",
+  "Sábado",
   "Domingo",
 ];
 
@@ -120,7 +115,6 @@ const planDraftSignature = ({
   });
 
 export default function CoachPlanModal({
-  athlete,
   templates = [],
   planTemplates = [],
   initialData,
@@ -141,9 +135,7 @@ export default function CoachPlanModal({
   const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
     initialData?.sourcePlanId || initialData?.planTemplateId || "",
   );
-  const [name, setName] = useState(
-    initialData?.name || "Plan de hipertrofia",
-  );
+  const [name, setName] = useState(initialData?.name || "Plan de hipertrofia");
   const [level, setLevel] = useState(initialData?.level || "beginner");
   const [goal, setGoal] = useState(initialData?.goal || "Hipertrofia");
   const [durationWeeks, setDurationWeeks] = useState(
@@ -357,7 +349,7 @@ export default function CoachPlanModal({
       (item) => String(item._id || item.id) === String(templateId),
     );
     if (!template) return;
-    setName(template.name || "Nueva planificacion");
+    setName(template.name || "Nueva planificación");
     setLevel(template.level || "beginner");
     setGoal(template.goal || "General");
     setDurationWeeks(template.durationWeeks || 8);
@@ -411,462 +403,518 @@ export default function CoachPlanModal({
   };
 
   return (
-    <div className="coach-plan-page routines-shell fixed inset-0 z-[90] flex items-end bg-[color:var(--bg)] sm:items-center sm:justify-center sm:bg-black/55 sm:p-4">
+    <div className="coach-plan-page routines-shell fixed inset-0 z-[90] bg-[color:var(--bg)]">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={isEditing ? "Editar planificación" : "Crear planificación"}
         tabIndex={-1}
-        className="coach-plan-page__dialog flex h-dvh max-h-dvh w-full flex-col overflow-hidden bg-[color:var(--card)] shadow-none outline-none sm:h-auto sm:max-h-[94dvh] sm:max-w-3xl sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:shadow-2xl dark:sm:rounded-[4px]"
+        className="coach-plan-page__dialog flex h-dvh w-full flex-col overflow-hidden bg-[color:var(--bg)] outline-none"
       >
-        <header className="coach-plan-page__header grid min-h-16 grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3 p-0 sm:flex sm:min-h-0 sm:items-start sm:justify-between sm:border-b sm:border-[color:var(--border)] sm:p-4 sm:px-6">
-          <div className="col-start-2 row-start-1 min-w-0 text-center sm:text-left">
-            <p className="coach-plan-page__eyebrow theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
-              {templatePickerOpen
-                ? `Nueva planificación · ${athlete.name}`
-                : `Paso ${step} de 2 · ${athlete.name}`}
-            </p>
-            <h2 className="coach-plan-page__title mt-1 truncate text-xl font-black">
+        <header className="coach-plan-page__header shrink-0 border-b border-[color:var(--border)] bg-[color:var(--bg)]">
+          <div className="mx-auto grid min-h-16 w-full max-w-2xl grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-3 px-2 sm:min-h-20 sm:px-4">
+            <button
+              type="button"
+              onClick={() =>
+                templatePickerOpen
+                  ? setTemplatePickerOpen(false)
+                  : onCloseRef.current?.()
+              }
+              aria-label={templatePickerOpen ? "Volver" : "Cerrar"}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full"
+            >
+              <ArrowLeft className="h-6 w-6" strokeWidth={2} />
+            </button>
+            <h2 className="truncate text-center text-lg font-medium tracking-[-0.02em] sm:text-xl">
               {templatePickerOpen
                 ? "Elegir estructura"
-                : step === 1
-                  ? "Datos del plan"
-                  : "Organizar días"}
+                : isEditing
+                  ? "Editar planificación"
+                  : "Crear planificación"}
             </h2>
-            {!templatePickerOpen && !isEditing && replacingPlan ? (
-              <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                Al activarlo, {replacingPlan.name} quedara pausado.
-              </p>
-            ) : null}
+            <span className="text-center text-xs font-medium text-[color:var(--text-muted)]">
+              {templatePickerOpen ? "" : `${step}/2`}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => onCloseRef.current?.()}
-              aria-label="Cerrar"
-            className="col-start-1 row-start-1 grid h-11 w-11 shrink-0 place-items-center rounded-full sm:order-last sm:rounded-lg sm:border sm:border-[color:var(--border)]"
-          >
-            <ArrowLeft className="h-7 w-7 sm:hidden" strokeWidth={2.25} />
-            <X className="hidden h-5 w-5 sm:block" />
-          </button>
         </header>
 
-        <div className="coach-plan-page__content overflow-y-auto bg-[color:var(--bg)] p-4 sm:bg-transparent sm:p-6">
-          {templatePickerOpen ? (
-            <div className="space-y-5">
-              <button
-                type="button"
-                onClick={continueWithoutTemplate}
-                className="flex min-h-16 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-left transition hover:border-[#352018] dark:hover:border-[#e2ff00]"
-              >
-                <span className="grid h-10 w-10 shrink-0 place-items-center bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black">
-                  <Plus className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black">
-                    Continuar sin estructura
-                  </span>
-                  <span className="mt-0.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                    Configura el plan manualmente.
-                  </span>
-                </span>
-                {!selectedPlanTemplateId ? (
-                  <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
-                ) : null}
-              </button>
-
-              <section aria-labelledby="saved-plan-structures">
-                <p
-                  id="saved-plan-structures"
-                  className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]"
+        <div className="coach-plan-page__content min-h-0 flex-1 overflow-y-auto bg-[color:var(--bg)]">
+          <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
+            {templatePickerOpen ? (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-3xl font-medium tracking-[-0.035em] text-[color:var(--text)] sm:text-4xl">
+                    Elige una estructura
+                  </h1>
+                  <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                    Usa una plantilla o comienza un plan desde cero.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={continueWithoutTemplate}
+                  className="flex min-h-20 w-full items-center gap-3 rounded-2xl bg-[color:var(--card)] p-4 text-left transition"
                 >
-                  Catálogo de planificaciones
-                </p>
-                <div className="mt-2 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-                  {planTemplates.map((template) => {
-                    const templateId = String(template._id || template.id);
-                    const selected =
-                      String(selectedPlanTemplateId) === templateId;
-                    return (
-                      <button
-                        key={templateId}
-                        type="button"
-                        onClick={() => applyPlanTemplate(templateId)}
-                        aria-pressed={selected}
-                        className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-black">
-                            {template.name}
-                          </span>
-                          <span className="mt-0.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {template.durationWeeks} semanas ·{" "}
-                            {template.catalogSource === "training_plan"
-                              ? "Plan del administrador"
-                              : "Estructura editable"}
-                          </span>
-                        </span>
-                        {selected ? (
-                          <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
-                        ) : (
-                          <ArrowRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            </div>
-          ) : step === 1 ? (
-            <div className="space-y-5">
-              {!isEditing && planTemplates.length ? (
-                <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                      {selectedPlanTemplate
-                        ? "Planificación aplicada"
-                        : "Configuración manual"}
-                    </p>
-                    <p className="mt-1 truncate text-sm font-black">
-                      {selectedPlanTemplate?.name || "Plan nuevo"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTemplatePickerOpen(true)}
-                    className="h-10 shrink-0 border border-[#352018] px-3 text-xs font-black text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
-                  >
-                    {selectedPlanTemplate ? "Cambiar" : "Usar planificación"}
-                  </button>
-                </div>
-              ) : null}
-              <label className="block">
-                <span className="text-xs font-black">Nombre del plan</span>
-                <input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={100}
-                  className="theme-accent-focus mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold outline-none"
-                />
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label>
-                  <span className="text-xs font-black">Nivel</span>
-                  <select
-                    value={level}
-                    onChange={(event) => setLevel(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                  >
-                    <option value="beginner">Principiante</option>
-                    <option value="intermediate">Intermedio</option>
-                    <option value="advanced">Avanzado</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="text-xs font-black">Objetivo principal</span>
-                  <select
-                    value={goal}
-                    onChange={(event) => setGoal(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                  >
-                    <option>Hipertrofia</option>
-                    <option>Fuerza</option>
-                    <option>Perdida de grasa</option>
-                    <option>Acondicionamiento</option>
-                    <option>Movilidad</option>
-                    <option>Retorno al entrenamiento</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="text-xs font-black">Duracion</span>
-                  <div className="relative mt-2">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      max="52"
-                      value={durationWeeks}
-                      onChange={(event) => setDurationWeeks(event.target.value)}
-                      className="h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 pr-20 text-sm font-semibold"
-                    />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[color:var(--text-muted)]">
-                      semanas
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                      Crear desde cero
                     </span>
-                  </div>
-                </label>
-                <label>
-                  <span className="text-xs font-black">Fecha de inicio</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => setStartDate(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                  />
-                  {endDate ? (
-                    <span className="mt-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
-                      Finaliza el {endDate}
+                    <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                      Define cada dato y día manualmente.
                     </span>
+                  </span>
+                  {!selectedPlanTemplateId ? (
+                    <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
                   ) : null}
-                </label>
-              </div>
+                </button>
 
-              <label className="block border-t border-[color:var(--border)] pt-4">
-                <span className="text-xs font-black">Notas opcionales</span>
-                <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  maxLength={1000}
-                  rows={3}
-                  placeholder="Indicaciones generales o restricciones"
-                  className="theme-accent-focus mt-2 w-full resize-none rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-sm font-semibold outline-none"
-                />
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <fieldset
-                  className={scheduleMode === "fixed" ? "sm:col-span-2" : ""}
-                >
-                  <legend className="text-xs font-black">
-                    Orden de entrenamiento
-                  </legend>
-                  <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-[color:var(--border)] p-1">
-                    {[
-                      { id: "fixed", label: "Semana fija" },
-                      { id: "sequential_cycle", label: "Ciclo libre" },
-                    ].map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => changeScheduleMode(option.id)}
-                        className={`h-11 rounded-md px-2 text-xs font-black transition ${
-                          scheduleMode === option.id
-                            ? "theme-accent-solid"
-                            : "text-[color:var(--text-muted)]"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                <section aria-labelledby="saved-plan-structures">
+                  <h2
+                    id="saved-plan-structures"
+                    className="text-sm font-medium"
+                  >
+                    Plantillas disponibles
+                  </h2>
+                  <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                    {planTemplates.map((template) => {
+                      const templateId = String(template._id || template.id);
+                      const selected =
+                        String(selectedPlanTemplateId) === templateId;
+                      return (
+                        <button
+                          key={templateId}
+                          type="button"
+                          onClick={() => applyPlanTemplate(templateId)}
+                          aria-pressed={selected}
+                          className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">
+                              {template.name}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] text-[color:var(--text-muted)]">
+                              {template.durationWeeks} semanas ·{" "}
+                              {template.catalogSource === "training_plan"
+                                ? "Plan del administrador"
+                                : "Estructura editable"}
+                            </span>
+                          </span>
+                          {selected ? (
+                            <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
+                          ) : (
+                            <ArrowRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                </fieldset>
-                {scheduleMode !== "fixed" ? (
-                  <fieldset>
-                    <legend className="text-xs font-black">
-                      Duracion del ciclo
+                </section>
+              </div>
+            ) : step === 1 ? (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-3xl font-medium tracking-[-0.035em] text-[color:var(--text)] sm:text-4xl">
+                    Información básica
+                  </h1>
+                  <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                    Define el objetivo y cuánto durará tu plan.
+                  </p>
+                  {!isEditing && replacingPlan ? (
+                    <p className="mt-2 text-xs font-medium text-[color:var(--text-muted)]">
+                      Al activarlo, {replacingPlan.name} quedará pausado.
+                    </p>
+                  ) : null}
+                </div>
+
+                {!isEditing && planTemplates.length ? (
+                  <div className="flex min-h-16 items-center justify-between gap-3 rounded-2xl bg-[color:var(--card)] px-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                        {selectedPlanTemplate
+                          ? "Estructura seleccionada"
+                          : "Empezar desde una plantilla"}
+                      </p>
+                      {selectedPlanTemplate ? (
+                        <p className="mt-0.5 truncate text-sm font-semibold">
+                          {selectedPlanTemplate.name}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTemplatePickerOpen(true)}
+                      className="h-10 shrink-0 rounded-full px-3 text-xs font-semibold text-[color:var(--accent-strong)]"
+                    >
+                      {selectedPlanTemplate ? "Cambiar" : "Elegir"}
+                    </button>
+                  </div>
+                ) : null}
+
+                <label className="block">
+                  <span className="text-sm font-medium">Nombre del plan</span>
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    maxLength={100}
+                    className="theme-accent-focus mt-2 h-14 w-full rounded-2xl border-0 bg-[color:var(--card)] px-4 text-base font-medium outline-none"
+                  />
+                </label>
+
+                <section>
+                  <h2 className="mb-2 text-sm font-medium">Configuración</h2>
+                  <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                    <label className="grid min-h-16 grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+                      <span className="text-sm font-medium">Objetivo</span>
+                      <select
+                        value={goal}
+                        onChange={(event) => setGoal(event.target.value)}
+                        className="h-12 min-w-0 bg-transparent text-right text-sm font-medium outline-none"
+                      >
+                        <option>Hipertrofia</option>
+                        <option>Fuerza</option>
+                        <option value="Perdida de grasa">
+                          Pérdida de grasa
+                        </option>
+                        <option>Acondicionamiento</option>
+                        <option>Movilidad</option>
+                        <option>Retorno al entrenamiento</option>
+                      </select>
+                    </label>
+                    <label className="grid min-h-16 grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+                      <span className="text-sm font-medium">Nivel</span>
+                      <select
+                        value={level}
+                        onChange={(event) => setLevel(event.target.value)}
+                        className="h-12 min-w-0 bg-transparent text-right text-sm font-medium outline-none"
+                      >
+                        <option value="beginner">Principiante</option>
+                        <option value="intermediate">Intermedio</option>
+                        <option value="advanced">Avanzado</option>
+                      </select>
+                    </label>
+                    <label className="grid min-h-16 grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+                      <span className="text-sm font-medium">Duración</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          max="52"
+                          value={durationWeeks}
+                          onChange={(event) =>
+                            setDurationWeeks(event.target.value)
+                          }
+                          className="h-12 w-16 bg-transparent text-right text-sm font-medium outline-none"
+                        />
+                        <span className="text-sm text-[color:var(--text-muted)]">
+                          semanas
+                        </span>
+                      </div>
+                    </label>
+                    <label className="grid min-h-[72px] grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+                      <span className="text-sm font-medium">Inicio</span>
+                      <span className="min-w-0 text-right">
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(event) => setStartDate(event.target.value)}
+                          className="h-10 max-w-full bg-transparent text-right text-sm font-medium outline-none"
+                        />
+                        {endDate ? (
+                          <span className="block text-[11px] text-[color:var(--text-muted)]">
+                            Termina el {endDate}
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  </div>
+                </section>
+
+                <details
+                  className="overflow-hidden rounded-2xl bg-[color:var(--card)] px-4"
+                  defaultOpen={Boolean(notes)}
+                >
+                  <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between text-sm font-medium">
+                    <span>Notas</span>
+                    <span className="text-xs font-normal text-[color:var(--text-muted)]">
+                      Opcional
+                    </span>
+                  </summary>
+                  <label className="block border-t border-[color:var(--detail-row-divider)] pb-4">
+                    <span className="sr-only">Notas opcionales</span>
+                    <textarea
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      maxLength={1000}
+                      rows={3}
+                      placeholder="Indicaciones o restricciones"
+                      className="theme-accent-focus mt-3 w-full resize-none rounded-xl border-0 bg-[color:var(--surface-subtle)] p-3 text-sm font-medium outline-none"
+                    />
+                  </label>
+                </details>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-3xl font-medium tracking-[-0.035em] text-[color:var(--text)] sm:text-4xl">
+                    Organiza tus días
+                  </h1>
+                  <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                    Elige cuándo entrenas y el enfoque de cada sesión.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 rounded-2xl bg-[color:var(--card)] p-4 sm:grid-cols-2">
+                  <fieldset
+                    className={scheduleMode === "fixed" ? "sm:col-span-2" : ""}
+                  >
+                    <legend className="text-sm font-medium">
+                      Tipo de calendario
                     </legend>
-                    <div className="mt-2 flex h-[54px] items-center justify-between rounded-lg border border-[color:var(--border)] px-1">
-                      <button
-                        type="button"
-                        onClick={() => resizeCycle(-1)}
-                        disabled={schedule.length <= 2}
-                        className="grid h-11 w-11 place-items-center disabled:opacity-30"
-                        aria-label="Quitar un dia del ciclo"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <strong className="text-sm">
-                        {schedule.length} dias
-                      </strong>
-                      <button
-                        type="button"
-                        onClick={() => resizeCycle(1)}
-                        disabled={schedule.length >= 28}
-                        className="grid h-11 w-11 place-items-center disabled:opacity-30"
-                        aria-label="Agregar un dia al ciclo"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
+                    <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--surface-subtle)] p-1">
+                      {[
+                        { id: "fixed", label: "Semana fija" },
+                        { id: "sequential_cycle", label: "Ciclo libre" },
+                      ].map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => changeScheduleMode(option.id)}
+                          className={`h-11 rounded-lg px-2 text-sm font-medium transition ${
+                            scheduleMode === option.id
+                              ? "theme-accent-solid"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+                      {scheduleMode === "fixed"
+                        ? "La misma distribución se repite cada semana."
+                        : "Las sesiones avanzan en orden, sin depender del día."}
+                    </p>
+                  </fieldset>
+                  {scheduleMode !== "fixed" ? (
+                    <fieldset>
+                      <legend className="text-sm font-medium">
+                        Duración del ciclo
+                      </legend>
+                      <div className="mt-3 flex h-[52px] items-center justify-between rounded-xl bg-[color:var(--surface-subtle)] px-1">
+                        <button
+                          type="button"
+                          onClick={() => resizeCycle(-1)}
+                          disabled={schedule.length <= 2}
+                          className="grid h-11 w-11 place-items-center disabled:opacity-30"
+                          aria-label="Quitar un día del ciclo"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <strong className="text-sm">
+                          {schedule.length} días
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => resizeCycle(1)}
+                          disabled={schedule.length >= 28}
+                          className="grid h-11 w-11 place-items-center disabled:opacity-30"
+                          aria-label="Agregar un día al ciclo"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </fieldset>
+                  ) : null}
+                </div>
+
+                {scheduleMode === "fixed" ? (
+                  <fieldset>
+                    <legend className="text-sm font-medium">
+                      Entrenamientos por semana
+                    </legend>
+                    <div className="mt-3 grid grid-cols-4 gap-2 rounded-2xl bg-[color:var(--card)] p-2">
+                      {[3, 4, 5, 6].map((frequency) => (
+                        <button
+                          key={frequency}
+                          type="button"
+                          onClick={() => applyFrequencyPreset(frequency)}
+                          className={`h-11 rounded-xl text-sm font-medium ${
+                            trainingDays === frequency
+                              ? "theme-accent-solid"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          {frequency} días
+                        </button>
+                      ))}
                     </div>
                   </fieldset>
                 ) : null}
-              </div>
 
-              {scheduleMode === "fixed" ? (
-                <fieldset>
-                  <legend className="text-xs font-black">
-                    Frecuencia semanal rápida
-                  </legend>
-                  <div className="mt-2 grid grid-cols-4 gap-2">
-                    {[3, 4, 5, 6].map((frequency) => (
-                      <button
-                        key={frequency}
-                        type="button"
-                        onClick={() => applyFrequencyPreset(frequency)}
-                        className={`h-11 rounded-lg border text-xs font-black ${
-                          trainingDays === frequency
-                            ? "theme-accent-soft"
-                            : "border-[color:var(--border)] text-[color:var(--text-muted)]"
-                        }`}
-                      >
-                        {frequency} días
-                      </button>
-                    ))}
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-medium">Días del plan</h2>
+                    <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                      {trainingDays} entrenamientos ·{" "}
+                      {schedule.length - trainingDays}{" "}
+                      {schedule.length - trainingDays === 1
+                        ? "día libre"
+                        : "días libres"}
+                    </p>
                   </div>
-                </fieldset>
-              ) : null}
-
-              {manageRoutinesSeparately ? (
-                <p className="rounded-lg border border-dashed border-[color:var(--border)] p-3 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Guarda la estructura ahora. Podrás crear o asignar cada rutina
-                  desde el detalle de la planificación.
-                </p>
-              ) : null}
-
-              <div className="mt-4 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-                {schedule.map((day, index) => (
-                  <div
-                    key={day.dayIndex}
-                    className={`grid gap-2 py-3 sm:items-center ${
-                      manageRoutinesSeparately
-                        ? "sm:grid-cols-[92px_130px_minmax(0,1fr)]"
-                        : "sm:grid-cols-[92px_130px_minmax(0,1fr)_minmax(0,1fr)]"
-                    }`}
-                  >
-                    <span className="text-sm font-black">
-                      {scheduleMode === "fixed"
-                        ? DAY_NAMES[index]
-                        : `Dia ${index + 1}`}
-                    </span>
-                    <select
-                      value={day.type}
-                      onChange={(event) =>
-                        updateDay(index, { type: event.target.value })
-                      }
-                      aria-label={`Tipo de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
-                      className="h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-bold"
-                    >
-                      <option value="training">Entrenamiento</option>
-                      <option value="recovery">Recuperacion</option>
-                      <option value="rest">Descanso</option>
-                    </select>
-                    {day.type === "training" ? (
-                      <>
-                        <input
-                          value={day.focus}
-                          onChange={(event) =>
-                            updateDay(index, { focus: event.target.value })
-                          }
-                          maxLength={80}
-                          placeholder="Enfoque: Empuje"
-                          aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
-                          className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-semibold"
-                        />
-                        {!manageRoutinesSeparately ? (
-                          <select
-                            value={day.sourceRoutineId}
-                            onChange={(event) =>
-                              updateDay(index, {
-                                sourceRoutineId: event.target.value,
-                              })
-                            }
-                            aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `dia ${index + 1}`}`}
-                            className="h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-sm font-semibold"
-                          >
-                            <option value="">Selecciona una rutina</option>
-                            {templates.map((routine) => (
-                              <option
-                                key={routine.id || routine._id}
-                                value={routine.id || routine._id}
-                              >
-                                {routine.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div className="flex h-10 items-center gap-2 text-xs font-bold text-[color:var(--text-muted)] sm:col-span-2">
-                        {day.type === "rest" ? (
-                          <Bed className="h-4 w-4" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                        {day.type === "rest"
-                          ? "Sin entrenamiento"
-                          : "Actividad ligera y movilidad"}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {!manageRoutinesSeparately && missingRoutines ? (
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p className="text-xs font-bold">
-                    {templates.length
-                      ? `Selecciona una rutina para ${missingRoutines} ${missingRoutines === 1 ? "dia" : "dias"}.`
-                      : "Crea primero las rutinas que formaran parte de esta planificacion."}
-                  </p>
+                  <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
+                    {durationWeeks} semanas
+                  </span>
                 </div>
-              ) : null}
 
-              <div className="mt-4 flex items-center gap-4 text-xs font-black text-[color:var(--text-muted)]">
-                <span className="inline-flex items-center gap-1.5">
-                  <Dumbbell className="h-4 w-4" />
-                  {trainingDays} dias activos
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4" />
-                  {durationWeeks} semanas
-                </span>
+                <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                  {schedule.map((day, index) => (
+                    <div
+                      key={day.dayIndex}
+                      className={`grid grid-cols-[88px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 ${
+                        manageRoutinesSeparately
+                          ? "sm:grid-cols-[92px_138px_minmax(0,1fr)]"
+                          : "sm:grid-cols-[92px_138px_minmax(0,1fr)_minmax(0,1fr)]"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold">
+                        {scheduleMode === "fixed"
+                          ? DAY_NAMES[index]
+                          : `Día ${index + 1}`}
+                      </span>
+                      <select
+                        value={day.type}
+                        onChange={(event) =>
+                          updateDay(index, { type: event.target.value })
+                        }
+                        aria-label={`Tipo de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
+                        className="h-10 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none"
+                      >
+                        <option value="training">Entrenamiento</option>
+                        <option value="recovery">Recuperación</option>
+                        <option value="rest">Descanso</option>
+                      </select>
+                      {day.type === "training" ? (
+                        <>
+                          <input
+                            value={day.focus}
+                            onChange={(event) =>
+                              updateDay(index, { focus: event.target.value })
+                            }
+                            maxLength={80}
+                            placeholder="Ej. Empuje"
+                            aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
+                            className="col-span-2 h-10 min-w-0 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none sm:col-span-1"
+                          />
+                          {!manageRoutinesSeparately ? (
+                            <select
+                              value={day.sourceRoutineId}
+                              onChange={(event) =>
+                                updateDay(index, {
+                                  sourceRoutineId: event.target.value,
+                                })
+                              }
+                              aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
+                              className="col-span-2 h-10 min-w-0 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none sm:col-span-1"
+                            >
+                              <option value="">Selecciona una rutina</option>
+                              {templates.map((routine) => (
+                                <option
+                                  key={routine.id || routine._id}
+                                  value={routine.id || routine._id}
+                                >
+                                  {routine.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="col-span-2 -mt-1 pl-[100px] text-xs font-medium text-[color:var(--text-muted)] sm:col-span-2 sm:mt-0 sm:pl-0">
+                          {day.type === "rest"
+                            ? "Día libre"
+                            : "Movilidad o actividad ligera"}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {!manageRoutinesSeparately && missingRoutines ? (
+                  <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p className="text-xs font-bold">
+                      {templates.length
+                        ? `Selecciona una rutina para ${missingRoutines} ${missingRoutines === 1 ? "día" : "días"}.`
+                        : "Crea primero las rutinas que formarán parte de esta planificación."}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <footer className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] p-4 sm:px-6">
-          {templatePickerOpen ? (
-            <Button
-              variant="outline"
-              className="h-11 rounded-lg"
-              onClick={() => setTemplatePickerOpen(false)}
-            >
-              <ArrowLeft className="h-4 w-4" /> Volver
-            </Button>
-          ) : step === 1 ? (
-            <button
-              type="button"
-              onClick={() => onCloseRef.current?.()}
-              className="h-11 px-3 text-sm font-black text-[color:var(--text-muted)]"
-            >
-              Cancelar
-            </button>
-          ) : (
-            <Button
-              variant="outline"
-              className="h-11 rounded-lg"
-              onClick={() => setStep(1)}
-            >
-              <ArrowLeft className="h-4 w-4" /> Anterior
-            </Button>
-          )}
-          {templatePickerOpen ? (
-            <span />
-          ) : step === 1 ? (
-            <Button
-              className="h-11 rounded-lg"
-              disabled={!name.trim() || !validDuration || !startDate}
-              onClick={() => setStep(2)}
-            >
-              Continuar <ArrowRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              className="h-11 rounded-lg"
-              disabled={!trainingDays || saving}
-              onClick={submit}
-            >
-              {saving
-                ? "Guardando..."
-                : isEditing
-                  ? "Guardar cambios"
-                  : "Guardar planificación"}
-            </Button>
-          )}
+        <footer
+          className={`shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg)] ${
+            templatePickerOpen ? "hidden" : ""
+          }`}
+        >
+          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 p-4 sm:px-6">
+            {templatePickerOpen ? (
+              <Button
+                variant="outline"
+                className="h-12 rounded-full px-5"
+                onClick={() => setTemplatePickerOpen(false)}
+              >
+                <ArrowLeft className="h-4 w-4" /> Volver
+              </Button>
+            ) : step === 1 ? (
+              <button
+                type="button"
+                onClick={() => onCloseRef.current?.()}
+                className="h-12 px-3 text-sm font-medium text-[color:var(--text-muted)]"
+              >
+                Cancelar
+              </button>
+            ) : (
+              <Button
+                variant="outline"
+                className="h-12 rounded-full px-5"
+                onClick={() => setStep(1)}
+              >
+                <ArrowLeft className="h-4 w-4" /> Anterior
+              </Button>
+            )}
+            {templatePickerOpen ? (
+              <span />
+            ) : step === 1 ? (
+              <Button
+                className="h-12 min-w-40 rounded-full px-6"
+                disabled={!name.trim() || !validDuration || !startDate}
+                onClick={() => setStep(2)}
+              >
+                Continuar <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                className="h-12 min-w-40 rounded-full px-6"
+                disabled={!trainingDays || saving}
+                onClick={submit}
+              >
+                {saving
+                  ? "Guardando..."
+                  : isEditing
+                    ? "Guardar cambios"
+                    : "Guardar planificación"}
+              </Button>
+            )}
+          </div>
         </footer>
       </div>
     </div>

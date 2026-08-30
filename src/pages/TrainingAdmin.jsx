@@ -695,7 +695,7 @@ export function SessionHistory({
                                           current === id ? "" : id,
                                         );
                                       }}
-                                      className="grid h-8 w-8 place-items-center rounded-[3px] text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)] hover:text-[color:var(--text)]"
+                                      className="overflow-menu-trigger !h-9 !w-9"
                                       aria-label="Opciones de la sesión"
                                       aria-expanded={actionMenuId === id}
                                       aria-haspopup="menu"
@@ -705,7 +705,7 @@ export function SessionHistory({
                                     {actionMenuId === id ? (
                                       <div
                                         role="menu"
-                                        className="absolute right-0 top-9 z-30 w-44 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl dark:rounded-[3px]"
+                                        className="overflow-menu-panel absolute right-0 top-11 z-30 w-48"
                                       >
                                         {isAdmin ? (
                                           <button

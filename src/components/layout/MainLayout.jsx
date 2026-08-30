@@ -23,6 +23,7 @@ function MainLayout({
   onNavigate,
   coachAthlete = null,
   onCoachContextExit,
+  hideMobileNavigation = false,
 }) {
   const [activeTraining, setActiveTraining] = useState(null);
   const pollRef = useRef(null);
@@ -160,9 +161,13 @@ function MainLayout({
     useTrainingChrome && activeTraining,
   );
   const hideMobileNav =
-    hideMobileNavDuringTraining || useProfileChrome || useSessionSummaryChrome;
-  const mobileContentSpacing =
-    useDashboardChrome || useLibraryChrome || useRoutinesChrome
+    hideMobileNavigation ||
+    hideMobileNavDuringTraining ||
+    useProfileChrome ||
+    useSessionSummaryChrome;
+  const mobileContentSpacing = hideMobileNav
+    ? "max-md:pb-4 max-md:pt-0"
+    : useDashboardChrome || useLibraryChrome || useRoutinesChrome
       ? "max-md:pb-28 max-md:pt-0"
       : useProfileChrome || useSessionSummaryChrome
         ? "max-md:pb-4 max-md:pt-0"

@@ -500,8 +500,10 @@ export default function CoachManagement({ onNavigate }) {
                           <button
                             type="button"
                             onClick={() => openActions(itemId)}
-                            className="grid h-9 w-9 place-items-center border border-[color:var(--border)]"
+                            className="overflow-menu-trigger"
                             aria-label={`Acciones para ${item.name}`}
+                            aria-expanded={openUserMenuId === itemId}
+                            aria-haspopup="menu"
                           >
                             {savingId === itemId ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -510,7 +512,10 @@ export default function CoachManagement({ onNavigate }) {
                             )}
                           </button>
                           {openUserMenuId === itemId ? (
-                            <div className="absolute right-0 top-[calc(100%+0.35rem)] z-30 w-56 border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl">
+                            <div
+                              role="menu"
+                              className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-30 w-56"
+                            >
                               {item.role !== "Admin" ? (
                                 <button
                                   type="button"

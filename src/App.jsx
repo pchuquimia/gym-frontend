@@ -1,4 +1,12 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import "./App.css";
 import MainLayout from "./components/layout/MainLayout";
@@ -211,6 +219,15 @@ function App() {
   );
   const [restoreScrollY, setRestoreScrollY] = useState(null);
   const [navigationDirection, setNavigationDirection] = useState("replace");
+  const [pageHidesMobileNavigation, setPageHidesMobileNavigation] =
+    useState(false);
+  const handleMobileNavVisibilityChange = useCallback((hidden) => {
+    setPageHidesMobileNavigation(Boolean(hidden));
+  }, []);
+
+  useEffect(() => {
+    setPageHidesMobileNavigation(false);
+  }, [activePage]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -506,11 +523,7 @@ function App() {
 
   if (AUTH_ONLY_PAGES.has(activePage)) {
     return (
-      <OperationLoader
-        active
-        mode="screen"
-        title="Preparando tu espacio"
-      />
+      <OperationLoader active mode="screen" title="Preparando tu espacio" />
     );
   }
 
@@ -537,6 +550,7 @@ function App() {
               activePage={activePage}
               onNavigate={handleNavigate}
               coachAthlete={supervisedOwnerId ? coachAthlete : null}
+              hideMobileNavigation={pageHidesMobileNavigation}
               onCoachContextExit={() => {
                 if (hasAccessibleTrainingSnapshot(user, coachAthlete)) {
                   handleNavigate("trainer");
@@ -594,6 +608,9 @@ function App() {
                         onBack={handleBack}
                         coachAthlete={coachAthlete}
                         onSelectCoachAthlete={selectCoachAthlete}
+                        onMobileNavVisibilityChange={
+                          handleMobileNavVisibilityChange
+                        }
                       />
                     </RoleBasedRoute>
                   </Suspense>

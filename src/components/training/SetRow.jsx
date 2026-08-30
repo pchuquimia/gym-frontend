@@ -250,9 +250,9 @@ export default function SetRow({
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
-                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 dark:rounded-[3px]">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"
@@ -274,9 +274,9 @@ export default function SetRow({
                     {weightUnitLabel}
                   </span>
                 </label>
-                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 focus-within:border-[#352018] focus-within:ring-2 focus-within:ring-[#352018]/15 dark:rounded-[3px] dark:focus-within:border-[#e2ff00] dark:focus-within:ring-[#e2ff00]/15">
+                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 dark:rounded-[3px]">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"

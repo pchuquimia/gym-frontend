@@ -1074,15 +1074,15 @@ export default function CoachDashboard({
                       {overview.athlete.email}
                     </p>
                   </div>
-                  <details className="relative shrink-0 self-center">
+                  <details className="overflow-menu relative shrink-0 self-center">
                     <summary
-                      className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden dark:rounded-[3px]"
+                      className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                       aria-label="Opciones del atleta"
                       title="Opciones del atleta"
                     >
                       <MoreVertical className="h-5 w-5" />
                     </summary>
-                    <div className="absolute right-0 top-12 z-30 w-56 border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                    <div className="overflow-menu-panel absolute right-0 top-12 z-30 w-56">
                       <button
                         type="button"
                         onClick={(event) => {
@@ -1312,15 +1312,15 @@ export default function CoachDashboard({
                               missingPlanRoutineCount}
                             /{activePlanTrainingDays.length} rutinas
                           </span>
-                          <details className="relative shrink-0">
+                          <details className="overflow-menu relative shrink-0">
                             <summary
-                              className="grid h-10 w-10 touch-manipulation cursor-pointer list-none place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden dark:rounded-[3px]"
+                              className="overflow-menu-trigger touch-manipulation cursor-pointer list-none [&::-webkit-details-marker]:hidden"
                               aria-label="Opciones del plan"
                               title="Opciones del plan"
                             >
                               <MoreVertical className="h-5 w-5" />
                             </summary>
-                            <div className="absolute right-0 top-12 z-50 w-52 max-w-[calc(100vw-2rem)] overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] p-1 shadow-xl">
+                            <div className="overflow-menu-panel absolute right-0 top-12 z-50 w-52 max-w-[calc(100vw-2rem)]">
                               {!["completed", "cancelled"].includes(
                                 activePlan.status,
                               ) ? (

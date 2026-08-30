@@ -515,10 +515,10 @@ export default function ExerciseCard({
               </span>
               <button
                 type="button"
-                className={`grid h-10 w-10 place-items-center rounded-md border transition-colors dark:rounded-[3px] ${
+                className={`overflow-menu-trigger !h-10 !w-10 ${
                   showActionsMenu
-                    ? "border-[#352018] text-[#352018] dark:border-[#e2ff00] dark:text-[#e2ff00]"
-                    : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+                    ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--card)]"
+                    : ""
                 }`}
                 onClick={() => setShowActionsMenu((value) => !value)}
                 aria-label={`Acciones de ${exercise.name}`}
@@ -531,11 +531,15 @@ export default function ExerciseCard({
                 {showActionsMenu ? (
                   <motion.div
                     role="menu"
-                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    initial={{ opacity: 0, y: -8, scale: 0.94 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.14 }}
-                    className="absolute right-3 top-[calc(100%-0.5rem)] z-40 w-52 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 shadow-2xl dark:rounded-[4px] sm:right-4"
+                    exit={{ opacity: 0, y: -5, scale: 0.96 }}
+                    transition={
+                      reduceMotion
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 460, damping: 34 }
+                    }
+                    className="overflow-menu-panel overflow-menu-panel--motion absolute right-3 top-[calc(100%-0.5rem)] z-40 w-52 sm:right-4"
                   >
                     {!readOnly &&
                     onStartNow &&
