@@ -46,3 +46,8 @@ export const buildExerciseTrackingRows = (exercise, trainings = []) => {
 
   return rows.sort((left, right) => left.ts - right.ts);
 };
+
+export const getExerciseTrackingRoutineLabel = (row, scope) => {
+  if (scope === "routine") return "";
+  return row?.routineName || "Sin rutina";
+};

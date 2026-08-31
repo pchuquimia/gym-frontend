@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildExerciseTrackingRows } from "./exerciseTracking";
+import {
+  buildExerciseTrackingRows,
+  getExerciseTrackingRoutineLabel,
+} from "./exerciseTracking";
 
 const targetExercise = {
   id: "leg-extension",
@@ -71,5 +74,14 @@ describe("exerciseTracking", () => {
     ]);
 
     expect(rows).toEqual([]);
+  });
+
+  it("muestra la rutina de origen al consultar el plan o el historial general", () => {
+    const row = { routineName: "Piernas B" };
+
+    expect(getExerciseTrackingRoutineLabel(row, "routine")).toBe("");
+    expect(getExerciseTrackingRoutineLabel(row, "plan")).toBe("Piernas B");
+    expect(getExerciseTrackingRoutineLabel(row, "general")).toBe("Piernas B");
+    expect(getExerciseTrackingRoutineLabel({}, "plan")).toBe("Sin rutina");
   });
 });

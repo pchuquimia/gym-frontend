@@ -56,11 +56,15 @@ import {
   getCompatibleExerciseHistoryKeys,
   getLatestCompatibleReference,
 } from "../utils/historyCompatibility";
-import { buildExerciseTrackingRows } from "../utils/exerciseTracking";
+import {
+  buildExerciseTrackingRows,
+  getExerciseTrackingRoutineLabel,
+} from "../utils/exerciseTracking";
 import {
   getTrainingSaveErrorMessage,
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
+import { resolveRoutinePlanContext } from "../utils/trainingPlanContext";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
 import {
   buildFallbackTimeEvents,
@@ -1345,6 +1349,7 @@ export default function RegisterTraining({
   );
   const [branchConfirmed, setBranchConfirmed] = useState(false);
   const [setupStarted, setSetupStarted] = useState(false);
+  const [trainingPlans, setTrainingPlans] = useState([]);
   const [activeTrainingPlan, setActiveTrainingPlan] = useState(null);
   const [trainingPlanLoading, setTrainingPlanLoading] = useState(true);
   const [trainingPlanError, setTrainingPlanError] = useState("");
@@ -1455,11 +1460,13 @@ export default function RegisterTraining({
     setTrainingPlanError("");
     try {
       const plans = await api.getTrainingPlans(dataOwnerId || "");
+      setTrainingPlans(plans || []);
       const active =
         (plans || []).find((plan) => plan.status === "active") || null;
       setActiveTrainingPlan(active);
       setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
     } catch (error) {
+      setTrainingPlans([]);
       setActiveTrainingPlan(null);
       setTrainingPlanError(
         error.message || "No se pudo cargar la planificación",
@@ -1590,6 +1597,15 @@ export default function RegisterTraining({
     selectedRoutine,
     selectedPlanContext,
   );
+  const selectedHistoryPlan = useMemo(
+    () =>
+      trainingPlans.find(
+        (plan) => String(plan?._id || plan?.id || "") === selectedHistoryPlanId,
+      ) || null,
+    [selectedHistoryPlanId, trainingPlans],
+  );
+  const selectedHistoryPlanName =
+    selectedHistoryPlan?.name || "el plan seleccionado";
   const libraryExerciseOptions = useMemo(() => {
     const seen = new Set();
     return (libraryExercises || [])
@@ -4289,6 +4305,11 @@ export default function RegisterTraining({
       toast.error("La rutina seleccionada ya no está disponible.");
       return;
     }
+    const resolvedPlanContext = resolveRoutinePlanContext(
+      found,
+      planContext,
+      trainingPlans,
+    );
     const requestId = routineLoadRequestRef.current + 1;
     routineLoadRequestRef.current = requestId;
     removedExerciseIdsRef.current = new Set();
@@ -4301,7 +4322,7 @@ export default function RegisterTraining({
     setBranchConfirmed(true);
     setSelectedRoutineId(id);
     setSelectedRoutine(found);
-    setSelectedPlanContext(planContext);
+    setSelectedPlanContext(resolvedPlanContext);
     setLoadingTraining(true);
     setPendingSameDayTraining(null);
     setHistoryTrainings([]);
@@ -4319,7 +4340,7 @@ export default function RegisterTraining({
     (async () => {
       const historyResult = await loadHistoryForRoutine(id, {
         commit: false,
-        planContext,
+        planContext: resolvedPlanContext,
       });
       if (routineLoadRequestRef.current !== requestId) return;
       const hist = historyResult.routineHistory;
@@ -5314,16 +5335,21 @@ export default function RegisterTraining({
         trainingRequestIdRef.current = createTrainingRequestId();
       }
       const dateStr = sessionDate || getLocalISODate();
+      const resolvedPlanContext = resolveRoutinePlanContext(
+        selectedRoutine,
+        selectedPlanContext,
+        trainingPlans,
+      );
       const payload = {
         id: editingId ? undefined : trainingRequestIdRef.current,
         date: dateStr,
         routineId: selectedRoutine?.id,
         routineName: selectedRoutine?.name,
-        trainingPlanId: selectedPlanContext?.planId || null,
-        trainingPlanSlotId: selectedPlanContext?.slotId || null,
-        scheduleOverride: selectedPlanContext?.scheduleOverride
+        trainingPlanId: resolvedPlanContext?.planId || null,
+        trainingPlanSlotId: resolvedPlanContext?.slotId || null,
+        scheduleOverride: resolvedPlanContext?.scheduleOverride
           ? {
-              ...selectedPlanContext.scheduleOverride,
+              ...resolvedPlanContext.scheduleOverride,
               actualDate: dateStr,
             }
           : undefined,
@@ -7305,6 +7331,18 @@ export default function RegisterTraining({
               ))}
             </div>
 
+            {historyViewScope === "plan" ? (
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
+                <p className="text-sm font-semibold text-[color:var(--text)]">
+                  Historial en {selectedHistoryPlanName}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                  Incluye las sesiones compatibles de este ejercicio en todas
+                  las rutinas de la planificación.
+                </p>
+              </div>
+            ) : null}
+
             {historyViewScope === "general" && loadingGeneralHistory ? (
               <div
                 role="status"
@@ -7353,9 +7391,21 @@ export default function RegisterTraining({
                           <div className="font-semibold text-[color:var(--text)]">
                             {row.date ? formatShort(row.date) : "--"}
                           </div>
-                          {historyViewScope === "general" ? (
-                            <div className="mt-0.5 max-w-36 truncate text-[11px] text-[color:var(--text-muted)]">
-                              {row.routineName || "Sin rutina"}
+                          {getExerciseTrackingRoutineLabel(
+                            row,
+                            historyViewScope,
+                          ) ? (
+                            <div
+                              className="mt-0.5 max-w-36 truncate text-[11px] text-[color:var(--text-muted)]"
+                              title={getExerciseTrackingRoutineLabel(
+                                row,
+                                historyViewScope,
+                              )}
+                            >
+                              {getExerciseTrackingRoutineLabel(
+                                row,
+                                historyViewScope,
+                              )}
                             </div>
                           ) : null}
                           {!locationDisabled ? (
