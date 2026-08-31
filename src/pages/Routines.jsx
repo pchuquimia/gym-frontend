@@ -4447,6 +4447,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const [planDayChoice, setPlanDayChoice] = useState(null);
   const [replacementPlanDay, setReplacementPlanDay] = useState(null);
   const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
+  const [deletingPlan, setDeletingPlan] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
@@ -4499,9 +4500,13 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       (day) => day.type === "training" && !day.routineId,
     ).length;
   }, [activePlan]);
-  const currentActivePlan = useMemo(
-    () => trainingPlans.find((plan) => plan.status === "active") || null,
+  const visibleTrainingPlans = useMemo(
+    () => trainingPlans.filter((plan) => plan.status !== "cancelled"),
     [trainingPlans],
+  );
+  const currentActivePlan = useMemo(
+    () => visibleTrainingPlans.find((plan) => plan.status === "active") || null,
+    [visibleTrainingPlans],
   );
   const currentPlanToday = useMemo(
     () =>
@@ -4525,12 +4530,12 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       completed: 4,
       cancelled: 5,
     };
-    return [...trainingPlans].sort(
+    return [...visibleTrainingPlans].sort(
       (a, b) =>
         (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) ||
         getDateTimestamp(b.updatedAt) - getDateTimestamp(a.updatedAt),
     );
-  }, [trainingPlans]);
+  }, [visibleTrainingPlans]);
   const secondaryTrainingPlans = useMemo(
     () =>
       orderedTrainingPlans.filter(
@@ -5190,7 +5195,8 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   };
 
   const deleteCurrentPlan = async () => {
-    if (!activePlan || isManagedClient) return;
+    if (!activePlan || isManagedClient || deletingPlan) return;
+    setDeletingPlan(true);
     try {
       const result = await api.deleteTrainingPlan(
         activePlan._id || activePlan.id,
@@ -5201,10 +5207,12 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       toast.success(
         result?.disposition === "deleted"
           ? "Planificación eliminada"
-          : "Planificación archivada para conservar su historial",
+          : "Planificación retirada; conservamos su historial",
       );
     } catch (error) {
-      toast.error(error.message || "No se pudo eliminar el borrador");
+      toast.error(error.message || "No se pudo eliminar la planificación");
+    } finally {
+      setDeletingPlan(false);
     }
   };
 
@@ -5325,7 +5333,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   };
 
   const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
-  const visiblePlans = isCoach ? planTemplates : trainingPlans;
+  const visiblePlans = isCoach ? planTemplates : visibleTrainingPlans;
   const workspaceLoading =
     !activePlan &&
     (workspaceView === "plans"
@@ -5410,7 +5418,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 {workspaceView === "plans"
                   ? isCoach
                     ? `${planTemplates.length} plantillas de planificación`
-                    : `${trainingPlans.length} ${trainingPlans.length === 1 ? "planificación" : "planificaciones"}`
+                    : `${visibleTrainingPlans.length} ${visibleTrainingPlans.length === 1 ? "planificación" : "planificaciones"}`
                   : `${routines.length} ${routines.length === 1 ? "rutina" : "rutinas"}`}
               </p>
             ) : null}
@@ -5434,7 +5442,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 aria-label="Volver a planificaciones"
               >
                 <ArrowLeft className="h-5 w-5" />
-                <span>Todas ({trainingPlans.length})</span>
+                <span>Todas ({visibleTrainingPlans.length})</span>
               </button>
             ) : !isManagedClient ? (
               <button
@@ -5540,7 +5548,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
 
         {!isCoach &&
         workspaceReady &&
-        !trainingPlans.length &&
+        !visibleTrainingPlans.length &&
         !activePlan &&
         workspaceView === "plans" ? (
           <div className="border-y border-[color:var(--border)] py-14 text-center sm:py-20">
@@ -5594,7 +5602,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       workspaceReady &&
       !activePlan &&
       workspaceView === "plans" &&
-      trainingPlans.length ? (
+      visibleTrainingPlans.length ? (
         <section className="mt-5 space-y-5">
           {currentActivePlan ? (
             <CurrentPlanOverview
@@ -5745,8 +5753,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                         <Pause className="h-4 w-4" /> Desactivar planificación
                       </button>
                     ) : null}
-                    {!isManagedClient &&
-                    ["draft", "cancelled"].includes(activePlan.status) ? (
+                    {!isManagedClient ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -5760,7 +5767,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                         <Trash2 className="h-4 w-4" />
                         {activePlan.status === "draft"
                           ? "Eliminar borrador"
-                          : "Eliminar planificación"}
+                          : "Quitar planificación"}
                       </button>
                     ) : null}
                   </div>
@@ -6197,7 +6204,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
           title={
             activePlan?.status === "draft"
               ? "Eliminar borrador"
-              : "Eliminar planificación"
+              : "Quitar planificación"
           }
           subtitle={activePlan?.name}
           onClose={() => setDeletePlanConfirmOpen(false)}
@@ -6213,18 +6220,21 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 variant="outline"
                 className="border-red-500/30 text-red-600 hover:border-red-500"
                 onClick={deleteCurrentPlan}
+                disabled={deletingPlan}
               >
-                {activePlan?.status === "draft"
-                  ? "Eliminar borrador"
-                  : "Eliminar planificación"}
+                {deletingPlan
+                  ? "Eliminando..."
+                  : activePlan?.status === "draft"
+                    ? "Eliminar borrador"
+                    : "Quitar planificación"}
               </Button>
             </div>
           }
         >
           <p className="py-2 text-sm text-[color:var(--text-muted)]">
-            Si no tiene entrenamientos, se eliminará definitivamente junto con
-            las rutinas creadas solo para este plan. Si contiene historial, se
-            conservará archivada.
+            {activePlan?.status === "draft"
+              ? "Si todavía no tiene entrenamientos, se eliminará definitivamente junto con las rutinas creadas solo para este plan."
+              : "La planificación dejará de aparecer en tu lista. Los entrenamientos ya realizados se conservarán en tu historial."}
           </p>
         </Modal>
       ) : null}

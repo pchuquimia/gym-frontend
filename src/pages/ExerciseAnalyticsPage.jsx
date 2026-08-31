@@ -1,23 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Activity,
-  CalendarDays,
-  ChevronDown,
-  Clock3,
-  Dumbbell,
-  Gauge,
-  ListChecks,
-  Search,
-  TrendingUp,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, Search } from "lucide-react";
 import ExerciseAnalytics from "../components/analytics/ExerciseAnalytics";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
-import Button from "../components/ui/button";
+import MuscleGroupAnalytics from "../components/analytics/MuscleGroupAnalytics";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
+import { useUserProfile } from "../context/UserContext";
 import { useThemeMode } from "../hooks/useThemeMode";
+import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
-import { estimate1RM } from "../utils/trainingMetrics";
+import { summarizeExerciseSets } from "../utils/exerciseAnalyticsData";
 import { getEffectiveWeightKg } from "../utils/weightConfig";
 
 const ANALYTICS_VIEW_KEY = "exercise_analytics_view";
@@ -48,14 +43,6 @@ const toTimestamp = (value) => {
   return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
 };
 
-const compact = (value) => {
-  const number = Number(value) || 0;
-  if (!number) return "--";
-  if (Math.abs(number) >= 1000)
-    return `${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}k`;
-  return Math.round(number).toLocaleString("es-BO");
-};
-
 const percent = (value) => {
   if (!Number.isFinite(value)) return "--";
   return `${value > 0 ? "+" : ""}${Math.round(value)}%`;
@@ -68,14 +55,6 @@ const formatDate = (value) =>
         { day: "2-digit", month: "short", year: "2-digit" },
       )
     : "--";
-
-const formatDuration = (seconds) => {
-  const value = Number(seconds) || 0;
-  if (!value) return "--";
-  return value >= 60
-    ? `${Math.round(value / 60)} min`
-    : `${Math.round(value)} s`;
-};
 
 const flattenSets = (sets = [], weightConfig = {}) =>
   (sets || []).flatMap((set) => {
@@ -92,32 +71,39 @@ const flattenSets = (sets = [], weightConfig = {}) =>
       .filter((entry) => entry.weight > 0 && entry.reps > 0);
   });
 
-function MetricCard({ label, value, detail, icon: Icon, accent = false }) {
+function MetricCard({ label, value, detail, accent = false }) {
   return (
-    <article className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-          {label}
-        </p>
-        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
+    <article className="dashboard-pilot__metric dashboard-weekly-metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
+      <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
+        {label}
+      </p>
+      <div className="dashboard-weekly-metric__value-row flex items-end gap-1.5">
+        <span
+          className={`dashboard-weekly-metric__value ${accent ? "text-[#352018] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
+        >
+          {value}
+        </span>
       </div>
-      <p
-        className={`mt-3 text-2xl font-black leading-none ${accent ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
-      >
-        {value}
-      </p>
-      <p className="mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-        {detail}
-      </p>
+      <div className="dashboard-weekly-metric__footer">
+        <span>{detail}</span>
+      </div>
     </article>
   );
 }
 
-export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
+export default function ExerciseAnalyticsPage({
+  onMobileNavVisibilityChange = () => {},
+}) {
   const [pageOpenedAt] = useState(() => Date.now());
   const [initialView] = useState(readAnalyticsView);
-  const { sessions = [], trainings = [], exercises = [] } = useTrainingData();
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const { profile } = useUserProfile();
+  const {
+    sessions = [],
+    trainings = [],
+    exercises = [],
+    dataOwnerId = "",
+  } = useTrainingData();
   const { isDark } = useThemeMode();
   const [selectedExerciseId, setSelectedExerciseId] = useState(() =>
     typeof localStorage === "undefined"
@@ -129,30 +115,45 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState(initialView.query || "");
+  const [analyticsScope, setAnalyticsScope] = useState(
+    initialView.scope === "muscle" ? "muscle" : "exercise",
+  );
+  const [exerciseView, setExerciseView] = useState("progress");
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const [visibleHistorySessions, setVisibleHistorySessions] = useState(10);
+
+  useEffect(() => {
+    onMobileNavVisibilityChange(true);
+    return () => onMobileNavVisibilityChange(false);
+  }, [onMobileNavVisibilityChange]);
 
   useEffect(() => {
     if (typeof sessionStorage === "undefined") return;
     sessionStorage.setItem(
       ANALYTICS_VIEW_KEY,
-      JSON.stringify({ selectedMuscle, query }),
+      JSON.stringify({ selectedMuscle, query, scope: analyticsScope }),
     );
-  }, [query, selectedMuscle]);
+  }, [analyticsScope, query, selectedMuscle]);
 
   const workouts = useMemo(
     () => [
       ...sessions
         .filter((session) => session.exerciseId)
-        .map((session) => ({
+        .map((session, index) => ({
           exerciseId: session.exerciseId || slugify(session.exerciseName),
           date: session.date,
+          routineName: session.routineName || "",
+          sessionKey: `session:${session.id || `${session.date}:${index}`}`,
           sets: flattenSets(session.sets),
         })),
       ...trainings.flatMap((training) =>
         (training.exercises || [])
           .filter((exercise) => exercise.exerciseId || exercise.exerciseName)
-          .map((exercise) => ({
+          .map((exercise, index) => ({
             exerciseId: exercise.exerciseId || slugify(exercise.exerciseName),
             date: training.date,
+            routineName: training.routineName || "",
+            sessionKey: `training:${training.id || `${training.date}:${index}`}`,
             sets: flattenSets(exercise.sets, exercise),
           })),
       ),
@@ -160,21 +161,67 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
     [sessions, trainings],
   );
 
+  const exerciseCountsQuery = useQuery({
+    queryKey: ["exercise-analytics-counts", dataOwnerId || "self"],
+    queryFn: () =>
+      api.getExerciseHistoryCounts({ athleteId: dataOwnerId || undefined }),
+    staleTime: 60_000,
+  });
+  const exerciseCountById = useMemo(
+    () =>
+      new Map(
+        (exerciseCountsQuery.data?.exercises || []).map((item) => [
+          String(item.exerciseId),
+          Number(item.trainingCount) || Number(item.legacyCount) || 0,
+        ]),
+      ),
+    [exerciseCountsQuery.data?.exercises],
+  );
+
+  const localExerciseCountById = useMemo(() => {
+    const counts = new Map();
+    workouts.forEach((workout) => {
+      const exerciseId = String(workout.exerciseId || "");
+      if (!exerciseId || !workout.sets.length) return;
+      counts.set(exerciseId, (counts.get(exerciseId) || 0) + 1);
+    });
+    return counts;
+  }, [workouts]);
+
+  const exerciseSessionCountById = useMemo(() => {
+    if (!exerciseCountsQuery.isSuccess) return localExerciseCountById;
+    return exerciseCountById;
+  }, [
+    exerciseCountById,
+    exerciseCountsQuery.isSuccess,
+    localExerciseCountById,
+  ]);
+
   const trainedExerciseIds = useMemo(
     () =>
       new Set(
-        workouts
-          .filter((item) => item.sets.length)
-          .map((item) => item.exerciseId),
+        [...exerciseSessionCountById.entries()]
+          .filter(([, count]) => count > 0)
+          .map(([exerciseId]) => exerciseId),
       ),
-    [workouts],
+    [exerciseSessionCountById],
   );
   const exerciseOptions = useMemo(() => {
     const trained = exercises.filter((exercise) =>
-      trainedExerciseIds.has(exercise.id),
+      trainedExerciseIds.has(String(exercise.id)),
     );
-    return trained.length ? trained : exercises;
-  }, [exercises, trainedExerciseIds]);
+    return [...(trained.length ? trained : exercises)].sort(
+      (left, right) => {
+        const sessionDifference =
+          (exerciseSessionCountById.get(String(right.id)) || 0) -
+          (exerciseSessionCountById.get(String(left.id)) || 0);
+        return (
+          sessionDifference ||
+          String(left.name || "").localeCompare(String(right.name || ""), "es")
+        );
+      },
+    );
+  }, [exerciseSessionCountById, exercises, trainedExerciseIds]);
   const muscleOptions = useMemo(
     () =>
       Array.from(
@@ -214,106 +261,121 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
     exerciseOptions.find((exercise) => exercise.id === effectiveExerciseId) ||
     null;
 
+  const exerciseHistoryQuery = useQuery({
+    queryKey: [
+      "exercise-analytics-history",
+      effectiveExerciseId,
+      dataOwnerId || "self",
+    ],
+    queryFn: () =>
+      api.getExerciseHistory({
+        exerciseId: effectiveExerciseId,
+        athleteId: dataOwnerId || undefined,
+      }),
+    enabled: Boolean(effectiveExerciseId && analyticsScope === "exercise"),
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     if (!effectiveExerciseId || typeof localStorage === "undefined") return;
     localStorage.setItem("last_exercise_id", effectiveExerciseId);
   }, [effectiveExerciseId]);
 
-  const selectedWorkouts = useMemo(
+  const completeExerciseWorkouts = useMemo(
     () =>
-      workouts.filter((workout) => workout.exerciseId === effectiveExerciseId),
-    [effectiveExerciseId, workouts],
+      (exerciseHistoryQuery.data?.items || []).flatMap((training) =>
+        (training.exercises || [])
+          .filter(
+            (exercise) => exercise.exerciseId === effectiveExerciseId,
+          )
+          .map((exercise, index) => ({
+            exerciseId: effectiveExerciseId,
+            date: training.date,
+            routineName: training.routineName || "",
+            sessionKey: `training:${training._id || training.id || `${training.date}:${index}`}`,
+            sets: flattenSets(exercise.sets, exercise),
+          })),
+      ),
+    [effectiveExerciseId, exerciseHistoryQuery.data?.items],
   );
+
+  const selectedWorkouts = useMemo(() => {
+    if (exerciseHistoryQuery.isSuccess) return completeExerciseWorkouts;
+    return workouts.filter(
+      (workout) => workout.exerciseId === effectiveExerciseId,
+    );
+  }, [
+    completeExerciseWorkouts,
+    effectiveExerciseId,
+    exerciseHistoryQuery.isSuccess,
+    workouts,
+  ]);
+
+  const analyticsWorkouts = useMemo(() => {
+    if (!exerciseHistoryQuery.isSuccess) return workouts;
+    return [
+      ...workouts.filter(
+        (workout) => workout.exerciseId !== effectiveExerciseId,
+      ),
+      ...completeExerciseWorkouts,
+    ];
+  }, [
+    completeExerciseWorkouts,
+    effectiveExerciseId,
+    exerciseHistoryQuery.isSuccess,
+    workouts,
+  ]);
 
   const stats = useMemo(() => {
     const summaries = selectedWorkouts
       .map((workout) => {
         const sets = workout.sets || [];
-        const topSet =
-          [...sets].sort(
-            (left, right) =>
-              right.weight - left.weight || right.reps - left.reps,
-          )[0] || null;
+        const summary = summarizeExerciseSets(sets);
         return {
+          sessionKey: workout.sessionKey,
           date: workout.date,
+          routineName: workout.routineName || "",
           timestamp: toTimestamp(workout.date),
-          topSet,
-          oneRM: sets.reduce(
-            (best, set) => Math.max(best, estimate1RM(set.weight, set.reps)),
-            0,
-          ),
-          volume: sets.reduce((sum, set) => sum + set.weight * set.reps, 0),
-          sets: sets.length,
+          topSet: summary.topSet,
+          oneRM: summary.strength,
+          volume: summary.volume,
+          sets: summary.setsCount,
+          setDetails: sets,
         };
       })
       .filter((item) => item.timestamp && (item.volume > 0 || item.oneRM > 0))
       .sort((left, right) => left.timestamp - right.timestamp);
     const oneRMValues = summaries.filter((item) => item.oneRM > 0);
-    const first = oneRMValues[0]?.oneRM || 0;
     const latest = oneRMValues[oneRMValues.length - 1]?.oneRM || 0;
     const previous = oneRMValues[oneRMValues.length - 2]?.oneRM || 0;
     const best = oneRMValues.reduce(
       (record, item) => (item.oneRM > (record?.oneRM || 0) ? item : record),
       null,
     );
-    const totalVolume = summaries.reduce((sum, item) => sum + item.volume, 0);
-    const recent = oneRMValues.slice(-6);
-    const consistency =
-      best?.oneRM && recent.length
-        ? (recent.filter((item) => item.oneRM >= best.oneRM * 0.9).length /
-            recent.length) *
-          100
-        : null;
-    const recentThree = oneRMValues.slice(-3);
-    const previousThree = oneRMValues.slice(-6, -3);
-    const average = (items) =>
-      items.length
-        ? items.reduce((sum, item) => sum + item.oneRM, 0) / items.length
-        : 0;
-    const recentAverage = average(recentThree);
-    const previousAverage = average(previousThree);
-    const shortTrend = previousAverage
-      ? ((recentAverage - previousAverage) / previousAverage) * 100
-      : null;
-    const weeks =
-      summaries.length > 1
-        ? Math.max(
-            1,
-            (summaries[summaries.length - 1].timestamp -
-              summaries[0].timestamp) /
-              (7 * DAY_MS),
-          )
-        : 1;
-
     return {
       summaries,
       sessions: summaries.length,
       latestDate: summaries[summaries.length - 1]?.date || null,
       latestOneRM: latest,
       best,
-      progress: first && latest ? ((latest - first) / first) * 100 : null,
       vsPrevious:
         previous && latest ? ((latest - previous) / previous) * 100 : null,
-      avgVolume: summaries.length ? totalVolume / summaries.length : 0,
-      frequency: summaries.length / weeks,
-      consistency,
-      shortTrend,
     };
   }, [selectedWorkouts]);
 
-  const avgDuration = useMemo(() => {
-    const values = trainings
-      .flatMap((training) => training.exerciseDurations || [])
-      .filter((item) => item.exerciseId === effectiveExerciseId)
-      .map(
-        (item) =>
-          Number(item.durationOverrideSeconds ?? item.durationSeconds) || 0,
-      )
-      .filter(Boolean);
-    return values.length
-      ? values.reduce((sum, value) => sum + value, 0) / values.length
-      : 0;
-  }, [effectiveExerciseId, trainings]);
+  const historySeries = useMemo(
+    () =>
+      Array.from(
+        {
+          length: Math.max(
+            0,
+            ...stats.summaries.map((item) => item.setDetails.length),
+          ),
+        },
+        (_, index) => index,
+      ),
+    [stats.summaries],
+  );
 
   const filteredPickerExercises = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");
@@ -334,82 +396,109 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
         Math.floor((pageOpenedAt - toTimestamp(stats.latestDate)) / DAY_MS),
       )
     : null;
-  const insight = !stats.sessions
-    ? "Registra una sesion con carga y repeticiones para iniciar el seguimiento."
-    : stats.shortTrend !== null && stats.shortTrend >= 3
-      ? `La media de tus ultimas 3 sesiones subio ${Math.round(stats.shortTrend)}%.`
-      : stats.shortTrend !== null && stats.shortTrend <= -3
-        ? `La media de tus ultimas 3 sesiones bajo ${Math.abs(Math.round(stats.shortTrend))}%. Revisa fatiga, orden y descanso.`
-        : "Tu rendimiento reciente se mantiene dentro del rango habitual.";
-
   return (
-    <main className="analytics-shell mx-auto w-full max-w-md space-y-4 pb-24 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
-      <header className="flex flex-col gap-3 border-b border-[color:var(--border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-            Progreso individual
-          </p>
-          <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
-            Por ejercicio
-          </h1>
-          <p className="mt-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
-            Fuerza, volumen y consistencia con tus sesiones registradas.
-          </p>
-        </div>
-        {user?.role === "Admin" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!effectiveExerciseId}
-            onClick={() => {
-              localStorage.setItem(
-                "history_editor_exercise_id",
-                effectiveExerciseId,
-              );
-              onNavigate("editor_historial");
-            }}
+    <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-5 pb-8 text-[color:var(--text)] md:max-w-5xl md:pb-24 xl:max-w-6xl 2xl:max-w-[1280px]">
+      <MobilePageHeader
+        title="Analítica"
+        actions={
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+            className="dashboard-mobile-avatar h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
+            aria-label="Abrir menú principal"
           >
-            <ListChecks className="mr-2 h-4 w-4" /> Editar registros
-          </Button>
-        ) : null}
+            <ProfileAvatar
+              photoId={
+                profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
+              }
+              name={profile?.name || authUser?.name}
+              className="h-full w-full"
+              fallbackClassName="bg-[#ead8dd] text-sm font-semibold text-[#4a2430]"
+            />
+          </button>
+        }
+      />
+      <header className="exercise-analytics-page__header hidden md:block">
+        <h1 className="text-[36px] font-medium leading-none tracking-[-0.035em]">
+          Analítica
+        </h1>
       </header>
 
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm dark:rounded-[4px] dark:shadow-none">
-        <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-          <label>
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              Grupo muscular
-            </span>
-            <select
-              value={effectiveMuscle}
-              onChange={(event) => {
-                setSelectedMuscle(event.target.value);
-                setSelectedExerciseId("");
-                setPickerOpen(false);
-              }}
-              className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-black outline-none"
-            >
-              {muscleOptions.map((muscle) => (
-                <option key={muscle}>{muscle}</option>
-              ))}
-            </select>
-          </label>
+      <div className="grid grid-cols-2 rounded-xl bg-[color:var(--segmented-surface)] p-1">
+        <button
+          type="button"
+          onClick={() => setAnalyticsScope("exercise")}
+          aria-pressed={analyticsScope === "exercise"}
+          className={`h-10 rounded-lg text-sm font-medium transition-all ${
+            analyticsScope === "exercise"
+              ? "theme-accent-solid shadow-sm"
+              : "text-[color:var(--text-muted)]"
+          }`}
+        >
+          Ejercicio
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setAnalyticsScope("muscle");
+            setPickerOpen(false);
+          }}
+          aria-pressed={analyticsScope === "muscle"}
+          className={`h-10 rounded-lg text-sm font-medium transition-all ${
+            analyticsScope === "muscle"
+              ? "theme-accent-solid shadow-sm"
+              : "text-[color:var(--text-muted)]"
+          }`}
+        >
+          Grupo muscular
+        </button>
+      </div>
+
+      <section className="exercise-analytics-controls space-y-4">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-normal text-[color:var(--text-muted)]">
+            Grupo muscular
+          </span>
+          <select
+            value={effectiveMuscle}
+            onChange={(event) => {
+              setSelectedMuscle(event.target.value);
+              setSelectedExerciseId("");
+              setPickerOpen(false);
+              setShowAllSessions(false);
+              setVisibleHistorySessions(10);
+            }}
+            className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-sm font-medium outline-none"
+          >
+            {muscleOptions.map((muscle) => (
+              <option key={muscle}>{muscle}</option>
+            ))}
+          </select>
+        </label>
+
+        {analyticsScope === "exercise" ? (
           <div className="relative">
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+            <p className="mb-1.5 text-xs font-normal text-[color:var(--text-muted)]">
               Ejercicio
-            </span>
+            </p>
             <button
               type="button"
               onClick={() => setPickerOpen((value) => !value)}
-              className="flex min-h-24 w-full items-center gap-3 border border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-2 text-left"
+              aria-expanded={pickerOpen}
+              className="flex min-h-[88px] w-full items-center gap-3 rounded-2xl bg-[color:var(--card)] p-3 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
             >
-              <ExerciseThumbnail src={selectedImage} />
+              <ExerciseThumbnail
+                src={selectedImage}
+                alt={exerciseName}
+                className="exercise-analytics-thumb h-16 w-16 rounded-xl"
+              />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-base font-black uppercase">
+                <span className="line-clamp-2 block text-[17px] font-medium leading-[1.2] tracking-[-0.02em] sm:text-xl">
                   {exerciseName}
                 </span>
-                <span className="mt-0.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  {stats.sessions} sesiones con datos
+                <span className="mt-1.5 block text-xs font-normal text-[color:var(--text-muted)]">
+                  {effectiveMuscle} · {stats.sessions}{" "}
+                  {stats.sessions === 1 ? "sesión" : "sesiones"}
                 </span>
               </span>
               <ChevronDown
@@ -417,7 +506,7 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
               />
             </button>
             {pickerOpen ? (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-2xl">
+              <div className="mt-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-sm">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                   <input
@@ -425,31 +514,52 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Buscar ejercicio"
-                    className="theme-accent-focus h-10 w-full border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm outline-none"
+                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm outline-none transition-colors focus:border-[color:var(--border-strong)]"
                   />
                 </label>
-                <div className="mt-2 max-h-64 divide-y divide-[color:var(--border)] overflow-y-auto">
-                  {filteredPickerExercises.map((exercise) => (
-                    <button
-                      key={exercise.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedExerciseId(exercise.id);
-                        setPickerOpen(false);
-                        setQuery("");
-                      }}
-                      className={`flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-bold hover:bg-[color:var(--bg)] ${exercise.id === effectiveExerciseId ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
-                    >
-                      <span className="truncate">{exercise.name}</span>
-                      <span className="text-[10px] font-black text-[color:var(--text-muted)]">
-                        {
-                          workouts.filter(
-                            (item) => item.exerciseId === exercise.id,
-                          ).length
-                        }
-                      </span>
-                    </button>
-                  ))}
+                <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
+                  {filteredPickerExercises.map((exercise) => {
+                    const completeExerciseSessions =
+                      exerciseSessionCountById.get(String(exercise.id)) || 0;
+                    const isSelected = exercise.id === effectiveExerciseId;
+
+                    return (
+                      <button
+                        key={exercise.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExerciseId(exercise.id);
+                          setPickerOpen(false);
+                          setQuery("");
+                          setShowAllSessions(false);
+                          setVisibleHistorySessions(10);
+                        }}
+                        className={`flex min-h-[68px] w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)] ${
+                          isSelected ? "bg-[color:var(--surface-subtle)]" : ""
+                        }`}
+                      >
+                        <ExerciseThumbnail
+                          src={getExerciseImageUrl(exercise, {
+                            width: 120,
+                            height: 120,
+                          })}
+                          alt=""
+                          className="exercise-analytics-thumb h-12 w-12 shrink-0 rounded-lg"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 block text-sm font-medium leading-tight text-[color:var(--text)]">
+                            {exercise.name}
+                          </span>
+                          <span className="mt-1 block text-xs font-normal text-[color:var(--text-muted)]">
+                            {completeExerciseSessions}{" "}
+                            {completeExerciseSessions === 1
+                              ? "sesión"
+                              : "sesiones"}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                   {!filteredPickerExercises.length ? (
                     <p className="px-3 py-6 text-center text-sm text-[color:var(--text-muted)]">
                       Sin coincidencias.
@@ -459,161 +569,226 @@ export default function ExerciseAnalyticsPage({ onNavigate = () => {} }) {
               </div>
             ) : null}
           </div>
-        </div>
+        ) : null}
       </section>
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <MetricCard
-          label="Sesiones"
-          value={stats.sessions || "--"}
-          detail={
-            daysSinceLast === null
-              ? "sin historial"
-              : daysSinceLast
-                ? `ultima hace ${daysSinceLast} dias`
-                : "entrenado hoy"
-          }
-          icon={CalendarDays}
-        />
-        <MetricCard
-          label="1RM actual"
-          value={
-            stats.latestOneRM ? `${Math.round(stats.latestOneRM)} kg` : "--"
-          }
-          detail={
-            stats.best
-              ? `mejor ${Math.round(stats.best.oneRM)} kg`
-              : "sin estimacion"
-          }
-          icon={Dumbbell}
-          accent
-        />
-        <MetricCard
-          label="Progreso total"
-          value={percent(stats.progress)}
-          detail={
-            stats.sessions > 1
-              ? "primera vs ultima sesion"
-              : "requiere 2 sesiones"
-          }
-          icon={TrendingUp}
-        />
-        <MetricCard
-          label="Volumen medio"
-          value={stats.avgVolume ? `${compact(stats.avgVolume)} kg` : "--"}
-          detail="por sesion registrada"
-          icon={Activity}
-        />
-      </section>
+      {analyticsScope === "exercise" ? (
+        <>
+          <section className="analytics-summary-grid dashboard-weekly-grid">
+                <MetricCard
+                  label="Fuerza actual"
+                  value={
+                    stats.latestOneRM
+                      ? `${Math.round(stats.latestOneRM)} kg`
+                      : "--"
+                  }
+                  detail={stats.best ? "Valor estimado" : "Sin datos"}
+                />
+                <MetricCard
+                  label="Último cambio"
+                  value={percent(stats.vsPrevious)}
+                  detail={
+                    stats.sessions > 1
+                      ? "Vs. sesión anterior"
+                      : "Requiere 2 sesiones"
+                  }
+                  accent
+                />
+                <MetricCard
+                  label="Sesiones"
+                  value={stats.sessions || "--"}
+                  detail={
+                    daysSinceLast === null
+                      ? "Sin historial"
+                      : daysSinceLast
+                        ? `Última: hace ${daysSinceLast} días`
+                        : "Entrenado hoy"
+                  }
+                />
+                <MetricCard
+                  label="Mejor marca"
+                  value={
+                    stats.best ? `${Math.round(stats.best.oneRM)} kg` : "--"
+                  }
+                  detail={stats.best ? formatDate(stats.best.date) : "Sin datos"}
+                />
+          </section>
 
-      <section className="border-l-2 border-[color:var(--accent)] bg-[color:var(--accent)] px-4 py-3 text-[color:var(--accent-contrast)]">
-        <p className="text-[10px] font-black uppercase text-current">
-          Lectura actual
-        </p>
-        <p className="mt-1 text-[13px] font-semibold text-current/80">
-          {insight}
-        </p>
-      </section>
+          <ExerciseAnalytics
+            exerciseId={effectiveExerciseId}
+            workouts={analyticsWorkouts}
+            mode={isDark ? "dark" : "light"}
+          />
 
-      <ExerciseAnalytics
-        exerciseId={effectiveExerciseId}
-        workouts={workouts}
-        mode={isDark ? "dark" : "light"}
-        summary={{
-          pr: stats.best ? `${stats.best.oneRM.toFixed(1)} kg` : "--",
-          vsPrevious: percent(stats.vsPrevious),
-        }}
-      />
-
-      <section className="grid gap-3 lg:grid-cols-[0.7fr_1.3fr]">
-        <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-                Patron de trabajo
-              </p>
-              <h2 className="mt-1 text-xl font-black uppercase">
-                Consistencia
-              </h2>
-            </div>
-            <Gauge className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
+          <div className="grid grid-cols-2 border-b border-[color:var(--border)]">
+            {[
+              ["progress", "Sesiones"],
+              ["history", "Historial"],
+            ].map(([view, label]) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setExerciseView(view)}
+                className={`h-11 border-b-2 text-sm font-medium transition-colors ${
+                  exerciseView === view
+                    ? "border-[#352018] text-[color:var(--text)] dark:border-[#e2ff00]"
+                    : "border-transparent text-[color:var(--text-muted)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="mt-5 grid grid-cols-3 divide-x divide-[color:var(--border)] text-center">
-            <div>
-              <p className="text-2xl font-black">
-                {stats.consistency === null
-                  ? "--"
-                  : `${Math.round(stats.consistency)}%`}
-              </p>
-              <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-                Cerca del PR
-              </p>
-            </div>
-            <div>
-              <p className="text-2xl font-black">
-                {stats.frequency ? stats.frequency.toFixed(1) : "--"}
-              </p>
-              <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-                Veces/sem
-              </p>
-            </div>
-            <div>
-              <p className="text-2xl font-black">
-                {formatDuration(avgDuration)}
-              </p>
-              <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-                Trabajo medio
-              </p>
-            </div>
-          </div>
-        </div>
 
-        <div>
-          <div className="mb-2 flex items-end justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-                Historial
-              </p>
-              <h2 className="mt-1 text-xl font-black uppercase">
-                Ultimas sesiones
-              </h2>
-            </div>
-            <Clock3 className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
-          </div>
-          <div className="divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
-            {stats.summaries.length ? (
-              [...stats.summaries]
-                .reverse()
-                .slice(0, 6)
-                .map((item) => (
-                  <div
-                    key={`${item.date}-${item.oneRM}-${item.volume}`}
-                    className="grid grid-cols-[90px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 sm:grid-cols-[100px_1fr_1fr_100px]"
+          {exerciseView === "progress" ? (
+              <section>
+                <div className="mb-2 flex items-end justify-between gap-3">
+                  <h2 className="text-xl font-medium tracking-[-0.025em]">
+                    Sesiones
+                  </h2>
+                  <p className="text-xs text-[color:var(--text-muted)]">
+                    {stats.sessions} en total
+                  </p>
+                </div>
+                <div className="analytics-history__head grid grid-cols-[78px_minmax(0,1fr)_auto] gap-2 px-3 pb-1.5 text-[11px] text-[color:var(--text-muted)]">
+                  <span>Fecha</span>
+                  <span>Mejor serie</span>
+                  <span className="text-right">Fuerza estimada</span>
+                </div>
+                <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                  {stats.summaries.length ? (
+                    [...stats.summaries]
+                      .reverse()
+                      .slice(0, showAllSessions ? undefined : 6)
+                      .map((item) => (
+                        <div
+                          key={item.sessionKey}
+                          className="grid min-h-11 grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
+                        >
+                          <p className="text-xs font-black">
+                            {formatDate(item.date)}
+                          </p>
+                          <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                            {item.topSet
+                              ? `${item.topSet.weight} kg × ${item.topSet.reps}`
+                              : "Sin top set"}
+                          </p>
+                          <p className="text-right text-sm font-semibold text-[#352018] dark:text-[#e2ff00]">
+                            {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
+                          </p>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                      Este ejercicio aún no tiene sesiones registradas.
+                    </p>
+                  )}
+                </div>
+                {stats.summaries.length > 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSessions((value) => !value)}
+                    className="mt-3 h-11 w-full text-sm font-semibold text-[color:var(--text)]"
                   >
-                    <p className="text-xs font-black">
-                      {formatDate(item.date)}
-                    </p>
-                    <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                      {item.topSet
-                        ? `${item.topSet.weight} kg × ${item.topSet.reps}`
-                        : "Sin top set"}
-                    </p>
-                    <p className="hidden text-sm font-bold sm:block">
-                      {compact(item.volume)} kg
-                    </p>
-                    <p className="text-right text-sm font-black text-[#352018] dark:text-[#e2ff00]">
-                      {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
-                    </p>
+                    {showAllSessions ? "Ver menos" : "Ver más"}
+                  </button>
+                ) : null}
+              </section>
+          ) : (
+            <section>
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <h2 className="text-xl font-medium tracking-[-0.025em]">
+                  Historial completo
+                </h2>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {stats.sessions} {stats.sessions === 1 ? "sesión" : "sesiones"}
+                </p>
+              </div>
+
+              {historySeries.length ? (
+                <div className="overflow-x-auto pb-1">
+                  <div
+                    style={{ minWidth: `${78 + historySeries.length * 72}px` }}
+                  >
+                    <div
+                      className="grid px-3 pb-1.5 text-[10px] font-medium text-[color:var(--text-muted)]"
+                      style={{
+                        gridTemplateColumns: `78px repeat(${historySeries.length}, minmax(72px, 1fr))`,
+                      }}
+                    >
+                      <span>Fecha</span>
+                      {historySeries.map((seriesIndex) => (
+                        <span
+                          key={`history-series-heading:${seriesIndex}`}
+                          className="border-l border-[color:var(--detail-row-divider)] px-2"
+                        >
+                          Serie {seriesIndex + 1}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-xl bg-[color:var(--card)]">
+                      {[...stats.summaries]
+                        .reverse()
+                        .slice(0, visibleHistorySessions)
+                        .map((item) => (
+                          <article
+                            key={item.sessionKey}
+                            className="grid min-h-11 items-center px-3 py-1.5"
+                            style={{
+                              gridTemplateColumns: `78px repeat(${historySeries.length}, minmax(72px, 1fr))`,
+                            }}
+                          >
+                            <p
+                              className="whitespace-nowrap pr-2 text-xs font-semibold"
+                              title={item.routineName || undefined}
+                            >
+                              {formatDate(item.date)}
+                            </p>
+                            {historySeries.map((seriesIndex) => {
+                              const set = item.setDetails[seriesIndex];
+                              return (
+                                <p
+                                  key={`${item.sessionKey}:set:${seriesIndex}`}
+                                  className="h-full content-center border-l border-[color:var(--detail-row-divider)] px-2 text-xs font-semibold"
+                                >
+                                  {set ? `${set.weight} × ${set.reps}` : "--"}
+                                </p>
+                              );
+                            })}
+                          </article>
+                        ))}
+                    </div>
                   </div>
-                ))
-            ) : (
-              <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
-                Este ejercicio aun no tiene sesiones registradas.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
+                </div>
+              ) : (
+                <p className="rounded-xl bg-[color:var(--card)] px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                  Este ejercicio aún no tiene historial registrado.
+                </p>
+              )}
+
+              {visibleHistorySessions < stats.summaries.length ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleHistorySessions((value) => value + 10)
+                  }
+                  className="mt-4 h-11 w-full text-sm font-semibold text-[color:var(--text)]"
+                >
+                  Ver más
+                </button>
+              ) : null}
+            </section>
+          )}
+        </>
+      ) : (
+        <MuscleGroupAnalytics
+          muscle={effectiveMuscle}
+          exercises={exerciseOptions}
+          workouts={workouts}
+          mode={isDark ? "dark" : "light"}
+        />
+      )}
     </main>
   );
 }

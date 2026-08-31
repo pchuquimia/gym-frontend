@@ -578,7 +578,11 @@ export default function ExerciseMigrationPanel() {
                     : ""}
                 </p>
                 <span className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-                  {item.operation === "migrate" ? "Migrado" : "Eliminado"}
+                  {item.operation === "merge"
+                    ? "Fusionado"
+                    : item.operation === "migrate"
+                      ? "Migrado"
+                      : "Eliminado"}
                 </span>
               </div>
             ))}

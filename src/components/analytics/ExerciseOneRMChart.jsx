@@ -1,144 +1,166 @@
-import PropTypes from 'prop-types'
-import { ResponsiveLine } from '@nivo/line'
-import { estimate1RM, toIsoWeek, cleanSets, formatCompactWeekLabel, movingAverage } from '../../utils/trainingMetrics'
-import { nivoTheme } from '../../utils/nivoTheme'
-import ChartSampleState from './ChartSampleState'
+import PropTypes from "prop-types";
+import { ResponsiveLine } from "@nivo/line";
+import {
+  buildExerciseAnalyticsPoints,
+  withMovingAverage,
+} from "../../utils/exerciseAnalyticsData";
+import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
+import { nivoTheme } from "../../utils/nivoTheme";
+import ChartSampleState from "./ChartSampleState";
 
 const EmptyState = ({ title, description }) => (
   <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] p-4 text-center text-sm text-[color:var(--text-muted)]">
     <p className="font-semibold text-[color:var(--text)] mb-1">{title}</p>
     <p className="text-[color:var(--text-muted)] text-xs">{description}</p>
   </div>
-)
+);
 
-const buildData = ({ workouts = [], exerciseId, rangeWeeks = 12, groupBy = 'week' }) => {
-  const sets = workouts
-    .filter((w) => w.exerciseId === exerciseId)
-    .flatMap((w) => cleanSets(w.sets || []).map((s) => ({ ...s, date: w.date })))
-
-  if (!sets.length) return { series: [], points: [], full: [] }
-
-  if (groupBy === 'session') {
-    const byDate = new Map()
-    sets.forEach((s) => {
-      const oneRM = estimate1RM(s.weight, s.reps)
-      if (!byDate.has(s.date) || oneRM > byDate.get(s.date).oneRM) {
-        byDate.set(s.date, { label: s.date, oneRM, topSet: { weight: s.weight, reps: s.reps } })
-      }
-    })
-    const sorted = Array.from(byDate.values()).sort((a, b) => new Date(a.label) - new Date(b.label))
-    const trimmed = sorted.slice(-rangeWeeks)
-    const ma3 = movingAverage(trimmed.map((p) => p.oneRM), 3)
-    const series = [
-      { id: '1RM por sesión', data: trimmed.map((p) => ({ x: p.label, y: Number(p.oneRM.toFixed(1)), topSet: p.topSet })) },
-      { id: 'Tendencia (MA 3)', data: trimmed.map((p, idx) => ({ x: p.label, y: ma3[idx], topSet: p.topSet })) },
-    ]
-    return { series, points: trimmed, full: sorted, isSession: true }
-  }
-
-  const byWeek = new Map()
-  sets.forEach((s) => {
-    const week = toIsoWeek(s.date)
-    const oneRM = estimate1RM(s.weight, s.reps)
-    if (!byWeek.has(week) || oneRM > byWeek.get(week).oneRM) {
-      byWeek.set(week, { label: week, oneRM, topSet: { weight: s.weight, reps: s.reps }, date: s.date })
-    }
-  })
-
-  const weeksSorted = Array.from(byWeek.values()).sort((a, b) => (a.label > b.label ? 1 : -1))
-  const trimmed = weeksSorted.slice(-rangeWeeks)
-  const ma3 = movingAverage(trimmed.map((w) => w.oneRM), 3)
+const buildData = ({
+  workouts = [],
+  exerciseId,
+  rangeWeeks = 12,
+  groupBy = "week",
+}) => {
+  const full = buildExerciseAnalyticsPoints({
+    workouts,
+    exerciseId,
+    groupBy,
+  });
+  const trimmed = withMovingAverage(full, "strength", rangeWeeks);
 
   const series = [
     {
-      id: '1RM semanal',
-      data: trimmed.map((w) => ({ x: w.label, y: Number(w.oneRM.toFixed(1)), topSet: w.topSet })),
-    },
-    {
-      id: 'Tendencia (MA 3)',
-      data: trimmed.map((w, idx) => ({
-        x: w.label,
-        y: ma3[idx],
-        topSet: w.topSet,
+      id: "Fuerza estimada",
+      data: trimmed.map((point) => ({
+        x: point.key,
+        y: Number(point.strength.toFixed(1)),
+        label: point.label,
+        topSet: point.topSet,
       })),
     },
-  ]
+    {
+      id: "Tendencia",
+      data: trimmed.map((point) => ({
+        x: point.key,
+        y: point.movingAverage,
+        label: point.label,
+        topSet: point.topSet,
+      })),
+    },
+  ];
 
-  return { series, points: trimmed, full: weeksSorted, isSession: false }
-}
+  return { series, points: trimmed, full };
+};
 
-const ExerciseOneRMChart = ({ workouts, exerciseId, rangeWeeks = 12, mode = 'dark', groupBy = 'week' }) => {
-  const { series, points } = buildData({ workouts, exerciseId, rangeWeeks, groupBy })
+const formatSessionLabel = (value) => {
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString("es-BO", { day: "2-digit", month: "2-digit" });
+};
 
-  const hasData = points.length >= 1
-  const hasTrend = points.length >= 2
+const ExerciseOneRMChart = ({
+  workouts,
+  exerciseId,
+  rangeWeeks = 12,
+  mode = "dark",
+  groupBy = "week",
+}) => {
+  const { series, points } = buildData({
+    workouts,
+    exerciseId,
+    rangeWeeks,
+    groupBy,
+  });
+
+  const hasData = points.length >= 1;
+  const labelByKey = new Map(points.map((point) => [point.key, point.label]));
 
   return (
     <div className="space-y-3">
       <div className="h-64 sm:h-72">
         {points.length === 1 ? (
           <ChartSampleState
-            value={`${points[0].oneRM.toFixed(1)} kg`}
-            detail={points[0].topSet ? `${points[0].topSet.weight} kg x ${points[0].topSet.reps}` : ''}
+            value={`${points[0].strength.toFixed(1)} kg`}
+            detail={
+              points[0].topSet
+                ? `${points[0].topSet.weight} kg x ${points[0].topSet.reps}`
+                : ""
+            }
           />
         ) : hasData ? (
           <ResponsiveLine
             data={series}
             theme={nivoTheme(mode)}
             margin={{ top: 16, right: 12, bottom: 38, left: 46 }}
-            xScale={{ type: 'point' }}
-            yScale={{ type: 'linear', stacked: false, min: 'auto', max: 'auto' }}
+            xScale={{ type: "point" }}
+            yScale={{
+              type: "linear",
+              stacked: false,
+              min: "auto",
+              max: "auto",
+            }}
             axisBottom={{
               tickPadding: 8,
               tickRotation: -25,
-              format: (v) => (groupBy === 'week' ? formatCompactWeekLabel(v) : v),
+              format: (value) => {
+                const label = labelByKey.get(value) || value;
+                return groupBy === "week"
+                  ? formatCompactWeekLabel(label)
+                  : formatSessionLabel(label);
+              },
             }}
-            axisLeft={{ legend: '1RM (kg)', legendOffset: -40, legendPosition: 'middle', tickPadding: 6 }}
-            colors={mode === 'dark' ? ['#e2ff00', '#8e8e93'] : ['#352018', '#8e8e93']}
+            axisLeft={{
+              legend: "Fuerza (kg)",
+              legendOffset: -40,
+              legendPosition: "middle",
+              tickPadding: 6,
+            }}
+            colors={
+              mode === "dark" ? ["#e2ff00", "#8e8e93"] : ["#352018", "#8e8e93"]
+            }
             enablePoints
             pointSize={6}
             curve="monotoneX"
             enableGridX={false}
             useMesh
-            layers={[
-              'grid',
-              'markers',
-              'axes',
-              'areas',
-              'lines',
-              hasTrend ? 'points' : () => null,
-              'slices',
-              'mesh',
-              'legends',
-            ]}
             tooltip={({ point }) => {
-              const { data: d } = point
+              const { data: d } = point;
               return (
                 <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
                   <p className="font-semibold">{point.serieId}</p>
-                  <p className="text-[color:var(--text-muted)]">{d.xFormatted || d.x}</p>
-                  <p>1RM: {d.y ? `${Number(d.y).toFixed(1)} kg` : '—'}</p>
+                  <p className="text-[color:var(--text-muted)]">
+                    {groupBy === "week"
+                      ? formatCompactWeekLabel(d.label)
+                      : formatSessionLabel(d.label)}
+                  </p>
+                  <p>Fuerza: {d.y ? `${Number(d.y).toFixed(1)} kg` : "—"}</p>
                   {d.topSet && (
-                    <p className="text-[color:var(--text-muted)]">Top set: {d.topSet.weight} kg x {d.topSet.reps}</p>
+                    <p className="text-[color:var(--text-muted)]">
+                      Top set: {d.topSet.weight} kg x {d.topSet.reps}
+                    </p>
                   )}
                 </div>
-              )
+              );
             }}
           />
         ) : (
-          <EmptyState title="Sin datos" description="Registra al menos 1 sesión para ver la curva." />
+          <EmptyState
+            title="Sin datos"
+            description="Registra al menos 1 sesión para ver la curva."
+          />
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 ExerciseOneRMChart.propTypes = {
   workouts: PropTypes.arrayOf(PropTypes.object),
   exerciseId: PropTypes.string.isRequired,
   rangeWeeks: PropTypes.number,
-  mode: PropTypes.oneOf(['light', 'dark']),
-  groupBy: PropTypes.oneOf(['week', 'session']),
-}
+  mode: PropTypes.oneOf(["light", "dark"]),
+  groupBy: PropTypes.oneOf(["week", "session"]),
+};
 
-export default ExerciseOneRMChart
+export default ExerciseOneRMChart;

@@ -3919,8 +3919,23 @@ export default function RegisterTraining({
     setAutoFlowEnabled(enabled);
     autoFlowEnabledRef.current = enabled;
     if (!enabled) {
+      const now = Date.now();
+      if (restEventOpenRef.current) {
+        restEventOpenRef.current = false;
+        setTimeEvents((prev) => [
+          ...prev,
+          createTimeEvent("rest_end", null, now),
+        ]);
+      }
+      setRestTimerOpen(false);
+      setRestTimerMinimized(true);
+      setRestTimerRunning(false);
+      setRestTimerStarted(false);
+      setRestRemainingSeconds(restDurationSeconds);
+      setRestDeadlineMs(null);
       updateAutoFlowTarget(null);
       updateAutoFlowPrompt(null);
+      restVibratedRef.current = false;
     }
     toast.success(
       enabled
@@ -4959,7 +4974,14 @@ export default function RegisterTraining({
         handleCloseRestTimer();
       }
     }
-    if (completesSet && !completesRoutine && !isEditing && !isHistoryReadOnly) {
+    if (
+      completesSet &&
+      !completesRoutine &&
+      !isEditing &&
+      !isHistoryReadOnly &&
+      isAdmin &&
+      autoFlowEnabledRef.current
+    ) {
       handleStartRestTimer(restDurationSeconds / 60, {
         minimized: false,
         origin: { exerciseId, setId },
@@ -6060,7 +6082,7 @@ export default function RegisterTraining({
               : ""
           }`}
         >
-          <h1 className="font-condensed text-4xl font-bold uppercase">
+          <h1 className="training-page-desktop-title">
             {isHistoryReadOnly
               ? "Entrenamiento registrado"
               : "Registrar entrenamiento"}

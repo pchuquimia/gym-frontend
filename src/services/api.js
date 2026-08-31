@@ -309,6 +309,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  getExerciseMergeCandidates: () =>
+    request("/api/exercises/admin/merge-candidates"),
+  getExerciseMergeImpact: (id) =>
+    request(`/api/exercises/admin/merge-impact/${id}`),
+  mergeExercises: (payload) =>
+    request("/api/exercises/admin/merge", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   deleteLegacyExercise: (id) =>
     request(`/api/exercises/admin/legacy/${id}`, { method: "DELETE" }),
   getCodexImageRequests: (exerciseId, limit = 1) => {

@@ -50,6 +50,8 @@ function MainLayout({
   const useSessionSummaryChrome = activePage === "resumen_sesion";
   const useLibraryChrome = activePage === "library";
   const useRoutinesChrome = activePage === "rutinas";
+  const useAnalyticsChrome =
+    activePage === "ejercicio_analitica" || activePage === "data_intelligence";
 
   useLayoutEffect(() => {
     const syncPageSystemChrome = () => {
@@ -231,7 +233,8 @@ function MainLayout({
               useProfileChrome ||
               useSessionSummaryChrome ||
               useLibraryChrome ||
-              useRoutinesChrome
+              useRoutinesChrome ||
+              useAnalyticsChrome
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"

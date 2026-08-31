@@ -17,8 +17,23 @@ export const toIsoWeek = (isoDate) => {
 }
 
 export const formatCompactWeekLabel = (weekKey) => {
-  const [year, wk] = weekKey.split('-W')
-  return `W${wk} ${year.slice(-2)}`
+  const match = String(weekKey || '').match(/^(\d{4})-W(\d{2})$/)
+  if (!match) return String(weekKey || '')
+  const year = Number(match[1])
+  const week = Number(match[2])
+  const januaryFourth = new Date(Date.UTC(year, 0, 4))
+  const januaryFourthDay = januaryFourth.getUTCDay() || 7
+  const monday = new Date(januaryFourth)
+  monday.setUTCDate(
+    januaryFourth.getUTCDate() - januaryFourthDay + 1 + (week - 1) * 7,
+  )
+  return monday
+    .toLocaleDateString('es-BO', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    })
+    .replace('.', '')
 }
 
 const expandSets = (sets = []) =>

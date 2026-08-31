@@ -14,6 +14,7 @@ import {
   estimateFullSessionDuration,
   formatSessionDuration,
 } from "../../utils/sessionDurationEstimate";
+import { toMuscleGroup } from "../../utils/trainingLoad";
 import restDayRecoveryImage from "../../assets/rest-day-recovery.webp";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
@@ -51,7 +52,46 @@ const shortDate = (date) =>
   });
 
 const getRoutineExerciseCount = (routine) =>
-  Number(routine?.exerciseCount ?? routine?.exercises?.length ?? 0);
+  Number(
+    routine?.exerciseCount ??
+      routine?.raw?.exercises?.length ??
+      routine?.exercises?.length ??
+      0,
+  );
+
+const getRoutineExercises = (routine) =>
+  routine?.raw?.exercises || routine?.exercises || [];
+
+const getRoutineSetCount = (routine) =>
+  getRoutineExercises(routine).reduce(
+    (total, exercise) => total + Math.max(0, Number(exercise.sets) || 0),
+    0,
+  );
+
+const getRoutineFocus = (routine) => {
+  const frequency = new Map();
+  getRoutineExercises(routine).forEach((exercise) => {
+    const directGroup =
+      exercise.primaryMuscleGroup || exercise.muscleGroup || exercise.muscle;
+    const candidates = directGroup
+      ? [directGroup]
+      : Array.isArray(exercise.primaryMuscles)
+        ? exercise.primaryMuscles
+        : [exercise.primaryMuscles];
+    candidates.filter(Boolean).forEach((muscle) => {
+      const group = toMuscleGroup(muscle);
+      if (!group) return;
+      frequency.set(group, (frequency.get(group) || 0) + 1);
+    });
+  });
+  return Array.from(frequency.entries())
+    .sort(
+      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+    )
+    .slice(0, 3)
+    .map(([muscle]) => muscle)
+    .join(" · ");
+};
 
 function ProgressRing({ value }) {
   const progress = Math.min(100, Math.max(0, Math.round(value || 0)));
@@ -270,6 +310,8 @@ export default function ActivePlanWorkoutPlanner({
         { weightKg },
       ).calories
     : 0;
+  const selectedSetCount = getRoutineSetCount(selectedDay?.routine);
+  const selectedFocus = getRoutineFocus(selectedDay?.routine);
 
   return (
     <>
@@ -524,31 +566,54 @@ export default function ActivePlanWorkoutPlanner({
               </div>
 
               {selectedDay.current && selectedDay.routine ? (
-                <div className="training-schedule__action-row mt-5 flex">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onStart(
-                        selectedDay.routine.id || selectedDay.routine._id,
-                        selectedDay.day.slotId,
-                        {
-                          isScheduleOverride: false,
-                          scheduledDate: selectedDay.dateValue,
-                          dayIndex: selectedDay.index,
-                        },
-                      )
-                    }
-                    disabled={selectedDay.preparing}
-                    className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#352018] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                <>
+                  <div className="training-schedule__action-row mt-5 flex">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onStart(
+                          selectedDay.routine.id || selectedDay.routine._id,
+                          selectedDay.day.slotId,
+                          {
+                            isScheduleOverride: false,
+                            scheduledDate: selectedDay.dateValue,
+                            dayIndex: selectedDay.index,
+                          },
+                        )
+                      }
+                      disabled={selectedDay.preparing}
+                      className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#352018] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                    >
+                      {selectedDay.preparing ? (
+                        <RotateCcw className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      {selectedDay.preparing
+                        ? "PREPARANDO ENTRENAMIENTO"
+                        : "INICIAR ENTRENAMIENTO"}
+                    </button>
+                  </div>
+
+                  <section
+                    className="training-schedule__session-brief"
+                    aria-label="Resumen del entrenamiento"
                   >
-                    {selectedDay.preparing ? (
-                      <RotateCcw className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    {selectedDay.preparing
-                      ? "PREPARANDO ENTRENAMIENTO"
-                      : "INICIAR ENTRENAMIENTO"}
-                  </button>
-                </div>
+                    <p className="training-schedule__session-kicker">
+                      Enfoque de hoy
+                    </p>
+                    <h4 className="training-schedule__session-focus-title">
+                      {selectedFocus || plan.goal || "Trabajo general"}
+                    </h4>
+                    <p className="training-schedule__session-workload">
+                      {selectedDay.exerciseCount}{" "}
+                      {selectedDay.exerciseCount === 1
+                        ? "ejercicio"
+                        : "ejercicios"}
+                      {selectedSetCount
+                        ? ` · ${selectedSetCount} ${selectedSetCount === 1 ? "serie" : "series"}`
+                        : ""}
+                    </p>
+                  </section>
+                </>
               ) : null}
 
               {!selectedDay.current &&

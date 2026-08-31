@@ -21,6 +21,7 @@ import DetailModal from "../components/library/DetailModal";
 import ExerciseCard from "../components/library/ExerciseCard";
 import ExerciseModal from "../components/library/ExerciseModal";
 import ExerciseMigrationPanel from "../components/library/ExerciseMigrationPanel";
+import ExerciseMergePanel from "../components/library/ExerciseMergePanel";
 import ExerciseImageManager from "../components/library/ExerciseImageManager";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Skeleton from "../components/ui/skeleton";
@@ -524,8 +525,9 @@ export default function ExerciseLibrary({ onNavigate }) {
     !search.trim(),
   );
   const showMigration = sourceFilter === "migration" && user?.role === "Admin";
+  const showMerge = sourceFilter === "merge" && user?.role === "Admin";
   const showImageManager = sourceFilter === "images" && user?.role === "Admin";
-  const showAdminPanel = showMigration || showImageManager;
+  const showAdminPanel = showMigration || showMerge || showImageManager;
   const showResults = !showAdminPanel && !showGroups;
   const fullBodyExcludesCardio =
     selectedBodyRegion === "Cuerpo completo" &&
@@ -718,6 +720,7 @@ export default function ExerciseLibrary({ onNavigate }) {
 
   const activeTitle =
     (selectedFamily ? selectedFamily.name : "") ||
+    (showMerge ? "Fusionar ejercicios" : "") ||
     (showMigration ? "Migración de catálogo" : "") ||
     (showImageManager ? "Imágenes de ejercicios" : "") ||
     selectedMuscleGroup ||
@@ -738,19 +741,21 @@ export default function ExerciseLibrary({ onNavigate }) {
       ? `${selectedBodyLabel || selectedBodyRegion} / ${selectedMuscleGroup}`
       : selectedBodyRegion
         ? "Selecciona un grupo muscular o busca dentro de esta región."
-        : showMigration
-          ? "Reasigna historial y rutinas al catálogo importado."
-          : showImageManager
-            ? "Reemplaza la imagen maestra y revisa cada formato antes de publicarlo."
-            : sourceFilter === "custom"
-              ? "Ejercicios personalizados creados para tu cuenta."
-              : sourceFilter === "system"
-                ? "Ejercicios disponibles en el catálogo general."
-                : selectedCategory !== ALL_FILTER_VALUE
-                  ? "Ejercicios disponibles para esta categoría."
-                  : showDiscoveryHome
-                    ? "Elige un movimiento esencial o busca por nombre, músculo o equipo."
-                    : "Busca por nombre o explora una región corporal.";
+        : showMerge
+          ? "Une ejercicios duplicados sin perder rutinas ni historial."
+          : showMigration
+            ? "Reasigna historial y rutinas al catálogo importado."
+            : showImageManager
+              ? "Reemplaza la imagen maestra y revisa cada formato antes de publicarlo."
+              : sourceFilter === "custom"
+                ? "Ejercicios personalizados creados para tu cuenta."
+                : sourceFilter === "system"
+                  ? "Ejercicios disponibles en el catálogo general."
+                  : selectedCategory !== ALL_FILTER_VALUE
+                    ? "Ejercicios disponibles para esta categoría."
+                    : showDiscoveryHome
+                      ? "Elige un movimiento esencial o busca por nombre, músculo o equipo."
+                      : "Busca por nombre o explora una región corporal.";
   const isLibraryChild = Boolean(
     showAdminPanel ||
     selectedFamily ||
@@ -758,21 +763,22 @@ export default function ExerciseLibrary({ onNavigate }) {
     selectedMuscleGroup ||
     selectedCategory !== ALL_FILTER_VALUE,
   );
-  const hideLibraryMobileNav =
-    isLibraryChild || activeModal === "detail";
+  const hideLibraryMobileNav = isLibraryChild || activeModal === "detail";
   const mobileLibraryTitle = selectedFamily
     ? selectedFamily.name
-    : showMigration
-      ? "Migración de catálogo"
-      : showImageManager
-        ? "Imágenes de ejercicios"
-        : selectedMuscleGroup
-          ? selectedMuscleGroup
-          : selectedBodyRegion
-            ? selectedBodyLabel || selectedBodyRegion
-            : selectedCategory !== ALL_FILTER_VALUE
-              ? selectedCategory
-              : activeTitle;
+    : showMerge
+      ? "Fusionar ejercicios"
+      : showMigration
+        ? "Migración de catálogo"
+        : showImageManager
+          ? "Imágenes de ejercicios"
+          : selectedMuscleGroup
+            ? selectedMuscleGroup
+            : selectedBodyRegion
+              ? selectedBodyLabel || selectedBodyRegion
+              : selectedCategory !== ALL_FILTER_VALUE
+                ? selectedCategory
+                : activeTitle;
 
   const clearTechnicalFilters = () => setFilters(defaultFilters);
   const getScrollBehavior = () =>
@@ -1117,6 +1123,12 @@ export default function ExerciseLibrary({ onNavigate }) {
     },
   ];
   const adminTools = [
+    {
+      value: "merge",
+      label: "Fusionar ejercicios",
+      description: "Unir duplicados sin perder datos",
+      icon: GitMerge,
+    },
     {
       value: "migration",
       label: "Migrar catálogo",
@@ -1561,6 +1573,8 @@ export default function ExerciseLibrary({ onNavigate }) {
           </section>
         ) : showImageManager ? (
           <ExerciseImageManager />
+        ) : showMerge ? (
+          <ExerciseMergePanel />
         ) : showMigration ? (
           <ExerciseMigrationPanel />
         ) : facetsQuery.isError && !showResults ? (

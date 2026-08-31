@@ -197,14 +197,6 @@ export default function ExerciseCard({
         ? set.entries.every((entry) => entry.done)
         : Boolean(set.done),
     );
-  const totalSeries = Array.isArray(exercise.sets) ? exercise.sets.length : 0;
-  const completedSeries = Array.isArray(exercise.sets)
-    ? exercise.sets.filter((set) =>
-        Array.isArray(set.entries) && set.entries.length
-          ? set.entries.every((entry) => entry.done)
-          : Boolean(set.done),
-      ).length
-    : 0;
   const handleDragEnd = (_, info) => {
     if (!onSwapVariant || !hasVariants) return;
     const offsetX = info.offset?.x ?? 0;
@@ -506,13 +498,6 @@ export default function ExerciseCard({
               className="flex shrink-0 items-center gap-1.5"
               ref={actionsMenuRef}
             >
-              <span
-                className="whitespace-nowrap text-xs font-black tabular-nums text-[color:var(--text-muted)]"
-                aria-label={`${completedSeries} de ${totalSeries} series completadas`}
-              >
-                {completedSeries}/{totalSeries}
-                <span className="ml-1 hidden sm:inline">series</span>
-              </span>
               <button
                 type="button"
                 className={`overflow-menu-trigger !h-10 !w-10 ${

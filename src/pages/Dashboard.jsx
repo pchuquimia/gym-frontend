@@ -683,7 +683,8 @@ function formatPerformanceNumber(value) {
 function getImprovementGain(item = {}) {
   const weightGain =
     Number(item.currentWeight || 0) - Number(item.previousWeight || 0);
-  const repsGain = Number(item.currentReps || 0) - Number(item.previousReps || 0);
+  const repsGain =
+    Number(item.currentReps || 0) - Number(item.previousReps || 0);
 
   if (weightGain > 0) return `+${formatPerformanceNumber(weightGain)} kg`;
   if (repsGain > 0)
@@ -694,7 +695,8 @@ function getImprovementGain(item = {}) {
 function getDeclineLoss(item = {}) {
   const weightLoss =
     Number(item.previousWeight || 0) - Number(item.currentWeight || 0);
-  const repsLoss = Number(item.previousReps || 0) - Number(item.currentReps || 0);
+  const repsLoss =
+    Number(item.previousReps || 0) - Number(item.currentReps || 0);
 
   if (weightLoss > 0) return `-${formatPerformanceNumber(weightLoss)} kg`;
   if (repsLoss > 0)
@@ -757,13 +759,7 @@ function collectPerformanceChangesInRange(trainings, startDate, endDate) {
   };
 }
 
-function StatCard({
-  label,
-  value,
-  suffix,
-  children,
-  onClick,
-}) {
+function StatCard({ label, value, suffix, children, onClick }) {
   const Component = onClick ? "button" : "article";
 
   return (
@@ -2481,7 +2477,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         });
         const value = Math.max(
           10,
-          Math.min(98, Math.round(100 - fatigue * 48)),
+          Math.min(100, Math.round(100 - fatigue * 48)),
         );
         const lastRecord = records[records.length - 1] || null;
         const lastRecordDay = lastRecord
@@ -2551,7 +2547,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         const value = Math.max(
           10,
           Math.min(
-            98,
+            100,
             Math.round(avg * 0.55 + min * 0.45 + weeklyLoadAdjustment),
           ),
         );
@@ -2575,7 +2571,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     const globalValue = Math.max(
       10,
       Math.min(
-        98,
+        100,
         (muscleReadiness.length
           ? Math.round(
               muscleReadiness.reduce((sum, item) => sum + item.value, 0) /
@@ -3298,9 +3294,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </StatCard>
         <StatCard
           label="Calorías activas"
-          value={
-            weeklyCalories.available ? weeklyCalories.calories : "--"
-          }
+          value={weeklyCalories.available ? weeklyCalories.calories : "--"}
           suffix={weeklyCalories.available ? "cal" : ""}
           onClick={() => setCaloriesModalOpen(true)}
         >
@@ -3674,7 +3668,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
               <section className="recovery-detail-recommendation mt-5 flex items-center justify-between gap-5 bg-[color:var(--card)] px-5 py-5">
                 <div className="min-w-0">
-                  <h3 className="text-base font-medium">Recomendación de hoy</h3>
+                  <h3 className="text-base font-medium">
+                    Recomendación de hoy
+                  </h3>
                   <p className="mt-1 text-sm font-normal leading-relaxed text-[color:var(--text-muted)]">
                     {isPlannedRestDay
                       ? "Descansa y vuelve en tu próxima sesión planificada."
@@ -3697,7 +3693,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               </h3>
               <section className="recovery-detail-factors divide-y divide-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-5">
                 <div className="flex min-h-16 items-center justify-between gap-4 py-3">
-                  <span className="text-sm font-normal">Último entrenamiento</span>
+                  <span className="text-sm font-normal">
+                    Último entrenamiento
+                  </span>
                   <strong className="text-right text-sm font-medium">
                     {recovery.daysSinceLast == null
                       ? "Sin datos"
@@ -3709,7 +3707,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                   </strong>
                 </div>
                 <div className="flex min-h-16 items-center justify-between gap-4 py-3">
-                  <span className="text-sm font-normal">Trabajo esta semana</span>
+                  <span className="text-sm font-normal">
+                    Trabajo esta semana
+                  </span>
                   <strong className="text-right text-sm font-medium">
                     {formatSeriesCount(recovery.weeklySets)} series
                   </strong>
@@ -4291,142 +4291,144 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             aria-modal="true"
             aria-label="Detalle de series semanales"
           >
-          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
-            <header className="dashboard-sets-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
-              <button
-                type="button"
-                onClick={() => setWeeklySetsModalOpen(false)}
-                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
-                aria-label="Volver al inicio"
-              >
-                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
-              </button>
-              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
-                Series completadas
-              </h2>
-              <span aria-hidden="true" />
-            </header>
+            <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+              <header className="dashboard-sets-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
+                <button
+                  type="button"
+                  onClick={() => setWeeklySetsModalOpen(false)}
+                  className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                  aria-label="Volver al inicio"
+                >
+                  <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
+                </button>
+                <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                  Series completadas
+                </h2>
+                <span aria-hidden="true" />
+              </header>
 
-            <main className="px-[var(--mobile-page-gutter)] pb-12 pt-8">
-              <section className="dashboard-sets-detail__summary pb-7 text-center">
-                <p className="text-sm font-normal text-[color:var(--text-muted)]">
-                  Esta semana
-                </p>
-                <p className="mt-2 text-5xl font-medium tracking-[-0.045em] tabular-nums">
-                  {weeklySets.total}
-                </p>
-                <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
-                  {weeklySets.total === 1
-                    ? "serie completada"
-                    : "series completadas"}
-                </p>
-
-                <div className="dashboard-sets-detail__summary-meta mx-auto mt-6 grid max-w-sm grid-cols-2 border-y border-[color:var(--detail-row-divider)] py-4 text-left">
-                  <div className="pr-4">
-                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                      Entrenamientos
-                    </p>
-                    <p className="mt-1 text-lg font-medium tabular-nums">
-                      {weeklySets.sessions}
-                    </p>
-                  </div>
-                  <div className="border-l border-[color:var(--detail-row-divider)] pl-4">
-                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                      Promedio
-                    </p>
-                    <p className="mt-1 text-lg font-medium tabular-nums">
-                      {weeklySets.sessions
-                        ? `${formatSeriesCount(weeklySets.averagePerSession)} por sesión`
-                        : "—"}
-                    </p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="dashboard-sets-detail__muscles border-t border-[color:var(--detail-row-divider)] pt-7">
-                <h3 className="text-lg font-medium tracking-[-0.02em]">
-                  Series por grupo muscular
-                </h3>
-                <p className="mt-1 text-sm font-normal leading-5 text-[color:var(--text-muted)]">
-                  Así se distribuyó tu trabajo de la semana.
-                </p>
-
-                {weeklySets.byPrimaryMuscle.length ? (
-                  <div className="mt-6 space-y-5">
-                    {weeklySets.byPrimaryMuscle.map((item) => {
-                      const maxSets = weeklySets.byPrimaryMuscle[0]?.sets || 1;
-                      const width = Math.max(6, (item.sets / maxSets) * 100);
-
-                      return (
-                        <div
-                          key={item.name}
-                          className="dashboard-sets-detail__muscle-row"
-                          aria-label={`${item.name}: ${item.sets} ${item.sets === 1 ? "serie" : "series"}`}
-                        >
-                          <div className="mb-2 flex items-baseline justify-between gap-4">
-                            <span className="truncate text-sm font-normal">
-                              {item.name}
-                            </span>
-                            <strong className="shrink-0 text-sm font-medium tabular-nums">
-                              {item.sets} {item.sets === 1 ? "serie" : "series"}
-                            </strong>
-                          </div>
-                          <div className="dashboard-sets-detail__bar h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
-                            <span
-                              className="block h-full rounded-full bg-[color:var(--accent)]"
-                              style={{ width: `${width}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="mt-5 border-y border-[color:var(--detail-row-divider)] py-5 text-sm font-normal text-[color:var(--text-muted)]">
-                    Completa una serie para ver el reparto muscular.
+              <main className="px-[var(--mobile-page-gutter)] pb-12 pt-8">
+                <section className="dashboard-sets-detail__summary pb-7 text-center">
+                  <p className="text-sm font-normal text-[color:var(--text-muted)]">
+                    Esta semana
                   </p>
-                )}
-              </section>
+                  <p className="mt-2 text-5xl font-medium tracking-[-0.045em] tabular-nums">
+                    {weeklySets.total}
+                  </p>
+                  <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                    {weeklySets.total === 1
+                      ? "serie completada"
+                      : "series completadas"}
+                  </p>
 
-              <section className="dashboard-sets-detail__routines mt-9 border-t border-[color:var(--detail-row-divider)] pt-7">
-                <h3 className="text-lg font-medium tracking-[-0.02em]">
-                  Por entrenamiento
-                </h3>
-                <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
-                  Dónde completaste esas series.
-                </p>
-                <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
-                  {weeklySets.byRoutine.length ? (
-                    weeklySets.byRoutine.map((item) => (
-                      <div
-                        key={item.key}
-                        className="flex min-h-[4.5rem] items-center justify-between gap-4 py-4"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {item.name}
-                          </p>
-                          <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
-                            {formatSessionCount(item.sessions)}
-                            {item.incompleteSets
-                              ? ` · ${item.incompleteSets} ${item.incompleteSets === 1 ? "pendiente" : "pendientes"}`
-                              : ""}
-                          </p>
-                        </div>
-                        <p className="shrink-0 text-sm font-medium tabular-nums">
-                          {item.sets} {item.sets === 1 ? "serie" : "series"}
-                        </p>
-                      </div>
-                    ))
+                  <div className="dashboard-sets-detail__summary-meta mx-auto mt-6 grid max-w-sm grid-cols-2 border-y border-[color:var(--detail-row-divider)] py-4 text-left">
+                    <div className="pr-4">
+                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                        Entrenamientos
+                      </p>
+                      <p className="mt-1 text-lg font-medium tabular-nums">
+                        {weeklySets.sessions}
+                      </p>
+                    </div>
+                    <div className="border-l border-[color:var(--detail-row-divider)] pl-4">
+                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                        Promedio
+                      </p>
+                      <p className="mt-1 text-lg font-medium tabular-nums">
+                        {weeklySets.sessions
+                          ? `${formatSeriesCount(weeklySets.averagePerSession)} por sesión`
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="dashboard-sets-detail__muscles border-t border-[color:var(--detail-row-divider)] pt-7">
+                  <h3 className="text-lg font-medium tracking-[-0.02em]">
+                    Series por grupo muscular
+                  </h3>
+                  <p className="mt-1 text-sm font-normal leading-5 text-[color:var(--text-muted)]">
+                    Así se distribuyó tu trabajo de la semana.
+                  </p>
+
+                  {weeklySets.byPrimaryMuscle.length ? (
+                    <div className="mt-6 space-y-5">
+                      {weeklySets.byPrimaryMuscle.map((item) => {
+                        const maxSets =
+                          weeklySets.byPrimaryMuscle[0]?.sets || 1;
+                        const width = Math.max(6, (item.sets / maxSets) * 100);
+
+                        return (
+                          <div
+                            key={item.name}
+                            className="dashboard-sets-detail__muscle-row"
+                            aria-label={`${item.name}: ${item.sets} ${item.sets === 1 ? "serie" : "series"}`}
+                          >
+                            <div className="mb-2 flex items-baseline justify-between gap-4">
+                              <span className="truncate text-sm font-normal">
+                                {item.name}
+                              </span>
+                              <strong className="shrink-0 text-sm font-medium tabular-nums">
+                                {item.sets}{" "}
+                                {item.sets === 1 ? "serie" : "series"}
+                              </strong>
+                            </div>
+                            <div className="dashboard-sets-detail__bar h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
+                              <span
+                                className="block h-full rounded-full bg-[color:var(--accent)]"
+                                style={{ width: `${width}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <p className="py-5 text-sm font-normal text-[color:var(--text-muted)]">
-                      No hay rutinas registradas esta semana.
+                    <p className="mt-5 border-y border-[color:var(--detail-row-divider)] py-5 text-sm font-normal text-[color:var(--text-muted)]">
+                      Completa una serie para ver el reparto muscular.
                     </p>
                   )}
-                </div>
-              </section>
-            </main>
-          </div>
+                </section>
+
+                <section className="dashboard-sets-detail__routines mt-9 border-t border-[color:var(--detail-row-divider)] pt-7">
+                  <h3 className="text-lg font-medium tracking-[-0.02em]">
+                    Por entrenamiento
+                  </h3>
+                  <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                    Dónde completaste esas series.
+                  </p>
+                  <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
+                    {weeklySets.byRoutine.length ? (
+                      weeklySets.byRoutine.map((item) => (
+                        <div
+                          key={item.key}
+                          className="flex min-h-[4.5rem] items-center justify-between gap-4 py-4"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {item.name}
+                            </p>
+                            <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                              {formatSessionCount(item.sessions)}
+                              {item.incompleteSets
+                                ? ` · ${item.incompleteSets} ${item.incompleteSets === 1 ? "pendiente" : "pendientes"}`
+                                : ""}
+                            </p>
+                          </div>
+                          <p className="shrink-0 text-sm font-medium tabular-nums">
+                            {item.sets} {item.sets === 1 ? "serie" : "series"}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-5 text-sm font-normal text-[color:var(--text-muted)]">
+                        No hay rutinas registradas esta semana.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </main>
+            </div>
           </div>
         </DashboardFullscreenPortal>
       ) : null}
@@ -4439,91 +4441,93 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             aria-modal="true"
             aria-label="Detalle del tiempo semanal"
           >
-          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
-            <header className="dashboard-duration-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
-              <button
-                type="button"
-                onClick={() => setDurationModalOpen(false)}
-                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
-                aria-label="Volver al inicio"
-              >
-                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
-              </button>
-              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
-                Tiempo semanal
-              </h2>
-              <span aria-hidden="true" />
-            </header>
+            <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+              <header className="dashboard-duration-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
+                <button
+                  type="button"
+                  onClick={() => setDurationModalOpen(false)}
+                  className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                  aria-label="Volver al inicio"
+                >
+                  <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
+                </button>
+                <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                  Tiempo semanal
+                </h2>
+                <span aria-hidden="true" />
+              </header>
 
-            <main className="px-[var(--mobile-page-gutter)] pb-8 pt-5">
-              {durationRows.length ? (
-                <section>
-                  <div className="pb-6">
-                    <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                      Esta semana
-                    </p>
-                    <p className="mt-1 text-4xl font-medium tracking-[-0.04em] tabular-nums">
-                      {formatSessionMinutes(durationSummary.sessionSeconds)}
-                    </p>
-                    <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
-                      Tiempo total en el gimnasio
-                    </p>
-                    <p className="mt-3 text-sm font-normal text-[color:var(--text-muted)]">
-                      <span className="text-[color:var(--text)]">
-                        {formatSessionCount(durationRows.length)}
-                      </span>
-                      <span className="mx-2 text-[color:var(--text-subtle)]">·</span>
-                      <span>
-                        {durationSummary.hasRestTracking
-                          ? `${formatSessionMinutes(durationSummary.restSeconds)} de descanso`
-                          : "Descanso sin registrar"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="border-t border-[color:var(--detail-row-divider)] pt-5">
-                    <h3 className="text-base font-medium tracking-[-0.015em]">
-                      Por entrenamiento
-                    </h3>
-                    <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)]">
-                      {durationRows.map((row) => (
-                        <article
-                          key={row.id}
-                          className="flex min-h-[4.5rem] items-center justify-between gap-4 py-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {row.routine}
-                            </p>
-                            <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
-                              {formatLongDate(row.date)}
-                              {row.hasRestTracking
-                                ? ` · ${formatSessionMinutes(row.restSeconds)} descanso`
-                                : ""}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <strong className="text-sm font-medium tabular-nums">
-                              {formatSessionMinutes(row.sessionSeconds)}
-                            </strong>
-                          </div>
-                        </article>
-                      ))}
+              <main className="px-[var(--mobile-page-gutter)] pb-8 pt-5">
+                {durationRows.length ? (
+                  <section>
+                    <div className="pb-6">
+                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                        Esta semana
+                      </p>
+                      <p className="mt-1 text-4xl font-medium tracking-[-0.04em] tabular-nums">
+                        {formatSessionMinutes(durationSummary.sessionSeconds)}
+                      </p>
+                      <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                        Tiempo total en el gimnasio
+                      </p>
+                      <p className="mt-3 text-sm font-normal text-[color:var(--text-muted)]">
+                        <span className="text-[color:var(--text)]">
+                          {formatSessionCount(durationRows.length)}
+                        </span>
+                        <span className="mx-2 text-[color:var(--text-subtle)]">
+                          ·
+                        </span>
+                        <span>
+                          {durationSummary.hasRestTracking
+                            ? `${formatSessionMinutes(durationSummary.restSeconds)} de descanso`
+                            : "Descanso sin registrar"}
+                        </span>
+                      </p>
                     </div>
+
+                    <div className="border-t border-[color:var(--detail-row-divider)] pt-5">
+                      <h3 className="text-base font-medium tracking-[-0.015em]">
+                        Por entrenamiento
+                      </h3>
+                      <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)]">
+                        {durationRows.map((row) => (
+                          <article
+                            key={row.id}
+                            className="flex min-h-[4.5rem] items-center justify-between gap-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {row.routine}
+                              </p>
+                              <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+                                {formatLongDate(row.date)}
+                                {row.hasRestTracking
+                                  ? ` · ${formatSessionMinutes(row.restSeconds)} descanso`
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <strong className="text-sm font-medium tabular-nums">
+                                {formatSessionMinutes(row.sessionSeconds)}
+                              </strong>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                ) : (
+                  <div className="border-y border-[color:var(--detail-row-divider)] py-8 text-center">
+                    <h3 className="text-base font-medium">
+                      Sin tiempo registrado
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-[16rem] text-sm font-normal text-[color:var(--text-muted)]">
+                      Completa una sesión para empezar tu resumen semanal.
+                    </p>
                   </div>
-                </section>
-              ) : (
-                <div className="border-y border-[color:var(--detail-row-divider)] py-8 text-center">
-                  <h3 className="text-base font-medium">
-                    Sin tiempo registrado
-                  </h3>
-                  <p className="mx-auto mt-1 max-w-[16rem] text-sm font-normal text-[color:var(--text-muted)]">
-                    Completa una sesión para empezar tu resumen semanal.
-                  </p>
-                </div>
-              )}
-            </main>
-          </div>
+                )}
+              </main>
+            </div>
           </div>
         </DashboardFullscreenPortal>
       ) : null}
@@ -4536,154 +4540,154 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             aria-modal="true"
             aria-label="Cambios de rendimiento esta semana"
           >
-          <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
-            <header className="dashboard-improvements-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
-              <button
-                type="button"
-                onClick={() => setPerformanceDetailType(null)}
-                className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
-                aria-label="Volver al inicio"
-              >
-                <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
-              </button>
-              <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
-                Cambios registrados
-              </h2>
-              <span aria-hidden="true" />
-            </header>
-
-            <main className="px-[var(--mobile-page-gutter)] pb-8 pt-4">
-              <div
-                className="grid grid-cols-2 border-b border-[color:var(--detail-row-divider)]"
-                role="group"
-                aria-label="Tipo de cambio"
-              >
+            <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
+              <header className="dashboard-improvements-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
                 <button
                   type="button"
-                  onClick={() => setPerformanceDetailType("improvements")}
-                  aria-pressed={!performanceDetailIsDecline}
-                  className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
-                    !performanceDetailIsDecline
-                      ? "border-[color:var(--accent)] text-[color:var(--text)]"
-                      : "border-transparent text-[color:var(--text-muted)]"
-                  }`}
+                  onClick={() => setPerformanceDetailType(null)}
+                  className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
+                  aria-label="Volver al inicio"
                 >
-                  Mejoras {weekData.improvements?.length || 0}
+                  <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPerformanceDetailType("declines")}
-                  aria-pressed={performanceDetailIsDecline}
-                  className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
-                    performanceDetailIsDecline
-                      ? "border-[color:var(--accent)] text-[color:var(--text)]"
-                      : "border-transparent text-[color:var(--text-muted)]"
-                  }`}
+                <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
+                  Cambios registrados
+                </h2>
+                <span aria-hidden="true" />
+              </header>
+
+              <main className="px-[var(--mobile-page-gutter)] pb-8 pt-4">
+                <div
+                  className="grid grid-cols-2 border-b border-[color:var(--detail-row-divider)]"
+                  role="group"
+                  aria-label="Tipo de cambio"
                 >
-                  Por recuperar {weekData.declines?.length || 0}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceDetailType("improvements")}
+                    aria-pressed={!performanceDetailIsDecline}
+                    className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
+                      !performanceDetailIsDecline
+                        ? "border-[color:var(--accent)] text-[color:var(--text)]"
+                        : "border-transparent text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    Mejoras {weekData.improvements?.length || 0}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceDetailType("declines")}
+                    aria-pressed={performanceDetailIsDecline}
+                    className={`min-h-11 border-b-2 px-2 text-sm font-medium transition ${
+                      performanceDetailIsDecline
+                        ? "border-[color:var(--accent)] text-[color:var(--text)]"
+                        : "border-transparent text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    Por recuperar {weekData.declines?.length || 0}
+                  </button>
+                </div>
 
-              <section className="dashboard-improvements-detail__summary border-b border-[color:var(--detail-row-divider)] py-4">
-                <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                  Esta semana
-                </p>
-                <p className="mt-1 text-2xl font-medium tracking-[-0.025em] tabular-nums">
-                  {performanceDetailItems.length}{" "}
-                  {performanceDetailIsDecline
-                    ? performanceDetailItems.length === 1
-                      ? "marca por recuperar"
-                      : "marcas por recuperar"
-                    : performanceDetailItems.length === 1
-                      ? "nueva marca"
-                      : "nuevas marcas"}
-                </p>
-              </section>
-
-              {performanceDetailItems.length ? (
-                <section>
-                  <div className="divide-y divide-[color:var(--detail-row-divider)] border-b border-[color:var(--detail-row-divider)]">
-                    {performanceDetailItems.map((item) => {
-                      const catalogExercise =
-                        getCatalogExercise(
-                          {
-                            exerciseId: item.exerciseKey,
-                            exerciseName: item.exerciseName,
-                          },
-                          catalogIndex,
-                        ) || item;
-                      const imageSrc = getExerciseImageUrl(catalogExercise, {
-                        preset: "thumbnail",
-                      });
-                      const setNumber = Math.max(
-                        1,
-                        Number(item.currentSetNumber) ||
-                          Number(item.setIndex) + 1 ||
-                          1,
-                      );
-
-                      return (
-                        <article
-                          key={`${item.key}-${item.date}`}
-                          className="dashboard-improvements-detail__item flex items-center gap-3 py-3"
-                        >
-                          <ExerciseThumbnail
-                            src={imageSrc}
-                            alt={item.exerciseName}
-                            className="h-14 w-14 rounded-xl"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <p className="min-w-0 truncate text-sm font-medium">
-                                {item.exerciseName}
-                              </p>
-                              <strong className="shrink-0 text-sm font-medium tabular-nums">
-                                {performanceDetailIsDecline
-                                  ? getDeclineLoss(item)
-                                  : getImprovementGain(item)}
-                              </strong>
-                            </div>
-                            {item.previousValue ? (
-                              <p className="mt-1.5 truncate text-xs font-normal tabular-nums text-[color:var(--text-muted)]">
-                                <span className="font-medium text-[color:var(--text)]">
-                                  Serie {setNumber}
-                                </span>
-                                <span className="mx-1.5 text-[color:var(--text-subtle)]">
-                                  ·
-                                </span>
-                                <span>{item.previousValue}</span>
-                                <span className="mx-2 text-[color:var(--text-subtle)]">
-                                  →
-                                </span>
-                                <span>{item.currentValue}</span>
-                              </p>
-                            ) : (
-                              <p className="mt-1.5 text-xs font-normal text-[color:var(--text-muted)]">
-                                Primer registro
-                              </p>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : (
-                <section className="mt-5 border-y border-[color:var(--detail-row-divider)] py-8 text-center">
-                  <h3 className="text-base font-medium">
+                <section className="dashboard-improvements-detail__summary border-b border-[color:var(--detail-row-divider)] py-4">
+                  <p className="text-xs font-normal text-[color:var(--text-muted)]">
+                    Esta semana
+                  </p>
+                  <p className="mt-1 text-2xl font-medium tracking-[-0.025em] tabular-nums">
+                    {performanceDetailItems.length}{" "}
                     {performanceDetailIsDecline
-                      ? "No hay marcas por recuperar"
-                      : "Aún no hay nuevas marcas"}
-                  </h3>
-                  <p className="mx-auto mt-1 max-w-sm text-sm font-normal leading-5 text-[color:var(--text-muted)]">
-                    {performanceDetailIsDecline
-                      ? "Ningún ejercicio bajó frente a su registro anterior."
-                      : "Tus próximas mejoras aparecerán aquí."}
+                      ? performanceDetailItems.length === 1
+                        ? "marca por recuperar"
+                        : "marcas por recuperar"
+                      : performanceDetailItems.length === 1
+                        ? "nueva marca"
+                        : "nuevas marcas"}
                   </p>
                 </section>
-              )}
-            </main>
-          </div>
+
+                {performanceDetailItems.length ? (
+                  <section>
+                    <div className="divide-y divide-[color:var(--detail-row-divider)] border-b border-[color:var(--detail-row-divider)]">
+                      {performanceDetailItems.map((item) => {
+                        const catalogExercise =
+                          getCatalogExercise(
+                            {
+                              exerciseId: item.exerciseKey,
+                              exerciseName: item.exerciseName,
+                            },
+                            catalogIndex,
+                          ) || item;
+                        const imageSrc = getExerciseImageUrl(catalogExercise, {
+                          preset: "thumbnail",
+                        });
+                        const setNumber = Math.max(
+                          1,
+                          Number(item.currentSetNumber) ||
+                            Number(item.setIndex) + 1 ||
+                            1,
+                        );
+
+                        return (
+                          <article
+                            key={`${item.key}-${item.date}`}
+                            className="dashboard-improvements-detail__item flex items-center gap-3 py-3"
+                          >
+                            <ExerciseThumbnail
+                              src={imageSrc}
+                              alt={item.exerciseName}
+                              className="h-14 w-14 rounded-xl"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline justify-between gap-3">
+                                <p className="min-w-0 truncate text-sm font-medium">
+                                  {item.exerciseName}
+                                </p>
+                                <strong className="shrink-0 text-sm font-medium tabular-nums">
+                                  {performanceDetailIsDecline
+                                    ? getDeclineLoss(item)
+                                    : getImprovementGain(item)}
+                                </strong>
+                              </div>
+                              {item.previousValue ? (
+                                <p className="mt-1.5 truncate text-xs font-normal tabular-nums text-[color:var(--text-muted)]">
+                                  <span className="font-medium text-[color:var(--text)]">
+                                    Serie {setNumber}
+                                  </span>
+                                  <span className="mx-1.5 text-[color:var(--text-subtle)]">
+                                    ·
+                                  </span>
+                                  <span>{item.previousValue}</span>
+                                  <span className="mx-2 text-[color:var(--text-subtle)]">
+                                    →
+                                  </span>
+                                  <span>{item.currentValue}</span>
+                                </p>
+                              ) : (
+                                <p className="mt-1.5 text-xs font-normal text-[color:var(--text-muted)]">
+                                  Primer registro
+                                </p>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : (
+                  <section className="mt-5 border-y border-[color:var(--detail-row-divider)] py-8 text-center">
+                    <h3 className="text-base font-medium">
+                      {performanceDetailIsDecline
+                        ? "No hay marcas por recuperar"
+                        : "Aún no hay nuevas marcas"}
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-sm text-sm font-normal leading-5 text-[color:var(--text-muted)]">
+                      {performanceDetailIsDecline
+                        ? "Ningún ejercicio bajó frente a su registro anterior."
+                        : "Tus próximas mejoras aparecerán aquí."}
+                    </p>
+                  </section>
+                )}
+              </main>
+            </div>
           </div>
         </DashboardFullscreenPortal>
       ) : null}
