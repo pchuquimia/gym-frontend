@@ -25,7 +25,6 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
-  Dumbbell,
   GripVertical,
   History,
   Layers3,
@@ -66,9 +65,6 @@ const ROUTINE_LEVEL_LABELS = {
   advanced: "Avanzado",
 };
 const ROUTINE_EXERCISE_FILTERS = [
-  { key: "difficulty", value: "Principiante", label: "Principiante" },
-  { key: "difficulty", value: "Intermedio", label: "Medio" },
-  { key: "difficulty", value: "Avanzado", label: "Avanzado" },
   { key: "equipment", value: "Sin equipamiento", label: "Sin equipo" },
   { key: "equipment", value: "Mancuernas", label: "Mancuernas" },
   { key: "equipment", value: "Barra", label: "Barra" },
@@ -79,17 +75,6 @@ const ROUTINE_EXERCISE_FILTERS = [
 
 const exerciseMatchesRoutineFilter = (exercise, filter) => {
   if (!filter) return true;
-  if (filter.key === "difficulty") {
-    const difficultyAliases = {
-      beginner: "Principiante",
-      intermediate: "Intermedio",
-      advanced: "Avanzado",
-    };
-    const difficulty =
-      difficultyAliases[normalizeTextKey(exercise.difficulty)] ||
-      exercise.difficulty;
-    return optionMatches(difficulty, filter.value);
-  }
   const equipment = toArray(exercise.equipment);
   if (filter.value === "Sin equipamiento") {
     return (
@@ -674,9 +659,9 @@ function ExercisePickerOption({
       type="button"
       onClick={() => onToggle(option.id)}
       aria-pressed={selected}
-      className={`grid w-full grid-cols-[64px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
+      className={`grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_28px] items-center gap-4 px-0 py-3 text-left transition ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
     >
-      <div className="h-16 w-16 overflow-hidden rounded-xl bg-[color:var(--bg)]">
+      <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
         <ExerciseThumbnail
           src={thumb}
           alt=""
@@ -686,12 +671,12 @@ function ExercisePickerOption({
       </div>
       <div className="min-w-0">
         <p
-          className={`line-clamp-2 text-sm font-medium leading-snug ${selected ? "text-[color:var(--accent-contrast)]" : "text-[color:var(--text)]"}`}
+          className={`line-clamp-2 text-[18px] font-medium leading-[1.2] tracking-[-0.015em] ${selected ? "text-[color:var(--accent-contrast)]" : "text-[color:var(--text)]"}`}
         >
           {option.name}
         </p>
         <p
-          className={`mt-1 text-xs ${selected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
+          className={`mt-2 truncate text-base leading-5 ${selected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
         >
           {showUsage && usageCount
             ? `${usageCount} ${usageCount === 1 ? "sesión" : "sesiones"}`
@@ -796,6 +781,8 @@ function RoutineModal({
   const [alternativePickerExercise, setAlternativePickerExercise] =
     useState(null);
   const [selectedAlternativeIds, setSelectedAlternativeIds] = useState([]);
+  const [alternativePickerFilter, setAlternativePickerFilter] = useState(null);
+  const alternativePickerFilterStripRef = useRef(null);
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
   const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState([]);
@@ -941,6 +928,18 @@ function RoutineModal({
     ];
   }, [exercisePickerFilter]);
 
+  const orderedAlternativePickerFilters = useMemo(() => {
+    if (!alternativePickerFilter) return ROUTINE_EXERCISE_FILTERS;
+    return [
+      alternativePickerFilter,
+      ...ROUTINE_EXERCISE_FILTERS.filter(
+        (option) =>
+          option.key !== alternativePickerFilter.key ||
+          option.value !== alternativePickerFilter.value,
+      ),
+    ];
+  }, [alternativePickerFilter]);
+
   useEffect(() => {
     if (!exercisePickerOpen) return;
     const frame = window.requestAnimationFrame(() => {
@@ -951,6 +950,17 @@ function RoutineModal({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [exercisePickerFilter, exercisePickerOpen]);
+
+  useEffect(() => {
+    if (!alternativePickerExercise) return;
+    const frame = window.requestAnimationFrame(() => {
+      alternativePickerFilterStripRef.current?.scrollTo({
+        left: 0,
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [alternativePickerExercise, alternativePickerFilter]);
 
   const exercisePickerOptions = useMemo(() => {
     const query = normalizeSearchText(search);
@@ -1293,10 +1303,12 @@ function RoutineModal({
         exerciseMatchesBranch(option, exerciseFilterBranch) &&
         option.muscle === alternativePickerExercise.muscle &&
         option.id !== alternativePickerExercise.exerciseId &&
-        !existing.has(option.id),
+        !existing.has(option.id) &&
+        exerciseMatchesRoutineFilter(option, alternativePickerFilter),
     );
   }, [
     alternativePickerExercise,
+    alternativePickerFilter,
     availableExercises,
     exerciseFilterBranch,
     exercises,
@@ -1339,6 +1351,7 @@ function RoutineModal({
       muscle: exercise.muscle,
     });
     setSelectedAlternativeIds([]);
+    setAlternativePickerFilter(null);
   };
 
   const toggleAlternativeSelection = (exerciseId) => {
@@ -1376,6 +1389,7 @@ function RoutineModal({
       }),
     );
     setSelectedAlternativeIds([]);
+    setAlternativePickerFilter(null);
     setAlternativePickerExercise(null);
   };
 
@@ -1755,51 +1769,6 @@ function RoutineModal({
                 </div>
               ) : null}
 
-              <div className="mt-6 space-y-2.5">
-                <p className="text-sm font-medium text-[color:var(--text)]">
-                  Orden de la rutina
-                </p>
-                <div
-                  className="grid grid-cols-2 gap-1 rounded-2xl bg-[color:var(--card)] p-1"
-                  role="radiogroup"
-                  aria-label="Orden de la rutina"
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={exerciseOrderMode === "muscle_blocks"}
-                    onClick={() =>
-                      handleExerciseOrderModeChange("muscle_blocks")
-                    }
-                    className={`h-11 rounded-xl px-3 text-sm font-semibold transition ${
-                      exerciseOrderMode === "muscle_blocks"
-                        ? "theme-accent-solid"
-                        : "text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    Por bloques
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={exerciseOrderMode === "free"}
-                    onClick={() => handleExerciseOrderModeChange("free")}
-                    className={`h-11 rounded-xl px-3 text-sm font-semibold transition ${
-                      exerciseOrderMode === "free"
-                        ? "theme-accent-solid"
-                        : "text-[color:var(--text-muted)]"
-                    }`}
-                  >
-                    Orden libre
-                  </button>
-                </div>
-                <p className="px-1 text-xs text-[color:var(--text-muted)]">
-                  {exerciseOrderMode === "muscle_blocks"
-                    ? "Completa un grupo muscular antes de pasar al siguiente."
-                    : "Intercala los ejercicios en el orden que prefieras."}
-                </p>
-              </div>
-
               {locationMode === "multiple" || progressSourceOptions.length ? (
                 <details className="group mt-6 rounded-2xl bg-[color:var(--card)] px-4 py-1">
                   <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[color:var(--text)] [&::-webkit-details-marker]:hidden">
@@ -1936,10 +1905,7 @@ function RoutineModal({
                         {name.trim()}
                       </h2>
                       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                        {branchLabel(branch)} ·{" "}
-                        {exerciseOrderMode === "muscle_blocks"
-                          ? "Por bloques"
-                          : "Orden libre"}
+                        {branchLabel(branch)}
                       </p>
                     </div>
                     <Button
@@ -2026,60 +1992,65 @@ function RoutineModal({
                 </div>
               </div>
 
-              <section aria-labelledby="routine-order-title">
-                <div className="mb-2 flex items-baseline justify-between gap-3">
-                  <h3 id="routine-order-title" className="text-sm font-medium">
-                    Organización
-                  </h3>
-                  <span className="text-xs text-[color:var(--text-muted)]">
-                    Al entrenar
-                  </span>
-                </div>
-                <div
-                  className="grid grid-cols-2 gap-2"
-                  role="radiogroup"
-                  aria-label="Organización de la rutina"
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={exerciseOrderMode === "muscle_blocks"}
-                    onClick={() =>
-                      handleExerciseOrderModeChange("muscle_blocks")
-                    }
-                    className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
-                      exerciseOrderMode === "muscle_blocks"
-                        ? "theme-accent-solid"
-                        : "bg-[color:var(--card)] text-[color:var(--text)]"
-                    }`}
+              {exercises.length ? (
+                <section aria-labelledby="routine-order-title">
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <h3
+                      id="routine-order-title"
+                      className="text-sm font-medium"
+                    >
+                      Organización
+                    </h3>
+                    <span className="text-xs text-[color:var(--text-muted)]">
+                      Al entrenar
+                    </span>
+                  </div>
+                  <div
+                    className="grid grid-cols-2 gap-2"
+                    role="radiogroup"
+                    aria-label="Organización de la rutina"
                   >
-                    <span className="block text-sm font-semibold">
-                      Por grupos
-                    </span>
-                    <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
-                      Agrupa músculos
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={exerciseOrderMode === "free"}
-                    onClick={() => handleExerciseOrderModeChange("free")}
-                    className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
-                      exerciseOrderMode === "free"
-                        ? "theme-accent-solid"
-                        : "bg-[color:var(--card)] text-[color:var(--text)]"
-                    }`}
-                  >
-                    <span className="block text-sm font-semibold">
-                      Orden libre
-                    </span>
-                    <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
-                      Mezcla y arrastra
-                    </span>
-                  </button>
-                </div>
-              </section>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={exerciseOrderMode === "muscle_blocks"}
+                      onClick={() =>
+                        handleExerciseOrderModeChange("muscle_blocks")
+                      }
+                      className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                        exerciseOrderMode === "muscle_blocks"
+                          ? "theme-accent-solid"
+                          : "bg-[color:var(--card)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold">
+                        Por grupos
+                      </span>
+                      <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
+                        Agrupa músculos
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={exerciseOrderMode === "free"}
+                      onClick={() => handleExerciseOrderModeChange("free")}
+                      className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                        exerciseOrderMode === "free"
+                          ? "theme-accent-solid"
+                          : "bg-[color:var(--card)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      <span className="block text-sm font-semibold">
+                        Orden libre
+                      </span>
+                      <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
+                        Mezcla y arrastra
+                      </span>
+                    </button>
+                  </div>
+                </section>
+              ) : null}
 
               <div className="space-y-2">
                 {groupedSelected.map(([muscle, list]) => {
@@ -2200,17 +2171,17 @@ function RoutineModal({
                                       <div
                                         ref={setNodeRef}
                                         style={style}
-                                        className={`min-h-[100px] px-3 py-3.5 ${
+                                        className={`min-h-[108px] px-3 py-3 ${
                                           isDragging
                                             ? "relative z-10 rounded-xl bg-[color:var(--card)] shadow-xl ring-2 ring-[color:var(--accent)]/20"
                                             : ""
                                         }`}
                                       >
-                                        <div className="grid grid-cols-[20px_72px_minmax(0,1fr)_44px_32px] items-center gap-2 sm:grid-cols-[24px_72px_minmax(0,1fr)_52px_36px] sm:gap-3">
+                                        <div className="grid grid-cols-[20px_80px_minmax(0,1fr)_44px_32px] items-center gap-2 sm:grid-cols-[24px_80px_minmax(0,1fr)_52px_36px] sm:gap-3">
                                           <span className="text-center text-xs font-medium tabular-nums text-[color:var(--text-muted)]">
                                             {ex.idx + 1}
                                           </span>
-                                          <div className="h-[72px] w-[72px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                                          <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
                                             <ExerciseThumbnail
                                               src={thumb}
                                               alt=""
@@ -2597,13 +2568,13 @@ function RoutineModal({
                           onClick={() =>
                             toggleExtraSelection(extraPickerMuscle, option.id)
                           }
-                          className={`grid min-h-[82px] w-full grid-cols-[60px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${
+                          className={`grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_28px] items-center gap-4 px-0 py-3 text-left transition ${
                             selected
                               ? "bg-[color:var(--surface-subtle)]"
                               : "hover:bg-[color:var(--surface-subtle)]"
                           }`}
                         >
-                          <div className="h-[60px] w-[60px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                          <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
                             <ExerciseThumbnail
                               src={thumb}
                               alt=""
@@ -2614,10 +2585,10 @@ function RoutineModal({
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="line-clamp-2 text-sm font-medium leading-snug text-[color:var(--text)]">
+                            <p className="line-clamp-2 text-[18px] font-medium leading-[1.2] tracking-[-0.015em] text-[color:var(--text)]">
                               {option.name}
                             </p>
-                            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                            <p className="mt-2 truncate text-base leading-5 text-[color:var(--text-muted)]">
                               {option.muscle || extraPickerMuscle}
                             </p>
                           </div>
@@ -2745,7 +2716,7 @@ function RoutineModal({
                   ref={exercisePickerFilterStripRef}
                   className="-mx-4 mt-2 flex gap-2.5 overflow-x-auto border-t border-[color:var(--detail-row-divider)] px-4 pb-1 pt-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   role="group"
-                  aria-label="Filtrar ejercicios por nivel o equipo"
+                  aria-label="Filtrar ejercicios por equipamiento"
                 >
                   <AnimatePresence initial={false}>
                     {exercisePickerFilter ? (
@@ -2930,6 +2901,7 @@ function RoutineModal({
                   onClick={() => {
                     setAlternativePickerExercise(null);
                     setSelectedAlternativeIds([]);
+                    setAlternativePickerFilter(null);
                   }}
                   className="h-9 shrink-0 px-1 text-sm font-semibold text-[color:var(--accent)]"
                 >
@@ -2937,7 +2909,68 @@ function RoutineModal({
                 </button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+              <motion.div
+                layout
+                ref={alternativePickerFilterStripRef}
+                className="flex shrink-0 gap-2.5 overflow-x-auto border-y border-[color:var(--detail-row-divider)] px-4 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                role="group"
+                aria-label="Filtrar alternativas por equipamiento"
+              >
+                <AnimatePresence initial={false}>
+                  {alternativePickerFilter ? (
+                    <motion.button
+                      layout
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }}
+                      type="button"
+                      onClick={() => setAlternativePickerFilter(null)}
+                      className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-[color:var(--border-strong)] px-4 text-sm font-medium text-[color:var(--text)]"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Restablecer
+                    </motion.button>
+                  ) : null}
+                </AnimatePresence>
+                {orderedAlternativePickerFilters.map((option) => {
+                  const active =
+                    alternativePickerFilter?.key === option.key &&
+                    alternativePickerFilter?.value === option.value;
+                  const locked = Boolean(alternativePickerFilter && !active);
+                  return (
+                    <motion.button
+                      layout
+                      key={`${option.key}-${option.value}`}
+                      type="button"
+                      aria-pressed={active}
+                      aria-disabled={locked}
+                      tabIndex={locked ? -1 : 0}
+                      onClick={() => {
+                        if (!locked) setAlternativePickerFilter(option);
+                      }}
+                      className={`h-11 shrink-0 rounded-full px-3 text-sm font-medium transition-[opacity,transform,background-color,color] duration-300 ${
+                        active
+                          ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                          : locked
+                            ? "cursor-default bg-[#ece8e0] text-[#c8c2b8] dark:bg-[#20201e] dark:text-[#666661]"
+                            : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                      }`}
+                    >
+                      {option.label}
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
+                {alternativePickerFilter ? (
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1 text-xs text-[color:var(--text-muted)]">
+                    <span>{alternativePickerFilter.label}</span>
+                    <span className="tabular-nums">
+                      {alternativePickerOptions.length}
+                    </span>
+                  </div>
+                ) : null}
                 {alternativePickerOptions.length ? (
                   <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
                     {alternativePickerOptions.map((option) => {
@@ -2954,13 +2987,13 @@ function RoutineModal({
                           type="button"
                           aria-pressed={selected}
                           onClick={() => toggleAlternativeSelection(option.id)}
-                          className={`grid min-h-[82px] w-full grid-cols-[60px_minmax(0,1fr)_28px] items-center gap-3 px-3 py-2.5 text-left transition ${
+                          className={`grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_28px] items-center gap-4 px-0 py-3 text-left transition ${
                             selected
                               ? "bg-[color:var(--surface-subtle)]"
                               : "hover:bg-[color:var(--surface-subtle)]"
                           }`}
                         >
-                          <div className="h-[60px] w-[60px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                          <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
                             <ExerciseThumbnail
                               src={thumb}
                               alt=""
@@ -2971,10 +3004,10 @@ function RoutineModal({
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="line-clamp-2 text-sm font-medium leading-snug text-[color:var(--text)]">
+                            <p className="line-clamp-2 text-[18px] font-medium leading-[1.2] tracking-[-0.015em] text-[color:var(--text)]">
                               {option.name}
                             </p>
-                            <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
+                            <p className="mt-2 truncate text-base leading-5 text-[color:var(--text-muted)]">
                               {option.muscle || "Mismo grupo muscular"}
                             </p>
                           </div>
@@ -2993,7 +3026,9 @@ function RoutineModal({
                   </div>
                 ) : (
                   <div className="rounded-2xl bg-[color:var(--card)] p-5 text-center text-sm text-[color:var(--text-muted)]">
-                    No hay alternativas disponibles para este ejercicio.
+                    {alternativePickerFilter
+                      ? "No hay alternativas con este equipo. Restablece el filtro para ver todas las opciones."
+                      : "No hay alternativas disponibles para este ejercicio."}
                   </div>
                 )}
               </div>
@@ -3489,31 +3524,11 @@ function RoutineToolbar({
   archivedCount,
   showArchived,
   onToggleArchived,
-  routineScope,
-  setRoutineScope,
-  routineScopeCounts,
-  assignedLabel = "En plan",
 }) {
   const branches = [
     { id: "all", label: "Todas", count: branchCounts.all },
     { id: "sopocachi", label: "Sopocachi", count: branchCounts.sopocachi },
     { id: "miraflores", label: "Miraflores", count: branchCounts.miraflores },
-  ];
-  const scopes = [
-    { id: "all", label: "Todas", count: routineScopeCounts.all },
-    {
-      id: "assigned",
-      label: assignedLabel,
-      count: routineScopeCounts.assigned,
-    },
-    {
-      id: "unassigned",
-      label: "Sin asignar",
-      count: routineScopeCounts.unassigned,
-    },
-    ...(showArchivedControl && archivedCount > 0
-      ? [{ id: "archived", label: "Archivadas", count: archivedCount }]
-      : []),
   ];
   return (
     <section className="routine-toolbar mt-5 space-y-3">
@@ -3530,41 +3545,20 @@ function RoutineToolbar({
           />
         </div>
       ) : null}
-      <div
-        className="routine-toolbar__scope flex overflow-x-auto border border-[color:var(--border)] bg-[color:var(--card)] p-1"
-        aria-label="Filtrar rutinas por asignación"
-      >
-        {scopes.map((scope) => (
+      {showArchivedControl && archivedCount > 0 ? (
+        <div className="flex justify-end">
           <button
-            key={scope.id}
             type="button"
-            onClick={() => {
-              if (scope.id === "archived") {
-                if (!showArchived) onToggleArchived();
-                return;
-              }
-              if (showArchived) onToggleArchived();
-              setRoutineScope(scope.id);
-            }}
-            aria-pressed={
-              scope.id === "archived"
-                ? showArchived
-                : !showArchived && routineScope === scope.id
-            }
-            className={`min-h-9 min-w-0 flex-1 shrink-0 px-3 text-[10px] font-black uppercase transition sm:text-xs ${
-              (
-                scope.id === "archived"
-                  ? showArchived
-                  : !showArchived && routineScope === scope.id
-              )
-                ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-            }`}
+            onClick={onToggleArchived}
+            aria-pressed={showArchived}
+            className="min-h-9 px-1 text-xs font-medium text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]"
           >
-            {scope.label} <span className="opacity-75">{scope.count}</span>
+            {showArchived
+              ? "Volver a rutinas"
+              : `Archivadas · ${archivedCount}`}
           </button>
-        ))}
-      </div>
+        </div>
+      ) : null}
       {showBranchFilter ? (
         <div
           className="routine-toolbar__branches grid grid-cols-3 gap-2"
@@ -4352,22 +4346,22 @@ function RoutineDetailsModal({
             return (
               <div
                 key={`${exercise.exerciseId || exercise.name}-${index}`}
-                className="routine-detail-row flex min-h-[100px] items-center gap-3 py-3.5 sm:min-h-24 sm:py-3"
+                className="routine-detail-row flex min-h-[108px] items-center gap-4 py-3"
               >
                 <span className="w-5 shrink-0 text-center text-xs font-black text-[color:var(--text-muted)]">
                   {index + 1}
                 </span>
-                <div className="routine-detail-image h-[72px] w-[72px] shrink-0 overflow-hidden border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
+                <div className="routine-detail-image h-20 w-20 shrink-0 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
                   <RoutinePreviewImage
                     item={{ name: exercise.name || "Ejercicio", url: imageUrl }}
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-semibold leading-tight">
+                  <p className="line-clamp-2 text-[18px] font-medium leading-[1.2] tracking-[-0.015em]">
                     {exercise.name}
                   </p>
                   {exercise.muscle ? (
-                    <p className="mt-1 truncate text-xs font-normal text-[color:var(--text-muted)]">
+                    <p className="mt-2 truncate text-base font-normal leading-5 text-[color:var(--text-muted)]">
                       {exercise.muscle}
                     </p>
                   ) : null}
@@ -4427,7 +4421,6 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [routineScope, setRoutineScope] = useState("all");
   const [canReturnToTraining, setCanReturnToTraining] =
     useState(hasTrainingReturn);
   const [editTargetRoutineId, setEditTargetRoutineId] = useState(
@@ -4758,9 +4751,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     branchCounts.sopocachi > 0 &&
     branchCounts.miraflores > 0;
   const hasActiveRoutineFilters =
-    Boolean(searchTerm.trim()) ||
-    routineScope !== "all" ||
-    (showBranchFilter && activeBranch !== "all");
+    Boolean(searchTerm.trim()) || (showBranchFilter && activeBranch !== "all");
 
   const routineCards = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -4849,23 +4840,79 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     routineAssignmentById,
     routineTrainingCountMap,
   ]);
-  const routineScopeCounts = useMemo(
-    () => ({
-      all: routineCards.length,
-      assigned: routineCards.filter((routine) => routine.assignment).length,
-      unassigned: routineCards.filter((routine) => !routine.assignment).length,
-    }),
-    [routineCards],
-  );
-  const visibleRoutineCards = useMemo(() => {
-    if (routineScope === "assigned") {
-      return routineCards.filter((routine) => routine.assignment);
-    }
-    if (routineScope === "unassigned") {
-      return routineCards.filter((routine) => !routine.assignment);
-    }
-    return routineCards;
-  }, [routineCards, routineScope]);
+  const visibleRoutineCards = routineCards;
+  const routineGroups = useMemo(() => {
+    const assigned = visibleRoutineCards.filter(
+      (routine) => routine.assignment,
+    );
+    const available = visibleRoutineCards.filter(
+      (routine) => !routine.assignment,
+    );
+    const groupsByPlan = new Map();
+    assigned.forEach((routine) => {
+      const plan = routine.plan;
+      const planId = getEntityId(plan) || "assigned";
+      const existing = groupsByPlan.get(planId);
+      if (existing) {
+        existing.routines.push(routine);
+        return;
+      }
+      groupsByPlan.set(planId, {
+        id: `plan-${planId}`,
+        eyebrow: isCoach
+          ? "Plantilla"
+          : plan?.status === "active"
+            ? "Plan vigente"
+            : PLAN_STATUS_LABELS[plan?.status] || "Planificación",
+        title: plan?.name || (isCoach ? "En plantilla" : "En planificación"),
+        description: "",
+        status: plan?.status || "draft",
+        routines: [routine],
+      });
+    });
+    const planStatusOrder = {
+      active: 0,
+      scheduled: 1,
+      draft: 2,
+      paused: 3,
+      completed: 4,
+      cancelled: 5,
+    };
+    const assignedGroups = Array.from(groupsByPlan.values())
+      .sort(
+        (a, b) =>
+          (planStatusOrder[a.status] ?? 9) - (planStatusOrder[b.status] ?? 9) ||
+          a.title.localeCompare(b.title),
+      )
+      .map((group) => ({
+        ...group,
+        routines: [...group.routines].sort((a, b) => {
+          const firstDayA = Math.min(
+            ...(a.assignment?.dayIndexes?.length
+              ? a.assignment.dayIndexes
+              : [Number.MAX_SAFE_INTEGER]),
+          );
+          const firstDayB = Math.min(
+            ...(b.assignment?.dayIndexes?.length
+              ? b.assignment.dayIndexes
+              : [Number.MAX_SAFE_INTEGER]),
+          );
+          return firstDayA - firstDayB || a.name.localeCompare(b.name);
+        }),
+        description: `${group.routines.length} ${group.routines.length === 1 ? "rutina" : "rutinas"}`,
+      }));
+    const availableGroup = {
+      id: "available",
+      eyebrow: "Biblioteca personal",
+      title: "Rutinas disponibles",
+      description: `${available.length} ${available.length === 1 ? "rutina" : "rutinas"} sin planificación`,
+      routines: available,
+    };
+
+    return [...assignedGroups, availableGroup].filter(
+      (group) => group.routines.length,
+    );
+  }, [isCoach, visibleRoutineCards]);
 
   const openCreate = (planDay = null, { replacing = false } = {}) => {
     if (isManagedClient) return;
@@ -5812,10 +5859,6 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
           onToggleArchived={() =>
             setShowArchivedRoutines((current) => !current)
           }
-          routineScope={routineScope}
-          setRoutineScope={setRoutineScope}
-          routineScopeCounts={routineScopeCounts}
-          assignedLabel={isCoach ? "En plantilla" : "En planes"}
         />
       ) : null}
 
@@ -5863,176 +5906,193 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       workspaceReady &&
       workspaceView === "routines" &&
       !showArchivedRoutines ? (
-        <section className="routine-library-list mt-4 grid gap-3 sm:mt-5 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <AnimatePresence initial={false} mode="popLayout">
-            {visibleRoutineCards.map((routine) => {
-              const isHighlighted = ["active", "scheduled"].includes(
-                routine.plan?.status,
-              );
-              const assignmentDays = (routine.assignment?.dayIndexes || [])
-                .map((dayIndex) =>
-                  routine.plan?.scheduleMode === "fixed"
-                    ? PLAN_DAY_NAMES[dayIndex]?.slice(0, 3)
-                    : `Día ${dayIndex + 1}`,
-                )
-                .filter(Boolean)
-                .join(" / ");
-              const assignmentLabel = routine.plan
-                ? isCoach
-                  ? `En plantilla · ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
-                  : routine.plan.status === "active"
-                    ? `En ${routine.plan.name}${assignmentDays ? ` · ${assignmentDays}` : ""}`
-                    : routine.plan.status === "paused"
-                      ? `Plan pausado${assignmentDays ? ` · ${assignmentDays}` : ""}`
-                      : `${PLAN_STATUS_LABELS[routine.plan.status] || "En plan"}${assignmentDays ? ` · ${assignmentDays}` : ""}`
-                : "";
+        <section className="routine-library-list mt-4 space-y-7 sm:mt-5">
+          {routineGroups.map((group) => (
+            <section key={group.id} className="routine-library-group">
+              <header className="routine-library-group__header mb-3 px-1">
+                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  {group.eyebrow}
+                </p>
+                <h2 className="mt-1 text-xl font-medium leading-tight tracking-[-0.02em] text-[color:var(--text)]">
+                  {group.title}
+                </h2>
+                <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                  {group.description}
+                </p>
+              </header>
+              <div className="routine-library-group__cards grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {group.routines.map((routine) => {
+                    const isHighlighted = ["active", "scheduled"].includes(
+                      routine.plan?.status,
+                    );
+                    const assignmentDays = (
+                      routine.assignment?.dayIndexes || []
+                    )
+                      .map((dayIndex) =>
+                        routine.plan?.scheduleMode === "fixed"
+                          ? PLAN_DAY_NAMES[dayIndex]?.slice(0, 3)
+                          : `Día ${dayIndex + 1}`,
+                      )
+                      .filter(Boolean)
+                      .join(" / ");
+                    const assignmentLabel = routine.plan
+                      ? assignmentDays || "Asignada"
+                      : "";
 
-              return (
-                <motion.article
-                  key={routine.id || routine._id}
-                  layout
-                  initial={{ opacity: 0, y: 8, scale: 0.99 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.99 }}
-                  transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
-                  className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
-                    isHighlighted
-                      ? "border-t-[#352018] dark:border-t-[#e2ff00]"
-                      : "border-t-[#626262] dark:border-t-[#6d6d62]"
-                  } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setViewingRoutine(routine)}
-                    className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
-                    aria-label={`Ver ejercicios de ${routine.name}`}
-                  />
-                  <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
-                    <div className="routine-library-card__header flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        {assignmentLabel ? (
-                          <p className="mb-1.5 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
-                            {assignmentLabel}
-                          </p>
-                        ) : null}
-                        <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
-                          {routine.name}
-                        </h2>
-                        <p className="mt-2 truncate text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-                          {routine.totalExerciseCount}{" "}
-                          {routine.totalExerciseCount === 1
-                            ? "ejercicio"
-                            : "ejercicios"}{" "}
-                          · {routine.estimatedMinutes} min
-                        </p>
-                      </div>
-                      {!isManagedClient ? (
-                        <details className="overflow-menu pointer-events-auto relative -mr-2 -mt-2 shrink-0">
-                          <summary
-                            className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                            aria-label={`Opciones de ${routine.name}`}
-                          >
-                            <MoreVertical className="h-5 w-5" />
-                          </summary>
-                          <div className="overflow-menu-panel absolute right-0 top-12 z-20 w-48">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                openEdit(routine);
-                              }}
-                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
-                            >
-                              <Pencil className="h-4 w-4" />
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                handleDuplicateRoutine(routine);
-                              }}
-                              disabled={Boolean(duplicatingRoutineId)}
-                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
-                            >
-                              <Copy className="h-4 w-4" />
-                              {duplicatingRoutineId === routine.id
-                                ? "Duplicando..."
-                                : "Duplicar"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.currentTarget
-                                  .closest("details")
-                                  ?.removeAttribute("open");
-                                requestDeleteRoutine(routine);
-                              }}
-                              className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Eliminar
-                            </button>
+                    return (
+                      <motion.article
+                        key={routine.id || routine._id}
+                        layout
+                        initial={{ opacity: 0, y: 8, scale: 0.99 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.99 }}
+                        transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                        className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
+                          isHighlighted
+                            ? "border-t-[#352018] dark:border-t-[#e2ff00]"
+                            : "border-t-[#626262] dark:border-t-[#6d6d62]"
+                        } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setViewingRoutine(routine)}
+                          className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                          aria-label={`Ver ejercicios de ${routine.name}`}
+                        />
+                        <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
+                          <div className="routine-library-card__header flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              {assignmentLabel ? (
+                                <p className="mb-1.5 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
+                                  {assignmentLabel}
+                                </p>
+                              ) : null}
+                              <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
+                                {routine.name}
+                              </h2>
+                              <p className="mt-2 truncate text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                                {routine.totalExerciseCount}{" "}
+                                {routine.totalExerciseCount === 1
+                                  ? "ejercicio"
+                                  : "ejercicios"}{" "}
+                                · {routine.estimatedMinutes} min
+                              </p>
+                            </div>
+                            {!isManagedClient ? (
+                              <details className="overflow-menu pointer-events-auto relative -mr-2 -mt-2 shrink-0">
+                                <summary
+                                  className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+                                  aria-label={`Opciones de ${routine.name}`}
+                                >
+                                  <MoreVertical className="h-5 w-5" />
+                                </summary>
+                                <div className="overflow-menu-panel absolute right-0 top-12 z-20 w-48">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.currentTarget
+                                        .closest("details")
+                                        ?.removeAttribute("open");
+                                      openEdit(routine);
+                                    }}
+                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.currentTarget
+                                        .closest("details")
+                                        ?.removeAttribute("open");
+                                      handleDuplicateRoutine(routine);
+                                    }}
+                                    disabled={Boolean(duplicatingRoutineId)}
+                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                    {duplicatingRoutineId === routine.id
+                                      ? "Duplicando..."
+                                      : "Duplicar"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.currentTarget
+                                        .closest("details")
+                                        ?.removeAttribute("open");
+                                      requestDeleteRoutine(routine);
+                                    }}
+                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </details>
+                            ) : null}
                           </div>
-                        </details>
-                      ) : null}
-                    </div>
 
-                    <div className="routine-library-card__previews mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
-                      {routine.preview.slice(0, 3).map((item, idx) => (
-                        <div
-                          key={`${routine.id}-preview-${idx}`}
-                          className="h-16 w-[60px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
-                        >
-                          <RoutinePreviewImage item={item} />
-                        </div>
-                      ))}
-                      {routine.hiddenPreviewCount > 0 ? (
-                        <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#d8c8c0] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
-                          +{routine.hiddenPreviewCount}
-                        </div>
-                      ) : null}
-                      {routine.preview.length === 0 ? (
-                        <div className="grid h-14 flex-1 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)] sm:h-16">
-                          Sin ejercicios
-                        </div>
-                      ) : null}
-                    </div>
+                          <div className="routine-library-card__previews mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
+                            {routine.preview.slice(0, 3).map((item, idx) => (
+                              <div
+                                key={`${routine.id}-preview-${idx}`}
+                                className="h-16 w-[60px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
+                              >
+                                <RoutinePreviewImage item={item} />
+                              </div>
+                            ))}
+                            {routine.hiddenPreviewCount > 0 ? (
+                              <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#d8c8c0] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
+                                +{routine.hiddenPreviewCount}
+                              </div>
+                            ) : null}
+                            {routine.preview.length === 0 ? (
+                              <div className="grid h-14 flex-1 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)] sm:h-16">
+                                Sin ejercicios
+                              </div>
+                            ) : null}
+                          </div>
 
-                    <div className="routine-library-card__footer mt-3 border-t border-[#ecd7d0] pt-3 dark:border-[#333] sm:mt-5 sm:flex sm:min-h-11 sm:items-center sm:justify-between sm:gap-3">
-                      <div className="grid min-w-0 grid-cols-3 gap-2 text-[11px] font-black text-[color:var(--text)] sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:text-xs">
-                        <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <Dumbbell className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
-                          {routine.totalExerciseCount} ejercicios
-                        </span>
-                        <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <Layers3 className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
-                          {routine.totalSets} series
-                        </span>
-                        <span className="inline-flex min-w-0 items-center gap-1.5">
-                          <History className="h-3.5 w-3.5 text-[#352018] dark:text-[#e2ff00]" />
-                          {routine.trainingCount}{" "}
-                          {routine.trainingCount === 1 ? "sesión" : "sesiones"}
-                        </span>
-                      </div>
-                      {isManagedClient ? (
-                        <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
-                          Coach
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </motion.article>
-              );
-            })}
-          </AnimatePresence>
+                          <div className="routine-library-card__footer mt-3 flex min-h-10 items-center justify-between gap-3 border-t border-[#ecd7d0] pt-3 text-xs dark:border-[#333] sm:mt-5">
+                            <div className="flex min-w-0 items-center gap-2 text-[color:var(--text-muted)]">
+                              <span className="shrink-0 font-medium">
+                                {routine.totalSets}{" "}
+                                {routine.totalSets === 1 ? "serie" : "series"}
+                              </span>
+                              {routine.muscles.length ? (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="truncate">
+                                    {routine.muscles.slice(0, 2).join(" y ")}
+                                  </span>
+                                </>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0 font-medium text-[color:var(--text)]">
+                              {routine.trainingCount
+                                ? `${routine.trainingCount} ${routine.trainingCount === 1 ? "sesión" : "sesiones"}`
+                                : "Sin iniciar"}
+                            </span>
+                            {isManagedClient ? (
+                              <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
+                                Coach
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </motion.article>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </section>
+          ))}
 
           {!visibleRoutineCards.length ? (
-            <div className="border-y border-[color:var(--border)] py-12 text-center md:col-span-2 xl:col-span-3">
+            <div className="border-y border-[color:var(--border)] py-12 text-center">
               <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-lg bg-[color:var(--bg)]">
                 <Layers3 className="h-5 w-5 text-[color:var(--text-muted)]" />
               </div>
@@ -6055,7 +6115,6 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                     if (hasActiveRoutineFilters) {
                       setSearchTerm("");
                       setActiveBranch("all");
-                      setRoutineScope("all");
                     } else {
                       openCreate();
                     }

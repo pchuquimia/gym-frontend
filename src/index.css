@@ -2338,6 +2338,12 @@ button,
   }
 
   .routine-library-list {
+    overflow: visible;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .routine-library-group__cards {
     overflow: hidden;
     gap: 0;
     border-radius: 1.5rem;
@@ -2358,12 +2364,12 @@ button,
 
   .routine-library-card__content {
     display: grid;
-    min-height: 6.25rem;
-    grid-template-columns: 4.5rem minmax(0, 1fr);
-    grid-template-rows: minmax(4.5rem, auto);
+    min-height: 6.75rem;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    grid-template-rows: minmax(5rem, auto);
     align-items: center;
-    gap: 0.875rem;
-    padding: 0.875rem;
+    gap: 1rem;
+    padding: 0.75rem;
   }
 
   .routine-library-card__header {
@@ -2399,10 +2405,10 @@ button,
   }
 
   .routine-library-card__previews > :first-child {
-    height: 4.5rem;
-    width: 4.5rem;
+    height: 5rem;
+    width: 5rem;
     border: 0;
-    border-radius: 1rem;
+    border-radius: 1.125rem;
   }
 
   .routine-library-card__footer {
@@ -2542,7 +2548,7 @@ button,
   .routine-detail-image,
   .plan-template-detail-row > span:first-child {
     border: 0;
-    border-radius: 0.875rem;
+    border-radius: 1.125rem;
   }
 
   .routine-detail-row p {
