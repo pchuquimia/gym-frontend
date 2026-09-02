@@ -87,6 +87,12 @@ export const sections = [
         icon: ListChecks,
         roles: ["Admin"],
       },
+      {
+        id: "imagenes_ejercicios",
+        label: "Imágenes de ejercicios",
+        icon: Images,
+        roles: ["Admin"],
+      },
     ],
   },
 ];

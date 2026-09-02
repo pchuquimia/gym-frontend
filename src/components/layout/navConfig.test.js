@@ -27,6 +27,7 @@ describe("configuracion del menu lateral", () => {
     expect(adminSections.at(-1).ids).toEqual([
       "coach_admin",
       "editor_historial",
+      "imagenes_ejercicios",
     ]);
   });
 

@@ -43,13 +43,16 @@ function MainLayout({
     activePage === "ejercicio_analitica" ||
     activePage === "resumen_sesion" ||
     activePage === "data_intelligence" ||
-    activePage === "pesajes";
+    activePage === "pesajes" ||
+    activePage === "imagenes_ejercicios";
+  const useImageStudioChrome = activePage === "imagenes_ejercicios";
   const useTrainingChrome = activePage === "registrar";
   const useOnboardingChrome = activePage === "onboarding";
   const useProfileChrome = activePage === "perfil";
   const useSessionSummaryChrome = activePage === "resumen_sesion";
   const useLibraryChrome = activePage === "library";
   const useRoutinesChrome = activePage === "rutinas";
+  const usePhotosChrome = activePage === "fotos";
   const useAnalyticsChrome =
     activePage === "ejercicio_analitica" || activePage === "data_intelligence";
 
@@ -234,6 +237,8 @@ function MainLayout({
               useSessionSummaryChrome ||
               useLibraryChrome ||
               useRoutinesChrome ||
+              usePhotosChrome ||
+              useImageStudioChrome ||
               useAnalyticsChrome
                 ? "hidden"
                 : useTrainingChrome

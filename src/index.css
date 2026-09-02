@@ -723,8 +723,7 @@ button,
 }
 
 .photos-shell {
-  font-family: "Barlow Condensed", "Arial Narrow", Inter, sans-serif;
-  font-stretch: condensed;
+  font-family: var(--mobile-ui-font);
   letter-spacing: 0;
 }
 
@@ -746,7 +745,14 @@ button,
 .photos-shell h2,
 .photos-shell h3,
 .photos-shell h4 {
+  font-family: var(--mobile-display-font);
   line-height: 1.05;
+}
+
+.photos-shell button,
+.photos-shell [role="tab"],
+.photos-shell .uppercase {
+  font-family: var(--mobile-ui-font);
 }
 
 .photos-shell p {

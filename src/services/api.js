@@ -324,6 +324,15 @@ export const api = {
     const query = new URLSearchParams({ exerciseId, limit }).toString();
     return request(`/api/exercises/admin/codex-image-requests?${query}`);
   },
+  getExerciseImageWorkspace: (query = "") =>
+    request(
+      `/api/exercises/admin/image-workspace?${new URLSearchParams({ q: query })}`,
+    ),
+  createCodexImageBatch: (payload) =>
+    request("/api/exercises/admin/codex-image-requests/batch", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   getCodexImageReviewQueue: (limit = 20) =>
     request(
       `/api/exercises/admin/codex-image-review-queue?${new URLSearchParams({ limit })}`,
@@ -553,6 +562,14 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   deletePhoto: (id) => request(`/api/photos/${id}`, { method: "DELETE" }),
+  replacePhoto: async (id, formData) => {
+    const response = await axiosClient.post(
+      `${API_URL}/api/photos/${id}/replace`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  },
   uploadPhoto: async (formData) => {
     const response = await axiosClient.post(
       `${API_URL}/api/photos/upload`,

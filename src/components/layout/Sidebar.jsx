@@ -25,6 +25,7 @@ const mobileNavOrder = [
   "trainer",
   "coach_admin",
   "editor_historial",
+  "imagenes_ejercicios",
 ];
 
 const mobileLabels = {
@@ -44,6 +45,7 @@ const mobileLabels = {
   perfil: "Perfil",
   planes: "Planes",
   editor_historial: "Editor",
+  imagenes_ejercicios: "Imágenes",
 };
 
 const mobileGroups = [
@@ -81,7 +83,7 @@ const mobileGroups = [
   {
     title: "Administracion",
     detail: "Accesos exclusivos",
-    ids: ["coach_admin", "editor_historial"],
+    ids: ["coach_admin", "editor_historial", "imagenes_ejercicios"],
   },
 ];
 

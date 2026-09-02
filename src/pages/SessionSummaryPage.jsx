@@ -11,10 +11,18 @@ import {
   Layers3,
   ListChecks,
   LoaderCircle,
+  Minus,
   Repeat2,
+  TrendingDown,
+  TrendingUp,
   X,
 } from "lucide-react";
-import { formatMuscleGroup, summarizeSession } from "../utils/sessionAnalytics";
+import {
+  compareExercise,
+  formatExerciseProgress,
+  formatMuscleGroup,
+  summarizeSession,
+} from "../utils/sessionAnalytics";
 import { useTrainingData } from "../context/TrainingContext";
 import { useRoutines } from "../context/RoutineContext";
 import { getExerciseImageUrl } from "../utils/cloudinary";
@@ -61,8 +69,11 @@ const flattenSets = (sets = []) =>
         weightKg:
           Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
         reps: Number(entry?.reps ?? 0) || 0,
+        done: entry?.done ?? set?.done,
       }))
-      .filter((entry) => entry.weightKg > 0 && entry.reps > 0);
+      .filter(
+        (entry) => entry.done !== false && entry.weightKg > 0 && entry.reps > 0,
+      );
   });
 
 const safeArray = (value) => (Array.isArray(value) ? value : []);
@@ -264,6 +275,12 @@ export default function SessionSummaryPage({
                   exerciseMeta.find((item) => item.id === exercise.exerciseId)
                     ?.muscle ||
                   "Sin grupo",
+                movementMode: exercise.movementMode,
+                weightBasis: exercise.weightBasis,
+                barWeightKg: exercise.barWeightKg,
+                implementCount: exercise.implementCount,
+                loadType: exercise.loadType,
+                equipment: exercise.equipment,
                 sets: flattenSets(exercise.sets),
               }))
             : undefined,
@@ -410,8 +427,13 @@ export default function SessionSummaryPage({
       (currentSummary.exercises || []).map((exercise, index) => ({
         today: exercise,
         order: index + 1,
+        comparison: compareExercise(
+          currentSummary,
+          historySummaries,
+          exercise.exerciseId,
+        ),
       })),
-    [currentSummary.exercises],
+    [currentSummary, historySummaries],
   );
 
   const handleViewExercise = (exerciseId) => {
@@ -763,6 +785,13 @@ export default function SessionSummaryPage({
               {exerciseRows.length ? (
                 exerciseRows.map((entry) => {
                   const exercise = entry.today || {};
+                  const progress = formatExerciseProgress(entry.comparison);
+                  const ProgressIcon =
+                    progress.direction === "up"
+                      ? TrendingUp
+                      : progress.direction === "down"
+                        ? TrendingDown
+                        : Minus;
                   const meta = exerciseMeta.find(
                     (item) => item.id === exercise.exerciseId,
                   );
@@ -802,7 +831,25 @@ export default function SessionSummaryPage({
                           )}
                         </span>
                       </span>
-                      <span className="flex items-center gap-1 justify-self-end">
+                      <span className="flex items-center gap-2 justify-self-end">
+                        <span
+                          className={`min-w-[3.75rem] text-right ${
+                            progress.direction === "up"
+                              ? "text-emerald-600 dark:text-emerald-300"
+                              : progress.direction === "down"
+                                ? "text-red-600 dark:text-red-300"
+                                : "text-[color:var(--text-muted)]"
+                          }`}
+                          aria-label={`${progress.detail}: ${progress.label}`}
+                        >
+                          <span className="flex items-center justify-end gap-1 text-sm font-black tabular-nums">
+                            <ProgressIcon className="h-3.5 w-3.5" />
+                            {progress.label}
+                          </span>
+                          <span className="mt-0.5 block text-[9px] font-semibold">
+                            {progress.detail}
+                          </span>
+                        </span>
                         <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
                       </span>
                     </button>

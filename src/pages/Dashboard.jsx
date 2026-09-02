@@ -63,6 +63,7 @@ import {
   estimateTrainingCalories,
   summarizeCalorieEstimates,
 } from "../utils/calorieEstimate";
+import { getMonthActivityBarPercent } from "../utils/monthActivityChart";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1031,8 +1032,15 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
   useEffect(() => {
     const container = chartScrollRef.current;
     if (!container) return;
-    container.scrollLeft = container.scrollWidth;
-  }, [data.length]);
+    const todayIndex = data.findIndex((day) => day.isToday);
+    if (todayIndex < 0) return;
+
+    const approximateColumnWidth = 28;
+    container.scrollLeft = Math.max(
+      0,
+      (todayIndex + 1) * approximateColumnWidth - container.clientWidth + 12,
+    );
+  }, [data]);
 
   return (
     <section className="dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
@@ -1060,7 +1068,9 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                 ? `${formatSeriesCount(selectedDay.sets)} series`
                 : selectedDay.sessions > 0
                   ? "Sin series completadas"
-                  : "Descanso"}
+                  : selectedDay.isFuture
+                    ? "Próximo día"
+                    : "Descanso"}
             </span>
             {selectedDay.incompleteSets > 0 ? (
               <span className="ml-1 text-[#2a1711] dark:text-[#e2ff00]">
@@ -1106,9 +1116,16 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
               const sets = Number(day.sets || 0);
               const overloaded =
                 sets > 0 && typicalSets > 0 && sets >= typicalSets * 1.5;
-              const height = sets
-                ? `${Math.max(10, (sets / maxSets) * 100)}%`
-                : "3px";
+              const barPercent = getMonthActivityBarPercent({
+                sets,
+                maxSets,
+                activeDays: activeSetCounts.length,
+              });
+              const trackPercent = 72;
+              const fillPercent = Math.min(
+                100,
+                (barPercent / trackPercent) * 100,
+              );
               return (
                 <button
                   type="button"
@@ -1116,32 +1133,34 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                   onClick={() => setSelectedDay(day)}
                   onMouseEnter={() => setSelectedDay(day)}
                   onMouseLeave={() => setSelectedDay(null)}
-                  className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""} ${day.isToday ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : ""}`}
-                  aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${sets ? `${formatSeriesCount(sets)} series completadas` : day.sessions ? "sesión sin series completadas" : "sin entrenamiento"}`}
+                  className={`flex h-full min-w-0 flex-col items-center justify-end ${[8, 15, 22, 29].includes(day.dayNumber) ? "ml-1" : ""}`}
+                  aria-label={`Día ${day.dayNumber}, ${day.dateLabel}: ${sets ? `${formatSeriesCount(sets)} series completadas` : day.sessions ? "sesión sin series completadas" : day.isFuture ? "próximo día" : "sin entrenamiento"}`}
                 >
                   <span className="flex min-h-0 w-full flex-1 items-end justify-center">
-                    <motion.span
-                      className={`block w-full max-w-6 rounded-t-[3px] transition-[height,opacity] duration-200 md:max-w-8 ${
-                        sets
-                          ? overloaded
-                            ? "bg-[#2a1711] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
-                            : "bg-[#352018] dark:bg-[#b8d000]"
-                          : day.isToday
-                            ? "bg-[#352018] dark:bg-[#e2ff00]"
-                            : "bg-[#d8d8d8] dark:bg-[#292929]"
-                      }`}
-                      initial={
-                        reduceMotion ? false : { height: "3px", opacity: 0.45 }
-                      }
-                      animate={{ height, opacity: 1 }}
-                      transition={{
-                        duration: reduceMotion ? 0 : 0.45,
-                        delay: reduceMotion
-                          ? 0
-                          : Math.min(day.dayNumber * 0.025, 0.3),
-                        ease: [0.2, 0.8, 0.2, 1],
-                      }}
-                    />
+                    <span className="relative block h-[72%] w-full max-w-[14px] overflow-hidden rounded-t-[4px] border border-[#ded8cb] bg-[#f4f0e8] dark:border-[#303030] dark:bg-[#151515] md:max-w-4">
+                      {sets ? (
+                        <motion.span
+                          className={`absolute inset-x-0 bottom-0 block ${
+                            overloaded
+                              ? "bg-[#2a1711] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
+                              : "bg-[#352018] dark:bg-[#b8d000]"
+                          }`}
+                          initial={
+                            reduceMotion
+                              ? false
+                              : { height: "0%", opacity: 0.45 }
+                          }
+                          animate={{ height: `${fillPercent}%`, opacity: 1 }}
+                          transition={{
+                            duration: reduceMotion ? 0 : 0.45,
+                            delay: reduceMotion
+                              ? 0
+                              : Math.min(day.dayNumber * 0.025, 0.3),
+                            ease: [0.2, 0.8, 0.2, 1],
+                          }}
+                        />
+                      ) : null}
+                    </span>
                   </span>
                   <span
                     className={`mt-1 grid h-4 min-w-4 place-items-center rounded-[2px] px-0.5 text-[8px] font-black leading-none md:text-[9px] ${
@@ -1232,116 +1251,178 @@ function CollapsibleSection({
 }
 
 function MonthDetailView({ detail, onBack }) {
+  const [selectedDay, setSelectedDay] = useState(
+    () =>
+      [...detail.days].reverse().find((day) => day.active) || detail.days[0],
+  );
+  const leadingEmptyDays =
+    (new Date(detail.year, detail.monthIndex, 1).getDay() + 6) % 7;
+
   return (
-    <div className="space-y-4">
+    <div className="dashboard-trend-detail space-y-5">
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[#352018] shadow-sm dark:text-[#e2ff00]"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--text)] transition hover:text-[color:var(--accent-strong)]"
           aria-label="Volver a tendencia"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
+          <p className="text-xs font-medium uppercase tracking-[0.02em] text-[color:var(--text-muted)]">
             Detalle mensual
           </p>
-          <h3 className="truncate text-xl font-black text-[color:var(--text)]">
-            {detail.monthName}
+          <h3 className="truncate text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
+            {detail.fullMonthName}
           </h3>
         </div>
-        <span className="rounded bg-[color:var(--accent)] px-2.5 py-1 text-[10px] font-black uppercase text-[color:var(--accent-contrast)]">
-          {detail.trainedDays} días entrenados
-        </span>
+        <div className="text-right">
+          <strong className="block text-lg font-semibold text-[color:var(--text)]">
+            {detail.trainedDays}
+          </strong>
+          <span className="text-[10px] font-medium uppercase text-[color:var(--text-muted)]">
+            días entrenados
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {detail.days.map((day) => (
-          <article
-            key={day.key}
-            className={`relative min-h-[86px] rounded-2xl border p-3 shadow-sm ${
-              day.active
-                ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-                : "border-[color:var(--border)] bg-[#fafafa] text-[color:var(--text)] dark:bg-[#080808]"
-            }`}
-          >
+      <div className="grid grid-cols-3 divide-x divide-[color:var(--detail-row-divider)] rounded-2xl bg-[color:var(--surface-subtle)] px-2 py-4">
+        <div className="px-2 text-center">
+          <strong className="block text-lg font-semibold text-[color:var(--text)]">
+            {detail.sessions}
+          </strong>
+          <span className="text-[10px] font-medium uppercase text-[color:var(--text-muted)]">
+            sesiones
+          </span>
+        </div>
+        <div className="px-2 text-center">
+          <strong className="block text-lg font-semibold text-[color:var(--text)]">
+            {formatCompact(detail.volume)} kg
+          </strong>
+          <span className="text-[10px] font-medium uppercase text-[color:var(--text-muted)]">
+            volumen
+          </span>
+        </div>
+        <div className="px-2 text-center">
+          <strong className="block text-lg font-semibold text-[color:var(--text)]">
+            {formatSessionMinutes(detail.minutes * 60)}
+          </strong>
+          <span className="text-[10px] font-medium uppercase text-[color:var(--text-muted)]">
+            tiempo
+          </span>
+        </div>
+      </div>
+
+      <section className="rounded-2xl bg-[color:var(--surface-subtle)] p-3">
+        <div className="grid grid-cols-7 gap-1 pb-2">
+          {["L", "M", "X", "J", "V", "S", "D"].map((weekday) => (
             <span
-              className={`absolute right-3 top-3 h-2 w-2 rounded-full ${
-                day.active
-                  ? "bg-[color:var(--accent-contrast)]"
-                  : "bg-[#d8d8d8] dark:bg-[#383838]"
+              key={weekday}
+              className="text-center text-[9px] font-semibold uppercase text-[color:var(--text-muted)]"
+            >
+              {weekday}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: leadingEmptyDays }, (_, index) => (
+            <span key={`empty-${index}`} aria-hidden="true" />
+          ))}
+          {detail.days.map((day) => {
+            const selected = selectedDay?.key === day.key;
+            const dayLabel = day.active
+              ? `${day.weekday} ${day.dayNumber}: ${day.routine}, ${formatSessionCount(day.sessions)}, ${day.minutes}`
+              : `${day.weekday} ${day.dayNumber}: descanso`;
+
+            return (
+              <button
+                type="button"
+                key={day.key}
+                onClick={() => setSelectedDay(day)}
+                className={`relative aspect-square min-w-0 rounded-lg text-xs font-semibold transition ${
+                  day.active
+                    ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
+                    : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                } ${selected ? "ring-2 ring-[color:var(--text)] ring-offset-2 ring-offset-[color:var(--surface-subtle)]" : ""}`}
+                aria-label={dayLabel}
+                aria-pressed={selected}
+                title={dayLabel}
+              >
+                {Number(day.dayNumber)}
+                {day.active ? (
+                  <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current opacity-70" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 min-h-[76px] rounded-xl bg-[color:var(--card)] px-3 py-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium uppercase text-[color:var(--text-muted)]">
+                {selectedDay.weekday} {Number(selectedDay.dayNumber)}
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold text-[color:var(--text)]">
+                {selectedDay.active ? selectedDay.routine : "Día de descanso"}
+              </p>
+            </div>
+            <span
+              className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                selectedDay.active
+                  ? "bg-[color:var(--accent-strong)]"
+                  : "bg-[color:var(--border-strong)]"
               }`}
             />
-            <p
-              className={`text-[9px] font-black uppercase tracking-wide ${
-                day.active
-                  ? "text-current/75"
-                  : "text-[color:var(--text-muted)]"
-              }`}
-            >
-              {day.weekday}
-            </p>
-            <p className="mt-1 text-lg font-black leading-none">
-              {day.dayNumber}
-            </p>
-            <p className="mt-2 truncate text-[11px] font-black">
-              {day.active ? day.routine : "Descanso"}
-            </p>
-            <p
-              className={`mt-1 truncate text-[10px] font-semibold ${
-                day.active
-                  ? "text-current/75"
-                  : "text-[color:var(--text-muted)]"
-              }`}
-            >
-              {day.active
-                ? `${formatSessionCount(day.sessions)} · ${day.minutes}`
-                : "Sin sesión"}
-            </p>
-          </article>
-        ))}
-      </div>
+          </div>
+          <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
+            {selectedDay.active
+              ? `${formatSessionCount(selectedDay.sessions)} · ${selectedDay.minutes} · ${formatCompact(selectedDay.volume)} kg`
+              : "Sin entrenamiento registrado"}
+          </p>
+        </div>
+      </section>
 
-      <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
+      <section className="rounded-2xl bg-[color:var(--surface-subtle)] p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.02em] text-[color:var(--text)]">
           Rutinas entrenadas este mes
         </p>
-        <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          Cuántas veces se entrenó cada rutina
+        <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
+          Frecuencia, volumen y tiempo acumulado
         </p>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 overflow-hidden rounded-xl bg-[color:var(--card)]">
           {detail.routines.length ? (
-            detail.routines.map((routine) => (
+            detail.routines.map((routine, index) => (
               <article
                 key={routine.name}
-                className="rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 dark:rounded-[4px] dark:bg-[#080808]"
+                className={`flex items-center justify-between gap-4 px-3 py-3 ${
+                  index < detail.routines.length - 1
+                    ? "border-b border-[color:var(--detail-row-divider)]"
+                    : ""
+                }`}
               >
-                <p className="text-sm font-black text-[color:var(--text)]">
-                  {routine.name}
-                </p>
-                <div className="mt-2 flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-black text-[color:var(--text)]">
-                      {routine.sessions}
-                    </p>
-                    <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                      {routine.sessions === 1
-                        ? "sesión registrada"
-                        : "sesiones registradas"}
-                    </p>
-                  </div>
-                  <p className="text-right text-[11px] font-bold text-[color:var(--text-muted)]">
-                    {formatCompact(routine.volume)} kg
-                    <br />
-                    {routine.minutes}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                    {routine.name}
                   </p>
+                  <p className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
+                    {formatCompact(routine.volume)} kg · {routine.minutes}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <strong className="block text-base font-semibold text-[color:var(--text)]">
+                    {routine.sessions}
+                  </strong>
+                  <span className="text-[9px] uppercase text-[color:var(--text-muted)]">
+                    {routine.sessions === 1 ? "sesión" : "sesiones"}
+                  </span>
                 </div>
               </article>
             ))
           ) : (
-            <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm font-semibold text-[color:var(--text-muted)]">
+            <div className="p-4 text-sm font-normal text-[color:var(--text-muted)]">
               No hay sesiones registradas en este mes.
             </div>
           )}
@@ -2067,8 +2148,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const monthActivity = useMemo(() => {
     const map = new Map();
-    const elapsedDays = now.getDate();
-    for (let index = 0; index < elapsedDays; index += 1) {
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
+    for (let index = 0; index < daysInMonth; index += 1) {
       const date = new Date(now.getFullYear(), now.getMonth(), index + 1);
       const key = getISODateKey(date);
       map.set(key, {
@@ -2077,6 +2162,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         label: `D${index + 1}`,
         dateLabel: `${date.getDate()}/${date.getMonth() + 1}`,
         isToday: key === todayKey,
+        isFuture: key > todayKey,
         sessions: 0,
         sets: 0,
         incompleteSets: 0,
@@ -2229,10 +2315,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       ...day,
       minutes: formatSessionMinutes(day.seconds),
     }));
+    const localizedMonthName = new Date(
+      selected.year,
+      selected.monthIndex,
+      1,
+    ).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
 
     return {
       ...selected,
-      monthName: selected.month,
+      fullMonthName: `${localizedMonthName.charAt(0).toUpperCase()}${localizedMonthName.slice(1)}`,
       days,
       trainedDays: days.filter((day) => day.active).length,
       routines: Array.from(routines.values())
@@ -3488,9 +3579,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       />
 
       <CollapsibleSection
-        title="Últimos 3 meses"
+        title={
+          selectedMonthDetail
+            ? selectedMonthDetail.fullMonthName
+            : "Últimos 3 meses"
+        }
         subtitle={selectedMonthDetail ? "Mes seleccionado" : "Tendencia"}
-        meta={`${formatCompact(threeMonthSummary.reduce((sum, item) => sum + item.volume, 0))} kg`}
+        meta={`${formatCompact(
+          selectedMonthDetail
+            ? selectedMonthDetail.volume
+            : threeMonthSummary.reduce((sum, item) => sum + item.volume, 0),
+        )} kg`}
         open={isThreeMonthsOpen}
         onToggle={() => {
           setIsThreeMonthsOpen((value) => !value);
@@ -3499,12 +3598,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       >
         {selectedMonthDetail ? (
           <MonthDetailView
+            key={selectedMonthDetail.key}
             detail={selectedMonthDetail}
             onBack={() => setSelectedMonthKey(null)}
           />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
-            <div className="h-56 rounded border border-[color:var(--border)] bg-[#fafafa] p-3 dark:bg-[#080808]">
+          <div className="space-y-3">
+            <div className="h-52 rounded-2xl bg-[color:var(--surface-subtle)] p-2 sm:h-56 sm:p-3">
               <ResponsiveBar
                 data={threeMonthSummary}
                 keys={["volume"]}
@@ -3560,26 +3660,27 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
               {threeMonthSummary.map((month) => (
                 <button
                   type="button"
                   key={month.key}
                   onClick={() => setSelectedMonthKey(month.key)}
-                  className="w-full rounded-lg border border-[color:var(--border)] bg-[#fafafa] p-3 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:bg-[#080808]"
+                  className="min-w-0 rounded-xl bg-[color:var(--surface-subtle)] p-3 text-left transition hover:bg-[color:var(--surface-raised)]"
                 >
-                  <div className="flex items-center justify-between">
-                    <p className="font-black text-[color:var(--text)]">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="truncate text-sm font-semibold text-[color:var(--text)]">
                       {month.month}
                     </p>
-                    <p className="text-xs font-black text-[#352018] dark:text-[#e2ff00]">
-                      {formatSessionCount(month.sessions)}
-                    </p>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-[color:var(--text-muted)]">
-                    <span>{formatCompact(month.volume)} kg</span>
-                    <span>{formatSessionMinutes(month.minutes * 60)}</span>
-                  </div>
+                  <p className="mt-3 text-lg font-semibold leading-none text-[color:var(--text)]">
+                    {formatCompact(month.volume)} kg
+                  </p>
+                  <p className="mt-1 truncate text-[10px] text-[color:var(--text-muted)]">
+                    {formatSessionCount(month.sessions)} ·{" "}
+                    {formatSessionMinutes(month.minutes * 60)}
+                  </p>
                 </button>
               ))}
             </div>

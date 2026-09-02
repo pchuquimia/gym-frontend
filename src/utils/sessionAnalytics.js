@@ -1,6 +1,7 @@
 // Helpers para resumen y comparativos de sesiones (sin TypeScript)
 import { estimate1RM } from './trainingMetrics'
 import { getEffectiveWeightKg } from './weightConfig'
+import { getHistoryCompatibilitySignature } from './historyCompatibility'
 
 export const muscleGroupConfig = {
   espalda: {
@@ -101,6 +102,7 @@ const expandSets = (sets = [], weightConfig = {}) =>
             weightConfig,
           ),
           reps: Number(set?.reps ?? 0),
+          done: set?.done,
         },
       ]
     }
@@ -110,16 +112,24 @@ const expandSets = (sets = [], weightConfig = {}) =>
         weightConfig,
       ),
       reps: Number(entry?.reps ?? 0),
+      done: entry?.done ?? set?.done,
     }))
   })
 
 const cleanSets = (sets = [], weightConfig = {}) =>
   expandSets(sets, weightConfig).filter(
-    (s) => Number(s?.weightKg) > 0 && Number(s?.reps) > 0 && Number.isFinite(Number(s?.weightKg)),
+    (s) =>
+      s?.done !== false &&
+      Number(s?.weightKg) > 0 &&
+      Number(s?.reps) > 0 &&
+      Number.isFinite(Number(s?.weightKg)),
   )
 
 const selectTopSet = (sets = []) =>
   [...sets].sort((a, b) => {
+    const strengthDifference =
+      estimate1RM(b.weightKg, b.reps) - estimate1RM(a.weightKg, a.reps)
+    if (strengthDifference) return strengthDifference
     if (Number(b.weightKg) === Number(a.weightKg)) return Number(b.reps) - Number(a.reps)
     return Number(b.weightKg) - Number(a.weightKg)
   })[0]
@@ -141,6 +151,7 @@ export const summarizeSession = (session) => {
       volume,
       setsCount: validSets.length,
       repsTotal,
+      compatibilitySignature: getHistoryCompatibilitySignature(ex),
     }
   }).filter(Boolean)
 
@@ -198,22 +209,59 @@ export const compareExercise = (currentSummary, historySummaries, exerciseId) =>
   if (!todayEx) return null
   const refs = lastComparableSessions(
     historySummaries,
-    (s) => s.exercises.some((e) => e.exerciseId === exerciseId),
-    7,
+    (s) =>
+      s.exercises.some(
+        (e) =>
+          e.exerciseId === exerciseId &&
+          e.compatibilitySignature === todayEx.compatibilitySignature,
+      ),
+    1,
     currentSummary.date,
   )
   if (!refs.length) return { today: todayEx, ref: null, delta: null, status: 'Sin referencia', refCount: 0 }
+  const previousExercise = refs[0].exercises.find(
+    (e) =>
+      e.exerciseId === exerciseId &&
+      e.compatibilitySignature === todayEx.compatibilitySignature,
+  )
   const refMetrics = {
-    oneRMTop: avg(refs.map((s) => s.exercises.find((e) => e.exerciseId === exerciseId)?.oneRMTop || 0)),
-    volume: avg(refs.map((s) => s.exercises.find((e) => e.exerciseId === exerciseId)?.volume || 0)),
-    setsCount: avg(refs.map((s) => s.exercises.find((e) => e.exerciseId === exerciseId)?.setsCount || 0)),
-    repsTotal: avg(refs.map((s) => s.exercises.find((e) => e.exerciseId === exerciseId)?.repsTotal || 0)),
+    oneRMTop: previousExercise?.oneRMTop || 0,
+    volume: previousExercise?.volume || 0,
+    setsCount: previousExercise?.setsCount || 0,
+    repsTotal: previousExercise?.repsTotal || 0,
+    date: refs[0].date,
   }
   const delta = refMetrics.oneRMTop
     ? ((todayEx.oneRMTop - refMetrics.oneRMTop) / refMetrics.oneRMTop) * 100
     : null
   const status = classifyDelta(delta, refs.length)
   return { today: todayEx, ref: refMetrics, delta, status, refCount: refs.length }
+}
+
+export const formatExerciseProgress = (comparison) => {
+  if (!Number.isFinite(comparison?.delta)) {
+    return {
+      label: '--',
+      detail: 'Sin referencia',
+      direction: 'neutral',
+    }
+  }
+
+  const delta = Number(comparison.delta)
+  if (Math.abs(delta) < 1) {
+    return {
+      label: '0%',
+      detail: 'Estable',
+      direction: 'neutral',
+    }
+  }
+
+  const improved = delta > 0
+  return {
+    label: `${improved ? '+' : ''}${Math.round(delta)}%`,
+    detail: improved ? 'Mejoró' : 'Bajó',
+    direction: improved ? 'up' : 'down',
+  }
 }
 
 export const classifyDelta = (delta, refCount) => {

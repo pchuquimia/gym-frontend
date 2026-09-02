@@ -98,6 +98,9 @@ const normalizePhoto = (photo) => ({
   ...photo,
   id: photo._id || photo.id,
   url: photo.contentUrl ? `${API_URL}${photo.contentUrl}` : photo.url || "",
+  view: photo.view || "front",
+  visibility: photo.visibility || "private",
+  contentStatus: photo.contentStatus || "available",
 });
 
 const normalizeTraining = (training) => ({
@@ -492,6 +495,7 @@ export function TrainingProvider({
       if (photo.label) form.append("label", photo.label);
       if (photo.type) form.append("type", photo.type);
       if (photo.view) form.append("view", photo.view);
+      if (photo.visibility) form.append("visibility", photo.visibility);
       if (photo.sessionId) form.append("sessionId", photo.sessionId);
       if (photo.routineName) form.append("routineName", photo.routineName);
       if (ownerId) form.append("ownerId", ownerId);

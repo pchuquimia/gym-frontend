@@ -26,6 +26,12 @@ const REJECTION_REASONS = [
 
 const summaryValue = (summary, key) => Number(summary?.[key]) || 0;
 
+const REVIEWED_STATUS = {
+  applied: { label: "Aplicada", className: "text-emerald-700 dark:text-emerald-300" },
+  skipped: { label: "Omitida", className: "text-[color:var(--text-muted)]" },
+  rejected: { label: "Nueva versión solicitada", className: "text-amber-700 dark:text-amber-300" },
+};
+
 function ReviewImage({ label, source }) {
   return (
     <div className="space-y-2">
@@ -64,6 +70,63 @@ function QueueMetric({ label, value, accent = false }) {
   );
 }
 
+function RecentReviewHistory({ requests = [] }) {
+  if (!requests.length) return null;
+
+  return (
+    <div className="border border-[color:var(--border)] bg-[color:var(--card)]">
+      <div className="px-4 py-3 sm:px-5">
+        <h3 className="text-sm font-black uppercase tracking-[0.08em] text-[color:var(--text)]">
+          Revisadas recientemente
+        </h3>
+        <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          Las propuestas aprobadas u omitidas permanecen visibles aquí.
+        </p>
+      </div>
+      <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+        {requests.map((request) => {
+          const exercise = request.exercise || {};
+          const name =
+            exercise.localizedNames?.es ||
+            request.exerciseName ||
+            exercise.name ||
+            "Ejercicio";
+          const status = REVIEWED_STATUS[request.status] || {
+            label: request.status,
+            className: "text-[color:var(--text-muted)]",
+          };
+
+          return (
+            <div
+              key={request.id}
+              className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-5"
+            >
+              <div className="h-14 w-14 overflow-hidden bg-black">
+                <img
+                  src={request.result?.url || request.referenceImage}
+                  alt={name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-[color:var(--text)]">
+                  {name}
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold text-[color:var(--text-muted)]">
+                  Propuesta conservada en el historial
+                </p>
+              </div>
+              <span className={`text-[10px] font-black uppercase ${status.className}`}>
+                {status.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function ExerciseCodexReviewQueue({ onApplied }) {
   const queryClient = useQueryClient();
   const [showReasons, setShowReasons] = useState(false);
@@ -82,6 +145,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
   });
 
   const requests = queueQuery.data?.requests || [];
+  const recentReviewed = queueQuery.data?.recentReviewed || [];
   const current = requests[0] || null;
   const summary = queueQuery.data?.summary || {};
   const autoQueueEnabled = queueQuery.data?.autoQueue?.enabled !== false;
@@ -191,11 +255,11 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
               <h2 className="text-lg font-black uppercase text-[color:var(--text)]">
-                Revisión automática
+                Revisión de propuestas
               </h2>
             </div>
             <p className="mt-2 max-w-2xl text-sm font-semibold text-[color:var(--text-muted)]">
-              Codex prepara las propuestas. Tú solo apruebas, corriges u omites.
+              Revisa lo que está listo y consulta el historial de tus decisiones.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -211,9 +275,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
                   autoQueueEnabled ? "bg-emerald-500" : "bg-amber-500"
                 }`}
               />
-              {autoQueueEnabled
-                ? "Autoencolado activo"
-                : "Autoencolado pausado"}
+              {autoQueueEnabled ? "Cola automática" : "Selección manual"}
             </span>
             <Button
               variant="outline"
@@ -258,13 +320,13 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
             <h3 className="mt-3 text-xl font-black uppercase text-[color:var(--text)]">
               {summaryValue(summary, "pending") ||
               summaryValue(summary, "processing")
-                ? "Codex está preparando imágenes"
+                ? "Esperando procesamiento"
                 : "Todo revisado"}
             </h3>
             <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
               {summaryValue(summary, "pending") ||
               summaryValue(summary, "processing")
-                ? "Las propuestas aparecerán aquí automáticamente."
+                ? "Las solicitudes están guardadas, pero necesitan que Codex las procese; esperar por sí solo no genera imágenes."
                 : "No hay propuestas esperando una decisión."}
             </p>
           </div>
@@ -390,6 +452,8 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
           </div>
         </div>
       )}
+
+      <RecentReviewHistory requests={recentReviewed} />
     </section>
   );
 }

@@ -1,20 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  ArrowLeftRight,
+  ArrowLeft,
   CalendarDays,
   Camera,
   Check,
   Columns2,
   ImagePlus,
+  LockKeyhole,
   Pencil,
   Plus,
   RefreshCw,
   Trash2,
+  UsersRound,
   UserRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmModal from "../components/library/ConfirmModal";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Modal from "../components/shared/Modal";
 import Button from "../components/ui/button";
 import Skeleton from "../components/ui/skeleton";
@@ -22,6 +31,12 @@ import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useUserProfile } from "../context/UserContext";
 import { api } from "../services/api";
+import {
+  canComparePhoto,
+  comparisonDayGap,
+  orderComparisonPhotos,
+} from "../utils/photoComparison";
+import { computePhotoAlignment } from "../utils/photoAlignment";
 
 const PAGE_SIZE = 12;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -36,6 +51,11 @@ const TYPE_OPTIONS = [
 const CONTEXT_OPTIONS = TYPE_OPTIONS.filter(
   (option) => option.value === "gym" || option.value === "home",
 );
+
+const VISIBILITY_OPTIONS = [
+  { value: "private", label: "Solo yo" },
+  { value: "coach", label: "También mi coach" },
+];
 
 const VIEW_OPTIONS = [
   { value: "", label: "Todas las vistas" },
@@ -67,15 +87,28 @@ const normalizePhoto = (photo = {}) => ({
   ...photo,
   id: String(photo._id || photo.id || ""),
   view: photo.view || "front",
+  visibility: photo.visibility || "private",
+  contentStatus: photo.contentStatus || "available",
 });
 
-function AuthenticatedPhotoImage({ photo, width, height, alt, className }) {
+function AuthenticatedPhotoImage({
+  photo,
+  width,
+  height,
+  alt,
+  className,
+  style,
+  onContentReady,
+  dataAlignmentMethod,
+}) {
   const [objectUrl, setObjectUrl] = useState("");
   const contentUrl = photo?.contentUrl || "";
   const contentQuery = useQuery({
     queryKey: ["photo-content", photo?.id, width, height],
     queryFn: () => api.getPhotoContent(contentUrl, { width, height }),
-    enabled: Boolean(contentUrl && photo?.id),
+    enabled: Boolean(
+      contentUrl && photo?.id && photo?.contentStatus !== "missing",
+    ),
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     retry: 2,
@@ -101,9 +134,21 @@ function AuthenticatedPhotoImage({ photo, width, height, alt, className }) {
     };
   }, [contentQuery.data]);
 
+  useEffect(() => {
+    if (contentQuery.data) onContentReady?.(contentQuery.data);
+  }, [contentQuery.data, onContentReady]);
+
   const source = objectUrl || (!contentUrl ? photo?.url || "" : "");
   if (source) {
-    return <img src={source} alt={alt} className={className} />;
+    return (
+      <img
+        src={source}
+        alt={alt}
+        className={className}
+        style={style}
+        data-alignment-method={dataAlignmentMethod}
+      />
+    );
   }
   if (contentQuery.isLoading) {
     return <Skeleton className="h-full w-full rounded-none" />;
@@ -119,10 +164,16 @@ function AuthenticatedPhotoImage({ photo, width, height, alt, className }) {
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, hideLabel = false }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+    <label className={`block ${hideLabel ? "" : "space-y-1.5"}`}>
+      <span
+        className={
+          hideLabel
+            ? "sr-only"
+            : "text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]"
+        }
+      >
         {label}
       </span>
       <select
@@ -155,12 +206,14 @@ function ErrorState({ onRetry }) {
 }
 
 function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
+  const missing = photo.contentStatus === "missing";
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
       aria-pressed={selectionMode ? selected : undefined}
+      disabled={selectionMode && missing}
       className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
         selected
           ? "border-[#352018] ring-2 ring-[#352018]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
@@ -186,10 +239,6 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
         </p>
         <p className="mt-1 truncate text-sm font-black">{label}</p>
       </div>
-      <span className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[10px] font-black text-white backdrop-blur-sm">
-        {VIEW_OPTIONS.find((option) => option.value === photo.view)?.label ||
-          "Otra"}
-      </span>
       {selectionMode ? (
         <span
           className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
@@ -201,12 +250,139 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
           <Check className="h-4 w-4" />
         </span>
       ) : null}
+      {missing ? (
+        <span className="absolute left-2 top-2 rounded-full bg-[#fffaf4]/95 px-2.5 py-1 text-[10px] font-semibold text-[#6f625b] shadow-sm backdrop-blur dark:bg-black/80 dark:text-white/80">
+          Recuperar
+        </span>
+      ) : null}
     </button>
   );
 }
 
-export default function PhotosLibrary() {
-  const { updateAccount } = useAuth();
+function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
+  const [position, setPosition] = useState(50);
+  const [beforeBlob, setBeforeBlob] = useState(null);
+  const [afterBlob, setAfterBlob] = useState(null);
+  const [alignment, setAlignment] = useState({
+    scale: 1,
+    offsetXPercent: 0,
+    offsetYPercent: 0,
+    rotationDeg: 0,
+    afterScale: 1,
+    afterOffsetXPercent: 0,
+    afterOffsetYPercent: 0,
+    afterRotationDeg: 0,
+  });
+  const beforeDate = formatDate(before.date, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const afterDate = formatDate(after.date, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  useEffect(() => {
+    if (!beforeBlob || !afterBlob) return undefined;
+    let active = true;
+    computePhotoAlignment(beforeBlob, afterBlob)
+      .then((nextAlignment) => {
+        if (active) setAlignment(nextAlignment);
+      })
+      .catch(() => {
+        if (active) {
+          setAlignment({
+            scale: 1,
+            offsetXPercent: 0,
+            offsetYPercent: 0,
+            rotationDeg: 0,
+            afterScale: 1,
+            afterOffsetXPercent: 0,
+            afterOffsetYPercent: 0,
+            afterRotationDeg: 0,
+          });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [afterBlob, beforeBlob]);
+
+  return (
+    <figure className="mx-auto w-full max-w-[620px]">
+      <div className="relative aspect-[4/5] touch-pan-y overflow-hidden rounded-xl bg-black/5 shadow-sm dark:rounded-[4px] dark:bg-black/20 dark:shadow-none">
+        <AuthenticatedPhotoImage
+          photo={after}
+          width={1000}
+          height={1250}
+          alt={`Después: ${afterLabel}`}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
+          style={{
+            transform: `translate(${alignment.afterOffsetXPercent || 0}%, ${alignment.afterOffsetYPercent || 0}%) rotate(${alignment.afterRotationDeg || 0}deg) scale(${alignment.afterScale || 1})`,
+          }}
+          onContentReady={setAfterBlob}
+        />
+        <div
+          className="absolute inset-0 overflow-hidden"
+          style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+          aria-hidden="true"
+        >
+          <AuthenticatedPhotoImage
+            photo={before}
+            width={1000}
+            height={1250}
+            alt={`Antes: ${beforeLabel}`}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out"
+            style={{
+              transform: `translate(${alignment.offsetXPercent}%, ${alignment.offsetYPercent}%) rotate(${alignment.rotationDeg || 0}deg) scale(${alignment.scale})`,
+            }}
+            dataAlignmentMethod={alignment.method || "none"}
+            onContentReady={setBeforeBlob}
+          />
+        </div>
+
+        <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+          Antes
+        </span>
+        <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+          Después
+        </span>
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 z-20 w-px bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.16)]"
+          style={{ left: `${position}%` }}
+        >
+          <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-[#352018] shadow-md">
+            <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
+          </span>
+        </div>
+
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={position}
+          onChange={(event) => setPosition(Number(event.target.value))}
+          aria-label="Deslizar comparación entre antes y después"
+          aria-valuetext={`${position}% de la imagen anterior visible`}
+          className="absolute inset-0 z-30 h-full w-full cursor-ew-resize opacity-0"
+        />
+      </div>
+      <figcaption className="mt-3 flex items-center justify-between gap-4 text-xs font-medium text-[color:var(--text-muted)]">
+        <span>{beforeDate}</span>
+        <span>{comparisonDayGap([before, after])} días</span>
+        <span>{afterDate}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+export default function PhotosLibrary({ onBack, onNavigate }) {
+  const { updateAccount, user } = useAuth();
+  const queryClient = useQueryClient();
   const { refreshProfile } = useUserProfile();
   const {
     addPhoto,
@@ -220,6 +396,7 @@ export default function PhotosLibrary() {
   const [viewFilter, setViewFilter] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [fileError, setFileError] = useState("");
   const [activePhoto, setActivePhoto] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -231,9 +408,13 @@ export default function PhotosLibrary() {
     view: "front",
     sessionId: "",
     label: "",
+    visibility: "private",
   });
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const replaceInputRef = useRef(null);
+  const currentUserId = String(user?.id || user?._id || "");
+  const canManage = !dataOwnerId || String(dataOwnerId) === currentUserId;
 
   const summaryQuery = useQuery({
     queryKey: ["photo-summary", dataOwnerId || "self"],
@@ -262,7 +443,11 @@ export default function PhotosLibrary() {
   const photos = (photosQuery.data?.pages || [])
     .flatMap((page) => page.items || [])
     .map(normalizePhoto);
-  const total = photosQuery.data?.pages?.[0]?.total || 0;
+  const knownMissingCount = photos.filter(
+    (photo) => photo.contentStatus === "missing",
+  ).length;
+  const photoSummaryTotal = Number(summaryQuery.data?.total || 0);
+  const photoSummaryMissing = summaryQuery.data?.missing ?? knownMissingCount;
   const trainingOptions = useMemo(
     () =>
       trainings
@@ -287,11 +472,27 @@ export default function PhotosLibrary() {
     trainingMap.get(String(photo.sessionId || "")) ||
     photo.label ||
     (photo.type === "home" ? "Progreso personal" : "Entrenamiento");
-  const selectedPhotos = selectedIds
-    .map((id) => photos.find((photo) => photo.id === id))
-    .filter(Boolean);
+  const selectedPhotos = orderComparisonPhotos(
+    selectedIds
+      .map((id) => photos.find((photo) => photo.id === id))
+      .filter(Boolean),
+  );
+  const selectedView = selectedPhotos[0]?.view || "";
 
-  const toggleComparison = (id) => {
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [typeFilter, viewFilter]);
+
+  const toggleComparison = (photo) => {
+    const id = photo.id;
+    if (photo.contentStatus === "missing") {
+      toast.info("Recupera esta imagen antes de compararla");
+      return;
+    }
+    if (!selectedIds.includes(id) && !canComparePhoto(selectedPhotos, photo)) {
+      toast.info("Compara fotos tomadas desde la misma vista corporal");
+      return;
+    }
     setSelectedIds((current) => {
       if (current.includes(id)) return current.filter((item) => item !== id);
       if (current.length >= 2) return [current[1], id];
@@ -306,7 +507,46 @@ export default function PhotosLibrary() {
       view: "front",
       sessionId: "",
       label: "",
+      visibility: "private",
     });
+
+  const invalidatePhotoQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["photo-library"] }),
+      queryClient.invalidateQueries({ queryKey: ["photo-summary"] }),
+      queryClient.invalidateQueries({ queryKey: ["photos"] }),
+      queryClient.invalidateQueries({ queryKey: ["profile-avatar"] }),
+    ]);
+  };
+
+  const handleReplace = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !activePhoto) return;
+    if (!ALLOWED_TYPES.has(file.type)) {
+      toast.error("Usa una imagen JPG, PNG o WebP");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("La imagen no puede superar 5 MB");
+      return;
+    }
+    try {
+      setReplacing(true);
+      const form = new FormData();
+      form.append("file", file);
+      const saved = normalizePhoto(
+        await api.replacePhoto(activePhoto.id, form),
+      );
+      setActivePhoto(saved);
+      await invalidatePhotoQueries();
+      toast.success("Imagen recuperada");
+    } catch (error) {
+      toast.error(error.message || "No se pudo reemplazar la imagen");
+    } finally {
+      setReplacing(false);
+    }
+  };
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -360,6 +600,7 @@ export default function PhotosLibrary() {
         label: activePhoto.label || "",
         sessionId: sessionId || null,
         routineName: sessionId ? trainingMap.get(sessionId) || "" : "",
+        visibility: activePhoto.visibility || "private",
       });
       setActivePhoto(normalizePhoto(saved));
       setEditing(false);
@@ -380,34 +621,62 @@ export default function PhotosLibrary() {
     }
   };
 
+  const handleReturn = () => {
+    if (onBack) {
+      onBack("dashboard");
+      return;
+    }
+    onNavigate?.("dashboard");
+  };
+
   return (
     <main className="photos-shell mx-auto w-full max-w-md pb-28 text-[color:var(--text)] md:max-w-5xl xl:max-w-6xl 2xl:max-w-[1280px]">
       <div className="w-full space-y-4">
+        <MobilePageHeader
+          title="Fotos de progreso"
+          variant="detail"
+          onBack={handleReturn}
+          className="-mx-[var(--mobile-page-gutter)] border-b border-[color:var(--detail-row-divider)] px-1"
+        />
         <header className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
-              Progreso visual
-            </p>
-            <h1 className="text-3xl font-black uppercase leading-none">
-              Fotos de progreso
-            </h1>
-            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-              {summaryQuery.isLoading
-                ? "Cargando historial..."
-                : `${summaryQuery.data?.total || 0} fotos${summaryQuery.data?.lastDate ? ` · Última: ${formatDate(summaryQuery.data.lastDate, { day: "2-digit", month: "short", year: "numeric" })}` : ""}`}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            <button
+              type="button"
+              onClick={handleReturn}
+              aria-label="Volver a la página anterior"
+              className="hidden h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] md:grid"
+            >
+              <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="hidden text-[36px] font-medium leading-none tracking-[-0.035em] md:block">
+                Fotos de progreso
+              </h1>
+              <p className="text-sm font-medium text-[color:var(--text-muted)] md:mt-1">
+                {summaryQuery.isLoading
+                  ? "Cargando..."
+                  : `${photoSummaryTotal} fotos${photoSummaryMissing ? ` · ${photoSummaryMissing} por recuperar` : ""}`}
+              </p>
+            </div>
           </div>
-          <Button
-            className="gap-2 text-xs font-black uppercase"
-            onClick={() => setUploadOpen((open) => !open)}
-          >
-            {uploadOpen ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-            {uploadOpen ? "Cancelar" : "Agregar foto"}
-          </Button>
+          {canManage ? (
+            <Button
+              className="h-10 gap-2 px-4 text-sm font-semibold"
+              onClick={() => setUploadOpen((open) => !open)}
+            >
+              {uploadOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              {uploadOpen ? "Cancelar" : "Nueva foto"}
+            </Button>
+          ) : (
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
+              <UsersRound className="h-4 w-4" />
+              Solo fotos compartidas contigo
+            </span>
+          )}
         </header>
 
         {uploadOpen ? (
@@ -469,23 +738,43 @@ export default function PhotosLibrary() {
                 <div />
               )}
             </div>
-            <label className="block space-y-1.5">
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                Nota opcional
-              </span>
-              <input
-                value={meta.label}
-                maxLength={240}
-                onChange={(event) =>
-                  setMeta((current) => ({
-                    ...current,
-                    label: event.target.value,
-                  }))
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.38fr)]">
+              <label className="block space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                  Nota opcional
+                </span>
+                <input
+                  value={meta.label}
+                  maxLength={240}
+                  onChange={(event) =>
+                    setMeta((current) => ({
+                      ...current,
+                      label: event.target.value,
+                    }))
+                  }
+                  placeholder="Ej. Inicio de definición"
+                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] dark:rounded-[3px] sm:text-sm"
+                />
+              </label>
+              <SelectField
+                label="Acceso"
+                value={meta.visibility}
+                onChange={(visibility) =>
+                  setMeta((current) => ({ ...current, visibility }))
                 }
-                placeholder="Ej. Inicio de definición"
-                className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] dark:rounded-[3px] sm:text-sm"
+                options={VISIBILITY_OPTIONS}
               />
-            </label>
+            </div>
+            <p className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
+              {meta.visibility === "private" ? (
+                <LockKeyhole className="h-4 w-4" />
+              ) : (
+                <UsersRound className="h-4 w-4" />
+              )}
+              {meta.visibility === "private"
+                ? "Esta foto será visible solo para ti."
+                : "Tu coach asignado también podrá verla."}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <Button
                 disabled={uploading}
@@ -521,7 +810,10 @@ export default function PhotosLibrary() {
               onChange={handleUpload}
             />
             {uploading ? (
-              <p role="status" className="text-sm font-bold text-[#352018] dark:text-[#e2ff00]">
+              <p
+                role="status"
+                className="text-sm font-bold text-[#352018] dark:text-[#e2ff00]"
+              >
                 Subiendo foto...
               </p>
             ) : null}
@@ -533,7 +825,7 @@ export default function PhotosLibrary() {
           </section>
         ) : null}
 
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
           <div
             className="flex rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 dark:rounded-[4px]"
             role="tablist"
@@ -562,12 +854,14 @@ export default function PhotosLibrary() {
               value={typeFilter}
               onChange={setTypeFilter}
               options={TYPE_OPTIONS}
+              hideLabel
             />
             <SelectField
               label="Vista"
               value={viewFilter}
               onChange={setViewFilter}
               options={VIEW_OPTIONS}
+              hideLabel
             />
           </div>
         </div>
@@ -576,7 +870,9 @@ export default function PhotosLibrary() {
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-bold text-[color:var(--text-muted)]">
-                Selecciona dos fotos · {selectedIds.length}/2
+                {selectedIds.length
+                  ? `${selectedIds.length}/2${selectedView ? ` · ${VIEW_OPTIONS.find((option) => option.value === selectedView)?.label}` : ""}`
+                  : "Selecciona 2 fotos"}
               </p>
               {selectedIds.length ? (
                 <button
@@ -589,28 +885,13 @@ export default function PhotosLibrary() {
               ) : null}
             </div>
             {selectedPhotos.length === 2 ? (
-              <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-2 dark:rounded-[4px] sm:gap-4 sm:p-4">
-                {selectedPhotos.map((photo) => (
-                  <figure key={photo.id} className="min-w-0">
-                    <div className="aspect-[3/4] overflow-hidden rounded-lg bg-black/5 dark:bg-black/20">
-                      <AuthenticatedPhotoImage
-                        photo={photo}
-                        width={900}
-                        height={1200}
-                        alt={labelFor(photo)}
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                    <figcaption className="mt-2 truncate text-center text-xs font-black">
-                      {formatDate(photo.date, {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+              <BeforeAfterSlider
+                key={`${selectedPhotos[0].id}:${selectedPhotos[1].id}`}
+                before={selectedPhotos[0]}
+                after={selectedPhotos[1]}
+                beforeLabel={labelFor(selectedPhotos[0])}
+                afterLabel={labelFor(selectedPhotos[1])}
+              />
             ) : null}
           </section>
         ) : null}
@@ -627,10 +908,15 @@ export default function PhotosLibrary() {
           <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center dark:rounded-[4px]">
             <ImagePlus className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
             <p className="mt-3 font-black">Aún no hay fotos en esta vista</p>
-            <Button className="mt-4 gap-2" onClick={() => setUploadOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Agregar foto
-            </Button>
+            {canManage ? (
+              <Button
+                className="mt-4 gap-2"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Agregar foto
+              </Button>
+            ) : null}
           </div>
         ) : mode === "history" ? (
           <section aria-label="Historial cronológico de fotos">
@@ -654,26 +940,21 @@ export default function PhotosLibrary() {
                 label={labelFor(photo)}
                 selectionMode
                 selected={selectedIds.includes(photo.id)}
-                onClick={() => toggleComparison(photo.id)}
+                onClick={() => toggleComparison(photo)}
               />
             ))}
           </div>
         )}
 
-        {!photosQuery.isLoading && photos.length ? (
-          <div className="flex flex-col items-center gap-3 pt-2">
-            <p className="text-xs font-semibold text-[color:var(--text-muted)]">
-              Mostrando {photos.length} de {total}
-            </p>
-            {photosQuery.hasNextPage ? (
-              <Button
-                variant="outline"
-                disabled={photosQuery.isFetchingNextPage}
-                onClick={() => photosQuery.fetchNextPage()}
-              >
-                {photosQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
-              </Button>
-            ) : null}
+        {!photosQuery.isLoading && photos.length && photosQuery.hasNextPage ? (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="outline"
+              disabled={photosQuery.isFetchingNextPage}
+              onClick={() => photosQuery.fetchNextPage()}
+            >
+              {photosQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
+            </Button>
           </div>
         ) : null}
       </div>
@@ -688,7 +969,7 @@ export default function PhotosLibrary() {
           })}
           onClose={() => setActivePhoto(null)}
           footer={
-            editing ? (
+            !canManage ? null : editing ? (
               <>
                 <Button
                   variant="outline"
@@ -703,6 +984,19 @@ export default function PhotosLibrary() {
               </>
             ) : (
               <>
+                {activePhoto.contentStatus === "missing" ? (
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    disabled={replacing}
+                    onClick={() => replaceInputRef.current?.click()}
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${replacing ? "animate-spin" : ""}`}
+                    />
+                    {replacing ? "Recuperando..." : "Recuperar imagen"}
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   size="icon"
@@ -715,15 +1009,17 @@ export default function PhotosLibrary() {
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Usar como foto de perfil"
-                  aria-label="Usar como foto de perfil"
-                  onClick={setAsAvatar}
-                >
-                  <UserRound className="h-4 w-4" />
-                </Button>
+                {activePhoto.contentStatus !== "missing" ? (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    title="Usar como foto de perfil"
+                    aria-label="Usar como foto de perfil"
+                    onClick={setAsAvatar}
+                  >
+                    <UserRound className="h-4 w-4" />
+                  </Button>
+                ) : null}
                 <Button
                   size="sm"
                   className="gap-2"
@@ -779,6 +1075,14 @@ export default function PhotosLibrary() {
                     : CONTEXT_OPTIONS
                 }
               />
+              <SelectField
+                label="Acceso"
+                value={activePhoto.visibility || "private"}
+                onChange={(visibility) =>
+                  setActivePhoto((photo) => ({ ...photo, visibility }))
+                }
+                options={VISIBILITY_OPTIONS}
+              />
               {activePhoto.type === "gym" ? (
                 <SelectField
                   label="Sesión"
@@ -825,6 +1129,17 @@ export default function PhotosLibrary() {
                   className="h-full w-full object-contain"
                 />
               </div>
+              {activePhoto.contentStatus === "missing" ? (
+                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center dark:rounded-[4px]">
+                  <p className="text-sm font-black">
+                    La imagen original ya no está disponible
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    Puedes subirla otra vez sin perder la fecha, la sesión ni la
+                    nota.
+                  </p>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2 text-xs font-bold text-[color:var(--text-muted)]">
                 <span className="rounded-md bg-[color:var(--bg)] px-2 py-1">
                   {VIEW_OPTIONS.find(
@@ -836,6 +1151,16 @@ export default function PhotosLibrary() {
                     (option) => option.value === activePhoto.type,
                   )?.label || "Entrenamiento"}
                 </span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-[color:var(--bg)] px-2 py-1">
+                  {activePhoto.visibility === "coach" ? (
+                    <UsersRound className="h-3.5 w-3.5" />
+                  ) : (
+                    <LockKeyhole className="h-3.5 w-3.5" />
+                  )}
+                  {activePhoto.visibility === "coach"
+                    ? "Compartida con coach"
+                    : "Privada"}
+                </span>
               </div>
               {activePhoto.label &&
               activePhoto.label !== labelFor(activePhoto) ? (
@@ -845,6 +1170,13 @@ export default function PhotosLibrary() {
               ) : null}
             </div>
           )}
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={handleReplace}
+          />
         </Modal>
       ) : null}
 

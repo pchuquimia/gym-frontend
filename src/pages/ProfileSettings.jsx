@@ -23,10 +23,10 @@ import { useTrainingData } from "../context/TrainingContext";
 import { useUserProfile } from "../context/UserContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
-import { buildCloudinaryUrl } from "../utils/cloudinary";
 import { toast } from "sonner";
 import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import {
   passwordStatus,
   validateEmail,
@@ -88,19 +88,6 @@ const calculateStreak = (dates = []) => {
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
-};
-
-const photoUrl = (photo) => {
-  if (!photo) return "";
-  if (photo.publicId) {
-    return buildCloudinaryUrl(photo.publicId, {
-      width: 240,
-      height: 240,
-      crop: "fill",
-      gravity: "face",
-    });
-  }
-  return photo.url || "";
 };
 
 const formatSessionTime = (value) => {
@@ -251,7 +238,7 @@ function SettingsSelectRow({
   );
 }
 
-function ProfileHero({ user, avatarUrl, stats, onChangePhoto }) {
+function ProfileHero({ user, avatarPhotoId, stats, onChangePhoto }) {
   return (
     <section className="profile-reference-hero-wrap lg:sticky lg:top-6">
       <div className="profile-reference-hero rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
@@ -262,11 +249,12 @@ function ProfileHero({ user, avatarUrl, stats, onChangePhoto }) {
           title="Cambiar foto de perfil"
           className="group relative mx-auto grid h-24 w-24 shrink-0 place-items-center overflow-visible rounded-full bg-[#e7d5da] font-sans text-3xl font-semibold text-[#4a2630] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[color:var(--card)] lg:h-28 lg:w-28"
         >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={`Foto de ${user?.name || "perfil"}`}
-              className="absolute inset-0 h-full w-full rounded-full object-cover"
+          {avatarPhotoId ? (
+            <ProfileAvatar
+              photoId={avatarPhotoId}
+              name={user?.name}
+              className="absolute inset-0 h-full w-full rounded-full overflow-hidden"
+              imageClassName="h-full w-full object-cover"
             />
           ) : (
             getInitials(user?.name)
@@ -499,21 +487,12 @@ export default function ProfileSettings({ onNavigate }) {
       ),
     [photos, user?.id],
   );
-  const selectedAvatar = useMemo(
-    () =>
-      ownPhotos.find(
-        (photo) => String(photo.id || photo._id) === profile?.avatarPhotoId,
-      ),
-    [ownPhotos, profile?.avatarPhotoId],
-  );
-  const avatarUrl = photoUrl(selectedAvatar);
   const draftAvatar = personalDraft
     ? ownPhotos.find(
         (photo) =>
           String(photo.id || photo._id) === personalDraft.avatarPhotoId,
       )
     : null;
-  const draftAvatarUrl = photoUrl(draftAvatar);
   const stats = {
     workouts: summaryLoading ? null : summary.workouts,
     streak: summaryLoading ? null : calculateStreak(summary.trainingDates),
@@ -1091,11 +1070,11 @@ export default function ProfileSettings({ onNavigate }) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-lg font-black">
-                      {draftAvatarUrl ? (
-                        <img
-                          src={draftAvatarUrl}
-                          alt="Foto de perfil actual"
-                          className="h-full w-full object-cover"
+                      {draftAvatar ? (
+                        <ProfileAvatar
+                          photoId={draftAvatar.id || draftAvatar._id}
+                          name={personalDraft.name}
+                          className="h-full w-full"
                         />
                       ) : (
                         getInitials(personalDraft.name)
@@ -1154,10 +1133,10 @@ export default function ProfileSettings({ onNavigate }) {
                         aria-pressed={personalDraft.avatarPhotoId === id}
                         className={`aspect-square overflow-hidden rounded-lg border dark:rounded-[3px] ${personalDraft.avatarPhotoId === id ? "border-[color:var(--accent)] ring-2 ring-[color:var(--accent)]/20" : "border-[color:var(--border)]"}`}
                       >
-                        <img
-                          src={photoUrl(photo)}
-                          alt=""
-                          className="h-full w-full object-cover"
+                        <ProfileAvatar
+                          photoId={id}
+                          name={personalDraft.name}
+                          className="h-full w-full"
                         />
                       </button>
                     );
@@ -1520,7 +1499,7 @@ export default function ProfileSettings({ onNavigate }) {
         <div className="min-w-0">
           <ProfileHero
             user={user}
-            avatarUrl={avatarUrl}
+            avatarPhotoId={profile?.avatarPhotoId}
             stats={stats}
             onChangePhoto={openPersonalPhoto}
           />

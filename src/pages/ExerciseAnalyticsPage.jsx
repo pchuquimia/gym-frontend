@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Search } from "lucide-react";
+import { ArrowLeft, ChevronDown, Search } from "lucide-react";
 import ExerciseAnalytics from "../components/analytics/ExerciseAnalytics";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import MuscleGroupAnalytics from "../components/analytics/MuscleGroupAnalytics";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
-import ProfileAvatar from "../components/profile/ProfileAvatar";
-import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
-import { useUserProfile } from "../context/UserContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
@@ -92,12 +89,12 @@ function MetricCard({ label, value, detail, accent = false }) {
 }
 
 export default function ExerciseAnalyticsPage({
+  onBack = null,
+  onNavigate = null,
   onMobileNavVisibilityChange = () => {},
 }) {
   const [pageOpenedAt] = useState(() => Date.now());
   const [initialView] = useState(readAnalyticsView);
-  const { user: authUser } = useAuth();
-  const { profile } = useUserProfile();
   const {
     sessions = [],
     trainings = [],
@@ -210,17 +207,15 @@ export default function ExerciseAnalyticsPage({
     const trained = exercises.filter((exercise) =>
       trainedExerciseIds.has(String(exercise.id)),
     );
-    return [...(trained.length ? trained : exercises)].sort(
-      (left, right) => {
-        const sessionDifference =
-          (exerciseSessionCountById.get(String(right.id)) || 0) -
-          (exerciseSessionCountById.get(String(left.id)) || 0);
-        return (
-          sessionDifference ||
-          String(left.name || "").localeCompare(String(right.name || ""), "es")
-        );
-      },
-    );
+    return [...(trained.length ? trained : exercises)].sort((left, right) => {
+      const sessionDifference =
+        (exerciseSessionCountById.get(String(right.id)) || 0) -
+        (exerciseSessionCountById.get(String(left.id)) || 0);
+      return (
+        sessionDifference ||
+        String(left.name || "").localeCompare(String(right.name || ""), "es")
+      );
+    });
   }, [exerciseSessionCountById, exercises, trainedExerciseIds]);
   const muscleOptions = useMemo(
     () =>
@@ -285,9 +280,7 @@ export default function ExerciseAnalyticsPage({
     () =>
       (exerciseHistoryQuery.data?.items || []).flatMap((training) =>
         (training.exercises || [])
-          .filter(
-            (exercise) => exercise.exerciseId === effectiveExerciseId,
-          )
+          .filter((exercise) => exercise.exerciseId === effectiveExerciseId)
           .map((exercise, index) => ({
             exerciseId: effectiveExerciseId,
             date: training.date,
@@ -396,29 +389,29 @@ export default function ExerciseAnalyticsPage({
         Math.floor((pageOpenedAt - toTimestamp(stats.latestDate)) / DAY_MS),
       )
     : null;
+  const handleReturn = () => {
+    if (onBack) {
+      onBack("dashboard");
+      return;
+    }
+    onNavigate?.("dashboard");
+  };
   return (
     <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-5 pb-8 text-[color:var(--text)] md:max-w-5xl md:pb-24 xl:max-w-6xl 2xl:max-w-[1280px]">
       <MobilePageHeader
         title="Analítica"
-        actions={
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
-            className="dashboard-mobile-avatar h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
-            aria-label="Abrir menú principal"
-          >
-            <ProfileAvatar
-              photoId={
-                profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
-              }
-              name={profile?.name || authUser?.name}
-              className="h-full w-full"
-              fallbackClassName="bg-[#ead8dd] text-sm font-semibold text-[#4a2430]"
-            />
-          </button>
-        }
+        variant="detail"
+        onBack={handleReturn}
       />
-      <header className="exercise-analytics-page__header hidden md:block">
+      <header className="exercise-analytics-page__header hidden items-center gap-3 md:flex">
+        <button
+          type="button"
+          onClick={handleReturn}
+          aria-label="Volver a la página anterior"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+        >
+          <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
+        </button>
         <h1 className="text-[36px] font-medium leading-none tracking-[-0.035em]">
           Analítica
         </h1>
@@ -575,43 +568,39 @@ export default function ExerciseAnalyticsPage({
       {analyticsScope === "exercise" ? (
         <>
           <section className="analytics-summary-grid dashboard-weekly-grid">
-                <MetricCard
-                  label="Fuerza actual"
-                  value={
-                    stats.latestOneRM
-                      ? `${Math.round(stats.latestOneRM)} kg`
-                      : "--"
-                  }
-                  detail={stats.best ? "Valor estimado" : "Sin datos"}
-                />
-                <MetricCard
-                  label="Último cambio"
-                  value={percent(stats.vsPrevious)}
-                  detail={
-                    stats.sessions > 1
-                      ? "Vs. sesión anterior"
-                      : "Requiere 2 sesiones"
-                  }
-                  accent
-                />
-                <MetricCard
-                  label="Sesiones"
-                  value={stats.sessions || "--"}
-                  detail={
-                    daysSinceLast === null
-                      ? "Sin historial"
-                      : daysSinceLast
-                        ? `Última: hace ${daysSinceLast} días`
-                        : "Entrenado hoy"
-                  }
-                />
-                <MetricCard
-                  label="Mejor marca"
-                  value={
-                    stats.best ? `${Math.round(stats.best.oneRM)} kg` : "--"
-                  }
-                  detail={stats.best ? formatDate(stats.best.date) : "Sin datos"}
-                />
+            <MetricCard
+              label="Fuerza actual"
+              value={
+                stats.latestOneRM ? `${Math.round(stats.latestOneRM)} kg` : "--"
+              }
+              detail={stats.best ? "Valor estimado" : "Sin datos"}
+            />
+            <MetricCard
+              label="Último cambio"
+              value={percent(stats.vsPrevious)}
+              detail={
+                stats.sessions > 1
+                  ? "Vs. sesión anterior"
+                  : "Requiere 2 sesiones"
+              }
+              accent
+            />
+            <MetricCard
+              label="Sesiones"
+              value={stats.sessions || "--"}
+              detail={
+                daysSinceLast === null
+                  ? "Sin historial"
+                  : daysSinceLast
+                    ? `Última: hace ${daysSinceLast} días`
+                    : "Entrenado hoy"
+              }
+            />
+            <MetricCard
+              label="Mejor marca"
+              value={stats.best ? `${Math.round(stats.best.oneRM)} kg` : "--"}
+              detail={stats.best ? formatDate(stats.best.date) : "Sin datos"}
+            />
           </section>
 
           <ExerciseAnalytics
@@ -641,59 +630,59 @@ export default function ExerciseAnalyticsPage({
           </div>
 
           {exerciseView === "progress" ? (
-              <section>
-                <div className="mb-2 flex items-end justify-between gap-3">
-                  <h2 className="text-xl font-medium tracking-[-0.025em]">
-                    Sesiones
-                  </h2>
-                  <p className="text-xs text-[color:var(--text-muted)]">
-                    {stats.sessions} en total
+            <section>
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <h2 className="text-xl font-medium tracking-[-0.025em]">
+                  Sesiones
+                </h2>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {stats.sessions} en total
+                </p>
+              </div>
+              <div className="analytics-history__head grid grid-cols-[78px_minmax(0,1fr)_auto] gap-2 px-3 pb-1.5 text-[11px] text-[color:var(--text-muted)]">
+                <span>Fecha</span>
+                <span>Mejor serie</span>
+                <span className="text-right">Fuerza estimada</span>
+              </div>
+              <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+                {stats.summaries.length ? (
+                  [...stats.summaries]
+                    .reverse()
+                    .slice(0, showAllSessions ? undefined : 6)
+                    .map((item) => (
+                      <div
+                        key={item.sessionKey}
+                        className="grid min-h-11 grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
+                      >
+                        <p className="text-xs font-black">
+                          {formatDate(item.date)}
+                        </p>
+                        <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                          {item.topSet
+                            ? `${item.topSet.weight} kg × ${item.topSet.reps}`
+                            : "Sin top set"}
+                        </p>
+                        <p className="text-right text-sm font-semibold text-[#352018] dark:text-[#e2ff00]">
+                          {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
+                        </p>
+                      </div>
+                    ))
+                ) : (
+                  <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                    Este ejercicio aún no tiene sesiones registradas.
                   </p>
-                </div>
-                <div className="analytics-history__head grid grid-cols-[78px_minmax(0,1fr)_auto] gap-2 px-3 pb-1.5 text-[11px] text-[color:var(--text-muted)]">
-                  <span>Fecha</span>
-                  <span>Mejor serie</span>
-                  <span className="text-right">Fuerza estimada</span>
-                </div>
-                <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
-                  {stats.summaries.length ? (
-                    [...stats.summaries]
-                      .reverse()
-                      .slice(0, showAllSessions ? undefined : 6)
-                      .map((item) => (
-                        <div
-                          key={item.sessionKey}
-                          className="grid min-h-11 grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
-                        >
-                          <p className="text-xs font-black">
-                            {formatDate(item.date)}
-                          </p>
-                          <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                            {item.topSet
-                              ? `${item.topSet.weight} kg × ${item.topSet.reps}`
-                              : "Sin top set"}
-                          </p>
-                          <p className="text-right text-sm font-semibold text-[#352018] dark:text-[#e2ff00]">
-                            {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
-                          </p>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="px-4 py-8 text-center text-sm font-semibold text-[color:var(--text-muted)]">
-                      Este ejercicio aún no tiene sesiones registradas.
-                    </p>
-                  )}
-                </div>
-                {stats.summaries.length > 6 ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllSessions((value) => !value)}
-                    className="mt-3 h-11 w-full text-sm font-semibold text-[color:var(--text)]"
-                  >
-                    {showAllSessions ? "Ver menos" : "Ver más"}
-                  </button>
-                ) : null}
-              </section>
+                )}
+              </div>
+              {stats.summaries.length > 6 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSessions((value) => !value)}
+                  className="mt-3 h-11 w-full text-sm font-semibold text-[color:var(--text)]"
+                >
+                  {showAllSessions ? "Ver menos" : "Ver más"}
+                </button>
+              ) : null}
+            </section>
           ) : (
             <section>
               <div className="mb-3 flex items-end justify-between gap-3">
@@ -701,7 +690,8 @@ export default function ExerciseAnalyticsPage({
                   Historial completo
                 </h2>
                 <p className="text-xs text-[color:var(--text-muted)]">
-                  {stats.sessions} {stats.sessions === 1 ? "sesión" : "sesiones"}
+                  {stats.sessions}{" "}
+                  {stats.sessions === 1 ? "sesión" : "sesiones"}
                 </p>
               </div>
 

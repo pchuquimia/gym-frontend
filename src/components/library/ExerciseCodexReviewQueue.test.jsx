@@ -91,4 +91,25 @@ describe("ExerciseCodexReviewQueue", () => {
       ),
     );
   });
+
+  it("mantiene visibles las propuestas ya revisadas", async () => {
+    apiMocks.getCodexImageReviewQueue.mockResolvedValue({
+      requests: [],
+      recentReviewed: [
+        {
+          ...readyRequest,
+          id: "reviewed-1",
+          status: "applied",
+        },
+      ],
+      summary: { ready: 0, pending: 0, processing: 0, failed: 0 },
+      autoQueue: { enabled: true },
+    });
+
+    renderQueue();
+
+    expect(await screen.findByText("Revisadas recientemente")).toBeVisible();
+    expect(screen.getByText("Aplicada")).toBeVisible();
+    expect(screen.getByText("Press de banca")).toBeVisible();
+  });
 });

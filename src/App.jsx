@@ -46,6 +46,7 @@ const ExerciseAnalyticsPage = lazy(
 const ExerciseHistoryEditor = lazy(
   () => import("./pages/ExerciseHistoryEditor"),
 );
+const ExerciseImageStudio = lazy(() => import("./pages/ExerciseImageStudio"));
 const SessionSummaryPage = lazy(() => import("./pages/SessionSummaryPage"));
 const DataIntelligencePage = lazy(() => import("./pages/DataIntelligencePage"));
 const Routines = lazy(() => import("./pages/Routines"));
@@ -70,6 +71,10 @@ const PAGES = {
     label: "Editor de historial",
     component: ExerciseHistoryEditor,
   },
+  imagenes_ejercicios: {
+    label: "Imágenes de ejercicios",
+    component: ExerciseImageStudio,
+  },
   resumen_sesion: { label: "Resumen diario", component: SessionSummaryPage },
   data_intelligence: {
     label: "Inteligencia de datos",
@@ -89,6 +94,7 @@ const PAGES = {
 
 const PAGE_ROLES = {
   editor_historial: ["Admin"],
+  imagenes_ejercicios: ["Admin"],
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
