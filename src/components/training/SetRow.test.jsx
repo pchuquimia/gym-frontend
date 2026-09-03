@@ -45,11 +45,7 @@ describe("SetRow", () => {
       }),
     );
 
-    expect(props.onChangeEntry).toHaveBeenCalledWith(
-      "entry-1",
-      "kg",
-      "42.5",
-    );
+    expect(props.onChangeEntry).toHaveBeenCalledWith("entry-1", "kg", "42.5");
     expect(props.onChangeEntry).toHaveBeenCalledWith("entry-1", "reps", "8");
     expect(props.onToggleEntry).toHaveBeenCalledWith("entry-1");
   });
@@ -75,5 +71,36 @@ describe("SetRow", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Última sesión")).toBeInTheDocument();
     expect(screen.getByText("40 kg x 10")).toBeInTheDocument();
+  });
+
+  it("evita repetir el numero de una serie simple dentro de su entrada", () => {
+    renderSet();
+
+    expect(screen.queryByText("S1")).not.toBeInTheDocument();
+  });
+
+  it("mantiene las etiquetas de entrada en una biserie", () => {
+    renderSet({
+      seriesType: "biserie",
+      entries: [
+        {
+          id: "entry-1",
+          previousText: "40 kg x 10",
+          kg: "",
+          reps: "",
+          done: false,
+        },
+        {
+          id: "entry-2",
+          previousText: "12 kg x 12",
+          kg: "",
+          reps: "",
+          done: false,
+        },
+      ],
+    });
+
+    expect(screen.getByText("E1")).toBeInTheDocument();
+    expect(screen.getByText("E2")).toBeInTheDocument();
   });
 });

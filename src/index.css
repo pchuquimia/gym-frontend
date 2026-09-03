@@ -3319,12 +3319,16 @@ button,
   }
 
   .training-set-entry {
-    grid-template-columns: 1.5rem minmax(0, 1fr) 4.5rem 4.25rem 2.75rem !important;
+    grid-template-columns: 1.5rem minmax(0, 1fr) 4.25rem 4rem 2.75rem !important;
     gap: 0.5rem !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     padding: 0.25rem 0 0 !important;
+  }
+
+  .training-set-entry--single {
+    grid-template-columns: minmax(0, 1fr) 4.25rem 4rem 2.75rem !important;
   }
 
   .training-set-entry__previous {

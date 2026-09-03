@@ -25,6 +25,19 @@ const FILTERS = [
   { id: "routine", label: "Solo rutinas" },
 ];
 
+const MUSCLE_CATEGORY_ORDER = [
+  "Pecho",
+  "Espalda",
+  "Hombros",
+  "Bíceps",
+  "Tríceps",
+  "Piernas",
+  "Glúteos",
+  "Abdomen",
+];
+
+const MASTER_INSTRUCTION_MAX_LENGTH = 12000;
+
 function ExerciseImageCard({
   item,
   selected,
@@ -152,6 +165,7 @@ export default function ExerciseImageStudio({
   const [mode, setMode] = useState("create");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [muscleCategory, setMuscleCategory] = useState("Pecho");
   const [masterInstruction, setMasterInstruction] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [specificInstructions, setSpecificInstructions] = useState({});
@@ -171,11 +185,19 @@ export default function ExerciseImageStudio({
     () => workspaceQuery.data?.items || [],
     [workspaceQuery.data?.items],
   );
-  const summary = workspaceQuery.data?.summary || {};
   const normalizedSearch = search.trim().toLocaleLowerCase("es");
+  const muscleCategories = useMemo(() => {
+    const available = new Set(items.map((item) => item.primaryMuscleGroup).filter(Boolean));
+    const ordered = MUSCLE_CATEGORY_ORDER.filter((category) => available.has(category));
+    const remaining = [...available]
+      .filter((category) => !MUSCLE_CATEGORY_ORDER.includes(category))
+      .sort((left, right) => left.localeCompare(right, "es"));
+    return ["Todos", ...ordered, ...remaining];
+  }, [items]);
   const visibleItems = useMemo(
     () =>
       items.filter((item) => {
+        if (muscleCategory !== "Todos" && item.primaryMuscleGroup !== muscleCategory) return false;
         if (filter === "active" && !item.inActivePlan) return false;
         if (filter === "routine" && item.planCount) return false;
         if (!normalizedSearch) return true;
@@ -189,7 +211,7 @@ export default function ExerciseImageStudio({
           .toLocaleLowerCase("es")
           .includes(normalizedSearch);
       }),
-    [filter, items, normalizedSearch],
+    [filter, items, muscleCategory, normalizedSearch],
   );
   const selectableVisibleIds = visibleItems
     .filter((item) => item.image && !item.latestRequest?.active)
@@ -271,7 +293,7 @@ export default function ExerciseImageStudio({
             </h1>
           </div>
           <p className="max-w-[380px] text-right text-sm leading-relaxed text-[color:var(--text-muted)]">
-            Primera etapa: ejercicios usados actualmente en planes o rutinas.
+            Gestiona las imágenes de todo el catálogo por grupo muscular.
           </p>
         </header>
 
@@ -326,16 +348,17 @@ export default function ExerciseImageStudio({
                   </p>
                 </div>
                 <span className="text-xs text-[color:var(--text-muted)]">
-                  {masterInstruction.length}/1600
+                  {masterInstruction.length.toLocaleString("es-BO")}/
+                  {MASTER_INSTRUCTION_MAX_LENGTH.toLocaleString("es-BO")} caracteres
                 </span>
               </div>
               <textarea
                 value={masterInstruction}
                 onChange={(event) => setMasterInstruction(event.target.value)}
-                rows={3}
-                maxLength={1600}
+                rows={10}
+                maxLength={MASTER_INSTRUCTION_MAX_LENGTH}
                 placeholder="Ej. conservar el encuadre original, unificar iluminación y mantener fondo gris claro."
-                className="mt-4 w-full resize-y rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3.5 text-sm leading-relaxed text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                className="mt-4 min-h-[240px] w-full resize-y rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3.5 text-sm leading-relaxed text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
               />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
                 <p className="text-sm text-[color:var(--text-muted)]">
@@ -360,11 +383,10 @@ export default function ExerciseImageStudio({
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold tracking-[-0.02em] text-[color:var(--text)]">
-                    En uso ahora
+                    {muscleCategory === "Todos" ? "Biblioteca completa" : muscleCategory}
                   </h2>
                   <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                    {summary.total || 0} ejercicios ·{" "}
-                    {summary.inActivePlan || 0} en planes activos
+                    {visibleItems.length} ejercicios del catálogo
                   </p>
                 </div>
                 <button
@@ -408,6 +430,31 @@ export default function ExerciseImageStudio({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div
+                className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                aria-label="Categorías musculares"
+              >
+                {muscleCategories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    aria-pressed={muscleCategory === category}
+                    onClick={() => {
+                      setMuscleCategory(category);
+                      setSelectedIds([]);
+                      setExpandedId("");
+                    }}
+                    className={`h-9 shrink-0 rounded-full px-4 text-xs font-semibold transition ${
+                      muscleCategory === category
+                        ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                        : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
               </div>
 
               {workspaceQuery.isLoading ? (

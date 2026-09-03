@@ -195,8 +195,8 @@ export default function SetRow({
         <div className="space-y-2">
           {safeEntries.map((entry, entryIdx) => {
             const entryDone = Boolean(entry.done);
-            const entryLabel =
-              seriesType === "serie" ? `S${index}` : `E${entryIdx + 1}`;
+            const isSingleSeries = seriesType === "serie";
+            const entryLabel = isSingleSeries ? null : `E${entryIdx + 1}`;
             const trend = getTrainingSetTrend({
               latestWeight: entry.previousWeight,
               earlierWeight: entry.previousCompareWeight,
@@ -219,15 +219,21 @@ export default function SetRow({
             return (
               <div
                 key={entry.id || `${index}-${entryIdx}`}
-                className={`training-set-entry grid max-w-full grid-cols-[28px_minmax(0,1fr)_74px_68px_44px] items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:grid-cols-[48px_minmax(0,1fr)_88px_80px_44px] sm:gap-2 sm:px-2 ${
+                className={`training-set-entry ${
+                  isSingleSeries
+                    ? "training-set-entry--single grid-cols-[minmax(0,1fr)_68px_64px_44px] sm:grid-cols-[minmax(0,1fr)_80px_72px_44px]"
+                    : "grid-cols-[28px_minmax(0,1fr)_68px_64px_44px] sm:grid-cols-[48px_minmax(0,1fr)_80px_72px_44px]"
+                } grid max-w-full items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-1.5 py-2 sm:gap-2 sm:px-2 ${
                   entryDone
                     ? "bg-[#f0f0f0] text-[color:var(--text-muted)] dark:bg-[#1b1b1b]"
                     : "bg-[color:var(--card)]"
                 }`}
               >
-                <div className="text-xs font-semibold text-[color:var(--text-muted)]">
-                  {entryLabel}
-                </div>
+                {entryLabel ? (
+                  <div className="text-xs font-semibold text-[color:var(--text-muted)]">
+                    {entryLabel}
+                  </div>
+                ) : null}
                 <div
                   className={`training-set-entry__previous flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
                   title={
@@ -250,9 +256,9 @@ export default function SetRow({
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
-                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 dark:rounded-[3px]">
+                <label className="training-set-entry__field grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                    className="min-w-0 bg-transparent text-center text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"
@@ -270,13 +276,13 @@ export default function SetRow({
                     placeholder="0"
                     aria-label={`Peso en kilogramos, ${exerciseName}, serie ${index}`}
                   />
-                  <span className="ml-1 min-w-4 shrink-0 text-left text-[10px] font-black text-[color:var(--text-muted)]">
+                  <span className="text-left text-[10px] font-black text-[color:var(--text-muted)]">
                     {weightUnitLabel}
                   </span>
                 </label>
-                <label className="training-set-entry__field flex h-10 min-w-0 items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1.5 dark:rounded-[3px]">
+                <label className="training-set-entry__field grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.5rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-right text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                    className="min-w-0 bg-transparent text-center text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
                     inputMode="decimal"
                     pattern="[0-9]*[.,]?[0-9]*"
@@ -294,7 +300,7 @@ export default function SetRow({
                     placeholder="0"
                     aria-label={`Repeticiones, ${exerciseName}, serie ${index}`}
                   />
-                  <span className="ml-1 w-5 shrink-0 text-left text-xs font-black text-[color:var(--text-muted)]">
+                  <span className="pr-1 text-left text-xs font-black text-[color:var(--text-muted)]">
                     rep
                   </span>
                 </label>
