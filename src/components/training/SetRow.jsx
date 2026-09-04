@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
   ArrowUpRight,
   Check,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -31,6 +32,8 @@ export default function SetRow({
   onChangeEntry,
   onToggleEntry,
   onRemove,
+  onOpenOptions = null,
+  optionsOpen = false,
 }) {
   const reduceMotion = useReducedMotion();
   const safeEntries = Array.isArray(entries) ? entries : [];
@@ -180,17 +183,37 @@ export default function SetRow({
               </div>
             ) : null}
           </div>
-          {!isMobile && onRemove && (
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              type="button"
-              onClick={() => setDeleteConfirmOpen(true)}
-              className="text-[color:var(--text-muted)] hover:text-red-600 text-lg leading-none px-1"
-              aria-label="Eliminar set"
-            >
-              <X className="h-4 w-4" />
-            </motion.button>
-          )}
+          {onOpenOptions || (!isMobile && onRemove) ? (
+            <div className="flex shrink-0 items-center gap-1">
+              {onOpenOptions ? (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  type="button"
+                  onClick={onOpenOptions}
+                  className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                    optionsOpen
+                      ? "bg-[color:var(--text)] text-[color:var(--card)]"
+                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                  }`}
+                  aria-label={`Opciones de ${exerciseName}`}
+                  aria-expanded={optionsOpen}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                </motion.button>
+              ) : null}
+              {!isMobile && onRemove ? (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="px-1 text-lg leading-none text-[color:var(--text-muted)] hover:text-red-600"
+                  aria-label="Eliminar set"
+                >
+                  <X className="h-4 w-4" />
+                </motion.button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-2">
           {safeEntries.map((entry, entryIdx) => {
@@ -457,4 +480,6 @@ SetRow.propTypes = {
   onChangeEntry: PropTypes.func.isRequired,
   onToggleEntry: PropTypes.func.isRequired,
   onRemove: PropTypes.func,
+  onOpenOptions: PropTypes.func,
+  optionsOpen: PropTypes.bool,
 };

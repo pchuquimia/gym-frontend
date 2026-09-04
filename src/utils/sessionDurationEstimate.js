@@ -81,7 +81,7 @@ const estimateFromRoutine = (routine = {}) => {
   return Math.max(20, Math.round(estimatedSeconds / 60));
 };
 
-export function estimateFullSessionDuration(
+export function getRecentRoutineTrainings(
   routine = {},
   trainings = [],
   { maxHistory = 8 } = {},
@@ -91,7 +91,7 @@ export function estimateFullSessionDuration(
     .trim()
     .toLocaleLowerCase("es");
 
-  const matchingSessions = (Array.isArray(trainings) ? trainings : [])
+  return (Array.isArray(trainings) ? trainings : [])
     .filter((training) => {
       const trainingRoutineId = normalizeId(training?.routineId);
       if (trainingRoutineId && routineIds.has(trainingRoutineId)) return true;
@@ -103,23 +103,36 @@ export function estimateFullSessionDuration(
           .toLocaleLowerCase("es") === routineName
       );
     })
-    .map((training) => ({
-      seconds: getSessionSeconds(training),
-      timestamp: Date.parse(training.date || training.createdAt || 0) || 0,
-    }))
-    .filter(
-      ({ seconds }) =>
+    .filter((training) => {
+      const seconds = getSessionSeconds(training);
+      return (
         seconds >= MIN_VALID_SESSION_SECONDS &&
-        seconds <= MAX_VALID_SESSION_SECONDS,
+        seconds <= MAX_VALID_SESSION_SECONDS
+      );
+    })
+    .sort(
+      (left, right) =>
+        (Date.parse(right.date || right.createdAt || 0) || 0) -
+        (Date.parse(left.date || left.createdAt || 0) || 0),
     )
-    .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, Math.max(1, maxHistory));
+}
+
+export function estimateFullSessionDuration(
+  routine = {},
+  trainings = [],
+  { maxHistory = 8 } = {},
+) {
+  const matchingSessions = getRecentRoutineTrainings(routine, trainings, {
+    maxHistory,
+  }).map((training) => ({ seconds: getSessionSeconds(training) }));
 
   if (matchingSessions.length) {
     const averageSeconds =
       matchingSessions.reduce((sum, session) => sum + session.seconds, 0) /
       matchingSessions.length;
     return {
+      seconds: Math.max(1, Math.round(averageSeconds)),
       minutes: Math.max(1, Math.round(averageSeconds / 60)),
       source: "history",
       sampleSize: matchingSessions.length,
@@ -127,8 +140,10 @@ export function estimateFullSessionDuration(
     };
   }
 
+  const estimatedMinutes = estimateFromRoutine(routine);
   return {
-    minutes: estimateFromRoutine(routine),
+    seconds: estimatedMinutes * 60,
+    minutes: estimatedMinutes,
     source: "estimate",
     sampleSize: 0,
     includesRest: true,

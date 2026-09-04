@@ -16,6 +16,7 @@ describe("estimateFullSessionDuration", () => {
     );
 
     expect(result).toMatchObject({
+      seconds: 3900,
       minutes: 65,
       source: "history",
       sampleSize: 2,
@@ -24,12 +25,12 @@ describe("estimateFullSessionDuration", () => {
   });
 
   it("uses work plus rest when an old session has no total duration", () => {
-    const result = estimateFullSessionDuration(
-      { id: "lower-b" },
-      [{ routineId: "lower-b", workSeconds: 1800, restSeconds: 900 }],
-    );
+    const result = estimateFullSessionDuration({ id: "lower-b" }, [
+      { routineId: "lower-b", workSeconds: 1800, restSeconds: 900 },
+    ]);
 
     expect(result.minutes).toBe(45);
+    expect(result.seconds).toBe(2700);
     expect(result.source).toBe("history");
   });
 
@@ -47,6 +48,7 @@ describe("estimateFullSessionDuration", () => {
     });
 
     expect(result.minutes).toBe(32);
+    expect(result.seconds).toBe(1920);
     expect(result.source).toBe("estimate");
     expect(result.includesRest).toBe(true);
   });

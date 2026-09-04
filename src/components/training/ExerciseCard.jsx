@@ -3,14 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  Check,
   ChevronDown,
-  EllipsisVertical,
   History,
-  Image,
   Play,
   Repeat2,
   Settings2,
-  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import Card from "../ui/card";
@@ -152,9 +150,7 @@ export default function ExerciseCard({
 }) {
   const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
-  const actionsMenuRef = useRef(null);
   const [isHoldingExercise, setIsHoldingExercise] = useState(false);
   const exerciseHoldTimerRef = useRef(null);
   const exerciseHoldStartRef = useRef({ x: 0, y: 0 });
@@ -248,30 +244,9 @@ export default function ExerciseCard({
     }
     if (open) {
       setShowOptions(false);
-      setShowActionsMenu(false);
     }
     onToggleOpen?.();
   };
-
-  useEffect(() => {
-    if (!showActionsMenu) return undefined;
-
-    const closeMenu = (event) => {
-      if (!actionsMenuRef.current?.contains(event.target)) {
-        setShowActionsMenu(false);
-      }
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setShowActionsMenu(false);
-    };
-
-    document.addEventListener("pointerdown", closeMenu);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeMenu);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [showActionsMenu]);
 
   useEffect(
     () => () => {
@@ -323,6 +298,7 @@ export default function ExerciseCard({
   return (
     <motion.div
       data-exercise-id={exercise.id}
+      aria-current={exercise.isActive && !isComplete ? "step" : undefined}
       className={`training-exercise-card relative w-full max-w-full overflow-hidden transition-shadow ${
         isHoldingExercise
           ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45"
@@ -388,65 +364,78 @@ export default function ExerciseCard({
               className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
             />
           </button>
-          <button
-            type="button"
-            onClick={handleToggleOpen}
-            onPointerDown={handleExercisePointerDown}
-            onPointerMove={handleExercisePointerMove}
-            onPointerUp={clearExerciseLongPress}
-            onPointerCancel={clearExerciseLongPress}
-            onPointerLeave={clearExerciseLongPress}
-            onContextMenu={(event) => {
-              if (!readOnly && onRemoveExercise) event.preventDefault();
-            }}
-            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-          >
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <p className="training-exercise-card__title truncate text-lg font-bold leading-tight text-[color:var(--text)]">
-                  {exercise.name}
-                </p>
-                {exercise.isActive && !isComplete && (
-                  <Badge variant="active" className="shrink-0">
-                    En curso
-                  </Badge>
-                )}
-                <AnimatePresence initial={false}>
-                  {isComplete ? (
-                    <motion.span
-                      initial={
-                        reduceMotion
-                          ? { opacity: 0 }
-                          : { opacity: 0, scale: 0.8, x: -4 }
-                      }
-                      animate={{ opacity: 1, scale: 1, x: 0 }}
-                      exit={{ opacity: 0, scale: 0.85 }}
-                    >
-                      <Badge variant="completed" className="shrink-0">
-                        Completado
-                      </Badge>
-                    </motion.span>
+              <button
+                type="button"
+                onClick={handleToggleOpen}
+                onPointerDown={handleExercisePointerDown}
+                onPointerMove={handleExercisePointerMove}
+                onPointerUp={clearExerciseLongPress}
+                onPointerCancel={clearExerciseLongPress}
+                onPointerLeave={clearExerciseLongPress}
+                onContextMenu={(event) => {
+                  if (!readOnly && onRemoveExercise) event.preventDefault();
+                }}
+                className="block w-full text-left"
+                aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
+                aria-expanded={open}
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <p className="training-exercise-card__title line-clamp-2 min-w-0 flex-1 text-lg font-bold leading-tight text-[color:var(--text)]">
+                    {exercise.name}
+                  </p>
+                  {exercise.isActive && !isComplete ? (
+                    <Badge variant="active" className="shrink-0">
+                      En curso
+                    </Badge>
                   ) : null}
-                </AnimatePresence>
-                {hasVariants && (
-                  <span
-                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded border border-[color:var(--accent)] bg-[color:var(--accent)] px-2 text-xs font-black text-[color:var(--accent-contrast)]"
-                    title="Desliza lateralmente para cambiar de ejercicio. Al llegar al final vuelve al inicio."
+                </div>
+              </button>
+              <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                {hasVariants ? (
+                  <>
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
+                      title="Variante actual"
+                    >
+                      <Repeat2 className="h-3 w-3" />
+                      {variantPosition}/{variantTotal}
+                    </span>
+                    <span
+                      className="text-xs text-[color:var(--text-muted)]"
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                  </>
+                ) : null}
+                {referenceDateLabel && onViewTracking ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onViewTracking();
+                    }}
+                    className="training-exercise-card__meta group flex min-w-0 items-center gap-1 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                    aria-label={`Ver historial de ${exercise.name}`}
                   >
-                    <Repeat2 className="h-3.5 w-3.5" />
-                    {variantPosition}/{variantTotal}
-                  </span>
+                    <History className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">
+                      {`Última vez: ${referenceDateLabel}${
+                        exercise.referenceSourceText
+                          ? ` · ${exercise.referenceSourceText}`
+                          : ""
+                      }`}
+                    </span>
+                  </button>
+                ) : (
+                  <p className="training-exercise-card__meta min-w-0 truncate text-xs font-medium text-[color:var(--text-muted)]">
+                    {referenceDateLabel
+                      ? `Última vez: ${referenceDateLabel}`
+                      : "Sin historial previo"}
+                  </p>
                 )}
               </div>
-              <p className="training-exercise-card__meta mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                {referenceDateLabel
-                  ? `Última vez: ${referenceDateLabel}${
-                      exercise.referenceSourceText
-                        ? ` · ${exercise.referenceSourceText}`
-                        : ""
-                    }`
-                  : "Sin fecha previa"}
-              </p>
               {setupNote ? (
                 <div
                   className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)]"
@@ -458,10 +447,27 @@ export default function ExerciseCard({
                 </div>
               ) : null}
             </div>
-            <ChevronDown
-              className={`h-5 w-5 shrink-0 text-[color:var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
-            />
-          </button>
+            {isComplete ? (
+              <span
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
+                title="Completado"
+                aria-label="Completado"
+              >
+                <Check className="h-3.5 w-3.5 stroke-[3]" />
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleToggleOpen}
+              className="grid h-10 w-8 shrink-0 place-items-center text-[color:var(--text-muted)]"
+              aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
+              aria-expanded={open}
+            >
+              <ChevronDown
+                className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
           {!readOnly &&
             onStartNow &&
             !isComplete &&
@@ -493,116 +499,6 @@ export default function ExerciseCard({
                 <Play className="h-4 w-4" />
               </Button>
             )}
-          {open ? (
-            <div
-              className="flex shrink-0 items-center gap-1.5"
-              ref={actionsMenuRef}
-            >
-              <button
-                type="button"
-                className={`overflow-menu-trigger !h-10 !w-10 ${
-                  showActionsMenu
-                    ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--card)]"
-                    : ""
-                }`}
-                onClick={() => setShowActionsMenu((value) => !value)}
-                aria-label={`Acciones de ${exercise.name}`}
-                aria-haspopup="menu"
-                aria-expanded={showActionsMenu}
-              >
-                <EllipsisVertical className="h-5 w-5" />
-              </button>
-              <AnimatePresence>
-                {showActionsMenu ? (
-                  <motion.div
-                    role="menu"
-                    initial={{ opacity: 0, y: -8, scale: 0.94 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -5, scale: 0.96 }}
-                    transition={
-                      reduceMotion
-                        ? { duration: 0 }
-                        : { type: "spring", stiffness: 460, damping: 34 }
-                    }
-                    className="overflow-menu-panel overflow-menu-panel--motion absolute right-3 top-[calc(100%-0.5rem)] z-40 w-52 sm:right-4"
-                  >
-                    {!readOnly &&
-                    onStartNow &&
-                    !isComplete &&
-                    !exercise.isActive ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setShowActionsMenu(false);
-                          onStartNow();
-                        }}
-                        className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                      >
-                        <Play className="h-4 w-4" />
-                        Empezar ejercicio
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setShowActionsMenu(false);
-                        onViewTracking?.();
-                      }}
-                      className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <History className="h-4 w-4" />
-                      Historial
-                    </button>
-                    {!readOnly ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setShowActionsMenu(false);
-                          setShowOptions((value) => !value);
-                        }}
-                        className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                      >
-                        <SlidersHorizontal className="h-4 w-4" />
-                        Opciones
-                        {setupNote ? (
-                          <span className="ml-auto h-2 w-2 rounded-full bg-[#352018] dark:bg-[#e2ff00]" />
-                        ) : null}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setShowActionsMenu(false);
-                        handleOpenDetails();
-                      }}
-                      className="flex h-10 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-bold hover:bg-[color:var(--bg)]"
-                    >
-                      <Image className="h-4 w-4" />
-                      Ver técnica
-                    </button>
-                    {!readOnly && onRemoveExercise ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setShowActionsMenu(false);
-                          setDeleteSheetOpen(true);
-                        }}
-                        className="mt-1 flex h-10 w-full items-center gap-2 border-t border-[color:var(--border)] px-3 pt-1 text-left text-sm font-bold text-red-500"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Eliminar ejercicio
-                      </button>
-                    ) : null}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </div>
-          ) : null}
         </div>
 
         <AnimatePresence initial={false}>
@@ -612,93 +508,94 @@ export default function ExerciseCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.18 }}
-              className="training-exercise-card__expanded flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
+              className="training-exercise-card__expanded relative flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
-              <AnimatePresence initial={false}>
-                {showOptions && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="order-2 overflow-hidden"
-                  >
-                    <div className="mx-4 mb-3 space-y-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                          Serie
-                        </span>
-                        <div className="grid min-w-0 flex-1 grid-cols-3 rounded-full border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1">
-                          {[
-                            ["serie", "Normal"],
-                            ["biserie", "Bi"],
-                            ["triserie", "Tri"],
-                          ].map(([value, label]) => (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => onSeriesTypeChange(value)}
-                              className={`h-8 rounded-full text-xs font-black transition ${
-                                seriesValue === value
-                                  ? "bg-[#352018] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
-                                  : "text-[color:var(--text-muted)]"
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {supportsUnilateral && (
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="shrink-0 text-[13px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                            Modo
-                          </span>
-                          <div className="grid min-w-0 flex-1 grid-cols-2 rounded-full border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1">
+              <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
+                <AnimatePresence initial={false}>
+                  {showOptions && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-3 rounded-xl bg-[color:var(--surface-subtle)] p-3">
+                        <fieldset className="min-w-0">
+                          <legend className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            Formato
+                          </legend>
+                          <div className="mt-1.5 grid grid-cols-3 rounded-lg bg-[color:var(--card)] p-1">
                             {[
-                              ["bilateral", "Bilateral"],
-                              ["unilateral", "Unilateral"],
+                              ["serie", "Normal"],
+                              ["biserie", "Biserie"],
+                              ["triserie", "Triserie"],
                             ].map(([value, label]) => (
                               <button
                                 key={value}
                                 type="button"
-                                onClick={() => onMovementModeChange(value)}
-                                className={`h-8 rounded-full text-xs font-black transition ${
-                                  movementMode === value
+                                onClick={() => onSeriesTypeChange(value)}
+                                aria-pressed={seriesValue === value}
+                                className={`h-9 rounded-md text-xs font-semibold transition-colors ${
+                                  seriesValue === value
                                     ? "bg-[#352018] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
-                                    : "text-[color:var(--text-muted)]"
+                                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
                                 }`}
                               >
                                 {label}
                               </button>
                             ))}
                           </div>
-                        </div>
-                      )}
-                      <label className="block border-t border-[color:var(--border)] pt-3">
-                        <span className="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-[color:var(--text-muted)]">
-                          <Settings2 className="h-3.5 w-3.5" />
-                          Ajuste / configuración
-                        </span>
-                        <input
-                          type="text"
-                          value={exercise.setupNote || ""}
-                          onChange={(event) =>
-                            onSetupNoteChange(event.target.value)
-                          }
-                          maxLength={240}
-                          enterKeyHint="done"
-                          autoComplete="off"
-                          placeholder="Ej. asiento 3 · respaldo 5 · altura 9"
-                          className="h-11 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
-                          aria-label={`Ajuste de ${exercise.name}`}
-                        />
-                      </label>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                        </fieldset>
+                        {supportsUnilateral && (
+                          <fieldset className="min-w-0">
+                            <legend className="text-[11px] font-semibold text-[color:var(--text-muted)]">
+                              Ejecución
+                            </legend>
+                            <div className="mt-1.5 grid grid-cols-2 rounded-lg bg-[color:var(--card)] p-1">
+                              {[
+                                ["bilateral", "Bilateral"],
+                                ["unilateral", "Unilateral"],
+                              ].map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => onMovementModeChange(value)}
+                                  aria-pressed={movementMode === value}
+                                  className={`h-9 rounded-md text-xs font-semibold transition-colors ${
+                                    movementMode === value
+                                      ? "bg-[#352018] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
+                                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </fieldset>
+                        )}
+                        <label className="block">
+                          <span className="mb-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
+                            Ajuste del equipo
+                          </span>
+                          <input
+                            type="text"
+                            value={exercise.setupNote || ""}
+                            onChange={(event) =>
+                              onSetupNoteChange(event.target.value)
+                            }
+                            maxLength={240}
+                            enterKeyHint="done"
+                            autoComplete="off"
+                            placeholder="Ej. asiento 3 · respaldo 5"
+                            className="h-10 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+                            aria-label={`Ajuste de ${exercise.name}`}
+                          />
+                        </label>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-              <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
                 <div className="training-exercise-card__set-list space-y-2">
                   <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
@@ -721,6 +618,12 @@ export default function ExerciseCard({
                         onRemove={
                           readOnly ? undefined : () => onRemoveSet(set.id)
                         }
+                        onOpenOptions={
+                          !readOnly && idx === 0
+                            ? () => setShowOptions((value) => !value)
+                            : undefined
+                        }
+                        optionsOpen={idx === 0 && showOptions}
                       />
                     ))}
                   </AnimatePresence>

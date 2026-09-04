@@ -2094,8 +2094,33 @@ button,
 
 /* training-setup-refresh:start */
 @media (max-width: 639px) {
+  .app-shell:has(.training-setup-page--static) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-shell:has(.training-setup-page--static) > .grid {
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .mobile-app-content:has(.training-setup-page) {
     padding-inline: 0;
+  }
+
+  .mobile-app-content:has(.training-setup-page--static) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .mobile-app-content:has(.training-setup-page--static) > main,
+  .training-shell:has(.training-setup-page--static),
+  .training-shell:has(.training-setup-page--static) > div {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .training-setup-page {
@@ -2111,6 +2136,30 @@ button,
 
   .training-setup-page__content {
     padding-bottom: 1rem;
+  }
+
+  .training-setup-page--static {
+    height: 100%;
+    min-height: 0 !important;
+    overflow: hidden;
+    padding-bottom: 0 !important;
+  }
+
+  .training-setup-page--static .training-setup-page__content,
+  .training-setup-page--static .training-setup-page__planner-fullbleed {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .training-setup-page--static .training-setup-page__content {
+    padding-bottom: 0;
+  }
+
+  .training-setup-page--static .training-schedule {
+    height: 100%;
+    min-height: 0;
   }
 
   .training-schedule {
@@ -2198,6 +2247,16 @@ button,
     color: var(--accent-contrast);
   }
 
+  .training-schedule__day--completed[aria-pressed="true"] {
+    background: var(--surface-subtle);
+    color: var(--text-muted);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  .training-schedule__day-check > svg {
+    color: var(--card);
+  }
+
   .training-schedule__day > span:first-child {
     font-size: 0.625rem;
     font-weight: 500;
@@ -2245,6 +2304,20 @@ button,
     inset: 0;
     height: 100%;
     width: 100%;
+  }
+
+  .training-schedule__selection--completed .training-schedule__hero img {
+    filter: grayscale(0.78) saturate(0.55);
+    opacity: 0.72;
+  }
+
+  .training-schedule__selection--completed .training-schedule__hero-shade {
+    background: linear-gradient(
+      180deg,
+      rgba(18, 16, 14, 0.38) 0%,
+      rgba(18, 16, 14, 0.16) 48%,
+      rgba(18, 16, 14, 0.52) 100%
+    );
   }
 
   .training-schedule__hero img {
@@ -2373,43 +2446,49 @@ button,
     padding-inline: var(--mobile-page-gutter);
   }
 
-  .training-schedule__session-brief {
-    display: flex;
-    min-height: clamp(10rem, 22svh, 13rem);
-    flex-direction: column;
-    justify-content: center;
-    margin: 0 var(--mobile-page-gutter);
-    padding: 1rem 0 1.5rem;
+  .training-schedule__completed-state {
+    height: 3.25rem;
+    margin: 1rem var(--mobile-page-gutter) 0;
+    border: 0;
+    border-radius: 0.875rem;
+    background: var(--surface-subtle);
     color: var(--text);
-    text-align: left;
-  }
-
-  .training-schedule__session-kicker {
-    color: var(--text-muted);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.035em;
-    text-transform: uppercase;
-  }
-
-  .training-schedule__session-focus-title {
-    max-width: 20rem;
-    margin-top: 0.5rem;
-    color: var(--text);
-    font-family: var(--mobile-display-font);
-    font-size: clamp(1.625rem, 7vw, 2rem);
-    font-weight: 500;
-    line-height: 1.08;
-    letter-spacing: -0.04em;
-  }
-
-  .training-schedule__session-workload {
-    margin-top: 0.75rem;
-    color: var(--text-muted);
     font-size: 0.875rem;
-    font-weight: 500;
-    line-height: 1.35;
-    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+
+  .training-schedule__completed-state-icon {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+
+  .training-setup-page--static .training-schedule__days-wrap {
+    flex: none;
+    margin-bottom: 0.75rem;
+  }
+
+  .training-setup-page--static .training-schedule__selection--hero {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 1rem;
+  }
+
+  .training-setup-page--static .training-schedule__hero {
+    height: auto;
+    min-height: 8rem;
+    flex: 1 1 auto;
+  }
+
+  .training-setup-page--static .training-schedule__action-row {
+    flex: none;
+    margin-top: 1rem;
+  }
+
+  .training-setup-page--static .training-schedule__completed-state {
+    flex: none;
   }
 
   .training-schedule-state {

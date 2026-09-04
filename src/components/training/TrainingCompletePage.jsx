@@ -1,6 +1,15 @@
 import PropTypes from "prop-types";
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, Flame, LoaderCircle, RotateCcw } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Flame,
+  Flag,
+  ImagePlus,
+  LoaderCircle,
+  RotateCcw,
+  X,
+} from "lucide-react";
 
 const getSummaryItems = ({
   completedExercises,
@@ -21,9 +30,16 @@ export default function TrainingCompletePage({
   heroImage,
   completedExercises,
   totalExercises,
+  completedSets,
   totalSets,
   durationLabel,
   calorieEstimate,
+  photoPreview,
+  photoError,
+  onPhotoChange,
+  onClearPhoto,
+  progressPercent,
+  isComplete,
   isFinalizing,
   onFinish,
   onDismiss,
@@ -32,7 +48,7 @@ export default function TrainingCompletePage({
   const metrics = getSummaryItems({
     completedExercises,
     totalExercises,
-    totalSets,
+    totalSets: isComplete ? totalSets : `${completedSets}/${totalSets}`,
     durationLabel,
   });
 
@@ -61,7 +77,7 @@ export default function TrainingCompletePage({
         className="w-full max-w-md overflow-hidden bg-[color:var(--bg)] p-0 text-[color:var(--text)]"
       >
         <h2 id="completed-routine-page-title" className="sr-only">
-          Rutina completada
+          {isComplete ? "Rutina completada" : "Resumen del entrenamiento"}
         </h2>
 
         <div className="relative aspect-square w-full overflow-hidden rounded-[1.75rem] bg-[#20150f] text-white">
@@ -98,7 +114,11 @@ export default function TrainingCompletePage({
                 damping: 14,
               }}
             >
-              <Check className="h-8 w-8 stroke-[3]" />
+              {isComplete ? (
+                <Check className="h-8 w-8 stroke-[3]" />
+              ) : (
+                <Flag className="h-7 w-7 stroke-[2.5]" />
+              )}
             </motion.span>
             <motion.p
               className="mt-3 text-base font-medium"
@@ -106,7 +126,7 @@ export default function TrainingCompletePage({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: reduceMotion ? 0 : 0.25, duration: 0.35 }}
             >
-              Completado
+              {isComplete ? "Completado" : "Sesión parcial"}
             </motion.p>
             <motion.p
               className="mt-2 max-w-[90%] text-[1.75rem] font-medium leading-[1.05] tracking-[-0.035em]"
@@ -123,11 +143,7 @@ export default function TrainingCompletePage({
               <motion.div
                 key={metric.label}
                 className={
-                  index === 1
-                    ? "text-center"
-                    : index === 2
-                      ? "text-right"
-                      : ""
+                  index === 1 ? "text-center" : index === 2 ? "text-right" : ""
                 }
                 initial={reduceMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -168,7 +184,7 @@ export default function TrainingCompletePage({
             <div className="flex min-h-16 items-center justify-between gap-4 border-b border-[color:var(--detail-row-divider)]">
               <span className="text-base font-medium">Progreso</span>
               <span className="text-base font-normal text-[color:var(--text-muted)]">
-                100%
+                {progressPercent}%
               </span>
             </div>
             <div className="flex min-h-16 items-center justify-between gap-4">
@@ -176,10 +192,83 @@ export default function TrainingCompletePage({
                 <Flame className="h-4 w-4 text-[#e49a32]" /> Estado
               </span>
               <span className="text-base font-normal text-[color:var(--text-muted)]">
-                Completado
+                {isComplete ? "Completado" : "Finalización anticipada"}
               </span>
             </div>
           </div>
+
+          <section className="mt-4" aria-labelledby="completion-photo-title">
+            <div className="mb-2 flex items-center justify-between gap-3 px-1">
+              <h3
+                id="completion-photo-title"
+                className="text-sm font-semibold text-[color:var(--text)]"
+              >
+                Foto del entrenamiento
+              </h3>
+              <span className="text-xs text-[color:var(--text-muted)]">
+                Opcional
+              </span>
+            </div>
+
+            {photoPreview ? (
+              <div className="relative overflow-hidden rounded-[1.25rem] bg-[color:var(--surface-subtle)]">
+                <img
+                  src={photoPreview}
+                  alt="Vista previa de la foto final"
+                  className="h-40 w-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-2 bg-black/65 p-2 text-white backdrop-blur-sm">
+                  <label className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-white/35 bg-black/30">
+                    <Camera className="h-4 w-4" />
+                    <span className="sr-only">Cambiar foto final</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      className="hidden"
+                      onChange={onPhotoChange}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onClearPhoto}
+                    className="grid h-10 w-10 place-items-center rounded-full border border-white/35 bg-black/30"
+                    aria-label="Quitar foto final"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex min-h-20 cursor-pointer items-center gap-3 rounded-[1.25rem] bg-[color:var(--surface-subtle)] px-4 py-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--card)] text-[#352018] dark:text-[#e2ff00]">
+                  <ImagePlus className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    Tomar o elegir una foto
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Se guardará junto al entrenamiento
+                  </span>
+                </span>
+                <Camera className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onPhotoChange}
+                />
+              </label>
+            )}
+
+            {photoError ? (
+              <p className="mt-2 px-1 text-xs font-semibold text-red-600 dark:text-red-300">
+                {photoError}
+              </p>
+            ) : null}
+          </section>
 
           <motion.button
             type="button"
@@ -196,7 +285,7 @@ export default function TrainingCompletePage({
             {isFinalizing ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
             ) : null}
-            {isFinalizing ? "Guardando" : "Continuar"}
+            {isFinalizing ? "Guardando" : "Finalizar entrenamiento"}
           </motion.button>
 
           <button
@@ -220,6 +309,7 @@ TrainingCompletePage.propTypes = {
   heroImage: PropTypes.string,
   completedExercises: PropTypes.number.isRequired,
   totalExercises: PropTypes.number.isRequired,
+  completedSets: PropTypes.number.isRequired,
   totalSets: PropTypes.number.isRequired,
   durationLabel: PropTypes.string.isRequired,
   calorieEstimate: PropTypes.shape({
@@ -228,6 +318,12 @@ TrainingCompletePage.propTypes = {
     minCalories: PropTypes.number,
     maxCalories: PropTypes.number,
   }),
+  photoPreview: PropTypes.string,
+  photoError: PropTypes.string,
+  onPhotoChange: PropTypes.func.isRequired,
+  onClearPhoto: PropTypes.func.isRequired,
+  progressPercent: PropTypes.number.isRequired,
+  isComplete: PropTypes.bool.isRequired,
   isFinalizing: PropTypes.bool,
   onFinish: PropTypes.func.isRequired,
   onDismiss: PropTypes.func.isRequired,

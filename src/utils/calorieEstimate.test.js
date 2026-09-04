@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countCompletedTrainingSets,
+  estimateRoutineCaloriesFromHistory,
   estimateTrainingCalories,
   summarizeCalorieEstimates,
 } from "./calorieEstimate";
@@ -175,5 +176,39 @@ describe("estimateTrainingCalories", () => {
     expect(summary.sessions).toBe(2);
     expect(summary.calories).toBe(first.calories + second.calories);
     expect(summary.minCalories).toBe(first.minCalories + second.minCalories);
+  });
+});
+
+describe("estimateRoutineCaloriesFromHistory", () => {
+  it("promedia el mismo tiempo activo y las calorías que usa el dashboard", () => {
+    const result = estimateRoutineCaloriesFromHistory(
+      { id: "lower-b", name: "Lower B" },
+      [
+        {
+          routineId: "lower-b",
+          date: "2026-08-20",
+          durationSeconds: 5880,
+          workSeconds: 1200,
+          restSeconds: 600,
+          preparationSeconds: 4080,
+        },
+        {
+          routineId: "lower-b",
+          date: "2026-08-13",
+          durationSeconds: 5400,
+          workSeconds: 1500,
+          restSeconds: 900,
+          preparationSeconds: 3000,
+        },
+      ],
+      { weightKg: 75 },
+    );
+
+    expect(result).toMatchObject({
+      activeSeconds: 2100,
+      sampleSize: 2,
+      source: "history",
+    });
+    expect(result.calories).toBeGreaterThan(0);
   });
 });

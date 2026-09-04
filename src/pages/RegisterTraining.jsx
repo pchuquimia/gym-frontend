@@ -34,7 +34,6 @@ import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPlanner";
 import AutoRestCountdownModal from "../components/training/AutoRestCountdownModal";
 import AutoRestCompleteModal from "../components/training/AutoRestCompleteModal";
-import TrainingCompletionPanel from "../components/training/TrainingCompletionPanel";
 import TrainingCompletePage from "../components/training/TrainingCompletePage";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
@@ -195,6 +194,78 @@ const formatDuration = (sec) => {
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
 };
+
+const formatMinuteDuration = (sec) => {
+  const totalSeconds = Math.max(0, Math.floor(Number(sec) || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+function AnimatedTimerSegment({ value, reduceMotion }) {
+  return (
+    <span className="relative inline-grid h-[1em] min-w-[2ch] overflow-hidden text-center leading-none">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={value}
+          className="col-start-1 row-start-1"
+          initial={reduceMotion ? false : { y: "55%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { y: "-55%", opacity: 0 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.22,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
+function AnimatedMinuteTimer({
+  seconds,
+  running = false,
+  reduceMotion = false,
+  className = "",
+}) {
+  const [minutesValue, secondsValue] = formatMinuteDuration(seconds).split(":");
+
+  return (
+    <span
+      className={`inline-flex items-center tabular-nums ${className}`}
+      role="timer"
+      aria-label={`${Number(minutesValue)} minutos y ${Number(secondsValue)} segundos`}
+    >
+      <span aria-hidden="true" className="inline-flex items-center">
+        <AnimatedTimerSegment
+          value={minutesValue}
+          reduceMotion={reduceMotion}
+        />
+        <motion.span
+          className="mx-[0.08em] -translate-y-[0.04em]"
+          animate={
+            running && !reduceMotion
+              ? { opacity: [1, 0.28, 1] }
+              : { opacity: 1 }
+          }
+          transition={
+            running && !reduceMotion
+              ? { duration: 1, ease: "easeInOut", repeat: Infinity }
+              : { duration: 0.15 }
+          }
+        >
+          :
+        </motion.span>
+        <AnimatedTimerSegment
+          value={secondsValue}
+          reduceMotion={reduceMotion}
+        />
+      </span>
+    </span>
+  );
+}
 
 const branchMeta = {
   sopocachi: {
@@ -1213,23 +1284,13 @@ function AdminAutoFlowControl({
   ];
 
   return (
-    <div className="border border-[color:var(--border)] bg-[color:var(--bg)] p-3 dark:bg-[#171717]">
+    <div className="rounded-xl px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Timer className="h-4 w-4 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-[color:var(--text)]">
-                Flujo automatico
-              </span>
-              <span className="bg-[#352018] px-1.5 py-0.5 text-[9px] font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black">
-                Beta
-              </span>
-            </div>
-            <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-              Descanso y siguiente paso
-            </p>
-          </div>
+          <Timer className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+          <span className="text-sm font-semibold text-[color:var(--text)]">
+            Flujo automático
+          </span>
         </div>
         <button
           type="button"
@@ -1237,22 +1298,22 @@ function AdminAutoFlowControl({
           aria-checked={enabled}
           aria-label="Activar flujo automatico beta"
           onClick={() => onToggle(!enabled)}
-          className={`relative h-8 w-14 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:focus:ring-[#e2ff00]/30 ${
+          className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)] ${
             enabled
               ? "border-[#352018] bg-[#352018] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
               : "border-[color:var(--border)] bg-[color:var(--card)] shadow-inner"
           }`}
         >
           <span
-            className={`absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-md transition-transform dark:bg-[#111] ${
-              enabled ? "translate-x-6" : "translate-x-0"
+            className={`absolute left-1 top-1 h-[1.125rem] w-[1.125rem] rounded-full bg-white shadow-sm transition-transform dark:bg-[#111] ${
+              enabled ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>
       </div>
       {enabled ? (
         <div
-          className="mt-3 grid grid-cols-4 gap-1.5"
+          className="mt-2 grid grid-cols-4 gap-1.5 pl-6"
           aria-label="Duracion del descanso"
         >
           {durationOptions.map(({ seconds, label }) => (
@@ -1260,10 +1321,10 @@ function AdminAutoFlowControl({
               key={seconds}
               type="button"
               onClick={() => onDurationChange(seconds)}
-              className={`h-9 rounded-md border px-1 text-xs font-black tabular-nums transition-colors ${
+              className={`h-8 rounded-lg px-1 text-xs font-semibold tabular-nums transition-colors ${
                 durationSeconds === seconds
-                  ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
-                  : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                  ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
               }`}
             >
               {label}
@@ -1597,15 +1658,6 @@ export default function RegisterTraining({
     selectedRoutine,
     selectedPlanContext,
   );
-  const selectedHistoryPlan = useMemo(
-    () =>
-      trainingPlans.find(
-        (plan) => String(plan?._id || plan?.id || "") === selectedHistoryPlanId,
-      ) || null,
-    [selectedHistoryPlanId, trainingPlans],
-  );
-  const selectedHistoryPlanName =
-    selectedHistoryPlan?.name || "el plan seleccionado";
   const libraryExerciseOptions = useMemo(() => {
     const seen = new Set();
     return (libraryExercises || [])
@@ -2813,8 +2865,7 @@ export default function RegisterTraining({
     }
 
     focusExerciseBelowToolbar(destination.exerciseId, {
-      delay: destination.type === "exercise" ? 380 : 340,
-      setId: destinationSet?.id || "",
+      delay: 380,
       highlight: true,
     });
   };
@@ -4255,6 +4306,8 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    setFinishWarningOpen(false);
+    setFinishWarningExercises([]);
     setCompletionPageOpen(false);
     resumedAfterCompletionRef.current = false;
     finalizingRef.current = false;
@@ -5271,8 +5324,8 @@ export default function RegisterTraining({
   };
 
   const getIncompleteExercisesForFinish = () =>
-    exercises.filter((ex) => {
-      const sets = Array.isArray(ex.sets) ? ex.sets : [];
+    exercises.filter((exercise) => {
+      const sets = Array.isArray(exercise.sets) ? exercise.sets : [];
       if (!sets.length) return false;
       return !sets.every((set) => isSetDone(set));
     });
@@ -5281,8 +5334,6 @@ export default function RegisterTraining({
     if (finalizingRef.current) return;
     finalizingRef.current = true;
     setIsFinalizing(true);
-    setFinishWarningOpen(false);
-    setFinishWarningExercises([]);
     setSessionMenuOpen(false);
     setDesktopSessionMenuOpen(false);
     const releaseFinalization = () => {
@@ -5533,13 +5584,32 @@ export default function RegisterTraining({
       toast.error("Registra al menos una serie antes de finalizar.");
       return;
     }
+    if (isEditing) {
+      await confirmFinishTraining();
+      return;
+    }
     const incompleteExercises = getIncompleteExercisesForFinish();
     if (incompleteExercises.length) {
       setFinishWarningExercises(incompleteExercises);
       setFinishWarningOpen(true);
       return;
     }
-    await confirmFinishTraining();
+    pauseForRoutineCompletion();
+  };
+
+  const handleConfirmEarlyFinish = () => {
+    setFinishWarningOpen(false);
+    setFinishWarningExercises([]);
+    pauseForRoutineCompletion();
+  };
+
+  const handleReturnToPendingExercise = (exerciseId) => {
+    const targetId =
+      exerciseId || finishWarningExercises.find((exercise) => exercise.id)?.id;
+    setFinishWarningOpen(false);
+    if (!targetId) return;
+    setExpandedExerciseId(targetId);
+    focusExerciseBelowToolbar(targetId, { delay: 180 });
   };
 
   const performCancel = () => {
@@ -5809,9 +5879,7 @@ export default function RegisterTraining({
       )
     : 0;
   const restTimerDone = restTimerStarted && restRemainingSeconds <= 0;
-  const restTimerLabel = restTimerDone
-    ? "Listo"
-    : formatDuration(restRemainingSeconds);
+  const restTimerLabel = formatMinuteDuration(restRemainingSeconds);
   const showAutoRestCountdown = Boolean(
     isAdmin &&
     autoFlowEnabled &&
@@ -5829,18 +5897,25 @@ export default function RegisterTraining({
     !restTimerMinimized,
   );
 
-  if (completionPageOpen && sessionComplete) {
+  if (completionPageOpen && !isHistoryReadOnly) {
     return (
       <TrainingCompletePage
         routineName={selectorRoutine?.name || "Entrenamiento"}
         heroImage={getTrainingCompletionHeroImage(selectorRoutine)}
         completedExercises={completedExercises}
         totalExercises={exercises.length}
+        completedSets={doneSets}
         totalSets={totalSets}
+        progressPercent={progressPct}
+        isComplete={sessionComplete}
         durationLabel={formatDuration(durationSeconds)}
         calorieEstimate={calorieEstimate}
+        photoPreview={trainingPhotoPreview}
+        photoError={trainingPhotoError}
+        onPhotoChange={handleTrainingPhotoChange}
+        onClearPhoto={clearTrainingPhoto}
         isFinalizing={isFinalizing}
-        onFinish={handleFinish}
+        onFinish={confirmFinishTraining}
         onDismiss={handleDismissCompletionPage}
       />
     );
@@ -6037,66 +6112,64 @@ export default function RegisterTraining({
               aria-label="Cerrar menu"
               onClick={() => setSessionMenuOpen(false)}
             />
-            <div className="overflow-menu-sheet absolute inset-x-0 bottom-0 rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-2xl">
-              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-[color:var(--border)]" />
-              <div className="space-y-2">
-                {isAdmin ? (
-                  <AdminAutoFlowControl
-                    enabled={autoFlowEnabled}
-                    durationSeconds={restDurationSeconds}
-                    onToggle={handleAutoFlowToggle}
-                    onDurationChange={handleAutoFlowDurationChange}
-                  />
-                ) : null}
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="session-options-title"
+              className="overflow-menu-sheet absolute inset-x-0 bottom-0 rounded-t-[2rem] border-x border-t border-[color:var(--border)] bg-[color:var(--card)] pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl"
+            >
+              <div className="mx-auto my-3 h-1 w-10 rounded-full bg-[color:var(--border)]" />
+              <div className="flex items-center justify-between px-5 pb-2">
+                <h2
+                  id="session-options-title"
+                  className="text-lg font-black text-[color:var(--text)]"
+                >
+                  Opciones
+                </h2>
                 <button
                   type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
-                  onClick={() => {
-                    setSessionMenuOpen(false);
-                    if (isRunning) handlePause();
-                    else handleStart();
-                  }}
+                  className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]"
+                  aria-label="Cerrar opciones"
+                  onClick={() => setSessionMenuOpen(false)}
                 >
-                  <span>
-                    {isRunning ? "Pausar cronometro" : "Reanudar entrenamiento"}
-                  </span>
-                  {isRunning ? (
-                    <Pause className="h-4 w-4" />
-                  ) : (
-                    <Play className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]"
-                  onClick={() => {
-                    setSessionMenuOpen(false);
-                    handleEditRoutineFromTraining();
-                  }}
-                >
-                  <span>Editar rutina activa</span>
-                  <ClipboardList className="h-4 w-4" />
-                </button>
-                <div className="flex h-12 w-full items-center justify-between rounded-2xl bg-[color:var(--bg)] px-4 text-sm font-bold text-[color:var(--text)]">
-                  <span>Apariencia</span>
-                  <ThemeToggle compact />
-                </div>
-                <button
-                  type="button"
-                  className="flex h-12 w-full items-center justify-between rounded-2xl border border-red-500/25 bg-red-500/10 px-4 text-sm font-bold text-red-700 dark:text-red-300"
-                  onClick={handleCancel}
-                >
-                  <span>Cancelar entrenamiento</span>
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <button
-                type="button"
-                className="mt-3 h-11 w-full rounded-2xl border border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
-                onClick={() => setSessionMenuOpen(false)}
-              >
-                Cerrar
-              </button>
+              <div className="px-2">
+                <div className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+                  <span>Apariencia</span>
+                  <ThemeToggle compact />
+                </div>
+                {isAdmin ? (
+                  <div>
+                    <AdminAutoFlowControl
+                      enabled={autoFlowEnabled}
+                      durationSeconds={restDurationSeconds}
+                      onToggle={handleAutoFlowToggle}
+                      onDurationChange={handleAutoFlowDurationChange}
+                    />
+                    <button
+                      type="button"
+                      className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
+                      onClick={() => {
+                        setSessionMenuOpen(false);
+                        handleEditRoutineFromTraining();
+                      }}
+                    >
+                      <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
+                      <span>Editar rutina activa</span>
+                    </button>
+                  </div>
+                ) : null}
+                <div className="mx-3 mt-3 border-t border-[color:var(--border)]" />
+                <button
+                  type="button"
+                  className="mt-1 h-11 w-full rounded-xl text-sm font-semibold text-[color:var(--danger)] transition hover:bg-[color:var(--surface-subtle)]"
+                  onClick={handleCancel}
+                >
+                  Cancelar entrenamiento
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -6148,7 +6221,14 @@ export default function RegisterTraining({
         </div>
 
         {!setupStarted && !isEditing ? (
-          <section className="training-setup-page mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col px-[6px] pb-28 md:min-h-0 md:max-w-4xl md:px-0 md:pb-0">
+          <section
+            className={`training-setup-page mx-auto flex min-h-[calc(100dvh-96px)] w-full max-w-md flex-col px-[6px] pb-28 md:min-h-0 md:max-w-4xl md:px-0 md:pb-0 ${
+              branchReady &&
+              import.meta.env.VITE_SHOW_LEGACY_ROUTINE_PICKER !== "true"
+                ? "training-setup-page--static"
+                : ""
+            }`}
+          >
             <MobilePageHeader
               title="Entrenar"
               className="training-setup-page__header"
@@ -6542,28 +6622,32 @@ export default function RegisterTraining({
                           role="menu"
                           className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64"
                         >
+                          <div className="flex min-h-11 items-center justify-between rounded-xl px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+                            <span>Apariencia</span>
+                            <ThemeToggle compact />
+                          </div>
                           {isAdmin ? (
-                            <div className="mb-1.5">
+                            <div>
                               <AdminAutoFlowControl
                                 enabled={autoFlowEnabled}
                                 durationSeconds={restDurationSeconds}
                                 onToggle={handleAutoFlowToggle}
                                 onDurationChange={handleAutoFlowDurationChange}
                               />
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                                onClick={() => {
+                                  setDesktopSessionMenuOpen(false);
+                                  handleEditRoutineFromTraining();
+                                }}
+                              >
+                                <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
+                                Editar rutina
+                              </button>
                             </div>
                           ) : null}
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
-                            onClick={() => {
-                              setDesktopSessionMenuOpen(false);
-                              handleEditRoutineFromTraining();
-                            }}
-                          >
-                            <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
-                            Editar rutina
-                          </button>
                           {showResetButton ? (
                             <button
                               type="button"
@@ -6580,14 +6664,13 @@ export default function RegisterTraining({
                           ) : null}
                           {showCancelButton ? (
                             <>
-                              <div className="my-1 border-t border-[color:var(--border)]" />
+                              <div className="mx-2 mt-1 border-t border-[color:var(--border)]" />
                               <button
                                 type="button"
                                 role="menuitem"
-                                className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-300"
+                                className="mt-1 h-10 w-full text-center text-sm font-semibold text-[color:var(--danger)] transition-colors hover:bg-[color:var(--surface-subtle)]"
                                 onClick={handleCancel}
                               >
-                                <X className="h-4 w-4" />
                                 Cancelar entrenamiento
                               </button>
                             </>
@@ -6667,57 +6750,83 @@ export default function RegisterTraining({
           <section className="space-y-3 md:hidden">
             <article
               data-training-overview
-              className={`rounded-xl border bg-[color:var(--card)] p-4 shadow-lg ${
+              className={`relative isolate min-h-[164px] overflow-hidden rounded-[1.5rem] border shadow-[0_16px_36px_rgba(18,18,18,0.18)] ${
                 sessionComplete
-                  ? "border-[#352018]/60 dark:border-[#e2ff00]/55"
-                  : "border-[color:var(--border)]"
+                  ? "border-[#352018]/70 dark:border-[#e2ff00]/60"
+                  : "border-white/15"
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-condensed text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
+              <motion.img
+                key={getTrainingCompletionHeroImage(selectorRoutine)}
+                src={getTrainingCompletionHeroImage(selectorRoutine)}
+                alt=""
+                initial={reduceMotion ? false : { scale: 1.06, opacity: 0.82 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.75,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
+              />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/90 via-black/65 to-black/25" />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.45,
+                  delay: reduceMotion ? 0 : 0.12,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="flex min-h-[164px] flex-col justify-between p-4 text-white"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
                     {isHistoryReadOnly
                       ? "Sesión registrada"
                       : sessionComplete
                         ? "Rutina completada"
                         : "Rutina activa"}
-                  </p>
-                  <h2 className="mt-1.5 truncate font-condensed text-2xl font-black uppercase leading-none text-[#352018] dark:text-[#e2ff00]">
+                  </span>
+                  <strong className="font-condensed text-2xl font-black tabular-nums drop-shadow-sm">
+                    {progressPct}%
+                  </strong>
+                </div>
+
+                <div>
+                  <h2 className="truncate font-condensed text-[2rem] font-black uppercase leading-none tracking-[-0.02em] drop-shadow-sm">
                     {selectorRoutine?.name || "Rutina seleccionada"}
                   </h2>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-white/80">
+                    <span>
+                      {doneSets} de {totalSets} series
+                    </span>
+                    <span>
+                      {completedExercises} de {exercises.length} ejercicios
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
+                    role="progressbar"
+                    aria-label="Progreso de series"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={progressPct}
+                  >
+                    <motion.span
+                      className="block h-full rounded-full bg-white"
+                      initial={reduceMotion ? false : { width: 0 }}
+                      animate={{ width: `${progressPct}%` }}
+                      transition={{
+                        duration: reduceMotion ? 0 : 0.65,
+                        delay: reduceMotion ? 0 : 0.2,
+                        ease: [0.16, 1, 0.3, 1],
+                      }}
+                    />
+                  </div>
                 </div>
-                <strong className="shrink-0 font-condensed text-xl font-black tabular-nums text-[#352018] dark:text-[#e2ff00]">
-                  {progressPct}%
-                </strong>
-              </div>
-
-              <div className="mt-4 flex items-end justify-between gap-4">
-                <div>
-                  <p className="font-condensed text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                    Series completadas
-                  </p>
-                  <p className="mt-1 font-condensed text-2xl font-black leading-none text-[color:var(--text)]">
-                    {doneSets}/{totalSets}
-                  </p>
-                </div>
-                <p className="pb-0.5 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {completedExercises}/{formatExerciseCount(exercises.length)}
-                </p>
-              </div>
-
-              <div
-                className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--border)]"
-                role="progressbar"
-                aria-label="Progreso de series"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-valuenow={progressPct}
-              >
-                <span
-                  className="block h-full rounded-full bg-[#352018] transition-[width] duration-300 dark:bg-[#e2ff00]"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
+              </motion.div>
             </article>
           </section>
         )}
@@ -7056,25 +7165,6 @@ export default function RegisterTraining({
         </div>
       </div>
 
-      {sessionComplete ? (
-        <div className="mx-auto w-full max-w-full px-0 pb-28 md:max-w-5xl md:px-4 lg:max-w-7xl 2xl:max-w-[1500px]">
-          <TrainingCompletionPanel
-            routineName={selectorRoutine?.name || "Entrenamiento"}
-            completedExercises={completedExercises}
-            totalExercises={exercises.length}
-            totalSets={totalSets}
-            durationLabel={formatDuration(durationSeconds)}
-            calorieEstimate={calorieEstimate}
-            photoPreview={trainingPhotoPreview}
-            photoError={trainingPhotoError}
-            onPhotoChange={handleTrainingPhotoChange}
-            onClearPhoto={clearTrainingPhoto}
-            onFinish={handleFinish}
-            isFinalizing={isFinalizing}
-          />
-        </div>
-      ) : null}
-
       {showExercisePicker && (
         <Modal
           title="Agregar ejercicio"
@@ -7236,82 +7326,66 @@ export default function RegisterTraining({
 
       {showTracking && trackingExercise && (
         <Modal
-          title={`Seguimiento: ${trackingExercise.name}`}
-          subtitle="Historial de todas las series registradas por fecha."
+          title="Historial"
+          mobilePage
+          dialogClassName="sm:max-w-4xl"
+          contentClassName="max-sm:px-4 max-sm:pb-8 sm:p-6"
           onClose={() => {
             setShowTracking(false);
             setTrackingExerciseId("");
           }}
-          footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowTracking(false);
-                setTrackingExerciseId("");
-              }}
-            >
-              Cerrar
-            </Button>
-          }
         >
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="h-20 w-[76px] shrink-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]">
-                  <ExerciseThumbnail
-                    src={getExerciseImageUrl(trackingExercise, {
-                      width: 240,
-                      height: 240,
-                    })}
-                    alt=""
-                    fallback={(trackingExercise.name || "?")
-                      .charAt(0)
-                      .toUpperCase()}
-                    className="h-full w-full text-sm font-black"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-semibold text-[color:var(--text)] truncate">
-                    {trackingExercise.name}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-[11px]">
-                      {trackingExercise.seriesType || "serie"}
-                    </Badge>
-                    {trackingExercise.supportsUnilateral && (
-                      <Badge variant="secondary" className="text-[11px]">
-                        {trackingExercise.movementMode === "unilateral"
-                          ? "unilateral"
-                          : "bilateral"}
-                      </Badge>
-                    )}
-                    {trackingExercise.equipment?.length ? (
-                      <Badge variant="secondary" className="text-[11px]">
-                        Equipo · {trackingExercise.equipment.join(", ")}
-                      </Badge>
-                    ) : null}
-                    <span className="text-xs text-[color:var(--text-muted)]">
-                      {historyViewScope === "general" && loadingGeneralHistory
-                        ? "Cargando historial general"
-                        : visibleTrackingRows.length
-                          ? `${visibleTrackingRows.length} sesiones compatibles`
-                          : "Sin registros previos"}
-                    </span>
-                  </div>
-                </div>
+          <div className="mx-auto max-w-3xl space-y-4">
+            <div className="flex items-center gap-3 rounded-2xl bg-[color:var(--surface-subtle)] p-3 sm:p-4">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[color:var(--bg)] sm:h-20 sm:w-20">
+                <ExerciseThumbnail
+                  src={getExerciseImageUrl(trackingExercise, {
+                    width: 240,
+                    height: 240,
+                  })}
+                  alt=""
+                  fallback={(trackingExercise.name || "?")
+                    .charAt(0)
+                    .toUpperCase()}
+                  className="h-full w-full text-sm font-black"
+                />
               </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-bold tracking-[-0.01em] text-[color:var(--text)] sm:text-lg">
+                  {trackingExercise.name}
+                </p>
+                <p className="mt-1 truncate text-xs font-medium capitalize text-[color:var(--text-muted)]">
+                  {trackingExercise.seriesType || "serie"}
+                  {trackingExercise.supportsUnilateral
+                    ? ` · ${
+                        trackingExercise.movementMode === "unilateral"
+                          ? "unilateral"
+                          : "bilateral"
+                      }`
+                    : ""}
+                  {trackingExercise.equipment?.length
+                    ? ` · ${trackingExercise.equipment.join(", ")}`
+                    : ""}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-[color:var(--card)] px-2.5 py-1 text-xs font-bold tabular-nums text-[color:var(--text-muted)] shadow-sm">
+                {historyViewScope === "general" && loadingGeneralHistory
+                  ? "…"
+                  : `${visibleTrackingRows.length} ${
+                      visibleTrackingRows.length === 1 ? "sesión" : "sesiones"
+                    }`}
+              </span>
             </div>
 
             <div
-              className="grid grid-cols-3 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--segmented-surface)] p-1"
+              className="grid grid-cols-3 gap-1 rounded-2xl bg-[color:var(--segmented-surface)] p-1"
               role="tablist"
-              aria-label="Alcance del historial"
+              aria-label="Categoría del historial"
             >
               {[
-                ["routine", "Esta rutina"],
-                ["plan", "Este plan"],
-                ["general", "General"],
+                ["routine", "Rutina"],
+                ["plan", "Plan"],
+                ["general", "Todo"],
               ].map(([scope, label]) => (
                 <button
                   key={scope}
@@ -7320,28 +7394,27 @@ export default function RegisterTraining({
                   aria-selected={historyViewScope === scope}
                   disabled={scope === "plan" && !selectedHistoryPlanId}
                   onClick={() => setHistoryViewScope(scope)}
-                  className={`min-h-10 px-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`relative min-h-10 rounded-xl px-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                     historyViewScope === scope
-                      ? "theme-accent-solid"
+                      ? "text-[color:var(--text)]"
                       : "text-[color:var(--text-muted)]"
                   }`}
                 >
-                  {label}
+                  {historyViewScope === scope ? (
+                    <motion.span
+                      layoutId="history-scope-selection"
+                      className="absolute inset-0 rounded-xl bg-[color:var(--card)] shadow-sm"
+                      transition={{
+                        type: "spring",
+                        stiffness: 420,
+                        damping: 34,
+                      }}
+                    />
+                  ) : null}
+                  <span className="relative z-10">{label}</span>
                 </button>
               ))}
             </div>
-
-            {historyViewScope === "plan" ? (
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
-                <p className="text-sm font-semibold text-[color:var(--text)]">
-                  Historial en {selectedHistoryPlanName}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                  Incluye las sesiones compatibles de este ejercicio en todas
-                  las rutinas de la planificación.
-                </p>
-              </div>
-            ) : null}
 
             {historyViewScope === "general" && loadingGeneralHistory ? (
               <div
@@ -7368,14 +7441,31 @@ export default function RegisterTraining({
               </div>
             ) : visibleTrackingRows.length ? (
               <div className="overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
-                <table className="min-w-full w-full text-sm">
-                  <thead className="bg-[color:var(--bg)]">
+                <table
+                  className={`w-full border-separate border-spacing-0 text-sm ${
+                    trackingSetCount <= 4 ? "table-fixed" : "min-w-max"
+                  }`}
+                  style={
+                    trackingSetCount > 4
+                      ? { minWidth: `${96 + trackingSetCount * 96}px` }
+                      : undefined
+                  }
+                >
+                  <thead>
                     <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      <th className="px-3 py-2">Fecha</th>
+                      <th className="sticky left-0 z-20 w-[24%] border-b border-r border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-2.5 sm:w-auto sm:min-w-28 sm:px-3">
+                        Fecha
+                      </th>
                       {Array.from({ length: trackingSetCount || 0 }).map(
                         (_, idx) => (
-                          <th key={`set-head-${idx}`} className="px-3 py-2">
-                            Serie {idx + 1}
+                          <th
+                            key={`set-head-${idx}`}
+                            className="border-b border-[color:var(--border)] bg-[color:var(--bg)] px-1 py-2.5 text-center sm:min-w-28 sm:px-3 sm:text-left"
+                          >
+                            <span className="sm:hidden">{idx + 1}</span>
+                            <span className="hidden sm:inline">
+                              Serie {idx + 1}
+                            </span>
                           </th>
                         ),
                       )}
@@ -7383,20 +7473,41 @@ export default function RegisterTraining({
                   </thead>
                   <tbody>
                     {visibleTrackingRows.map((row, rowIdx) => (
-                      <tr
+                      <motion.tr
                         key={row.id || `${row.date}-${rowIdx}`}
-                        className="border-t border-[color:var(--border)]"
+                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: reduceMotion ? 0 : 0.2,
+                          delay: reduceMotion
+                            ? 0
+                            : Math.min(rowIdx * 0.025, 0.14),
+                        }}
+                        className="group"
                       >
-                        <td className="px-3 py-2">
-                          <div className="font-semibold text-[color:var(--text)]">
+                        <td
+                          className={`sticky left-0 z-10 border-r border-b border-[color:var(--border)] px-2 py-3 transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 ${
+                            rowIdx === 0
+                              ? "bg-[color:var(--surface-subtle)]"
+                              : "bg-[color:var(--card)]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-[color:var(--text)] sm:text-sm">
                             {row.date ? formatShort(row.date) : "--"}
+                            {rowIdx === 0 ? (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+                                title="Sesión más reciente"
+                                aria-label="Sesión más reciente"
+                              />
+                            ) : null}
                           </div>
                           {getExerciseTrackingRoutineLabel(
                             row,
                             historyViewScope,
                           ) ? (
                             <div
-                              className="mt-0.5 max-w-36 truncate text-[11px] text-[color:var(--text-muted)]"
+                              className="mt-0.5 truncate text-[9px] text-[color:var(--text-muted)] sm:max-w-36 sm:text-[11px]"
                               title={getExerciseTrackingRoutineLabel(
                                 row,
                                 historyViewScope,
@@ -7409,7 +7520,7 @@ export default function RegisterTraining({
                             </div>
                           ) : null}
                           {!locationDisabled ? (
-                            <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
+                            <div className="mt-0.5 hidden text-[11px] text-[color:var(--text-muted)] sm:block">
                               {row.branch
                                 ? formatBranchLabel(row.branch)
                                 : "Sin sucursal"}
@@ -7423,7 +7534,7 @@ export default function RegisterTraining({
                               return (
                                 <td
                                   key={`set-cell-${rowIdx}-${idx}`}
-                                  className="px-3 py-2 text-[color:var(--text-muted)]"
+                                  className="border-b border-[color:var(--border)] px-1 py-3 text-center text-[color:var(--text-muted)] transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
                                 >
                                   --
                                 </td>
@@ -7432,21 +7543,21 @@ export default function RegisterTraining({
                             return (
                               <td
                                 key={`set-cell-${rowIdx}-${idx}`}
-                                className="px-3 py-2"
+                                className="border-b border-[color:var(--border)] px-1 py-3 text-center transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
                               >
                                 <div className="flex flex-col gap-1">
                                   {entries.length > 1 ? (
                                     entries.map((entry, entryIdx) => (
                                       <span
                                         key={`entry-${rowIdx}-${idx}-${entryIdx}`}
-                                        className="text-[11px] text-[color:var(--text)]"
+                                        className="whitespace-nowrap text-[10px] font-semibold tracking-[-0.03em] tabular-nums text-[color:var(--text)] sm:text-xs sm:tracking-normal"
                                       >
                                         E{entryIdx + 1}:{" "}
                                         {formatEntryValue(entry)}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-[11px] text-[color:var(--text)]">
+                                    <span className="whitespace-nowrap text-[10px] font-semibold tracking-[-0.03em] tabular-nums text-[color:var(--text)] sm:text-xs sm:tracking-normal">
                                       {formatEntryValue(entries[0])}
                                     </span>
                                   )}
@@ -7455,7 +7566,7 @@ export default function RegisterTraining({
                             );
                           },
                         )}
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -7534,98 +7645,96 @@ export default function RegisterTraining({
       <AnimatePresence>
         {finishWarningOpen ? (
           <motion.div
-            className="fixed inset-0 z-[80] flex items-end bg-black/55 px-0 backdrop-blur-sm md:items-center md:justify-center md:p-4"
+            className="fixed inset-0 z-[80] flex items-end bg-black/55 backdrop-blur-sm md:items-center md:justify-center md:p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <motion.section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="early-finish-title"
               initial={{ y: 28, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 28, opacity: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 26 }}
-              className="w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl md:max-w-md md:rounded-3xl md:pb-4"
+              className="relative w-full overflow-hidden rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] pb-[calc(1rem+env(safe-area-inset-bottom))] text-[color:var(--text)] shadow-2xl md:max-w-lg md:rounded-[2rem] md:pb-0"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
-                    Revision pendiente
-                  </p>
-                  <h2 className="mt-1 text-xl font-black leading-tight">
-                    Hay series sin marcar
-                  </h2>
-                  <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
-                    Puedes volver y completar las marcas, o finalizar guardando
-                    solo lo registrado.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFinishWarningOpen(false)}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text)]"
-                  aria-label="Cerrar advertencia"
+              <div className="px-5 pb-5 pt-5 md:px-6 md:pb-6">
+                <h2
+                  id="early-finish-title"
+                  className="text-xl font-black leading-tight tracking-[-0.02em]"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                  {finishWarningExercises.length === 1
+                    ? "Falta un ejercicio"
+                    : `Faltan ${finishWarningExercises.length} ejercicios`}
+                </h2>
+                <p className="mt-1.5 text-sm text-[color:var(--text-muted)]">
+                  Puedes volver y completar lo pendiente antes de finalizar.
+                </p>
 
-              <div className="mt-4 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] p-3 text-[color:var(--accent-contrast)] dark:rounded-[4px]">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black text-current">
-                    {finishWarningExercises.length} ejercicio(s) pendientes
-                  </p>
-                  <span className="rounded border border-current px-2 py-1 text-[10px] font-black uppercase text-current">
-                    Atencion
-                  </span>
-                </div>
-                <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+                <div className="mt-4 max-h-56 space-y-2 overflow-y-auto">
                   {finishWarningExercises.map((exercise) => {
-                    const sets = Array.isArray(exercise.sets)
-                      ? exercise.sets
-                      : [];
-                    const pendingSets = sets.filter(
+                    const pendingSets = (exercise.sets || []).filter(
                       (set) => !isSetDone(set),
                     ).length;
+                    const exerciseImage = getExerciseImageUrl(exercise, {
+                      width: 180,
+                      height: 180,
+                    });
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={exercise.id}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--card)] px-3 py-2"
+                        onClick={() =>
+                          handleReturnToPendingExercise(exercise.id)
+                        }
+                        className="group flex w-full items-center gap-3 rounded-2xl bg-[color:var(--surface-subtle)] p-2 text-left transition hover:bg-[color:var(--surface)] focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)]"
+                        aria-label={`Volver a ${exercise.name}`}
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-black">
+                        <ExerciseThumbnail
+                          src={exerciseImage}
+                          alt=""
+                          fallback={(exercise.name || "?")
+                            .charAt(0)
+                            .toUpperCase()}
+                          className="h-16 w-16 rounded-xl text-lg font-black"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-[color:var(--text)]">
                             {exercise.name}
-                          </p>
-                          <p className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {exercise.muscle || "Sin grupo"}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-red-500/10 px-2 py-1 text-[10px] font-black text-red-600 dark:text-red-300">
-                          {pendingSets} pendiente(s)
+                          </span>
+                          <span className="mt-1 block text-xs font-medium text-[color:var(--text-muted)]">
+                            {pendingSets}{" "}
+                            {pendingSets === 1 ? "serie" : "series"} pendiente
+                            {pendingSets === 1 ? "" : "s"}
+                          </span>
                         </span>
-                      </div>
+                        <ArrowRight className="mr-1 h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-hover:translate-x-0.5" />
+                      </button>
                     );
                   })}
                 </div>
-              </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                <Button
-                  type="button"
-                  className="h-12 rounded-2xl !bg-[#352018] text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
-                  onClick={() => setFinishWarningOpen(false)}
-                >
-                  Volver a completar
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 rounded-lg border-[#352018]/40 text-[#2a1711] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
-                  onClick={confirmFinishTraining}
-                >
-                  Finalizar de todos modos
-                </Button>
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    type="button"
+                    className="h-12 rounded-2xl !bg-[#352018] font-semibold text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                    onClick={() => handleReturnToPendingExercise()}
+                  >
+                    Continuar entrenamiento
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 rounded-xl text-[color:var(--text-muted)]"
+                    onClick={handleConfirmEarlyFinish}
+                  >
+                    Finalizar de todos modos
+                  </Button>
+                </div>
               </div>
-            </motion.div>
+            </motion.section>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -7638,40 +7747,52 @@ export default function RegisterTraining({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <button
+              type="button"
+              className="absolute inset-0"
+              aria-label="Continuar entrenamiento"
+              onClick={() => setCancelConfirmOpen(false)}
+            />
+            <motion.section
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="cancel-training-title"
+              aria-describedby="cancel-training-description"
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
-              className="w-full rounded-t-3xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl md:max-w-md md:rounded-3xl md:pb-4"
+              className="relative w-full rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-sm md:rounded-[2rem] md:px-6 md:pb-6 md:pt-6"
             >
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
-                Descartar sesión
-              </p>
-              <h2 className="mt-1 text-xl font-black text-[color:var(--text)]">
-                ¿Cancelar este entrenamiento?
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[color:var(--border)] md:hidden" />
+              <h2
+                id="cancel-training-title"
+                className="text-xl font-black text-[color:var(--text)]"
+              >
+                ¿Cancelar entrenamiento?
               </h2>
-              <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-                Se perderán los pesos, series y cambios que todavía no hayas
-                guardado.
+              <p
+                id="cancel-training-description"
+                className="mt-2 text-sm leading-5 text-[color:var(--text-muted)]"
+              >
+                Se perderán los datos registrados en esta sesión.
               </p>
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <div className="mt-5 grid gap-1">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-12 rounded-xl"
+                  className="h-12 rounded-xl !bg-[#352018] text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                   onClick={() => setCancelConfirmOpen(false)}
                 >
-                  Continuar entrenando
+                  Seguir entrenando
                 </Button>
-                <Button
+                <button
                   type="button"
-                  className="h-12 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                  className="h-11 rounded-xl text-sm font-semibold text-[color:var(--danger)] transition hover:bg-[color:var(--surface-subtle)]"
                   onClick={performCancel}
                 >
-                  Descartar sesión
-                </Button>
+                  Sí, cancelar entrenamiento
+                </button>
               </div>
-            </motion.div>
+            </motion.section>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -7702,30 +7823,50 @@ export default function RegisterTraining({
           !showAutoRestCountdown &&
           !showAutoRestComplete && (
             <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              className="fixed inset-0 z-50 bg-[color:var(--bg)] text-[color:var(--text)] md:grid md:place-items-center md:bg-black/60 md:p-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 text-[color:var(--text)] backdrop-blur-sm md:items-center md:p-6"
             >
-              <div className="flex min-h-dvh flex-col px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5 md:min-h-0 md:w-full md:max-w-md md:border md:border-[color:var(--border)] md:bg-[color:var(--card)] md:p-6 md:shadow-2xl">
+              <button
+                type="button"
+                className="absolute inset-0"
+                aria-label="Minimizar temporizador"
+                onClick={() => setRestTimerMinimized(true)}
+              />
+              <motion.section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rest-timer-title"
+                initial={
+                  reduceMotion ? false : { y: 80, scale: 0.98, opacity: 0 }
+                }
+                animate={{ y: 0, scale: 1, opacity: 1 }}
+                exit={
+                  reduceMotion
+                    ? { opacity: 0 }
+                    : { y: 48, scale: 0.98, opacity: 0 }
+                }
+                transition={{
+                  type: reduceMotion ? "tween" : "spring",
+                  stiffness: 300,
+                  damping: 30,
+                }}
+                className="relative w-full overflow-y-auto rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-md md:rounded-[2rem] md:p-6"
+              >
+                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[color:var(--border)] md:hidden" />
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
-                      Descanso
-                    </p>
-                    <p className="text-lg font-semibold">
-                      {restTimerDone
-                        ? "Tiempo completado"
-                        : restTimerRunning
-                          ? "Temporizador activo"
-                          : "Temporizador listo"}
-                    </p>
-                  </div>
+                  <h2
+                    id="rest-timer-title"
+                    className="text-lg font-bold tracking-[-0.02em]"
+                  >
+                    Temporizador
+                  </h2>
                   <div className="flex items-center gap-2">
                     <Button
                       size="icon"
-                      variant="outline"
-                      className="rounded-full"
+                      variant="ghost"
+                      className="h-10 w-10 rounded-full bg-[color:var(--surface-subtle)]"
                       onClick={() => setRestTimerMinimized(true)}
                       aria-label="Minimizar temporizador"
                     >
@@ -7734,7 +7875,7 @@ export default function RegisterTraining({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="rounded-full"
+                      className="h-10 w-10 rounded-full"
                       onClick={handleCloseRestTimer}
                       aria-label="Cerrar temporizador"
                     >
@@ -7743,64 +7884,158 @@ export default function RegisterTraining({
                   </div>
                 </div>
 
-                <div className="flex flex-1 flex-col items-center justify-center gap-8">
-                  <div
-                    className="grid h-72 w-72 place-items-center rounded-full p-4 shadow-2xl"
-                    style={{
-                      background: `conic-gradient(var(--accent) ${restProgressPct}%, rgba(148,163,184,0.22) ${restProgressPct}% 100%)`,
-                    }}
+                <div className="mx-auto mt-6 w-full max-w-sm">
+                  <motion.div
+                    className="relative isolate flex min-h-52 items-center justify-center overflow-hidden rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-9 shadow-[0_18px_50px_rgba(53,32,24,0.10)] dark:shadow-[0_18px_55px_rgba(0,0,0,0.35)]"
+                    animate={
+                      restTimerDone && !reduceMotion
+                        ? { scale: [1, 1.025, 1] }
+                        : { scale: 1 }
+                    }
+                    transition={{ duration: 0.45, ease: "easeOut" }}
                   >
-                    <div className="grid h-full w-full place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-center">
-                      <div>
-                        <p className="font-mono text-6xl font-bold tracking-normal">
-                          {restTimerLabel}
-                        </p>
-                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
-                          {restTimerDone
-                            ? "Descanso terminado"
-                            : `${restProgressPct}%`}
-                        </p>
-                      </div>
+                    <motion.div
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-1/2 -z-10 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#352018]/10 blur-3xl dark:bg-[#e2ff00]/10"
+                      animate={
+                        restTimerRunning && !reduceMotion
+                          ? {
+                              scale: [0.9, 1.35, 0.9],
+                              opacity: [0.28, 0.7, 0.28],
+                            }
+                          : { scale: 1, opacity: restTimerDone ? 0.8 : 0.35 }
+                      }
+                      transition={
+                        restTimerRunning && !reduceMotion
+                          ? {
+                              duration: 2.4,
+                              ease: "easeInOut",
+                              repeat: Infinity,
+                            }
+                          : { duration: 0.3 }
+                      }
+                    />
+                    <div className="relative flex items-center justify-center overflow-hidden">
+                      <AnimatedMinuteTimer
+                        seconds={restRemainingSeconds}
+                        running={restTimerRunning}
+                        reduceMotion={Boolean(reduceMotion)}
+                        className={`font-mono text-[clamp(4.5rem,21vw,6.75rem)] font-medium tracking-[-0.08em] ${
+                          restTimerDone
+                            ? "text-[#352018] dark:text-[#e2ff00]"
+                            : "text-[color:var(--text)]"
+                        }`}
+                      />
                     </div>
-                  </div>
+                    <div
+                      className="absolute inset-x-8 bottom-5 h-1 overflow-hidden rounded-full bg-[color:var(--border)]"
+                      role="progressbar"
+                      aria-label="Progreso del descanso"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow={restProgressPct}
+                    >
+                      <motion.div
+                        className="h-full origin-left rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+                        animate={{ width: `${restProgressPct}%` }}
+                        transition={{
+                          duration: reduceMotion ? 0 : 0.35,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                      />
+                    </div>
+                  </motion.div>
 
-                  <div className="w-full max-w-sm space-y-4">
-                    <div className="grid grid-cols-4 gap-2">
+                  <div className="mt-5 space-y-3">
+                    <div className="grid grid-cols-4 gap-1 rounded-2xl bg-[color:var(--surface-subtle)] p-1">
                       {[1, 2, 3, 5].map((minutes) => (
-                        <Button
+                        <button
+                          type="button"
                           key={minutes}
-                          variant={
-                            restMinutesInput === minutes ? "default" : "outline"
-                          }
-                          className="rounded-full"
+                          className={`relative h-10 rounded-xl text-sm font-semibold transition-colors ${
+                            restMinutesInput === minutes
+                              ? "text-[color:var(--text)]"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
                           onClick={() => handleStartRestTimer(minutes)}
                         >
-                          {minutes}m
-                        </Button>
+                          {restMinutesInput === minutes ? (
+                            <motion.span
+                              layoutId="rest-duration-selection"
+                              className="absolute inset-0 rounded-xl bg-[color:var(--card)] shadow-sm"
+                              transition={{
+                                type: "spring",
+                                stiffness: 420,
+                                damping: 34,
+                              }}
+                            />
+                          ) : null}
+                          <span className="relative z-10">
+                            {minutes}
+                            <span className="ml-0.5 text-[10px]">min</span>
+                          </span>
+                        </button>
                       ))}
                     </div>
 
-                    <label className="block space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                        Minutos
+                    <div className="flex h-14 items-center justify-between rounded-2xl border border-[color:var(--border)] px-4">
+                      <span className="text-sm font-medium text-[color:var(--text-muted)]">
+                        Duración
                       </span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={restMinutesInput}
-                        onChange={(event) =>
-                          setRestMinutesInput(
-                            Math.max(1, Number(event.target.value) || 1),
-                          )
-                        }
-                        className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-center text-lg font-semibold text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:rounded-[3px] dark:focus:ring-[#e2ff00]/30"
-                      />
-                    </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRestMinutesInput((current) =>
+                              Math.max(1, Number(current) - 1),
+                            )
+                          }
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-lg text-[color:var(--text)]"
+                          aria-label="Reducir un minuto"
+                        >
+                          −
+                        </button>
+                        <label className="flex items-baseline gap-1">
+                          <span className="sr-only">
+                            Minutos personalizados
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={restMinutesInput}
+                            onChange={(event) =>
+                              setRestMinutesInput(
+                                Math.min(
+                                  30,
+                                  Math.max(1, Number(event.target.value) || 1),
+                                ),
+                              )
+                            }
+                            className="w-9 bg-transparent text-center text-lg font-bold tabular-nums text-[color:var(--text)] outline-none"
+                          />
+                          <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                            min
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRestMinutesInput((current) =>
+                              Math.min(30, Number(current) + 1),
+                            )
+                          }
+                          className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-lg text-[color:var(--text)]"
+                          aria-label="Aumentar un minuto"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
 
                     {restTimerDone && autoFlowTarget ? (
                       <Button
-                        className="h-12 w-full rounded-full bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                        className="h-12 w-full rounded-2xl bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
                         onClick={handleBeginNextSeries}
                       >
                         <Play className="h-4 w-4" />
@@ -7809,7 +8044,7 @@ export default function RegisterTraining({
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
                         <Button
-                          className={`h-12 rounded-full ${
+                          className={`h-12 rounded-2xl ${
                             restTimerRunning
                               ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
                               : "bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
@@ -7831,16 +8066,16 @@ export default function RegisterTraining({
                         </Button>
                         <Button
                           variant="outline"
-                          className="h-12 rounded-full"
+                          className="h-12 rounded-2xl"
                           onClick={handleResetRestTimer}
                         >
-                          Reiniciar cronómetro
+                          Reiniciar
                         </Button>
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.section>
             </motion.div>
           )}
       </AnimatePresence>

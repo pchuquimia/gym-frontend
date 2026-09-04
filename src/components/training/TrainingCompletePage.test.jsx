@@ -7,7 +7,10 @@ const renderModal = (overrides = {}) => {
     routineName: "Upper A",
     completedExercises: 5,
     totalExercises: 5,
+    completedSets: 16,
     totalSets: 16,
+    progressPercent: 100,
+    isComplete: true,
     durationLabel: "00:42:18",
     calorieEstimate: {
       available: true,
@@ -15,6 +18,10 @@ const renderModal = (overrides = {}) => {
       minCalories: 280,
       maxCalories: 402,
     },
+    photoPreview: "",
+    photoError: "",
+    onPhotoChange: vi.fn(),
+    onClearPhoto: vi.fn(),
     isFinalizing: false,
     onFinish: vi.fn(),
     onDismiss: vi.fn(),
@@ -25,7 +32,7 @@ const renderModal = (overrides = {}) => {
 };
 
 describe("TrainingCompletePage", () => {
-  it("muestra el cierre de la rutina y permite guardarla", () => {
+  it("muestra el cierre de la rutina y permite finalizarla", () => {
     const { props } = renderModal();
 
     expect(
@@ -43,6 +50,46 @@ describe("TrainingCompletePage", () => {
     expect(props.onFinish).toHaveBeenCalledOnce();
   });
 
+  it("ofrece adjuntar una foto antes de finalizar", () => {
+    renderModal();
+
+    expect(screen.getByText("Tomar o elegir una foto")).toBeInTheDocument();
+    expect(screen.getByText("Opcional")).toBeInTheDocument();
+  });
+
+  it("muestra la foto elegida y permite quitarla", () => {
+    const { props } = renderModal({ photoPreview: "workout.webp" });
+
+    expect(
+      screen.getByRole("img", { name: "Vista previa de la foto final" }),
+    ).toHaveAttribute("src", "workout.webp");
+    fireEvent.click(screen.getByRole("button", { name: "Quitar foto final" }));
+    expect(props.onClearPhoto).toHaveBeenCalledOnce();
+  });
+
+  it("presenta un resumen parcial cuando se finaliza anticipadamente", () => {
+    renderModal({
+      completedExercises: 3,
+      totalExercises: 5,
+      completedSets: 9,
+      totalSets: 16,
+      progressPercent: 56,
+      isComplete: false,
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Resumen del entrenamiento" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sesión parcial")).toBeInTheDocument();
+    expect(screen.getByText("3/5")).toBeInTheDocument();
+    expect(screen.getByText("9/16")).toBeInTheDocument();
+    expect(screen.getByText("56%")).toBeInTheDocument();
+    expect(screen.getByText("Finalización anticipada")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Finalizar entrenamiento" }),
+    ).toBeInTheDocument();
+  });
+
   it("vuelve al entrenamiento desde la acción secundaria", () => {
     const { props } = renderModal();
 
@@ -55,9 +102,7 @@ describe("TrainingCompletePage", () => {
   it("bloquea las acciones mientras se guarda la sesion", () => {
     renderModal({ isFinalizing: true });
 
-    expect(
-      screen.getByRole("button", { name: "Finalizando" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Finalizando" })).toBeDisabled();
     screen
       .getAllByRole("button", { name: "Volver al entrenamiento" })
       .forEach((button) => expect(button).toBeDisabled());

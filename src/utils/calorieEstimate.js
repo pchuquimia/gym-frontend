@@ -1,4 +1,5 @@
 import { estimateSetWorkSeconds } from "./trainingTiming";
+import { getRecentRoutineTrainings } from "./sessionDurationEstimate";
 
 const DEFAULT_REFERENCE_WEIGHT_KG = 75;
 const REST_SECONDS_PER_INTERVAL = 2 * 60;
@@ -36,11 +37,7 @@ const fitSegmentsToDuration = (workSeconds, restSeconds, durationSeconds) => {
 };
 
 const getActiveSegmentCalories = (met, seconds, weightKg) =>
-  (Math.max(0, met - BASELINE_MET) *
-    3.5 *
-    weightKg *
-    (seconds / 60)) /
-  200;
+  (Math.max(0, met - BASELINE_MET) * 3.5 * weightKg * (seconds / 60)) / 200;
 
 const setLooksCompleted = (set = {}) => {
   const entries = Array.isArray(set.entries) ? set.entries : [];
@@ -98,9 +95,8 @@ export function estimateTrainingCalories(
   const hasWorkTracking = hasTrackedNumber(training.workSeconds);
   const hasRestTracking = hasTrackedNumber(training.restSeconds);
   const hasTimingBreakdown = hasWorkTracking || hasRestTracking;
-  const eventWorkSeconds = (Array.isArray(training.timeEvents)
-    ? training.timeEvents
-    : []
+  const eventWorkSeconds = (
+    Array.isArray(training.timeEvents) ? training.timeEvents : []
   )
     .filter((event) => event?.type === "set_complete")
     .reduce((sum, event) => sum + toPositiveNumber(event.workSeconds), 0);
@@ -108,18 +104,16 @@ export function estimateTrainingCalories(
     hasWorkTracking &&
     (eventWorkSeconds > 0 || hasTrackedNumber(training.preparationSeconds));
   const estimatedWorkSeconds = estimateCompletedWorkSeconds(training);
-  const recordedWorkSeconds = eventWorkSeconds ||
+  const recordedWorkSeconds =
+    eventWorkSeconds ||
     (hasReliableStoredWork ? Number(training.workSeconds) : 0);
-  const workWasEstimated =
-    completedSets > 0 && recordedWorkSeconds <= 0;
+  const workWasEstimated = completedSets > 0 && recordedWorkSeconds <= 0;
   const durationWasEstimated = !recordedSeconds && completedSets > 0;
   const breakdownWasEstimated =
-    completedSets > 0 &&
-    (!hasTimingBreakdown || workWasEstimated);
+    completedSets > 0 && (!hasTimingBreakdown || workWasEstimated);
 
-  let workSeconds = recordedWorkSeconds > 0
-    ? recordedWorkSeconds
-    : estimatedWorkSeconds;
+  let workSeconds =
+    recordedWorkSeconds > 0 ? recordedWorkSeconds : estimatedWorkSeconds;
   let restSeconds = hasRestTracking
     ? Number(training.restSeconds)
     : Math.max(0, completedSets - 1) * REST_SECONDS_PER_INTERVAL;
@@ -155,6 +149,7 @@ export function estimateTrainingCalories(
       minCalories: 0,
       maxCalories: 0,
       durationMinutes: 0,
+      activeSeconds: 0,
       sessionMinutes: Math.round(sessionMinutes),
       workMinutes: 0,
       restMinutes: 0,
@@ -177,12 +172,8 @@ export function estimateTrainingCalories(
     : 0;
   const workMinutes = workSeconds / 60;
   const setsPerWorkMinute = workMinutes ? completedSets / workMinutes : 0;
-  const setPaceScore = completedSets
-    ? clamp(setsPerWorkMinute / 0.5, 0, 1)
-    : 0;
-  const workMet = usesWholeSessionFallback
-    ? 3.5
-    : 3.5 + setPaceScore * 1.5;
+  const setPaceScore = completedSets ? clamp(setsPerWorkMinute / 0.5, 0, 1) : 0;
+  const workMet = usesWholeSessionFallback ? 3.5 : 3.5 + setPaceScore * 1.5;
   const workCalories = getActiveSegmentCalories(
     workMet,
     workSeconds,
@@ -208,6 +199,7 @@ export function estimateTrainingCalories(
     minCalories: Math.max(1, Math.round(calories * (1 - uncertainty))),
     maxCalories: Math.max(1, Math.round(calories * (1 + uncertainty))),
     durationMinutes: Math.round(durationMinutes),
+    activeSeconds: Math.max(0, Math.round(calculatedSeconds)),
     sessionMinutes: Math.round(sessionMinutes),
     workMinutes: Math.round(workMinutes),
     restMinutes: Math.round(restSeconds / 60),
@@ -223,6 +215,35 @@ export function estimateTrainingCalories(
     breakdownWasEstimated,
     activeCalories: true,
     available: true,
+  };
+}
+
+export function estimateRoutineCaloriesFromHistory(
+  routine = {},
+  trainings = [],
+  { maxHistory = 8, ...calorieOptions } = {},
+) {
+  const estimates = getRecentRoutineTrainings(routine, trainings, {
+    maxHistory,
+  })
+    .map((training) => estimateTrainingCalories(training, calorieOptions))
+    .filter((estimate) => estimate.available && estimate.activeSeconds > 0);
+
+  if (!estimates.length) return null;
+
+  const average = (field) =>
+    estimates.reduce(
+      (total, estimate) => total + Number(estimate[field] || 0),
+      0,
+    ) / estimates.length;
+
+  return {
+    calories: Math.max(1, Math.round(average("calories"))),
+    minCalories: Math.max(1, Math.round(average("minCalories"))),
+    maxCalories: Math.max(1, Math.round(average("maxCalories"))),
+    activeSeconds: Math.max(1, Math.round(average("activeSeconds"))),
+    sampleSize: estimates.length,
+    source: "history",
   };
 }
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ExerciseCard from "./ExerciseCard";
 
@@ -52,10 +52,57 @@ describe("ExerciseCard", () => {
   });
 
   it("ignora notas compuestas únicamente por espacios", () => {
-    render(
-      <ExerciseCard exercise={createExercise("   ")} {...defaultProps} />,
-    );
+    render(<ExerciseCard exercise={createExercise("   ")} {...defaultProps} />);
 
     expect(screen.queryByText("Ajuste:")).toBeNull();
+  });
+
+  it("abre el historial desde la fecha sin expandir la tarjeta", () => {
+    const exercise = createExercise();
+    exercise.sets[0].entries[0].previousDate = "2026-08-28";
+    const onViewTracking = vi.fn();
+    const onToggleOpen = vi.fn();
+
+    render(
+      <ExerciseCard
+        exercise={exercise}
+        {...defaultProps}
+        onToggleOpen={onToggleOpen}
+        onViewTracking={onViewTracking}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Ver historial de Press en máquina" }),
+    );
+
+    expect(onViewTracking).toHaveBeenCalledOnce();
+    expect(onToggleOpen).not.toHaveBeenCalled();
+  });
+
+  it("identifica visual y semánticamente el ejercicio en curso", () => {
+    const exercise = { ...createExercise(), isActive: true };
+    const { container } = render(
+      <ExerciseCard exercise={exercise} {...defaultProps} />,
+    );
+
+    expect(screen.getByText("En curso")).toBeInTheDocument();
+    expect(
+      container.querySelector('[aria-current="step"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("muestra las opciones directamente desde la tarjeta desplegada", () => {
+    render(<ExerciseCard exercise={createExercise()} {...defaultProps} open />);
+
+    const optionsButton = screen.getByRole("button", {
+      name: "Opciones de Press en máquina",
+    });
+    expect(optionsButton).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(optionsButton);
+
+    expect(optionsButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Ajuste del equipo")).toBeInTheDocument();
   });
 });

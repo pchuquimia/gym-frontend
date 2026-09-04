@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 
 export default function AutoRestCountdownModal({
@@ -12,44 +12,80 @@ export default function AutoRestCountdownModal({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[70] grid place-items-center bg-black/20 p-5 backdrop-blur-[2px] dark:bg-black/45"
+      className="fixed inset-0 z-[70] grid place-items-center bg-black/30 p-5 backdrop-blur-sm dark:bg-black/55"
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={reduceMotion ? { opacity: 0 } : { opacity: 0 }}
+      exit={{ opacity: 0 }}
       role="dialog"
       aria-modal="true"
       aria-label={`Descanso automático: ${timeLabel}`}
     >
       <motion.div
-        className="relative aspect-square w-full max-w-[280px] drop-shadow-[0_24px_38px_rgba(18,18,18,0.28)] dark:drop-shadow-[0_28px_44px_rgba(0,0,0,0.72)]"
-        initial={reduceMotion ? false : { opacity: 0, scale: 0.92, y: 12 }}
+        className="relative isolate flex min-h-52 w-full max-w-[340px] items-center justify-center overflow-hidden rounded-[2rem] border border-white/60 bg-[color:var(--card)] px-8 py-10 shadow-[0_28px_80px_rgba(18,18,18,0.26)] dark:border-white/10 dark:shadow-[0_32px_90px_rgba(0,0,0,0.65)]"
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.94, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
-        transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
+        exit={
+          reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }
+        }
+        transition={{
+          type: reduceMotion ? "tween" : "spring",
+          stiffness: 300,
+          damping: 28,
+        }}
       >
+        <motion.span
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#352018]/10 blur-3xl dark:bg-[#e2ff00]/10"
+          animate={
+            reduceMotion
+              ? { opacity: 0.4 }
+              : {
+                  scale: [0.9, 1.35, 0.9],
+                  opacity: [0.3, 0.75, 0.3],
+                }
+          }
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 2.4, ease: "easeInOut", repeat: Infinity }
+          }
+        />
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.output
+            key={timeLabel}
+            className="font-mono text-[clamp(4.5rem,22vw,6.5rem)] font-medium tabular-nums leading-none tracking-[-0.08em] text-[color:var(--text)]"
+            initial={reduceMotion ? false : { y: "35%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: "-35%", opacity: 0 }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.22,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            aria-live="polite"
+          >
+            {timeLabel}
+          </motion.output>
+        </AnimatePresence>
         <div
-          className="grid h-full w-full place-items-center rounded-full p-[10px] shadow-[0_0_42px_rgba(53,32,24,0.2)] dark:shadow-[0_0_48px_rgba(226,255,0,0.18)]"
-          style={{
-            background: `conic-gradient(var(--accent) ${progress}%, color-mix(in srgb, var(--border) 72%, transparent) ${progress}% 100%)`,
-          }}
+          className="absolute inset-x-8 bottom-5 h-1 overflow-hidden rounded-full bg-[color:var(--border)]"
           role="progressbar"
           aria-valuemin="0"
           aria-valuemax="100"
           aria-valuenow={progress}
         >
-          <div className="grid h-full w-full place-items-center rounded-full border border-white/70 bg-[color:var(--card)]/95 shadow-[inset_0_0_28px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/15 dark:shadow-[inset_0_0_32px_rgba(0,0,0,0.4)]">
-            <output
-              className="font-condensed text-6xl font-black tabular-nums leading-none text-[color:var(--text)]"
-              aria-live="polite"
-            >
-              {timeLabel}
-            </output>
-          </div>
+          <motion.span
+            className="block h-full rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+            animate={{ width: `${progress}%` }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.35,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+          />
         </div>
         <button
           type="button"
           onClick={onExit}
-          className="absolute right-1 top-1 grid h-11 w-11 place-items-center rounded-full border border-white/70 bg-[color:var(--card)] text-[color:var(--text)] shadow-lg transition hover:border-[#352018] hover:text-[#352018] focus:outline-none focus:ring-2 focus:ring-[#352018]/40 dark:border-white/15 dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00] dark:focus:ring-[#e2ff00]/40"
+          className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:focus:ring-[#e2ff00]/30"
           aria-label="Salir del descanso automático"
           title="Salir del descanso"
         >
