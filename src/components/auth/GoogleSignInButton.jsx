@@ -53,6 +53,9 @@ export default function GoogleSignInButton({
   useEffect(() => {
     if (!googleClientId) return undefined;
     let active = true;
+    let resizeObserver;
+    let animationFrame = 0;
+    let renderedWidth = 0;
 
     loadGoogleIdentityServices()
       .then((google) => {
@@ -71,22 +74,37 @@ export default function GoogleSignInButton({
           cancel_on_tap_outside: true,
         });
 
-        containerRef.current.replaceChildren();
-        const buttonWidth = Math.floor(
-          Math.min(400, containerRef.current.getBoundingClientRect().width),
-        );
+        const renderButton = () => {
+          const container = containerRef.current;
+          if (!active || !container) return;
+          const nextWidth = Math.floor(
+            Math.min(400, container.getBoundingClientRect().width),
+          );
+          if (nextWidth < 200 || nextWidth === renderedWidth) return;
 
-        google.accounts.id.renderButton(containerRef.current, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          text,
-          shape: "rectangular",
-          logo_alignment: "left",
-          locale: "es",
-          width: Math.max(240, buttonWidth),
-        });
-        setReady(true);
+          renderedWidth = nextWidth;
+          container.replaceChildren();
+          google.accounts.id.renderButton(container, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text,
+            shape: "rectangular",
+            logo_alignment: "left",
+            locale: "es",
+            width: nextWidth,
+          });
+          setReady(true);
+        };
+
+        const scheduleRender = () => {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = window.requestAnimationFrame(renderButton);
+        };
+
+        scheduleRender();
+        resizeObserver = new ResizeObserver(scheduleRender);
+        resizeObserver.observe(containerRef.current);
       })
       .catch((error) => {
         if (active) errorHandlerRef.current?.(error);
@@ -94,6 +112,8 @@ export default function GoogleSignInButton({
 
     return () => {
       active = false;
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(animationFrame);
     };
   }, [text]);
 
@@ -101,7 +121,7 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`google-sign-in-button flex h-10 w-full items-center justify-center transition ${
+      className={`google-sign-in-button relative flex h-10 w-full items-center justify-center rounded-[4px] transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}
