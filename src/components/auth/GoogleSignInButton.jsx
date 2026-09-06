@@ -69,10 +69,29 @@ export default function GoogleSignInButton({
     let renderedWidth = 0;
 
     loadGoogleIdentityServices()
-      .then((google) => {
+      .then(async (google) => {
         if (!active || !containerRef.current || !google?.accounts?.id) return;
 
         const useRedirect = requiresRedirectMode();
+        let redirectState = "";
+        if (useRedirect) {
+          const response = await fetch(
+            `${API_URL}/api/auth/google/prepare?remember=${remember ? "1" : "0"}`,
+            {
+              credentials: "include",
+              headers: { Accept: "application/json" },
+            },
+          );
+          if (!response.ok) {
+            throw new Error("No pudimos preparar el acceso con Google.");
+          }
+          const data = await response.json();
+          redirectState = String(data?.state || "");
+          if (!redirectState) {
+            throw new Error("Google no recibió un estado de acceso válido.");
+          }
+        }
+
         const googleConfig = {
           client_id: googleClientId,
           ux_mode: useRedirect ? "redirect" : "popup",
@@ -111,7 +130,7 @@ export default function GoogleSignInButton({
             logo_alignment: "left",
             locale: "es",
             width: nextWidth,
-            state: remember ? "remember" : "session",
+            state: useRedirect ? redirectState : undefined,
           });
           setReady(true);
         };

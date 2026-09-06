@@ -77,7 +77,11 @@ const googleRedirectErrorMessage = () => {
     return "El acceso con Google no está configurado temporalmente.";
   if (code === "google_account_conflict")
     return "Este correo ya está asociado a otra cuenta de Google.";
-  if (code === "invalid_csrf" || code === "session_failed")
+  if (
+    code === "invalid_csrf" ||
+    code === "invalid_state" ||
+    code === "session_failed"
+  )
     return "No pudimos completar la sesión con Google. Intenta nuevamente.";
   return "No pudimos iniciar sesión con Google.";
 };
