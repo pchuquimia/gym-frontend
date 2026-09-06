@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { googleClientId } from "../../config/googleAuth";
+import { API_URL } from "../../services/axiosConfig";
 
 const GOOGLE_SCRIPT_ID = "google-identity-services";
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 let scriptPromise;
+
+const requiresRedirectMode = () => {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  return (
+    /iPad|iPhone|iPod/i.test(userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+};
 
 const loadGoogleIdentityServices = () => {
   if (window.google?.accounts?.id) return Promise.resolve(window.google);
@@ -36,6 +46,7 @@ const loadGoogleIdentityServices = () => {
 
 export default function GoogleSignInButton({
   disabled = false,
+  remember = false,
   text = "continue_with",
   onCredential,
   onError,
@@ -61,18 +72,27 @@ export default function GoogleSignInButton({
       .then((google) => {
         if (!active || !containerRef.current || !google?.accounts?.id) return;
 
-        google.accounts.id.initialize({
+        const useRedirect = requiresRedirectMode();
+        const googleConfig = {
           client_id: googleClientId,
-          callback: ({ credential }) => {
+          ux_mode: useRedirect ? "redirect" : "popup",
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        };
+
+        if (useRedirect) {
+          googleConfig.login_uri = `${API_URL}/api/auth/google/callback`;
+        } else {
+          googleConfig.callback = ({ credential }) => {
             if (credential) credentialHandlerRef.current(credential);
             else
               errorHandlerRef.current?.(
                 new Error("Google no devolvió una credencial válida."),
               );
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
+          };
+        }
+
+        google.accounts.id.initialize(googleConfig);
 
         const renderButton = () => {
           const container = containerRef.current;
@@ -93,6 +113,7 @@ export default function GoogleSignInButton({
             logo_alignment: "left",
             locale: "es",
             width: nextWidth,
+            state: remember ? "remember" : "session",
           });
           setReady(true);
         };
@@ -115,7 +136,7 @@ export default function GoogleSignInButton({
       resizeObserver?.disconnect();
       window.cancelAnimationFrame(animationFrame);
     };
-  }, [text]);
+  }, [remember, text]);
 
   if (!googleClientId) return null;
 
@@ -133,6 +154,7 @@ export default function GoogleSignInButton({
 
 GoogleSignInButton.propTypes = {
   disabled: PropTypes.bool,
+  remember: PropTypes.bool,
   text: PropTypes.oneOf([
     "signin_with",
     "signup_with",

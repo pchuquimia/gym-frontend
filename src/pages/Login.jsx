@@ -69,6 +69,19 @@ const loginErrorMessage = (error) => {
   return "El email, username o contraseña no son correctos.";
 };
 
+const googleRedirectErrorMessage = () => {
+  if (typeof window === "undefined") return "";
+  const code = new URLSearchParams(window.location.search).get("google_error");
+  if (!code) return "";
+  if (code === "google_auth_not_configured")
+    return "El acceso con Google no está configurado temporalmente.";
+  if (code === "google_account_conflict")
+    return "Este correo ya está asociado a otra cuenta de Google.";
+  if (code === "invalid_csrf" || code === "session_failed")
+    return "No pudimos completar la sesión con Google. Intenta nuevamente.";
+  return "No pudimos iniciar sesión con Google.";
+};
+
 function PasswordToggle({ visible, onToggle }) {
   return (
     <button
@@ -87,7 +100,7 @@ function PasswordToggle({ visible, onToggle }) {
 function LoginForm({ onNavigate }) {
   const { login, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({ identifier: "", password: "" });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(googleRedirectErrorMessage);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,6 +108,13 @@ function LoginForm({ onNavigate }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("google_error")) return;
+    url.searchParams.delete("google_error");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -271,6 +291,7 @@ function LoginForm({ onNavigate }) {
           {isGoogleSignInConfigured ? (
             <GoogleSignInButton
               disabled={submitting || googleSubmitting}
+              remember={keepLoggedIn}
               onCredential={handleGoogleCredential}
               onError={() =>
                 setError("No pudimos cargar el acceso con Google.")

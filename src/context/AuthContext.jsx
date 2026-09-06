@@ -183,6 +183,28 @@ const markFacebookOAuthSessionFailure = () => {
   window.history.replaceState(window.history.state, "", url);
 };
 
+const isGoogleOAuthReturn = () => {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("google") === "success"
+  );
+};
+
+const clearGoogleOAuthReturn = () => {
+  if (typeof window === "undefined" || !isGoogleOAuthReturn()) return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("google");
+  window.history.replaceState(window.history.state, "", url);
+};
+
+const markGoogleOAuthSessionFailure = () => {
+  if (typeof window === "undefined" || !isGoogleOAuthReturn()) return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("google");
+  url.searchParams.set("google_error", "session_failed");
+  window.history.replaceState(window.history.state, "", url);
+};
+
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const developmentAdminMode = shouldUseDevAdminLogin();
@@ -203,12 +225,14 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(
     ({ silent = false, force = false } = {}) => {
       const facebookOAuthReturn = isFacebookOAuthReturn();
-      if (facebookOAuthReturn) setDevAutoLoginDisabled(false);
+      const googleOAuthReturn = isGoogleOAuthReturn();
+      const socialOAuthReturn = facebookOAuthReturn || googleOAuthReturn;
+      if (socialOAuthReturn) setDevAutoLoginDisabled(false);
       if (
         shouldUseDevAdminLogin() &&
         isDevAutoLoginDisabled() &&
         !userRef.current &&
-        !facebookOAuthReturn
+        !socialOAuthReturn
       ) {
         if (!silent) setLoading(false);
         return Promise.resolve(null);
@@ -233,12 +257,13 @@ export function AuthProvider({ children }) {
           restoreActiveTraining(nextUser?.id || nextUser?._id);
           commitUser(nextUser);
           if (facebookOAuthReturn) clearFacebookOAuthReturn();
+          if (googleOAuthReturn) clearGoogleOAuthReturn();
           return nextUser;
         } catch (requestError) {
           if (
             shouldUseDevAdminLogin() &&
             !isDevAutoLoginDisabled() &&
-            !facebookOAuthReturn
+            !socialOAuthReturn
           ) {
             try {
               const data = await api.devAdminLogin();
@@ -264,6 +289,7 @@ export function AuthProvider({ children }) {
           }
 
           if (facebookOAuthReturn) markFacebookOAuthSessionFailure();
+          if (googleOAuthReturn) markGoogleOAuthSessionFailure();
 
           const currentUser = userRef.current;
           preserveActiveTraining(currentUser?.id || currentUser?._id);
