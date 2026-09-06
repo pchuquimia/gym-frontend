@@ -95,8 +95,8 @@ test("una cuenta nueva completa onboarding y llega al dashboard", async ({
   await page.goto("/registro");
   await page.getByLabel("Nombre completo").fill("Lucia Nueva");
   await page.getByLabel(/Correo electr/i).fill("lucia@example.com");
-  await page.locator("#register-password").fill("Apex1234");
-  await page.locator("#register-confirmPassword").fill("Apex1234");
+  await page.locator("#register-password").fill("Rirfit1234");
+  await page.locator("#register-confirmPassword").fill("Rirfit1234");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
 
   await expect(

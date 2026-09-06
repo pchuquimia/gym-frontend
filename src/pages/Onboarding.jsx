@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import OperationLoader from "../components/system/OperationLoader";
 
-const DRAFT_KEY = "apex_onboarding_draft";
+const DRAFT_KEY = "rirfit_onboarding_draft";
+const LEGACY_DRAFT_KEY = "apex_onboarding_draft";
 
 const goals = [
   {
@@ -46,7 +47,13 @@ const levels = [
 
 const readDraft = (profile = {}) => {
   try {
-    const stored = JSON.parse(window.localStorage.getItem(DRAFT_KEY) || "null");
+    const currentDraft = window.localStorage.getItem(DRAFT_KEY);
+    const legacyDraft = window.localStorage.getItem(LEGACY_DRAFT_KEY);
+    const stored = JSON.parse(currentDraft || legacyDraft || "null");
+    if (!currentDraft && legacyDraft) {
+      window.localStorage.setItem(DRAFT_KEY, legacyDraft);
+      window.localStorage.removeItem(LEGACY_DRAFT_KEY);
+    }
     if (stored) return stored;
   } catch {
     // Start from the server profile if the local draft is unreadable.
@@ -163,6 +170,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
         height: Number(form.height),
       });
       window.localStorage.removeItem(DRAFT_KEY);
+      window.localStorage.removeItem(LEGACY_DRAFT_KEY);
       toast.success("Configuracion completada", {
         description: "Tu dashboard ya esta preparado con tus objetivos.",
       });
@@ -177,6 +185,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
   const exit = async () => {
     await logout();
     window.localStorage.removeItem(DRAFT_KEY);
+    window.localStorage.removeItem(LEGACY_DRAFT_KEY);
     onNavigate("login");
   };
 
@@ -185,9 +194,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
       <header className="flex items-center justify-between border-b border-[color:var(--border)] pb-4">
         <div>
           <p className="text-xl font-black italic leading-none">
-            APEX{" "}
+            RIR{" "}
             <span className="text-[#352018] dark:text-[#e2ff00]">
-              PERFORMANCE
+              FIT
             </span>
           </p>
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">

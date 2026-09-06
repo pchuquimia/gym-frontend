@@ -180,7 +180,7 @@ async function mockApplication(page, { user, users = [], onRequest } = {}) {
     }
     if (path === "/api/coach/athletes") return json(route, [athlete]);
     if (path === "/api/coach/link-code") {
-      return json(route, { coachCode: "APEX-TEST0000", athleteCount: 1 });
+      return json(route, { coachCode: "RIRFIT-TEST0000", athleteCount: 1 });
     }
     if (path === "/api/coach/plan-catalog") {
       return json(route, { plans: [], routines: [] });

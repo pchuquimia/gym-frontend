@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getAuthToken } from "./tokenStorage";
 
-const FALLBACK_API_URL = "https://gym-backend-1fod.onrender.com";
+const FALLBACK_API_URL = "https://api.rirfit.com";
 
 const resolveApiUrl = () => {
   const configured = import.meta.env.VITE_API_URL;

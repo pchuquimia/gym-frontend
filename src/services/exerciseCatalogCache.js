@@ -1,7 +1,7 @@
-const DATABASE_NAME = "apex-exercise-catalog";
+const DATABASE_NAME = "rirfit-exercise-catalog";
 const STORE_NAME = "catalogs";
 const DATABASE_VERSION = 1;
-const FALLBACK_PREFIX = "apex_catalog:";
+const FALLBACK_PREFIX = "rirfit_catalog:";
 
 const openDatabase = () =>
   new Promise((resolve, reject) => {

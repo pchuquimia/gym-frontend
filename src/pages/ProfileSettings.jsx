@@ -268,7 +268,7 @@ function ProfileHero({ user, avatarPhotoId, stats, onChangePhoto }) {
             {user?.name || "Usuario"}
           </h1>
           <p className="mt-1 truncate font-sans text-sm text-[color:var(--text-muted)]">
-            {user?.email || "Cuenta Apex"}
+            {user?.email || "Cuenta RIRFIT"}
           </p>
         </div>
         <div className="mt-6 grid grid-cols-2 border-t border-[color:var(--detail-row-divider)] pt-5">
@@ -1611,11 +1611,11 @@ export default function ProfileSettings({ onNavigate }) {
                         autoCapitalize="characters"
                         autoComplete="off"
                         spellCheck="false"
-                        maxLength={13}
+                        maxLength={15}
                         placeholder={
                           coachRelationship.connected
                             ? "Codigo de otro coach"
-                            : "Codigo del coach · APEX-XXXXXXXX"
+                            : "Codigo del coach · RIRFIT-XXXXXXXX"
                         }
                         className={`${inputClass} font-mono uppercase`}
                       />
@@ -1673,7 +1673,7 @@ export default function ProfileSettings({ onNavigate }) {
             Cerrar sesión
           </button>
           <p className="text-center text-xs text-[color:var(--text-muted)]">
-            Apex Performance
+            RIRFIT
           </p>
         </div>
       </div>

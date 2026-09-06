@@ -3290,10 +3290,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <MobileMenuButton />
           <div className="min-w-0">
             <h1 className="text-[22px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1a1a1a] md:text-3xl md:font-black md:italic md:leading-[0.9] md:tracking-normal dark:text-white">
-              APEX
+              RIR
               <br />
               <span className="dashboard-pilot__brand-accent text-[#352018] dark:text-[#e2ff00]">
-                PERFORMANCE
+                FIT
               </span>
             </h1>
           </div>

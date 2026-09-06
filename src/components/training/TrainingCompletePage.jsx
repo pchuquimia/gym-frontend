@@ -95,7 +95,7 @@ export default function TrainingCompletePage({
           <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/80" />
 
           <p className="absolute left-5 top-5 text-xl font-semibold tracking-[-0.03em]">
-            APEX
+            RIRFIT
           </p>
 
           <div className="absolute inset-x-5 top-1/2 flex -translate-y-1/2 flex-col items-center text-center">

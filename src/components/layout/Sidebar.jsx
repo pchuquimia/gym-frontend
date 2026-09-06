@@ -219,7 +219,7 @@ function Sidebar({
                 {user?.name || "Usuario"}
               </p>
               <p className="mt-1 truncate font-sans text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--drawer-subtle)]">
-                Apex Performance · {user?.role || "Cliente"}
+                RIRFIT · {user?.role || "Cliente"}
               </p>
             </div>
           </button>

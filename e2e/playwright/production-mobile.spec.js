@@ -17,7 +17,7 @@ test("la aplicacion principal abre en movil y conecta con la API", async ({
 
   page.on("pageerror", (error) => pageErrors.push(error.message));
   page.on("request", (currentRequest) => {
-    if (currentRequest.url().includes("gym-backend-1fod.onrender.com")) {
+    if (currentRequest.url().includes("api.rirfit.com")) {
       apiRequests.push(currentRequest.url());
     }
   });
@@ -58,7 +58,7 @@ test("la aplicacion principal abre en movil y conecta con la API", async ({
   );
 
   const health = await request.get(
-    "https://gym-backend-1fod.onrender.com/api/health",
+    "https://api.rirfit.com/api/health",
   );
   expect(health.ok()).toBe(true);
   expect(await health.json()).toEqual({ ok: true });

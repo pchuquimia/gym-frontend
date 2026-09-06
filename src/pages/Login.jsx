@@ -43,7 +43,7 @@ const isDedicatedDemoFrontend = () => {
 };
 
 const mainApplicationUrl =
-  import.meta.env.VITE_MAIN_APP_URL || "https://gym-frontend-t65c.onrender.com";
+  import.meta.env.VITE_MAIN_APP_URL || "https://rirfit.com";
 
 const inputClass =
   "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
@@ -692,7 +692,7 @@ export default function Login({
           ? "Te enviaremos un enlace seguro para restablecer tu contraseña."
           : "Continúa con tus rutinas y registra tu próxima sesión.";
 
-  const title = dedicatedDemo ? "Explora Apex Performance" : accountTitle;
+  const title = dedicatedDemo ? "Explora RIRFIT" : accountTitle;
   const subtitle = dedicatedDemo
     ? "Elige un perfil y recorre la aplicacion con datos ficticios y aislados."
     : accountSubtitle;
@@ -707,7 +707,7 @@ export default function Login({
         dedicatedDemo ? (
           <div className="text-center">
             <p className="text-xs font-semibold text-white/45">
-              Â¿Ya utilizas Apex Performance?
+              ¿Ya utilizas RIRFIT?
             </p>
             <a
               href={mainApplicationUrl}

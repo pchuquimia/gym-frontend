@@ -56,6 +56,7 @@ const USER_STORAGE_KEYS = [
   "last_exercise_id",
   "coach_athlete_context",
   "training_plan_routine_intent",
+  "rirfit_onboarding_draft",
   "apex_onboarding_draft",
 ];
 

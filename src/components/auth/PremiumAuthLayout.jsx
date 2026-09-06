@@ -1,6 +1,10 @@
 import PropTypes from "prop-types";
 import { useEffect, useRef } from "react";
-import { ArrowLeft, Zap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import {
+  BrandMark,
+  BrandWordmark,
+} from "../brand/BrandIdentity";
 
 const images = {
   login:
@@ -64,14 +68,12 @@ function PremiumAuthLayout({
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 lg:px-12 lg:pt-10 2xl:px-16">
             <div className="inline-flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-control bg-[color:var(--auth-accent)] text-[color:var(--auth-accent-contrast)] shadow-floating">
-                <Zap className="h-5 w-5 fill-current" />
+                <BrandMark className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-display text-sm font-bold uppercase text-white">
-                  Apex Performance
-                </p>
+                <BrandWordmark className="text-sm text-white" />
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
-                  Training system
+                  Entrena con intención
                 </p>
               </div>
             </div>

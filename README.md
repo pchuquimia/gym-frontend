@@ -1,13 +1,13 @@
-# Apex Performance - Frontend
+# RIRFIT - Frontend
 
-Apex Performance is a responsive workout tracking and coaching platform built for athletes, coaches, and administrators. It combines workout planning, live session logging, exercise analytics, progress tracking, and role-based coaching workflows in a single web application.
+RIRFIT is a responsive workout tracking and coaching platform built for athletes, coaches, and administrators. It combines workout planning, live session logging, exercise analytics, progress tracking, and role-based coaching workflows in a single web application.
 
 The project was designed and developed independently as a full-stack portfolio product and has been tested by more than 10 beta users in a real gym environment.
 
 ## Live demo
 
-- Application: [gym-frontend-t65c.onrender.com](https://gym-frontend-t65c.onrender.com/)
-- API: [gym-backend-1fod.onrender.com](https://gym-backend-1fod.onrender.com/)
+- Application: [rirfit.com](https://rirfit.com/)
+- API: [api.rirfit.com](https://api.rirfit.com/api/health)
 - Demo access: choose Athlete, Coach, or Admin from the login screen; no credentials required.
 
 Every demo visit receives an isolated workspace with fictitious routines, plans, sessions, analytics, and weigh-ins. Account administration, shared exercise media, and catalog mutations remain protected. Demo data expires automatically according to the backend deployment configuration.
