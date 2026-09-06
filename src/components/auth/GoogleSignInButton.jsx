@@ -36,6 +36,7 @@ const loadGoogleIdentityServices = () => {
 
 export default function GoogleSignInButton({
   disabled = false,
+  text = "continue_with",
   onCredential,
   onError,
 }) {
@@ -73,9 +74,9 @@ export default function GoogleSignInButton({
         containerRef.current.replaceChildren();
         google.accounts.id.renderButton(containerRef.current, {
           type: "standard",
-          theme: "filled_black",
+          theme: "outline",
           size: "large",
-          text: "continue_with",
+          text,
           shape: "rectangular",
           logo_alignment: "left",
           locale: "es",
@@ -90,24 +91,30 @@ export default function GoogleSignInButton({
     return () => {
       active = false;
     };
-  }, []);
+  }, [text]);
 
   if (!googleClientId) return null;
 
   return (
     <div
-      className={`flex min-h-11 w-full justify-center overflow-hidden rounded-control transition ${
+      className={`google-sign-in-button flex h-12 w-full justify-center overflow-hidden rounded-lg transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}
     >
-      <div ref={containerRef} className="flex w-full justify-center" />
+      <div ref={containerRef} className="flex h-full w-full justify-center" />
     </div>
   );
 }
 
 GoogleSignInButton.propTypes = {
   disabled: PropTypes.bool,
+  text: PropTypes.oneOf([
+    "signin_with",
+    "signup_with",
+    "continue_with",
+    "signin",
+  ]),
   onCredential: PropTypes.func.isRequired,
   onError: PropTypes.func,
 };

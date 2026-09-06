@@ -13,16 +13,26 @@ const configuredStorage =
 
 export const getAuthToken = () => {
   try {
-    return getStorage(configuredStorage)?.getItem(TOKEN_KEY) || memoryToken;
+    return (
+      getStorage(configuredStorage)?.getItem(TOKEN_KEY) ||
+      window.localStorage?.getItem(TOKEN_KEY) ||
+      window.sessionStorage?.getItem(TOKEN_KEY) ||
+      memoryToken
+    );
   } catch (_err) {
     return memoryToken;
   }
 };
 
-export const setAuthToken = (token) => {
+export const setAuthToken = (
+  token,
+  { persistent = configuredStorage === "localStorage" } = {},
+) => {
   memoryToken = token || "";
   try {
-    const storage = getStorage(configuredStorage);
+    window.localStorage?.removeItem(TOKEN_KEY);
+    window.sessionStorage?.removeItem(TOKEN_KEY);
+    const storage = getStorage(persistent ? "localStorage" : "sessionStorage");
     if (!storage || !token) return;
     storage.setItem(TOKEN_KEY, token);
   } catch (_err) {

@@ -313,15 +313,81 @@ details[open] > .overflow-menu-trigger--overlay {
 }
 
 .auth-shell {
-  --auth-bg: #0c0d0d;
-  --auth-surface: #141515;
-  --auth-surface-hover: #1d1f1f;
-  --auth-border: rgba(255, 255, 255, 0.13);
-  --auth-text: #f7f7f4;
-  --auth-muted: #a9aaa5;
-  --auth-accent: #352018;
-  --auth-accent-hover: #482b20;
-  --auth-accent-contrast: #fffaf2;
+  --auth-bg: #ffffff;
+  --auth-surface: #ffffff;
+  --auth-surface-hover: #f1f2ee;
+  --auth-border: #dedfd9;
+  --auth-text: #1d1e1c;
+  --auth-muted: #969891;
+  --auth-accent: #dcf900;
+  --auth-accent-hover: #cbe700;
+  --auth-accent-contrast: #171815;
+  --auth-hero: #eceee9;
+  --auth-hero-text: #151614;
+  --auth-hero-muted: #5f625b;
+  color-scheme: light;
+}
+
+.auth-content-panel {
+  background: var(--auth-bg);
+}
+
+.auth-hero {
+  --auth-hero-text: #ffffff;
+  --auth-hero-muted: rgba(255, 255, 255, 0.82);
+  background: #151614;
+}
+
+.auth-hero-image {
+  object-position: center 42%;
+  filter: saturate(0.86) contrast(1.04);
+}
+
+.auth-hero-overlay {
+  background:
+    linear-gradient(180deg, rgba(9, 10, 9, 0.72) 0%, rgba(9, 10, 9, 0.08) 42%),
+    linear-gradient(0deg, rgba(9, 10, 9, 0.86) 0%, rgba(9, 10, 9, 0.03) 56%);
+}
+
+.auth-hero-mark {
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 4px rgba(220, 249, 0, 0.16);
+}
+
+.auth-orbit {
+  position: absolute;
+  border: 1px solid rgba(21, 22, 20, 0.07);
+  border-radius: 9999px;
+}
+
+.auth-orbit-one {
+  width: 22rem;
+  height: 22rem;
+  right: -10rem;
+  top: -9rem;
+}
+
+.auth-orbit-two {
+  width: 15rem;
+  height: 15rem;
+  left: -9rem;
+  bottom: -8rem;
+}
+
+.auth-shell input:not([type="checkbox"]):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.auth-shell :where(button, a):focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.google-sign-in-button > div,
+.google-sign-in-button iframe {
+  width: 100% !important;
+  height: 3rem !important;
 }
 
 .premium-drawer {

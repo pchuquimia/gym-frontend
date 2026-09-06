@@ -281,11 +281,11 @@ export function AuthProvider({ children }) {
   }, [refreshUser, user?.id]);
 
   const login = useCallback(
-    async (payload) => {
+    async (payload, { remember = false } = {}) => {
       setError("");
       setDevAutoLoginDisabled(false);
       const data = await api.login(payload);
-      if (data?.token) setAuthToken(data.token);
+      if (data?.token) setAuthToken(data.token, { persistent: remember });
       queryClient.clear();
       const nextUser = normalizeUser(data);
       restoreActiveTraining(nextUser?.id || nextUser?._id);
@@ -311,11 +311,12 @@ export function AuthProvider({ children }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (credential) => {
+    async (credential, options = {}) => {
       setError("");
       setDevAutoLoginDisabled(false);
-      const data = await api.googleLogin(credential);
-      if (data?.token) setAuthToken(data.token);
+      const { remember = false, ...googleOptions } = options;
+      const data = await api.googleLogin(credential, googleOptions);
+      if (data?.token) setAuthToken(data.token, { persistent: remember });
       queryClient.clear();
       const nextUser = normalizeUser(data);
       restoreActiveTraining(nextUser?.id || nextUser?._id);

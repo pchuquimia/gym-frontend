@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import OperationLoader from "../components/system/OperationLoader";
+import { normalizeUsername, validateUsername } from "../utils/authValidation";
 
 const DRAFT_KEY = "rirfit_onboarding_draft";
 const LEGACY_DRAFT_KEY = "apex_onboarding_draft";
@@ -45,7 +46,16 @@ const levels = [
   { id: "advanced", title: "Avanzado", detail: "Mas de 3 anos" },
 ];
 
-const readDraft = (profile = {}) => {
+const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
+  const initialDraft = {
+    name: accountName && accountName !== "Atleta" ? accountName : "",
+    username: accountUsername || "",
+    goal: profile.goal || "mantenimiento",
+    experienceLevel: profile.experienceLevel || "beginner",
+    weeklyFrequency: Number(profile.weeklyFrequency || 3),
+    weight: profile.weight || "",
+    height: profile.height || "",
+  };
   try {
     const currentDraft = window.localStorage.getItem(DRAFT_KEY);
     const legacyDraft = window.localStorage.getItem(LEGACY_DRAFT_KEY);
@@ -54,17 +64,11 @@ const readDraft = (profile = {}) => {
       window.localStorage.setItem(DRAFT_KEY, legacyDraft);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
     }
-    if (stored) return stored;
+    if (stored) return { ...initialDraft, ...stored };
   } catch {
     // Start from the server profile if the local draft is unreadable.
   }
-  return {
-    goal: profile.goal || "mantenimiento",
-    experienceLevel: profile.experienceLevel || "beginner",
-    weeklyFrequency: Number(profile.weeklyFrequency || 3),
-    weight: profile.weight || "",
-    height: profile.height || "",
-  };
+  return initialDraft;
 };
 
 function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
@@ -118,9 +122,17 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
 export default function Onboarding({ onNavigate = () => {} }) {
   const { user, completeOnboarding, logout } = useAuth();
   const [step, setStep] = useState(() =>
-    Math.max(0, Math.min(2, Number(readDraft(user?.profile).step || 0))),
+    Math.max(
+      0,
+      Math.min(
+        2,
+        Number(readDraft(user?.profile, user?.name, user?.username).step || 0),
+      ),
+    ),
   );
-  const [form, setForm] = useState(() => readDraft(user?.profile));
+  const [form, setForm] = useState(() =>
+    readDraft(user?.profile, user?.name, user?.username),
+  );
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -145,6 +157,11 @@ export default function Onboarding({ onNavigate = () => {} }) {
     const weight = Number(form.weight);
     const height = Number(form.height);
     const nextErrors = {
+      username: validateUsername(form.username),
+      name:
+        form.name.trim().length < 2 || form.name.trim().length > 80
+          ? "Ingresa un nombre de 2 a 80 caracteres."
+          : "",
       weight:
         !Number.isFinite(weight) || weight < 20 || weight > 500
           ? "Ingresa un peso entre 20 y 500 kg."
@@ -163,6 +180,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
     try {
       setSaving(true);
       await completeOnboarding({
+        name: form.name.trim(),
+        username: normalizeUsername(form.username),
         goal: form.goal,
         experienceLevel: form.experienceLevel,
         weeklyFrequency: Number(form.weeklyFrequency),
@@ -176,7 +195,14 @@ export default function Onboarding({ onNavigate = () => {} }) {
       });
       onNavigate("dashboard");
     } catch (error) {
-      toast.error(error.message || "No se pudo guardar la configuracion");
+      if (error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message)) {
+        setErrors((value) => ({
+          ...value,
+          username: "Este nombre de usuario ya está en uso.",
+        }));
+      } else {
+        toast.error(error.message || "No se pudo guardar la configuracion");
+      }
     } finally {
       setSaving(false);
     }
@@ -194,10 +220,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
       <header className="flex items-center justify-between border-b border-[color:var(--border)] pb-4">
         <div>
           <p className="text-xl font-black italic leading-none">
-            RIR{" "}
-            <span className="text-[#352018] dark:text-[#e2ff00]">
-              FIT
-            </span>
+            RIR <span className="text-[#352018] dark:text-[#e2ff00]">FIT</span>
           </p>
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
             Configuracion inicial
@@ -335,6 +358,58 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 reales.
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
+                  <span className="text-xs font-black uppercase">
+                    Nombre de usuario
+                  </span>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    autoComplete="username"
+                    value={form.username}
+                    onChange={(event) => {
+                      setForm((value) => ({
+                        ...value,
+                        username: event.target.value.toLowerCase(),
+                      }));
+                      setErrors((value) => ({ ...value, username: "" }));
+                    }}
+                    placeholder="usuario"
+                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                    aria-label="Nombre de usuario"
+                  />
+                  {errors.username ? (
+                    <span className="mt-2 block text-xs font-bold text-red-500">
+                      {errors.username}
+                    </span>
+                  ) : null}
+                </label>
+                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
+                  <span className="text-xs font-black uppercase">
+                    ¿Cómo quieres que te llamemos?
+                  </span>
+                  <input
+                    type="text"
+                    maxLength="80"
+                    autoComplete="name"
+                    value={form.name}
+                    onChange={(event) => {
+                      setForm((value) => ({
+                        ...value,
+                        name: event.target.value,
+                      }));
+                      setErrors((value) => ({ ...value, name: "" }));
+                    }}
+                    placeholder="Tu nombre"
+                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                    aria-label="Nombre para tu perfil"
+                  />
+                  {errors.name ? (
+                    <span className="mt-2 block text-xs font-bold text-red-500">
+                      {errors.name}
+                    </span>
+                  ) : null}
+                </label>
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
                     <Scale className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />

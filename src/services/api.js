@@ -37,10 +37,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  googleLogin: (credential) =>
+  googleLogin: (credential, options = {}) =>
     request("/api/auth/google", {
       method: "POST",
-      body: JSON.stringify({ credential }),
+      body: JSON.stringify({ credential, ...options }),
     }),
   getDemoStatus: () => request("/api/auth/demo/status"),
   demoLogin: (role) =>

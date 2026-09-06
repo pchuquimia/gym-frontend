@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import PropTypes from "prop-types";
 import {
   ArrowRight,
@@ -7,7 +7,6 @@ import {
   EyeOff,
   Lock,
   Mail,
-  User,
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
@@ -19,20 +18,18 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import {
-  passwordStatus,
+  normalizeUsername,
   validateEmail,
   validatePassword,
+  validateUsername,
 } from "../utils/authValidation";
 import { getUserHome } from "../utils/userFlow";
 
 const inputClass =
-  "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
+  "h-14 w-full border-0 border-b border-[color:var(--auth-border)] bg-transparent pl-4 pr-4 font-sans text-sm font-normal tracking-normal text-[#50524d] outline-none transition placeholder:font-normal placeholder:text-[#d0d2cc] placeholder:opacity-100 hover:border-[#b9bbb4] focus:border-[color:var(--auth-text)] focus:ring-0";
 
 const validateForm = (form) => ({
-  name:
-    form.name.trim().length < 2
-      ? "Ingresa un nombre de al menos 2 caracteres."
-      : "",
+  username: validateUsername(form.username),
   email: validateEmail(form.email),
   password: validatePassword(form.password),
   confirmPassword:
@@ -44,10 +41,11 @@ const validateForm = (form) => ({
 export default function Register({ onNavigate = () => {} }) {
   const { register, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({
-    name: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
+    emailMarketingConsent: false,
   });
   const [errors, setErrors] = useState({});
   const [requestError, setRequestError] = useState("");
@@ -56,11 +54,6 @@ export default function Register({ onNavigate = () => {} }) {
   const [showPasswords, setShowPasswords] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [resendingVerification, setResendingVerification] = useState(false);
-  const missingPasswordRules = useMemo(
-    () => passwordStatus(form.password),
-    [form.password],
-  );
-
   const handleChange = (field) => (event) => {
     const value = event.target.value;
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -71,6 +64,10 @@ export default function Register({ onNavigate = () => {} }) {
   };
 
   const handleBlur = (field) => () => {
+    if (!String(form[field] || "").trim()) {
+      setErrors((previous) => ({ ...previous, [field]: "" }));
+      return;
+    }
     setErrors((previous) => ({
       ...previous,
       [field]: validateForm(form)[field],
@@ -88,7 +85,7 @@ export default function Register({ onNavigate = () => {} }) {
     try {
       const result = await register({
         ...form,
-        name: form.name.trim(),
+        username: normalizeUsername(form.username),
         email: form.email.trim(),
       });
       if (result?.verificationRequired) {
@@ -104,10 +101,19 @@ export default function Register({ onNavigate = () => {} }) {
       onNavigate("onboarding");
     } catch (error) {
       if (error.status === 409) {
-        setErrors((previous) => ({
-          ...previous,
-          email: "Ya existe una cuenta con este correo.",
-        }));
+        const usernameTaken =
+          error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message);
+        setErrors((previous) =>
+          usernameTaken
+            ? {
+                ...previous,
+                username: "Este nombre de usuario ya está en uso.",
+              }
+            : {
+                ...previous,
+                email: "Ya existe una cuenta con este correo.",
+              },
+        );
       } else if (!error.status) {
         setRequestError(
           "No pudimos conectar con el servidor. Revisa tu conexión.",
@@ -151,7 +157,10 @@ export default function Register({ onNavigate = () => {} }) {
     setGoogleSubmitting(true);
     setRequestError("");
     try {
-      const user = await loginWithGoogle(credential);
+      const user = await loginWithGoogle(
+        credential,
+        form.emailMarketingConsent ? { emailMarketingConsent: true } : {},
+      );
       toast.success("Cuenta lista", {
         description: "Ingresaste de forma segura con Google.",
       });
@@ -186,10 +195,12 @@ export default function Register({ onNavigate = () => {} }) {
         }
       >
         <div className="space-y-4 text-center" role="status" aria-live="polite">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" />
+          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
           <div>
-            <h1 className="text-xl font-black text-white">Cuenta creada</h1>
-            <p className="mt-2 text-sm leading-6 text-blue-50/75">
+            <h1 className="text-xl font-black text-[color:var(--auth-text)]">
+              Cuenta creada
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--auth-muted)]">
               Enviamos un enlace a {verificationEmail}. Estará disponible
               durante 24 horas.
             </p>
@@ -211,21 +222,21 @@ export default function Register({ onNavigate = () => {} }) {
   return (
     <PremiumAuthLayout
       variant="register"
-      title="Crea tu cuenta"
-      subtitle="En beta comenzarás como atleta independiente. Luego podrás vincular un coach desde tu perfil."
+      title="Regístrate con tu correo"
+      subtitle=""
+      heroTitle="Empieza hoy."
+      heroSubtitle="Una cuenta para registrar cada serie y hacer visible tu progreso."
       footer={
-        <div className="pt-1 text-center">
+        <p className="text-sm font-medium text-[color:var(--auth-hero-muted)]">
+          ¿Ya tienes cuenta?{" "}
           <button
             type="button"
             onClick={() => onNavigate("login")}
-            className="font-sans text-sm font-medium text-[color:var(--auth-muted)] focus-visible:ring-[color:var(--auth-accent)]"
+            className="border-b border-[color:var(--auth-hero-text)] font-bold text-[color:var(--auth-hero-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
           >
-            ¿Ya tienes cuenta?{" "}
-            <span className="font-bold text-[color:var(--auth-accent)]">
-              Inicia sesión
-            </span>
+            Inicia sesión
           </button>
-        </div>
+        </p>
       }
     >
       <form
@@ -234,41 +245,31 @@ export default function Register({ onNavigate = () => {} }) {
         noValidate
         aria-busy={submitting || googleSubmitting}
       >
-        {isGoogleSignInConfigured ? (
-          <>
-            <GoogleSignInButton
-              disabled={submitting || googleSubmitting}
-              onCredential={handleGoogleCredential}
-              onError={() =>
-                setRequestError("No pudimos cargar el acceso con Google.")
-              }
-            />
-            <div className="flex items-center gap-3" aria-hidden="true">
-              <span className="h-px flex-1 bg-white/10" />
-              <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--auth-muted)]">
-                o regístrate con correo
-              </span>
-              <span className="h-px flex-1 bg-white/10" />
-            </div>
-          </>
-        ) : null}
         <AuthField
-          id="register-name"
-          icon={User}
-          label="Nombre completo"
-          error={errors.name}
+          id="register-username"
+          label="Nombre de usuario"
+          error={errors.username}
         >
           <input
-            id="register-name"
-            name="name"
-            autoComplete="name"
-            maxLength={80}
-            value={form.name}
-            onChange={handleChange("name")}
-            onBlur={handleBlur("name")}
-            placeholder="Nombre y apellido"
+            id="register-username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            inputMode="text"
+            maxLength={20}
+            value={form.username}
+            onChange={(event) => {
+              const value = event.target.value.toLowerCase();
+              setForm((previous) => ({ ...previous, username: value }));
+              if (errors.username) {
+                setErrors((previous) => ({ ...previous, username: "" }));
+              }
+              if (requestError) setRequestError("");
+            }}
+            onBlur={handleBlur("username")}
+            placeholder="usuario"
             className={inputClass}
-            {...fieldProps("name")}
+            {...fieldProps("username")}
           />
         </AuthField>
         <AuthField
@@ -308,11 +309,6 @@ export default function Register({ onNavigate = () => {} }) {
             placeholder="Crea una contraseña"
             className={`${inputClass} pr-12`}
             {...fieldProps("password")}
-            aria-describedby={
-              errors.password
-                ? "register-password-error"
-                : "register-password-hint"
-            }
           />
           <button
             type="button"
@@ -330,25 +326,6 @@ export default function Register({ onNavigate = () => {} }) {
             )}
           </button>
         </AuthField>
-        <div id="register-password-hint" className="space-y-2">
-          <div className="grid grid-cols-5 gap-1.5" aria-hidden="true">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <span
-                key={index}
-                className={`h-1 rounded-full ${index < Math.min(5, Math.ceil((form.password.length / 6) * 5)) ? "bg-[color:var(--auth-accent)]" : "bg-white/10"}`}
-              />
-            ))}
-          </div>
-          <p
-            className={`font-sans text-[11px] font-medium ${form.password && !missingPasswordRules.length ? "text-[color:var(--auth-accent)]" : "text-[color:var(--auth-muted)]"}`}
-          >
-            {form.password
-              ? missingPasswordRules.length
-                ? `Falta: ${missingPasswordRules.join(", ")}.`
-                : "Contraseña válida."
-              : "Mínimo 6 caracteres. Puedes usar una contraseña sencilla."}
-          </p>
-        </div>
         <AuthField
           id="register-confirmPassword"
           icon={Lock}
@@ -368,23 +345,57 @@ export default function Register({ onNavigate = () => {} }) {
             {...fieldProps("confirmPassword")}
           />
         </AuthField>
+        <label className="flex cursor-pointer items-start gap-3 py-2 text-sm font-normal leading-5 text-[color:var(--auth-hero-muted)]">
+          <input
+            type="checkbox"
+            name="emailMarketingConsent"
+            checked={form.emailMarketingConsent}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                emailMarketingConsent: event.target.checked,
+              }))
+            }
+            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-[color:var(--auth-border)] accent-[#dcf900] focus-visible:ring-[#202120]"
+          />
+          <span>Pueden contactarme por correo electrónico.</span>
+        </label>
         {requestError ? (
           <p
             role="alert"
             aria-live="assertive"
-            className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
           >
             {requestError}
           </p>
         ) : null}
         <Button
           type="submit"
-          className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
+          className="h-12 w-full rounded-lg !bg-[#202120] text-sm font-medium !text-white hover:!bg-black focus-visible:ring-[#202120]"
           disabled={submitting || googleSubmitting}
         >
           {submitting ? "Creando cuenta..." : "Crear cuenta"}
           {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
+        {isGoogleSignInConfigured ? (
+          <div className="space-y-4 pt-3">
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-[color:var(--auth-border)]" />
+              <span className="font-sans text-xs font-medium text-[color:var(--auth-hero-muted)]">
+                O regístrate con
+              </span>
+              <span className="h-px flex-1 bg-[color:var(--auth-border)]" />
+            </div>
+            <GoogleSignInButton
+              text="signup_with"
+              disabled={submitting || googleSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={() =>
+                setRequestError("No pudimos cargar el acceso con Google.")
+              }
+            />
+          </div>
+        ) : null}
         <OperationLoader
           active={submitting || googleSubmitting}
           delayMs={500}

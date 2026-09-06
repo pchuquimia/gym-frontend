@@ -1,4 +1,19 @@
 export const PASSWORD_PATTERN = /^.{6,72}$/s;
+export const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+
+export const normalizeUsername = (username) =>
+  String(username || "")
+    .trim()
+    .toLowerCase();
+
+export const validateUsername = (username) => {
+  const value = normalizeUsername(username);
+  if (!value) return "Elige un nombre de usuario.";
+  if (!USERNAME_PATTERN.test(value)) {
+    return "Usa de 3 a 20 letras, números o guion bajo.";
+  }
+  return "";
+};
 
 export const validateEmail = (email) => {
   const value = email.trim();

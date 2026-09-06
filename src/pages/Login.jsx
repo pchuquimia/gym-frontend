@@ -48,7 +48,7 @@ const mainApplicationUrl =
   import.meta.env.VITE_MAIN_APP_URL || "https://rirfit.com";
 
 const inputClass =
-  "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
+  "h-14 w-full border-0 border-b border-[color:var(--auth-border)] bg-transparent pl-4 pr-4 font-sans text-sm font-normal tracking-normal text-[#50524d] outline-none transition placeholder:font-normal placeholder:text-[#d0d2cc] placeholder:opacity-100 hover:border-[#b9bbb4] focus:border-[color:var(--auth-text)] focus:ring-0";
 
 const keepFieldVisible = (event) => {
   const field = event.currentTarget;
@@ -66,7 +66,7 @@ const loginErrorMessage = (error) => {
     return "No pudimos conectar con el servidor. Revisa tu conexión.";
   if (error.status >= 500)
     return "El servicio no está disponible temporalmente.";
-  return "El correo o la contraseña no son correctos.";
+  return "El email, username o contraseña no son correctos.";
 };
 
 function PasswordToggle({ visible, onToggle }) {
@@ -86,11 +86,12 @@ function PasswordToggle({ visible, onToggle }) {
 
 function LoginForm({ onNavigate }) {
   const { login, loginWithGoogle } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ identifier: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
@@ -103,7 +104,13 @@ function LoginForm({ onNavigate }) {
     setNeedsVerification(false);
     setVerificationSent(false);
     try {
-      const user = await login({ ...form, email: form.email.trim() });
+      const user = await login(
+        {
+          ...form,
+          identifier: form.identifier.trim(),
+        },
+        { remember: keepLoggedIn },
+      );
       onNavigate(getUserHome(user));
     } catch (err) {
       setError(loginErrorMessage(err));
@@ -120,7 +127,7 @@ function LoginForm({ onNavigate }) {
     setResendingVerification(true);
     setVerificationSent(false);
     try {
-      await api.resendVerification({ email: form.email.trim() });
+      await api.resendVerification({ email: form.identifier.trim() });
       setError("");
       setNeedsVerification(false);
       setVerificationSent(true);
@@ -139,7 +146,9 @@ function LoginForm({ onNavigate }) {
     setGoogleSubmitting(true);
     setError("");
     try {
-      const user = await loginWithGoogle(credential);
+      const user = await loginWithGoogle(credential, {
+        remember: keepLoggedIn,
+      });
       onNavigate(getUserHome(user));
     } catch (requestError) {
       setError(
@@ -155,41 +164,27 @@ function LoginForm({ onNavigate }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5"
+      className="space-y-6"
       aria-busy={submitting || googleSubmitting}
     >
-      {isGoogleSignInConfigured ? (
-        <>
-          <GoogleSignInButton
-            disabled={submitting || googleSubmitting}
-            onCredential={handleGoogleCredential}
-            onError={() => setError("No pudimos cargar el acceso con Google.")}
-          />
-          <div className="flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-white/10" />
-            <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--auth-muted)]">
-              o continúa con correo
-            </span>
-            <span className="h-px flex-1 bg-white/10" />
-          </div>
-        </>
-      ) : null}
-      <AuthField id="login-email" icon={Mail} label="Correo electrónico">
+      <AuthField id="login-identifier" label="Email o username">
         <input
-          id="login-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
+          id="login-identifier"
+          name="identifier"
+          type="text"
+          autoComplete="username"
           required
-          value={form.email}
+          value={form.identifier}
           onFocus={keepFieldVisible}
           onChange={(event) => {
-            setForm((previous) => ({ ...previous, email: event.target.value }));
+            setForm((previous) => ({
+              ...previous,
+              identifier: event.target.value,
+            }));
             setNeedsVerification(false);
             setVerificationSent(false);
           }}
-          placeholder="nombre@correo.com"
+          placeholder="Email o username"
           className={inputClass}
         />
       </AuthField>
@@ -216,25 +211,26 @@ function LoginForm({ onNavigate }) {
           onToggle={() => setShowPassword((value) => !value)}
         />
       </AuthField>
-      <div className="-mt-1 flex justify-end">
-        <button
-          type="button"
-          onClick={() => onNavigate("recover")}
-          className="font-sans text-xs font-semibold text-[color:var(--auth-muted)] transition hover:text-[color:var(--auth-accent)] focus-visible:ring-[color:var(--auth-accent)]"
-        >
-          ¿Olvidaste tu contraseña?
-        </button>
-      </div>
+      <label className="flex w-fit cursor-pointer items-center gap-2.5 font-sans text-sm font-normal text-[#50524d]">
+        <input
+          type="checkbox"
+          name="keepLoggedIn"
+          checked={keepLoggedIn}
+          onChange={(event) => setKeepLoggedIn(event.target.checked)}
+          className="h-5 w-5 shrink-0 cursor-pointer rounded-[3px] border border-[#c9cbc5] bg-white accent-[#202120] focus:ring-2 focus:ring-[#202120]/20 focus:ring-offset-2"
+        />
+        Mantener mi sesión iniciada
+      </label>
       {error ? (
         <p
           role="alert"
           aria-live="assertive"
-          className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200"
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
         >
           {error}
         </p>
       ) : null}
-      {needsVerification ? (
+      {needsVerification && form.identifier.includes("@") ? (
         <Button
           type="button"
           variant="outline"
@@ -246,18 +242,39 @@ function LoginForm({ onNavigate }) {
         </Button>
       ) : null}
       {verificationSent ? (
-        <p role="status" className="text-xs font-bold text-emerald-300">
+        <p role="status" className="text-xs font-bold text-emerald-700">
           Enlace enviado. Revisa también tu carpeta de correo no deseado.
         </p>
       ) : null}
       <Button
         type="submit"
-        className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
+        className="h-12 w-full rounded-lg !bg-[#202120] text-sm font-medium !text-white hover:!bg-black focus-visible:ring-[#202120]"
         disabled={submitting || googleSubmitting}
       >
         {submitting ? "Ingresando..." : "Ingresar"}
         {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
       </Button>
+      <div className="-mt-1 flex justify-end">
+        <button
+          type="button"
+          onClick={() => onNavigate("recover")}
+          className="border-b border-[color:var(--auth-muted)] pb-0.5 font-sans text-xs font-semibold text-[color:var(--auth-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
+        >
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
+      {isGoogleSignInConfigured ? (
+        <div className="space-y-4 pt-3">
+          <p className="font-sans text-sm font-normal text-[#50524d]">
+            O inicia sesión con
+          </p>
+          <GoogleSignInButton
+            disabled={submitting || googleSubmitting}
+            onCredential={handleGoogleCredential}
+            onError={() => setError("No pudimos cargar el acceso con Google.")}
+          />
+        </div>
+      ) : null}
       <OperationLoader
         active={submitting || googleSubmitting}
         delayMs={500}
@@ -316,7 +333,7 @@ function DemoAccess({ onNavigate }) {
 
   if (enabled === null) {
     return (
-      <div className="border border-white/10 bg-white/[0.035] px-4 py-5 text-sm font-bold text-white/55">
+      <div className="border border-[color:var(--auth-border)] bg-[#fafbf8] px-4 py-5 text-sm font-bold text-[color:var(--auth-muted)]">
         Preparando el acceso demo...
       </div>
     );
@@ -331,7 +348,7 @@ function DemoAccess({ onNavigate }) {
         <p className="text-sm font-black text-amber-100">
           La demo no esta disponible temporalmente
         </p>
-        <p className="mt-1 text-xs font-semibold leading-5 text-white/45">
+        <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--auth-muted)]">
           El sitio demo no esta autorizado o el servidor se encuentra iniciando.
         </p>
       </div>
@@ -358,7 +375,7 @@ function DemoAccess({ onNavigate }) {
 
   return (
     <section
-      className="mt-7 border-t border-white/10 pt-6"
+      className="mt-7 border-t border-[color:var(--auth-border)] pt-6"
       aria-label="Acceso de demostracion"
     >
       <div className="mb-3 flex items-end justify-between gap-3">
@@ -366,7 +383,7 @@ function DemoAccess({ onNavigate }) {
           <p className="font-sans text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--auth-accent)]">
             Probar la demo
           </p>
-          <p className="mt-1 text-xs font-semibold text-white/45">
+          <p className="mt-1 text-xs font-semibold text-[color:var(--auth-muted)]">
             Datos ficticios y temporales
           </p>
         </div>
@@ -389,10 +406,10 @@ function DemoAccess({ onNavigate }) {
             >
               <Icon className="h-5 w-5 shrink-0 text-[color:var(--auth-accent)]" />
               <span className="min-w-0">
-                <span className="block text-sm font-black text-white">
+                <span className="block text-sm font-black text-[color:var(--auth-text)]">
                   {isLoading ? "Preparando..." : role.label}
                 </span>
-                <span className="mt-0.5 block text-[10px] font-semibold leading-4 text-white/42">
+                <span className="mt-0.5 block text-[10px] font-semibold leading-4 text-[color:var(--auth-muted)]">
                   {role.description}
                 </span>
               </span>
@@ -447,10 +464,12 @@ function RecoverForm({ onNavigate }) {
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       {sent ? (
         <div className="space-y-4 text-center" role="status" aria-live="polite">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" />
+          <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
           <div>
-            <h2 className="text-lg font-black text-white">Revisa tu correo</h2>
-            <p className="mt-1 text-sm leading-6 text-blue-50/75">
+            <h2 className="text-lg font-black text-[color:var(--auth-text)]">
+              Revisa tu correo
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-[color:var(--auth-muted)]">
               Si existe una cuenta asociada, recibirás un enlace válido durante
               30 minutos.
             </p>
@@ -490,7 +509,7 @@ function RecoverForm({ onNavigate }) {
             />
           </AuthField>
           {requestError ? (
-            <p role="alert" className="text-xs font-bold text-red-200">
+            <p role="alert" className="text-xs font-bold text-red-700">
               {requestError}
             </p>
           ) : null}
@@ -549,7 +568,7 @@ function ResetForm({ token, onNavigate }) {
   if (!token) {
     return (
       <div className="space-y-4 text-center">
-        <p role="alert" className="text-sm text-red-200">
+        <p role="alert" className="text-sm text-red-700">
           El enlace de recuperación está incompleto.
         </p>
         <Button type="button" onClick={() => onNavigate("recover")}>
@@ -562,9 +581,9 @@ function ResetForm({ token, onNavigate }) {
   if (completed) {
     return (
       <div className="space-y-4 text-center" role="status">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-300" />
+        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
         <h2 className="text-lg font-black">Contraseña actualizada</h2>
-        <p className="text-sm text-blue-50/75">
+        <p className="text-sm text-[color:var(--auth-muted)]">
           Ya puedes ingresar con tu nueva contraseña.
         </p>
         <Button
@@ -613,7 +632,7 @@ function ResetForm({ token, onNavigate }) {
       {form.password ? (
         <p
           id="reset-password-hint"
-          className={`text-xs font-semibold ${missing.length ? "text-blue-100/65" : "text-emerald-300"}`}
+          className={`text-xs font-semibold ${missing.length ? "text-[color:var(--auth-muted)]" : "text-emerald-600"}`}
         >
           {missing.length
             ? `Falta: ${missing.join(", ")}.`
@@ -647,7 +666,7 @@ function ResetForm({ token, onNavigate }) {
         />
       </AuthField>
       {requestError ? (
-        <p role="alert" className="text-xs font-bold text-red-200">
+        <p role="alert" className="text-xs font-bold text-red-700">
           {requestError}
         </p>
       ) : null}
@@ -688,7 +707,7 @@ function VerifyEmail({ token, onNavigate }) {
   if (!token || error) {
     return (
       <div className="space-y-4 text-center">
-        <p role="alert" className="text-sm leading-6 text-red-200">
+        <p role="alert" className="text-sm leading-6 text-red-700">
           {error || "El enlace de verificación está incompleto."}
         </p>
         <Button type="button" onClick={() => onNavigate("login")}>
@@ -736,7 +755,7 @@ export default function Login({
         ? "Estamos confirmando que este correo te pertenece."
         : mode === "recover"
           ? "Te enviaremos un enlace seguro para restablecer tu contraseña."
-          : "Continúa con tus rutinas y registra tu próxima sesión.";
+          : "";
 
   const title = dedicatedDemo ? "Explora RIRFIT" : accountTitle;
   const subtitle = dedicatedDemo
@@ -748,33 +767,41 @@ export default function Login({
       variant={isLogin ? "login" : "recover"}
       title={title}
       subtitle={subtitle}
+      heroTitle={
+        dedicatedDemo
+          ? "Modo demostración"
+          : isLogin
+            ? "¡Bienvenido!"
+            : undefined
+      }
+      heroSubtitle={
+        !dedicatedDemo && isLogin
+          ? "Tu progreso, tus rutinas y tus marcas en un solo lugar."
+          : undefined
+      }
       onBack={!dedicatedDemo && !isLogin ? () => navigate("login") : undefined}
       footer={
         dedicatedDemo ? (
-          <div className="text-center">
-            <p className="text-xs font-semibold text-white/45">
-              ¿Ya utilizas RIRFIT?
-            </p>
+          <p className="text-sm font-medium text-[color:var(--auth-hero-muted)]">
+            ¿Ya utilizas RIRFIT?{" "}
             <a
               href={mainApplicationUrl}
-              className="mt-2 inline-flex font-sans text-sm font-bold text-[color:var(--auth-accent)] transition hover:text-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
+              className="border-b border-[color:var(--auth-hero-text)] font-bold text-[color:var(--auth-hero-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
             >
-              Ir a la aplicacion
+              Ir a la aplicación
             </a>
-          </div>
+          </p>
         ) : isLogin ? (
-          <div className="text-center">
-            <p className="text-sm font-semibold text-white/55">
-              ¿No tienes cuenta?
-            </p>
+          <p className="text-sm font-medium text-[color:var(--auth-hero-muted)]">
+            ¿Aún no eres miembro?{" "}
             <button
               type="button"
               onClick={() => onNavigate("register")}
-              className="mt-1 font-sans text-base font-bold text-[color:var(--auth-accent)] transition hover:text-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
+              className="border-b border-[color:var(--auth-hero-text)] font-bold text-[color:var(--auth-hero-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
             >
-              Regístrate gratis
+              Regístrate ahora
             </button>
-          </div>
+          </p>
         ) : null
       }
     >
