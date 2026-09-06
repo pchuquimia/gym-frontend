@@ -47,7 +47,7 @@ const loadGoogleIdentityServices = () => {
 export default function GoogleSignInButton({
   disabled = false,
   remember = false,
-  text = "continue_with",
+  text = "signin",
   onCredential,
   onError,
 }) {
@@ -97,10 +97,8 @@ export default function GoogleSignInButton({
         const renderButton = () => {
           const container = containerRef.current;
           if (!active || !container) return;
-          const nextWidth = Math.floor(
-            Math.min(400, container.getBoundingClientRect().width),
-          );
-          if (nextWidth < 200 || nextWidth === renderedWidth) return;
+          const nextWidth = Math.floor(Math.min(400, container.offsetWidth));
+          if (nextWidth < 100 || nextWidth === renderedWidth) return;
 
           renderedWidth = nextWidth;
           container.replaceChildren();
@@ -142,7 +140,7 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`google-sign-in-button relative flex h-10 w-full items-center justify-center rounded-[4px] transition ${
+      className={`google-sign-in-button relative flex h-12 w-[9.125rem] max-w-full items-center justify-start rounded-[4px] transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}

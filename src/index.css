@@ -393,10 +393,20 @@ details[open] > .overflow-menu-trigger--overlay {
   display: block;
 }
 
-.google-sign-in-button::after {
+.google-sign-in-button::before {
   content: "";
   position: absolute;
   z-index: 1;
+  inset: 0.25rem 0;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.google-sign-in-button::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
   inset: 0;
   border: 1px solid #dadce0;
   border-radius: 4px;
