@@ -5,6 +5,8 @@
     <meta http-equiv="Content-Language" content="es" />
     <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/rirfit-mark.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/rirfit-icon-180.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="application-name" content="RIRFIT" />
     <meta name="apple-mobile-web-app-title" content="RIRFIT" />
     <meta
@@ -37,6 +39,12 @@
     <script>
       (() => {
         const storageKey = 'theme';
+        const isStandalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true;
+        document.documentElement.dataset.displayMode = isStandalone
+          ? 'standalone'
+          : 'browser';
         const stored = localStorage.getItem(storageKey);
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const theme = stored || (prefersDark ? 'dark' : 'light');

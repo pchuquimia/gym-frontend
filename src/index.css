@@ -485,7 +485,7 @@ body {
   background-color: var(--bg);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .app-shell {
     position: relative;
     padding-top: env(safe-area-inset-top, 0px);
@@ -501,6 +501,35 @@ body {
     height: env(safe-area-inset-top, 0px);
     background-color: var(--system-chrome-bg, var(--bg));
     pointer-events: none;
+  }
+
+  .mobile-nav-slot {
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .mobile-drawer-panel {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+}
+
+@media (max-width: 639px) {
+  .mobile-app-content {
+    padding-right: max(
+      var(--mobile-page-gutter),
+      env(safe-area-inset-right, 0px)
+    ) !important;
+    padding-left: max(
+      var(--mobile-page-gutter),
+      env(safe-area-inset-left, 0px)
+    ) !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .mobile-app-content {
+    padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
   }
 }
 

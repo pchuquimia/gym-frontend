@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "RIRFIT",
+  "short_name": "RIRFIT",
+  "description": "Planifica, registra y mide tu progreso de entrenamiento.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf8f1",
+  "theme_color": "#faf8f1",
+  "icons": [
+    {
+      "src": "/rirfit-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/rirfit-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

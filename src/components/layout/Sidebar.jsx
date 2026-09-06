@@ -307,7 +307,7 @@ function Sidebar({
   }
 
   return (
-    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 md:flex">
+    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 lg:flex">
       <div className="flex items-center gap-2">
         <button
           type="button"

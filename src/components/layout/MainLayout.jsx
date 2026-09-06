@@ -171,16 +171,16 @@ function MainLayout({
     useProfileChrome ||
     useSessionSummaryChrome;
   const mobileContentSpacing = hideMobileNav
-    ? "max-md:pb-4 max-md:pt-0"
+    ? "max-lg:pb-4 max-lg:pt-0"
     : useDashboardChrome || useLibraryChrome || useRoutinesChrome
-      ? "max-md:pb-28 max-md:pt-0"
+      ? "max-lg:pb-28 max-lg:pt-0"
       : useProfileChrome || useSessionSummaryChrome
-        ? "max-md:pb-4 max-md:pt-0"
+        ? "max-lg:pb-4 max-lg:pt-0"
         : useTrainingChrome
           ? hideMobileNavDuringTraining
-            ? "max-md:pb-4 max-md:pt-0"
-            : "max-md:pb-28 max-md:pt-0"
-          : "max-md:pb-28";
+            ? "max-lg:pb-4 max-lg:pt-0"
+            : "max-lg:pb-28 max-lg:pt-0"
+          : "max-lg:pb-28";
 
   return (
     <div
@@ -218,16 +218,16 @@ function MainLayout({
         className={
           useOnboardingChrome
             ? "flex flex-1"
-            : "grid flex-1 grid-cols-[280px_1fr] max-md:grid-cols-1"
+            : "grid flex-1 grid-cols-[280px_1fr] max-lg:grid-cols-1"
         }
       >
         {!useOnboardingChrome ? (
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <Sidebar activePage={activePage} onNavigate={handleNavigate} />
           </div>
         ) : null}
         <div
-          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 md:px-8 md:py-8 ${mobileContentSpacing}`}
+          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-8 lg:py-8 ${mobileContentSpacing}`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
@@ -243,7 +243,7 @@ function MainLayout({
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"
-                  : "flex md:hidden"
+                  : "flex lg:hidden"
             }`}
           >
             <MobileMenuButton onClick={() => setShowDrawer(true)} />
@@ -254,7 +254,7 @@ function MainLayout({
           {coachAthlete ? (
             <div
               className={`mb-5 flex min-h-14 items-center justify-between gap-3 rounded-card border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)] ${
-                useTrainingChrome ? "max-md:mt-12" : ""
+                useTrainingChrome ? "max-lg:mt-12" : ""
               }`}
             >
               <div className="min-w-0">
@@ -288,7 +288,7 @@ function MainLayout({
       {/* Off-canvas Drawer for mobile */}
       {showDrawer && (
         <div
-          className="fixed inset-0 z-50 md:hidden"
+          className="fixed inset-0 z-50 lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Menu principal"
@@ -313,7 +313,7 @@ function MainLayout({
       )}
 
       {!useOnboardingChrome && !hideMobileNav ? (
-        <div className="mobile-nav-slot fixed inset-x-0 bottom-0 z-40 md:hidden">
+        <div className="mobile-nav-slot fixed inset-x-0 bottom-0 z-40 lg:hidden">
           <MobileNav activePage={activePage} onNavigate={handleNavigate} />
         </div>
       ) : null}
