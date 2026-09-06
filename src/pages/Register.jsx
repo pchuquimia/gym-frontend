@@ -10,9 +10,7 @@ import {
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
-import FacebookSignInButton from "../components/auth/FacebookSignInButton";
 import { isGoogleSignInConfigured } from "../config/googleAuth";
-import { getFacebookLoginUrl } from "../config/facebookAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
@@ -177,10 +175,6 @@ export default function Register({ onNavigate = () => {} }) {
       setGoogleSubmitting(false);
     }
   };
-
-  const facebookLoginUrl = getFacebookLoginUrl({
-    emailMarketingConsent: form.emailMarketingConsent,
-  });
 
   if (verificationEmail) {
     return (
@@ -398,11 +392,6 @@ export default function Register({ onNavigate = () => {} }) {
                 }
               />
             ) : null}
-            <FacebookSignInButton
-              disabled={submitting || googleSubmitting}
-              href={facebookLoginUrl}
-              text="Registrarse con Facebook"
-            />
           </div>
         </div>
         <OperationLoader

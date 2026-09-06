@@ -72,6 +72,10 @@ export default function GoogleSignInButton({
         });
 
         containerRef.current.replaceChildren();
+        const buttonWidth = Math.floor(
+          Math.min(400, containerRef.current.getBoundingClientRect().width),
+        );
+
         google.accounts.id.renderButton(containerRef.current, {
           type: "standard",
           theme: "outline",
@@ -80,7 +84,7 @@ export default function GoogleSignInButton({
           shape: "rectangular",
           logo_alignment: "left",
           locale: "es",
-          width: Math.min(400, Math.max(240, containerRef.current.clientWidth)),
+          width: Math.max(240, buttonWidth),
         });
         setReady(true);
       })
@@ -97,12 +101,12 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`google-sign-in-button flex h-12 w-full justify-center overflow-hidden rounded-lg transition ${
+      className={`google-sign-in-button flex h-10 w-full items-center justify-center transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}
     >
-      <div ref={containerRef} className="flex h-full w-full justify-center" />
+      <div ref={containerRef} className="flex h-10 w-full justify-center" />
     </div>
   );
 }

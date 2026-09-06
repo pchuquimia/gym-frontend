@@ -384,10 +384,14 @@ details[open] > .overflow-menu-trigger--overlay {
   box-shadow: none;
 }
 
-.google-sign-in-button > div,
-.google-sign-in-button iframe {
+.google-sign-in-button > div {
   width: 100% !important;
-  height: 3rem !important;
+  height: 2.5rem !important;
+}
+
+.google-sign-in-button iframe {
+  display: block;
+  max-width: 100%;
 }
 
 .premium-drawer {
