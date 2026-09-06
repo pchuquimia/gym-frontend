@@ -88,19 +88,45 @@ function LoginForm({ onNavigate }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     setError("");
+    setNeedsVerification(false);
+    setVerificationSent(false);
     try {
       const user = await login({ ...form, email: form.email.trim() });
       onNavigate(getUserHome(user));
     } catch (err) {
       setError(loginErrorMessage(err));
+      setNeedsVerification(
+        err.status === 403 && /verific/i.test(String(err.message || "")),
+      );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (resendingVerification) return;
+    setResendingVerification(true);
+    setVerificationSent(false);
+    try {
+      await api.resendVerification({ email: form.email.trim() });
+      setError("");
+      setNeedsVerification(false);
+      setVerificationSent(true);
+    } catch (requestError) {
+      setError(
+        requestError.message || "No pudimos reenviar el enlace de verificación.",
+      );
+    } finally {
+      setResendingVerification(false);
     }
   };
 
@@ -116,9 +142,11 @@ function LoginForm({ onNavigate }) {
           required
           value={form.email}
           onFocus={keepFieldVisible}
-          onChange={(event) =>
-            setForm((previous) => ({ ...previous, email: event.target.value }))
-          }
+          onChange={(event) => {
+            setForm((previous) => ({ ...previous, email: event.target.value }));
+            setNeedsVerification(false);
+            setVerificationSent(false);
+          }}
           placeholder="nombre@correo.com"
           className={inputClass}
         />
@@ -162,6 +190,22 @@ function LoginForm({ onNavigate }) {
           className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200"
         >
           {error}
+        </p>
+      ) : null}
+      {needsVerification ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full rounded-control"
+          disabled={resendingVerification}
+          onClick={handleResendVerification}
+        >
+          {resendingVerification ? "Reenviando..." : "Reenviar verificación"}
+        </Button>
+      ) : null}
+      {verificationSent ? (
+        <p role="status" className="text-xs font-bold text-emerald-300">
+          Enlace enviado. Revisa también tu carpeta de correo no deseado.
         </p>
       ) : null}
       <Button

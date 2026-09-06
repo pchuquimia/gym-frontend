@@ -59,6 +59,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  resendVerification: (payload) =>
+    request("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   devAdminLogin: () => request("/api/auth/dev-admin", { method: "POST" }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),

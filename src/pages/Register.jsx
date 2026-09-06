@@ -15,6 +15,7 @@ import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../services/api";
 import {
   passwordStatus,
   validateEmail,
@@ -50,6 +51,7 @@ export default function Register({ onNavigate = () => {} }) {
   const [submitting, setSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
+  const [resendingVerification, setResendingVerification] = useState(false);
   const missingPasswordRules = useMemo(
     () => passwordStatus(form.password),
     [form.password],
@@ -123,6 +125,23 @@ export default function Register({ onNavigate = () => {} }) {
     "aria-describedby": errors[field] ? `register-${field}-error` : undefined,
   });
 
+  const handleResendVerification = async () => {
+    if (!verificationEmail || resendingVerification) return;
+    setResendingVerification(true);
+    try {
+      await api.resendVerification({ email: verificationEmail });
+      toast.success("Enlace enviado", {
+        description: "Revisa también tu carpeta de correo no deseado.",
+      });
+    } catch (error) {
+      toast.error("No pudimos reenviar el enlace", {
+        description: error.message || "Inténtalo nuevamente en unos minutos.",
+      });
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
   if (verificationEmail) {
     return (
       <PremiumAuthLayout
@@ -150,6 +169,15 @@ export default function Register({ onNavigate = () => {} }) {
               durante 24 horas.
             </p>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={resendingVerification}
+            onClick={handleResendVerification}
+            className="h-11 w-full rounded-lg"
+          >
+            {resendingVerification ? "Reenviando..." : "Reenviar enlace"}
+          </Button>
         </div>
       </PremiumAuthLayout>
     );

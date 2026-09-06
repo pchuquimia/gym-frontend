@@ -37,7 +37,6 @@ export default function QuickWeightModal({
   const [phase, setPhase] = useState("idle");
   const [error, setError] = useState("");
   const inputRef = useRef(null);
-  const closeTimerRef = useRef(null);
   const phaseRef = useRef("idle");
   const onCloseRef = useRef(onClose);
   const reduceMotion = useReducedMotion();
@@ -76,7 +75,6 @@ export default function QuickWeightModal({
     return () => {
       window.clearTimeout(focusTimer);
       window.clearTimeout(resetTimer);
-      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -89,11 +87,7 @@ export default function QuickWeightModal({
     setError("");
     try {
       await onSave(numericWeight);
-      changePhase("success");
-      closeTimerRef.current = window.setTimeout(
-        () => onCloseRef.current(),
-        1250,
-      );
+      onCloseRef.current();
     } catch (requestError) {
       changePhase("idle");
       setError(requestError.message || "No se pudo guardar el pesaje.");
@@ -106,9 +100,7 @@ export default function QuickWeightModal({
   const dialogLabel =
     phase === "saving"
       ? "Guardando pesaje"
-      : phase === "success"
-        ? "Peso registrado"
-        : "Registrar peso";
+      : "Registrar peso";
 
   return createPortal(
     <AnimatePresence>
@@ -145,7 +137,7 @@ export default function QuickWeightModal({
             </header>
 
             <AnimatePresence mode="wait" initial={false}>
-              {phase === "saving" || phase === "success" ? (
+              {phase === "saving" ? (
                 <motion.div
                   key={phase}
                   initial={{ opacity: 0, y: 10 }}
@@ -156,7 +148,7 @@ export default function QuickWeightModal({
                   aria-live="polite"
                 >
                   <p className="text-sm font-medium text-[color:var(--text-muted)]">
-                    {phase === "saving" ? "Guardando tu registro" : "Peso registrado"}
+                    Guardando tu registro
                   </p>
                   <p className="mt-3 text-[56px] font-semibold leading-none tracking-[-0.055em] tabular-nums sm:text-[64px]">
                     {numericWeight.toLocaleString("es-BO", {
@@ -164,14 +156,12 @@ export default function QuickWeightModal({
                     })}
                     <span className="ml-2 text-2xl tracking-normal">kg</span>
                   </p>
-                  {phase === "saving" ? (
-                    <motion.span
-                      aria-hidden="true"
-                      className="mt-8 h-0.5 w-24 origin-left bg-[#352018] dark:bg-[#e2ff00]"
-                      animate={reduceMotion ? undefined : { scaleX: [0.2, 1, 0.2] }}
-                      transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                  ) : null}
+                  <motion.span
+                    aria-hidden="true"
+                    className="mt-8 h-0.5 w-24 origin-left bg-[#352018] dark:bg-[#e2ff00]"
+                    animate={reduceMotion ? undefined : { scaleX: [0.2, 1, 0.2] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                  />
                 </motion.div>
               ) : (
                 <motion.form
