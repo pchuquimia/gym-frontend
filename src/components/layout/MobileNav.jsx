@@ -33,7 +33,7 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav className="mx-[18px] mb-[calc(0.875rem+env(safe-area-inset-bottom))] rounded-[2rem] border border-[color:var(--mobile-nav-border)] bg-[color:var(--mobile-nav-bg)] p-1.5 shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] lg:hidden">
+    <nav className="mx-[18px] mb-[max(0.375rem,env(safe-area-inset-bottom))] rounded-[2rem] border border-[color:var(--mobile-nav-border)] bg-[color:var(--mobile-nav-bg)] p-1.5 shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] lg:hidden">
       <div
         className="grid font-sans text-[11px] font-medium"
         style={{
