@@ -50,7 +50,10 @@ function PremiumAuthLayout({
             aria-hidden="true"
             className="auth-hero-image absolute inset-0 h-full w-full object-cover"
           />
-          <div className="auth-hero-overlay absolute inset-0" aria-hidden="true" />
+          <div
+            className="auth-hero-overlay absolute inset-0"
+            aria-hidden="true"
+          />
 
           <div className="relative flex items-center justify-between gap-5">
             <p className="font-display text-xl font-semibold tracking-tight text-[color:var(--auth-hero-text)] lg:text-2xl">
@@ -105,6 +108,29 @@ function PremiumAuthLayout({
 
             <div>{children}</div>
           </div>
+          <nav
+            aria-label="Información legal"
+            className="mx-auto mt-10 flex w-full max-w-[25rem] flex-wrap gap-x-5 gap-y-2 text-xs text-[color:var(--auth-muted)] lg:mt-4"
+          >
+            <a
+              className="transition hover:text-[color:var(--auth-text)] hover:underline"
+              href="/privacidad"
+            >
+              Privacidad
+            </a>
+            <a
+              className="transition hover:text-[color:var(--auth-text)] hover:underline"
+              href="/terminos"
+            >
+              Términos
+            </a>
+            <a
+              className="transition hover:text-[color:var(--auth-text)] hover:underline"
+              href="/eliminar-cuenta"
+            >
+              Eliminar cuenta
+            </a>
+          </nav>
         </section>
       </section>
     </main>

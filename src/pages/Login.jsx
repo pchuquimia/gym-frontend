@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import FacebookSignInButton from "../components/auth/FacebookSignInButton";
 import { isGoogleSignInConfigured } from "../config/googleAuth";
+import { getFacebookLoginUrl } from "../config/facebookAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
@@ -69,6 +71,22 @@ const loginErrorMessage = (error) => {
   return "El email, username o contraseña no son correctos.";
 };
 
+const facebookErrorMessage = () => {
+  if (typeof window === "undefined") return "";
+  const code = new URLSearchParams(window.location.search).get(
+    "facebook_error",
+  );
+  if (!code) return "";
+  if (code === "cancelled") return "Cancelaste el acceso con Facebook.";
+  if (code === "facebook_email_required") {
+    return "Facebook no compartió un correo electrónico. Autoriza el correo o utiliza otro método de acceso.";
+  }
+  if (code === "facebook_account_conflict") {
+    return "Esta cuenta ya está asociada a otro perfil de Facebook.";
+  }
+  return "No pudimos iniciar sesión con Facebook. Intenta nuevamente.";
+};
+
 function PasswordToggle({ visible, onToggle }) {
   return (
     <button
@@ -87,7 +105,7 @@ function PasswordToggle({ visible, onToggle }) {
 function LoginForm({ onNavigate }) {
   const { login, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({ identifier: "", password: "" });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(facebookErrorMessage);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,6 +113,15 @@ function LoginForm({ onNavigate }) {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("facebook_error")) return;
+    url.searchParams.delete("facebook_error");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  const facebookLoginUrl = getFacebookLoginUrl({ remember: keepLoggedIn });
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -263,18 +290,26 @@ function LoginForm({ onNavigate }) {
           ¿Olvidaste tu contraseña?
         </button>
       </div>
-      {isGoogleSignInConfigured ? (
-        <div className="space-y-4 pt-3">
-          <p className="font-sans text-sm font-normal text-[#50524d]">
-            O inicia sesión con
-          </p>
-          <GoogleSignInButton
+      <div className="space-y-4 pt-3">
+        <p className="font-sans text-sm font-normal text-[#50524d]">
+          O inicia sesión con
+        </p>
+        <div className="space-y-3">
+          {isGoogleSignInConfigured ? (
+            <GoogleSignInButton
+              disabled={submitting || googleSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={() =>
+                setError("No pudimos cargar el acceso con Google.")
+              }
+            />
+          ) : null}
+          <FacebookSignInButton
             disabled={submitting || googleSubmitting}
-            onCredential={handleGoogleCredential}
-            onError={() => setError("No pudimos cargar el acceso con Google.")}
+            href={facebookLoginUrl}
           />
         </div>
-      ) : null}
+      </div>
       <OperationLoader
         active={submitting || googleSubmitting}
         delayMs={500}

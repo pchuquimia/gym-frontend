@@ -12,6 +12,7 @@ import "./App.css";
 import MainLayout from "./components/layout/MainLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import LegalPage from "./pages/LegalPage";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 import PageErrorBoundary from "./components/system/PageErrorBoundary";
 import OperationLoader from "./components/system/OperationLoader";
@@ -175,11 +176,19 @@ const AUTH_PATHS = {
   verify: "/verificar-correo",
 };
 
-const authPageFromPath = () => {
+const PUBLIC_PATHS = {
+  privacidad: "/privacidad",
+  terminos: "/terminos",
+  eliminar_cuenta: "/eliminar-cuenta",
+};
+const PUBLIC_PAGES = new Set(Object.keys(PUBLIC_PATHS));
+const ROUTE_PATHS = { ...AUTH_PATHS, ...PUBLIC_PATHS };
+
+const pageFromPath = () => {
   if (typeof window === "undefined") return null;
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   return (
-    Object.entries(AUTH_PATHS).find(([, value]) => value === path)?.[0] || null
+    Object.entries(ROUTE_PATHS).find(([, value]) => value === path)?.[0] || null
   );
 };
 
@@ -211,11 +220,11 @@ function App() {
   const reduceMotion = useReducedMotion();
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "login";
-    const authPage = authPageFromPath();
-    if (authPage && authPage !== "login") return authPage;
+    const routePage = pageFromPath();
+    if (routePage && routePage !== "login") return routePage;
     if (hasActiveTrainingSnapshot()) return "registrar";
     const stored = localStorage.getItem("active_page");
-    return stored || authPage || "login";
+    return stored || routePage || "login";
   });
   const [coachAthlete, setCoachAthlete] = useState(readCoachAthlete);
   const navigationIndexRef = useRef(
@@ -337,8 +346,8 @@ function App() {
       const nextIndex = replace
         ? navigationIndexRef.current
         : navigationIndexRef.current + 1;
-      const target = AUTH_PATHS[page]
-        ? `${AUTH_PATHS[page]}${page === "reset" ? window.location.search : ""}`
+      const target = ROUTE_PATHS[page]
+        ? `${ROUTE_PATHS[page]}${page === "reset" ? window.location.search : ""}`
         : "/";
       const nextState = createAppHistoryState({
         currentState: replace ? currentState : null,
@@ -358,7 +367,7 @@ function App() {
     setRestoreScrollY(null);
     setActivePage(page);
     if (typeof localStorage !== "undefined") {
-      if (AUTH_PATHS[page]) {
+      if (ROUTE_PATHS[page]) {
         localStorage.removeItem("active_page");
       } else {
         localStorage.setItem("active_page", page);
@@ -406,13 +415,13 @@ function App() {
 
   useEffect(() => {
     const handlePopState = (event) => {
-      const authPage = authPageFromPath();
+      const routePage = pageFromPath();
       const storedPage = localStorage.getItem("active_page");
       const historyPage = getAppHistoryPage(event.state);
       const nextPage =
-        isAuthenticated && authPage === "login"
+        isAuthenticated && routePage === "login"
           ? historyPage || storedPage || getUserHome(user)
-          : historyPage || authPage || storedPage || "login";
+          : historyPage || routePage || storedPage || "login";
       const nextIndex = getAppHistoryIndex(event.state);
       setNavigationDirection(
         nextIndex < navigationIndexRef.current ? "back" : "forward",
@@ -420,7 +429,7 @@ function App() {
       navigationIndexRef.current = nextIndex;
       setRestoreScrollY(getAppHistoryScroll(event.state));
       setActivePage(nextPage);
-      if (AUTH_PATHS[nextPage]) localStorage.removeItem("active_page");
+      if (ROUTE_PATHS[nextPage]) localStorage.removeItem("active_page");
       else localStorage.setItem("active_page", nextPage);
     };
     window.addEventListener("popstate", handlePopState);
@@ -428,6 +437,7 @@ function App() {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
+    if (PUBLIC_PAGES.has(activePage)) return;
     if (!isAuthenticated || user?.role !== "Entrenador") return;
     if (COACH_ATHLETE_CONTEXT_PAGES.has(activePage) && !coachAthlete?.id) {
       handleNavigate("trainer", { replace: true });
@@ -441,6 +451,7 @@ function App() {
   }, [activePage, coachAthlete, isAuthenticated, user?.role]);
 
   useEffect(() => {
+    if (PUBLIC_PAGES.has(activePage)) return;
     const isManagedClient =
       user?.role === "Cliente" && user?.trainingMode === "coach_managed";
     if (
@@ -454,6 +465,7 @@ function App() {
   }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
 
   useEffect(() => {
+    if (PUBLIC_PAGES.has(activePage)) return;
     if (!isAuthenticated) return;
     if (needsOnboarding(user) && activePage !== "onboarding") {
       handleNavigate("onboarding", { replace: true });
@@ -495,6 +507,10 @@ function App() {
       : "";
   const authenticatedUserId = String(user?.id || user?._id || "anonymous");
   const providerScopeKey = `${authenticatedUserId}:${supervisedOwnerId || "self"}`;
+
+  if (PUBLIC_PAGES.has(activePage)) {
+    return <LegalPage kind={activePage} />;
+  }
 
   if (loading) {
     return (

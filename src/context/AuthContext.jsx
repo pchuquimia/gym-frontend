@@ -161,6 +161,28 @@ const setDevAutoLoginDisabled = (disabled) => {
   }
 };
 
+const isFacebookOAuthReturn = () => {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("facebook") === "success"
+  );
+};
+
+const clearFacebookOAuthReturn = () => {
+  if (typeof window === "undefined" || !isFacebookOAuthReturn()) return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("facebook");
+  window.history.replaceState(window.history.state, "", url);
+};
+
+const markFacebookOAuthSessionFailure = () => {
+  if (typeof window === "undefined" || !isFacebookOAuthReturn()) return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete("facebook");
+  url.searchParams.set("facebook_error", "session_failed");
+  window.history.replaceState(window.history.state, "", url);
+};
+
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const developmentAdminMode = shouldUseDevAdminLogin();
@@ -180,10 +202,13 @@ export function AuthProvider({ children }) {
 
   const refreshUser = useCallback(
     ({ silent = false, force = false } = {}) => {
+      const facebookOAuthReturn = isFacebookOAuthReturn();
+      if (facebookOAuthReturn) setDevAutoLoginDisabled(false);
       if (
         shouldUseDevAdminLogin() &&
         isDevAutoLoginDisabled() &&
-        !userRef.current
+        !userRef.current &&
+        !facebookOAuthReturn
       ) {
         if (!silent) setLoading(false);
         return Promise.resolve(null);
@@ -207,9 +232,14 @@ export function AuthProvider({ children }) {
           const nextUser = normalizeUser(data);
           restoreActiveTraining(nextUser?.id || nextUser?._id);
           commitUser(nextUser);
+          if (facebookOAuthReturn) clearFacebookOAuthReturn();
           return nextUser;
         } catch (requestError) {
-          if (shouldUseDevAdminLogin() && !isDevAutoLoginDisabled()) {
+          if (
+            shouldUseDevAdminLogin() &&
+            !isDevAutoLoginDisabled() &&
+            !facebookOAuthReturn
+          ) {
             try {
               const data = await api.devAdminLogin();
               if (data?.token) setAuthToken(data.token);
@@ -232,6 +262,8 @@ export function AuthProvider({ children }) {
             }
             return userRef.current;
           }
+
+          if (facebookOAuthReturn) markFacebookOAuthSessionFailure();
 
           const currentUser = userRef.current;
           preserveActiveTraining(currentUser?.id || currentUser?._id);
@@ -284,7 +316,7 @@ export function AuthProvider({ children }) {
     async (payload, { remember = false } = {}) => {
       setError("");
       setDevAutoLoginDisabled(false);
-      const data = await api.login(payload);
+      const data = await api.login({ ...payload, remember });
       if (data?.token) setAuthToken(data.token, { persistent: remember });
       queryClient.clear();
       const nextUser = normalizeUser(data);
@@ -315,7 +347,10 @@ export function AuthProvider({ children }) {
       setError("");
       setDevAutoLoginDisabled(false);
       const { remember = false, ...googleOptions } = options;
-      const data = await api.googleLogin(credential, googleOptions);
+      const data = await api.googleLogin(credential, {
+        ...googleOptions,
+        remember,
+      });
       if (data?.token) setAuthToken(data.token, { persistent: remember });
       queryClient.clear();
       const nextUser = normalizeUser(data);

@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import FacebookSignInButton from "../components/auth/FacebookSignInButton";
 import { isGoogleSignInConfigured } from "../config/googleAuth";
+import { getFacebookLoginUrl } from "../config/facebookAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
@@ -175,6 +177,10 @@ export default function Register({ onNavigate = () => {} }) {
       setGoogleSubmitting(false);
     }
   };
+
+  const facebookLoginUrl = getFacebookLoginUrl({
+    emailMarketingConsent: form.emailMarketingConsent,
+  });
 
   if (verificationEmail) {
     return (
@@ -377,25 +383,28 @@ export default function Register({ onNavigate = () => {} }) {
           {submitting ? "Creando cuenta..." : "Crear cuenta"}
           {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
-        {isGoogleSignInConfigured ? (
-          <div className="space-y-4 pt-3">
-            <div className="flex items-center gap-3" aria-hidden="true">
-              <span className="h-px flex-1 bg-[color:var(--auth-border)]" />
-              <span className="font-sans text-xs font-medium text-[color:var(--auth-hero-muted)]">
-                O regístrate con
-              </span>
-              <span className="h-px flex-1 bg-[color:var(--auth-border)]" />
-            </div>
-            <GoogleSignInButton
-              text="signup_with"
+        <div className="space-y-4 pt-3">
+          <p className="font-sans text-sm font-normal text-[#50524d]">
+            O regístrate con
+          </p>
+          <div className="space-y-3">
+            {isGoogleSignInConfigured ? (
+              <GoogleSignInButton
+                text="signup_with"
+                disabled={submitting || googleSubmitting}
+                onCredential={handleGoogleCredential}
+                onError={() =>
+                  setRequestError("No pudimos cargar el acceso con Google.")
+                }
+              />
+            ) : null}
+            <FacebookSignInButton
               disabled={submitting || googleSubmitting}
-              onCredential={handleGoogleCredential}
-              onError={() =>
-                setRequestError("No pudimos cargar el acceso con Google.")
-              }
+              href={facebookLoginUrl}
+              text="Registrarse con Facebook"
             />
           </div>
-        ) : null}
+        </div>
         <OperationLoader
           active={submitting || googleSubmitting}
           delayMs={500}
