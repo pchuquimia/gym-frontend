@@ -310,6 +310,21 @@ export function AuthProvider({ children }) {
     [commitUser, queryClient],
   );
 
+  const loginWithGoogle = useCallback(
+    async (credential) => {
+      setError("");
+      setDevAutoLoginDisabled(false);
+      const data = await api.googleLogin(credential);
+      if (data?.token) setAuthToken(data.token);
+      queryClient.clear();
+      const nextUser = normalizeUser(data);
+      restoreActiveTraining(nextUser?.id || nextUser?._id);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser, queryClient],
+  );
+
   const register = useCallback(
     async (payload) => {
       setError("");
@@ -383,6 +398,7 @@ export function AuthProvider({ children }) {
       error,
       setError,
       login,
+      loginWithGoogle,
       loginDemo,
       register,
       verifyEmail,
@@ -397,6 +413,7 @@ export function AuthProvider({ children }) {
       loading,
       error,
       login,
+      loginWithGoogle,
       loginDemo,
       register,
       verifyEmail,

@@ -13,6 +13,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
+import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import { isGoogleSignInConfigured } from "../config/googleAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
@@ -83,10 +85,11 @@ function PasswordToggle({ visible, onToggle }) {
 }
 
 function LoginForm({ onNavigate }) {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
@@ -123,15 +126,54 @@ function LoginForm({ onNavigate }) {
       setVerificationSent(true);
     } catch (requestError) {
       setError(
-        requestError.message || "No pudimos reenviar el enlace de verificación.",
+        requestError.message ||
+          "No pudimos reenviar el enlace de verificación.",
       );
     } finally {
       setResendingVerification(false);
     }
   };
 
+  const handleGoogleCredential = async (credential) => {
+    if (googleSubmitting || submitting) return;
+    setGoogleSubmitting(true);
+    setError("");
+    try {
+      const user = await loginWithGoogle(credential);
+      onNavigate(getUserHome(user));
+    } catch (requestError) {
+      setError(
+        requestError?.status === 503
+          ? "El acceso con Google no está configurado temporalmente."
+          : requestError?.message || "No pudimos iniciar sesión con Google.",
+      );
+    } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" aria-busy={submitting}>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-5"
+      aria-busy={submitting || googleSubmitting}
+    >
+      {isGoogleSignInConfigured ? (
+        <>
+          <GoogleSignInButton
+            disabled={submitting || googleSubmitting}
+            onCredential={handleGoogleCredential}
+            onError={() => setError("No pudimos cargar el acceso con Google.")}
+          />
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-white/10" />
+            <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--auth-muted)]">
+              o continúa con correo
+            </span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+        </>
+      ) : null}
       <AuthField id="login-email" icon={Mail} label="Correo electrónico">
         <input
           id="login-email"
@@ -211,16 +253,20 @@ function LoginForm({ onNavigate }) {
       <Button
         type="submit"
         className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
-        disabled={submitting}
+        disabled={submitting || googleSubmitting}
       >
         {submitting ? "Ingresando..." : "Ingresar"}
         {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
       </Button>
       <OperationLoader
-        active={submitting}
+        active={submitting || googleSubmitting}
         delayMs={500}
-        title="Iniciando sesion"
-        description="Verificando tus credenciales con el servidor."
+        title={googleSubmitting ? "Conectando con Google" : "Iniciando sesion"}
+        description={
+          googleSubmitting
+            ? "Validando tu cuenta de forma segura."
+            : "Verificando tus credenciales con el servidor."
+        }
       />
     </form>
   );

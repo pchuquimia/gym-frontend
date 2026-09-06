@@ -10,6 +10,8 @@ import {
   User,
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
+import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import { isGoogleSignInConfigured } from "../config/googleAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
@@ -21,6 +23,7 @@ import {
   validateEmail,
   validatePassword,
 } from "../utils/authValidation";
+import { getUserHome } from "../utils/userFlow";
 
 const inputClass =
   "h-12 w-full rounded-control border border-[color:var(--auth-border)] bg-[color:var(--auth-surface)] pl-11 pr-4 font-sans text-base font-medium text-[color:var(--auth-text)] outline-none transition placeholder:text-[color:var(--auth-muted)] hover:border-white/25 focus:border-[color:var(--auth-accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)] sm:text-sm";
@@ -39,7 +42,7 @@ const validateForm = (form) => ({
 });
 
 export default function Register({ onNavigate = () => {} }) {
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -49,6 +52,7 @@ export default function Register({ onNavigate = () => {} }) {
   const [errors, setErrors] = useState({});
   const [requestError, setRequestError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [resendingVerification, setResendingVerification] = useState(false);
@@ -142,6 +146,27 @@ export default function Register({ onNavigate = () => {} }) {
     }
   };
 
+  const handleGoogleCredential = async (credential) => {
+    if (submitting || googleSubmitting) return;
+    setGoogleSubmitting(true);
+    setRequestError("");
+    try {
+      const user = await loginWithGoogle(credential);
+      toast.success("Cuenta lista", {
+        description: "Ingresaste de forma segura con Google.",
+      });
+      onNavigate(getUserHome(user));
+    } catch (error) {
+      setRequestError(
+        error?.status === 503
+          ? "El acceso con Google no está configurado temporalmente."
+          : error?.message || "No pudimos continuar con Google.",
+      );
+    } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
   if (verificationEmail) {
     return (
       <PremiumAuthLayout
@@ -196,7 +221,9 @@ export default function Register({ onNavigate = () => {} }) {
             className="font-sans text-sm font-medium text-[color:var(--auth-muted)] focus-visible:ring-[color:var(--auth-accent)]"
           >
             ¿Ya tienes cuenta?{" "}
-            <span className="font-bold text-[color:var(--auth-accent)]">Inicia sesión</span>
+            <span className="font-bold text-[color:var(--auth-accent)]">
+              Inicia sesión
+            </span>
           </button>
         </div>
       }
@@ -205,8 +232,26 @@ export default function Register({ onNavigate = () => {} }) {
         onSubmit={handleSubmit}
         className="space-y-4"
         noValidate
-        aria-busy={submitting}
+        aria-busy={submitting || googleSubmitting}
       >
+        {isGoogleSignInConfigured ? (
+          <>
+            <GoogleSignInButton
+              disabled={submitting || googleSubmitting}
+              onCredential={handleGoogleCredential}
+              onError={() =>
+                setRequestError("No pudimos cargar el acceso con Google.")
+              }
+            />
+            <div className="flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-white/10" />
+              <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--auth-muted)]">
+                o regístrate con correo
+              </span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+          </>
+        ) : null}
         <AuthField
           id="register-name"
           icon={User}
@@ -335,16 +380,22 @@ export default function Register({ onNavigate = () => {} }) {
         <Button
           type="submit"
           className="h-12 w-full rounded-control bg-[color:var(--auth-accent)] text-base font-bold text-[color:var(--auth-accent-contrast)] hover:bg-[color:var(--auth-accent-hover)] focus-visible:ring-[color:var(--auth-accent)]"
-          disabled={submitting}
+          disabled={submitting || googleSubmitting}
         >
           {submitting ? "Creando cuenta..." : "Crear cuenta"}
           {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
         <OperationLoader
-          active={submitting}
+          active={submitting || googleSubmitting}
           delayMs={500}
-          title="Creando tu cuenta"
-          description="Guardando tus datos y preparando el acceso inicial."
+          title={
+            googleSubmitting ? "Conectando con Google" : "Creando tu cuenta"
+          }
+          description={
+            googleSubmitting
+              ? "Validando tu cuenta de forma segura."
+              : "Guardando tus datos y preparando el acceso inicial."
+          }
         />
       </form>
     </PremiumAuthLayout>
