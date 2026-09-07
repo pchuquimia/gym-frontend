@@ -18,6 +18,11 @@ const compactObject = (value) =>
     if (item !== undefined) result[key] = item;
     return result;
   }, {});
+const normalizeRoutines = (data) =>
+  (Array.isArray(data) ? data : []).map((routine) => ({
+    ...routine,
+    id: routine._id || routine.id,
+  }));
 
 export function RoutineProvider({ children, ownerId = "", enabled = true }) {
   const dashboardBootstrap = useDashboardBootstrap();
@@ -27,6 +32,11 @@ export function RoutineProvider({ children, ownerId = "", enabled = true }) {
   const [error, setError] = useState(null);
   const requestInFlightRef = useRef(null);
   const requestVersionRef = useRef(0);
+  const routinesRef = useRef(routines);
+
+  useEffect(() => {
+    routinesRef.current = routines;
+  }, [routines]);
 
   const loadRoutines = useCallback(
     ({ silent = false } = {}) => {
@@ -44,12 +54,7 @@ export function RoutineProvider({ children, ownerId = "", enabled = true }) {
       const operation = api
         .getRoutines({ athleteId: ownerId })
         .then((data) => {
-          const normalized = (Array.isArray(data) ? data : []).map(
-            (routine) => ({
-              ...routine,
-              id: routine._id || routine.id,
-            }),
-          );
+          const normalized = normalizeRoutines(data);
           if (requestVersion === requestVersionRef.current) {
             setRoutines(normalized);
             setError(null);
@@ -82,9 +87,26 @@ export function RoutineProvider({ children, ownerId = "", enabled = true }) {
 
   useEffect(() => {
     if (!enabled || useBootstrap) return undefined;
-    const timeoutId = window.setTimeout(() => loadRoutines(), 0);
+    const timeoutId = window.setTimeout(
+      () => loadRoutines({ silent: routinesRef.current.length > 0 }),
+      0,
+    );
     return () => window.clearTimeout(timeoutId);
   }, [enabled, loadRoutines, useBootstrap]);
+
+  useEffect(() => {
+    if (!enabled || !useBootstrap || !dashboardBootstrap.data?.routines) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      const normalized = normalizeRoutines(dashboardBootstrap.data.routines);
+      // The dashboard already paid for this data; retain it for the next page.
+      setRoutines(normalized);
+      setError(null);
+      setLoading(false);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [dashboardBootstrap.data?.routines, enabled, useBootstrap]);
 
   useEffect(() => {
     if (!enabled || useBootstrap) return undefined;

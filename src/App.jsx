@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import "./App.css";
 import MainLayout from "./components/layout/MainLayout";
 import Login from "./pages/Login";
@@ -217,7 +216,6 @@ const getActiveTrainingOwnerId = () => {
 
 function App() {
   const { user, isAuthenticated, loading } = useAuth();
-  const reduceMotion = useReducedMotion();
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "login";
     const routePage = pageFromPath();
@@ -233,7 +231,6 @@ function App() {
       : 0,
   );
   const [restoreScrollY, setRestoreScrollY] = useState(null);
-  const [navigationDirection, setNavigationDirection] = useState("replace");
   const [pageHidesMobileNavigation, setPageHidesMobileNavigation] =
     useState(false);
   const handleMobileNavVisibilityChange = useCallback((hidden) => {
@@ -361,7 +358,6 @@ function App() {
         target,
       );
       navigationIndexRef.current = nextIndex;
-      setNavigationDirection(replace ? "replace" : "forward");
     }
 
     setRestoreScrollY(null);
@@ -423,9 +419,6 @@ function App() {
           ? historyPage || storedPage || getUserHome(user)
           : historyPage || routePage || storedPage || "login";
       const nextIndex = getAppHistoryIndex(event.state);
-      setNavigationDirection(
-        nextIndex < navigationIndexRef.current ? "back" : "forward",
-      );
       navigationIndexRef.current = nextIndex;
       setRestoreScrollY(getAppHistoryScroll(event.state));
       setActivePage(nextPage);
@@ -582,27 +575,9 @@ function App() {
                 handleNavigate("trainer");
               }}
             >
-              <motion.div
+              <div
                 key={activePage}
                 data-page-view={activePage}
-                initial={
-                  reduceMotion
-                    ? { opacity: 0 }
-                    : {
-                        opacity: 0,
-                        x:
-                          navigationDirection === "back"
-                            ? -10
-                            : navigationDirection === "forward"
-                              ? 10
-                              : 0,
-                      }
-                }
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: reduceMotion ? 0 : 0.16,
-                  ease: [0.2, 0.8, 0.2, 1],
-                }}
                 className="h-full"
               >
                 <PageErrorBoundary
@@ -637,7 +612,7 @@ function App() {
                     </RoleBasedRoute>
                   </Suspense>
                 </PageErrorBoundary>
-              </motion.div>
+              </div>
             </MainLayout>
           </UserProvider>
         </RoutineProvider>

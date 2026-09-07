@@ -255,6 +255,29 @@ export function TrainingProvider({
     enabled: enabled && !useBootstrap,
   });
 
+  useEffect(() => {
+    if (!useBootstrap || !dashboardBootstrap.data) return;
+    const bootstrapTrainings = dashboardBootstrap.data.trainings || {};
+    queryClient.setQueryData(
+      trainingSummariesKey,
+      (bootstrapTrainings.summaries || []).map(normalizeTraining),
+    );
+    queryClient.setQueryData(
+      trainingsKey,
+      (bootstrapTrainings.details || []).map(normalizeTraining),
+    );
+    if (dashboardBootstrap.data.preference) {
+      queryClient.setQueryData(prefsKey, dashboardBootstrap.data.preference);
+    }
+  }, [
+    dashboardBootstrap.data,
+    prefsKey,
+    queryClient,
+    trainingSummariesKey,
+    trainingsKey,
+    useBootstrap,
+  ]);
+
   const preferenceData = useBootstrap
     ? dashboardBootstrap.data?.preference
     : prefsQuery.data;

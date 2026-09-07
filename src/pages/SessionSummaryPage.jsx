@@ -6,13 +6,9 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Clock3,
   Flame,
-  Layers3,
-  ListChecks,
   LoaderCircle,
   Minus,
-  Repeat2,
   TrendingDown,
   TrendingUp,
   X,
@@ -42,15 +38,6 @@ const formatDateLong = (iso) =>
         { weekday: "short", day: "2-digit", month: "long", year: "numeric" },
       )
     : "--";
-
-const comparisonText = (value) => {
-  if (!Number.isFinite(value)) return "series completadas";
-  const rounded = Math.abs(Math.round(value));
-  if (rounded < 5) return "igual que tu promedio";
-  return value > 0
-    ? `${rounded}% más que tu promedio`
-    : `${rounded}% menos que tu promedio`;
-};
 
 const duration = (seconds) => {
   const minutes = Math.max(0, Math.round((Number(seconds) || 0) / 60));
@@ -83,6 +70,37 @@ const countLabel = (count, singular, plural) =>
 
 const exerciseCountLabel = (count) =>
   countLabel(count, "ejercicio", "ejercicios");
+
+const SESSION_HERO_IMAGES = Object.freeze({
+  "lower a": "/images/routine-lower-a.webp",
+  upper: "/images/routine-upper.webp",
+  "lower b": "/images/workout-hero-model.webp",
+  push: "/images/routine-push.webp",
+  pull: "/images/routine-pull.webp",
+});
+
+const normalizeRoutineName = (value) =>
+  String(value || "")
+    .trim()
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ");
+
+const getSessionHeroImage = (session, routine) => {
+  const explicitImage =
+    session?.heroImage ||
+    session?.routineImage ||
+    routine?.heroImage ||
+    routine?.media?.image?.url ||
+    routine?.image?.url ||
+    routine?.image;
+  if (typeof explicitImage === "string" && explicitImage.trim()) {
+    return explicitImage;
+  }
+  const routineName = normalizeRoutineName(
+    session?.routineName || routine?.name || routine?.raw?.name,
+  );
+  return SESSION_HERO_IMAGES[routineName] || "/images/workout-hero-model.webp";
+};
 
 function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
   useEffect(() => {
@@ -177,40 +195,6 @@ MobileSessionPicker.propTypes = {
   sessions: PropTypes.arrayOf(PropTypes.object).isRequired,
 };
 
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  accent = false,
-  onClick = null,
-  className = "",
-}) {
-  const Component = onClick ? "button" : "article";
-  return (
-    <Component
-      type={onClick ? "button" : undefined}
-      onClick={onClick || undefined}
-      className={`session-summary-metric rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none ${onClick ? "transition hover:border-[color:var(--border-strong)]" : ""} ${className}`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="session-summary-metric__label text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-          {label}
-        </p>
-        <Icon className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
-      </div>
-      <p
-        className={`session-summary-metric__value mt-3 text-2xl font-black leading-none ${accent ? "text-[#181918] dark:text-[#e2ff00]" : ""}`}
-      >
-        {value}
-      </p>
-      <p className="session-summary-metric__detail mt-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-        {detail}
-      </p>
-    </Component>
-  );
-}
-
 export default function SessionSummaryPage({
   sessions: propSessions = [],
   currentSession: propCurrentSession,
@@ -252,6 +236,7 @@ export default function SessionSummaryPage({
               `${training.date}-${training.routineId || ""}`,
           ),
           date: training.date,
+          routineId: training.routineId,
           routineName: training.routineName || "Entrenamiento",
           routineBranch:
             training.branch ||
@@ -308,6 +293,23 @@ export default function SessionSummaryPage({
     ) ||
     sortedSessions[0] ||
     null;
+  const currentRoutine = useMemo(() => {
+    const routineId = String(currentRaw?.routineId || "");
+    const routineName = normalizeRoutineName(currentRaw?.routineName);
+    return (
+      routines.find((routine) => {
+        const candidateId = String(routine?.id || routine?._id || "");
+        if (routineId && candidateId === routineId) return true;
+        return (
+          routineName && normalizeRoutineName(routine?.name) === routineName
+        );
+      }) || null
+    );
+  }, [currentRaw?.routineId, currentRaw?.routineName, routines]);
+  const sessionHeroImage = useMemo(
+    () => getSessionHeroImage(currentRaw, currentRoutine),
+    [currentRaw, currentRoutine],
+  );
   const currentSummary = useMemo(
     () => summarizeSession(currentRaw || {}),
     [currentRaw],
@@ -491,44 +493,83 @@ export default function SessionSummaryPage({
       </header>
 
       {sortedSessions.length ? (
-        <section className="session-summary-session-card grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] sm:items-end dark:rounded-[4px] dark:shadow-none">
-          <div className="session-summary-session-card__overview min-w-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="session-summary-session-card__title truncate text-xl font-black">
-                  {currentRaw?.routineName || "Entrenamiento"}
-                </h2>
-                <p className="session-summary-session-card__date mt-1 text-sm font-normal text-[color:var(--text-muted)]">
-                  {formatDateLong(currentRaw?.date)}
-                </p>
-              </div>
+        <section
+          className="session-summary-hero"
+          aria-label="Sesión completada"
+        >
+          <img
+            key={sessionHeroImage}
+            src={sessionHeroImage}
+            alt=""
+            className="session-summary-hero__image"
+          />
+          <div className="session-summary-hero__shade" aria-hidden="true" />
+          <div className="session-summary-hero__content">
+            <div className="session-summary-hero__topbar">
+              <span className="session-summary-hero__status">
+                <Check aria-hidden="true" /> Entrenamiento completado
+              </span>
               <button
                 type="button"
                 onClick={() => setIsSessionPickerOpen(true)}
                 aria-haspopup="dialog"
                 aria-label="Cambiar sesión"
-                className="session-summary-session-change grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] sm:hidden"
+                className="session-summary-hero__change sm:hidden"
               >
-                <CalendarDays className="h-5 w-5" strokeWidth={1.8} />
+                <CalendarDays aria-hidden="true" />
+              </button>
+              <label className="session-summary-hero__select hidden sm:block">
+                <span className="sr-only">Cambiar sesión</span>
+                <select
+                  value={currentRaw?.id || ""}
+                  onChange={(event) => selectSession(event.target.value)}
+                  className="theme-accent-focus"
+                >
+                  {sortedSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {String(session.date).slice(0, 10)} ·{" "}
+                      {session.routineName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="session-summary-hero__title">
+              <p>Resumen diario · {formatDateLong(currentRaw?.date)}</p>
+              <h1>{currentRaw?.routineName || "Entrenamiento"}</h1>
+            </div>
+
+            <div className="session-summary-hero__metrics">
+              <div>
+                <span>Tiempo</span>
+                <strong>{duration(currentRaw?.durationSeconds)}</strong>
+              </div>
+              <div>
+                <span>Ejercicios</span>
+                <strong>{totals.exercises || "--"}</strong>
+              </div>
+              <div>
+                <span>Series</span>
+                <strong>{totals.sets || "--"}</strong>
+              </div>
+              <button
+                type="button"
+                disabled={!calorieEstimate.available}
+                onClick={() => setIsCaloriesOpen(true)}
+                aria-label="Ver estimación de calorías"
+              >
+                <span>
+                  <Flame aria-hidden="true" /> Calorías
+                </span>
+                <strong>
+                  {calorieEstimate.available
+                    ? `${calorieEstimate.calories} cal`
+                    : "--"}
+                </strong>
               </button>
             </div>
           </div>
-          <label className="hidden sm:block">
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              Cambiar sesión
-            </span>
-            <select
-              value={currentRaw?.id || ""}
-              onChange={(event) => selectSession(event.target.value)}
-              className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold outline-none"
-            >
-              {sortedSessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {String(session.date).slice(0, 10)} · {session.routineName}
-                </option>
-              ))}
-            </select>
-          </label>
         </section>
       ) : null}
 
@@ -586,57 +627,6 @@ export default function SessionSummaryPage({
         </section>
       ) : (
         <>
-          <section className="session-summary-metrics grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <MetricCard
-              label="Ejercicios"
-              value={totals.exercises || "--"}
-              detail={
-                totals.exercises === 1
-                  ? "ejercicio completado"
-                  : "ejercicios completados"
-              }
-              icon={ListChecks}
-              accent
-            />
-            <MetricCard
-              label="Series"
-              value={totals.sets || "--"}
-              detail={comparisonText(sessionReference.setsDelta)}
-              icon={Layers3}
-            />
-            <MetricCard
-              label="Repeticiones"
-              value={totals.reps || "--"}
-              detail="repeticiones completadas"
-              icon={Repeat2}
-            />
-            <MetricCard
-              label="Duración"
-              value={duration(currentRaw?.durationSeconds)}
-              detail={`${exerciseCountLabel(totals.exercises)} ${totals.exercises === 1 ? "completado" : "completados"}`}
-              icon={Clock3}
-            />
-            <MetricCard
-              label="Calorías activas"
-              value={
-                calorieEstimate.available
-                  ? `${calorieEstimate.calories} cal`
-                  : "--"
-              }
-              detail={
-                calorieEstimate.available
-                  ? `${calorieEstimate.minCalories}–${calorieEstimate.maxCalories} cal · ver detalle`
-                  : "sin datos suficientes"
-              }
-              icon={Flame}
-              accent
-              onClick={
-                calorieEstimate.available ? () => setIsCaloriesOpen(true) : null
-              }
-              className="col-span-2 lg:col-span-1"
-            />
-          </section>
-
           <CalorieEstimateModal
             open={isCaloriesOpen}
             onClose={() => setIsCaloriesOpen(false)}
@@ -647,224 +637,177 @@ export default function SessionSummaryPage({
             periodLabel="Entrenamiento completado"
           />
 
-          <section className="session-summary-insight rounded-xl bg-[color:var(--accent)] px-5 py-4 text-[color:var(--accent-contrast)]">
-            <p className="text-[10px] font-black uppercase text-current">
-              Lectura de la sesión
-            </p>
-            <p className="mt-1 text-[13px] font-semibold text-current/80">
-              {sessionInsight}
-            </p>
-          </section>
+          <div className="session-summary-details">
+            <section className="session-summary-insight rounded-xl bg-[color:var(--accent)] px-5 py-4 text-[color:var(--accent-contrast)]">
+              <p className="text-[10px] font-black uppercase text-current">
+                Lectura de la sesión
+              </p>
+              <p className="mt-1 text-[13px] font-semibold text-current/80">
+                {sessionInsight}
+              </p>
+            </section>
 
-          <section className="session-summary-section">
-            <div className="mb-2 flex items-end justify-between gap-3">
-              <div>
-                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
-                  Enfoque muscular
-                </p>
-                <h2 className="mt-1 text-xl font-black uppercase">
-                  Qué músculos trabajaste
-                </h2>
-              </div>
-              {muscleRows.length ? (
-                <span className="session-summary-muscle-total text-right text-[11px] font-semibold text-[color:var(--text-muted)]">
-                  100% de las series
-                </span>
-              ) : null}
-            </div>
-            <div className="session-summary-muscle-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
-              {muscleRows.length ? (
-                <>
-                  <div className="session-summary-muscle-lead flex items-center justify-between gap-5 p-5">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase text-[color:var(--text-muted)]">
-                        Mayor enfoque
-                      </p>
-                      <h3 className="mt-1 truncate text-2xl font-semibold">
-                        {muscleRows[0].label}
-                      </h3>
-                      <p className="mt-2 text-sm font-normal text-[color:var(--text-muted)]">
-                        {countLabel(
-                          muscleRows[0].today?.setsCount,
-                          "serie",
-                          "series",
-                        )}{" "}
-                        ·{" "}
-                        {countLabel(
-                          muscleRows[0].today?.repsTotal,
-                          "repetición",
-                          "repeticiones",
-                        )}
-                      </p>
+            <section className="session-summary-section session-summary-muscle-section">
+              <div className="session-summary-muscle-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
+                {muscleRows.length ? (
+                  <>
+                    <div className="session-summary-muscle-lead flex items-end justify-between gap-5 p-5">
+                      <div className="min-w-0">
+                        <p className="session-summary-kicker text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                          Enfoque muscular
+                        </p>
+                        <h2 className="mt-1 truncate text-2xl font-semibold">
+                          {muscleRows[0].label}
+                        </h2>
+                        <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
+                          {countLabel(
+                            muscleRows[0].today?.setsCount,
+                            "serie",
+                            "series",
+                          )}{" "}
+                          de {totals.sets}
+                        </p>
+                      </div>
+                      <strong
+                        className="session-summary-muscle-lead__share shrink-0 tabular-nums"
+                        aria-label={`${Math.round(muscleRows[0].share)} por ciento de las series completadas`}
+                      >
+                        {Math.round(muscleRows[0].share)}%
+                      </strong>
                     </div>
+
                     <div
-                      className="session-summary-muscle-ring grid shrink-0 place-items-center rounded-full"
-                      style={{
-                        "--muscle-share": `${
-                          Math.max(0, Math.min(100, muscleRows[0].share)) * 3.6
-                        }deg`,
-                      }}
-                      aria-label={`${Math.round(muscleRows[0].share)} por ciento de las series completadas`}
+                      className="session-summary-muscle-distribution"
+                      role="img"
+                      aria-label="Distribución de series por grupo muscular"
                     >
-                      <span className="relative z-[1] text-center">
-                        <strong className="block text-xl font-semibold leading-none">
-                          {Math.round(muscleRows[0].share)}%
-                        </strong>
-                        <small className="mt-1 block text-[9px] font-medium text-[color:var(--text-muted)]">
-                          de series
-                        </small>
-                      </span>
+                      {muscleRows.slice(0, 4).map((muscle) => (
+                        <span
+                          key={muscle.muscleKey}
+                          style={{ width: `${muscle.share}%` }}
+                        />
+                      ))}
                     </div>
-                  </div>
 
-                  <p className="session-summary-muscle-explanation border-t border-[color:var(--detail-row-divider)] px-5 py-3 text-xs font-normal leading-5 text-[color:var(--text-muted)]">
-                    El porcentaje indica qué parte de tus series completadas
-                    trabajó cada grupo muscular.
-                  </p>
-
-                  {muscleRows.length > 1 ? (
-                    <div className="session-summary-muscle-ranking divide-y divide-[color:var(--detail-row-divider)] border-t border-[color:var(--detail-row-divider)]">
-                      {muscleRows.slice(1).map((muscle) => (
-                        <div key={muscle.muscleKey} className="px-5 py-4">
-                          <div className="flex items-baseline justify-between gap-4">
-                            <p className="truncate text-sm font-semibold">
-                              {muscle.label}
-                            </p>
-                            <strong className="shrink-0 text-base font-semibold">
-                              {Math.round(muscle.share)}%
-                            </strong>
-                          </div>
-                          <div className="session-summary-muscle-bar mt-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
-                            <div
-                              className="h-full rounded-full bg-[color:var(--accent)]"
-                              style={{ width: `${muscle.share}%` }}
-                            />
-                          </div>
-                          <p className="mt-2 text-xs font-normal text-[color:var(--text-muted)]">
-                            {countLabel(
-                              muscle.today?.setsCount,
-                              "serie",
-                              "series",
-                            )}{" "}
-                            ·{" "}
-                            {countLabel(
-                              muscle.today?.repsTotal,
-                              "repetición",
-                              "repeticiones",
-                            )}
-                          </p>
+                    <div className="session-summary-muscle-legend">
+                      {muscleRows.slice(0, 4).map((muscle, index) => (
+                        <div key={muscle.muscleKey}>
+                          <span aria-hidden="true" data-muscle-index={index} />
+                          <p>{muscle.label}</p>
+                          <strong>{Math.round(muscle.share)}%</strong>
                         </div>
                       ))}
                     </div>
-                  ) : null}
-                </>
-              ) : (
-                <p className="px-5 py-10 text-center text-sm font-normal leading-6 text-[color:var(--text-muted)]">
-                  Esta sesión no tiene suficientes series para calcular el
-                  enfoque muscular.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="session-summary-section">
-            <div className="mb-2 flex items-end justify-between gap-3">
-              <div>
-                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
-                  Detalle
-                </p>
-                <h2 className="mt-1 text-xl font-black uppercase">
-                  Ejercicios realizados
-                </h2>
-              </div>
-              <span className="text-[11px] font-bold text-[color:var(--text-muted)]">
-                {exerciseCountLabel(exerciseRows.length)}
-              </span>
-            </div>
-            <div className="session-summary-list session-summary-exercise-list divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
-              {exerciseRows.length ? (
-                exerciseRows.map((entry) => {
-                  const exercise = entry.today || {};
-                  const progress = formatExerciseProgress(entry.comparison);
-                  const ProgressIcon =
-                    progress.direction === "up"
-                      ? TrendingUp
-                      : progress.direction === "down"
-                        ? TrendingDown
-                        : Minus;
-                  const meta = exerciseMeta.find(
-                    (item) => item.id === exercise.exerciseId,
-                  );
-                  const image = meta
-                    ? getExerciseImageUrl(meta, { width: 240, height: 240 })
-                    : "";
-                  return (
-                    <button
-                      key={`${entry.order}-${exercise.exerciseId}`}
-                      type="button"
-                      onClick={() => handleViewExercise(exercise.exerciseId)}
-                      className="group grid w-full grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] sm:grid-cols-[92px_minmax(180px,1fr)_auto]"
-                    >
-                      <span className="relative h-20 w-[76px] border border-[color:var(--border)] sm:h-24 sm:w-[92px]">
-                        <ExerciseThumbnail
-                          src={image}
-                          className="h-full w-full"
-                        />
-                        <span className="session-summary-exercise-order absolute left-0 top-0 grid h-5 min-w-5 place-items-center bg-[#1a1a1a] px-1 text-[9px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
-                          {entry.order}
-                        </span>
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-black uppercase">
-                          {exercise.exerciseName}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)] group-hover:text-current/80">
-                          {formatMuscleGroup(
-                            exercise.muscleGroup || "Sin grupo",
-                          )}{" "}
-                          · {countLabel(exercise.setsCount, "serie", "series")}{" "}
-                          ·{" "}
-                          {countLabel(
-                            exercise.repsTotal,
-                            "repetición",
-                            "repeticiones",
-                          )}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-2 justify-self-end">
-                        <span
-                          className={`min-w-[3.75rem] text-right ${
-                            progress.direction === "up"
-                              ? "text-emerald-600 dark:text-emerald-300"
-                              : progress.direction === "down"
-                                ? "text-red-600 dark:text-red-300"
-                                : "text-[color:var(--text-muted)]"
-                          }`}
-                          aria-label={`${progress.detail}: ${progress.label}`}
-                        >
-                          <span className="flex items-center justify-end gap-1 text-sm font-black tabular-nums">
-                            <ProgressIcon className="h-3.5 w-3.5" />
-                            {progress.label}
-                          </span>
-                          <span className="mt-0.5 block text-[9px] font-semibold">
-                            {progress.detail}
-                          </span>
-                        </span>
-                        <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
-                      </span>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="px-4 py-10 text-center">
-                  <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
-                  <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                    Esta sesión no contiene ejercicios completados.
+                  </>
+                ) : (
+                  <p className="px-5 py-7 text-center text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+                    Esta sesión no tiene suficientes series para calcular el
+                    enfoque muscular.
                   </p>
+                )}
+              </div>
+            </section>
+
+            <section className="session-summary-section session-summary-exercises-section">
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <div>
+                  <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+                    Detalle
+                  </p>
+                  <h2 className="mt-1 text-xl font-black uppercase">
+                    Ejercicios realizados
+                  </h2>
                 </div>
-              )}
-            </div>
-          </section>
+                <span className="text-[11px] font-bold text-[color:var(--text-muted)]">
+                  {exerciseCountLabel(exerciseRows.length)}
+                </span>
+              </div>
+              <div className="session-summary-list session-summary-exercise-list divide-y divide-[color:var(--border)] border border-[color:var(--border)] bg-[color:var(--card)]">
+                {exerciseRows.length ? (
+                  exerciseRows.map((entry) => {
+                    const exercise = entry.today || {};
+                    const progress = formatExerciseProgress(entry.comparison);
+                    const ProgressIcon =
+                      progress.direction === "up"
+                        ? TrendingUp
+                        : progress.direction === "down"
+                          ? TrendingDown
+                          : Minus;
+                    const meta = exerciseMeta.find(
+                      (item) => item.id === exercise.exerciseId,
+                    );
+                    const image = meta
+                      ? getExerciseImageUrl(meta, { width: 240, height: 240 })
+                      : "";
+                    return (
+                      <button
+                        key={`${entry.order}-${exercise.exerciseId}`}
+                        type="button"
+                        onClick={() => handleViewExercise(exercise.exerciseId)}
+                        className="group grid w-full grid-cols-[76px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] sm:grid-cols-[92px_minmax(180px,1fr)_auto]"
+                      >
+                        <span className="relative h-20 w-[76px] border border-[color:var(--border)] sm:h-24 sm:w-[92px]">
+                          <ExerciseThumbnail
+                            src={image}
+                            className="h-full w-full"
+                          />
+                          <span className="session-summary-exercise-order absolute left-0 top-0 grid h-5 min-w-5 place-items-center bg-[#1a1a1a] px-1 text-[9px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                            {entry.order}
+                          </span>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-black uppercase">
+                            {exercise.exerciseName}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[10px] font-semibold text-[color:var(--text-muted)] group-hover:text-current/80">
+                            {formatMuscleGroup(
+                              exercise.muscleGroup || "Sin grupo",
+                            )}{" "}
+                            ·{" "}
+                            {countLabel(exercise.setsCount, "serie", "series")}{" "}
+                            ·{" "}
+                            {countLabel(
+                              exercise.repsTotal,
+                              "repetición",
+                              "repeticiones",
+                            )}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-2 justify-self-end">
+                          <span
+                            className={`min-w-[3.75rem] text-right ${
+                              progress.direction === "up"
+                                ? "text-emerald-600 dark:text-emerald-300"
+                                : progress.direction === "down"
+                                  ? "text-red-600 dark:text-red-300"
+                                  : "text-[color:var(--text-muted)]"
+                            }`}
+                            aria-label={`${progress.detail}: ${progress.label}`}
+                          >
+                            <span className="flex items-center justify-end gap-1 text-sm font-black tabular-nums">
+                              <ProgressIcon className="h-3.5 w-3.5" />
+                              {progress.label}
+                            </span>
+                            <span className="mt-0.5 block text-[9px] font-semibold">
+                              {progress.detail}
+                            </span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" />
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="px-4 py-10 text-center">
+                    <CalendarDays className="mx-auto h-7 w-7 text-[color:var(--text-muted)]" />
+                    <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
+                      Esta sesión no contiene ejercicios completados.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
         </>
       )}
     </main>

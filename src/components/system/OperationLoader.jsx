@@ -1,73 +1,96 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import PropTypes from "prop-types";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-} from "framer-motion";
-import { LoaderCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-function LoadingContent({ compact, description, title }) {
-  const reduceMotion = useReducedMotion();
-
+function LoadingMark({ reduceMotion }) {
   return (
-    <motion.div
-      initial={reduceMotion ? { opacity: 0 } : { y: 16, opacity: 0, scale: 0.98 }}
-      animate={{ y: 0, opacity: 1, scale: 1 }}
-      exit={reduceMotion ? { opacity: 0 } : { y: 10, opacity: 0, scale: 0.98 }}
-      className={`${
-        compact
-          ? "w-full px-5 py-8"
-          : "w-full max-w-sm rounded-modal border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-6 py-8 shadow-overlay"
-      } text-center text-[color:var(--text)]`}
-    >
-      <span
-        className={`${compact ? "h-12 w-12" : "h-14 w-14"} theme-accent-soft mx-auto grid place-items-center rounded-full border`}
-      >
-        <LoaderCircle
-          className={`${compact ? "h-6 w-6" : "h-8 w-8"} ${reduceMotion ? "" : "animate-spin"}`}
-        />
-      </span>
-      <h2
-        className={`${compact ? "mt-4 text-lg" : "mt-5 text-xl"} font-bold leading-tight`}
-      >
-        {title}
-      </h2>
-      {description ? (
-        <p className="mx-auto mt-2 max-w-sm font-sans text-sm font-medium text-[color:var(--text-muted)]">
-          {description}
-        </p>
-      ) : null}
-      <div
-        className={`${compact ? "mt-4" : "mt-6"} flex justify-center gap-2`}
-        aria-hidden="true"
-      >
+    <div className="operation-loader__mark" aria-hidden="true">
+      <span className="operation-loader__glyph">
         {[0, 1, 2].map((index) => (
-          <motion.span
+          <motion.i
             key={index}
-            className={`${compact ? "w-8" : "w-10"} theme-accent-solid h-1.5 border-0`}
             animate={
               reduceMotion
-                ? { opacity: 0.8 }
-                : { opacity: [0.25, 1, 0.25], scaleX: [0.75, 1, 0.75] }
+                ? { scaleY: 1, opacity: 1 }
+                : { scaleY: [0.48, 1, 0.48], opacity: [0.55, 1, 0.55] }
             }
             transition={
               reduceMotion
                 ? undefined
-                : { duration: 1.2, repeat: Infinity, delay: index * 0.18 }
+                : {
+                    duration: 1.15,
+                    repeat: Infinity,
+                    delay: index * 0.14,
+                    ease: "easeInOut",
+                  }
             }
           />
         ))}
+      </span>
+      <motion.span
+        className="operation-loader__orbit"
+        animate={reduceMotion ? undefined : { rotate: 360 }}
+        transition={
+          reduceMotion
+            ? undefined
+            : { duration: 1.8, repeat: Infinity, ease: "linear" }
+        }
+      >
+        <i />
+      </motion.span>
+    </div>
+  );
+}
+
+LoadingMark.propTypes = {
+  reduceMotion: PropTypes.bool.isRequired,
+};
+
+function LoadingContent({ description, title, variant }) {
+  const reduceMotion = useReducedMotion();
+  const isInline = variant === "inline";
+
+  return (
+    <motion.div
+      initial={reduceMotion ? { opacity: 0 } : { y: 10, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={reduceMotion ? { opacity: 0 } : { y: -6, opacity: 0 }}
+      transition={{
+        duration: reduceMotion ? 0.01 : 0.34,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      className={`operation-loader__surface operation-loader__surface--${variant}`}
+    >
+      <LoadingMark reduceMotion={reduceMotion} />
+      <div className="operation-loader__copy">
+        <h2>{title}</h2>
+        {description ? <p>{description}</p> : null}
       </div>
+      <div className="operation-loader__progress" aria-hidden="true">
+        <motion.span
+          initial={reduceMotion ? { x: "0%" } : { x: "-120%" }}
+          animate={reduceMotion ? { x: "0%" } : { x: ["-120%", "280%"] }}
+          transition={
+            reduceMotion
+              ? undefined
+              : { duration: 1.45, repeat: Infinity, ease: "easeInOut" }
+          }
+        />
+      </div>
+      {isInline ? (
+        <span className="operation-loader__sr-update">
+          Contenido en proceso
+        </span>
+      ) : null}
     </motion.div>
   );
 }
 
 LoadingContent.propTypes = {
-  compact: PropTypes.bool,
   description: PropTypes.string,
   title: PropTypes.string.isRequired,
+  variant: PropTypes.oneOf(["inline", "overlay", "screen"]).isRequired,
 };
 
 export default function OperationLoader({
@@ -78,6 +101,7 @@ export default function OperationLoader({
   title,
 }) {
   const [visible, setVisible] = useState(active && delayMs === 0);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!active) {
@@ -91,7 +115,7 @@ export default function OperationLoader({
   const shouldShow = active && visible;
 
   useEffect(() => {
-    if (mode !== "overlay" || !shouldShow) return undefined;
+    if (mode === "inline" || !shouldShow) return undefined;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -102,27 +126,42 @@ export default function OperationLoader({
   if (mode === "inline") {
     if (!shouldShow) return null;
     return (
-      <div role="status" aria-live="polite" aria-busy="true">
-        <LoadingContent compact description={description} title={title} />
+      <div
+        className="operation-loader__inline"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <LoadingContent
+          description={description}
+          title={title}
+          variant="inline"
+        />
       </div>
     );
   }
 
   if (typeof document === "undefined") return null;
+  const layerVariant = mode === "screen" ? "screen" : "overlay";
 
   return createPortal(
     <AnimatePresence>
       {shouldShow ? (
         <motion.div
-          className="fixed inset-0 z-[120] grid place-items-center bg-[color:var(--overlay)] px-6 backdrop-blur-[3px]"
+          className={`operation-loader__layer operation-loader__layer--${layerVariant}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
           role="status"
           aria-live="polite"
           aria-busy="true"
         >
-          <LoadingContent description={description} title={title} />
+          <LoadingContent
+            description={description}
+            title={title}
+            variant={layerVariant}
+          />
         </motion.div>
       ) : null}
     </AnimatePresence>,
@@ -134,6 +173,6 @@ OperationLoader.propTypes = {
   active: PropTypes.bool.isRequired,
   delayMs: PropTypes.number,
   description: PropTypes.string,
-  mode: PropTypes.oneOf(["inline", "overlay"]),
+  mode: PropTypes.oneOf(["inline", "overlay", "screen"]),
   title: PropTypes.string.isRequired,
 };

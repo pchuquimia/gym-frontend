@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -45,7 +46,13 @@ import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
 import { useUserProfile } from "../context/UserContext";
+import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import { api } from "../services/api";
+import {
+  fetchCachedTrainingPlans,
+  getTrainingPlansQueryKey,
+  replaceTrainingPlan,
+} from "../queries/trainingPlanQueries";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
 import { findAutoFlowDestination } from "../utils/autoWorkoutFlow";
@@ -1343,6 +1350,8 @@ export default function RegisterTraining({
   coachAthlete = null,
 }) {
   const reduceMotion = useReducedMotion();
+  const queryClient = useQueryClient();
+  const dashboardBootstrap = useDashboardBootstrap();
   const { user: authUser } = useAuth();
   const { profile } = useUserProfile();
   const isAdmin = authUser?.role === "Admin";
@@ -1411,9 +1420,29 @@ export default function RegisterTraining({
   );
   const [branchConfirmed, setBranchConfirmed] = useState(false);
   const [setupStarted, setSetupStarted] = useState(false);
-  const [trainingPlans, setTrainingPlans] = useState([]);
-  const [activeTrainingPlan, setActiveTrainingPlan] = useState(null);
-  const [trainingPlanLoading, setTrainingPlanLoading] = useState(true);
+  const planCacheScope = String(
+    dataOwnerId || authUser?.id || authUser?._id || "self",
+  );
+  const bootstrapActivePlan = dashboardBootstrap.data?.activePlan || null;
+  const cachedTrainingPlans = queryClient.getQueryData(
+    getTrainingPlansQueryKey(planCacheScope),
+  );
+  const [trainingPlans, setTrainingPlans] = useState(() =>
+    Array.isArray(cachedTrainingPlans)
+      ? cachedTrainingPlans
+      : bootstrapActivePlan
+        ? [bootstrapActivePlan]
+        : [],
+  );
+  const [activeTrainingPlan, setActiveTrainingPlan] = useState(
+    () =>
+      (Array.isArray(cachedTrainingPlans)
+        ? cachedTrainingPlans.find((plan) => plan.status === "active")
+        : null) || bootstrapActivePlan,
+  );
+  const [trainingPlanLoading, setTrainingPlanLoading] = useState(
+    () => !cachedTrainingPlans && !bootstrapActivePlan,
+  );
   const [trainingPlanError, setTrainingPlanError] = useState("");
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingPlanCycle, setAdvancingPlanCycle] = useState(false);
@@ -1517,26 +1546,41 @@ export default function RegisterTraining({
     toast.success(`Fecha de prueba: ${formatLongDate(normalizedDate)}`);
   };
 
-  const loadActiveTrainingPlan = useCallback(async () => {
-    setTrainingPlanLoading(true);
-    setTrainingPlanError("");
-    try {
-      const plans = await api.getTrainingPlans(dataOwnerId || "");
-      setTrainingPlans(plans || []);
-      const active =
-        (plans || []).find((plan) => plan.status === "active") || null;
-      setActiveTrainingPlan(active);
-      setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
-    } catch (error) {
-      setTrainingPlans([]);
-      setActiveTrainingPlan(null);
-      setTrainingPlanError(
-        error.message || "No se pudo cargar la planificación",
+  const loadActiveTrainingPlan = useCallback(
+    async ({ force = false } = {}) => {
+      const hasImmediatePlanData = Boolean(
+        queryClient.getQueryData(getTrainingPlansQueryKey(planCacheScope)) ||
+        dashboardBootstrap.data?.activePlan,
       );
-    } finally {
-      setTrainingPlanLoading(false);
-    }
-  }, [dataOwnerId, sessionDate]);
+      if (!hasImmediatePlanData) setTrainingPlanLoading(true);
+      setTrainingPlanError("");
+      try {
+        const plans = await fetchCachedTrainingPlans(queryClient, {
+          athleteId: dataOwnerId || "",
+          scopeId: planCacheScope,
+          force,
+        });
+        setTrainingPlans(plans || []);
+        const active =
+          (plans || []).find((plan) => plan.status === "active") || null;
+        setActiveTrainingPlan(active);
+        setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
+      } catch (error) {
+        setTrainingPlanError(
+          error.message || "No se pudo cargar la planificación",
+        );
+      } finally {
+        setTrainingPlanLoading(false);
+      }
+    },
+    [
+      dashboardBootstrap.data?.activePlan,
+      dataOwnerId,
+      planCacheScope,
+      queryClient,
+      sessionDate,
+    ],
+  );
 
   useEffect(() => {
     loadActiveTrainingPlan();
@@ -4548,6 +4592,11 @@ export default function RegisterTraining({
         activeTrainingPlan._id || activeTrainingPlan.id,
       );
       setActiveTrainingPlan(saved);
+      setTrainingPlans((current) => replaceTrainingPlan(current, saved));
+      queryClient.setQueryData(
+        getTrainingPlansQueryKey(planCacheScope),
+        (current = []) => replaceTrainingPlan(current, saved),
+      );
       toast.success("Ciclo actualizado");
     } catch (error) {
       toast.error(error.message || "No se pudo avanzar el ciclo");
@@ -6346,7 +6395,7 @@ export default function RegisterTraining({
                     selectedWeek={selectedPlanWeek}
                     currentDate={sessionDate}
                     onRetry={() => {
-                      loadActiveTrainingPlan();
+                      loadActiveTrainingPlan({ force: true });
                       reloadRoutines?.();
                     }}
                     onOpenPlans={() => onNavigate?.("rutinas")}
@@ -6790,7 +6839,7 @@ export default function RegisterTraining({
         ) : null}
 
         {(setupStarted || isEditing) && selectedRoutineId && (
-          <section className="space-y-3 md:hidden">
+          <section className="training-active-overview space-y-3 md:hidden">
             <article
               data-training-overview
               className={`relative isolate min-h-[164px] overflow-hidden rounded-[1.5rem] border shadow-[0_16px_36px_rgba(18,18,18,0.18)] ${

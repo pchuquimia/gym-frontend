@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -47,6 +47,7 @@ import { consumeTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
+import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 import { api } from "../services/api";
@@ -57,6 +58,12 @@ import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import planningOverviewImage from "../assets/planning-overview.webp";
 import { optionMatches, toArray } from "../constants/exerciseTaxonomy";
+import {
+  fetchCachedPlanTemplates,
+  fetchCachedTrainingPlans,
+  getPlanTemplatesQueryKey,
+  getTrainingPlansQueryKey,
+} from "../queries/trainingPlanQueries";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
@@ -4401,6 +4408,8 @@ function RoutineDetailsModal({
 }
 
 function Routines({ onNavigate, onMobileNavVisibilityChange }) {
+  const queryClient = useQueryClient();
+  const dashboardBootstrap = useDashboardBootstrap();
   const { user } = useAuth();
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
@@ -4446,13 +4455,37 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const [routineToDuplicate, setRoutineToDuplicate] = useState(null);
   const [duplicateProgressMode, setDuplicateProgressMode] = useState("fresh");
   const [duplicatingRoutineId, setDuplicatingRoutineId] = useState(null);
+  const planCacheScope = String(user?.id || user?._id || "self");
+  const cachedTrainingPlans = queryClient.getQueryData(
+    getTrainingPlansQueryKey(planCacheScope),
+  );
+  const cachedPlanTemplates = queryClient.getQueryData(
+    getPlanTemplatesQueryKey(planCacheScope),
+  );
+  const bootstrapActivePlan = dashboardBootstrap.data?.activePlan || null;
   const [activePlan, setActivePlan] = useState(null);
   const [workspaceView, setWorkspaceView] = useState(() =>
     isCoach ? "routines" : "plans",
   );
-  const [trainingPlans, setTrainingPlans] = useState([]);
-  const [planTemplates, setPlanTemplates] = useState([]);
-  const [plansLoading, setPlansLoading] = useState(true);
+  const [trainingPlans, setTrainingPlans] = useState(() =>
+    Array.isArray(cachedTrainingPlans)
+      ? cachedTrainingPlans
+      : bootstrapActivePlan
+        ? [bootstrapActivePlan]
+        : [],
+  );
+  const [planTemplates, setPlanTemplates] = useState(() =>
+    Array.isArray(cachedPlanTemplates) ? cachedPlanTemplates : [],
+  );
+  const [plansCacheHydrated, setPlansCacheHydrated] = useState(() =>
+    Array.isArray(cachedTrainingPlans),
+  );
+  const [templatesCacheHydrated, setTemplatesCacheHydrated] = useState(() =>
+    Array.isArray(cachedPlanTemplates),
+  );
+  const [plansLoading, setPlansLoading] = useState(
+    () => !isCoach && !cachedTrainingPlans && !bootstrapActivePlan,
+  );
   const [plansError, setPlansError] = useState("");
   const planRequestInFlightRef = useRef(null);
   const hadRoutinesOnEntryRef = useRef(Boolean(routines.length));
@@ -4596,12 +4629,16 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   }, [isCoach, orderedTrainingPlans, planTemplates]);
 
   const refreshPlans = useCallback(
-    ({ silent = false } = {}) => {
+    ({ silent = false, force = true } = {}) => {
       if (planRequestInFlightRef.current) {
         return planRequestInFlightRef.current;
       }
 
-      if (!silent) setPlansLoading(true);
+      const hasCachedPlans = Boolean(
+        queryClient.getQueryData(getTrainingPlansQueryKey(planCacheScope)) ||
+        dashboardBootstrap.data?.activePlan,
+      );
+      if (!silent && !hasCachedPlans) setPlansLoading(true);
 
       const operation = (async () => {
         if (isCoach) {
@@ -4612,11 +4649,24 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
         }
 
         const [plans, templates] = await Promise.all([
-          api.getTrainingPlans(),
-          api.getPlanTemplates().catch(() => []),
+          fetchCachedTrainingPlans(queryClient, {
+            scopeId: planCacheScope,
+            force,
+          }),
+          fetchCachedPlanTemplates(queryClient, {
+            scopeId: planCacheScope,
+            force,
+          }).catch(
+            () =>
+              queryClient.getQueryData(
+                getPlanTemplatesQueryKey(planCacheScope),
+              ) || [],
+          ),
         ]);
         setTrainingPlans(plans);
         setPlanTemplates(templates);
+        setPlansCacheHydrated(true);
+        setTemplatesCacheHydrated(true);
         setActivePlan((current) =>
           current
             ? plans.find(
@@ -4648,12 +4698,34 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       planRequestInFlightRef.current = operation;
       return operation;
     },
-    [isCoach],
+    [dashboardBootstrap.data?.activePlan, isCoach, planCacheScope, queryClient],
   );
 
   useEffect(() => {
+    if (isCoach || !plansCacheHydrated) return;
+    queryClient.setQueryData(
+      getTrainingPlansQueryKey(planCacheScope),
+      trainingPlans,
+    );
+  }, [isCoach, planCacheScope, plansCacheHydrated, queryClient, trainingPlans]);
+
+  useEffect(() => {
+    if (isCoach || !templatesCacheHydrated) return;
+    queryClient.setQueryData(
+      getPlanTemplatesQueryKey(planCacheScope),
+      planTemplates,
+    );
+  }, [
+    isCoach,
+    planCacheScope,
+    planTemplates,
+    queryClient,
+    templatesCacheHydrated,
+  ]);
+
+  useEffect(() => {
     if (!user?.id && !user?._id) return;
-    const loadPlan = () => refreshPlans().catch(() => {});
+    const loadPlan = () => refreshPlans({ force: false }).catch(() => {});
     const revalidatePlan = () => refreshPlans({ silent: true }).catch(() => {});
     const handleVisibility = () => {
       if (document.visibilityState === "visible") revalidatePlan();

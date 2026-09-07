@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Activity,
@@ -185,6 +186,7 @@ function ScaleField({ field, value, onChange, index, reduceMotion }) {
 }
 
 export default function DailyCheckIn({ onNavigate, onBack }) {
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
   const canUseCheckIn = hasPremiumFeature(user, PREMIUM_FEATURES.DAILY_CHECKIN);
@@ -250,13 +252,40 @@ export default function DailyCheckIn({ onNavigate, onBack }) {
       const result = await api.saveCheckIn({ ...form, dateKey: todayKey() });
       setLatest(result.checkIn);
       setRecommendation(result.recommendation || "");
+      queryClient.setQueriesData(
+        { queryKey: ["dashboard-bootstrap"] },
+        (current) => {
+          if (!current || !result.checkIn) return current;
+
+          const dailyMetrics = Array.isArray(current.dailyMetrics)
+            ? current.dailyMetrics
+            : [];
+          const metricIndex = dailyMetrics.findIndex(
+            (metric) => metric?.dateKey === result.checkIn.dateKey,
+          );
+          const checkInMetric = {
+            dateKey: result.checkIn.dateKey,
+            readinessScore: result.checkIn.readinessScore,
+            readinessState: result.checkIn.readinessState,
+          };
+          const nextDailyMetrics = [...dailyMetrics];
+
+          if (metricIndex >= 0) {
+            nextDailyMetrics[metricIndex] = {
+              ...nextDailyMetrics[metricIndex],
+              ...checkInMetric,
+            };
+          } else {
+            nextDailyMetrics.unshift(checkInMetric);
+          }
+
+          return { ...current, dailyMetrics: nextDailyMetrics };
+        },
+      );
       toast.success(
         wasSavedToday ? "Estado de hoy actualizado" : "Estado de hoy guardado",
       );
-      window.scrollTo({
-        top: 0,
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
+      onNavigate?.("dashboard");
     } catch (error) {
       toast.error(error.message || "No se pudo guardar el check-in");
     } finally {
