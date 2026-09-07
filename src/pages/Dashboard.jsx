@@ -33,10 +33,10 @@ import { api } from "../services/api";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
-import MobilePageHeader from "../components/layout/MobilePageHeader";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
+import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import { useUserProfile } from "../context/UserContext";
@@ -64,6 +64,7 @@ import {
   summarizeCalorieEstimates,
 } from "../utils/calorieEstimate";
 import { getMonthActivityBarPercent } from "../utils/monthActivityChart";
+import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -107,6 +108,55 @@ function getMondayWeekStart(value) {
   const mondayOffset = (date.getDay() + 6) % 7;
   date.setDate(date.getDate() - mondayOffset);
   return date;
+}
+
+const ROUTINE_DASHBOARD_IMAGES = Object.freeze({
+  "lower a": "/images/routine-lower-a.webp",
+  "lower b": "/images/workout-hero-model.webp",
+  upper: "/images/routine-upper.webp",
+  push: "/images/routine-push.webp",
+  pull: "/images/routine-pull.webp",
+});
+
+function getRoutineDashboardImage(value = "") {
+  const key = String(value).trim().toLocaleLowerCase("es").replace(/\s+/g, " ");
+  return ROUTINE_DASHBOARD_IMAGES[key] || "/images/workout-hero-model.webp";
+}
+
+function calculateTrainingStreaks(trainings = [], referenceDate = new Date()) {
+  const referenceKey = getISODateKey(referenceDate);
+  const dates = Array.from(
+    new Set(
+      trainings
+        .map((training) => getISODateKey(training.date))
+        .filter((dateKey) => dateKey && dateKey <= referenceKey),
+    ),
+  ).sort();
+  if (!dates.length) return { current: 0, best: 0 };
+
+  const available = new Set(dates);
+  const cursor = new Date(referenceDate);
+  cursor.setHours(0, 0, 0, 0);
+  if (!available.has(getISODateKey(cursor)))
+    cursor.setDate(cursor.getDate() - 1);
+
+  let current = 0;
+  while (available.has(getISODateKey(cursor)) && current < 3650) {
+    current += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let best = 0;
+  let run = 0;
+  let previous = null;
+  dates.forEach((dateKey) => {
+    const timestamp = new Date(`${dateKey}T12:00:00`).getTime();
+    run = previous !== null && timestamp - previous === DAY_MS ? run + 1 : 1;
+    best = Math.max(best, run);
+    previous = timestamp;
+  });
+
+  return { current, best };
 }
 
 function titleCase(value = "") {
@@ -1019,7 +1069,13 @@ function WeekStrip({ days }) {
   );
 }
 
-function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
+function MonthActivityChart({
+  data,
+  trainedDays,
+  totalSets,
+  monthLabel,
+  className = "",
+}) {
   const reduceMotion = useReducedMotion();
   const [selectedDay, setSelectedDay] = useState(null);
   const chartScrollRef = useRef(null);
@@ -1043,7 +1099,9 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
   }, [data]);
 
   return (
-    <section className="dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section
+      className={`dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none ${className}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text)]">
@@ -1213,9 +1271,12 @@ function CollapsibleSection({
   open,
   onToggle,
   children,
+  className = "",
 }) {
   return (
-    <section className="dashboard-trend-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none">
+    <section
+      className={`dashboard-trend-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none ${className}`}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -3188,6 +3249,134 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     if (todayAction.type === "empty") onNavigate("rutinas");
   };
 
+  const canUseDailyCheckIn = hasPremiumFeature(
+    authUser,
+    PREMIUM_FEATURES.DAILY_CHECKIN,
+  );
+  const todayDailyMetric = (dashboardBootstrap.data?.dailyMetrics || []).find(
+    (metric) => metric?.dateKey === todayKey,
+  );
+  const checkInCompleted =
+    todayDailyMetric?.readinessScore !== null &&
+    todayDailyMetric?.readinessScore !== undefined &&
+    Number.isFinite(Number(todayDailyMetric.readinessScore));
+  const mobileCheckInTask = canUseDailyCheckIn
+    ? {
+        completed: checkInCompleted,
+        title: checkInCompleted
+          ? "Estado registrado"
+          : "Registra cómo te sientes",
+        subtitle: checkInCompleted
+          ? `Recuperación estimada · ${Math.round(Number(todayDailyMetric.readinessScore))}%`
+          : "Sueño, energía y molestias · 20 s",
+      }
+    : null;
+  const mobileRoutine = useMemo(() => {
+    if (todayAction.type === "active") {
+      return (
+        activeTrainingSnapshot?.selectedRoutine ||
+        routines.find(
+          (routine) =>
+            String(routine.id || routine._id) ===
+            String(activeTrainingSnapshot?.selectedRoutineId || ""),
+        ) ||
+        null
+      );
+    }
+    if (todayAction.type === "scheduled") {
+      return (
+        routines.find(
+          (routine) =>
+            String(routine.id || routine._id) ===
+            String(recovery.scheduledRoutine?.id || ""),
+        ) || null
+      );
+    }
+    if (todayAction.type === "completed") {
+      return (
+        routines.find(
+          (routine) =>
+            String(routine.id || routine._id) ===
+            String(
+              latestCompletedToday?.routineId?._id ||
+                latestCompletedToday?.routineId?.id ||
+                latestCompletedToday?.routineId ||
+                "",
+            ),
+        ) || null
+      );
+    }
+    return null;
+  }, [
+    activeTrainingSnapshot,
+    latestCompletedToday,
+    recovery.scheduledRoutine?.id,
+    routines,
+    todayAction.type,
+  ]);
+  const mobileRoutineName =
+    todayAction.type === "completed"
+      ? getRoutineName(latestCompletedToday)
+      : todayAction.mobileTitle || todayAction.title;
+  const mobileExerciseCount =
+    mobileRoutine?.exercises?.length ||
+    latestCompletedToday?.exercises?.length ||
+    0;
+  const mobileRoutineMinutes = getRoutineEstimatedMinutes(mobileRoutine || {});
+  const mobileWorkoutSubtitle =
+    todayAction.type === "active"
+      ? [todayAction.progressLabel, todayAction.elapsedLabel]
+          .filter(Boolean)
+          .join(" · ")
+      : todayAction.type === "completed"
+        ? todayAction.meta.slice(0, 2).join(" · ")
+        : todayAction.type === "rest"
+          ? todayAction.mobileDescription || todayAction.description
+          : todayAction.type === "scheduled"
+            ? [
+                mobileExerciseCount
+                  ? formatExerciseCount(mobileExerciseCount)
+                  : null,
+                mobileRoutineMinutes
+                  ? `${mobileRoutineMinutes} min aprox.`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "Tu rutina está lista"
+            : todayAction.description;
+  const mobileWorkoutTask = {
+    type: todayAction.type,
+    completed: todayAction.type === "completed" || todayAction.type === "rest",
+    title:
+      todayAction.type === "scheduled"
+        ? `Completa ${mobileRoutineName}`
+        : todayAction.type === "active"
+          ? `Continúa ${mobileRoutineName}`
+          : todayAction.title,
+    subtitle: mobileWorkoutSubtitle,
+    actionLabel: todayAction.primaryMobileLabel || todayAction.primaryLabel,
+    image:
+      todayAction.type === "rest"
+        ? ""
+        : getRoutineDashboardImage(mobileRoutineName),
+  };
+  const mobileWeighInCompleted = Boolean(
+    todayWeighInData?.summary?.completedToday,
+  );
+  const mobileWeighInTask = {
+    completed: mobileWeighInCompleted,
+    title: mobileWeighInCompleted ? "Peso registrado" : "Peso semanal",
+    subtitle: mobileWeighInCompleted
+      ? todayWeighInData?.summary?.latest?.weightKg
+        ? `${todayWeighInData.summary.latest.weightKg} kg · registrado hoy`
+        : "Registro completado hoy"
+      : "Toca para registrar",
+  };
+  const trainingStreaks = useMemo(
+    () => calculateTrainingStreaks(orderedTrainings, now),
+    [now, orderedTrainings],
+  );
+
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
   const performanceDetailIsDecline = performanceDetailType === "declines";
@@ -3242,47 +3431,33 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       initial={false}
       className="dashboard-shell dashboard-pilot mx-auto w-full max-w-md space-y-6 px-[6px] pb-10 pt-0 text-[color:var(--text)] md:max-w-5xl md:space-y-4 md:px-0 md:pt-0 xl:max-w-6xl 2xl:max-w-[1280px]"
     >
-      <MobilePageHeader
-        title="Inicio"
-        actions={
-          <>
-            {isAdmin ? (
-              <AdminDateControl
-                value={todayKey}
-                actualDateKey={systemTodayKey}
-                onChange={setDashboardDateKey}
-              />
-            ) : null}
-            {needsDailyWeighIn ? (
-              <button
-                type="button"
-                onClick={() => setQuickWeightOpen(true)}
-                className="dashboard-pilot__action dashboard-pilot__action--accent relative grid h-10 w-10 place-items-center rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
-                aria-label="Registrar pesaje de hoy"
-              >
-                <Weight className="h-5 w-5 motion-safe:animate-pulse" />
-                <span
-                  aria-hidden="true"
-                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#181918] dark:bg-[#e2ff00]"
-                />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
-              className="dashboard-mobile-avatar h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
-              aria-label="Abrir menú principal"
-            >
-              <ProfileAvatar
-                photoId={
-                  profile?.avatarPhotoId || authUser?.profile?.avatarPhotoId
-                }
-                name={profile?.name || authUser?.name}
-                className="h-full w-full"
-                fallbackClassName="bg-[#ead8dd] text-sm font-semibold text-[#4a2430]"
-              />
-            </button>
-          </>
+      <MobileDailyPlan
+        date={now}
+        profile={profile}
+        user={authUser}
+        adminControl={
+          isAdmin ? (
+            <AdminDateControl
+              value={todayKey}
+              actualDateKey={systemTodayKey}
+              onChange={setDashboardDateKey}
+            />
+          ) : null
+        }
+        weekDays={weekData.days}
+        currentStreak={trainingStreaks.current}
+        bestStreak={trainingStreaks.best}
+        checkInTask={mobileCheckInTask}
+        workoutTask={mobileWorkoutTask}
+        weighInTask={mobileWeighInTask}
+        weeklySessions={weekData.sessions}
+        weeklyGoal={weeklySessionGoal}
+        readOnly={isAdminDatePreview}
+        onOpenMenu={() => window.dispatchEvent(new Event("open-main-menu"))}
+        onOpenCheckIn={() => onNavigate("check_in")}
+        onOpenWorkout={handleTodayPrimary}
+        onOpenWeighIn={() =>
+          needsDailyWeighIn ? setQuickWeightOpen(true) : onNavigate("pesajes")
         }
       />
       <header className="dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
@@ -3327,7 +3502,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       </header>
 
       {isAdminDatePreview ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)]">
+        <div className="hidden flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)] md:flex">
           <div className="flex min-w-0 items-center gap-2.5">
             <CalendarDays className="h-4 w-4 shrink-0 text-current" />
             <p className="truncate text-[11px] font-bold">
@@ -3344,7 +3519,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       ) : null}
 
-      <div className="dashboard-today-module grid gap-4">
+      <div className="dashboard-today-module hidden gap-4 md:grid">
         <TodayActionCard
           action={todayAction}
           onPrimary={handleTodayPrimary}
@@ -3353,7 +3528,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         />
         <WeekStrip days={weekData.days} />
       </div>
-      <div className="flex items-center justify-between gap-3">
+      <div className="hidden items-center justify-between gap-3 md:flex">
         <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
           Rendimiento semanal
         </p>
@@ -3368,7 +3543,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </button>
       </div>
 
-      <div className="dashboard-weekly-grid">
+      <div className="dashboard-weekly-grid hidden md:grid">
         <StatCard
           label="Entrenamientos"
           value={weekData.sessions}
@@ -3426,7 +3601,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       {weeklyDetailsOpen ? (
         <div
           id="weekly-extra-metrics"
-          className="dashboard-weekly-extra grid grid-cols-2 gap-3"
+          className="dashboard-weekly-extra hidden grid-cols-2 gap-3 md:grid"
         >
           <StatCard
             label="Series completadas"
@@ -3462,11 +3637,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       ) : null}
 
-      <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
+      <p className="dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0] md:block">
         Recuperación actual
       </p>
 
-      <div>
+      <div className="hidden md:block">
         <button
           type="button"
           onClick={() =>
@@ -3576,6 +3751,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         trainedDays={monthActivity.trainedDays}
         totalSets={monthActivity.totalSets}
         monthLabel={monthActivity.monthLabel}
+        className="hidden md:block"
       />
 
       <CollapsibleSection
@@ -3591,6 +3767,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             : threeMonthSummary.reduce((sum, item) => sum + item.volume, 0),
         )} kg`}
         open={isThreeMonthsOpen}
+        className="hidden md:block"
         onToggle={() => {
           setIsThreeMonthsOpen((value) => !value);
           if (isThreeMonthsOpen) setSelectedMonthKey(null);

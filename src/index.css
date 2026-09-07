@@ -1998,6 +1998,471 @@ button,
 }
 /* dashboard-pilot:end */
 
+/* Mobile daily mission: focused home experience, while desktop keeps analytics. */
+@media (max-width: 767px) {
+  .mobile-daily-plan {
+    --mission-accent: #c8ef00;
+    width: 100%;
+    padding: 0 var(--mobile-page-gutter) 2rem;
+    color: var(--text);
+    font-family: var(--mobile-ui-font);
+  }
+
+  .dark .mobile-daily-plan {
+    --mission-accent: #e2ff00;
+  }
+
+  .mobile-daily-plan button {
+    font-family: inherit;
+  }
+
+  .mobile-daily-plan button:disabled {
+    cursor: default;
+  }
+
+  .mobile-daily-plan__header {
+    display: flex;
+    min-height: 7rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: max(0.625rem, env(safe-area-inset-top));
+  }
+
+  .mobile-daily-plan__header h1 {
+    margin: 0;
+    font-size: clamp(2.5rem, 11vw, 3.25rem);
+    font-weight: 600;
+    line-height: 0.94;
+    letter-spacing: -0.055em;
+  }
+
+  .mobile-daily-plan__header p {
+    margin-top: 0.625rem;
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.012em;
+  }
+
+  .mobile-daily-plan__header-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mobile-daily-plan__avatar {
+    width: 3rem;
+    height: 3rem;
+    overflow: hidden;
+    border: 1px solid var(--detail-row-divider);
+    border-radius: 999px;
+    background: var(--card);
+  }
+
+  .mobile-daily-plan__streak {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1.625rem 0 1.5rem;
+    border-bottom: 1px solid var(--detail-row-divider);
+  }
+
+  .mobile-daily-plan__flame {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border-radius: 1rem;
+    background: var(--mission-accent);
+    color: #151615;
+  }
+
+  .mobile-daily-plan__flame svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: currentColor;
+    stroke-width: 1.6;
+  }
+
+  .mobile-daily-plan__streak strong {
+    display: block;
+    font-size: 1.65rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-daily-plan__streak p {
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .mobile-daily-plan__streak-note {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .mobile-daily-plan__week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 1.25rem 0 1.75rem;
+  }
+
+  .mobile-daily-plan__day {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 4.25rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    color: var(--text-muted);
+  }
+
+  .mobile-daily-plan__day span {
+    font-size: 0.625rem;
+    font-weight: 550;
+    line-height: 1;
+  }
+
+  .mobile-daily-plan__day strong {
+    margin-top: 0.45rem;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 550;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-daily-plan__day i {
+    display: grid;
+    width: 0.625rem;
+    height: 0.625rem;
+    place-items: center;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+  }
+
+  .mobile-daily-plan__day i svg {
+    width: 0.625rem;
+    height: 0.625rem;
+    stroke-width: 3;
+  }
+
+  .mobile-daily-plan__day.is-today {
+    background: #181918;
+    color: #ffffff;
+  }
+
+  .mobile-daily-plan__day.is-today strong {
+    color: #ffffff;
+  }
+
+  .mobile-daily-plan__day.is-today i {
+    color: var(--mission-accent);
+  }
+
+  .dark .mobile-daily-plan__day.is-today {
+    background: #f5f5ee;
+    color: #181918;
+  }
+
+  .dark .mobile-daily-plan__day.is-today strong {
+    color: #181918;
+  }
+
+  .mobile-daily-plan__section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .mobile-daily-plan__section-heading h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .mobile-daily-plan__section-heading span {
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-daily-plan__progress {
+    width: 100%;
+    height: 0.3125rem;
+    overflow: hidden;
+    margin-top: 1rem;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--mission-accent);
+  }
+
+  .mobile-daily-plan__mission-list {
+    margin-top: 1rem;
+    border-bottom: 1px solid var(--detail-row-divider);
+  }
+
+  .mobile-daily-plan__mission {
+    display: grid;
+    width: 100%;
+    min-height: 7rem;
+    grid-template-columns: 2.5rem 4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.875rem;
+    border: 0;
+    border-top: 1px solid var(--detail-row-divider);
+    background: transparent;
+    padding: 1rem 0;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .mobile-daily-plan__mission--workout {
+    min-height: 8.25rem;
+  }
+
+  .mobile-daily-plan__status {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    place-items: center;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 999px;
+    color: #151615;
+  }
+
+  .mobile-daily-plan__status.is-complete {
+    border-color: var(--mission-accent);
+    background: var(--mission-accent);
+  }
+
+  .mobile-daily-plan__status.is-rest {
+    border-color: var(--border-strong);
+    background: var(--surface-subtle);
+    color: var(--text);
+  }
+
+  .mobile-daily-plan__status svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    stroke-width: 2.8;
+  }
+
+  .mobile-daily-plan__visual {
+    display: grid;
+    width: 4rem;
+    height: 4rem;
+    overflow: hidden;
+    place-items: center;
+    border-radius: 1rem;
+    background: var(--surface-subtle);
+    color: var(--text);
+  }
+
+  .mobile-daily-plan__visual svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    stroke-width: 1.65;
+  }
+
+  .mobile-daily-plan__visual--wellness {
+    background: color-mix(in srgb, var(--mission-accent) 20%, var(--card));
+  }
+
+  .mobile-daily-plan__visual--workout img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-daily-plan__mission-copy {
+    display: block;
+    min-width: 0;
+  }
+
+  .mobile-daily-plan__mission-copy > strong {
+    display: block;
+    overflow: hidden;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-daily-plan__mission-copy > small {
+    display: block;
+    overflow: hidden;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-daily-plan__ready {
+    color: color-mix(in srgb, var(--mission-accent) 65%, #596400);
+    font-size: 0.6875rem;
+    font-weight: 650;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .dark .mobile-daily-plan__ready {
+    color: var(--mission-accent);
+  }
+
+  .mobile-daily-plan__chevron {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--text-subtle);
+    stroke-width: 1.75;
+  }
+
+  .mobile-daily-plan__primary-action {
+    min-height: 2.5rem;
+    margin-top: 0.75rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: #181918;
+    padding: 0.625rem 0.9rem;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .dark .mobile-daily-plan__primary-action {
+    background: var(--mission-accent);
+    color: #111211;
+  }
+
+  .mobile-daily-plan__follow-up {
+    padding-top: 1.75rem;
+  }
+
+  .mobile-daily-plan__follow-up h2,
+  .mobile-daily-plan__weekly-summary h2 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  .mobile-daily-plan__follow-up-row {
+    display: grid;
+    width: 100%;
+    min-height: 5.75rem;
+    grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.625rem;
+    border: 0;
+    border-top: 1px solid var(--detail-row-divider);
+    border-bottom: 1px solid var(--detail-row-divider);
+    background: transparent;
+    padding: 0.75rem 0;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .mobile-daily-plan__scale {
+    display: grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    place-items: center;
+    border-radius: 0.9rem;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__scale svg,
+  .mobile-daily-plan__follow-up-row > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    stroke-width: 1.7;
+  }
+
+  .mobile-daily-plan__follow-up-row strong,
+  .mobile-daily-plan__follow-up-row small {
+    display: block;
+  }
+
+  .mobile-daily-plan__follow-up-row strong {
+    font-size: 1rem;
+    font-weight: 550;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-daily-plan__follow-up-row small {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .mobile-daily-plan__follow-up-row > svg {
+    color: var(--text-subtle);
+  }
+
+  .mobile-daily-plan__follow-up-check {
+    color: var(--text) !important;
+    stroke-width: 2.4 !important;
+  }
+
+  .mobile-daily-plan__weekly-summary {
+    padding: 1.75rem 0 1rem;
+  }
+
+  .mobile-daily-plan__weekly-summary p {
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .mobile-daily-plan__weekly-marks {
+    display: grid;
+    grid-template-columns: repeat(var(--weekly-goal), minmax(0, 1fr));
+    gap: 0.45rem;
+    max-width: 18rem;
+    margin-top: 1rem;
+  }
+
+  .mobile-daily-plan__weekly-marks span {
+    height: 0.375rem;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__weekly-marks span.is-done {
+    background: var(--mission-accent);
+  }
+}
+
 /* Weekly performance cards follow the clean Progress reference on every viewport. */
 .dashboard-sets-detail {
   font-family: var(--mobile-ui-font);
