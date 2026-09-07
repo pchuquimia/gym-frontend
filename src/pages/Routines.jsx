@@ -3689,15 +3689,15 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
       }`
     : "Consulta la agenda del plan";
   return (
-    <section className="current-plan-overview overflow-hidden rounded-3xl bg-[color:var(--card)]">
-      <div className="relative h-32 overflow-hidden">
+    <section className="current-plan-overview overflow-hidden bg-[color:var(--card)] sm:rounded-3xl">
+      <div className="current-plan-overview__hero relative h-32 overflow-hidden">
         <img
           src={planningOverviewImage}
           alt=""
           className="h-full w-full object-cover object-[center_62%]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 py-3 text-white">
+        <div className="current-plan-overview__caption absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 py-3 text-white">
           <div className="min-w-0">
             <p className="text-xs text-white/75">Plan actual</p>
             <h2 className="mt-0.5 truncate text-xl font-medium leading-tight">
@@ -3710,7 +3710,7 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
         </div>
       </div>
 
-      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-4">
+      <div className="current-plan-overview__body border-t border-[color:var(--detail-row-divider)] px-4 py-4">
         <p className="text-xs font-medium text-[color:var(--text-muted)]">
           Hoy
         </p>
@@ -3804,17 +3804,23 @@ export function TrainingPlanSchedule({
     const date = String(training.date || "").slice(0, 10);
     return date >= toPlanIsoDate(weekStart) && date <= toPlanIsoDate(weekEnd);
   });
-  const completedTrainingDays = schedule.filter((day, index) => {
+  const findTrainingForDay = (day) =>
+    weekTrainings.find((training) => {
+      const belongsToPlanSlot =
+        String(training.trainingPlanId || "") === String(plan._id || plan.id) &&
+        training.trainingPlanSlotId === day.slotId;
+      const belongsToLegacySlot =
+        !training.trainingPlanId &&
+        training.trainingPlanSlotId &&
+        training.trainingPlanSlotId === day.slotId;
+      const usesScheduledRoutine =
+        day.routineId && String(training.routineId) === String(day.routineId);
+
+      return belongsToPlanSlot || belongsToLegacySlot || usesScheduledRoutine;
+    });
+  const completedTrainingDays = schedule.filter((day) => {
     if (day.type !== "training" || !day.routineId || sequential) return false;
-    const date = toPlanIsoDate(getPlanDayDate(plan, selectedWeek, index));
-    return weekTrainings.some(
-      (training) =>
-        String(training.date).slice(0, 10) === date &&
-        ((training.trainingPlanId &&
-          String(training.trainingPlanId) === String(plan._id || plan.id) &&
-          training.trainingPlanSlotId === day.slotId) ||
-          String(training.routineId) === String(day.routineId)),
-    );
+    return Boolean(findTrainingForDay(day));
   }).length;
   const totalTrainingDays = schedule.filter(
     (day) => day.type === "training",
@@ -3924,17 +3930,7 @@ export function TrainingPlanSchedule({
           const routine = day.routineId
             ? routineById.get(String(day.routineId))
             : null;
-          const training = !sequential
-            ? weekTrainings.find(
-                (item) =>
-                  String(item.date).slice(0, 10) === dateIso &&
-                  ((item.trainingPlanId &&
-                    String(item.trainingPlanId) ===
-                      String(plan._id || plan.id) &&
-                    item.trainingPlanSlotId === day.slotId) ||
-                    String(item.routineId) === String(day.routineId)),
-              )
-            : null;
+          const training = !sequential ? findTrainingForDay(day) : null;
           const isRest = day.type !== "training";
           const primaryLabel = isRest
             ? day.type === "rest"

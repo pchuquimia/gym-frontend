@@ -139,6 +139,49 @@ describe("TrainingPlanSchedule", () => {
     fireEvent.click(screen.getByRole("button", { name: "Semana 2" }));
     expect(onSelectWeek).toHaveBeenCalledWith(1);
   });
+
+  it("reconoce una rutina completada aunque se entrene otro día de la misma semana", () => {
+    render(
+      <TrainingPlanSchedule
+        plan={{
+          _id: "plan_1",
+          status: "completed",
+          scheduleMode: "fixed",
+          startDate: "2026-08-10",
+          durationWeeks: 4,
+          weeklySchedule: schedule,
+        }}
+        routines={[
+          {
+            id: "routine_1",
+            name: "Empuje A",
+            exercises: [{ name: "Press", sets: 3 }],
+          },
+        ]}
+        trainings={[
+          {
+            date: "2026-09-02",
+            routineId: "routine_1",
+            trainingPlanId: "plan_1",
+            trainingPlanSlotId: "slot_1",
+          },
+        ]}
+        selectedWeek={3}
+        isManagedClient={false}
+        onChooseRoutine={vi.fn()}
+        onOpenRoutine={vi.fn()}
+        onDuplicateRoutine={vi.fn()}
+        onDeleteRoutine={vi.fn()}
+        duplicatingRoutineId=""
+        onStartRoutine={vi.fn()}
+        onAdvanceCycle={vi.fn()}
+        advancingCycle={false}
+      />,
+    );
+
+    expect(screen.getByText("1 de 2 realizados")).toBeVisible();
+    expect(screen.getByText("Completada")).toBeVisible();
+  });
 });
 
 describe("getPlanTodayState", () => {

@@ -2218,7 +2218,11 @@ button,
   }
 
   .mobile-app-content:has(.training-setup-page) {
-    padding-inline: 0;
+    padding-inline: 0 !important;
+  }
+
+  .mobile-app-content:has(.routines-shell--plan-detail) {
+    padding-inline: 0 !important;
   }
 
   .mobile-app-content:has(.training-setup-page--static) {
@@ -2240,6 +2244,7 @@ button,
     max-width: none;
     margin-inline: 0;
     margin-top: 0 !important;
+    padding-inline: 0 !important;
   }
 
   .training-setup-page__header {
@@ -2545,8 +2550,8 @@ button,
     flex: 1;
     height: 3.25rem;
     border-radius: 0.875rem;
-    background: #181918 !important;
-    color: #fffaf2 !important;
+    background: var(--accent) !important;
+    color: var(--accent-contrast) !important;
     font-size: 0.9375rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -2669,11 +2674,33 @@ button,
   }
 
   .current-plan-overview {
+    width: auto;
     margin-top: 1rem;
+    margin-right: calc(var(--mobile-page-gutter) * -1);
+    margin-left: calc(var(--mobile-page-gutter) * -1);
     border: 0 !important;
-    border-radius: 1.5rem;
-    padding: 1.25rem;
+    border-radius: 0 !important;
+    background: transparent;
+    padding: 0;
     box-shadow: none;
+  }
+
+  .current-plan-overview__hero {
+    height: min(68vw, 18rem);
+  }
+
+  .current-plan-overview__caption {
+    padding-bottom: 2.75rem;
+  }
+
+  .current-plan-overview__body {
+    position: relative;
+    z-index: 2;
+    margin-top: -1.75rem;
+    border-top: 0;
+    border-radius: 1.75rem 1.75rem 0 0;
+    background: var(--card);
+    padding: 2rem var(--mobile-page-gutter) 1.5rem;
   }
 
   .current-plan-overview h2 {
@@ -2834,12 +2861,16 @@ button,
   }
 
   .routines-shell--plan-detail {
-    width: auto;
-    margin-inline: calc(var(--mobile-page-gutter) * -1);
+    width: 100%;
+    margin-inline: 0;
   }
 
   .routines-shell--plan-detail .plan-detail-summary {
     margin-top: 0;
+  }
+
+  .routines-shell--plan-detail .plan-detail-hero {
+    width: 100%;
   }
 
   .routines-shell--plan-detail .plan-schedule {
