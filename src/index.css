@@ -2002,8 +2002,9 @@ button,
 @media (max-width: 767px) {
   .mobile-daily-plan {
     --mission-accent: #c8ef00;
+    --mission-thumbnail-size: clamp(4.5rem, 21vw, 5rem);
     width: 100%;
-    padding: 0 var(--mobile-page-gutter) 2rem;
+    padding: 0 0 2rem;
     color: var(--text);
     font-family: var(--mobile-ui-font);
   }
@@ -2229,8 +2230,10 @@ button,
   .mobile-daily-plan__mission {
     display: grid;
     width: 100%;
-    min-height: 7rem;
-    grid-template-columns: 2.5rem 4rem minmax(0, 1fr) auto;
+    min-height: 7.75rem;
+    grid-template-columns:
+      2.5rem var(--mission-thumbnail-size) minmax(0, 1fr)
+      auto;
     align-items: center;
     gap: 0.875rem;
     border: 0;
@@ -2242,7 +2245,10 @@ button,
   }
 
   .mobile-daily-plan__mission--workout {
-    min-height: 8.25rem;
+    min-height: 10.5rem;
+    grid-template-rows: auto auto;
+    align-items: center;
+    row-gap: 1rem;
   }
 
   .mobile-daily-plan__status {
@@ -2274,8 +2280,8 @@ button,
 
   .mobile-daily-plan__visual {
     display: grid;
-    width: 4rem;
-    height: 4rem;
+    width: var(--mission-thumbnail-size);
+    height: var(--mission-thumbnail-size);
     overflow: hidden;
     place-items: center;
     border-radius: 1rem;
@@ -2293,10 +2299,15 @@ button,
     background: color-mix(in srgb, var(--mission-accent) 20%, var(--card));
   }
 
+  .mobile-daily-plan__visual--wellness img,
   .mobile-daily-plan__visual--workout img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .mobile-daily-plan__visual--wellness img {
+    object-position: 50% 34%;
   }
 
   .mobile-daily-plan__mission-copy {
@@ -2345,8 +2356,10 @@ button,
   }
 
   .mobile-daily-plan__primary-action {
+    grid-column: 2 / -1;
+    width: 100%;
     min-height: 2.5rem;
-    margin-top: 0.75rem;
+    margin-top: 0;
     border: 0;
     border-radius: 0.65rem;
     background: #181918;

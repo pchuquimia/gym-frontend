@@ -1,12 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  Check,
-  ChevronRight,
-  Dumbbell,
-  Flame,
-  HeartPulse,
-  MoonStar,
-} from "lucide-react";
+import { Check, ChevronRight, Dumbbell, Flame, MoonStar } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
 
 const WEEKDAY_LABELS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
@@ -91,7 +84,7 @@ function CheckInMission({ task, onOpen, readOnly }) {
     >
       <MissionStatus completed={task.completed} />
       <span className="mobile-daily-plan__visual mobile-daily-plan__visual--wellness">
-        <HeartPulse aria-hidden="true" />
+        <img src="/images/daily-checkin-wellness.webp" alt="" />
       </span>
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
@@ -128,16 +121,16 @@ function WorkoutMission({ task, onOpen, readOnly }) {
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={readOnly}
-          className="mobile-daily-plan__primary-action"
-        >
-          {task.actionLabel}
-        </button>
       </span>
       <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={readOnly}
+        className="mobile-daily-plan__primary-action"
+      >
+        {task.actionLabel}
+      </button>
     </article>
   );
 }
