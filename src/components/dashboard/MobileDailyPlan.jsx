@@ -104,7 +104,12 @@ function CheckInMission({ task, onOpen, readOnly }) {
 
 function WorkoutMission({ task, onOpen, readOnly }) {
   return (
-    <article className="mobile-daily-plan__mission mobile-daily-plan__mission--workout">
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={readOnly}
+      className="mobile-daily-plan__mission mobile-daily-plan__mission--workout"
+    >
       <MissionStatus
         completed={task.completed}
         tone={task.type === "rest" ? "rest" : "default"}
@@ -122,16 +127,18 @@ function WorkoutMission({ task, onOpen, readOnly }) {
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
       </span>
-      <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={readOnly}
-        className="mobile-daily-plan__primary-action"
-      >
-        {task.actionLabel}
-      </button>
-    </article>
+      {task.type === "completed" ? (
+        <span className="mobile-daily-plan__mission-action">
+          Ver resumen
+          <ChevronRight aria-hidden="true" />
+        </span>
+      ) : (
+        <ChevronRight
+          className="mobile-daily-plan__chevron"
+          aria-hidden="true"
+        />
+      )}
+    </button>
   );
 }
 

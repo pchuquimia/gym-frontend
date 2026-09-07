@@ -3,9 +3,14 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertCircle,
+  CalendarDays,
   Check,
+  Dumbbell,
+  HeartPulse,
   Minus,
+  Moon,
   Plus,
+  Repeat2,
 } from "lucide-react";
 import Button from "../ui/button";
 
@@ -55,6 +60,27 @@ const FREQUENCY_PRESETS = {
   5: ["Empuje", "Jale", "Piernas", "", "Torso", "Piernas", ""],
   6: PRESETS.ppl.map((focus) => (focus === "Descanso" ? "" : focus)),
 };
+
+const SCHEDULE_TYPE_OPTIONS = [
+  {
+    id: "training",
+    label: "Entrenar",
+    description: "Sesión de entrenamiento",
+    icon: Dumbbell,
+  },
+  {
+    id: "recovery",
+    label: "Recuperar",
+    description: "Movilidad o actividad suave",
+    icon: HeartPulse,
+  },
+  {
+    id: "rest",
+    label: "Descansar",
+    description: "Día libre de carga",
+    icon: Moon,
+  },
+];
 
 const createSchedule = (preset = PRESETS.ppl) =>
   preset.map((focus, index) => ({
@@ -131,6 +157,7 @@ export default function CoachPlanModal({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [selectedScheduleIndex, setSelectedScheduleIndex] = useState(0);
   const isEditing = Boolean(initialData?._id || initialData?.id);
   const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
     initialData?.sourcePlanId || initialData?.planTemplateId || "",
@@ -201,6 +228,15 @@ export default function CoachPlanModal({
     () => schedule.filter((day) => day.type === "training").length,
     [schedule],
   );
+  const recoveryDays = useMemo(
+    () => schedule.filter((day) => day.type === "recovery").length,
+    [schedule],
+  );
+  const safeSelectedScheduleIndex = Math.min(
+    Math.max(0, selectedScheduleIndex),
+    Math.max(0, schedule.length - 1),
+  );
+  const selectedScheduleDay = schedule[safeSelectedScheduleIndex] || null;
   const selectedPlanTemplate = useMemo(
     () =>
       planTemplates.find(
@@ -297,6 +333,7 @@ export default function CoachPlanModal({
 
   const changeScheduleMode = (mode) => {
     if (mode === scheduleMode) return;
+    setSelectedScheduleIndex(0);
     setScheduleMode(mode);
     setSchedule(() => {
       if (mode === "fixed") {
@@ -322,28 +359,32 @@ export default function CoachPlanModal({
         "fixed",
       ),
     );
+    setSelectedScheduleIndex(0);
   };
 
   const resizeCycle = (delta) => {
-    setSchedule((current) => {
-      const nextLength = Math.min(28, Math.max(2, current.length + delta));
-      if (nextLength === current.length) return current;
-      if (nextLength < current.length) return current.slice(0, nextLength);
-      return [
-        ...current,
-        ...Array.from({ length: nextLength - current.length }, (_, index) => ({
-          dayIndex: current.length + index + 1,
-          type: "training",
-          focus: "Entrenamiento",
-          slotId: createEditorSlotId(scheduleMode),
-          order: current.length + index + 1,
-          sourceRoutineId: "",
-        })),
-      ];
-    });
+    const nextLength = Math.min(28, Math.max(2, schedule.length + delta));
+    if (nextLength === schedule.length) return;
+    if (nextLength < schedule.length) {
+      setSelectedScheduleIndex((index) => Math.min(index, nextLength - 1));
+      setSchedule((current) => current.slice(0, nextLength));
+      return;
+    }
+    setSchedule((current) => [
+      ...current,
+      ...Array.from({ length: nextLength - current.length }, (_, index) => ({
+        dayIndex: current.length + index + 1,
+        type: "training",
+        focus: "Entrenamiento",
+        slotId: createEditorSlotId(scheduleMode),
+        order: current.length + index + 1,
+        sourceRoutineId: "",
+      })),
+    ]);
   };
 
   const applyPlanTemplate = (templateId) => {
+    setSelectedScheduleIndex(0);
     setSelectedPlanTemplateId(templateId);
     const template = planTemplates.find(
       (item) => String(item._id || item.id) === String(templateId),
@@ -661,189 +702,349 @@ export default function CoachPlanModal({
               <div className="space-y-6">
                 <div>
                   <h1 className="text-3xl font-medium tracking-[-0.035em] text-[color:var(--text)] sm:text-4xl">
-                    Organiza tus días
+                    Arma tu semana
                   </h1>
                   <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                    Elige cuándo entrenas y el enfoque de cada sesión.
+                    Toca un día para decidir qué hará el usuario.
                   </p>
                 </div>
 
-                <div className="grid gap-4 rounded-2xl bg-[color:var(--card)] p-4 sm:grid-cols-2">
-                  <fieldset
-                    className={scheduleMode === "fixed" ? "sm:col-span-2" : ""}
-                  >
-                    <legend className="text-sm font-medium">
-                      Tipo de calendario
-                    </legend>
-                    <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--surface-subtle)] p-1">
-                      {[
-                        { id: "fixed", label: "Semana fija" },
-                        { id: "sequential_cycle", label: "Ciclo libre" },
-                      ].map((option) => (
+                <section className="rounded-[1.5rem] bg-[color:var(--card)] p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
+                      <CalendarDays className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold">
+                        ¿Cómo debe avanzar el plan?
+                      </h2>
+                      <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
+                        Elige la opción que resulte más natural para el usuario.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {[
+                      {
+                        id: "fixed",
+                        label: "Semana fija",
+                        description: "Cada sesión tiene un día asignado.",
+                        icon: CalendarDays,
+                      },
+                      {
+                        id: "sequential_cycle",
+                        label: "Ciclo flexible",
+                        description: "Las sesiones avanzan en orden.",
+                        icon: Repeat2,
+                      },
+                    ].map((option) => {
+                      const Icon = option.icon;
+                      const selected = scheduleMode === option.id;
+                      return (
                         <button
                           key={option.id}
                           type="button"
                           onClick={() => changeScheduleMode(option.id)}
-                          className={`h-11 rounded-lg px-2 text-sm font-medium transition ${
-                            scheduleMode === option.id
-                              ? "theme-accent-solid"
-                              : "text-[color:var(--text-muted)]"
+                          aria-pressed={selected}
+                          className={`flex min-h-[76px] items-center gap-3 rounded-2xl p-3 text-left transition ${
+                            selected
+                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                           }`}
                         >
-                          {option.label}
+                          <span
+                            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
+                              selected
+                                ? "bg-white/10 dark:bg-black/10"
+                                : "bg-[color:var(--card)]"
+                            }`}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <strong className="block text-sm font-semibold">
+                              {option.label}
+                            </strong>
+                            <small
+                              className={`mt-1 block text-xs ${
+                                selected
+                                  ? "text-white/65 dark:text-black/60"
+                                  : "text-[color:var(--text-muted)]"
+                              }`}
+                            >
+                              {option.description}
+                            </small>
+                          </span>
+                          {selected ? <Check className="h-4 w-4" /> : null}
                         </button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-                      {scheduleMode === "fixed"
-                        ? "La misma distribución se repite cada semana."
-                        : "Las sesiones avanzan en orden, sin depender del día."}
-                    </p>
-                  </fieldset>
-                  {scheduleMode !== "fixed" ? (
-                    <fieldset>
-                      <legend className="text-sm font-medium">
-                        Duración del ciclo
-                      </legend>
-                      <div className="mt-3 flex h-[52px] items-center justify-between rounded-xl bg-[color:var(--surface-subtle)] px-1">
-                        <button
-                          type="button"
-                          onClick={() => resizeCycle(-1)}
-                          disabled={schedule.length <= 2}
-                          className="grid h-11 w-11 place-items-center disabled:opacity-30"
-                          aria-label="Quitar un día del ciclo"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <strong className="text-sm">
-                          {schedule.length} días
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => resizeCycle(1)}
-                          disabled={schedule.length >= 28}
-                          className="grid h-11 w-11 place-items-center disabled:opacity-30"
-                          aria-label="Agregar un día al ciclo"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </fieldset>
-                  ) : null}
-                </div>
+                      );
+                    })}
+                  </div>
+                </section>
 
                 {scheduleMode === "fixed" ? (
                   <fieldset>
-                    <legend className="text-sm font-medium">
-                      Entrenamientos por semana
+                    <legend className="text-sm font-semibold">
+                      ¿Cuántos días quieres entrenar?
                     </legend>
-                    <div className="mt-3 grid grid-cols-4 gap-2 rounded-2xl bg-[color:var(--card)] p-2">
+                    <div className="mt-3 grid grid-cols-4 gap-2">
                       {[3, 4, 5, 6].map((frequency) => (
                         <button
                           key={frequency}
                           type="button"
                           onClick={() => applyFrequencyPreset(frequency)}
-                          className={`h-11 rounded-xl text-sm font-medium ${
+                          aria-pressed={trainingDays === frequency}
+                          className={`min-h-14 rounded-2xl text-sm font-semibold transition ${
                             trainingDays === frequency
                               ? "theme-accent-solid"
-                              : "text-[color:var(--text-muted)]"
+                              : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
                           }`}
                         >
-                          {frequency} días
+                          <span className="block text-lg leading-none">
+                            {frequency}
+                          </span>
+                          <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.08em]">
+                            días
+                          </span>
                         </button>
                       ))}
                     </div>
                   </fieldset>
-                ) : null}
-
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-medium">Días del plan</h2>
-                    <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                      {trainingDays} entrenamientos ·{" "}
-                      {schedule.length - trainingDays}{" "}
-                      {schedule.length - trainingDays === 1
-                        ? "día libre"
-                        : "días libres"}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
-                    {durationWeeks} semanas
-                  </span>
-                </div>
-
-                <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
-                  {schedule.map((day, index) => (
-                    <div
-                      key={day.dayIndex}
-                      className={`grid grid-cols-[88px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 ${
-                        manageRoutinesSeparately
-                          ? "sm:grid-cols-[92px_138px_minmax(0,1fr)]"
-                          : "sm:grid-cols-[92px_138px_minmax(0,1fr)_minmax(0,1fr)]"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold">
-                        {scheduleMode === "fixed"
-                          ? DAY_NAMES[index]
-                          : `Día ${index + 1}`}
-                      </span>
-                      <select
-                        value={day.type}
-                        onChange={(event) =>
-                          updateDay(index, { type: event.target.value })
-                        }
-                        aria-label={`Tipo de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
-                        className="h-10 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none"
+                ) : (
+                  <section className="flex items-center justify-between gap-4 rounded-2xl bg-[color:var(--card)] p-4">
+                    <div>
+                      <h2 className="text-sm font-semibold">Días del ciclo</h2>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                        Bloques consecutivos, sin fechas fijas
+                      </p>
+                    </div>
+                    <div className="flex h-12 items-center rounded-full bg-[color:var(--surface-subtle)] p-1">
+                      <button
+                        type="button"
+                        onClick={() => resizeCycle(-1)}
+                        disabled={schedule.length <= 2}
+                        className="grid h-10 w-10 place-items-center rounded-full disabled:opacity-30"
+                        aria-label="Quitar un día del ciclo"
                       >
-                        <option value="training">Entrenamiento</option>
-                        <option value="recovery">Recuperación</option>
-                        <option value="rest">Descanso</option>
-                      </select>
-                      {day.type === "training" ? (
-                        <>
-                          <input
-                            value={day.focus}
-                            onChange={(event) =>
-                              updateDay(index, { focus: event.target.value })
-                            }
-                            maxLength={80}
-                            placeholder="Ej. Empuje"
-                            aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
-                            className="col-span-2 h-10 min-w-0 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none sm:col-span-1"
-                          />
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <strong className="min-w-12 text-center text-sm">
+                        {schedule.length}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => resizeCycle(1)}
+                        disabled={schedule.length >= 28}
+                        className="grid h-10 w-10 place-items-center rounded-full disabled:opacity-30"
+                        aria-label="Agregar un día al ciclo"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                <section>
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold">Tu estructura</h2>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                        {trainingDays} entrenamientos
+                        {recoveryDays ? ` · ${recoveryDays} recuperación` : ""}
+                        {` · ${schedule.length - trainingDays - recoveryDays} descanso`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
+                      {durationWeeks} semanas
+                    </span>
+                  </div>
+
+                  <div
+                    className="mt-4 grid grid-cols-7 gap-1.5"
+                    aria-label="Días del plan"
+                  >
+                    {schedule.map((day, index) => {
+                      const selected = safeSelectedScheduleIndex === index;
+                      const option =
+                        SCHEDULE_TYPE_OPTIONS.find(
+                          (item) => item.id === day.type,
+                        ) || SCHEDULE_TYPE_OPTIONS[0];
+                      const Icon = option.icon;
+                      const dayLabel =
+                        scheduleMode === "fixed"
+                          ? DAY_NAMES[index]
+                          : `Día ${index + 1}`;
+                      const routinePending =
+                        !manageRoutinesSeparately &&
+                        day.type === "training" &&
+                        !day.sourceRoutineId;
+                      return (
+                        <button
+                          key={day.slotId || day.dayIndex}
+                          type="button"
+                          onClick={() => setSelectedScheduleIndex(index)}
+                          aria-label={`Editar ${dayLabel}: ${option.label}`}
+                          aria-pressed={selected}
+                          className={`relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 transition ${
+                            day.type === "training"
+                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                              : day.type === "recovery"
+                                ? "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
+                                : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                          } ${
+                            selected
+                              ? "ring-2 ring-[#181918] ring-offset-2 ring-offset-[color:var(--bg)] dark:ring-[#e2ff00]"
+                              : ""
+                          }`}
+                        >
+                          <span className="text-[9px] font-semibold uppercase tracking-[0.05em] sm:text-[10px]">
+                            {scheduleMode === "fixed"
+                              ? DAY_NAMES[index].slice(0, 3)
+                              : index + 1}
+                          </span>
+                          <Icon className="h-4 w-4" />
+                          {routinePending ? (
+                            <span
+                              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 ring-2 ring-black/20"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {selectedScheduleDay ? (
+                  <section className="overflow-hidden rounded-[1.5rem] bg-[color:var(--card)]">
+                    <header className="flex items-center justify-between gap-3 border-b border-[color:var(--detail-row-divider)] px-4 py-4">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                          Configurando
+                        </p>
+                        <h2 className="mt-1 text-xl font-semibold tracking-[-0.025em]">
+                          {scheduleMode === "fixed"
+                            ? DAY_NAMES[safeSelectedScheduleIndex]
+                            : `Día ${safeSelectedScheduleIndex + 1}`}
+                        </h2>
+                      </div>
+                      <span className="text-xs font-medium text-[color:var(--text-muted)]">
+                        {safeSelectedScheduleIndex + 1}/{schedule.length}
+                      </span>
+                    </header>
+
+                    <div className="p-4">
+                      <fieldset>
+                        <legend className="sr-only">Actividad del día</legend>
+                        <div className="grid grid-cols-3 gap-2">
+                          {SCHEDULE_TYPE_OPTIONS.map((option) => {
+                            const Icon = option.icon;
+                            const selected =
+                              selectedScheduleDay.type === option.id;
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() =>
+                                  updateDay(safeSelectedScheduleIndex, {
+                                    type: option.id,
+                                  })
+                                }
+                                aria-pressed={selected}
+                                className={`flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-2xl text-xs font-semibold transition ${
+                                  selected
+                                    ? "theme-accent-solid"
+                                    : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                <Icon className="h-4 w-4" />
+                                {option.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+
+                      {selectedScheduleDay.type === "training" ? (
+                        <div className="mt-4 space-y-4">
                           {!manageRoutinesSeparately ? (
-                            <select
-                              value={day.sourceRoutineId}
+                            <label className="block">
+                              <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                                Rutina
+                              </span>
+                              <select
+                                value={selectedScheduleDay.sourceRoutineId}
+                                onChange={(event) => {
+                                  const sourceRoutineId = event.target.value;
+                                  const routine = templates.find(
+                                    (item) =>
+                                      String(item.id || item._id) ===
+                                      String(sourceRoutineId),
+                                  );
+                                  updateDay(safeSelectedScheduleIndex, {
+                                    sourceRoutineId,
+                                    ...(routine && !selectedScheduleDay.focus
+                                      ? { focus: routine.name }
+                                      : {}),
+                                  });
+                                }}
+                                aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[safeSelectedScheduleIndex] : `día ${safeSelectedScheduleIndex + 1}`}`}
+                                className="theme-accent-focus mt-2 h-[52px] w-full rounded-2xl border-0 bg-[color:var(--surface-subtle)] px-4 text-sm font-medium outline-none"
+                              >
+                                <option value="">Selecciona una rutina</option>
+                                {templates.map((routine) => (
+                                  <option
+                                    key={routine.id || routine._id}
+                                    value={routine.id || routine._id}
+                                  >
+                                    {routine.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : null}
+
+                          <label className="block">
+                            <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                              {manageRoutinesSeparately
+                                ? "Nombre de la sesión"
+                                : "Enfoque opcional"}
+                            </span>
+                            <input
+                              value={selectedScheduleDay.focus}
                               onChange={(event) =>
-                                updateDay(index, {
-                                  sourceRoutineId: event.target.value,
+                                updateDay(safeSelectedScheduleIndex, {
+                                  focus: event.target.value,
                                 })
                               }
-                              aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
-                              className="col-span-2 h-10 min-w-0 rounded-xl border-0 bg-[color:var(--surface-subtle)] px-3 text-sm font-medium outline-none sm:col-span-1"
-                            >
-                              <option value="">Selecciona una rutina</option>
-                              {templates.map((routine) => (
-                                <option
-                                  key={routine.id || routine._id}
-                                  value={routine.id || routine._id}
-                                >
-                                  {routine.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : null}
-                        </>
+                              maxLength={80}
+                              placeholder={
+                                manageRoutinesSeparately
+                                  ? "Ej. Tren inferior"
+                                  : "Ej. Fuerza de piernas"
+                              }
+                              aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[safeSelectedScheduleIndex] : `día ${safeSelectedScheduleIndex + 1}`}`}
+                              className="theme-accent-focus mt-2 h-[52px] w-full rounded-2xl border-0 bg-[color:var(--surface-subtle)] px-4 text-sm font-medium outline-none"
+                            />
+                          </label>
+                        </div>
                       ) : (
-                        <p className="col-span-2 -mt-1 pl-[100px] text-xs font-medium text-[color:var(--text-muted)] sm:col-span-2 sm:mt-0 sm:pl-0">
-                          {day.type === "rest"
-                            ? "Día libre"
-                            : "Movilidad o actividad ligera"}
-                        </p>
+                        <div className="mt-4 rounded-2xl bg-[color:var(--surface-subtle)] px-4 py-3">
+                          <p className="text-sm font-semibold">
+                            {selectedScheduleDay.type === "recovery"
+                              ? "Recuperación activa"
+                              : "Descanso completo"}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
+                            {selectedScheduleDay.type === "recovery"
+                              ? "Ideal para movilidad, caminata o trabajo suave."
+                              : "Sin entrenamiento programado para este día."}
+                          </p>
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </section>
+                ) : null}
 
                 {!manageRoutinesSeparately && missingRoutines ? (
                   <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">

@@ -21,6 +21,7 @@ import {
   TRAINING_SUMMARY_CACHE_VERSION,
   TRAINING_SUMMARY_FIELDS,
 } from "../utils/trainingListFields";
+import { upsertDashboardTraining } from "../utils/dashboardBootstrapCache";
 
 const TrainingContext = createContext(null);
 
@@ -371,8 +372,11 @@ export function TrainingProvider({
     [trainingsKey, trainingSummariesKey].forEach((queryKey) => {
       queryClient.setQueryData(queryKey, (prev = []) => [normalized, ...prev]);
     });
+    queryClient.setQueriesData(
+      { queryKey: ["dashboard-bootstrap"] },
+      (current) => upsertDashboardTraining(current, normalized),
+    );
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
     return normalized;
   };
 
@@ -387,8 +391,11 @@ export function TrainingProvider({
         ),
       );
     });
+    queryClient.setQueriesData(
+      { queryKey: ["dashboard-bootstrap"] },
+      (current) => upsertDashboardTraining(current, normalized),
+    );
     queryClient.invalidateQueries({ queryKey: ["routine-training-counts"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
     return normalized;
   };
 

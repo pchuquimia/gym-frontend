@@ -21,6 +21,7 @@ import PremiumGate from "../components/shared/PremiumGate";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
+import { upsertDashboardCheckIn } from "../utils/dashboardBootstrapCache";
 
 const todayKey = () => {
   const now = new Date();
@@ -254,33 +255,7 @@ export default function DailyCheckIn({ onNavigate, onBack }) {
       setRecommendation(result.recommendation || "");
       queryClient.setQueriesData(
         { queryKey: ["dashboard-bootstrap"] },
-        (current) => {
-          if (!current || !result.checkIn) return current;
-
-          const dailyMetrics = Array.isArray(current.dailyMetrics)
-            ? current.dailyMetrics
-            : [];
-          const metricIndex = dailyMetrics.findIndex(
-            (metric) => metric?.dateKey === result.checkIn.dateKey,
-          );
-          const checkInMetric = {
-            dateKey: result.checkIn.dateKey,
-            readinessScore: result.checkIn.readinessScore,
-            readinessState: result.checkIn.readinessState,
-          };
-          const nextDailyMetrics = [...dailyMetrics];
-
-          if (metricIndex >= 0) {
-            nextDailyMetrics[metricIndex] = {
-              ...nextDailyMetrics[metricIndex],
-              ...checkInMetric,
-            };
-          } else {
-            nextDailyMetrics.unshift(checkInMetric);
-          }
-
-          return { ...current, dailyMetrics: nextDailyMetrics };
-        },
+        (current) => upsertDashboardCheckIn(current, result.checkIn),
       );
       toast.success(
         wasSavedToday ? "Estado de hoy actualizado" : "Estado de hoy guardado",

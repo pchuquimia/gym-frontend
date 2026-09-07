@@ -55,7 +55,10 @@ import {
 } from "../queries/trainingPlanQueries";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
-import { findAutoFlowDestination } from "../utils/autoWorkoutFlow";
+import {
+  findAutoFlowDestination,
+  markExerciseStartedInPlace,
+} from "../utils/autoWorkoutFlow";
 import { inferWeightConfig, normalizeWeightBasis } from "../utils/weightConfig";
 import {
   computeCompatibleRecentBySet,
@@ -2819,40 +2822,7 @@ export default function RegisterTraining({
     setExercises((prev) => {
       const current = prev.find((ex) => ex.id === exerciseId);
       if (!current) return prev;
-      const nextStartedOrder =
-        current.startedOrder ||
-        prev.reduce(
-          (max, ex) => Math.max(max, Number(ex.startedOrder) || 0),
-          0,
-        ) + 1;
-      const withStartedOrder = prev.map((ex) =>
-        ex.id === exerciseId
-          ? {
-              ...ex,
-              startedOrder: nextStartedOrder,
-              actualOrder: nextStartedOrder,
-              orderContext: getOrderContext(
-                getPlannedExerciseOrder(ex),
-                nextStartedOrder,
-                Boolean(ex.isExtra),
-              ),
-            }
-          : ex,
-      );
-      const currentPosition = new Map(
-        prev.map((exercise, index) => [exercise.id, index]),
-      );
-      const executionOrder = [...withStartedOrder].sort((a, b) => {
-        const aStarted = Number(a.startedOrder) || 0;
-        const bStarted = Number(b.startedOrder) || 0;
-        if (aStarted && bStarted) return aStarted - bStarted;
-        if (aStarted) return -1;
-        if (bStarted) return 1;
-        return (
-          (currentPosition.get(a.id) ?? 0) - (currentPosition.get(b.id) ?? 0)
-        );
-      });
-      return applyExerciseOrder(executionOrder);
+      return markExerciseStartedInPlace(prev, exerciseId);
     });
     const wasResting = restEventOpenRef.current;
     restEventOpenRef.current = false;
@@ -5212,9 +5182,19 @@ export default function RegisterTraining({
       return;
     }
     const clone = JSON.parse(JSON.stringify(exercise));
-    setExercises((prev) =>
-      applyExerciseOrder([...prev, { ...clone, isExtra: true }]),
-    );
+    setExercises((prev) => {
+      const appendedOrder = prev.length + 1;
+      return applyExerciseOrder([
+        ...prev,
+        {
+          ...clone,
+          isExtra: true,
+          order: appendedOrder,
+          plannedOrder: appendedOrder,
+          actualOrder: appendedOrder,
+        },
+      ]);
+    });
     toast.success("Ejercicio extra agregado.");
   };
 

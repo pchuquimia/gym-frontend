@@ -363,6 +363,11 @@ export default function ExerciseCard({
               fallback={(exercise.name || "?").charAt(0).toUpperCase()}
               className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
             />
+            {exercise.isExtra ? (
+              <span className="training-exercise-card__extra-label">
+                Extra
+              </span>
+            ) : null}
           </button>
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <div className="min-w-0 flex-1">
@@ -715,6 +720,7 @@ ExerciseCard.propTypes = {
         imagePublicId: PropTypes.string,
       }),
     ),
+    isExtra: PropTypes.bool,
     sets: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string.isRequired,

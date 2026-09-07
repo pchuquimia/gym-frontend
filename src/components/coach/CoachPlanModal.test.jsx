@@ -71,7 +71,9 @@ describe("CoachPlanModal", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Ciclo libre" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Ciclo flexible/ }),
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Guardar cambios" }),
     );
@@ -93,5 +95,39 @@ describe("CoachPlanModal", () => {
         day.slotId.startsWith("existing_slot_"),
       ),
     ).toBe(false);
+  });
+
+  it("edita un solo día a la vez desde el resumen semanal", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Atleta" }}
+        initialData={initialPlan}
+        manageRoutinesSeparately
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
+
+    expect(screen.getByLabelText("Enfoque de Lunes")).toBeVisible();
+    expect(screen.queryByLabelText("Enfoque de Martes")).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Martes: Entrenar" }),
+    );
+    expect(screen.getByLabelText("Enfoque de Martes")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Descansar" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    );
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].weeklySchedule[1]).toMatchObject({
+      type: "rest",
+      sourceRoutineId: "",
+    });
   });
 });
