@@ -47,4 +47,23 @@ describe("MobileNav", () => {
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(5);
   });
+
+  it("usa un icono sólido solo en la página activa", () => {
+    mockUseAuth.mockReturnValue({
+      user: { role: "Cliente", trainingMode: "independent" },
+    });
+
+    render(<MobileNav activePage="rutinas" onNavigate={vi.fn()} />);
+
+    const activeItem = screen.getByRole("button", { name: "Rutinas" });
+    const inactiveItem = screen.getByRole("button", { name: "Entrenar" });
+
+    expect(activeItem).toHaveAttribute("aria-current", "page");
+    expect(
+      activeItem.querySelector('[data-nav-icon="solid"]'),
+    ).toBeInTheDocument();
+    expect(
+      inactiveItem.querySelector('[data-nav-icon="outline"]'),
+    ).toBeInTheDocument();
+  });
 });

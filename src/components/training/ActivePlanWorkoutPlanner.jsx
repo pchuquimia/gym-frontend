@@ -18,6 +18,7 @@ import {
   formatSessionDuration,
 } from "../../utils/sessionDurationEstimate";
 import restDayRecoveryImage from "../../assets/rest-day-recovery.webp";
+import completedPlanImage from "../../assets/plan-completed-v2.webp";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
@@ -52,6 +53,15 @@ const shortDate = (date) =>
     month: "short",
     timeZone: "UTC",
   });
+const fullDate = (value) =>
+  value
+    ? new Date(value).toLocaleDateString("es-BO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    : "";
 
 const getRoutineExerciseCount = (routine) =>
   Number(
@@ -88,7 +98,7 @@ function ProgressRing({ value }) {
           stroke="currentColor"
           strokeWidth="5"
           strokeDasharray={`${progress * 1.068} 106.8`}
-          className="text-[#352018] dark:text-[#d8ff00]"
+          className="text-[#181918] dark:text-[#d8ff00]"
         />
       </svg>
       <strong className="absolute text-base font-bold tabular-nums">
@@ -100,6 +110,9 @@ function ProgressRing({ value }) {
 
 export default function ActivePlanWorkoutPlanner({
   plan,
+  completedPlan,
+  continuationPlan,
+  scheduledPlan,
   routines,
   trainings,
   loading,
@@ -108,6 +121,7 @@ export default function ActivePlanWorkoutPlanner({
   currentDate,
   onRetry,
   onOpenPlans,
+  onExtendPlan,
   onStart,
   onAdvance,
   advancing,
@@ -147,19 +161,120 @@ export default function ActivePlanWorkoutPlanner({
   }
 
   if (!plan) {
+    if (scheduledPlan) {
+      return (
+        <section className="training-schedule-state overflow-hidden rounded-3xl bg-[color:var(--card)]">
+          <div className="bg-[#171817] px-6 py-7 text-white dark:bg-[#d8ff00] dark:text-black">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-white/15 dark:bg-black/10">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] opacity-70">
+              Próxima planificación
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.025em]">
+              {scheduledPlan.name} está programada
+            </h2>
+          </div>
+          <div className="px-6 py-6">
+            <p className="text-sm leading-relaxed text-[color:var(--text-muted)]">
+              Comienza el {fullDate(scheduledPlan.startDate)}. Hasta entonces no
+              tienes un entrenamiento asignado para hoy.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenPlans}
+              className="mt-5 h-12 w-full rounded-2xl bg-[color:var(--accent)] px-4 text-sm font-semibold text-[color:var(--accent-contrast)]"
+            >
+              Ver planificación
+            </button>
+          </div>
+        </section>
+      );
+    }
+
+    if (completedPlan) {
+      const hasContinuation = Boolean(continuationPlan);
+      return (
+        <section className="training-schedule-state overflow-hidden rounded-[1.75rem] border border-[color:var(--border)] bg-[color:var(--card)]">
+          <div className="relative min-h-[21rem] overflow-hidden bg-black text-white sm:min-h-[25rem]">
+            <img
+              src={completedPlanImage}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover object-[64%_center]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/75 to-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
+
+            <div className="relative flex min-h-[21rem] max-w-xl flex-col justify-between p-6 sm:min-h-[25rem] sm:p-9">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-black">
+                <Check className="h-5 w-5" strokeWidth={2.6} />
+              </span>
+
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/65">
+                  Planificación completada
+                </p>
+                <h2 className="mt-2 max-w-lg text-3xl font-semibold leading-[0.95] tracking-[-0.04em] text-white sm:text-5xl">
+                  {completedPlan.name} llegó a su fin
+                </h2>
+                {completedPlan.endDate ? (
+                  <p className="mt-3 text-sm font-normal text-white/70">
+                    {fullDate(completedPlan.endDate)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-5 px-6 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-normal text-[color:var(--text-muted)]">
+                Tu progreso y tus marcas quedaron guardados.
+              </p>
+              {hasContinuation ? (
+                <p className="mt-1 truncate text-sm font-medium text-[color:var(--text)]">
+                  Siguiente: {continuationPlan.name}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="grid shrink-0 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={hasContinuation ? onOpenPlans : onExtendPlan}
+                className="h-12 rounded-xl bg-[color:var(--text)] px-5 text-sm font-medium text-[color:var(--bg)] transition hover:opacity-85"
+              >
+                {hasContinuation
+                  ? "Revisar continuación"
+                  : "Extender planificación"}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenPlans}
+                className="h-12 rounded-xl border border-[color:var(--border)] px-5 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
+              >
+                Ver todas
+              </button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
     return (
       <div className="training-schedule-state rounded-3xl bg-[color:var(--card)] p-6 text-center">
-        <CalendarDays className="mx-auto h-7 w-7 text-[#352018] dark:text-[#d8ff00]" />
+        <CalendarDays className="mx-auto h-7 w-7 text-[#181918] dark:text-[#d8ff00]" />
         <h2 className="mt-4 text-xl font-bold uppercase">
-          No hay una planificacion vigente
+          No hay una planificación vigente
         </h2>
         <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
-          Activa una planificacion para definir tu siguiente entrenamiento.
+          Activa una planificación para definir tu siguiente entrenamiento.
         </p>
         <button
           type="button"
           onClick={onOpenPlans}
-          className="mt-5 h-11 border border-[#352018] px-4 text-xs font-bold uppercase text-[#2a1711] dark:border-[#d8ff00] dark:text-[#d8ff00]"
+          className="mt-5 h-11 border border-[#181918] px-4 text-xs font-bold uppercase text-[#101110] dark:border-[#d8ff00] dark:text-[#d8ff00]"
         >
           Ver planificaciones
         </button>
@@ -366,7 +481,7 @@ export default function ActivePlanWorkoutPlanner({
                           ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
                           : dayView.completed
                             ? "border-[#c9c9c9] bg-[#e9e9e9] text-[#777] dark:border-[#292929] dark:bg-[#0b0b0b] dark:text-[#777]"
-                            : "border-[#d6d6d6] text-[#666] hover:border-[#352018] hover:text-[#2a1711] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
+                            : "border-[#d6d6d6] text-[#666] hover:border-[#181918] hover:text-[#101110] dark:border-[#303030] dark:text-[#c8c8aa] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00]"
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase">
@@ -388,7 +503,7 @@ export default function ActivePlanWorkoutPlanner({
                         <span
                           className={`absolute bottom-1.5 h-1 w-1 rounded-full ${
                             dayView.current
-                              ? "bg-[#352018] dark:bg-[#d8ff00]"
+                              ? "bg-[#181918] dark:bg-[#d8ff00]"
                               : dayView.rest
                                 ? "border border-[#8e8e93] dark:border-[#c8c8aa]"
                                 : "bg-transparent"
@@ -411,7 +526,7 @@ export default function ActivePlanWorkoutPlanner({
                 selectedDay.completed
                   ? "border-[#d6d6d6] bg-[#f1f1f1] text-[#555] dark:border-[#303030] dark:bg-[#101010] dark:text-[#b8b8a6]"
                   : selectedDay.current
-                    ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(53,32,24,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
+                    ? "border-2 border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[0_8px_24px_rgba(24,25,24,0.18)] dark:shadow-[0_0_24px_rgba(216,255,0,0.14)]"
                     : "border-[#d6d6d6] bg-white dark:border-[#303030] dark:bg-[#121212]"
               }`}
             >
@@ -482,7 +597,7 @@ export default function ActivePlanWorkoutPlanner({
                         className={`training-schedule__goal text-xs font-bold uppercase ${
                           selectedDay.current
                             ? "text-current"
-                            : "text-[#2a1711] dark:text-[#d8ff00]"
+                            : "text-[#101110] dark:text-[#d8ff00]"
                         }`}
                       >
                         {plan.goal}
@@ -574,7 +689,7 @@ export default function ActivePlanWorkoutPlanner({
                   role="status"
                   aria-label="Rutina completada"
                 >
-                  <span className="training-schedule__completed-state-icon grid h-7 w-7 place-items-center rounded-full bg-[#352018] text-white dark:bg-[#d8ff00] dark:text-black">
+                  <span className="training-schedule__completed-state-icon grid h-7 w-7 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#d8ff00] dark:text-black">
                     <Check className="h-4 w-4" strokeWidth={3} />
                   </span>
                   <span>Rutina completada</span>
@@ -595,7 +710,7 @@ export default function ActivePlanWorkoutPlanner({
                       )
                     }
                     disabled={selectedDay.preparing}
-                    className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#352018] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                    className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#181918] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
                   >
                     {selectedDay.preparing ? (
                       <RotateCcw className="h-4 w-4 animate-spin" />
@@ -614,7 +729,7 @@ export default function ActivePlanWorkoutPlanner({
                 <button
                   type="button"
                   onClick={() => setOverrideCandidate(selectedDay)}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#352018] hover:text-[#2a1711] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#181918] hover:text-[#101110] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
                   <Play className="h-4 w-4" />
                   Entrenar esta rutina
@@ -626,7 +741,7 @@ export default function ActivePlanWorkoutPlanner({
                   type="button"
                   onClick={onAdvance}
                   disabled={advancing}
-                  className="mt-4 h-12 w-full border border-[#352018] px-4 text-xs font-bold uppercase text-[#2a1711] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
+                  className="mt-4 h-12 w-full border border-[#181918] px-4 text-xs font-bold uppercase text-[#101110] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
                 >
                   {advancing ? "Actualizando..." : "Completar descanso"}
                 </button>
@@ -677,7 +792,7 @@ export default function ActivePlanWorkoutPlanner({
                     },
                   );
                 }}
-                className="h-11 bg-[#352018] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
+                className="h-11 bg-[#181918] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
               >
                 Confirmar cambio
               </button>

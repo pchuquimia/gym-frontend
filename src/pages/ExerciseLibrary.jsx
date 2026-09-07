@@ -140,7 +140,7 @@ function FilterSelect({ label, value, options, onChange }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+        className="h-11 w-full rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[#181918] focus:ring-2 focus:ring-[#181918]/15 dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
       >
         <option value={ALL_FILTER_VALUE}>{ALL_FILTER_VALUE}</option>
         {options.map((option) => (
@@ -164,7 +164,7 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
       <button
         type="button"
         onClick={onClick}
-        className="group relative min-h-[164px] overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#352018] bg-[color:var(--card)] text-left shadow-sm transition hover:border-[#352018] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
+        className="group relative min-h-[164px] overflow-hidden rounded border border-[color:var(--border)] border-t-2 border-t-[#181918] bg-[color:var(--card)] text-left shadow-sm transition hover:border-[#181918] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918]/30 dark:border-t-[#e2ff00] dark:hover:border-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
       >
         <img
           src={imageSrc}
@@ -187,13 +187,13 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
               <span className="mt-2 block max-w-sm text-xs font-semibold text-[color:var(--text-muted)]">
                 {description}
               </span>
-              <span className="mt-2 block text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+              <span className="mt-2 block text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                 {Number.isFinite(count)
                   ? `${count} ejercicios`
                   : "Explorar ejercicios"}
               </span>
             </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-[#352018] transition group-hover:translate-x-1 dark:text-[#e2ff00]" />
+            <ChevronRight className="h-5 w-5 shrink-0 text-[#181918] transition group-hover:translate-x-1 dark:text-[#e2ff00]" />
           </span>
         </span>
       </button>
@@ -204,7 +204,7 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[74px] items-center justify-between gap-3 rounded border border-[color:var(--border)] border-t-2 border-t-transparent bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#352018] hover:border-t-[#352018] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/30 dark:hover:border-[#e2ff00] dark:hover:border-t-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
+      className="group flex min-h-[74px] items-center justify-between gap-3 rounded border border-[color:var(--border)] border-t-2 border-t-transparent bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[#181918] hover:border-t-[#181918] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918]/30 dark:hover:border-[#e2ff00] dark:hover:border-t-[#e2ff00] dark:focus-visible:ring-[#e2ff00]/30"
     >
       <div className="min-w-0">
         <p className="truncate text-base font-black text-[color:var(--text)]">
@@ -216,7 +216,7 @@ function ScopeCard({ label, count, onClick, image, kicker, description }) {
             : "Explorar ejercicios"}
         </p>
       </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-[#352018] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
+      <ChevronRight className="h-5 w-5 shrink-0 text-[#181918] transition group-hover:translate-x-0.5 dark:text-[#e2ff00]" />
     </button>
   );
 }
@@ -1213,7 +1213,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         }}
                         className={`h-12 shrink-0 rounded-full px-3 font-sans text-[15px] font-medium transition-[opacity,transform,background-color,color] duration-300 ${
                           active
-                            ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "scale-[1.02] bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : locked
                               ? "bg-[#ece8e0] text-[#c8c2b8] dark:bg-[#20201e] dark:text-[#666661]"
                               : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
@@ -1234,7 +1234,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         }}
                         className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
                           mobileSearchOpen || search
-                            ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1251,7 +1251,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         }}
                         className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
                           filtersOpen
-                            ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1307,7 +1307,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                             }}
                             className={`h-12 shrink-0 rounded-full px-5 font-sans text-[15px] font-medium transition-[opacity,transform,background-color,color] duration-300 ${
                               active
-                                ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                                ? "scale-[1.02] bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                                 : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                             } ${locked ? "cursor-not-allowed opacity-35" : "opacity-100"}`}
                           >
@@ -1342,7 +1342,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                             }}
                             className={`h-12 shrink-0 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
                               active
-                                ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                                ? "bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                                 : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                             }`}
                           >
@@ -1359,7 +1359,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         }}
                         className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
                           mobileSearchOpen || search
-                            ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1375,7 +1375,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         }}
                         className={`flex h-12 shrink-0 items-center gap-2 rounded-full px-5 font-sans text-[15px] font-medium transition-colors ${
                           filtersOpen || activeFilterCount
-                            ? "bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1405,7 +1405,7 @@ export default function ExerciseLibrary({ onNavigate }) {
 
           <div className="hidden flex-wrap items-start justify-between gap-3 md:flex">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#352018] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#181918] dark:text-[#e2ff00]">
                 Biblioteca
               </p>
               <h1 className="text-2xl font-black uppercase leading-none text-[color:var(--text)] sm:text-3xl">
@@ -1460,7 +1460,7 @@ export default function ExerciseLibrary({ onNavigate }) {
               <button
                 type="button"
                 onClick={resetScope}
-                className="hover:text-[#352018] dark:hover:text-[#e2ff00]"
+                className="hover:text-[#181918] dark:hover:text-[#e2ff00]"
               >
                 Explorar
               </button>
@@ -1469,7 +1469,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setSelectedMuscleGroup("")}
-                  className="hover:text-[#352018] dark:hover:text-[#e2ff00]"
+                  className="hover:text-[#181918] dark:hover:text-[#e2ff00]"
                 >
                   {selectedBodyLabel || selectedBodyRegion}
                 </button>
@@ -1516,7 +1516,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                 type="search"
                 inputMode="search"
                 placeholder="Buscar por nombre, músculo o equipo"
-                className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 font-sans text-[16px] font-normal text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] focus:ring-2 focus:ring-[#352018]/15 md:rounded md:text-sm md:font-semibold dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+                className="h-12 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--card)] pl-11 pr-4 font-sans text-[16px] font-normal text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] focus:ring-2 focus:ring-[#181918]/15 md:rounded md:text-sm md:font-semibold dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
               />
             </label>
           ) : null}
@@ -1541,9 +1541,9 @@ export default function ExerciseLibrary({ onNavigate }) {
                   type="button"
                   onClick={() => selectCategory(category.value)}
                   aria-pressed={selectedCategory === category.value}
-                  className={`h-9 rounded px-4 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
+                  className={`h-9 rounded px-4 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
                     selectedCategory === category.value
-                      ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                      ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                       : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
                   }`}
                 >
@@ -1647,7 +1647,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                             setViewMode(value);
                             setSelectedFamilyId("");
                           }}
-                          className={`flex h-10 min-w-0 items-center justify-center gap-1.5 px-2 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
+                          className={`flex h-10 min-w-0 items-center justify-center gap-1.5 px-2 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#181918]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
                             active
                               ? "bg-[#1a1a1a] text-white dark:bg-[#e2ff00] dark:text-black"
                               : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
@@ -1691,7 +1691,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       <span>Filtros</span>
                       {activeFilterCount ? (
-                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#352018] px-1 text-[10px] text-white dark:bg-[#e2ff00] dark:text-black">
+                        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#181918] px-1 text-[10px] text-white dark:bg-[#e2ff00] dark:text-black">
                           {activeFilterCount}
                         </span>
                       ) : null}
@@ -1715,9 +1715,9 @@ export default function ExerciseLibrary({ onNavigate }) {
                           updateFilter(key, active ? ALL_FILTER_VALUE : value);
                           setSelectedFamilyId("");
                         }}
-                        className={`h-8 shrink-0 rounded-full px-3 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
+                        className={`h-8 shrink-0 rounded-full px-3 text-xs font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918]/30 dark:focus-visible:ring-[#e2ff00]/30 ${
                           active
-                            ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                            ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                             : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
                         }`}
                       >
@@ -1737,7 +1737,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                         <button
                           type="button"
                           onClick={clearTechnicalFilters}
-                          className="text-xs font-black text-[#2a1711] dark:text-[#e2ff00]"
+                          className="text-xs font-black text-[#101110] dark:text-[#e2ff00]"
                         >
                           Limpiar
                         </button>
@@ -1779,7 +1779,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                                 onClick={() => selectSource(value)}
                                 className={`flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded px-2 text-xs font-black uppercase transition ${
                                   active
-                                    ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                                    ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                                     : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
                                 }`}
                               >
@@ -1809,7 +1809,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                                 key={value}
                                 type="button"
                                 onClick={() => selectSource(value)}
-                                className="flex items-center gap-3 rounded bg-[color:var(--bg)] p-3 text-left text-[color:var(--text)] transition hover:text-[#352018] dark:hover:text-[#e2ff00]"
+                                className="flex items-center gap-3 rounded bg-[color:var(--bg)] p-3 text-left text-[color:var(--text)] transition hover:text-[#181918] dark:hover:text-[#e2ff00]"
                               >
                                 <Icon className="h-4 w-4 shrink-0" />
                                 <span>
@@ -1983,7 +1983,7 @@ export default function ExerciseLibrary({ onNavigate }) {
                           <button
                             type="button"
                             onClick={() => setViewMode("complete")}
-                            className="text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]"
+                            className="text-xs font-black uppercase text-[#181918] dark:text-[#e2ff00]"
                           >
                             Ver catálogo
                           </button>

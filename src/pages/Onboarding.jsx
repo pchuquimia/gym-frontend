@@ -80,7 +80,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       className={`flex min-h-24 w-full items-center gap-3 border p-4 text-left transition ${
         selected
           ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#352018]/50 dark:hover:border-[#e2ff00]/50"
+          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#181918]/50 dark:hover:border-[#e2ff00]/50"
       }`}
     >
       {Icon ? (
@@ -220,7 +220,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
       <header className="flex items-center justify-between border-b border-[color:var(--border)] pb-4">
         <div>
           <p className="text-xl font-black italic leading-none">
-            RIR <span className="text-[#352018] dark:text-[#e2ff00]">FIT</span>
+            RIR <span className="text-[#181918] dark:text-[#e2ff00]">FIT</span>
           </p>
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
             Configuracion inicial
@@ -242,7 +242,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
         {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
           <div key={label}>
             <div
-              className={`h-1.5 ${index <= step ? "bg-[#352018] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
+              className={`h-1.5 ${index <= step ? "bg-[#181918] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
             />
             <p
               className={`mt-2 text-[9px] font-black uppercase ${index <= step ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
@@ -255,7 +255,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
       <section className="my-auto py-8 sm:py-12">
         <div className="mx-auto max-w-3xl">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#352018] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#181918] dark:text-[#e2ff00]">
             Hola, {user?.name?.split(" ")[0] || "atleta"}
           </p>
 
@@ -317,7 +317,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       Una meta realista ayuda a medir adherencia.
                     </p>
                   </div>
-                  <span className="text-3xl font-black text-[#352018] dark:text-[#e2ff00]">
+                  <span className="text-3xl font-black text-[#181918] dark:text-[#e2ff00]">
                     {form.weeklyFrequency}
                   </span>
                 </div>
@@ -336,7 +336,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       }
                       className={`h-11 border text-sm font-black ${
                         form.weeklyFrequency === frequency
-                          ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                          ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                           : "border-[color:var(--border)] bg-[color:var(--bg)]"
                       }`}
                     >
@@ -375,7 +375,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, username: "" }));
                     }}
                     placeholder="usuario"
-                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
                     aria-label="Nombre de usuario"
                   />
                   {errors.username ? (
@@ -401,7 +401,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, name: "" }));
                     }}
                     placeholder="Tu nombre"
-                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
                     aria-label="Nombre para tu perfil"
                   />
                   {errors.name ? (
@@ -412,7 +412,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 </label>
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
-                    <Scale className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
+                    <Scale className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
                     Peso actual
                   </span>
                   <span className="mt-3 flex items-end gap-2">
@@ -430,7 +430,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, weight: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
                       aria-label="Peso actual en kilogramos"
                     />
                     <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
@@ -445,7 +445,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 </label>
                 <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
                   <span className="flex items-center gap-2 text-xs font-black uppercase">
-                    <Target className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
+                    <Target className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
                     Altura
                   </span>
                   <span className="mt-3 flex items-end gap-2">
@@ -463,7 +463,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, height: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
                       aria-label="Altura en centimetros"
                     />
                     <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
@@ -520,7 +520,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
               : () => setStep((value) => Math.min(2, value + 1))
           }
           disabled={saving}
-          className="inline-flex h-11 items-center gap-2 bg-[#352018] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+          className="inline-flex h-11 items-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
         >
           {step === 2 ? "Preparar dashboard" : "Continuar"}
           {step === 2 ? (

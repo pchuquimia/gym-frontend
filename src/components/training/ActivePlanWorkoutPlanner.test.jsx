@@ -4,6 +4,48 @@ import { describe, expect, it, vi } from "vitest";
 import ActivePlanWorkoutPlanner from "./ActivePlanWorkoutPlanner";
 
 describe("ActivePlanWorkoutPlanner", () => {
+  it("presenta el cierre del plan y permite extenderlo", async () => {
+    const user = userEvent.setup();
+    const onExtendPlan = vi.fn();
+
+    render(
+      <ActivePlanWorkoutPlanner
+        plan={null}
+        completedPlan={{
+          id: "plan-completed",
+          name: "Mes 1",
+          status: "completed",
+          endDate: "2026-09-06T00:00:00.000Z",
+        }}
+        routines={[]}
+        trainings={[]}
+        loading={false}
+        error=""
+        selectedWeek={0}
+        currentDate="2026-09-07"
+        onRetry={vi.fn()}
+        onOpenPlans={vi.fn()}
+        onExtendPlan={onExtendPlan}
+        onStart={vi.fn()}
+        onAdvance={vi.fn()}
+        advancing={false}
+        preparingRoutineId=""
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Mes 1 llegó a su fin" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Tu progreso y tus marcas quedaron guardados."),
+    ).toBeVisible();
+
+    await user.click(
+      screen.getByRole("button", { name: "Extender planificación" }),
+    );
+    expect(onExtendPlan).toHaveBeenCalledOnce();
+  });
+
   it("muestra el nombre actual de la rutina antes que el foco antiguo del plan", () => {
     render(
       <ActivePlanWorkoutPlanner

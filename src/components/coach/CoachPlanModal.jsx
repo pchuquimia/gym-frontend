@@ -468,7 +468,7 @@ export default function CoachPlanModal({
                     </span>
                   </span>
                   {!selectedPlanTemplateId ? (
-                    <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
+                    <Check className="h-5 w-5 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
                   ) : null}
                 </button>
 
@@ -504,7 +504,7 @@ export default function CoachPlanModal({
                             </span>
                           </span>
                           {selected ? (
-                            <Check className="h-5 w-5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
+                            <Check className="h-5 w-5 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
                           ) : (
                             <ArrowRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
                           )}

@@ -76,7 +76,7 @@ function MetricCard({ label, value, detail, accent = false }) {
       </p>
       <div className="dashboard-weekly-metric__value-row flex items-end gap-1.5">
         <span
-          className={`dashboard-weekly-metric__value ${accent ? "text-[#352018] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
+          className={`dashboard-weekly-metric__value ${accent ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
         >
           {value}
         </span>
@@ -620,7 +620,7 @@ export default function ExerciseAnalyticsPage({
                 onClick={() => setExerciseView(view)}
                 className={`h-11 border-b-2 text-sm font-medium transition-colors ${
                   exerciseView === view
-                    ? "border-[#352018] text-[color:var(--text)] dark:border-[#e2ff00]"
+                    ? "border-[#181918] text-[color:var(--text)] dark:border-[#e2ff00]"
                     : "border-transparent text-[color:var(--text-muted)]"
                 }`}
               >
@@ -662,7 +662,7 @@ export default function ExerciseAnalyticsPage({
                             ? `${item.topSet.weight} kg × ${item.topSet.reps}`
                             : "Sin top set"}
                         </p>
-                        <p className="text-right text-sm font-semibold text-[#352018] dark:text-[#e2ff00]">
+                        <p className="text-right text-sm font-semibold text-[#181918] dark:text-[#e2ff00]">
                           {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
                         </p>
                       </div>

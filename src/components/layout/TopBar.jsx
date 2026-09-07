@@ -59,11 +59,11 @@ function TopBar({
               className="
                 mt-4 inline-flex w-full items-center justify-center gap-2
                 rounded-2xl
-                bg-[#352018] px-4 py-3
+                bg-[#181918] px-4 py-3
                 text-sm font-semibold text-white
                 shadow-sm
-                hover:bg-[#482b20]
-                focus:outline-none focus:ring-2 focus:ring-[#352018]/25
+                hover:bg-[#2b2d2a]
+                focus:outline-none focus:ring-2 focus:ring-[#181918]/25
                 dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               "
             >
@@ -123,10 +123,10 @@ function TopBar({
                 hidden sm:inline-flex
                 items-center gap-2
                 rounded-xl
-                bg-[#352018] px-8 py-3
+                bg-[#181918] px-8 py-3
                 text-sm font-semibold text-white
                 shadow-sm
-                hover:bg-[#482b20]
+                hover:bg-[#2b2d2a]
                 dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               "
             >
@@ -144,16 +144,16 @@ function TopBar({
             className="
               mt-4 inline-flex w-full items-center justify-center gap-2
               rounded-xl
-              bg-[#352018]
+              bg-[#181918]
               px-4 py-3
               text-sm font-semibold text-slate-900
               shadow-sm
-              hover:bg-[#482b20]
+              hover:bg-[#2b2d2a]
               dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
               sm:hidden
-              active:bg-[#2a1711]
+              active:bg-[#101110]
               transition
-              focus:outline-none focus:ring-2 focus:ring-[#352018]/40
+              focus:outline-none focus:ring-2 focus:ring-[#181918]/40
             "
           >
             <Plus className="h-4 w-4" />

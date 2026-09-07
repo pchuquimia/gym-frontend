@@ -138,13 +138,13 @@ export default function SetRow({
         }
       }}
       className={`training-set-row relative max-w-full rounded-lg transition-shadow dark:rounded-[4px] ${
-        isHolding ? "ring-2 ring-[#352018]/45 dark:ring-[#e2ff00]/45" : ""
+        isHolding ? "ring-2 ring-[#181918]/45 dark:ring-[#e2ff00]/45" : ""
       }`}
     >
       <AnimatePresence>
         {isHolding ? (
           <motion.span
-            className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 origin-left bg-[#352018] dark:bg-[#e2ff00]"
+            className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 origin-left bg-[#181918] dark:bg-[#e2ff00]"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             exit={{ opacity: 0 }}
@@ -161,7 +161,7 @@ export default function SetRow({
             <span
               className={`training-set-row__index flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 setDone
-                  ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                  ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                   : "bg-[#1a1a1a] text-white dark:bg-[#252525]"
               }`}
             >
@@ -229,7 +229,7 @@ export default function SetRow({
             const trendLabel = getTrainingSetTrendLabel(trend);
             const trendClass =
               trend === "up"
-                ? "text-[#352018] dark:text-[#e2ff00]"
+                ? "text-[#181918] dark:text-[#e2ff00]"
                 : "text-[color:var(--text-muted)]";
             const TrendIcon =
               trend === "up"
@@ -343,7 +343,7 @@ export default function SetRow({
                     <span
                       className={`flex h-7 w-7 items-center justify-center rounded-full border ${
                         entryDone
-                          ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                          ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                           : "border-[color:var(--border)] text-[color:var(--text-muted)]"
                       }`}
                     >

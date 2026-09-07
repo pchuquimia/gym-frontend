@@ -35,7 +35,7 @@ export default function AutoRestCountdownModal({
       >
         <motion.span
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#352018]/10 blur-3xl dark:bg-[#e2ff00]/10"
+          className="absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#181918]/10 blur-3xl dark:bg-[#e2ff00]/10"
           animate={
             reduceMotion
               ? { opacity: 0.4 }
@@ -74,7 +74,7 @@ export default function AutoRestCountdownModal({
           aria-valuenow={progress}
         >
           <motion.span
-            className="block h-full rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+            className="block h-full rounded-full bg-[#181918] dark:bg-[#e2ff00]"
             animate={{ width: `${progress}%` }}
             transition={{
               duration: reduceMotion ? 0 : 0.35,
@@ -85,7 +85,7 @@ export default function AutoRestCountdownModal({
         <button
           type="button"
           onClick={onExit}
-          className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 dark:focus:ring-[#e2ff00]/30"
+          className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#181918]/30 dark:focus:ring-[#e2ff00]/30"
           aria-label="Salir del descanso automático"
           title="Salir del descanso"
         >

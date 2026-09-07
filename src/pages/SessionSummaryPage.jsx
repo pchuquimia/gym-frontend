@@ -114,7 +114,7 @@ function MobileSessionPicker({ currentId, onClose, onSelect, sessions }) {
       <section className="session-summary-picker absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--card)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
         <header className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-5 py-4">
           <div>
-            <p className="session-summary-kicker text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+            <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
               Historial
             </p>
             <h2
@@ -197,10 +197,10 @@ function MetricCard({
         <p className="session-summary-metric__label text-[10px] font-black uppercase text-[color:var(--text-muted)]">
           {label}
         </p>
-        <Icon className="h-4 w-4 text-[#352018] dark:text-[#e2ff00]" />
+        <Icon className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
       </div>
       <p
-        className={`session-summary-metric__value mt-3 text-2xl font-black leading-none ${accent ? "text-[#352018] dark:text-[#e2ff00]" : ""}`}
+        className={`session-summary-metric__value mt-3 text-2xl font-black leading-none ${accent ? "text-[#181918] dark:text-[#e2ff00]" : ""}`}
       >
         {value}
       </p>
@@ -467,7 +467,7 @@ export default function SessionSummaryPage({
 
       <header className="session-summary-page__desktop-header hidden items-end justify-between gap-3 border-b border-[color:var(--border)] pb-4 md:flex">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
             Lectura posterior
           </p>
           <h1 className="mt-1 text-[30px] font-black uppercase leading-none md:text-[36px]">
@@ -483,7 +483,7 @@ export default function SessionSummaryPage({
           onClick={() =>
             onBack ? onBack("dashboard") : onNavigate?.("dashboard")
           }
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#352018]/50 dark:hover:border-[#e2ff00]/50"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase text-[color:var(--text)] transition-colors hover:border-[#181918]/50 dark:hover:border-[#e2ff00]/50"
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Volver</span>
@@ -659,7 +659,7 @@ export default function SessionSummaryPage({
           <section className="session-summary-section">
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
-                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                   Enfoque muscular
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">
@@ -770,7 +770,7 @@ export default function SessionSummaryPage({
           <section className="session-summary-section">
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
-                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                <p className="session-summary-kicker text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                   Detalle
                 </p>
                 <h2 className="mt-1 text-xl font-black uppercase">

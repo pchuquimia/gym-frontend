@@ -66,7 +66,7 @@ const loginErrorMessage = (error) => {
     return "No pudimos conectar con el servidor. Revisa tu conexión.";
   if (error.status >= 500)
     return "El servicio no está disponible temporalmente.";
-  return "El email, username o contraseña no son correctos.";
+  return "El correo, usuario o contraseña no son correctos.";
 };
 
 const googleRedirectErrorMessage = () => {
@@ -249,7 +249,7 @@ function LoginForm({ onNavigate }) {
         <p
           role="alert"
           aria-live="assertive"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700"
+          className="font-sans text-xs font-normal leading-5 text-red-600"
         >
           {error}
         </p>

@@ -89,7 +89,7 @@ const branchLabel = (value) => {
 const branchPillClass = (value) => {
   const branch = (value || "general").toString().toLowerCase();
   if (branch === "sopocachi") {
-    return "border-[#352018] bg-[#352018] text-white dark:border-[#352018] dark:bg-[#352018] dark:text-white";
+    return "border-[#181918] bg-[#181918] text-white dark:border-[#181918] dark:bg-[#181918] dark:text-white";
   }
   if (branch === "miraflores") {
     return "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-[#f8f8f4] dark:bg-[#f8f8f4] dark:text-black";

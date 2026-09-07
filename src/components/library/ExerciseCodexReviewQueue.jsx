@@ -57,7 +57,7 @@ function QueueMetric({ label, value, accent = false }) {
       <p
         className={`text-lg font-black ${
           accent
-            ? "text-[#352018] dark:text-[#e2ff00]"
+            ? "text-[#181918] dark:text-[#e2ff00]"
             : "text-[color:var(--text)]"
         }`}
       >
@@ -224,7 +224,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
     return (
       <div className="grid min-h-72 place-items-center border border-[color:var(--border)] bg-[color:var(--card)]">
         <div className="text-center">
-          <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#352018] dark:text-[#e2ff00]" />
+          <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#181918] dark:text-[#e2ff00]" />
           <p className="mt-3 text-xs font-black uppercase text-[color:var(--text-muted)]">
             Preparando bandeja
           </p>
@@ -249,11 +249,11 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
 
   return (
     <section className="space-y-4">
-      <div className="border-l-4 border-[#352018] bg-[color:var(--card)] p-4 dark:border-[#e2ff00]">
+      <div className="border-l-4 border-[#181918] bg-[color:var(--card)] p-4 dark:border-[#e2ff00]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[#352018] dark:text-[#e2ff00]" />
+              <Sparkles className="h-5 w-5 text-[#181918] dark:text-[#e2ff00]" />
               <h2 className="text-lg font-black uppercase text-[color:var(--text)]">
                 Revisión de propuestas
               </h2>
@@ -313,7 +313,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
           <div>
             {summaryValue(summary, "pending") ||
             summaryValue(summary, "processing") ? (
-              <Clock3 className="mx-auto h-9 w-9 text-[#352018] dark:text-[#e2ff00]" />
+              <Clock3 className="mx-auto h-9 w-9 text-[#181918] dark:text-[#e2ff00]" />
             ) : (
               <Check className="mx-auto h-9 w-9 text-emerald-500" />
             )}
@@ -335,7 +335,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
         <div className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#e2ff00]">
                 Propuesta 1 de {summaryValue(summary, "ready")}
               </p>
               <h3 className="mt-1 text-xl font-black uppercase leading-tight text-[color:var(--text)] sm:text-2xl">
@@ -381,7 +381,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
                     onClick={() => setReason(item)}
                     className={`rounded-full border px-3 py-2 text-xs font-black transition ${
                       reason === item
-                        ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                        ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                         : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
                     }`}
                   >
@@ -395,7 +395,7 @@ export default function ExerciseCodexReviewQueue({ onApplied }) {
                 rows={2}
                 maxLength={2000}
                 placeholder="Describe otro ajuste específico"
-                className="mt-3 w-full resize-y border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-sm font-semibold text-[color:var(--text)] outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                className="mt-3 w-full resize-y border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-sm font-semibold text-[color:var(--text)] outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
               />
               <Button
                 variant="outline"

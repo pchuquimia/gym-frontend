@@ -174,7 +174,7 @@ const MuscleGroupAnalytics = ({
                 },
               },
             ]}
-            colors={mode === "dark" ? ["#e2ff00"] : ["#352018"]}
+            colors={mode === "dark" ? ["#e2ff00"] : ["#181918"]}
             curve="monotoneX"
             lineWidth={3}
             enableArea

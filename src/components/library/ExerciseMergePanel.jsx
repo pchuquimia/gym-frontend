@@ -125,7 +125,7 @@ function ExercisePicker({
                 <span
                   className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
                     selected
-                      ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                      ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                       : "border-[color:var(--border-strong)] text-transparent"
                   }`}
                 >
@@ -349,7 +349,7 @@ export default function ExerciseMergePanel() {
         type="button"
         disabled={!canMerge}
         onClick={() => setConfirming(true)}
-        className="h-12 w-full rounded-lg bg-[#352018] px-5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35 dark:bg-[#e2ff00] dark:text-black"
+        className="h-12 w-full rounded-lg bg-[#181918] px-5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35 dark:bg-[#e2ff00] dark:text-black"
       >
         Fusionar ejercicios
       </button>
@@ -373,7 +373,7 @@ export default function ExerciseMergePanel() {
                 type="button"
                 disabled={mergeMutation.isPending}
                 onClick={() => mergeMutation.mutate()}
-                className="flex h-11 items-center justify-center gap-2 rounded-lg bg-[#352018] px-5 text-sm font-semibold text-white disabled:opacity-50 dark:bg-[#e2ff00] dark:text-black"
+                className="flex h-11 items-center justify-center gap-2 rounded-lg bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-50 dark:bg-[#e2ff00] dark:text-black"
               >
                 {mergeMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

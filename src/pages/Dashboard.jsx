@@ -838,10 +838,10 @@ function PeriodComparisonPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#e2ff00]">
                 Semana actual vs anterior
               </p>
-              <span className="border border-[#352018]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#352018] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
+              <span className="border border-[#181918]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#181918] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
                 Pro
               </span>
             </div>
@@ -856,7 +856,7 @@ function PeriodComparisonPanel({
           <button
             type="button"
             onClick={onUpgrade}
-            className="h-10 shrink-0 bg-[#352018] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="h-10 shrink-0 bg-[#181918] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
           >
             Ver Premium
           </button>
@@ -949,7 +949,7 @@ function PeriodComparisonPanel({
     <section className="dashboard-pilot__card dashboard-pilot__comparison border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#352018] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#e2ff00]">
             Semana actual vs anterior
           </p>
           <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
@@ -975,7 +975,7 @@ function PeriodComparisonPanel({
               <p className="truncate text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 {label}
               </p>
-              <Icon className="h-3.5 w-3.5 shrink-0 text-[#352018] dark:text-[#e2ff00]" />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
             </div>
             <p className="mt-2 text-xl font-black text-[color:var(--text)]">
               {value}
@@ -1007,7 +1007,7 @@ function WeekStrip({ days }) {
           <p
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
-                ? "text-[#352018] dark:text-[#e2ff00]"
+                ? "text-[#181918] dark:text-[#e2ff00]"
                 : "text-[#c9c9c9] dark:text-[#454545]"
             }`}
           >
@@ -1073,7 +1073,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                     : "Descanso"}
             </span>
             {selectedDay.incompleteSets > 0 ? (
-              <span className="ml-1 text-[#2a1711] dark:text-[#e2ff00]">
+              <span className="ml-1 text-[#101110] dark:text-[#e2ff00]">
                 · {selectedDay.incompleteSets}{" "}
                 {selectedDay.incompleteSets === 1 ? "pendiente" : "pendientes"}
               </span>
@@ -1142,8 +1142,8 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                         <motion.span
                           className={`absolute inset-x-0 bottom-0 block ${
                             overloaded
-                              ? "bg-[#2a1711] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
-                              : "bg-[#352018] dark:bg-[#b8d000]"
+                              ? "bg-[#101110] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
+                              : "bg-[#181918] dark:bg-[#b8d000]"
                           }`}
                           initial={
                             reduceMotion
@@ -1165,7 +1165,7 @@ function MonthActivityChart({ data, trainedDays, totalSets, monthLabel }) {
                   <span
                     className={`mt-1 grid h-4 min-w-4 place-items-center rounded-[2px] px-0.5 text-[8px] font-black leading-none md:text-[9px] ${
                       day.isToday
-                        ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                        ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                         : "text-[color:var(--text-muted)]"
                     }`}
                   >
@@ -3227,7 +3227,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <button
             type="button"
             onClick={() => reloadTrainings()}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#352018] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
           >
             <RotateCcw className="h-4 w-4" />
             Reintentar
@@ -3263,7 +3263,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 <Weight className="h-5 w-5 motion-safe:animate-pulse" />
                 <span
                   aria-hidden="true"
-                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
+                  className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#181918] dark:bg-[#e2ff00]"
                 />
               </button>
             ) : null}
@@ -3292,7 +3292,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <h1 className="text-[22px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1a1a1a] md:text-3xl md:font-black md:italic md:leading-[0.9] md:tracking-normal dark:text-white">
               RIR
               <br />
-              <span className="dashboard-pilot__brand-accent text-[#352018] dark:text-[#e2ff00]">
+              <span className="dashboard-pilot__brand-accent text-[#181918] dark:text-[#e2ff00]">
                 FIT
               </span>
             </h1>
@@ -3318,7 +3318,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <Weight className="h-5 w-5 motion-safe:animate-pulse" />
               <span
                 aria-hidden="true"
-                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#352018] dark:bg-[#e2ff00]"
+                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#181918] dark:bg-[#e2ff00]"
               />
             </button>
           ) : null}
@@ -3546,7 +3546,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     : "Registra tu primera sesión"}
                 </p>
                 {hasTrainingHistory && recovery.activePlan ? (
-                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                     {recovery.activePlan.name}
                   </p>
                 ) : null}
@@ -3555,7 +3555,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 <div
                   className="dashboard-pilot__recovery-ring grid h-20 w-20 place-items-center rounded-full p-[6px] sm:h-36 sm:w-36 sm:p-[9px]"
                   style={{
-                    background: `conic-gradient(${isDark ? "#e2ff00" : "#352018"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
+                    background: `conic-gradient(${isDark ? "#e2ff00" : "#181918"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
                   }}
                 >
                   <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
@@ -3611,7 +3611,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 indexBy="month"
                 margin={{ top: 12, right: 8, bottom: 28, left: 46 }}
                 padding={0.35}
-                colors={isDark ? "#e2ff00" : "#352018"}
+                colors={isDark ? "#e2ff00" : "#181918"}
                 borderRadius={6}
                 enableLabel={false}
                 axisTop={null}

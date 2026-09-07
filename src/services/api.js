@@ -195,6 +195,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  extendTrainingPlan: (planId, payload) =>
+    request(`/api/plans/${planId}/extend`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   updateTrainingPlan: (planId, payload) =>
     request(`/api/plans/${planId}`, {
       method: "PUT",

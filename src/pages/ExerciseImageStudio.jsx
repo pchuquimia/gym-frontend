@@ -54,7 +54,7 @@ function ExerciseImageCard({
     <article
       className={`overflow-hidden rounded-[1.1rem] border bg-[color:var(--card)] transition-colors ${
         selected
-          ? "border-[#352018] ring-2 ring-[#352018]/10 dark:border-[#e2ff00] dark:ring-[#e2ff00]/10"
+          ? "border-[#181918] ring-2 ring-[#181918]/10 dark:border-[#e2ff00] dark:ring-[#e2ff00]/10"
           : "border-[color:var(--border)]"
       }`}
     >
@@ -83,7 +83,7 @@ function ExerciseImageCard({
         <span
           className={`absolute left-3 top-3 grid h-7 w-7 place-items-center rounded-full border shadow-sm backdrop-blur ${
             selected
-              ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+              ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
               : "border-white/70 bg-black/30 text-transparent"
           }`}
         >
@@ -137,7 +137,7 @@ function ExerciseImageCard({
                 rows={3}
                 maxLength={800}
                 placeholder="Ej. conservar visible el agarre y el equipo."
-                className="mt-3 w-full resize-y rounded-[0.8rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-sm leading-relaxed text-[color:var(--text)] outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                className="mt-3 w-full resize-y rounded-[0.8rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-sm leading-relaxed text-[color:var(--text)] outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
               />
             ) : null}
           </div>
@@ -358,7 +358,7 @@ export default function ExerciseImageStudio({
                 rows={10}
                 maxLength={MASTER_INSTRUCTION_MAX_LENGTH}
                 placeholder="Ej. conservar el encuadre original, unificar iluminación y mantener fondo gris claro."
-                className="mt-4 min-h-[240px] w-full resize-y rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3.5 text-sm leading-relaxed text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                className="mt-4 min-h-[240px] w-full resize-y rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--bg)] p-3.5 text-sm leading-relaxed text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
               />
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
                 <p className="text-sm text-[color:var(--text-muted)]">
@@ -410,7 +410,7 @@ export default function ExerciseImageStudio({
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Buscar ejercicio, rutina o plan"
-                    className="h-11 w-full rounded-[0.85rem] border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm text-[color:var(--text)] outline-none focus:border-[#352018] dark:focus:border-[#e2ff00]"
+                    className="h-11 w-full rounded-[0.85rem] border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm text-[color:var(--text)] outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
                   />
                 </label>
                 <div className="flex max-w-full gap-2 overflow-x-auto pb-1 sm:pb-0">
@@ -422,7 +422,7 @@ export default function ExerciseImageStudio({
                       onClick={() => setFilter(option.id)}
                       className={`h-10 shrink-0 rounded-full px-4 text-xs font-semibold transition ${
                         filter === option.id
-                          ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                          ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                           : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
                       }`}
                     >
@@ -448,7 +448,7 @@ export default function ExerciseImageStudio({
                     }}
                     className={`h-9 shrink-0 rounded-full px-4 text-xs font-semibold transition ${
                       muscleCategory === category
-                        ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                        ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                         : "border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
                     }`}
                   >

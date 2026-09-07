@@ -58,7 +58,7 @@ const ExerciseVolumeChart = ({
           indexBy="period"
           margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
           padding={0.35}
-          colors={mode === "dark" ? ["#e2ff00"] : ["#352018"]}
+          colors={mode === "dark" ? ["#e2ff00"] : ["#181918"]}
           axisBottom={{
             tickRotation: -25,
             tickPadding: 8,

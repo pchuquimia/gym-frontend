@@ -158,7 +158,7 @@ export default function QuickWeightModal({
                   </p>
                   <motion.span
                     aria-hidden="true"
-                    className="mt-8 h-0.5 w-24 origin-left bg-[#352018] dark:bg-[#e2ff00]"
+                    className="mt-8 h-0.5 w-24 origin-left bg-[#181918] dark:bg-[#e2ff00]"
                     animate={reduceMotion ? undefined : { scaleX: [0.2, 1, 0.2] }}
                     transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
                   />
@@ -218,7 +218,7 @@ export default function QuickWeightModal({
                   <button
                     type="submit"
                     disabled={!validWeight}
-                    className="min-h-16 w-full shrink-0 bg-[#352018] px-6 text-sm font-semibold uppercase tracking-[0.02em] text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
+                    className="min-h-16 w-full shrink-0 bg-[#181918] px-6 text-sm font-semibold uppercase tracking-[0.02em] text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
                   >
                     Agregar
                   </button>

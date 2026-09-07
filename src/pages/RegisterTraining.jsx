@@ -64,6 +64,7 @@ import {
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
 import { resolveRoutinePlanContext } from "../utils/trainingPlanContext";
+import { requestTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
 import {
   buildFallbackTimeEvents,
@@ -309,7 +310,7 @@ function SetupStep({ number, title, subtitle, active = false, done = false }) {
           done
             ? "bg-[#1a1a1a] text-white dark:bg-[#e2ff00] dark:text-black"
             : active
-              ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
               : "bg-[color:var(--card)] text-[color:var(--text-muted)] dark:bg-[#252525]"
         }`}
       >
@@ -347,7 +348,7 @@ function BranchCard({ branch, selected, compact = false, onClick }) {
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-lg ${
           selected
             ? "border border-current bg-transparent text-current"
-            : "bg-[color:var(--bg)] text-[#352018] dark:text-[#e2ff00]"
+            : "bg-[color:var(--bg)] text-[#181918] dark:text-[#e2ff00]"
         }`}
       >
         <MapPin className="h-5 w-5" />
@@ -385,9 +386,9 @@ function RoutineSetupCard({ routine, selected, onClick }) {
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`group relative w-full border-2 bg-[#fbfaff] p-4 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#352018]/25 dark:bg-[#1b1b1b] dark:focus-visible:ring-[#e2ff00]/25 ${
+      className={`group relative w-full border-2 bg-[#fbfaff] p-4 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#181918]/25 dark:bg-[#1b1b1b] dark:focus-visible:ring-[#e2ff00]/25 ${
         selected
-          ? "border-[#352018] dark:border-[#e2ff00]"
+          ? "border-[#181918] dark:border-[#e2ff00]"
           : "border-transparent hover:border-[#8e8e93] dark:hover:border-[#5a5a5a]"
       }`}
     >
@@ -411,13 +412,13 @@ function RoutineSetupCard({ routine, selected, onClick }) {
         ) : null}
       </div>
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#e2e2e2] pt-3 dark:border-[#353535]">
-        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-[#60443e] dark:text-[#d7d7d7]">
+        <p className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-[#555752] dark:text-[#d7d7d7]">
           <Timer className="h-3.5 w-3.5" />
           <span className="font-bold">
             {formatRelativeSessionDate(routine.lastDateRaw)}
           </span>
         </p>
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase text-[#60443e] dark:text-white">
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase text-[#555752] dark:text-white">
           <Dumbbell className="h-3.5 w-3.5" />
           {formatExerciseCount(routine.exerciseCount)}
         </span>
@@ -1250,9 +1251,9 @@ function DevTrainingDateControl({ value, onChange }) {
 
   return (
     <label
-      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#352018] dark:hover:border-[#d8ff00] ${
+      className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#181918] dark:hover:border-[#d8ff00] ${
         value !== todayISO
-          ? "border-[#352018] text-[#352018] dark:border-[#d8ff00] dark:text-[#d8ff00]"
+          ? "border-[#181918] text-[#181918] dark:border-[#d8ff00] dark:text-[#d8ff00]"
           : "border-[color:var(--border)] text-[color:var(--text)]"
       }`}
       title={`Fecha de prueba: ${formatLongDate(value)}`}
@@ -1300,7 +1301,7 @@ function AdminAutoFlowControl({
           onClick={() => onToggle(!enabled)}
           className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)] ${
             enabled
-              ? "border-[#352018] bg-[#352018] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
+              ? "border-[#181918] bg-[#181918] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
               : "border-[color:var(--border)] bg-[color:var(--card)] shadow-inner"
           }`}
         >
@@ -1323,7 +1324,7 @@ function AdminAutoFlowControl({
               onClick={() => onDurationChange(seconds)}
               className={`h-8 rounded-lg px-1 text-xs font-semibold tabular-nums transition-colors ${
                 durationSeconds === seconds
-                  ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                  ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                   : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
               }`}
             >
@@ -1540,6 +1541,44 @@ export default function RegisterTraining({
   useEffect(() => {
     loadActiveTrainingPlan();
   }, [loadActiveTrainingPlan]);
+
+  const latestCompletedTrainingPlan = useMemo(
+    () =>
+      [...trainingPlans]
+        .filter((plan) => plan.status === "completed")
+        .sort(
+          (a, b) =>
+            new Date(b.endDate || b.updatedAt || 0).getTime() -
+            new Date(a.endDate || a.updatedAt || 0).getTime(),
+        )[0] || null,
+    [trainingPlans],
+  );
+  const continuationPlan = useMemo(() => {
+    if (!latestCompletedTrainingPlan) return null;
+    const completedPlanId = String(
+      latestCompletedTrainingPlan._id || latestCompletedTrainingPlan.id || "",
+    );
+    return (
+      trainingPlans.find(
+        (plan) =>
+          ["draft", "scheduled", "paused"].includes(plan.status) &&
+          String(plan.sourcePlanId || "") === completedPlanId,
+      ) || null
+    );
+  }, [latestCompletedTrainingPlan, trainingPlans]);
+  const scheduledTrainingPlan = useMemo(
+    () => trainingPlans.find((plan) => plan.status === "scheduled") || null,
+    [trainingPlans],
+  );
+
+  const handleExtendCompletedPlan = () => {
+    const planId = String(
+      latestCompletedTrainingPlan?._id || latestCompletedTrainingPlan?.id || "",
+    );
+    if (!planId) return;
+    requestTrainingPlanExtension(planId);
+    onNavigate?.("rutinas");
+  };
 
   const branchOptions = useMemo(() => {
     const configured = (allowedBranches || []).filter((branch) =>
@@ -2686,9 +2725,9 @@ export default function RegisterTraining({
           ) {
             target.animate(
               [
-                { boxShadow: "0 0 0 0 rgba(53,32,24,0)" },
-                { boxShadow: "0 0 0 3px rgba(53,32,24,0.38)" },
-                { boxShadow: "0 0 0 0 rgba(53,32,24,0)" },
+                { boxShadow: "0 0 0 0 rgba(24,25,24,0)" },
+                { boxShadow: "0 0 0 3px rgba(24,25,24,0.38)" },
+                { boxShadow: "0 0 0 0 rgba(24,25,24,0)" },
               ],
               { duration: 700, easing: "ease-out" },
             );
@@ -6006,14 +6045,14 @@ export default function RegisterTraining({
                   onClick={handleOpenRestTimer}
                   className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
                     restTimerRunning
-                      ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                      ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                       : "bg-[color:var(--card)] text-[color:var(--text)]"
                   }`}
                   aria-label="Abrir temporizador de descanso"
                 >
                   <Hourglass className="h-4 w-4" />
                   {restTimerStarted ? (
-                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#352018] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#181918] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
                       {restTimerLabel}
                     </span>
                   ) : null}
@@ -6033,9 +6072,9 @@ export default function RegisterTraining({
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length || isFinalizing}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#352018] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#181918] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
                     sessionComplete
-                      ? "shadow-[0_0_0_4px_rgba(53,32,24,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
+                      ? "shadow-[0_0_0_4px_rgba(24,25,24,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
                       : ""
                   }`}
                   initial={false}
@@ -6072,10 +6111,10 @@ export default function RegisterTraining({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: reduceMotion ? 0 : 0.3 }}
-                  className="mx-auto mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto_auto] items-center border-t border-[#352018]/25 pt-2 dark:border-[#e2ff00]/25"
+                  className="mx-auto mt-2 grid max-w-md grid-cols-[minmax(0,1fr)_auto_auto] items-center border-t border-[#181918]/25 pt-2 dark:border-[#e2ff00]/25"
                 >
                   <div className="min-w-0 pr-3">
-                    <p className="font-condensed text-[9px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                    <p className="font-condensed text-[9px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                       Rutina activa
                     </p>
                     <p className="truncate font-condensed text-[15px] font-black uppercase leading-none">
@@ -6086,7 +6125,7 @@ export default function RegisterTraining({
                     <p className="font-condensed text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                       Completado
                     </p>
-                    <p className="font-condensed text-base font-black leading-none text-[#352018] dark:text-[#e2ff00]">
+                    <p className="font-condensed text-base font-black leading-none text-[#181918] dark:text-[#e2ff00]">
                       {completedExercises}/{exercises.length}
                     </p>
                   </div>
@@ -6297,6 +6336,9 @@ export default function RegisterTraining({
                 <div className="training-setup-page__planner-fullbleed">
                   <ActivePlanWorkoutPlanner
                     plan={activeTrainingPlan}
+                    completedPlan={latestCompletedTrainingPlan}
+                    continuationPlan={continuationPlan}
+                    scheduledPlan={scheduledTrainingPlan}
                     routines={allRoutineOptions}
                     trainings={trainings}
                     loading={trainingPlanLoading || routinesLoading}
@@ -6308,6 +6350,7 @@ export default function RegisterTraining({
                       reloadRoutines?.();
                     }}
                     onOpenPlans={() => onNavigate?.("rutinas")}
+                    onExtendPlan={handleExtendCompletedPlan}
                     onStart={handleStartPlanRoutine}
                     onAdvance={handleAdvancePlanCycle}
                     advancing={advancingPlanCycle}
@@ -6341,10 +6384,10 @@ export default function RegisterTraining({
                         <span
                           className={`font-condensed grid h-8 w-8 place-items-center rounded-full border text-sm font-bold ${
                             step.state === "active"
-                              ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                              ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                               : step.state === "done"
                                 ? "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-white dark:bg-white dark:text-black"
-                                : "border-[#60443e] bg-[#f5f5f5] text-[#1a1a1a] dark:border-white dark:bg-black dark:text-white"
+                                : "border-[#555752] bg-[#f5f5f5] text-[#1a1a1a] dark:border-white dark:bg-black dark:text-white"
                           }`}
                         >
                           {step.state === "done" ? (
@@ -6402,7 +6445,7 @@ export default function RegisterTraining({
                         {routineOptions.length > 3 ? (
                           <button
                             type="button"
-                            className="font-condensed h-11 w-full border border-[#8e8e93] bg-transparent text-sm font-bold uppercase tracking-[0.08em] text-[#1a1a1a] hover:border-[#352018] hover:text-[#2a1711] dark:border-[#4a4a4a] dark:text-white dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00]"
+                            className="font-condensed h-11 w-full border border-[#8e8e93] bg-transparent text-sm font-bold uppercase tracking-[0.08em] text-[#1a1a1a] hover:border-[#181918] hover:text-[#101110] dark:border-[#4a4a4a] dark:text-white dark:hover:border-[#e2ff00] dark:hover:text-[#e2ff00]"
                             onClick={() =>
                               setShowAllRoutineOptions((current) => !current)
                             }
@@ -6441,7 +6484,7 @@ export default function RegisterTraining({
             <div className="hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 mt-auto border-t border-[#1a1a1a] bg-[#f5f5f5]/95 px-3 py-3 backdrop-blur dark:border-[#252525] dark:bg-[#121212]/95 md:static md:mt-4 md:border md:border-[#d8d8d8] md:dark:border-[#252525]">
               <div className="mx-auto w-full max-w-md md:max-w-none">
                 <Button
-                  className="font-condensed h-12 w-full rounded-none border-0 !bg-[#352018] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:!bg-[#482b20] focus-visible:ring-[#352018] disabled:!bg-[#d6d4d4] disabled:text-[#8e8e93] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600] dark:focus-visible:ring-[#e2ff00] dark:disabled:!bg-[#343434] dark:disabled:text-[#777]"
+                  className="font-condensed h-12 w-full rounded-none border-0 !bg-[#181918] text-xl font-bold uppercase tracking-[0.04em] text-white shadow-none hover:!bg-[#2b2d2a] focus-visible:ring-[#181918] disabled:!bg-[#d6d4d4] disabled:text-[#8e8e93] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600] dark:focus-visible:ring-[#e2ff00] dark:disabled:!bg-[#343434] dark:disabled:text-[#777]"
                   disabled={
                     !branchReady ||
                     !selectedRoutineId ||
@@ -6470,7 +6513,7 @@ export default function RegisterTraining({
             <Card
               className={`overflow-visible border bg-[color:var(--card)]/95 p-0 backdrop-blur transition-[border-color,box-shadow] ${
                 sessionComplete
-                  ? "border-[#352018]/60 shadow-[0_12px_32px_rgba(53,32,24,0.14)] dark:border-[#e2ff00]/55 dark:shadow-[0_12px_34px_rgba(226,255,0,0.09)]"
+                  ? "border-[#181918]/60 shadow-[0_12px_32px_rgba(24,25,24,0.14)] dark:border-[#e2ff00]/55 dark:shadow-[0_12px_34px_rgba(226,255,0,0.09)]"
                   : "border-[color:var(--border)] shadow-lg"
               }`}
             >
@@ -6483,12 +6526,12 @@ export default function RegisterTraining({
                           aria-hidden="true"
                           initial={reduceMotion ? false : { scale: 0.6 }}
                           animate={{ scale: 1 }}
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                         >
                           <Check className="h-5 w-5 stroke-[3]" />
                         </motion.span>
                         <div className="min-w-0">
-                          <p className="font-condensed text-[10px] font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                          <p className="font-condensed text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                             Rutina completada
                           </p>
                           <div className="mt-0.5 flex min-w-0 items-center gap-2">
@@ -6504,7 +6547,7 @@ export default function RegisterTraining({
                         <p className="font-condensed text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
                           Rutina activa
                         </p>
-                        <p className="mt-1 truncate font-condensed text-xl font-black uppercase leading-none text-[#352018] dark:text-[#e2ff00]">
+                        <p className="mt-1 truncate font-condensed text-xl font-black uppercase leading-none text-[#181918] dark:text-[#e2ff00]">
                           {selectorRoutine?.name || "Rutina seleccionada"}
                         </p>
                       </>
@@ -6730,11 +6773,11 @@ export default function RegisterTraining({
                     aria-valuenow={progressPct}
                   >
                     <span
-                      className="block h-full rounded-full bg-[#352018] transition-[width] duration-300 dark:bg-[#e2ff00]"
+                      className="block h-full rounded-full bg-[#181918] transition-[width] duration-300 dark:bg-[#e2ff00]"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <span className="w-8 shrink-0 font-bold tabular-nums text-[#352018] dark:text-[#e2ff00]">
+                  <span className="w-8 shrink-0 font-bold tabular-nums text-[#181918] dark:text-[#e2ff00]">
                     {progressPct}%
                   </span>
                   <span className="shrink-0 border-l border-[color:var(--border)] pl-3 font-semibold text-[color:var(--text)]">
@@ -6752,7 +6795,7 @@ export default function RegisterTraining({
               data-training-overview
               className={`relative isolate min-h-[164px] overflow-hidden rounded-[1.5rem] border shadow-[0_16px_36px_rgba(18,18,18,0.18)] ${
                 sessionComplete
-                  ? "border-[#352018]/70 dark:border-[#e2ff00]/60"
+                  ? "border-[#181918]/70 dark:border-[#e2ff00]/60"
                   : "border-white/15"
               }`}
             >
@@ -6850,7 +6893,7 @@ export default function RegisterTraining({
                       value={selectedBranch}
                       onChange={(e) => handleBranchChange(e.target.value)}
                       disabled={sessionLocked || isHistoryReadOnly}
-                      className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
+                      className="w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#181918]/30 disabled:cursor-not-allowed disabled:opacity-60 dark:focus:ring-[#e2ff00]/30"
                     >
                       {branchOptions.map((b) => (
                         <option
@@ -7212,7 +7255,7 @@ export default function RegisterTraining({
                     className={`px-3 py-2 rounded-full border text-sm transition ${
                       selectedMuscleGroup === muscle
                         ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold"
-                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#352018]/40 dark:hover:border-[#e2ff00]/40"
+                        : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#181918]/40 dark:hover:border-[#e2ff00]/40"
                     }`}
                   >
                     {muscle}
@@ -7231,7 +7274,7 @@ export default function RegisterTraining({
                 Buscar ejercicio
               </p>
               <input
-                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#352018]/25 dark:focus:ring-[#e2ff00]/25"
+                className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#181918]/25 dark:focus:ring-[#e2ff00]/25"
                 placeholder="Buscar por nombre..."
                 value={exerciseSearch}
                 onChange={(e) => setExerciseSearch(e.target.value)}
@@ -7496,7 +7539,7 @@ export default function RegisterTraining({
                             {row.date ? formatShort(row.date) : "--"}
                             {rowIdx === 0 ? (
                               <span
-                                className="h-1.5 w-1.5 rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+                                className="h-1.5 w-1.5 rounded-full bg-[#181918] dark:bg-[#e2ff00]"
                                 title="Sesión más reciente"
                                 aria-label="Sesión más reciente"
                               />
@@ -7590,7 +7633,7 @@ export default function RegisterTraining({
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 gap-2 rounded-lg border-[#352018]/40 font-black uppercase text-[#2a1711] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
+                className="h-12 gap-2 rounded-lg border-[#181918]/40 font-black uppercase text-[#101110] hover:bg-[color:var(--accent)] hover:text-[color:var(--accent-contrast)] dark:rounded-[4px] dark:border-[#e2ff00]/40 dark:text-[#e2ff00]"
                 onClick={() => handleSameDayTrainingChoice(false)}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -7598,7 +7641,7 @@ export default function RegisterTraining({
               </Button>
               <Button
                 type="button"
-                className="h-12 gap-2 rounded-lg !bg-[#352018] font-black uppercase text-white hover:!bg-[#482b20] dark:rounded-[4px] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                className="h-12 gap-2 rounded-lg !bg-[#181918] font-black uppercase text-white hover:!bg-[#2b2d2a] dark:rounded-[4px] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                 onClick={() => handleSameDayTrainingChoice(true)}
               >
                 <Play className="h-4 w-4" />
@@ -7719,7 +7762,7 @@ export default function RegisterTraining({
                 <div className="mt-4 grid gap-2">
                   <Button
                     type="button"
-                    className="h-12 rounded-2xl !bg-[#352018] font-semibold text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                    className="h-12 rounded-2xl !bg-[#181918] font-semibold text-white hover:!bg-[#2b2d2a] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                     onClick={() => handleReturnToPendingExercise()}
                   >
                     Continuar entrenamiento
@@ -7779,7 +7822,7 @@ export default function RegisterTraining({
               <div className="mt-5 grid gap-1">
                 <Button
                   type="button"
-                  className="h-12 rounded-xl !bg-[#352018] text-white hover:!bg-[#482b20] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                  className="h-12 rounded-xl !bg-[#181918] text-white hover:!bg-[#2b2d2a] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
                   onClick={() => setCancelConfirmOpen(false)}
                 >
                   Seguir entrenando
@@ -7886,7 +7929,7 @@ export default function RegisterTraining({
 
                 <div className="mx-auto mt-6 w-full max-w-sm">
                   <motion.div
-                    className="relative isolate flex min-h-52 items-center justify-center overflow-hidden rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-9 shadow-[0_18px_50px_rgba(53,32,24,0.10)] dark:shadow-[0_18px_55px_rgba(0,0,0,0.35)]"
+                    className="relative isolate flex min-h-52 items-center justify-center overflow-hidden rounded-[2rem] border border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-9 shadow-[0_18px_50px_rgba(24,25,24,0.10)] dark:shadow-[0_18px_55px_rgba(0,0,0,0.35)]"
                     animate={
                       restTimerDone && !reduceMotion
                         ? { scale: [1, 1.025, 1] }
@@ -7896,7 +7939,7 @@ export default function RegisterTraining({
                   >
                     <motion.div
                       aria-hidden="true"
-                      className="absolute left-1/2 top-1/2 -z-10 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#352018]/10 blur-3xl dark:bg-[#e2ff00]/10"
+                      className="absolute left-1/2 top-1/2 -z-10 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#181918]/10 blur-3xl dark:bg-[#e2ff00]/10"
                       animate={
                         restTimerRunning && !reduceMotion
                           ? {
@@ -7922,7 +7965,7 @@ export default function RegisterTraining({
                         reduceMotion={Boolean(reduceMotion)}
                         className={`font-mono text-[clamp(4.5rem,21vw,6.75rem)] font-medium tracking-[-0.08em] ${
                           restTimerDone
-                            ? "text-[#352018] dark:text-[#e2ff00]"
+                            ? "text-[#181918] dark:text-[#e2ff00]"
                             : "text-[color:var(--text)]"
                         }`}
                       />
@@ -7936,7 +7979,7 @@ export default function RegisterTraining({
                       aria-valuenow={restProgressPct}
                     >
                       <motion.div
-                        className="h-full origin-left rounded-full bg-[#352018] dark:bg-[#e2ff00]"
+                        className="h-full origin-left rounded-full bg-[#181918] dark:bg-[#e2ff00]"
                         animate={{ width: `${restProgressPct}%` }}
                         transition={{
                           duration: reduceMotion ? 0 : 0.35,
@@ -8035,7 +8078,7 @@ export default function RegisterTraining({
 
                     {restTimerDone && autoFlowTarget ? (
                       <Button
-                        className="h-12 w-full rounded-2xl bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                        className="h-12 w-full rounded-2xl bg-[#181918] text-white hover:bg-[#2b2d2a] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
                         onClick={handleBeginNextSeries}
                       >
                         <Play className="h-4 w-4" />
@@ -8047,7 +8090,7 @@ export default function RegisterTraining({
                           className={`h-12 rounded-2xl ${
                             restTimerRunning
                               ? "bg-[#1a1a1a] text-white hover:bg-[#333] dark:bg-[#353535]"
-                              : "bg-[#352018] text-white hover:bg-[#482b20] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
+                              : "bg-[#181918] text-white hover:bg-[#2b2d2a] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]"
                           }`}
                           onClick={handleToggleRestTimer}
                         >

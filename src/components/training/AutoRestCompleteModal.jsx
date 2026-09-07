@@ -52,7 +52,7 @@ export default function AutoRestCompleteModal({
       >
         <motion.span
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#352018]/10 blur-3xl dark:bg-[#e2ff00]/10"
+          className="absolute left-1/2 top-1/2 -z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#181918]/10 blur-3xl dark:bg-[#e2ff00]/10"
           animate={
             reduceMotion
               ? { opacity: 0.5 }
@@ -66,7 +66,7 @@ export default function AutoRestCompleteModal({
         />
         <span className="grid justify-items-center text-center">
           <motion.span
-            className="grid h-14 w-14 place-items-center rounded-full bg-[#352018] text-white shadow-lg dark:bg-[#e2ff00] dark:text-black"
+            className="grid h-14 w-14 place-items-center rounded-full bg-[#181918] text-white shadow-lg dark:bg-[#e2ff00] dark:text-black"
             initial={reduceMotion ? false : { scale: 0.4, rotate: -18 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={
@@ -83,7 +83,7 @@ export default function AutoRestCompleteModal({
           <span className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
             Descanso terminado
           </span>
-          <span className="mt-5 text-xs font-semibold text-[#352018] dark:text-[#e2ff00]">
+          <span className="mt-5 text-xs font-semibold text-[#181918] dark:text-[#e2ff00]">
             Toca para continuar
           </span>
         </span>

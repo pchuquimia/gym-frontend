@@ -214,10 +214,10 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
       aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
       aria-pressed={selectionMode ? selected : undefined}
       disabled={selectionMode && missing}
-      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
+      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
         selected
-          ? "border-[#352018] ring-2 ring-[#352018]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
-          : "border-[color:var(--border)] hover:border-[#352018] dark:hover:border-[#e2ff00]"
+          ? "border-[#181918] ring-2 ring-[#181918]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
+          : "border-[color:var(--border)] hover:border-[#181918] dark:hover:border-[#e2ff00]"
       }`}
     >
       <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
@@ -243,7 +243,7 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
         <span
           className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
             selected
-              ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+              ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
               : "border-white/70 bg-black/40 text-transparent"
           }`}
         >
@@ -355,7 +355,7 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
           className="pointer-events-none absolute inset-y-0 z-20 w-px bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.16)]"
           style={{ left: `${position}%` }}
         >
-          <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-[#352018] shadow-md">
+          <span className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white/80 bg-white text-[#181918] shadow-md">
             <ArrowLeftRight className="h-4 w-4" strokeWidth={2.2} />
           </span>
         </div>
@@ -812,7 +812,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
             {uploading ? (
               <p
                 role="status"
-                className="text-sm font-bold text-[#352018] dark:text-[#e2ff00]"
+                className="text-sm font-bold text-[#181918] dark:text-[#e2ff00]"
               >
                 Subiendo foto...
               </p>
@@ -841,7 +841,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                 role="tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
-                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#352018] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
+                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
@@ -878,7 +878,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="text-xs font-black text-[#352018] dark:text-[#e2ff00]"
+                  className="text-xs font-black text-[#181918] dark:text-[#e2ff00]"
                 >
                   Limpiar
                 </button>

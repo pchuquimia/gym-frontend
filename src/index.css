@@ -24,12 +24,12 @@
   --card: var(--surface);
   --border: #ddd6c9;
   --border-strong: #c9c0b2;
-  --text: #211a13;
+  --text: #181918;
   --text-muted: #6f675d;
   --text-subtle: #91887b;
-  --accent: #352018;
-  --accent-hover: #482b20;
-  --accent-strong: #2a1711;
+  --accent: #181918;
+  --accent-hover: #2b2d2a;
+  --accent-strong: #101110;
   --accent-soft: var(--accent);
   --accent-contrast: #fffaf2;
   --success: #276653;
@@ -38,7 +38,7 @@
   --warning-soft: #f7efe1;
   --danger: #b84237;
   --danger-soft: #f8ebe8;
-  --focus-ring: rgba(53, 32, 24, 0.32);
+  --focus-ring: rgba(24, 25, 24, 0.32);
   --overlay: rgba(9, 9, 9, 0.48);
 
   --radius-control: 0.5rem;
@@ -53,11 +53,11 @@
 
   --radius-card: var(--app-card-radius);
   --radius-modal: 1rem;
-  --shadow-xs: 0 1px 2px rgba(46, 34, 18, 0.04);
+  --shadow-xs: 0 1px 2px rgba(24, 25, 24, 0.04);
   --shadow-sm:
-    0 1px 2px rgba(46, 34, 18, 0.045), 0 4px 12px rgba(46, 34, 18, 0.04);
+    0 1px 2px rgba(24, 25, 24, 0.045), 0 4px 12px rgba(24, 25, 24, 0.04);
   --shadow-md:
-    0 2px 4px rgba(46, 34, 18, 0.04), 0 12px 32px rgba(46, 34, 18, 0.075);
+    0 2px 4px rgba(24, 25, 24, 0.04), 0 12px 32px rgba(24, 25, 24, 0.075);
   --shadow-overlay:
     0 4px 12px rgba(9, 9, 9, 0.06), 0 24px 56px rgba(9, 9, 9, 0.16);
   --shadow-drawer:
@@ -67,13 +67,13 @@
   --mobile-nav-blur: 2px;
   --mobile-nav-active: rgba(238, 234, 224, 0.82);
   --mobile-nav-hover: rgba(238, 234, 224, 0.52);
-  --mobile-nav-text: #21190f;
+  --mobile-nav-text: #181918;
   --mobile-nav-muted: #4f493f;
   --mobile-nav-border: rgba(255, 255, 255, 0.72);
   --mobile-nav-shadow:
-    0 -10px 32px rgba(46, 34, 18, 0.09), 0 12px 34px rgba(46, 34, 18, 0.13);
+    0 -10px 32px rgba(24, 25, 24, 0.09), 0 12px 34px rgba(24, 25, 24, 0.13);
   --mobile-nav-active-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(46, 34, 18, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(24, 25, 24, 0.05);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -85,27 +85,27 @@
   --space-16: 4rem;
 
   --mobile-ui-font:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-    "Helvetica Neue", Arial, sans-serif;
+    "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    Arial, sans-serif;
   --mobile-display-font:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter,
-    "Helvetica Neue", Arial, sans-serif;
+    "Inter Tight", Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    Arial, sans-serif;
   --mobile-page-gutter: var(--app-page-gutter);
-  --mobile-section-gap: 1.25rem;
-  --mobile-card-radius: var(--app-card-radius);
+  --mobile-section-gap: 1.5rem;
+  --mobile-card-radius: 1.125rem;
   --mobile-control-radius: 0.75rem;
   --mobile-control-height: 3.25rem;
-  --mobile-header-main-height: 5.25rem;
+  --mobile-header-main-height: 5.75rem;
   --mobile-header-detail-height: 3.75rem;
-  --mobile-text-caption: 0.6875rem;
-  --mobile-text-xs: 0.75rem;
-  --mobile-text-sm: 0.875rem;
+  --mobile-text-caption: 0.71875rem;
+  --mobile-text-xs: 0.78125rem;
+  --mobile-text-sm: 0.90625rem;
   --mobile-text-base: 1rem;
   --mobile-text-lg: 1.125rem;
-  --mobile-text-xl: 1.25rem;
-  --mobile-text-2xl: 1.5rem;
-  --mobile-text-3xl: 1.75rem;
-  --mobile-text-4xl: 2rem;
+  --mobile-text-xl: 1.3125rem;
+  --mobile-text-2xl: 1.625rem;
+  --mobile-text-3xl: 2rem;
+  --mobile-text-4xl: 2.375rem;
 }
 
 /* overflow-menu-system:start */
@@ -119,7 +119,7 @@
   border-radius: 999px !important;
   background: color-mix(in srgb, var(--card) 92%, transparent);
   color: var(--text-muted);
-  box-shadow: 0 1px 2px rgba(38, 27, 20, 0.04);
+  box-shadow: 0 1px 2px rgba(24, 25, 24, 0.04);
   transition:
     transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 160ms ease,
@@ -132,7 +132,7 @@
   border-color: var(--border-strong);
   color: var(--text);
   transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(38, 27, 20, 0.09);
+  box-shadow: 0 5px 14px rgba(24, 25, 24, 0.09);
 }
 
 .overflow-menu-trigger:active {
@@ -418,7 +418,7 @@ details[open] > .overflow-menu-trigger--overlay {
   --drawer-surface: #f1ede4;
   --drawer-surface-hover: #e9e3d8;
   --drawer-border: #ddd6c9;
-  --drawer-text: #211a13;
+  --drawer-text: #181918;
   --drawer-muted: #6f675d;
   --drawer-subtle: #91887b;
   --drawer-accent: var(--accent);
@@ -680,7 +680,7 @@ button,
 }
 
 .routines-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .routines-shell h1,
@@ -766,14 +766,12 @@ button,
 .profile-reference-shell input,
 .profile-reference-shell select,
 .profile-reference-shell textarea {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-    sans-serif;
+  font-family: var(--mobile-ui-font);
   font-stretch: normal;
 }
 
 .settings-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .settings-shell .theme-accent-soft {
@@ -820,7 +818,7 @@ button,
 }
 
 .management-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .management-shell h1,
@@ -856,7 +854,7 @@ button,
 }
 
 .photos-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .photos-shell h1,
@@ -889,7 +887,7 @@ button,
 
 .dark .settings-shell .font-black,
 .dark .management-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .routines-surface {
@@ -953,7 +951,7 @@ button,
 .exercise-analytics-page button,
 .exercise-analytics-page input,
 .exercise-analytics-page select {
-  font-family: Inter, "Space Grotesk", system-ui, sans-serif;
+  font-family: var(--mobile-ui-font);
 }
 
 .exercise-analytics-overview,
@@ -1001,7 +999,7 @@ button,
 }
 
 .analytics-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .analytics-shell [class~="text-[9px]"],
@@ -1052,7 +1050,7 @@ button,
 }
 
 .training-shell .font-black {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .training-shell .font-bold,
@@ -1410,7 +1408,7 @@ button,
     --detail-row-divider: #e6e0d7;
     --border: #e5ded4;
     --border-strong: #d2c8bb;
-    --text: #251a12;
+    --text: #171817;
     --text-muted: #7b746a;
     --text-subtle: #a29b91;
     background-color: #f8f0e7 !important;
@@ -1436,7 +1434,7 @@ button,
     --detail-row-divider: #e7e2d8;
     --border: #e8e3d9;
     --border-strong: #d4ccbf;
-    --text: #21170f;
+    --text: #171817;
     --text-muted: #7c776e;
     --text-subtle: #aaa49a;
     background-color: #f5f1e8 !important;
@@ -1456,14 +1454,12 @@ button,
   .dashboard-shell input,
   .dashboard-shell select,
   .dashboard-shell textarea {
-    font-family:
-      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-      sans-serif;
+    font-family: var(--mobile-ui-font);
     font-stretch: normal;
   }
 
   .dashboard-shell .font-black {
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .dashboard-shell .font-bold {
@@ -1506,15 +1502,15 @@ button,
   }
 
   .dashboard-shell .dashboard-pilot__section-label {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.055em;
     line-height: 1.25rem;
   }
 
   .dashboard-shell .dashboard-pilot__header h1 {
     font-size: 1.375rem;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .dashboard-shell .dashboard-pilot__brand-accent {
@@ -1535,9 +1531,7 @@ button,
   .library-reference-shell input,
   .library-reference-shell select,
   .library-reference-shell textarea {
-    font-family:
-      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-      sans-serif;
+    font-family: var(--mobile-ui-font);
     font-stretch: normal;
   }
 
@@ -2551,7 +2545,7 @@ button,
     flex: 1;
     height: 3.25rem;
     border-radius: 0.875rem;
-    background: #352018 !important;
+    background: #181918 !important;
     color: #fffaf2 !important;
     font-size: 0.9375rem;
     font-weight: 600;
@@ -2626,7 +2620,7 @@ button,
   .routines-shell select,
   .routines-shell textarea,
   .routines-shell button {
-    font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
+    font-family: var(--mobile-ui-font);
     font-stretch: normal;
   }
 
@@ -3139,7 +3133,7 @@ button,
   color: var(--text);
   font-family: var(--mobile-display-font);
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.3;
   text-transform: uppercase;
@@ -3198,6 +3192,20 @@ button,
     --radius-control: var(--mobile-control-radius);
     --radius-card: var(--mobile-card-radius);
     --radius-modal: 1.75rem;
+    --shadow-sm: 0 1px 2px rgba(24, 24, 22, 0.035);
+    --shadow-md:
+      0 1px 2px rgba(24, 24, 22, 0.035), 0 10px 28px rgba(24, 24, 22, 0.055);
+  }
+
+  body {
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: -0.012em;
+  }
+
+  .app-shell,
+  .dark .app-shell {
+    background-image: none;
   }
 
   body,
@@ -3217,6 +3225,8 @@ button,
   .uppercase {
     font-family: var(--mobile-ui-font);
     font-stretch: normal;
+    font-optical-sizing: auto;
+    font-kerning: normal;
   }
 
   h1,
@@ -3227,13 +3237,42 @@ button,
     font-family: var(--mobile-display-font);
   }
 
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  h1 {
+    letter-spacing: -0.048em;
+  }
+
+  h2 {
+    letter-spacing: -0.036em;
+  }
+
+  h3,
+  h4 {
+    letter-spacing: -0.024em;
+  }
+
+  button,
+  [role="tab"] {
+    font-weight: 550;
+    letter-spacing: -0.012em;
+  }
+
   .font-black {
+    font-weight: 650;
+  }
+
+  .font-bold {
     font-weight: 600;
   }
 
-  .font-bold,
   .font-semibold {
-    font-weight: 600;
+    font-weight: 550;
   }
 
   .font-medium {
@@ -3241,7 +3280,7 @@ button,
   }
 
   .uppercase {
-    letter-spacing: 0.015em !important;
+    letter-spacing: 0.055em !important;
   }
 
   [class~="text-[8px]"],
@@ -3371,10 +3410,10 @@ button,
   }
 
   .mobile-page-header--main h1 {
-    font-size: 1.75rem;
-    font-weight: 500;
-    line-height: 1.05;
-    letter-spacing: -0.032em;
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.048em;
   }
 
   .routines-page-header h1 {
@@ -3387,14 +3426,31 @@ button,
   }
 
   .mobile-page-header--detail h1 {
-    font-size: 1.1875rem;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.018em;
+    font-size: 1.25rem;
+    font-weight: 550;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
   }
 
   .mobile-page-header__actions {
     gap: 0.625rem;
+  }
+
+  .mobile-bottom-nav,
+  .mobile-bottom-nav button,
+  .mobile-bottom-nav span {
+    font-family: var(--mobile-ui-font);
+    font-optical-sizing: auto;
+  }
+
+  .mobile-bottom-nav button {
+    font-size: 0.6875rem;
+    font-weight: 450;
+    letter-spacing: -0.01em;
+  }
+
+  .mobile-bottom-nav button[aria-current="page"] {
+    font-weight: 600;
   }
 
   .training-shell,
@@ -3989,6 +4045,109 @@ button,
   }
   to {
     opacity: 1;
+  }
+}
+
+/* Desktop editorial typography based on Awwwards' Inter Tight hierarchy. */
+@media (min-width: 1024px) {
+  :root {
+    --desktop-ui-font:
+      "Inter Tight", Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  body,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  button,
+  input,
+  select,
+  textarea,
+  [role="tab"],
+  .font-condensed,
+  .font-display,
+  .uppercase,
+  .dashboard-shell,
+  .analytics-shell,
+  .routines-shell,
+  .dark .routines-shell,
+  .training-shell {
+    font-family: var(--desktop-ui-font);
+    font-stretch: normal;
+    font-optical-sizing: auto;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures contextual;
+  }
+
+  body {
+    font-weight: 400;
+    line-height: 1.45;
+  }
+
+  h1 {
+    font-weight: 600;
+    line-height: 0.92 !important;
+    letter-spacing: -0.055em !important;
+  }
+
+  h2 {
+    font-weight: 600;
+    line-height: 0.98 !important;
+    letter-spacing: -0.045em !important;
+  }
+
+  h3 {
+    font-weight: 600;
+    line-height: 1.04 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    line-height: 1.1 !important;
+    letter-spacing: -0.025em !important;
+  }
+
+  button,
+  [role="tab"] {
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  input,
+  select,
+  textarea {
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .font-black,
+  .font-bold,
+  .font-semibold {
+    font-weight: 600;
+  }
+
+  .font-medium {
+    font-weight: 500;
+  }
+
+  .font-light {
+    font-weight: 300;
+  }
+
+  .uppercase {
+    letter-spacing: 0.01em !important;
+  }
+
+  h1.uppercase,
+  h2.uppercase,
+  h3.uppercase {
+    letter-spacing: -0.045em !important;
   }
 }
 

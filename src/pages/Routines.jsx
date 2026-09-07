@@ -43,6 +43,7 @@ import SlideToConfirm from "../components/shared/SlideToConfirm";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { buildRoutineExerciseOptionMap } from "../utils/routineExerciseOptions";
 import { planStartsInFuture } from "../utils/trainingPlanDates";
+import { consumeTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
@@ -122,6 +123,25 @@ const getPlanEndDate = (plan) => {
   const end = new Date(plan.startDate);
   end.setUTCDate(end.getUTCDate() + Number(plan.durationWeeks || 1) * 7 - 1);
   return end;
+};
+const getTodayIsoDate = () => new Date().toISOString().slice(0, 10);
+const getContinuationStartDate = (plan) => {
+  const nextDay = new Date(getPlanEndDate(plan));
+  if (Number.isNaN(nextDay.getTime())) return getTodayIsoDate();
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const nextDayIso = nextDay.toISOString().slice(0, 10);
+  const todayIso = getTodayIsoDate();
+  return nextDayIso > todayIso ? nextDayIso : todayIso;
+};
+const getContinuationEndDate = (startDate, durationWeeks) => {
+  const weeks = Number(durationWeeks);
+  if (!startDate || !Number.isInteger(weeks) || weeks < 1 || weeks > 52) {
+    return "";
+  }
+  const end = new Date(`${startDate}T00:00:00Z`);
+  if (Number.isNaN(end.getTime())) return "";
+  end.setUTCDate(end.getUTCDate() + weeks * 7 - 1);
+  return formatPlanDate(end);
 };
 const PLAN_DAY_NAMES = [
   "Lunes",
@@ -2752,7 +2772,7 @@ function RoutineModal({
                         }}
                         className={`h-11 shrink-0 rounded-full px-3 text-sm font-medium transition-[opacity,transform,background-color,color] duration-300 ${
                           active
-                            ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                            ? "scale-[1.02] bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                             : locked
                               ? "cursor-default bg-[#ece8e0] text-[#c8c2b8] dark:bg-[#20201e] dark:text-[#666661]"
                               : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
@@ -2950,7 +2970,7 @@ function RoutineModal({
                       }}
                       className={`h-11 shrink-0 rounded-full px-3 text-sm font-medium transition-[opacity,transform,background-color,color] duration-300 ${
                         active
-                          ? "scale-[1.02] bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                          ? "scale-[1.02] bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                           : locked
                             ? "cursor-default bg-[#ece8e0] text-[#c8c2b8] dark:bg-[#20201e] dark:text-[#666661]"
                             : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
@@ -3572,7 +3592,7 @@ function RoutineToolbar({
               aria-pressed={activeBranch === item.id}
               className={`h-8 min-w-0 border px-2 text-xs font-black uppercase transition ${
                 activeBranch === item.id
-                  ? "border-[#352018] bg-[#352018] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                  ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                   : "border-[#1a1a1a] bg-[#1a1a1a] text-white dark:border-[#353535] dark:bg-[#202020] dark:text-[#f5f5e8]"
               }`}
             >
@@ -3684,7 +3704,7 @@ function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
               {plan.name}
             </h2>
           </div>
-          <span className="shrink-0 rounded-full bg-white/90 px-3 py-2 text-xs font-medium text-[#251a12] backdrop-blur-sm">
+          <span className="shrink-0 rounded-full bg-white/90 px-3 py-2 text-xs font-medium text-[#171817] backdrop-blur-sm">
             {planContext}
           </span>
         </div>
@@ -4002,7 +4022,7 @@ export function TrainingPlanSchedule({
                       <button
                         type="button"
                         onClick={() => onOpenRoutine(routine)}
-                        className="block max-w-full truncate text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                        className="block max-w-full truncate text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918]/35 dark:focus-visible:ring-[#e2ff00]/40"
                         aria-label={`Ver ejercicios de ${routine.name}`}
                       >
                         {primaryLabel}
@@ -4448,6 +4468,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const [replacementPlanDay, setReplacementPlanDay] = useState(null);
   const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState(false);
+  const [planToExtend, setPlanToExtend] = useState(null);
+  const [extensionStartDate, setExtensionStartDate] = useState("");
+  const [extensionWeeks, setExtensionWeeks] = useState(4);
+  const [extendingPlan, setExtendingPlan] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
@@ -4459,6 +4483,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     viewingRoutine ||
     planDayChoice ||
     planModalOpen ||
+    planToExtend ||
     routineToDuplicate ||
     routineToDelete,
   );
@@ -4653,6 +4678,29 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       window.clearInterval(intervalId);
     };
   }, [refreshPlans, user?.id, user?._id]);
+
+  useEffect(() => {
+    if (isCoach || plansLoading || planToExtend) return;
+    const requestedPlanId = consumeTrainingPlanExtension();
+    if (!requestedPlanId) return;
+    const completedPlan = trainingPlans.find(
+      (plan) =>
+        String(plan._id || plan.id) === requestedPlanId &&
+        plan.status === "completed",
+    );
+    if (!completedPlan) {
+      toast.message("La planificación ya tiene una continuación disponible.");
+      return;
+    }
+    setWorkspaceView("plans");
+    setActivePlan(completedPlan);
+    setSelectedPlanWeek(getPlanWeekIndex(completedPlan));
+    setPlanToExtend(completedPlan);
+    setExtensionStartDate(getContinuationStartDate(completedPlan));
+    setExtensionWeeks(
+      Math.min(52, Math.max(1, Number(completedPlan.durationWeeks) || 4)),
+    );
+  }, [isCoach, planToExtend, plansLoading, trainingPlans]);
 
   useEffect(() => {
     if (isCoach && workspaceView !== "routines") {
@@ -5081,6 +5129,55 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     }
   };
 
+  const openPlanExtension = (plan) => {
+    setPlanToExtend(plan);
+    setExtensionStartDate(getContinuationStartDate(plan));
+    setExtensionWeeks(
+      Math.min(52, Math.max(1, Number(plan.durationWeeks) || 4)),
+    );
+  };
+
+  const extendTrainingPlan = async () => {
+    if (!planToExtend || extendingPlan) return;
+    const durationWeeks = Number(extensionWeeks);
+    if (
+      !extensionStartDate ||
+      !Number.isInteger(durationWeeks) ||
+      durationWeeks < 1 ||
+      durationWeeks > 52
+    ) {
+      toast.error("Selecciona una fecha y una duración de 1 a 52 semanas");
+      return;
+    }
+    setExtendingPlan(true);
+    try {
+      const saved = await api.extendTrainingPlan(
+        planToExtend._id || planToExtend.id,
+        {
+          startDate: extensionStartDate,
+          durationWeeks,
+        },
+      );
+      const plans = await refreshPlans();
+      await reloadRoutines({ silent: true });
+      const refreshedPlan =
+        plans.find(
+          (plan) =>
+            String(plan._id || plan.id) === String(saved._id || saved.id),
+        ) || saved;
+      setPlanToExtend(null);
+      setActivePlan(refreshedPlan);
+      setSelectedPlanWeek(0);
+      toast.success("Continuación creada", {
+        description: "Revisa la planificación y actívala cuando estés listo.",
+      });
+    } catch (error) {
+      toast.error(error.message || "No se pudo extender la planificación");
+    } finally {
+      setExtendingPlan(false);
+    }
+  };
+
   const duplicatePlanTemplate = async (template) => {
     const id = String(template._id || template.id);
     if (templateProcessingId) return;
@@ -5389,7 +5486,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                         ? setPlanModalOpen(true)
                         : openCreate()
                     }
-                    className="grid h-11 w-11 place-items-center rounded-full bg-[#251a12] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
+                    className="grid h-11 w-11 place-items-center rounded-full bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                     aria-label={
                       workspaceView === "plans"
                         ? "Nueva planificación"
@@ -5484,7 +5581,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
               onClick={() => setWorkspaceView("plans")}
               className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "plans"
-                  ? "border-[#d8c8c0] bg-white text-[#352018] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
@@ -5503,7 +5600,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
               onClick={() => setWorkspaceView("routines")}
               className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
                 workspaceView === "routines"
-                  ? "border-[#d8c8c0] bg-white text-[#352018] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                  ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                   : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
               }`}
             >
@@ -5688,7 +5785,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
             <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
               <Badge
                 variant={activePlan.status}
-                className="!min-h-9 !rounded-full !border-white/20 !bg-white/90 !px-3 !text-[#251a12] backdrop-blur-md"
+                className="!min-h-9 !rounded-full !border-white/20 !bg-white/90 !px-3 !text-[#171817] backdrop-blur-md"
               >
                 {PLAN_STATUS_LABELS[activePlan.status] || "Planificación"}
               </Badge>
@@ -5751,6 +5848,21 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                         className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-[color:var(--surface-subtle)]"
                       >
                         <Pause className="h-4 w-4" /> Desactivar planificación
+                      </button>
+                    ) : null}
+                    {!isManagedClient && activePlan.status === "completed" ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget
+                            .closest("details")
+                            ?.removeAttribute("open");
+                          openPlanExtension(activePlan);
+                        }}
+                        className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-[color:var(--surface-subtle)]"
+                      >
+                        <CalendarDays className="h-4 w-4" /> Extender
+                        planificación
                       </button>
                     ) : null}
                     {!isManagedClient ? (
@@ -5957,14 +6069,14 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                         transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                         className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
                           isHighlighted
-                            ? "border-t-[#352018] dark:border-t-[#e2ff00]"
+                            ? "border-t-[#181918] dark:border-t-[#e2ff00]"
                             : "border-t-[#626262] dark:border-t-[#6d6d62]"
                         } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
                       >
                         <button
                           type="button"
                           onClick={() => setViewingRoutine(routine)}
-                          className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#352018]/35 dark:focus-visible:ring-[#e2ff00]/40"
+                          className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#181918]/35 dark:focus-visible:ring-[#e2ff00]/40"
                           aria-label={`Ver ejercicios de ${routine.name}`}
                         />
                         <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
@@ -5978,7 +6090,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                               <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
                                 {routine.name}
                               </h2>
-                              <p className="mt-2 truncate text-xs font-black uppercase text-[#352018] dark:text-[#e2ff00]">
+                              <p className="mt-2 truncate text-xs font-black uppercase text-[#181918] dark:text-[#e2ff00]">
                                 {routine.totalExerciseCount}{" "}
                                 {routine.totalExerciseCount === 1
                                   ? "ejercicio"
@@ -6198,6 +6310,82 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
           }}
           onClose={() => setPlanDayChoice(null)}
         />
+      ) : null}
+      {planToExtend ? (
+        <Modal
+          title="Extender planificación"
+          subtitle={planToExtend.name}
+          onClose={() => !extendingPlan && setPlanToExtend(null)}
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPlanToExtend(null)}
+                disabled={extendingPlan}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={extendTrainingPlan}
+                disabled={
+                  extendingPlan ||
+                  !extensionStartDate ||
+                  Number(extensionWeeks) < 1 ||
+                  Number(extensionWeeks) > 52
+                }
+              >
+                {extendingPlan ? "Creando..." : "Crear continuación"}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-5 py-2">
+            <p className="text-sm leading-relaxed text-[color:var(--text-muted)]">
+              Conservaremos el plan terminado y crearemos una continuación con
+              las mismas rutinas y el progreso acumulado.
+            </p>
+            <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+              <label className="grid min-h-[72px] grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4">
+                <span className="text-sm font-medium">Inicio</span>
+                <input
+                  type="date"
+                  min={getTodayIsoDate()}
+                  value={extensionStartDate}
+                  onChange={(event) =>
+                    setExtensionStartDate(event.target.value)
+                  }
+                  className="h-11 min-w-0 bg-transparent text-right text-sm font-medium outline-none"
+                />
+              </label>
+              <label className="grid min-h-[72px] grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4">
+                <span className="text-sm font-medium">Duración</span>
+                <span className="flex items-center justify-end gap-2">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="52"
+                    value={extensionWeeks}
+                    onChange={(event) => setExtensionWeeks(event.target.value)}
+                    className="h-11 w-16 bg-transparent text-right text-sm font-medium outline-none"
+                  />
+                  <span className="text-sm text-[color:var(--text-muted)]">
+                    semanas
+                  </span>
+                </span>
+              </label>
+            </div>
+            {getContinuationEndDate(extensionStartDate, extensionWeeks) ? (
+              <p className="text-xs text-[color:var(--text-muted)]">
+                La continuación terminará el{" "}
+                <span className="font-semibold text-[color:var(--text)]">
+                  {getContinuationEndDate(extensionStartDate, extensionWeeks)}
+                </span>
+                . Se guardará primero como borrador.
+              </p>
+            ) : null}
+          </div>
+        </Modal>
       ) : null}
       {deletePlanConfirmOpen ? (
         <Modal

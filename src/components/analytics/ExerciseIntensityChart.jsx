@@ -92,7 +92,7 @@ const ExerciseIntensityChart = ({
             format: (value) => `${value}%`,
           }}
           colors={
-            mode === "dark" ? ["#e2ff00", "#8e8e93"] : ["#352018", "#8e8e93"]
+            mode === "dark" ? ["#e2ff00", "#8e8e93"] : ["#181918", "#8e8e93"]
           }
           enablePoints
           pointSize={6}

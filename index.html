@@ -33,33 +33,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..700&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <script>
       (() => {
-        const storageKey = 'theme';
+        const storageKey = "theme";
         const isStandalone =
-          window.matchMedia('(display-mode: standalone)').matches ||
+          window.matchMedia("(display-mode: standalone)").matches ||
           window.navigator.standalone === true;
         document.documentElement.dataset.displayMode = isStandalone
-          ? 'standalone'
-          : 'browser';
+          ? "standalone"
+          : "browser";
         const stored = localStorage.getItem(storageKey);
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const theme = stored || (prefersDark ? 'dark' : 'light');
-        if (theme === 'dark') document.documentElement.classList.add('dark');
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        const theme = stored || (prefersDark ? "dark" : "light");
+        if (theme === "dark") document.documentElement.classList.add("dark");
         document.documentElement.dataset.theme = theme;
-        const themeColor = theme === 'dark' ? '#090909' : '#faf8f1';
+        const themeColor = theme === "dark" ? "#090909" : "#faf8f1";
         document.documentElement.style.backgroundColor = themeColor;
         document
           .querySelector('meta[name="theme-color"]')
-          ?.setAttribute('content', themeColor);
+          ?.setAttribute("content", themeColor);
         document
           .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
           ?.setAttribute(
-            'content',
-            theme === 'dark' ? 'black-translucent' : 'default',
+            "content",
+            theme === "dark" ? "black-translucent" : "default",
           );
       })();
     </script>
