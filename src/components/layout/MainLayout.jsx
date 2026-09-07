@@ -31,8 +31,10 @@ function MainLayout({
   const [showDrawer, setShowDrawer] = useState(false);
   const { user } = useAuth();
   const useDashboardChrome = activePage === "dashboard";
+  const useDailyCheckInChrome = activePage === "check_in";
   const useDashboardBackground =
     useDashboardChrome ||
+    useDailyCheckInChrome ||
     activePage === "registrar" ||
     activePage === "rutinas" ||
     activePage === "library" ||
@@ -172,7 +174,10 @@ function MainLayout({
     useSessionSummaryChrome;
   const mobileContentSpacing = hideMobileNav
     ? "max-lg:pb-4 max-lg:pt-0"
-    : useDashboardChrome || useLibraryChrome || useRoutinesChrome
+    : useDashboardChrome ||
+        useDailyCheckInChrome ||
+        useLibraryChrome ||
+        useRoutinesChrome
       ? "max-lg:pb-28 max-lg:pt-0"
       : useProfileChrome || useSessionSummaryChrome
         ? "max-lg:pb-4 max-lg:pt-0"
@@ -232,6 +237,7 @@ function MainLayout({
           <div
             className={`items-center justify-between mb-4 gap-3 ${
               useDashboardChrome ||
+              useDailyCheckInChrome ||
               useOnboardingChrome ||
               useProfileChrome ||
               useSessionSummaryChrome ||
