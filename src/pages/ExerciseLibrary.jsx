@@ -1491,11 +1491,14 @@ export default function ExerciseLibrary({ onNavigate }) {
             <button
               type="button"
               onClick={() => onNavigate("rutinas")}
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black text-[color:var(--text)] md:hidden"
+              className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3.5 text-xs text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
               aria-label={`Volver a ${routineDraftMeta.name}`}
             >
               <ArrowLeft className="h-4 w-4" />
-              Rutina
+              <span className="text-[color:var(--text-muted)]">Volver a</span>
+              <span className="max-w-[15rem] truncate font-semibold">
+                {routineDraftMeta.name}
+              </span>
             </button>
           ) : null}
 

@@ -7151,9 +7151,9 @@ export default function RegisterTraining({
                   </div>
 
                   {!isHistoryReadOnly && extraExerciseOptions.length > 0 && (
-                    <Card className="p-4 border border-[color:var(--border)] bg-[color:var(--card)]/80 backdrop-blur shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
+                    <Card className="training-extra-options max-w-full space-y-3 border border-[color:var(--border)] bg-[color:var(--card)]/80 p-4 shadow-sm backdrop-blur">
+                      <div className="training-extra-options__header flex items-center justify-between gap-3">
+                        <div className="min-w-0">
                           <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
                             Ejercicios extra (opcional)
                           </p>
@@ -7165,7 +7165,7 @@ export default function RegisterTraining({
                           {extraExerciseOptions.length}
                         </Badge>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="training-extra-options__grid grid min-w-0 gap-2 sm:grid-cols-2">
                         {extraExerciseOptions.map((ex) => {
                           const alreadyAdded = exercises.some(
                             (item) => item.id === ex.id,
@@ -7177,9 +7177,9 @@ export default function RegisterTraining({
                           return (
                             <div
                               key={`extra-${ex.id}`}
-                              className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
+                              className="training-extra-option min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
                             >
-                              <div className="h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
+                              <div className="training-extra-option__thumbnail h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
                                 <ExerciseThumbnail
                                   src={extraThumb}
                                   alt=""
@@ -7189,11 +7189,11 @@ export default function RegisterTraining({
                                   className="h-full w-full text-xs font-black"
                                 />
                               </div>
-                              <div className="min-w-0 flex-1">
+                              <div className="training-extra-option__copy min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-[color:var(--text)] truncate">
                                   {ex.name}
                                 </p>
-                                <p className="text-xs text-[color:var(--text-muted)]">
+                                <p className="truncate text-xs text-[color:var(--text-muted)]">
                                   {ex.muscle || "Sin grupo"} •{" "}
                                   {ex.sets?.length || 0} series
                                 </p>
@@ -7201,6 +7201,7 @@ export default function RegisterTraining({
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="training-extra-option__action"
                                 disabled={alreadyAdded}
                                 onClick={() => handleAddExtraExercise(ex)}
                               >

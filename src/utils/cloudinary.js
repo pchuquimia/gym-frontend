@@ -85,6 +85,17 @@ export const getExerciseImageUrl = (exercise, opts = {}) => {
 export const getExerciseAnimationUrl = (exercise) => {
   if (!exercise) return "";
   const animation = exercise.media?.animation;
-  if (animation?.publicId) return buildCloudinaryUrl(animation.publicId);
-  return animation?.url || "";
+  // Preserve the original animated asset. Rebuilding this URL with `f_auto`
+  // can make Cloudinary negotiate a static representation in some browsers.
+  if (animation?.url) return animation.url;
+  if (animation?.publicId) {
+    return buildCloudinaryUrl(animation.publicId, {
+      version: animation.version,
+      crop: null,
+      gravity: null,
+      quality: null,
+      format: animation.format || "gif",
+    });
+  }
+  return "";
 };

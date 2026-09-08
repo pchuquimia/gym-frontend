@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Activity,
   ArrowLeft,
-  Dumbbell,
-  MapPin,
   Pause,
   Pencil,
   Play,
-  Tags,
-  Target,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -17,13 +12,8 @@ import {
   getExerciseImageUrl,
 } from "../../utils/cloudinary";
 import {
-  formatList,
-  getExerciseBodyRegion,
-  getExerciseCategories,
   getExerciseEquipment,
   getExerciseGoals,
-  getExerciseMovementPatterns,
-  getExerciseNavigationRegion,
   getExerciseType,
   getPrimaryMuscleGroup,
   normalizeText,
@@ -60,68 +50,6 @@ function TaxonomyTag({ children, accent = false }) {
     >
       {children}
     </span>
-  );
-}
-
-function Metric({ label, value, accent = false }) {
-  if (!value) return null;
-  return (
-    <div
-      className={`min-h-24 border border-[color:var(--border)] p-3 ${
-        accent
-          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : "bg-[color:var(--bg)]"
-      }`}
-    >
-      <p
-        className={`font-condensed text-[11px] font-black uppercase ${
-          accent ? "text-current/75" : "text-[color:var(--text-muted)]"
-        }`}
-      >
-        {label}
-      </p>
-      <p
-        className={`mt-1 break-words font-condensed text-xl font-black leading-tight ${
-          accent ? "text-current" : "text-[color:var(--text)]"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SectionHeading({ icon: Icon, children, contrast = false }) {
-  return (
-    <h3
-      className={`flex items-center gap-2 font-condensed text-lg font-black uppercase ${
-        contrast ? "text-current" : "text-[color:var(--text)]"
-      }`}
-    >
-      <Icon
-        className={`h-4 w-4 ${
-          contrast ? "text-current" : "text-[#181918] dark:text-[#e2ff00]"
-        }`}
-      />
-      {children}
-    </h3>
-  );
-}
-
-function TechnicalRow({ icon: Icon, label, value }) {
-  if (!value) return null;
-  return (
-    <div className="flex gap-3 border-b border-[color:var(--border)] py-3 last:border-b-0">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
-      <div className="min-w-0">
-        <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-          {label}
-        </p>
-        <p className="mt-0.5 text-sm leading-5 text-[color:var(--text)]">
-          {value}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -183,16 +111,9 @@ export default function DetailModal({
   const imageUrl = getExerciseImageUrl(exercise, { preset: "detail" });
   const animationUrl = getExerciseAnimationUrl(exercise);
   const instructions = normalizeInstructionSteps(exercise.instructions);
-  const categories = getExerciseCategories(exercise);
   const muscleGroup = getPrimaryMuscleGroup(exercise);
-  const bodyRegion = getExerciseBodyRegion(exercise);
-  const navigationRegion = getExerciseNavigationRegion(exercise);
-  const movementPatterns = getExerciseMovementPatterns(exercise);
   const equipment = getExerciseEquipment(exercise);
   const goals = getExerciseGoals(exercise);
-  const primaryMuscles = toArray(exercise.primaryMuscles);
-  const secondaryMuscles = toArray(exercise.secondaryMuscles);
-  const stabilizerMuscles = toArray(exercise.stabilizerMuscles);
   const precautions = toArray(exercise.precautions);
   const commonMistakes = toArray(exercise.commonMistakes);
   const aliases = toArray(exercise.aliases);
@@ -203,30 +124,10 @@ export default function DetailModal({
   ].find((alias) => normalizeText(alias) !== normalizeText(exercise.name));
   const exerciseType = getExerciseType(exercise);
   const isPersonal = exercise.type === "custom" && Boolean(exercise.ownerId);
-  const mechanicsObject =
-    exercise.mechanics && typeof exercise.mechanics === "object"
-      ? exercise.mechanics
-      : {};
-  const forceType =
-    exercise.forceType || mechanicsObject.forceType || movementPatterns[0];
-  const maxEffort =
-    exercise.maxEffortPercentage || mechanicsObject.maxEffortPercentage;
-  const fourthMetric = maxEffort
-    ? { label: "Esfuerzo máximo", value: `${maxEffort}%`, accent: true }
-    : {
-        label: exercise.position ? "Posición" : "Equipamiento",
-        value: exercise.position || equipment[0] || "No definido",
-        accent: false,
-      };
   const headerTags = [
     exerciseType,
     equipment[0],
     muscleGroup || goals[0],
-  ].filter(Boolean);
-  const technicalMechanics = [
-    exercise.kineticChain,
-    exercise.executionType,
-    exercise.stability,
   ].filter(Boolean);
 
   return (
@@ -407,108 +308,6 @@ export default function DetailModal({
               </section>
             ) : null}
           </div>
-
-          <div className="grid grid-cols-2 gap-1 p-1 sm:gap-2 sm:p-2">
-            <Metric
-              label="Dificultad"
-              value={exercise.difficulty || "No definida"}
-            />
-            <Metric
-              label="Patrón"
-              value={forceType || movementPatterns[0] || "No definido"}
-            />
-            <Metric
-              label="Mecánica"
-              value={
-                exerciseType ||
-                (typeof exercise.mechanics === "string"
-                  ? capitalizeName(exercise.mechanics)
-                  : "No definida")
-              }
-            />
-            <Metric {...fourthMetric} />
-          </div>
-
-          {primaryMuscles.length ||
-          muscleGroup ||
-          secondaryMuscles.length ||
-          stabilizerMuscles.length ? (
-            <section className="mt-6 border-y border-[color:var(--border)] px-4 py-5 sm:px-6">
-              <SectionHeading icon={Target}>Músculos implicados</SectionHeading>
-              <div className="mt-4">
-                <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                  Principal
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(primaryMuscles.length ? primaryMuscles : [muscleGroup]).map(
-                    (muscle) => (
-                      <TaxonomyTag key={muscle} accent>
-                        {muscle}
-                      </TaxonomyTag>
-                    ),
-                  )}
-                </div>
-              </div>
-              {secondaryMuscles.length ? (
-                <div className="mt-4">
-                  <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                    Secundarios
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {secondaryMuscles.map((muscle) => (
-                      <TaxonomyTag key={muscle}>{muscle}</TaxonomyTag>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {stabilizerMuscles.length ? (
-                <div className="mt-4">
-                  <p className="font-condensed text-[11px] font-black uppercase text-[color:var(--text-muted)]">
-                    Estabilizadores
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {stabilizerMuscles.map((muscle) => (
-                      <TaxonomyTag key={muscle}>{muscle}</TaxonomyTag>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-
-          <section className="mt-4 border-y border-[color:var(--border)] px-4 py-5 sm:px-6">
-            <SectionHeading icon={Tags}>Ficha técnica</SectionHeading>
-            <div className="mt-2 grid sm:grid-cols-2 sm:gap-x-6">
-              <TechnicalRow icon={MapPin} label="Región" value={bodyRegion} />
-              <TechnicalRow
-                icon={Tags}
-                label="Navegación"
-                value={navigationRegion}
-              />
-              <TechnicalRow
-                icon={Activity}
-                label="Patrón"
-                value={
-                  movementPatterns.length ? formatList(movementPatterns) : ""
-                }
-              />
-              <TechnicalRow
-                icon={Dumbbell}
-                label="Equipamiento"
-                value={equipment.length ? formatList(equipment) : ""}
-              />
-              <TechnicalRow
-                icon={Activity}
-                label="Ejecución"
-                value={technicalMechanics.join(" / ")}
-              />
-              <TechnicalRow
-                icon={Target}
-                label="Objetivos"
-                value={goals.length ? formatList(goals) : categories.join(", ")}
-              />
-            </div>
-          </section>
 
           <div className="h-4" />
         </div>

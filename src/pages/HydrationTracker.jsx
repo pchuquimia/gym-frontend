@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AnimatePresence,
   animate,
@@ -66,6 +66,7 @@ const formatAverage = (value) => {
 
 function AnimatedHydrationValue({ value, reduceMotion, duration = 0.62 }) {
   const targetValue = Math.max(0, Number(value || 0));
+  const isWideValue = formatMl(targetValue).length >= 5;
   const animatedValue = useMotionValue(targetValue);
   const formattedValue = useTransform(animatedValue, (latest) =>
     formatMl(Math.round(latest)),
@@ -87,7 +88,12 @@ function AnimatedHydrationValue({ value, reduceMotion, duration = 0.62 }) {
 
   return (
     <>
-      <motion.strong aria-hidden="true">{formattedValue}</motion.strong>
+      <motion.strong
+        className={isWideValue ? "is-wide" : undefined}
+        aria-hidden="true"
+      >
+        {formattedValue}
+      </motion.strong>
       <span className="sr-only" aria-live="polite">
         {formatMl(targetValue)} mililitros registrados
       </span>
@@ -142,6 +148,7 @@ export default function HydrationTracker({
   const amountRailRef = useRef(null);
   const amountButtonRefs = useRef(new Map());
   const amountScrollAnimationRef = useRef(null);
+  const hasPositionedAmountRef = useRef(false);
   const athleteId = coachAthlete?.id || coachAthlete?._id || "";
   const todayKey = useMemo(() => localDateKey(), []);
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -198,7 +205,7 @@ export default function HydrationTracker({
     if (modal === "goal") setGoalDraft(String(summary.goalMl || 2500));
   }, [modal, summary.goalMl]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const rail = amountRailRef.current;
     const selectedButton = amountButtonRefs.current.get(selectedAmount);
     if (!rail || !selectedButton) return;
@@ -209,8 +216,9 @@ export default function HydrationTracker({
 
     amountScrollAnimationRef.current?.stop();
 
-    if (reduceMotion) {
+    if (reduceMotion || !hasPositionedAmountRef.current) {
       rail.scrollLeft = targetLeft;
+      hasPositionedAmountRef.current = true;
       return undefined;
     }
 
@@ -224,7 +232,7 @@ export default function HydrationTracker({
     amountScrollAnimationRef.current = controls;
 
     return () => controls.stop();
-  }, [reduceMotion, selectedAmount]);
+  }, [hydrationQuery.isLoading, reduceMotion, selectedAmount]);
 
   const refreshHydration = async () => {
     await Promise.all([

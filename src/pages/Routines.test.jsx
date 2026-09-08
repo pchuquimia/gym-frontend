@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -7,6 +13,7 @@ import {
   RoutineModal,
   TrainingPlanSchedule,
 } from "./Routines";
+import { api } from "../services/api";
 
 const schedule = [
   {
@@ -34,6 +41,7 @@ const schedule = [
 
 afterEach(() => {
   localStorage.removeItem("routine_edit_library_draft");
+  vi.restoreAllMocks();
 });
 
 describe("TrainingPlanSchedule", () => {
@@ -297,6 +305,322 @@ describe("getAssignableRoutines", () => {
 });
 
 describe("RoutineModal drafts", () => {
+  it("permite añadir complementos de grupos fuera del enfoque", () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const availableExercises = [
+      { id: "press", name: "Press", muscle: "Pecho", branches: ["general"] },
+      {
+        id: "raise",
+        name: "Elevación lateral",
+        muscle: "Hombros",
+        branches: ["general"],
+      },
+      {
+        id: "extension",
+        name: "Extensión",
+        muscle: "Triceps",
+        branches: ["general"],
+      },
+      {
+        id: "calf",
+        name: "Elevación de pantorrilla",
+        muscle: "Pantorrillas",
+        branches: ["general"],
+      },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="create"
+          availableExercises={availableExercises}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
+
+    expect(
+      screen.getByRole("button", {
+        name: "Mostrar otros grupos musculares",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Pantorrillas" }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Mostrar otros grupos musculares",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pantorrillas" }));
+
+    expect(
+      screen.getByText("Se añadirá como complemento de la rutina."),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Elevación de pantorrilla/ }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByText("Filtrar por equipamiento"));
+    const filterGroup = screen.getByRole("group", {
+      name: "Filtrar ejercicios por equipamiento",
+    });
+    const orderBeforeSelection = within(filterGroup)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+    fireEvent.click(within(filterGroup).getByRole("button", { name: "Barra" }));
+    const orderAfterSelection = within(filterGroup)
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+    expect(orderAfterSelection).toEqual(orderBeforeSelection);
+  });
+
+  it("abre la información del ejercicio al tocar su imagen", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.spyOn(api, "getExercise").mockResolvedValue({
+      id: "press",
+      name: "Press",
+      muscle: "Pecho",
+      branches: ["general"],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="edit"
+          initialData={{
+            id: "routine_1",
+            name: "Empuje A",
+            exercises: [
+              { name: "Press", exerciseId: "press", muscle: "Pecho", sets: 3 },
+            ],
+          }}
+          availableExercises={[
+            {
+              id: "press",
+              name: "Press",
+              muscle: "Pecho",
+              branches: ["general"],
+            },
+          ]}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText("Ver información de Press"));
+    expect(screen.getByText("Detalle del ejercicio")).toBeVisible();
+    await waitFor(() => expect(api.getExercise).toHaveBeenCalledWith("press"));
+  });
+
+  it("añade una alternativa con un solo toque desde un selector contextual", () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const availableExercises = [
+      { id: "press", name: "Press", muscle: "Pecho", branches: ["general"] },
+      {
+        id: "fly",
+        name: "Aperturas",
+        muscle: "Pecho",
+        branches: ["general"],
+      },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="edit"
+          initialData={{
+            id: "routine_1",
+            name: "Empuje A",
+            exercises: [
+              { name: "Press", exerciseId: "press", muscle: "Pecho", sets: 3 },
+            ],
+          }}
+          availableExercises={availableExercises}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText("Configurar Press"));
+    expect(screen.getByText("Ajustar ejercicio")).toBeVisible();
+    expect(screen.queryByText("Ejercicio opcional")).toBeNull();
+    expect(screen.getByLabelText("Trabajar un lado a la vez")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /Elegir reemplazo/ }));
+
+    expect(screen.getByText("Alternativa para")).toBeVisible();
+    expect(screen.getByPlaceholderText("Buscar reemplazo")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /Selecciona una alternativa/ }),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Usar Aperturas como alternativa",
+      }),
+    );
+
+    expect(screen.queryByPlaceholderText("Buscar reemplazo")).toBeNull();
+    expect(screen.getByText("Ajustar ejercicio")).toBeVisible();
+    expect(screen.getAllByText("Aperturas").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(screen.getByText("1 alternativa")).toBeVisible();
+  });
+
+  it("ofrece una sola acción global para añadir ejercicios opcionales", () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const availableExercises = [
+      { id: "press", name: "Press", muscle: "Pecho", branches: ["general"] },
+      {
+        id: "fly",
+        name: "Aperturas",
+        muscle: "Pecho",
+        branches: ["general"],
+      },
+      {
+        id: "raise",
+        name: "Elevación lateral",
+        muscle: "Hombros",
+        branches: ["general"],
+      },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="edit"
+          initialData={{
+            id: "routine_1",
+            name: "Empuje A",
+            exercises: [
+              { name: "Press", exerciseId: "press", muscle: "Pecho", sets: 3 },
+              {
+                name: "Elevación lateral",
+                exerciseId: "raise",
+                muscle: "Hombros",
+                sets: 3,
+              },
+            ],
+          }}
+          availableExercises={availableExercises}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: /Añadir opcional/ }),
+    ).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /^Extra$/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Añadir opcional/ }));
+    expect(screen.getByText("Ejercicios opcionales")).toBeVisible();
+    expect(
+      screen.getByText("No forman parte del recorrido principal."),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /Aperturas/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Añadir 1 opcional" }),
+    );
+    expect(screen.getByText("Opcional")).toBeVisible();
+  });
+
+  it("mantiene el enfoque como resumen y permite editar claramente el nombre", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const availableExercises = [
+      { id: "press", name: "Press", muscle: "Pecho", branches: ["general"] },
+      {
+        id: "raise",
+        name: "Elevación lateral",
+        muscle: "Hombros",
+        branches: ["general"],
+      },
+      {
+        id: "extension",
+        name: "Extensión",
+        muscle: "Triceps",
+        branches: ["general"],
+      },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="create"
+          availableExercises={availableExercises}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Press/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 y seguir/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Elevación lateral/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 y seguir/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Extensión/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 ejercicio/ }));
+
+    expect(screen.queryByText("Cambiar enfoque")).not.toBeInTheDocument();
+    expect(screen.getByText("Empuje").closest("p")).toHaveTextContent(
+      "Empuje · Pecho, Hombros, Triceps",
+    );
+
+    const nameInput = screen.getByRole("textbox", {
+      name: /Nombre de la rutina/,
+    });
+    expect(nameInput).toHaveValue("Pecho · Hombros · Triceps");
+    fireEvent.change(nameInput, { target: { value: "Empuje A" } });
+    expect(nameInput).toHaveValue("Empuje A");
+  });
+
   it("guarda automáticamente el avance de una rutina nueva", async () => {
     localStorage.removeItem("routine_edit_library_draft");
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
@@ -334,7 +658,7 @@ describe("RoutineModal drafts", () => {
       </QueryClientProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Empuje" }));
+    fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
 
     await waitFor(() => {
       expect(localStorage.getItem("routine_edit_library_draft")).toBeTruthy();
