@@ -3,14 +3,9 @@ import {
   ArrowLeft,
   ArrowRight,
   AlertCircle,
-  CalendarDays,
   Check,
-  Dumbbell,
-  HeartPulse,
   Minus,
-  Moon,
   Plus,
-  Repeat2,
 } from "lucide-react";
 import Button from "../ui/button";
 
@@ -65,20 +60,14 @@ const SCHEDULE_TYPE_OPTIONS = [
   {
     id: "training",
     label: "Entrenar",
-    description: "Sesión de entrenamiento",
-    icon: Dumbbell,
   },
   {
     id: "recovery",
     label: "Recuperar",
-    description: "Movilidad o actividad suave",
-    icon: HeartPulse,
   },
   {
     id: "rest",
     label: "Descansar",
-    description: "Día libre de carga",
-    icon: Moon,
   },
 ];
 
@@ -699,123 +688,86 @@ export default function CoachPlanModal({
                 </details>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-3xl font-medium tracking-[-0.035em] text-[color:var(--text)] sm:text-4xl">
-                    Arma tu semana
+              <div className="space-y-7">
+                <header>
+                  <h1 className="text-3xl font-medium tracking-[-0.04em] text-[color:var(--text)] sm:text-4xl">
+                    Días del plan
                   </h1>
                   <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                    Toca un día para decidir qué hará el usuario.
+                    Elige un día y define su actividad.
                   </p>
+                </header>
+
+                <div className="grid grid-cols-2 rounded-full bg-[color:var(--surface-subtle)] p-1">
+                  {[
+                    {
+                      id: "fixed",
+                      label: "Semanal",
+                      ariaLabel: "Semana fija",
+                    },
+                    {
+                      id: "sequential_cycle",
+                      label: "Por turnos",
+                      ariaLabel: "Ciclo flexible",
+                    },
+                  ].map((option) => {
+                    const selected = scheduleMode === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => changeScheduleMode(option.id)}
+                        aria-pressed={selected}
+                        aria-label={option.ariaLabel}
+                        className={`h-11 rounded-full text-sm font-semibold transition ${
+                          selected
+                            ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
+                            : "text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <section className="rounded-[1.5rem] bg-[color:var(--card)] p-4 sm:p-5">
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-                      <CalendarDays className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="text-base font-semibold">
-                        ¿Cómo debe avanzar el plan?
-                      </h2>
-                      <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
-                        Elige la opción que resulte más natural para el usuario.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {[
-                      {
-                        id: "fixed",
-                        label: "Semana fija",
-                        description: "Cada sesión tiene un día asignado.",
-                        icon: CalendarDays,
-                      },
-                      {
-                        id: "sequential_cycle",
-                        label: "Ciclo flexible",
-                        description: "Las sesiones avanzan en orden.",
-                        icon: Repeat2,
-                      },
-                    ].map((option) => {
-                      const Icon = option.icon;
-                      const selected = scheduleMode === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => changeScheduleMode(option.id)}
-                          aria-pressed={selected}
-                          className={`flex min-h-[76px] items-center gap-3 rounded-2xl p-3 text-left transition ${
-                            selected
-                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
-                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
-                          }`}
-                        >
-                          <span
-                            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
-                              selected
-                                ? "bg-white/10 dark:bg-black/10"
-                                : "bg-[color:var(--card)]"
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <strong className="block text-sm font-semibold">
-                              {option.label}
-                            </strong>
-                            <small
-                              className={`mt-1 block text-xs ${
-                                selected
-                                  ? "text-white/65 dark:text-black/60"
-                                  : "text-[color:var(--text-muted)]"
-                              }`}
-                            >
-                              {option.description}
-                            </small>
-                          </span>
-                          {selected ? <Check className="h-4 w-4" /> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-
                 {scheduleMode === "fixed" ? (
-                  <fieldset>
-                    <legend className="text-sm font-semibold">
+                  <fieldset className="flex items-center justify-between gap-4 border-b border-[color:var(--detail-row-divider)] pb-5">
+                    <legend className="sr-only">
                       ¿Cuántos días quieres entrenar?
                     </legend>
-                    <div className="mt-3 grid grid-cols-4 gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        Días de entrenamiento
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5">
                       {[3, 4, 5, 6].map((frequency) => (
                         <button
                           key={frequency}
                           type="button"
                           onClick={() => applyFrequencyPreset(frequency)}
                           aria-pressed={trainingDays === frequency}
-                          className={`min-h-14 rounded-2xl text-sm font-semibold transition ${
+                          aria-label={`${frequency} días de entrenamiento`}
+                          className={`h-10 w-10 rounded-full text-sm font-semibold transition ${
                             trainingDays === frequency
-                              ? "theme-accent-solid"
-                              : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
+                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                           }`}
                         >
-                          <span className="block text-lg leading-none">
-                            {frequency}
-                          </span>
-                          <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.08em]">
-                            días
-                          </span>
+                          {frequency}
                         </button>
                       ))}
                     </div>
                   </fieldset>
                 ) : (
-                  <section className="flex items-center justify-between gap-4 rounded-2xl bg-[color:var(--card)] p-4">
+                  <section className="flex items-center justify-between gap-4 border-b border-[color:var(--detail-row-divider)] pb-5">
                     <div>
-                      <h2 className="text-sm font-semibold">Días del ciclo</h2>
+                      <h2 className="text-sm font-semibold">
+                        Tamaño del ciclo
+                      </h2>
                       <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                        Bloques consecutivos, sin fechas fijas
+                        Las sesiones avanzan en orden
                       </p>
                     </div>
                     <div className="flex h-12 items-center rounded-full bg-[color:var(--surface-subtle)] p-1">
@@ -828,7 +780,7 @@ export default function CoachPlanModal({
                       >
                         <Minus className="h-4 w-4" />
                       </button>
-                      <strong className="min-w-12 text-center text-sm">
+                      <strong className="min-w-10 text-center text-sm">
                         {schedule.length}
                       </strong>
                       <button
@@ -845,22 +797,18 @@ export default function CoachPlanModal({
                 )}
 
                 <section>
-                  <div className="flex items-end justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-semibold">Tu estructura</h2>
-                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                        {trainingDays} entrenamientos
-                        {recoveryDays ? ` · ${recoveryDays} recuperación` : ""}
-                        {` · ${schedule.length - trainingDays - recoveryDays} descanso`}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
-                      {durationWeeks} semanas
-                    </span>
+                  <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-sm font-semibold">
+                      {scheduleMode === "fixed" ? "Tu semana" : "Tu ciclo"}
+                    </h2>
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      {trainingDays} entrenamientos
+                      {recoveryDays ? ` · ${recoveryDays} suaves` : ""}
+                    </p>
                   </div>
 
                   <div
-                    className="mt-4 grid grid-cols-7 gap-1.5"
+                    className="mt-3 grid grid-cols-7 gap-1.5"
                     aria-label="Días del plan"
                   >
                     {schedule.map((day, index) => {
@@ -869,7 +817,6 @@ export default function CoachPlanModal({
                         SCHEDULE_TYPE_OPTIONS.find(
                           (item) => item.id === day.type,
                         ) || SCHEDULE_TYPE_OPTIONS[0];
-                      const Icon = option.icon;
                       const dayLabel =
                         scheduleMode === "fixed"
                           ? DAY_NAMES[index]
@@ -885,27 +832,42 @@ export default function CoachPlanModal({
                           onClick={() => setSelectedScheduleIndex(index)}
                           aria-label={`Editar ${dayLabel}: ${option.label}`}
                           aria-pressed={selected}
-                          className={`relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 transition ${
-                            day.type === "training"
-                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
-                              : day.type === "recovery"
-                                ? "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
-                                : "bg-[color:var(--card)] text-[color:var(--text-muted)]"
-                          } ${
+                          className={`relative flex min-h-[62px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl transition ${
                             selected
-                              ? "ring-2 ring-[#181918] ring-offset-2 ring-offset-[color:var(--bg)] dark:ring-[#e2ff00]"
-                              : ""
+                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                           }`}
                         >
-                          <span className="text-[9px] font-semibold uppercase tracking-[0.05em] sm:text-[10px]">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.06em]">
                             {scheduleMode === "fixed"
                               ? DAY_NAMES[index].slice(0, 3)
                               : index + 1}
                           </span>
-                          <Icon className="h-4 w-4" />
+                          <span
+                            className={`block ${
+                              day.type === "training"
+                                ? `h-2.5 w-2.5 rounded-full ${
+                                    selected
+                                      ? "bg-white dark:bg-[#111211]"
+                                      : "bg-[#181918] dark:bg-[#e2ff00]"
+                                  }`
+                                : day.type === "recovery"
+                                  ? `h-2.5 w-2.5 rounded-full border-2 ${
+                                      selected
+                                        ? "border-white dark:border-[#111211]"
+                                        : "border-[color:var(--text-muted)]"
+                                    }`
+                                  : `h-0.5 w-3 ${
+                                      selected
+                                        ? "bg-white/70 dark:bg-black/60"
+                                        : "bg-[color:var(--text-muted)]/60"
+                                    }`
+                            }`}
+                            aria-hidden="true"
+                          />
                           {routinePending ? (
                             <span
-                              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 ring-2 ring-black/20"
+                              className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-400"
                               aria-hidden="true"
                             />
                           ) : null}
@@ -916,29 +878,25 @@ export default function CoachPlanModal({
                 </section>
 
                 {selectedScheduleDay ? (
-                  <section className="overflow-hidden rounded-[1.5rem] bg-[color:var(--card)]">
-                    <header className="flex items-center justify-between gap-3 border-b border-[color:var(--detail-row-divider)] px-4 py-4">
+                  <section className="border-t border-[color:var(--detail-row-divider)] pt-5">
+                    <header className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
-                          Configurando
-                        </p>
-                        <h2 className="mt-1 text-xl font-semibold tracking-[-0.025em]">
+                        <h2 className="text-xl font-semibold tracking-[-0.025em]">
                           {scheduleMode === "fixed"
                             ? DAY_NAMES[safeSelectedScheduleIndex]
                             : `Día ${safeSelectedScheduleIndex + 1}`}
                         </h2>
+                        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                          ¿Qué sucede este día?
+                        </p>
                       </div>
-                      <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                        {safeSelectedScheduleIndex + 1}/{schedule.length}
-                      </span>
                     </header>
 
-                    <div className="p-4">
+                    <div className="mt-4">
                       <fieldset>
                         <legend className="sr-only">Actividad del día</legend>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 rounded-xl bg-[color:var(--surface-subtle)] p-1">
                           {SCHEDULE_TYPE_OPTIONS.map((option) => {
-                            const Icon = option.icon;
                             const selected =
                               selectedScheduleDay.type === option.id;
                             return (
@@ -951,13 +909,12 @@ export default function CoachPlanModal({
                                   })
                                 }
                                 aria-pressed={selected}
-                                className={`flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-2xl text-xs font-semibold transition ${
+                                className={`h-11 rounded-lg text-xs font-semibold transition ${
                                   selected
-                                    ? "theme-accent-solid"
-                                    : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                                    ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
+                                    : "text-[color:var(--text-muted)]"
                                 }`}
                               >
-                                <Icon className="h-4 w-4" />
                                 {option.label}
                               </button>
                             );
@@ -966,7 +923,7 @@ export default function CoachPlanModal({
                       </fieldset>
 
                       {selectedScheduleDay.type === "training" ? (
-                        <div className="mt-4 space-y-4">
+                        <div className="mt-5 space-y-4">
                           {!manageRoutinesSeparately ? (
                             <label className="block">
                               <span className="text-xs font-semibold text-[color:var(--text-muted)]">
@@ -989,7 +946,7 @@ export default function CoachPlanModal({
                                   });
                                 }}
                                 aria-label={`Rutina de ${scheduleMode === "fixed" ? DAY_NAMES[safeSelectedScheduleIndex] : `día ${safeSelectedScheduleIndex + 1}`}`}
-                                className="theme-accent-focus mt-2 h-[52px] w-full rounded-2xl border-0 bg-[color:var(--surface-subtle)] px-4 text-sm font-medium outline-none"
+                                className="theme-accent-focus mt-2 h-[52px] w-full rounded-xl border border-[color:var(--detail-row-divider)] bg-transparent px-4 text-sm font-medium outline-none"
                               >
                                 <option value="">Selecciona una rutina</option>
                                 {templates.map((routine) => (
@@ -1024,21 +981,21 @@ export default function CoachPlanModal({
                                   : "Ej. Fuerza de piernas"
                               }
                               aria-label={`Enfoque de ${scheduleMode === "fixed" ? DAY_NAMES[safeSelectedScheduleIndex] : `día ${safeSelectedScheduleIndex + 1}`}`}
-                              className="theme-accent-focus mt-2 h-[52px] w-full rounded-2xl border-0 bg-[color:var(--surface-subtle)] px-4 text-sm font-medium outline-none"
+                              className="theme-accent-focus mt-2 h-[52px] w-full rounded-xl border border-[color:var(--detail-row-divider)] bg-transparent px-4 text-sm font-medium outline-none"
                             />
                           </label>
                         </div>
                       ) : (
-                        <div className="mt-4 rounded-2xl bg-[color:var(--surface-subtle)] px-4 py-3">
-                          <p className="text-sm font-semibold">
+                        <div className="mt-5 border-l-2 border-[color:var(--text)] pl-3">
+                          <p className="text-sm font-medium">
                             {selectedScheduleDay.type === "recovery"
                               ? "Recuperación activa"
                               : "Descanso completo"}
                           </p>
                           <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
                             {selectedScheduleDay.type === "recovery"
-                              ? "Ideal para movilidad, caminata o trabajo suave."
-                              : "Sin entrenamiento programado para este día."}
+                              ? "Movilidad, caminata o trabajo suave."
+                              : "No se programa entrenamiento."}
                           </p>
                         </div>
                       )}
@@ -1047,9 +1004,9 @@ export default function CoachPlanModal({
                 ) : null}
 
                 {!manageRoutinesSeparately && missingRoutines ? (
-                  <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <div className="flex items-start gap-2 text-amber-700 dark:text-amber-300">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p className="text-xs font-bold">
+                    <p className="text-xs font-medium">
                       {templates.length
                         ? `Selecciona una rutina para ${missingRoutines} ${missingRoutines === 1 ? "día" : "días"}.`
                         : "Crea primero las rutinas que formarán parte de esta planificación."}

@@ -1,5 +1,11 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Check, ChevronRight, Dumbbell, Flame, MoonStar } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Dumbbell,
+  Flame,
+  MoonStar,
+} from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
 
 const WEEKDAY_LABELS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
@@ -126,10 +132,48 @@ function WorkoutMission({ task, onOpen, readOnly }) {
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
+        {task.type === "completed" ? (
+          <span className="mobile-daily-plan__mission-action">
+            Ver resumen
+            <ChevronRight aria-hidden="true" />
+          </span>
+        ) : null}
       </span>
       {task.type === "completed" ? (
-        <span className="mobile-daily-plan__mission-action">
-          Ver resumen
+        <span className="mobile-daily-plan__ready">Completado</span>
+      ) : (
+        <ChevronRight
+          className="mobile-daily-plan__chevron"
+          aria-hidden="true"
+        />
+      )}
+    </button>
+  );
+}
+
+function HydrationMission({ task, onOpen, readOnly }) {
+  if (!task) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={readOnly}
+      className="mobile-daily-plan__mission mobile-daily-plan__mission--hydration"
+    >
+      <MissionStatus completed={task.completed} />
+      <span className="mobile-daily-plan__visual mobile-daily-plan__visual--hydration">
+        <img src="/images/daily-hydration.webp" alt="" />
+      </span>
+      <span className="mobile-daily-plan__mission-copy">
+        <strong>{task.title}</strong>
+        <small>{task.subtitle}</small>
+      </span>
+      {task.completed ? (
+        <span className="mobile-daily-plan__ready">Completado</span>
+      ) : task.hasData ? (
+        <span className="mobile-daily-plan__hydration-progress">
+          {task.progress}%
           <ChevronRight aria-hidden="true" />
         </span>
       ) : (
@@ -152,6 +196,7 @@ export default function MobileDailyPlan({
   bestStreak = 0,
   checkInTask = null,
   workoutTask,
+  hydrationTask = null,
   weighInTask,
   weeklySessions = 0,
   weeklyGoal = 0,
@@ -159,12 +204,14 @@ export default function MobileDailyPlan({
   onOpenMenu,
   onOpenCheckIn,
   onOpenWorkout,
+  onOpenHydration,
   onOpenWeighIn,
 }) {
-  const taskCount = 1 + (checkInTask ? 1 : 0);
+  const taskCount = 1 + (checkInTask ? 1 : 0) + (hydrationTask ? 1 : 0);
   const completedCount =
     Number(Boolean(workoutTask.completed)) +
-    Number(Boolean(checkInTask?.completed));
+    Number(Boolean(checkInTask?.completed)) +
+    Number(Boolean(hydrationTask?.completed));
   const progress = taskCount ? (completedCount / taskCount) * 100 : 0;
   const goal = Math.min(7, Math.max(weeklyGoal, weeklySessions, 1));
   const weeklyProgress = Math.min(weeklySessions, goal);
@@ -251,6 +298,11 @@ export default function MobileDailyPlan({
           <WorkoutMission
             task={workoutTask}
             onOpen={onOpenWorkout}
+            readOnly={readOnly}
+          />
+          <HydrationMission
+            task={hydrationTask}
+            onOpen={onOpenHydration}
             readOnly={readOnly}
           />
         </div>

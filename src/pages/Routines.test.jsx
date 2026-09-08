@@ -1,6 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { getPlanTodayState, TrainingPlanSchedule } from "./Routines";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  getAssignableRoutines,
+  getPlanTodayState,
+  RoutineModal,
+  TrainingPlanSchedule,
+} from "./Routines";
 
 const schedule = [
   {
@@ -25,6 +31,10 @@ const schedule = [
     routineId: null,
   })),
 ];
+
+afterEach(() => {
+  localStorage.removeItem("routine_edit_library_draft");
+});
 
 describe("TrainingPlanSchedule", () => {
   it("no ofrece acciones de edición cuando la planificación finalizó", () => {
@@ -236,5 +246,109 @@ describe("getPlanTodayState", () => {
     expect(state?.routine?.name).toBe("Tirón A");
     expect(state?.isRest).toBe(false);
     expect(state?.isCompleted).toBe(true);
+  });
+});
+
+describe("getAssignableRoutines", () => {
+  it("muestra una sola opción por rutina y prioriza la copia del plan actual", () => {
+    const original = {
+      id: "routine_lower",
+      name: "Lower A",
+      kind: "personal",
+    };
+    const continuationCopy = {
+      id: "routine_lower_continuation",
+      name: "Lower A",
+      kind: "assigned",
+      sourceRoutineId: "routine_lower",
+      trainingPlanId: "plan_continuation",
+      isAvailableForTraining: false,
+    };
+    const result = getAssignableRoutines([original, continuationCopy], {
+      id: "plan_continuation",
+      weeklySchedule: [
+        { type: "training", routineId: "routine_lower_continuation" },
+      ],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("routine_lower_continuation");
+  });
+
+  it("conserva una copia creada por el usuario cuando tiene otro nombre", () => {
+    const result = getAssignableRoutines(
+      [
+        { id: "routine_lower", name: "Lower A", kind: "personal" },
+        {
+          id: "routine_lower_copy",
+          name: "Lower A (Copia)",
+          sourceRoutineId: "routine_lower",
+          kind: "personal",
+        },
+      ],
+      { id: "plan_new", weeklySchedule: [] },
+    );
+
+    expect(result.map((routine) => routine.id)).toEqual([
+      "routine_lower",
+      "routine_lower_copy",
+    ]);
+  });
+});
+
+describe("RoutineModal drafts", () => {
+  it("guarda automáticamente el avance de una rutina nueva", async () => {
+    localStorage.removeItem("routine_edit_library_draft");
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const availableExercises = [
+      { id: "press", name: "Press", muscle: "Pecho", branches: ["general"] },
+      {
+        id: "raise",
+        name: "Elevación lateral",
+        muscle: "Hombros",
+        branches: ["general"],
+      },
+      {
+        id: "extension",
+        name: "Extensión",
+        muscle: "Triceps",
+        branches: ["general"],
+      },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="create"
+          availableExercises={availableExercises}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Empuje" }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("routine_edit_library_draft")).toBeTruthy();
+    });
+    const draft = JSON.parse(
+      localStorage.getItem("routine_edit_library_draft"),
+    );
+    expect(draft.origin).toBe("autosave");
+    expect(draft.editor.routineType).toBe("push");
+    expect(draft.editor.selectedSetupMuscles).toEqual([
+      "Pecho",
+      "Hombros",
+      "Triceps",
+    ]);
+    expect(draft.routine.name).toBe("Pecho · Hombros · Triceps");
   });
 });

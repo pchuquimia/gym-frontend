@@ -5,12 +5,15 @@ export default function MobilePageHeader({
   variant = "main",
   onBack,
   actions = null,
+  mobileOnly = true,
   className = "",
 }) {
+  const visibilityClass = mobileOnly ? "md:hidden" : "";
+
   if (variant === "detail") {
     return (
       <header
-        className={`mobile-page-header mobile-page-header--detail grid items-center md:hidden ${className}`}
+        className={`mobile-page-header mobile-page-header--detail grid items-center ${visibilityClass} ${actions ? "has-actions" : ""} ${className}`}
       >
         <button
           type="button"
@@ -23,14 +26,20 @@ export default function MobilePageHeader({
         <h1 className="truncate text-center text-[color:var(--text)]">
           {title}
         </h1>
-        <span aria-hidden="true" />
+        {actions ? (
+          <div className="mobile-page-header__actions flex shrink-0 items-center justify-end">
+            {actions}
+          </div>
+        ) : (
+          <span aria-hidden="true" />
+        )}
       </header>
     );
   }
 
   return (
     <header
-      className={`mobile-page-header mobile-page-header--main flex items-center justify-between md:hidden ${className}`}
+      className={`mobile-page-header mobile-page-header--main flex items-center justify-between ${visibilityClass} ${className}`}
     >
       <h1 className="min-w-0 truncate text-[color:var(--text)]">
         {title}

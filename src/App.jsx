@@ -56,6 +56,7 @@ const CoachDashboard = lazy(() => import("./pages/CoachDashboard"));
 const CoachManagement = lazy(() => import("./pages/CoachManagement"));
 const WeightTracking = lazy(() => import("./pages/WeightTracking"));
 const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
+const HydrationTracker = lazy(() => import("./pages/HydrationTracker"));
 const BillingCenter = lazy(() => import("./pages/BillingCenter"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 
@@ -88,6 +89,7 @@ const PAGES = {
   fotos: { label: "Biblioteca de Fotos", component: PhotosLibrary },
   pesajes: { label: "Seguimiento de peso", component: WeightTracking },
   check_in: { label: "Estado diario", component: DailyCheckIn },
+  hidratacion: { label: "Reto de hidratación", component: HydrationTracker },
   planes: { label: "Planes y Premium", component: BillingCenter },
   onboarding: { label: "Configuracion inicial", component: Onboarding },
 };
@@ -115,6 +117,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "admin_sesiones",
   "pesajes",
   "check_in",
+  "hidratacion",
   "perfil",
   "planes",
   "onboarding",
@@ -133,6 +136,7 @@ const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "rutinas",
   "pesajes",
   "check_in",
+  "hidratacion",
   "admin_sesiones",
   "fotos",
   "perfil",
@@ -495,6 +499,7 @@ function App() {
       "resumen_sesion",
       "data_intelligence",
       "pesajes",
+      "hidratacion",
     ].includes(activePage)
       ? coachAthlete?.id || ""
       : "";

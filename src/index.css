@@ -2904,7 +2904,8 @@ button,
   }
 
   .mobile-daily-plan__visual--wellness img,
-  .mobile-daily-plan__visual--workout img {
+  .mobile-daily-plan__visual--workout img,
+  .mobile-daily-plan__visual--hydration img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -2962,12 +2963,15 @@ button,
   .mobile-daily-plan__mission-action {
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0.2rem;
+    margin-top: 0.625rem;
     color: var(--text);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 0.25rem;
     white-space: nowrap;
   }
 
@@ -2975,6 +2979,24 @@ button,
     width: 1rem;
     height: 1rem;
     color: var(--text-subtle);
+    stroke-width: 1.8;
+  }
+
+  .mobile-daily-plan__hydration-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .mobile-daily-plan__hydration-progress svg {
+    width: 1rem;
+    height: 1rem;
+    color: currentColor;
     stroke-width: 1.8;
   }
 
@@ -3076,6 +3098,544 @@ button,
 
   .mobile-daily-plan__weekly-marks span.is-done {
     background: var(--mission-accent);
+  }
+}
+
+/* Hydration challenge: focused mobile flow inspired by a native tracker. */
+.hydration-tracker {
+  --hydration-accent: #1678c8;
+  --hydration-accent-soft: #e6f2fb;
+  width: 100%;
+  max-width: 32rem;
+  min-height: calc(100dvh - 2rem);
+  margin: 0 auto;
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+  color: var(--text);
+  font-family: var(--mobile-ui-font);
+}
+
+.dark .hydration-tracker {
+  --hydration-accent: #4aa8ff;
+  --hydration-accent-soft: #142a3d;
+}
+
+.hydration-tracker button,
+.hydration-tracker input {
+  font-family: inherit;
+}
+
+.hydration-tracker__page-header {
+  display: grid;
+  min-height: var(--mobile-header-detail-height, 4rem);
+  grid-template-columns: 5.5rem minmax(0, 1fr) 5.5rem;
+  align-items: center;
+  border-bottom: 1px solid var(--detail-row-divider);
+  background: var(--card);
+  padding: max(0.375rem, env(safe-area-inset-top)) 1rem 0.375rem;
+}
+
+.hydration-tracker__page-header > button {
+  justify-self: start;
+}
+
+.hydration-tracker__page-header .mobile-page-header__actions {
+  gap: 0.125rem;
+}
+
+.hydration-tracker__date-button,
+.hydration-tracker__header-action {
+  position: relative;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+}
+
+.hydration-tracker__page-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 550;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.hydration-tracker__page-header svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  stroke-width: 1.9;
+}
+
+.hydration-tracker__date-button {
+  cursor: pointer;
+}
+
+.hydration-tracker__date-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.hydration-tracker__today {
+  overflow: hidden;
+  border-radius: 0 0 2rem 2rem;
+  background: var(--card);
+  padding: 2rem 1rem 1.75rem;
+}
+
+.hydration-tracker__ring {
+  position: relative;
+  display: grid;
+  width: min(72vw, 17rem);
+  aspect-ratio: 1;
+  place-items: center;
+  margin: 0 auto;
+}
+
+.hydration-tracker__ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.hydration-tracker__ring circle {
+  fill: none;
+  stroke-width: 12;
+}
+
+.hydration-tracker__ring-track {
+  stroke: var(--surface-subtle);
+}
+
+.hydration-tracker__ring-value {
+  stroke: var(--hydration-accent);
+  stroke-linecap: round;
+}
+
+.hydration-tracker__ring-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hydration-tracker__ring-copy strong {
+  font-size: clamp(3.25rem, 16vw, 4.5rem);
+  font-weight: 500;
+  line-height: 0.88;
+  letter-spacing: -0.065em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hydration-tracker__ring-copy span {
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+}
+
+.hydration-tracker__ring-copy button {
+  min-width: 4.5rem;
+  height: 2rem;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hydration-tracker__amounts {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  margin: 2.4rem -0.75rem 0;
+  padding-inline: calc(50% - 3.75rem);
+  scroll-behavior: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 10%,
+    #000 90%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 10%,
+    #000 90%,
+    transparent 100%
+  );
+}
+
+.hydration-tracker__amounts::-webkit-scrollbar {
+  display: none;
+}
+
+.hydration-tracker__amounts button {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+  color: var(--text-subtle);
+  font-size: clamp(0.7rem, 3.5vw, 0.95rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  transition:
+    color 480ms cubic-bezier(0.45, 0, 0.2, 1),
+    font-size 480ms cubic-bezier(0.45, 0, 0.2, 1),
+    transform 480ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+.hydration-tracker__amounts button.is-selected {
+  color: var(--hydration-accent);
+  font-size: clamp(1.35rem, 6.5vw, 1.85rem);
+  font-weight: 550;
+  transform: translateY(-1px);
+}
+
+.hydration-tracker__controls {
+  display: grid;
+  max-width: 18rem;
+  grid-template-columns: 4.25rem 6.75rem 4.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin: 1.8rem auto 0;
+}
+
+.hydration-tracker__control,
+.hydration-tracker__add {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+}
+
+.hydration-tracker__control {
+  width: 4.25rem;
+  height: 4.25rem;
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.hydration-tracker__control:disabled {
+  color: var(--text-subtle);
+  opacity: 0.48;
+}
+
+.hydration-tracker__control--complete {
+  border: 1px solid color-mix(in srgb, var(--hydration-accent) 20%, transparent);
+  background: var(--hydration-accent-soft);
+  color: var(--hydration-accent);
+}
+
+.hydration-tracker__add {
+  width: 6.75rem;
+  height: 6.75rem;
+  background: var(--hydration-accent);
+  color: #fff;
+  box-shadow: 0 0.875rem 2rem
+    color-mix(in srgb, var(--hydration-accent) 24%, transparent);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.hydration-tracker__add:active {
+  transform: scale(0.96);
+}
+
+.hydration-tracker__add:disabled {
+  opacity: 0.7;
+}
+
+.hydration-tracker__control svg,
+.hydration-tracker__add svg {
+  width: 1.65rem;
+  height: 1.65rem;
+  stroke-width: 1.8;
+}
+
+.hydration-tracker__add svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.hydration-tracker__inline-error,
+.hydration-modal__field-error {
+  color: #b42318;
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.dark .hydration-tracker__inline-error,
+.dark .hydration-modal__field-error {
+  color: #ff8b82;
+}
+
+.hydration-tracker__inline-error {
+  margin: 0.875rem auto 0;
+  text-align: center;
+}
+
+.hydration-modal__field-error {
+  margin-top: 0.625rem;
+}
+
+.hydration-tracker__week {
+  margin: 1rem 1rem 0;
+  border-radius: 1.75rem;
+  background: var(--card);
+  padding: 1.5rem 1.25rem 1.25rem;
+}
+
+.hydration-tracker__week h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.hydration-tracker__week p {
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.hydration-tracker__bars {
+  display: grid;
+  height: 11rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.hydration-tracker__bars button {
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) 1.25rem;
+  justify-items: center;
+  gap: 0.65rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.hydration-tracker__bars button.is-selected {
+  color: var(--text);
+}
+
+.hydration-tracker__bars button:disabled {
+  opacity: 0.38;
+}
+
+.hydration-tracker__bar-track {
+  position: relative;
+  display: flex;
+  width: 0.875rem;
+  height: 100%;
+  overflow: hidden;
+  align-items: flex-end;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+}
+
+.hydration-tracker__bar-track i {
+  display: block;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--hydration-accent);
+}
+
+.hydration-tracker__bars b {
+  font-size: 0.75rem;
+  font-weight: 550;
+}
+
+.hydration-tracker__error {
+  margin-top: 1rem;
+  border-radius: 1.5rem;
+  background: var(--card);
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.hydration-tracker__error h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hydration-tracker__error p {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.hydration-tracker__error button {
+  height: 2.75rem;
+  margin-top: 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  padding: 0 1.25rem;
+  color: var(--bg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.hydration-modal {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, #000 44%, transparent);
+  padding: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.hydration-modal__sheet {
+  position: relative;
+  width: min(100%, 30rem);
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  background: var(--card);
+  padding: 2rem 1.5rem 1.5rem;
+  color: var(--text);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 18%);
+}
+
+.hydration-modal__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.hydration-modal__close svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.hydration-modal__eyebrow {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hydration-modal h2 {
+  max-width: 20rem;
+  margin-top: 0.6rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.03;
+  letter-spacing: -0.045em;
+}
+
+.hydration-modal__description {
+  margin-top: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.hydration-modal__field {
+  display: block;
+  margin-top: 1.5rem;
+}
+
+.hydration-modal__field span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.hydration-modal__field input {
+  width: 100%;
+  height: 3.5rem;
+  margin-top: 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 550;
+  outline: none;
+}
+
+.hydration-modal__primary {
+  width: 100%;
+  height: 3.5rem;
+  margin-top: 1.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .hydration-tracker {
+    width: calc(100% + 1.5rem);
+    max-width: none;
+    margin-left: -0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .hydration-tracker__page-header {
+    margin-top: 0;
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+
+  .hydration-tracker__week {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .hydration-modal {
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hydration-tracker__amounts {
+    scroll-behavior: auto;
   }
 }
 
@@ -4535,6 +5095,10 @@ button,
   .mobile-page-header--detail {
     min-height: var(--mobile-header-detail-height);
     grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  }
+
+  .mobile-page-header--detail.has-actions {
+    grid-template-columns: 5.5rem minmax(0, 1fr) 5.5rem;
   }
 
   .mobile-page-header--detail h1 {

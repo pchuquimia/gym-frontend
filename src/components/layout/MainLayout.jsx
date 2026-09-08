@@ -32,9 +32,11 @@ function MainLayout({
   const { user } = useAuth();
   const useDashboardChrome = activePage === "dashboard";
   const useDailyCheckInChrome = activePage === "check_in";
+  const useHydrationChrome = activePage === "hidratacion";
   const useDashboardBackground =
     useDashboardChrome ||
     useDailyCheckInChrome ||
+    useHydrationChrome ||
     activePage === "registrar" ||
     activePage === "rutinas" ||
     activePage === "library" ||
@@ -170,6 +172,7 @@ function MainLayout({
   const hideMobileNav =
     hideMobileNavigation ||
     hideMobileNavDuringTraining ||
+    useHydrationChrome ||
     useProfileChrome ||
     useSessionSummaryChrome;
   const mobileContentSpacing = hideMobileNav
@@ -238,6 +241,7 @@ function MainLayout({
             className={`items-center justify-between mb-4 gap-3 ${
               useDashboardChrome ||
               useDailyCheckInChrome ||
+              useHydrationChrome ||
               useOnboardingChrome ||
               useProfileChrome ||
               useSessionSummaryChrome ||

@@ -438,6 +438,33 @@ export const api = {
     }),
   deleteWeighIn: (id) => request(`/api/weigh-ins/${id}`, { method: "DELETE" }),
 
+  getHydration: (params = {}) => {
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+      date: params.date ?? localTodayKey(),
+      from: params.from ?? "",
+      to: params.to ?? "",
+    }).toString();
+    return request(`/api/hydration?${query}`);
+  },
+  addHydration: (payload) =>
+    request("/api/hydration", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  completeHydration: (payload) =>
+    request("/api/hydration/complete", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateHydrationGoal: (payload) =>
+    request("/api/hydration/goal", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteHydrationEntry: (id) =>
+    request(`/api/hydration/${id}`, { method: "DELETE" }),
+
   getSessions: (params = {}) => {
     const query = new URLSearchParams({
       athleteId: params.athleteId ?? "",

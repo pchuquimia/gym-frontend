@@ -174,6 +174,53 @@ const getRoutineExerciseSummary = (routine) => {
   const baseCount = exercises.length - optionalCount;
   return `${baseCount} ejercicios${optionalCount ? ` + ${optionalCount} ${optionalCount === 1 ? "opcional" : "opcionales"}` : ""}`;
 };
+
+const normalizeRoutineName = (value) =>
+  String(value || "")
+    .trim()
+    .toLocaleLowerCase("es")
+    .replace(/\s+/g, " ");
+
+// Plan continuations keep isolated routine copies so their history can evolve
+// independently. In assignment surfaces, collapse those internal copies back
+// into one logical option and prefer the version already owned by this plan.
+// eslint-disable-next-line react-refresh/only-export-components
+export const getAssignableRoutines = (routines = [], plan = null) => {
+  const planId = getEntityId(plan);
+  const planRoutineIds = new Set(
+    (plan?.weeklySchedule || [])
+      .map((day) => getEntityId(day?.routineId))
+      .filter(Boolean),
+  );
+  const groups = new Map();
+
+  const getPriority = (routine) => {
+    const routineId = getEntityId(routine);
+    const routinePlanId = String(routine?.trainingPlanId || "");
+    return (
+      (planRoutineIds.has(routineId) ? 100 : 0) +
+      (planId && routinePlanId === planId ? 50 : 0) +
+      (!routinePlanId ? 20 : 0) +
+      (routine?.isAvailableForTraining !== false ? 10 : 0) +
+      (routine?.kind === "personal" ? 5 : 0)
+    );
+  };
+
+  routines
+    .filter((routine) => routine?.isArchived !== true)
+    .forEach((routine) => {
+      const routineId = getEntityId(routine);
+      if (!routineId) return;
+      const lineageId = String(routine.sourceRoutineId || routineId);
+      const logicalKey = `${lineageId}::${normalizeRoutineName(routine.name)}`;
+      const current = groups.get(logicalKey);
+      if (!current || getPriority(routine) > getPriority(current)) {
+        groups.set(logicalKey, routine);
+      }
+    });
+
+  return Array.from(groups.values());
+};
 const TRAINING_PLAN_ROUTINE_INTENT_KEY = "training_plan_routine_intent";
 const getPlanWeekIndex = (plan, now = new Date()) => {
   if (!plan?.startDate) return 0;
@@ -503,6 +550,17 @@ const readRoutineLibraryDraft = () => {
   }
 };
 
+const hydrateRoutineDraft = (draft) => {
+  if (!draft?.routine) return null;
+  return {
+    ...draft.routine,
+    __draftEditor: {
+      ...(draft.editor || {}),
+      setupComplete: draft.editor?.setupComplete ?? draft.origin === "library",
+    },
+  };
+};
+
 const hasTrainingReturn = () => {
   if (typeof localStorage === "undefined") return false;
   return Boolean(localStorage.getItem(TRAINING_ROUTINES_RETURN_KEY));
@@ -723,7 +781,7 @@ function ExercisePickerOption({
   );
 }
 
-function RoutineModal({
+export function RoutineModal({
   mode = "create",
   initialData,
   onSave,
@@ -752,13 +810,17 @@ function RoutineModal({
     locationMode === "multiple" && allowedBranches.length
       ? allowedBranches
       : BRANCH_OPTIONS;
-  const [routineType, setRoutineType] = useState("");
+  const [routineType, setRoutineType] = useState(
+    initialData?.__draftEditor?.routineType || "",
+  );
   const [exerciseOrderMode, setExerciseOrderMode] = useState(
     initialData?.exerciseOrderMode === "muscle_blocks"
       ? "muscle_blocks"
       : "free",
   );
   const [selectedSetupMuscles, setSelectedSetupMuscles] = useState(() => {
+    const restoredMuscles = initialData?.__draftEditor?.selectedSetupMuscles;
+    if (Array.isArray(restoredMuscles)) return new Set(restoredMuscles);
     const draftMuscles = (initialData?.exercises || [])
       .map((exercise) => exercise.muscle)
       .filter(Boolean);
@@ -766,7 +828,9 @@ function RoutineModal({
   });
   const [nameEdited, setNameEdited] = useState(Boolean(initialData?.name));
   const [selectedMuscle, setSelectedMuscle] = useState(
-    availableExercises?.[0]?.muscle || "Pecho",
+    initialData?.__draftEditor?.selectedMuscle ||
+      availableExercises?.[0]?.muscle ||
+      "Pecho",
   );
   const [search, setSearch] = useState("");
   const debouncedExerciseSearch = useDebouncedValue(search.trim());
@@ -788,7 +852,9 @@ function RoutineModal({
     staleTime: 30 * 1000,
   });
   const [error, setError] = useState("");
-  const [setupComplete, setSetupComplete] = useState(mode !== "create");
+  const [setupComplete, setSetupComplete] = useState(
+    mode !== "create" || initialData?.__draftEditor?.setupComplete === true,
+  );
   const [progressMode, setProgressMode] = useState(
     initialData?.progressMode === "inherit" ? "inherit" : "fresh",
   );
@@ -811,7 +877,9 @@ function RoutineModal({
   const [alternativePickerFilter, setAlternativePickerFilter] = useState(null);
   const alternativePickerFilterStripRef = useRef(null);
   const [optionsExerciseId, setOptionsExerciseId] = useState(null);
-  const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
+  const [exercisePickerOpen, setExercisePickerOpen] = useState(
+    initialData?.__draftEditor?.exercisePickerOpen === true,
+  );
   const [selectedExerciseIds, setSelectedExerciseIds] = useState([]);
   const [exercisePickerFilter, setExercisePickerFilter] = useState(null);
   const exercisePickerFilterStripRef = useRef(null);
@@ -1464,12 +1532,14 @@ function RoutineModal({
     setError("");
     setIsSaving(true);
     try {
+      const initialRoutine = { ...(initialData || {}) };
+      delete initialRoutine.__draftEditor;
       const orderedExercises =
         exerciseOrderMode === "muscle_blocks"
           ? orderByMuscleBlocks(exercises)
           : exercises;
       await onSave({
-        ...initialData,
+        ...initialRoutine,
         id: routineId,
         name: routineName,
         description: `${exercises.length} ejercicios.`,
@@ -1541,35 +1611,48 @@ function RoutineModal({
   const draftName =
     effectiveRoutineName.trim() || initialData?.name || "Rutina sin nombre";
 
-  const buildDraftRoutine = () => ({
-    ...initialData,
-    id: routineId,
-    name: draftName,
-    description: `${exercises.length} ejercicios.`,
-    branch: normalizeBranch(branch),
-    exerciseOrderMode,
-    progressScopeId: initialData?.progressScopeId || undefined,
-    progressMode,
-    sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
-    exercises: (exerciseOrderMode === "muscle_blocks"
-      ? orderByMuscleBlocks(exercises)
-      : exercises
-    ).map((ex) => ({
-      ...ex,
-      exerciseId: ex.exerciseId || slugify(ex.name),
-      sets: Number(ex.sets) || 1,
-      ...serializeMovement(ex),
-      isExtra: Boolean(ex.isExtra),
-      alternatives: (ex.alternatives || []).map((alt) => ({
-        exerciseId: alt.exerciseId || slugify(alt.name),
-        name: alt.name,
-        muscle: alt.muscle,
-        image: alt.image || "",
-        imagePublicId: alt.imagePublicId || "",
-        ...serializeMovement(alt),
+  const draftRoutine = useMemo(() => {
+    const initialRoutine = { ...(initialData || {}) };
+    delete initialRoutine.__draftEditor;
+    return {
+      ...initialRoutine,
+      id: routineId,
+      name: draftName,
+      description: `${exercises.length} ejercicios.`,
+      branch: normalizeBranch(branch),
+      exerciseOrderMode,
+      progressScopeId: initialData?.progressScopeId || undefined,
+      progressMode,
+      sourceRoutineId: progressMode === "inherit" ? sourceRoutineId : null,
+      exercises: (exerciseOrderMode === "muscle_blocks"
+        ? orderByMuscleBlocks(exercises)
+        : exercises
+      ).map((ex) => ({
+        ...ex,
+        exerciseId: ex.exerciseId || slugify(ex.name),
+        sets: Number(ex.sets) || 1,
+        ...serializeMovement(ex),
+        isExtra: Boolean(ex.isExtra),
+        alternatives: (ex.alternatives || []).map((alt) => ({
+          exerciseId: alt.exerciseId || slugify(alt.name),
+          name: alt.name,
+          muscle: alt.muscle,
+          image: alt.image || "",
+          imagePublicId: alt.imagePublicId || "",
+          ...serializeMovement(alt),
+        })),
       })),
-    })),
-  });
+    };
+  }, [
+    branch,
+    draftName,
+    exerciseOrderMode,
+    exercises,
+    initialData,
+    progressMode,
+    routineId,
+    sourceRoutineId,
+  ]);
 
   const handleOpenLibrary = () => {
     if (typeof localStorage !== "undefined") {
@@ -1579,7 +1662,15 @@ function RoutineModal({
           mode,
           sourceRoutineId: initialData?.id || slugify(draftName),
           sourceRoutineName: draftName,
-          routine: buildDraftRoutine(),
+          origin: "library",
+          routine: draftRoutine,
+          editor: {
+            routineType,
+            selectedSetupMuscles: Array.from(effectiveSetupMuscles),
+            selectedMuscle,
+            setupComplete: true,
+            exercisePickerOpen: false,
+          },
           savedAt: Date.now(),
         }),
       );
@@ -1625,6 +1716,49 @@ function RoutineModal({
           exercises: initialData?.exercises,
         });
 
+  useEffect(() => {
+    if (
+      mode !== "create" ||
+      !hasUnsavedChanges ||
+      typeof localStorage === "undefined"
+    ) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      localStorage.setItem(
+        ROUTINE_LIBRARY_DRAFT_KEY,
+        JSON.stringify({
+          mode: "create",
+          sourceRoutineId: initialData?.id || routineId,
+          sourceRoutineName: draftName,
+          origin: "autosave",
+          routine: draftRoutine,
+          editor: {
+            routineType,
+            selectedSetupMuscles: Array.from(effectiveSetupMuscles),
+            selectedMuscle,
+            setupComplete,
+            exercisePickerOpen,
+          },
+          savedAt: Date.now(),
+        }),
+      );
+    }, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    draftName,
+    draftRoutine,
+    effectiveSetupMuscles,
+    exercisePickerOpen,
+    hasUnsavedChanges,
+    initialData?.id,
+    mode,
+    routineId,
+    routineType,
+    selectedMuscle,
+    setupComplete,
+  ]);
+
   const requestClose = () => {
     if (isSaving) return;
     if (hasUnsavedChanges) {
@@ -1653,7 +1787,9 @@ function RoutineModal({
                 isSaving ||
                 libraryLoading ||
                 (isSetupStep
-                  ? !effectiveSetupMuscles.size || Boolean(libraryError)
+                  ? !effectiveRoutineName.trim() ||
+                    !effectiveSetupMuscles.size ||
+                    Boolean(libraryError)
                   : !exercises.length)
               }
               onClick={isSetupStep ? handleContinueSetup : handleSubmit}
@@ -1677,273 +1813,267 @@ function RoutineModal({
     >
       <div className="pb-3 text-[color:var(--text)]">
         {mode === "create" ? (
-          <div className="mb-5 flex items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)] sm:px-2">
-            <span>Paso {isSetupStep ? "1" : "2"} de 2</span>
-            <span>{isSetupStep ? "Datos básicos" : "Ejercicios"}</span>
+          <div
+            className="mb-7 grid grid-cols-2 gap-2"
+            aria-label={`Paso ${isSetupStep ? "1" : "2"} de 2`}
+          >
+            <span className="h-1 rounded-full bg-[color:var(--text)]" />
+            <span
+              className={`h-1 rounded-full ${
+                isSetupStep
+                  ? "bg-[color:var(--surface-subtle)]"
+                  : "bg-[color:var(--text)]"
+              }`}
+            />
           </div>
         ) : null}
         {isSetupStep ? (
-          <div className="mx-auto max-w-xl space-y-4">
-            <div className="px-1 sm:px-2">
-              <div className="mb-6">
-                <h2 className="text-2xl font-semibold leading-tight text-[color:var(--text)]">
-                  Crea tu rutina
-                </h2>
-                <p className="mt-1 text-sm leading-relaxed text-[color:var(--text-muted)]">
-                  Ponle un nombre y elige qué vas a entrenar.
-                </p>
+          <div className="mx-auto max-w-xl px-1 sm:px-2">
+            <section>
+              <h2 className="text-2xl font-medium tracking-[-0.03em] text-[color:var(--text)]">
+                ¿Qué quieres entrenar?
+              </h2>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                Elige una base para empezar.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {ROUTINE_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => handleRoutineTypeSelect(type.id)}
+                    aria-pressed={routineType === type.id}
+                    className={`h-11 rounded-full px-4 text-sm font-semibold transition ${
+                      routineType === type.id
+                        ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                        : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
               </div>
+              {routineType && routineType !== "custom" ? (
+                <p className="mt-3 text-xs text-[color:var(--text-muted)]">
+                  {selectedRoutineType.description}
+                </p>
+              ) : null}
+            </section>
 
-              <label className="block space-y-2">
+            {routineType === "custom" ? (
+              <section className="mt-7 border-t border-[color:var(--detail-row-divider)] pt-5">
+                <div>
+                  <p className="text-sm font-medium text-[color:var(--text)]">
+                    Grupos musculares
+                  </p>
+                </div>
+                <span className="sr-only">Grupos musculares</span>
+                {libraryLoading ? (
+                  <div className="mt-3 flex h-14 items-center justify-center gap-2 text-xs font-medium text-[color:var(--text-muted)]">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando grupos musculares
+                  </div>
+                ) : libraryError ? (
+                  <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3">
+                    <p className="text-xs font-bold text-red-600 dark:text-red-300">
+                      No se pudo cargar la biblioteca de ejercicios.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onRetryLibrary}
+                      className="mt-2 text-xs font-black text-red-700 underline dark:text-red-200"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : setupMuscleOptions.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {setupMuscleOptions.map((muscle) => {
+                      const active = effectiveSetupMuscles.has(muscle);
+                      return (
+                        <button
+                          key={muscle}
+                          type="button"
+                          onClick={() => toggleSetupMuscle(muscle)}
+                          className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
+                            active
+                              ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-[#111211]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          {muscle}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs text-[color:var(--text-muted)]">
+                    No hay grupos musculares disponibles en la biblioteca.
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            {routineType ? (
+              <label className="mt-7 block border-t border-[color:var(--detail-row-divider)] pt-5">
                 <span className="text-sm font-medium text-[color:var(--text)]">
-                  Nombre
+                  Nombre de la rutina
                 </span>
                 <input
-                  className="theme-accent-focus h-14 w-full rounded-2xl border-0 bg-[color:var(--card)] px-4 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
-                  placeholder="Ej. Empuje"
+                  className="theme-accent-focus mt-2 h-14 w-full border-0 border-b border-[color:var(--detail-row-divider)] bg-transparent px-0 text-lg font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+                  placeholder="Ej. Empuje A"
                   value={effectiveRoutineName}
-                  onChange={(e) => {
+                  onChange={(event) => {
                     setNameEdited(true);
-                    setName(e.target.value);
+                    setName(event.target.value);
                   }}
                 />
               </label>
+            ) : null}
 
-              <div className="mt-6 space-y-2.5">
-                <div>
-                  <p className="text-sm font-medium text-[color:var(--text)]">
-                    ¿Qué vas a entrenar?
-                  </p>
-                  <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                    Elige una base. Podrás cambiar los ejercicios después.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {ROUTINE_TYPES.map((type) => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => handleRoutineTypeSelect(type.id)}
-                      className={`h-12 rounded-xl border px-3 text-left text-sm font-semibold transition ${
-                        routineType === type.id
-                          ? "theme-accent-solid border-transparent"
-                          : "border-transparent bg-[color:var(--card)] text-[color:var(--text)]"
-                      }`}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="px-1 text-xs text-[color:var(--text-muted)]">
-                  {selectedRoutineType.description}
-                </p>
-              </div>
-
-              {routineType === "custom" ? (
-                <div className="mt-6 space-y-2.5">
-                  <div>
-                    <p className="text-sm font-medium text-[color:var(--text)]">
-                      Grupos musculares
-                    </p>
-                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                      Selecciona uno o varios.
-                    </p>
-                  </div>
-                  <span className="sr-only">Grupos musculares</span>
-                  {libraryLoading ? (
-                    <div className="flex h-16 items-center justify-center gap-2 rounded-2xl bg-[color:var(--card)] text-xs font-medium text-[color:var(--text-muted)]">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Cargando grupos musculares
-                    </div>
-                  ) : libraryError ? (
-                    <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-3">
-                      <p className="text-xs font-bold text-red-600 dark:text-red-300">
-                        No se pudo cargar la biblioteca de ejercicios.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={onRetryLibrary}
-                        className="mt-2 text-xs font-black text-red-700 underline dark:text-red-200"
-                      >
-                        Reintentar
-                      </button>
-                    </div>
-                  ) : setupMuscleOptions.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {setupMuscleOptions.map((muscle) => {
-                        const active = effectiveSetupMuscles.has(muscle);
-                        return (
-                          <button
-                            key={muscle}
-                            type="button"
-                            onClick={() => toggleSetupMuscle(muscle)}
-                            className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
-                              active
-                                ? "theme-accent-solid border-transparent"
-                                : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"
-                            }`}
-                          >
-                            {muscle}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl bg-[color:var(--card)] p-4 text-xs text-[color:var(--text-muted)]">
-                      No hay grupos musculares disponibles en la biblioteca.
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {locationMode === "multiple" || progressSourceOptions.length ? (
-                <details className="group mt-6 rounded-2xl bg-[color:var(--card)] px-4 py-1">
-                  <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[color:var(--text)] [&::-webkit-details-marker]:hidden">
-                    <span>
-                      Opciones avanzadas
-                      <span className="ml-2 text-xs font-normal text-[color:var(--text-muted)]">
-                        Sede e historial
-                      </span>
+            {locationMode === "multiple" || progressSourceOptions.length ? (
+              <details className="group mt-7 border-t border-[color:var(--detail-row-divider)]">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[color:var(--text)] [&::-webkit-details-marker]:hidden">
+                  <span>
+                    Opciones avanzadas
+                    <span className="ml-2 text-xs font-normal text-[color:var(--text-muted)]">
+                      Sede e historial
                     </span>
-                    <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-90" />
-                  </summary>
-                  <div className="space-y-5 border-t border-[color:var(--border)] py-4">
-                    {locationMode === "multiple" ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-[color:var(--text-muted)]">
-                          Sucursal
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {selectableBranches.map((option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => handleBranchChange(option)}
-                              className={`flex h-11 items-center justify-between rounded-xl border px-3 text-left text-sm transition ${
-                                branch === option
-                                  ? "theme-accent-solid border-transparent"
-                                  : "border-[color:var(--border)] text-[color:var(--text)]"
-                              }`}
-                            >
-                              <span className="font-medium">
-                                {branchLabel(option)}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="space-y-5 pb-4 pt-2">
+                  {locationMode === "multiple" ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                        Sucursal
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectableBranches.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => handleBranchChange(option)}
+                            className={`flex h-11 items-center justify-between rounded-xl border px-3 text-left text-sm transition ${
+                              branch === option
+                                ? "theme-accent-solid border-transparent"
+                                : "border-[color:var(--border)] text-[color:var(--text)]"
+                            }`}
+                          >
+                            <span className="font-medium">
+                              {branchLabel(option)}
+                            </span>
+                          </button>
+                        ))}
                       </div>
-                    ) : null}
+                    </div>
+                  ) : null}
 
-                    {progressSourceOptions.length ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-[color:var(--text-muted)]">
-                          Historial de progreso
-                        </p>
-                        <div className="grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--bg)] p-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProgressMode("fresh");
-                              setSourceRoutineId("");
-                              setError("");
-                            }}
-                            className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
-                              progressMode === "fresh"
-                                ? "theme-accent-solid"
-                                : "text-[color:var(--text-muted)]"
-                            }`}
+                  {progressSourceOptions.length ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                        Historial de progreso
+                      </p>
+                      <div className="grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--bg)] p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProgressMode("fresh");
+                            setSourceRoutineId("");
+                            setError("");
+                          }}
+                          className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
+                            progressMode === "fresh"
+                              ? "theme-accent-solid"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          Nuevo ciclo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProgressMode("inherit");
+                            setSourceRoutineId(
+                              sourceRoutineId ||
+                                progressSourceOptions[0]?._id ||
+                                progressSourceOptions[0]?.id ||
+                                "",
+                            );
+                            setError("");
+                          }}
+                          className={`h-10 rounded-lg px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                            progressMode === "inherit"
+                              ? "theme-accent-solid"
+                              : "text-[color:var(--text-muted)]"
+                          }`}
+                        >
+                          Continuar historial
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-[color:var(--text-muted)]">
+                        {progressMode === "fresh"
+                          ? "Empieza las marcas desde cero."
+                          : "Conserva los pesos y mejoras de otra rutina."}
+                      </p>
+
+                      {progressMode === "inherit" ? (
+                        <label className="block pt-1">
+                          <span className="sr-only">Rutina de origen</span>
+                          <select
+                            value={sourceRoutineId}
+                            onChange={(event) =>
+                              setSourceRoutineId(event.target.value)
+                            }
+                            className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-medium text-[color:var(--text)] outline-none"
                           >
-                            Nuevo ciclo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProgressMode("inherit");
-                              setSourceRoutineId(
-                                sourceRoutineId ||
-                                  progressSourceOptions[0]?._id ||
-                                  progressSourceOptions[0]?.id ||
-                                  "",
-                              );
-                              setError("");
-                            }}
-                            className={`h-10 rounded-lg px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
-                              progressMode === "inherit"
-                                ? "theme-accent-solid"
-                                : "text-[color:var(--text-muted)]"
-                            }`}
-                          >
-                            Continuar historial
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-[color:var(--text-muted)]">
-                          {progressMode === "fresh"
-                            ? "Empieza las marcas desde cero."
-                            : "Conserva los pesos y mejoras de otra rutina."}
-                        </p>
-
-                        {progressMode === "inherit" ? (
-                          <label className="block pt-1">
-                            <span className="sr-only">Rutina de origen</span>
-                            <select
-                              value={sourceRoutineId}
-                              onChange={(event) =>
-                                setSourceRoutineId(event.target.value)
-                              }
-                              className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-medium text-[color:var(--text)] outline-none"
-                            >
-                              <option value="">
-                                Selecciona una rutina anterior
+                            <option value="">
+                              Selecciona una rutina anterior
+                            </option>
+                            {progressSourceOptions.map((routine) => (
+                              <option
+                                key={routine._id || routine.id}
+                                value={routine._id || routine.id}
+                              >
+                                {routine.name}
+                                {locationMode === "multiple"
+                                  ? ` · ${branchLabel(routine.branch)}`
+                                  : ""}{" "}
+                                · {routine.compatibilityPercent}% compatible
                               </option>
-                              {progressSourceOptions.map((routine) => (
-                                <option
-                                  key={routine._id || routine.id}
-                                  value={routine._id || routine.id}
-                                >
-                                  {routine.name}
-                                  {locationMode === "multiple"
-                                    ? ` · ${branchLabel(routine.branch)}`
-                                    : ""}{" "}
-                                  · {routine.compatibilityPercent}% compatible
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </details>
-              ) : null}
-            </div>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
           </div>
         ) : (
           <div className="mx-auto max-w-4xl">
             <div className="space-y-3">
               {mode === "create" ? (
-                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-sm sm:p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
-                        Rutina
-                      </p>
-                      <h2 className="mt-1 truncate text-lg font-black text-[color:var(--text)]">
-                        {name.trim()}
-                      </h2>
-                      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--detail-row-divider)] pb-5">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-2xl font-medium tracking-[-0.03em] text-[color:var(--text)]">
+                      {name.trim()}
+                    </h2>
+                    {locationMode === "multiple" ? (
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                         {branchLabel(branch)}
                       </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 rounded-xl"
-                      onClick={() => setSetupComplete(false)}
-                    >
-                      Editar
-                    </Button>
+                    ) : null}
                   </div>
+                  <button
+                    type="button"
+                    className="shrink-0 text-sm font-medium underline underline-offset-4"
+                    onClick={() => setSetupComplete(false)}
+                  >
+                    Cambiar
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -2020,20 +2150,20 @@ function RoutineModal({
               </div>
 
               {exercises.length ? (
-                <section aria-labelledby="routine-order-title">
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                <section
+                  className="flex items-center justify-between gap-4 border-y border-[color:var(--detail-row-divider)] py-4"
+                  aria-labelledby="routine-order-title"
+                >
+                  <div className="shrink-0">
                     <h3
                       id="routine-order-title"
                       className="text-sm font-medium"
                     >
-                      Organización
+                      Orden
                     </h3>
-                    <span className="text-xs text-[color:var(--text-muted)]">
-                      Al entrenar
-                    </span>
                   </div>
                   <div
-                    className="grid grid-cols-2 gap-2"
+                    className="grid min-w-0 flex-1 grid-cols-2 rounded-xl bg-[color:var(--surface-subtle)] p-1"
                     role="radiogroup"
                     aria-label="Organización de la rutina"
                   >
@@ -2044,36 +2174,26 @@ function RoutineModal({
                       onClick={() =>
                         handleExerciseOrderModeChange("muscle_blocks")
                       }
-                      className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                      className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
                         exerciseOrderMode === "muscle_blocks"
-                          ? "theme-accent-solid"
-                          : "bg-[color:var(--card)] text-[color:var(--text)]"
+                          ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
+                          : "text-[color:var(--text-muted)]"
                       }`}
                     >
-                      <span className="block text-sm font-semibold">
-                        Por grupos
-                      </span>
-                      <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
-                        Agrupa músculos
-                      </span>
+                      Por grupos
                     </button>
                     <button
                       type="button"
                       role="radio"
                       aria-checked={exerciseOrderMode === "free"}
                       onClick={() => handleExerciseOrderModeChange("free")}
-                      className={`min-h-[68px] rounded-2xl px-3 py-2 text-left transition ${
+                      className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
                         exerciseOrderMode === "free"
-                          ? "theme-accent-solid"
-                          : "bg-[color:var(--card)] text-[color:var(--text)]"
+                          ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
+                          : "text-[color:var(--text-muted)]"
                       }`}
                     >
-                      <span className="block text-sm font-semibold">
-                        Orden libre
-                      </span>
-                      <span className="mt-0.5 block text-[11px] font-normal leading-tight opacity-75">
-                        Mezcla y arrastra
-                      </span>
+                      Libre
                     </button>
                   </div>
                 </section>
@@ -3325,10 +3445,13 @@ function PlanRoutineChoiceModal({
     scheduleMode === "fixed"
       ? PLAN_DAY_NAMES[Number(day?.dayIndex || 1) - 1] || "Día"
       : `Día ${day?.dayIndex || 1}`;
+  const assignableRoutines = useMemo(
+    () => getAssignableRoutines(routines, plan),
+    [plan, routines],
+  );
   const options = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return routines
-      .filter((routine) => routine.isArchived !== true)
+    return assignableRoutines
       .filter((routine) =>
         normalized
           ? String(routine.name || "")
@@ -3337,7 +3460,7 @@ function PlanRoutineChoiceModal({
           : true,
       )
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  }, [query, routines]);
+  }, [assignableRoutines, query]);
 
   const usageDays = useMemo(() => {
     const result = new Map();
@@ -3354,7 +3477,7 @@ function PlanRoutineChoiceModal({
     return result;
   }, [day?.slotId, plan?.weeklySchedule, scheduleMode]);
 
-  const selectedRoutine = routines.find(
+  const selectedRoutine = assignableRoutines.find(
     (routine) =>
       String(routine.id || routine._id) === String(selectedRoutineId),
   );
@@ -3426,7 +3549,7 @@ function PlanRoutineChoiceModal({
             </span>
           ) : null}
         </div>
-        {routines.length ? (
+        {assignableRoutines.length ? (
           <>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
@@ -4435,14 +4558,23 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     allowedBranches,
   } = useTrainingData();
 
-  const [libraryDraft] = useState(() =>
+  const [initialRoutineDraft] = useState(() =>
     isManagedClient ? null : readRoutineLibraryDraft(),
   );
-  const [modalMode, setModalMode] = useState(() =>
-    libraryDraft ? (libraryDraft.mode === "create" ? "create" : "edit") : null,
+  const resumesFromLibrary =
+    initialRoutineDraft && initialRoutineDraft.origin !== "autosave";
+  const [pendingRoutineDraft, setPendingRoutineDraft] = useState(() =>
+    resumesFromLibrary ? null : initialRoutineDraft,
   );
-  const [selectedRoutine, setSelectedRoutine] = useState(
-    () => libraryDraft?.routine || null,
+  const [modalMode, setModalMode] = useState(() =>
+    resumesFromLibrary
+      ? initialRoutineDraft.mode === "create"
+        ? "create"
+        : "edit"
+      : null,
+  );
+  const [selectedRoutine, setSelectedRoutine] = useState(() =>
+    resumesFromLibrary ? hydrateRoutineDraft(initialRoutineDraft) : null,
   );
   const [activeBranch, setActiveBranch] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -5037,6 +5169,13 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
 
   const openCreate = (planDay = null, { replacing = false } = {}) => {
     if (isManagedClient) return;
+    if (!planDay && pendingRoutineDraft) {
+      setSelectedRoutine(hydrateRoutineDraft(pendingRoutineDraft));
+      setModalMode(pendingRoutineDraft.mode === "edit" ? "edit" : "create");
+      setWorkspaceView("routines");
+      setPendingRoutineDraft(null);
+      return;
+    }
     setReplacementPlanDay(replacing ? planDay : null);
     setSelectedRoutine(
       planDay
@@ -5085,11 +5224,27 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const closeModal = () => {
     setSelectedRoutine(null);
     setModalMode(null);
+    setPendingRoutineDraft(null);
     setReplacementPlanDay(null);
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(ROUTINE_LIBRARY_DRAFT_KEY);
       localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
     }
+  };
+
+  const resumeRoutineDraft = () => {
+    if (!pendingRoutineDraft) return;
+    setSelectedRoutine(hydrateRoutineDraft(pendingRoutineDraft));
+    setModalMode(pendingRoutineDraft.mode === "edit" ? "edit" : "create");
+    setWorkspaceView("routines");
+    setPendingRoutineDraft(null);
+  };
+
+  const discardRoutineDraft = () => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(ROUTINE_LIBRARY_DRAFT_KEY);
+    }
+    setPendingRoutineDraft(null);
   };
 
   const handleSave = async (routine) => {
@@ -5635,6 +5790,43 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
             ) : null}
           </div>
         </div>
+
+        {!activePlan && pendingRoutineDraft ? (
+          <aside className="flex items-center gap-3 rounded-xl bg-[color:var(--surface-subtle)] px-3 py-3">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--text)]"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-[color:var(--text)]">
+                Rutina sin terminar
+              </p>
+              <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">
+                {pendingRoutineDraft.routine?.name || "Sin nombre"} ·{" "}
+                {pendingRoutineDraft.routine?.exercises?.length || 0}{" "}
+                {pendingRoutineDraft.routine?.exercises?.length === 1
+                  ? "ejercicio"
+                  : "ejercicios"}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={discardRoutineDraft}
+                className="h-9 rounded-full px-2 text-[11px] font-medium text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] sm:px-3 sm:text-xs"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                onClick={resumeRoutineDraft}
+                className="h-9 rounded-full bg-[#181918] px-3 text-[11px] font-semibold text-white dark:bg-[#e2ff00] dark:text-[#111211] sm:px-4 sm:text-xs"
+              >
+                Continuar
+              </button>
+            </div>
+          </aside>
+        ) : null}
 
         {!activePlan && !isCoach ? (
           <div

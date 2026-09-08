@@ -65,6 +65,10 @@ import {
 } from "../utils/calorieEstimate";
 import { getMonthActivityBarPercent } from "../utils/monthActivityChart";
 import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
+import {
+  estimateFullSessionDuration,
+  formatSessionDuration,
+} from "../utils/sessionDurationEstimate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1963,7 +1967,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [weeklyLoadModalOpen, setWeeklyLoadModalOpen] = useState(false);
   const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
   const [caloriesModalOpen, setCaloriesModalOpen] = useState(false);
-  const [weeklyDetailsOpen, setWeeklyDetailsOpen] = useState(false);
   const [quickWeightOpen, setQuickWeightOpen] = useState(false);
   const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(null);
   const hasOpenModal = Boolean(
@@ -2064,6 +2067,27 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const todayWeighInData = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.todayWeighIn
     : todayWeighInQuery.data;
+  const todayHydrationKey = [
+    "hydration",
+    "dashboard",
+    coachAthlete?.id || coachAthlete?._id || "self",
+    systemTodayKey,
+  ];
+  const todayHydrationQuery = useQuery({
+    queryKey: todayHydrationKey,
+    queryFn: () =>
+      api.getHydration({
+        athleteId: coachAthlete?.id || coachAthlete?._id || "",
+        date: systemTodayKey,
+        from: systemTodayKey,
+        to: systemTodayKey,
+      }),
+    staleTime: 15 * 1000,
+    enabled: !dashboardBootstrap.enabled,
+  });
+  const todayHydrationData = dashboardBootstrap.enabled
+    ? dashboardBootstrap.data?.todayHydration
+    : todayHydrationQuery.data?.summary;
   const needsDailyWeighIn =
     !isAdminDatePreview &&
     todayWeighInData &&
@@ -3323,6 +3347,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     latestCompletedToday?.exercises?.length ||
     0;
   const mobileRoutineMinutes = getRoutineEstimatedMinutes(mobileRoutine || {});
+  const mobileRoutineDuration = useMemo(
+    () =>
+      mobileRoutine
+        ? estimateFullSessionDuration(mobileRoutine, trainings, {
+            maxHistory: 8,
+          })
+        : null,
+    [mobileRoutine, trainings],
+  );
   const mobileWorkoutSubtitle =
     todayAction.type === "active"
       ? [todayAction.progressLabel, todayAction.elapsedLabel]
@@ -3337,9 +3370,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 mobileExerciseCount
                   ? formatExerciseCount(mobileExerciseCount)
                   : null,
-                mobileRoutineMinutes
-                  ? `${mobileRoutineMinutes} min aprox.`
-                  : null,
+                mobileRoutineDuration?.source === "history"
+                  ? `${formatSessionDuration(mobileRoutineDuration.minutes)} promedio`
+                  : mobileRoutineMinutes
+                    ? `${mobileRoutineMinutes} min aprox.`
+                    : null,
               ]
                 .filter(Boolean)
                 .join(" · ") || "Tu rutina está lista"
@@ -3352,6 +3387,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         ? `Completa ${mobileRoutineName}`
         : todayAction.type === "active"
           ? `Continúa ${mobileRoutineName}`
+          : todayAction.type === "completed"
+            ? mobileRoutineName
           : todayAction.title,
     subtitle: mobileWorkoutSubtitle,
     actionLabel: todayAction.primaryMobileLabel || todayAction.primaryLabel,
@@ -3359,6 +3396,26 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       todayAction.type === "rest"
         ? ""
         : getRoutineDashboardImage(mobileRoutineName),
+  };
+  const hydrationGoalMl = Math.max(
+    500,
+    Number(todayHydrationData?.goalMl) || 2500,
+  );
+  const hydrationTotalMl = Math.max(
+    0,
+    Number(todayHydrationData?.totalMl) || 0,
+  );
+  const mobileHydrationTask = {
+    hasData: hydrationTotalMl > 0,
+    completed:
+      Boolean(todayHydrationData?.completed) ||
+      hydrationTotalMl >= hydrationGoalMl,
+    progress: Math.min(
+      100,
+      Math.round((hydrationTotalMl / hydrationGoalMl) * 100),
+    ),
+    title: "Reto de hidratación",
+    subtitle: `${hydrationTotalMl.toLocaleString("es-BO")} de ${hydrationGoalMl.toLocaleString("es-BO")} ml`,
   };
   const mobileWeighInCompleted = Boolean(
     todayWeighInData?.summary?.completedToday,
@@ -3449,6 +3506,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         bestStreak={trainingStreaks.best}
         checkInTask={mobileCheckInTask}
         workoutTask={mobileWorkoutTask}
+        hydrationTask={mobileHydrationTask}
         weighInTask={mobileWeighInTask}
         weeklySessions={weekData.sessions}
         weeklyGoal={weeklySessionGoal}
@@ -3456,6 +3514,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenMenu={() => window.dispatchEvent(new Event("open-main-menu"))}
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
+        onOpenHydration={() => onNavigate("hidratacion")}
         onOpenWeighIn={() =>
           needsDailyWeighIn ? setQuickWeightOpen(true) : onNavigate("pesajes")
         }
@@ -3528,115 +3587,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         />
         <WeekStrip days={weekData.days} />
       </div>
-      <div className="hidden items-center justify-between gap-3 md:flex">
-        <p className="dashboard-pilot__section-label text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0]">
-          Rendimiento semanal
-        </p>
-        <button
-          type="button"
-          onClick={() => setWeeklyDetailsOpen((current) => !current)}
-          aria-expanded={weeklyDetailsOpen}
-          aria-controls="weekly-extra-metrics"
-          className="dashboard-weekly-toggle inline-flex h-8 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-[9px] font-black uppercase text-[color:var(--text)] transition hover:border-[color:var(--border-strong)]"
-        >
-          {weeklyDetailsOpen ? "Ver menos" : "Ver más"}
-        </button>
-      </div>
-
-      <div className="dashboard-weekly-grid hidden md:grid">
-        <StatCard
-          label="Entrenamientos"
-          value={weekData.sessions}
-          onClick={() => setDurationModalOpen(true)}
-        >
-          <div className="dashboard-weekly-metric__footer">
-            <span>Meta</span>
-            <strong>
-              {weeklySessionGoal
-                ? `${weeklySessionGoal} sesiones`
-                : "Sin meta definida"}
-            </strong>
-          </div>
-        </StatCard>
-        <StatCard
-          label="Calorías activas"
-          value={weeklyCalories.available ? weeklyCalories.calories : "--"}
-          suffix={weeklyCalories.available ? "cal" : ""}
-          onClick={() => setCaloriesModalOpen(true)}
-        >
-          <div className="dashboard-weekly-metric__footer">
-            <span>Basado en</span>
-            <strong>{formatSessionCount(weeklyCalories.sessions)}</strong>
-          </div>
-        </StatCard>
-        <StatCard
-          label="Tiempo total"
-          value={formatDashboardDuration(
-            durationSummary.sessionSeconds || weekData.totalSeconds,
-          )}
-          onClick={() => setDurationModalOpen(true)}
-        >
-          <div className="dashboard-weekly-metric__footer">
-            <span>Descanso</span>
-            <strong>
-              {formatActiveTrainingDuration(durationSummary.restSeconds || 0)}
-            </strong>
-          </div>
-        </StatCard>
-        <StatCard
-          label="Cambios registrados"
-          value={
-            Math.max(0, Number(weekData.improvements?.length) || 0) +
-            Math.max(0, Number(weekData.declines?.length) || 0)
-          }
-          onClick={() => setPerformanceDetailType("improvements")}
-        >
-          <div className="dashboard-weekly-metric__footer">
-            <span>{weekData.improvements?.length || 0} mejoras</span>
-            <strong>{weekData.declines?.length || 0} por recuperar</strong>
-          </div>
-        </StatCard>
-      </div>
-
-      {weeklyDetailsOpen ? (
-        <div
-          id="weekly-extra-metrics"
-          className="dashboard-weekly-extra hidden grid-cols-2 gap-3 md:grid"
-        >
-          <StatCard
-            label="Series completadas"
-            value={weeklySets.total}
-            onClick={() => setWeeklySetsModalOpen(true)}
-          >
-            <div className="dashboard-weekly-metric__footer">
-              <span>Promedio</span>
-              <strong>
-                {weeklySets.sessions
-                  ? `${Math.round(weeklySets.averagePerSession)} por sesión`
-                  : "Sin sesiones"}
-              </strong>
-            </div>
-          </StatCard>
-          <StatCard
-            label="Promedio por sesión"
-            value={
-              weekData.sessions
-                ? formatActiveTrainingDuration(
-                    (durationSummary.sessionSeconds || weekData.totalSeconds) /
-                      weekData.sessions,
-                  )
-                : "--"
-            }
-            onClick={() => setDurationModalOpen(true)}
-          >
-            <div className="dashboard-weekly-metric__footer">
-              <span>Referencia</span>
-              <strong>Incluye descansos</strong>
-            </div>
-          </StatCard>
-        </div>
-      ) : null}
-
       <p className="dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0] md:block">
         Recuperación actual
       </p>
