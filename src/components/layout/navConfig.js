@@ -6,6 +6,7 @@ import {
   Layers,
   LayoutDashboard,
   ListChecks,
+  MessageCircle,
   Shield,
   Weight,
   Users,
@@ -100,7 +101,11 @@ export const sections = [
 export const coachSections = [
   {
     heading: "Coach",
-    items: [{ id: "trainer", label: "Mis atletas", icon: Users }],
+    items: [
+      { id: "trainer", label: "Inicio", icon: LayoutDashboard },
+      { id: "coach_athletes", label: "Alumnos", icon: Users },
+      { id: "coach_messages", label: "Mensajes", icon: MessageCircle },
+    ],
   },
   {
     heading: "Herramientas",
@@ -185,4 +190,12 @@ export const managedClientSections = [
   },
 ];
 
-export const navLinks = sections.flatMap((section) => section.items);
+const standardNavLinks = sections.flatMap((section) => section.items);
+const standardNavIds = new Set(standardNavLinks.map((item) => item.id));
+
+export const navLinks = [
+  ...standardNavLinks,
+  ...coachSections
+    .flatMap((section) => section.items)
+    .filter((item) => !standardNavIds.has(item.id)),
+];

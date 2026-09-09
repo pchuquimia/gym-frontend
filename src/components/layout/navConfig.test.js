@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sections } from "./navConfig";
+import { coachSections, sections } from "./navConfig";
 
 const visibleFor = (role) =>
   sections
@@ -37,6 +37,14 @@ describe("configuracion del menu lateral", () => {
       "Progreso",
       "Historial",
       "Cuenta",
+    ]);
+  });
+
+  it("separa el inicio del coach de su cartera de alumnos", () => {
+    expect(coachSections[0].items.map((item) => item.id)).toEqual([
+      "trainer",
+      "coach_athletes",
+      "coach_messages",
     ]);
   });
 });

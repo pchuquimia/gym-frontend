@@ -2010,6 +2010,8 @@ button,
   :root:not(.dark) .app-shell[data-active-page="library"],
   :root:not(.dark) .app-shell[data-active-page="perfil"],
   :root:not(.dark) .app-shell[data-active-page="trainer"],
+  :root:not(.dark) .app-shell[data-active-page="coach_athletes"],
+  :root:not(.dark) .app-shell[data-active-page="coach_messages"],
   :root:not(.dark) .app-shell[data-active-page="data_intelligence"] {
     --bg: #f5f1e8;
     --surface: #fffdf8;
@@ -3340,7 +3342,9 @@ button,
   color: #fff;
   box-shadow: 0 0.875rem 2rem
     color-mix(in srgb, var(--hydration-accent) 24%, transparent);
-  transition: transform 160ms ease, opacity 160ms ease;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
 }
 
 .hydration-tracker__add:active {

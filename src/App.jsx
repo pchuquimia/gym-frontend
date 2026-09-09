@@ -15,7 +15,9 @@ import LegalPage from "./pages/LegalPage";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 import PageErrorBoundary from "./components/system/PageErrorBoundary";
 import OperationLoader from "./components/system/OperationLoader";
+import { toast } from "sonner";
 import { useAuth } from "./context/AuthContext";
+import { api } from "./services/api";
 import { TrainingProvider } from "./context/TrainingContext";
 import { RoutineProvider } from "./context/RoutineContext";
 import { UserProvider } from "./context/UserContext";
@@ -27,6 +29,12 @@ import {
   readActiveTrainingSnapshot,
 } from "./utils/activeTraining";
 import { getUserHome, needsOnboarding } from "./utils/userFlow";
+import {
+  clearCoachInvitation,
+  invitationTokenFromPath,
+  readCoachInvitation,
+  storeCoachInvitation,
+} from "./utils/coachInvitation";
 import {
   canReturnWithinApp,
   createAppHistoryState,
@@ -53,12 +61,14 @@ const Routines = lazy(() => import("./pages/Routines"));
 const PhotosLibrary = lazy(() => import("./pages/PhotosLibrary"));
 const TrainingAdmin = lazy(() => import("./pages/TrainingAdmin"));
 const CoachDashboard = lazy(() => import("./pages/CoachDashboard"));
+const CoachMessages = lazy(() => import("./pages/CoachMessages"));
 const CoachManagement = lazy(() => import("./pages/CoachManagement"));
 const WeightTracking = lazy(() => import("./pages/WeightTracking"));
 const DailyCheckIn = lazy(() => import("./pages/DailyCheckIn"));
 const HydrationTracker = lazy(() => import("./pages/HydrationTracker"));
 const BillingCenter = lazy(() => import("./pages/BillingCenter"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const CoachInvitation = lazy(() => import("./pages/CoachInvitation"));
 
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
@@ -83,6 +93,8 @@ const PAGES = {
   },
   rutinas: { label: "Rutinas y Planificacion", component: Routines },
   trainer: { label: "Mis atletas", component: CoachDashboard },
+  coach_athletes: { label: "Alumnos", component: CoachDashboard },
+  coach_messages: { label: "Mensajes", component: CoachMessages },
   coach_admin: { label: "Coaches y atletas", component: CoachManagement },
   admin_sesiones: { label: "Historial de sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
@@ -99,6 +111,8 @@ const PAGE_ROLES = {
   imagenes_ejercicios: ["Admin"],
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
+  coach_athletes: ["Entrenador"],
+  coach_messages: ["Entrenador"],
   coach_admin: ["Admin"],
   onboarding: ["Cliente", "Entrenador"],
 };
@@ -108,6 +122,8 @@ const LEGACY_TRAINING_KEY = "active_training";
 const COACH_ATHLETE_KEY = "coach_athlete_context";
 const COACH_ALLOWED_PAGES = new Set([
   "trainer",
+  "coach_athletes",
+  "coach_messages",
   "rutinas",
   "library",
   "ejercicio_analitica",
@@ -186,10 +202,12 @@ const PUBLIC_PATHS = {
 };
 const PUBLIC_PAGES = new Set(Object.keys(PUBLIC_PATHS));
 const ROUTE_PATHS = { ...AUTH_PATHS, ...PUBLIC_PATHS };
+const ROUTED_PAGES = new Set([...Object.keys(ROUTE_PATHS), "invitation"]);
 
 const pageFromPath = () => {
   if (typeof window === "undefined") return null;
   const path = window.location.pathname.replace(/\/$/, "") || "/";
+  if (invitationTokenFromPath(path)) return "invitation";
   return (
     Object.entries(ROUTE_PATHS).find(([, value]) => value === path)?.[0] || null
   );
@@ -219,7 +237,7 @@ const getActiveTrainingOwnerId = () => {
 };
 
 function App() {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, refreshUser } = useAuth();
   const [activePage, setActivePage] = useState(() => {
     if (typeof localStorage === "undefined") return "login";
     const routePage = pageFromPath();
@@ -237,6 +255,7 @@ function App() {
   const [restoreScrollY, setRestoreScrollY] = useState(null);
   const [pageHidesMobileNavigation, setPageHidesMobileNavigation] =
     useState(false);
+  const acceptingInvitationRef = useRef(false);
   const handleMobileNavVisibilityChange = useCallback((hidden) => {
     setPageHidesMobileNavigation(Boolean(hidden));
   }, []);
@@ -244,6 +263,14 @@ function App() {
   useEffect(() => {
     setPageHidesMobileNavigation(false);
   }, [activePage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const inviteToken = new URLSearchParams(window.location.search).get(
+      "invite",
+    );
+    if (inviteToken) storeCoachInvitation(inviteToken);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -347,9 +374,12 @@ function App() {
       const nextIndex = replace
         ? navigationIndexRef.current
         : navigationIndexRef.current + 1;
-      const target = ROUTE_PATHS[page]
-        ? `${ROUTE_PATHS[page]}${page === "reset" ? window.location.search : ""}`
-        : "/";
+      const target =
+        page === "invitation"
+          ? `/invitacion/${readCoachInvitation()}`
+          : ROUTE_PATHS[page]
+            ? `${ROUTE_PATHS[page]}${page === "reset" ? window.location.search : ""}`
+            : "/";
       const nextState = createAppHistoryState({
         currentState: replace ? currentState : null,
         page,
@@ -367,7 +397,7 @@ function App() {
     setRestoreScrollY(null);
     setActivePage(page);
     if (typeof localStorage !== "undefined") {
-      if (ROUTE_PATHS[page]) {
+      if (ROUTED_PAGES.has(page)) {
         localStorage.removeItem("active_page");
       } else {
         localStorage.setItem("active_page", page);
@@ -426,7 +456,7 @@ function App() {
       navigationIndexRef.current = nextIndex;
       setRestoreScrollY(getAppHistoryScroll(event.state));
       setActivePage(nextPage);
-      if (ROUTE_PATHS[nextPage]) localStorage.removeItem("active_page");
+      if (ROUTED_PAGES.has(nextPage)) localStorage.removeItem("active_page");
       else localStorage.setItem("active_page", nextPage);
     };
     window.addEventListener("popstate", handlePopState);
@@ -434,7 +464,7 @@ function App() {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
-    if (PUBLIC_PAGES.has(activePage)) return;
+    if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     if (!isAuthenticated || user?.role !== "Entrenador") return;
     if (COACH_ATHLETE_CONTEXT_PAGES.has(activePage) && !coachAthlete?.id) {
       handleNavigate("trainer", { replace: true });
@@ -448,7 +478,7 @@ function App() {
   }, [activePage, coachAthlete, isAuthenticated, user?.role]);
 
   useEffect(() => {
-    if (PUBLIC_PAGES.has(activePage)) return;
+    if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     const isManagedClient =
       user?.role === "Cliente" && user?.trainingMode === "coach_managed";
     if (
@@ -462,7 +492,7 @@ function App() {
   }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
 
   useEffect(() => {
-    if (PUBLIC_PAGES.has(activePage)) return;
+    if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     if (!isAuthenticated) return;
     if (needsOnboarding(user) && activePage !== "onboarding") {
       handleNavigate("onboarding", { replace: true });
@@ -483,6 +513,48 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.onboarding?.status, user?.role]);
+
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      user?.role !== "Cliente" ||
+      activePage === "invitation" ||
+      acceptingInvitationRef.current
+    ) {
+      return;
+    }
+    const invitationToken = readCoachInvitation();
+    if (!invitationToken) return;
+    acceptingInvitationRef.current = true;
+    api
+      .acceptCoachInvitation(invitationToken)
+      .then(async (result) => {
+        clearCoachInvitation();
+        const refreshedUser = await refreshUser({ force: true });
+        toast.success("Ya estás conectado con tu coach", {
+          description: `${result.coach?.name || "Tu coach"} ya puede preparar tu seguimiento.`,
+        });
+        handleNavigate(
+          needsOnboarding(refreshedUser) ? "onboarding" : "dashboard",
+          { replace: true },
+        );
+      })
+      .catch((error) => {
+        if (error.code === "COACH_TRANSFER_CONFIRMATION_REQUIRED") {
+          handleNavigate("invitation", { replace: true });
+          return;
+        }
+        if ([404, 410].includes(error.status)) clearCoachInvitation();
+        toast.error("No pudimos completar la invitación", {
+          description: error.message || "Abre nuevamente el enlace del coach.",
+        });
+      })
+      .finally(() => {
+        acceptingInvitationRef.current = false;
+      });
+    // La aceptación debe ejecutarse una sola vez al completar el acceso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage, isAuthenticated, user?.id, user?.role]);
 
   const pageEntry = useMemo(
     () => PAGES[activePage] || PAGES.dashboard,
@@ -508,6 +580,13 @@ function App() {
 
   if (PUBLIC_PAGES.has(activePage)) {
     return <LegalPage kind={activePage} />;
+  }
+
+  if (activePage === "invitation") {
+    const token =
+      invitationTokenFromPath(window.location.pathname) ||
+      readCoachInvitation();
+    return <CoachInvitation token={token} onNavigate={handleNavigate} />;
   }
 
   if (loading) {
@@ -606,6 +685,7 @@ function App() {
                     <RoleBasedRoute roles={allowedRoles}>
                       <PageComponent
                         pageKey={pageEntry.label}
+                        pageId={activePage}
                         onNavigate={handleNavigate}
                         onBack={handleBack}
                         coachAthlete={coachAthlete}

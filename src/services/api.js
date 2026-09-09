@@ -132,6 +132,18 @@ export const api = {
   getCoachLinkCode: () => request("/api/coach/link-code"),
   regenerateCoachLinkCode: () =>
     request("/api/coach/link-code/regenerate", { method: "POST" }),
+  getCoachInvitation: (token) =>
+    request(`/api/coach/invitations/${encodeURIComponent(token)}`),
+  getCoachInvitations: () => request("/api/coach/invitations"),
+  createCoachInvitation: () =>
+    request("/api/coach/invitations", { method: "POST" }),
+  revokeCoachInvitation: (invitationId) =>
+    request(`/api/coach/invitations/${invitationId}`, { method: "DELETE" }),
+  acceptCoachInvitation: (token, confirmTransfer = false) =>
+    request(`/api/coach/invitations/${encodeURIComponent(token)}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ confirmTransfer }),
+    }),
   getCoachRelationship: () => request("/api/coach/relationship"),
   connectCoach: (coachCode, confirmTransfer = false) =>
     request("/api/coach/relationship", {

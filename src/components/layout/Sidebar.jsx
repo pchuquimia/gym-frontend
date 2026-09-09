@@ -23,13 +23,17 @@ const mobileNavOrder = [
   "perfil",
   "planes",
   "trainer",
+  "coach_athletes",
+  "coach_messages",
   "coach_admin",
   "editor_historial",
   "imagenes_ejercicios",
 ];
 
 const mobileLabels = {
-  trainer: "Atletas",
+  trainer: "Inicio",
+  coach_athletes: "Alumnos",
+  coach_messages: "Mensajes",
   coach_admin: "Coaches",
   dashboard: "Inicio",
   registrar: "Entrenar",
@@ -91,7 +95,7 @@ const coachMobileGroups = [
   {
     title: "Coach",
     detail: "Gestión diaria",
-    ids: ["trainer"],
+    ids: ["trainer", "coach_athletes", "coach_messages"],
   },
   {
     title: "Herramientas",

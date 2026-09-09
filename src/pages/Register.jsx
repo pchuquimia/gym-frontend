@@ -25,6 +25,7 @@ import {
   validateUsername,
 } from "../utils/authValidation";
 import { getUserHome } from "../utils/userFlow";
+import { readCoachInvitation } from "../utils/coachInvitation";
 
 const inputClass =
   "h-14 w-full border-0 border-b border-[color:var(--auth-border)] bg-transparent pl-4 pr-4 font-sans text-sm font-normal tracking-normal text-[#50524d] outline-none transition placeholder:font-normal placeholder:text-[#d0d2cc] placeholder:opacity-100 hover:border-[#b9bbb4] focus:border-[color:var(--auth-text)] focus:ring-0";
@@ -88,6 +89,7 @@ export default function Register({ onNavigate = () => {} }) {
         ...form,
         username: normalizeUsername(form.username),
         email: form.email.trim(),
+        coachInvitationToken: readCoachInvitation() || undefined,
       });
       if (result?.verificationRequired) {
         setVerificationEmail(result.email || form.email.trim());

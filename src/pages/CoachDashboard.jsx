@@ -3,10 +3,12 @@ import {
   ArrowLeft,
   AlertTriangle,
   BarChart3,
+  Bell,
   CalendarPlus,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  ClipboardList,
   Copy,
   FileText,
   Link2,
@@ -14,21 +16,26 @@ import {
   Pencil,
   Play,
   MoreVertical,
+  MessageCircle,
   Search,
   Sparkles,
   Target,
   Trash2,
   UserMinus,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Badge from "../components/ui/badge";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
 import PremiumGate from "../components/shared/PremiumGate";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import { SessionHistory } from "./TrainingAdmin";
 import { useAuth } from "../context/AuthContext";
+import { useUserProfile } from "../context/UserContext";
 import { useRoutines } from "../context/RoutineContext";
 import { api } from "../services/api";
 import {
@@ -111,6 +118,12 @@ const initials = (name = "") =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "A";
+
+const compactName = (name = "") => {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "Alumno";
+  return parts.length === 1 ? parts[0] : `${parts[0]} ${parts[1][0]}.`;
+};
 
 function AthleteRow({ athlete, selected, blocked = false, onClick }) {
   return (
@@ -257,6 +270,422 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
   );
 }
 
+const daysSince = (value) => {
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+};
+
+const relativeTrainingDate = (value) => {
+  const elapsed = daysSince(value);
+  if (elapsed === null) return "";
+  if (elapsed === 0) return "Hoy";
+  if (elapsed === 1) return "Ayer";
+  return `Hace ${elapsed} días`;
+};
+
+const getBasicCoachAlert = (athlete) => {
+  if (!Number(athlete.routineCount || 0)) {
+    return "Necesita una rutina asignada";
+  }
+  if (!Number(athlete.trainingCount || 0)) {
+    return "Aún no registra entrenamientos";
+  }
+  const inactiveDays = daysSince(athlete.lastTraining?.date);
+  if (inactiveDays !== null && inactiveDays >= 7) {
+    return `Sin entrenar hace ${inactiveDays} días`;
+  }
+  return "";
+};
+
+function CoachHome({
+  athletes,
+  portfolio,
+  loading,
+  user,
+  inviteOpen,
+  setInviteOpen,
+  invitation,
+  invitationLoading,
+  onCopyInvitation,
+  onWhatsAppInvitation,
+  onRevokeInvitation,
+  onRetryInvitation,
+  onOpenAthlete,
+  onNavigate,
+  onDismissWelcome,
+}) {
+  const { profile } = useUserProfile();
+  const athleteById = useMemo(
+    () =>
+      new Map(
+        athletes.map((athlete) => [
+          String(athlete.id || athlete._id || ""),
+          athlete,
+        ]),
+      ),
+    [athletes],
+  );
+  const alerts = useMemo(() => {
+    if (Array.isArray(portfolio?.alerts) && portfolio.alerts.length) {
+      return portfolio.alerts.slice(0, 3).map((alert) => {
+        const athleteId = String(alert.athleteId || "");
+        return {
+          athleteId,
+          athleteName: alert.athleteName,
+          avatarPhotoId: athleteById.get(athleteId)?.profile?.avatarPhotoId,
+          detail: alert.title,
+          severity: alert.severity,
+        };
+      });
+    }
+    return athletes
+      .map((athlete) => ({
+        athleteId: String(athlete.id || athlete._id || ""),
+        athleteName: athlete.name,
+        avatarPhotoId: athlete.profile?.avatarPhotoId,
+        detail: getBasicCoachAlert(athlete),
+        severity: Number(athlete.routineCount || 0) ? "medium" : "high",
+      }))
+      .filter((item) => item.detail)
+      .slice(0, 3);
+  }, [athleteById, athletes, portfolio]);
+  const recentActivity = useMemo(
+    () =>
+      [...athletes]
+        .filter((athlete) => athlete.lastTraining?.date)
+        .sort((left, right) =>
+          String(right.lastTraining.date).localeCompare(
+            String(left.lastTraining.date),
+          ),
+        )
+        .slice(0, 3),
+    [athletes],
+  );
+  const summary = portfolio?.summary || {};
+  const attentionCount = Number(summary.attention ?? alerts.length);
+  const withoutRoutine = athletes.filter(
+    (athlete) => !Number(athlete.routineCount || 0),
+  ).length;
+  const firstName = String(user?.name || "Coach")
+    .trim()
+    .split(/\s+/)[0];
+  const currentHour = new Date().getHours();
+  const greeting =
+    currentHour < 12
+      ? "Buenos días"
+      : currentHour < 20
+        ? "Buenas tardes"
+        : "Buenas noches";
+  return (
+    <main className="mx-auto w-full max-w-[920px] pb-28 text-[color:var(--text)] sm:pb-12">
+      <header className="flex min-h-[72px] items-center justify-between gap-3 px-1 sm:px-0">
+        <h1 className="text-[36px] font-bold leading-none tracking-[-0.055em] sm:text-[42px]">
+          Mis alumnos
+        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              toast.info("Sin notificaciones nuevas", {
+                description:
+                  "Te avisaremos cuando un alumno requiera atención.",
+              })
+            }
+            className="relative grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] transition-transform active:scale-95"
+            aria-label="Notificaciones"
+          >
+            <Bell className="h-6 w-6" strokeWidth={1.8} />
+            {attentionCount > 0 ? (
+              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-[color:var(--card)]" />
+            ) : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("perfil")}
+            className="shrink-0 rounded-full ring-offset-2 ring-offset-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--text)]"
+            aria-label="Abrir perfil"
+          >
+            <ProfileAvatar
+              photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+              name={user?.name}
+              className="h-14 w-14 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-semibold"
+            />
+          </button>
+        </div>
+      </header>
+
+      <section className="mt-7 flex items-center justify-between gap-4 px-1">
+        <div className="min-w-0">
+          <h2 className="truncate text-[26px] font-bold leading-none tracking-[-0.04em] sm:text-[30px]">
+            {greeting}, {firstName}
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setInviteOpen((current) => !current);
+            onDismissWelcome();
+          }}
+          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-transparent px-4 text-sm font-semibold transition-colors hover:bg-[color:var(--card)] active:scale-[0.98]"
+        >
+          <UserPlus className="h-5 w-5" />
+          Invitar alumno
+        </button>
+      </section>
+
+      {inviteOpen ? (
+        <section className="mt-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_14px_35px_rgba(20,20,20,0.05)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold tracking-[-0.03em]">
+                Invitar alumno
+              </h3>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                Envíale este enlace para unirse a tu equipo.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInviteOpen(false)}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)]"
+              aria-label="Cerrar invitación"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {invitationLoading ? (
+            <div className="mt-4 space-y-2.5">
+              <div className="h-11 animate-pulse rounded-xl bg-[color:var(--bg)]" />
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
+                <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
+              </div>
+            </div>
+          ) : invitation?.invitationUrl ? (
+            <div className="mt-4">
+              <div className="flex h-11 items-center gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
+                <Link2 className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                <input
+                  type="text"
+                  readOnly
+                  value={invitation.invitationUrl}
+                  onFocus={(event) => event.currentTarget.select()}
+                  aria-label="Enlace de invitación"
+                  className="min-w-0 flex-1 truncate bg-transparent text-xs font-medium outline-none"
+                />
+              </div>
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={onWhatsAppInvitation}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25d366] px-3 text-xs font-bold text-[#071a0e] transition-transform active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={onCopyInvitation}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[color:var(--text)] px-3 text-xs font-semibold text-[color:var(--bg)] transition-transform active:scale-[0.98]"
+                >
+                  <Copy className="h-4 w-4" /> Copiar enlace
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3 px-1 text-[11px] text-[color:var(--text-muted)]">
+                <span>Vence en 7 días · Un solo uso</span>
+                <button
+                  type="button"
+                  onClick={onRevokeInvitation}
+                  className="font-semibold underline decoration-current/30 underline-offset-2"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-600">
+              <span>No pudimos generar el enlace.</span>
+              <button
+                type="button"
+                onClick={onRetryInvitation}
+                className="shrink-0 font-bold underline underline-offset-2"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      <section className="mt-4 overflow-hidden rounded-[28px] bg-[#191a19] px-5 py-6 text-white shadow-[0_22px_55px_rgba(15,15,15,0.12)] dark:bg-[#f2f1ec] dark:text-[#121312] sm:px-7 sm:py-7">
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-current/75">
+          Hoy
+        </p>
+        <div className="mt-5 grid grid-cols-2">
+          <button
+            type="button"
+            onClick={() => alerts[0] && onOpenAthlete(alerts[0].athleteId)}
+            className="flex min-w-0 items-center gap-3 border-r border-current/15 pr-4 text-left"
+          >
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/10 dark:bg-black/10">
+              <Users className="h-6 w-6" strokeWidth={1.7} />
+            </span>
+            <span className="min-w-0">
+              <strong className="block text-[34px] font-bold leading-none tracking-[-0.04em]">
+                {loading ? "—" : attentionCount}
+              </strong>
+              <span className="mt-1.5 block text-[13px] leading-tight text-current/70">
+                requieren atención
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("coach_athletes")}
+            className="flex min-w-0 items-center gap-3 pl-4 text-left"
+          >
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/10 dark:bg-black/10">
+              <ClipboardList className="h-6 w-6" strokeWidth={1.7} />
+            </span>
+            <span className="min-w-0">
+              <strong className="block text-[34px] font-bold leading-none tracking-[-0.04em]">
+                {loading ? "—" : withoutRoutine}
+              </strong>
+              <span className="mt-1.5 block text-[13px] leading-tight text-current/70">
+                planes por revisar
+              </span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <div className="mt-7 flex items-center justify-between gap-3 px-1">
+        <h2 className="text-[27px] font-bold tracking-[-0.045em]">
+          Prioridades
+        </h2>
+        <button
+          type="button"
+          onClick={() => onNavigate("coach_athletes")}
+          className="inline-flex h-10 items-center gap-1 px-1 text-sm font-medium text-[color:var(--text-muted)]"
+        >
+          Ver todos <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <section className="mt-3 space-y-2.5">
+        {loading ? (
+          <div className="space-y-2.5" aria-label="Cargando prioridades">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="grid min-h-[96px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 sm:px-5"
+              >
+                <span className="h-14 w-14 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
+                <span>
+                  <span className="block h-4 w-24 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
+                  <span className="mt-2 block h-3 w-36 max-w-full animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
+                </span>
+                <span className="h-5 w-3 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
+              </div>
+            ))}
+          </div>
+        ) : alerts.length ? (
+          <div className="space-y-2.5">
+            {alerts.map((alert) => (
+              <button
+                key={`${alert.athleteId}-${alert.detail}`}
+                type="button"
+                onClick={() => onOpenAthlete(alert.athleteId)}
+                className="grid min-h-[96px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 text-left shadow-[0_8px_24px_rgba(20,20,20,0.035)] transition-transform active:scale-[0.99] sm:px-5"
+              >
+                <ProfileAvatar
+                  photoId={alert.avatarPhotoId}
+                  name={alert.athleteName}
+                  className="h-14 w-14 rounded-full bg-[color:var(--bg)] text-sm font-semibold"
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-[18px] font-bold tracking-[-0.025em]">
+                    {compactName(alert.athleteName)}
+                  </span>
+                  <span className="mt-1 block truncate text-[15px] font-normal text-[color:var(--text-muted)]">
+                    {alert.detail}
+                  </span>
+                </span>
+                <ChevronRight className="h-6 w-6 text-[color:var(--text-muted)]" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex min-h-[96px] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-5">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--bg)]">
+              <CheckCircle2 className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-[17px] font-bold">Sin prioridades hoy</p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                Tus alumnos están al día.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h2 className="text-[27px] font-bold tracking-[-0.045em]">
+            Actividad reciente
+          </h2>
+          <button
+            type="button"
+            onClick={() => onNavigate("admin_sesiones")}
+            className="inline-flex h-10 items-center gap-1 px-1 text-sm font-medium text-[color:var(--text-muted)]"
+          >
+            Ver todas <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 space-y-2.5">
+          {recentActivity.length ? (
+            recentActivity.map((athlete) => (
+              <button
+                key={athlete.id || athlete._id}
+                type="button"
+                onClick={() =>
+                  onOpenAthlete(String(athlete.id || athlete._id || ""))
+                }
+                className="grid min-h-[94px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 text-left shadow-[0_8px_24px_rgba(20,20,20,0.035)] sm:px-5"
+              >
+                <ProfileAvatar
+                  photoId={athlete.profile?.avatarPhotoId}
+                  name={athlete.name}
+                  className="h-14 w-14 rounded-full bg-[color:var(--bg)] text-sm font-semibold"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[18px] font-bold tracking-[-0.025em]">
+                    {compactName(athlete.name)}
+                  </span>
+                  <span className="mt-1 block truncate text-[15px] text-[color:var(--text-muted)]">
+                    Completó{" "}
+                    {athlete.lastTraining?.routineName || "su entrenamiento"}
+                  </span>
+                </span>
+                <span className="text-sm text-[color:var(--text-muted)]">
+                  {relativeTrainingDate(athlete.lastTraining?.date)}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="flex min-h-[94px] items-center rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 text-sm text-[color:var(--text-muted)]">
+              Todavía no hay actividad reciente.
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function WeeklyReportPanel({
   report,
   loading,
@@ -383,6 +812,7 @@ export default function CoachDashboard({
   onNavigate = () => {},
   onSelectCoachAthlete = () => {},
   coachAthlete = null,
+  pageId = "trainer",
 }) {
   const { user } = useAuth();
   const canUsePortfolio = hasPremiumFeature(
@@ -433,9 +863,13 @@ export default function CoachDashboard({
       : null;
   }, [coachAthlete, user]);
   const activeAthleteId = String(activeSession?.ownerId || "");
-  const [selectedId, setSelectedId] = useState(
-    activeSession ? activeAthleteId : "",
-  );
+  const [selectedId, setSelectedId] = useState(() => {
+    if (activeSession) return activeAthleteId;
+    if (pageId !== "coach_athletes" || typeof window === "undefined") {
+      return "";
+    }
+    return window.sessionStorage.getItem("rirfit_coach_selected_athlete") || "";
+  });
   const [overview, setOverview] = useState(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -453,6 +887,9 @@ export default function CoachDashboard({
   );
   const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
   const [linkCodeLoading, setLinkCodeLoading] = useState(true);
+  const [invitation, setInvitation] = useState(null);
+  const [invitationLoading, setInvitationLoading] = useState(false);
+  const [invitationRetry, setInvitationRetry] = useState(0);
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
@@ -462,6 +899,11 @@ export default function CoachDashboard({
     if (!coachWelcome || typeof window === "undefined") return;
     window.sessionStorage.removeItem("rirfit_coach_welcome");
   }, [coachWelcome]);
+
+  useEffect(() => {
+    if (pageId !== "coach_athletes" || typeof window === "undefined") return;
+    window.sessionStorage.removeItem("rirfit_coach_selected_athlete");
+  }, [pageId]);
 
   const loadAthletes = useCallback(
     async ({ silent = false } = {}) => {
@@ -512,6 +954,31 @@ export default function CoachDashboard({
     }
   }, [loadAthletes, user?.role]);
 
+  useEffect(() => {
+    if (!inviteOpen || invitation) return;
+    let active = true;
+    setInvitationLoading(true);
+    api
+      .createCoachInvitation()
+      .then((created) => {
+        if (!active) return;
+        setInvitation(created);
+      })
+      .catch((error) => {
+        if (active) {
+          toast.error("No pudimos crear la invitación", {
+            description: error.message || "Inténtalo nuevamente.",
+          });
+        }
+      })
+      .finally(() => {
+        if (active) setInvitationLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [invitation, invitationRetry, inviteOpen]);
+
   const copyCoachCode = async () => {
     if (!linkInfo.coachCode) return;
     try {
@@ -522,6 +989,44 @@ export default function CoachDashboard({
       });
     } catch {
       toast.error("No se pudo copiar el código");
+    }
+  };
+
+  const copyInvitation = async () => {
+    if (!invitation?.invitationUrl) return;
+    try {
+      await navigator.clipboard.writeText(invitation.invitationUrl);
+      toast.success("Enlace copiado", {
+        description: "Ya puedes enviárselo a tu alumno.",
+      });
+    } catch {
+      toast.error("No pudimos copiar el enlace");
+    }
+  };
+
+  const openWhatsAppInvitation = () => {
+    if (!invitation?.invitationUrl) return;
+    const message = encodeURIComponent(
+      `${user?.name || "Tu coach"} te invitó a entrenar en Rirfit. Crea tu cuenta desde aquí: ${invitation.invitationUrl}`,
+    );
+    window.open(
+      `https://wa.me/?text=${message}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const revokeInvitation = async () => {
+    if (!invitation?.id) return;
+    try {
+      await api.revokeCoachInvitation(invitation.id);
+      setInvitation(null);
+      setInviteOpen(false);
+      toast.success("Invitación cancelada");
+    } catch (error) {
+      toast.error("No pudimos cancelar la invitación", {
+        description: error.message || "Inténtalo nuevamente.",
+      });
     }
   };
 
@@ -886,6 +1391,39 @@ export default function CoachDashboard({
       setDraftLoading(false);
     }
   };
+
+  if (pageId === "trainer" && user?.role === "Entrenador") {
+    return (
+      <CoachHome
+        athletes={athletes}
+        portfolio={portfolio}
+        loading={loading}
+        user={user}
+        inviteOpen={inviteOpen}
+        setInviteOpen={setInviteOpen}
+        invitation={invitation}
+        invitationLoading={invitationLoading}
+        onCopyInvitation={copyInvitation}
+        onWhatsAppInvitation={openWhatsAppInvitation}
+        onRevokeInvitation={revokeInvitation}
+        onRetryInvitation={() => {
+          setInvitation(null);
+          setInvitationRetry((current) => current + 1);
+        }}
+        onDismissWelcome={() => setCoachWelcome(false)}
+        onNavigate={onNavigate}
+        onOpenAthlete={(athleteId) => {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+              "rirfit_coach_selected_athlete",
+              String(athleteId),
+            );
+          }
+          onNavigate("coach_athletes");
+        }}
+      />
+    );
+  }
 
   return (
     <main className="dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">

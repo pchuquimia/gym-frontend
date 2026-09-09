@@ -66,4 +66,24 @@ describe("MobileNav", () => {
       inactiveItem.querySelector('[data-nav-icon="outline"]'),
     ).toBeInTheDocument();
   });
+
+  it("muestra al coach un inicio operativo y destinos profesionales reales", async () => {
+    const onNavigate = vi.fn();
+    mockUseAuth.mockReturnValue({ user: { role: "Entrenador" } });
+
+    render(<MobileNav activePage="trainer" onNavigate={onNavigate} />);
+
+    expect(screen.getByRole("button", { name: "Inicio" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Alumnos" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Planes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mensajes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Perfil" })).toBeVisible();
+    expect(screen.getAllByRole("button")).toHaveLength(5);
+
+    await userEvent.click(screen.getByRole("button", { name: "Alumnos" }));
+    expect(onNavigate).toHaveBeenCalledWith("coach_athletes");
+  });
 });

@@ -33,6 +33,10 @@ function MainLayout({
   const useDashboardChrome = activePage === "dashboard";
   const useDailyCheckInChrome = activePage === "check_in";
   const useHydrationChrome = activePage === "hidratacion";
+  const useCoachChrome =
+    activePage === "trainer" ||
+    activePage === "coach_athletes" ||
+    activePage === "coach_messages";
   const useDashboardBackground =
     useDashboardChrome ||
     useDailyCheckInChrome ||
@@ -41,6 +45,8 @@ function MainLayout({
     activePage === "rutinas" ||
     activePage === "library" ||
     activePage === "trainer" ||
+    activePage === "coach_athletes" ||
+    activePage === "coach_messages" ||
     activePage === "perfil" ||
     activePage === "fotos" ||
     activePage === "admin_sesiones" ||
@@ -180,7 +186,8 @@ function MainLayout({
     : useDashboardChrome ||
         useDailyCheckInChrome ||
         useLibraryChrome ||
-        useRoutinesChrome
+        useRoutinesChrome ||
+        useCoachChrome
       ? "max-lg:pb-28 max-lg:pt-0"
       : useProfileChrome || useSessionSummaryChrome
         ? "max-lg:pb-4 max-lg:pt-0"
@@ -249,7 +256,8 @@ function MainLayout({
               useRoutinesChrome ||
               usePhotosChrome ||
               useImageStudioChrome ||
-              useAnalyticsChrome
+              useAnalyticsChrome ||
+              useCoachChrome
                 ? "hidden"
                 : useTrainingChrome
                   ? "hidden"
