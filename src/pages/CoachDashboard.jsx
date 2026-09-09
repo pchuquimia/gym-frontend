@@ -53,6 +53,10 @@ import {
 } from "../utils/activeTraining";
 import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 
+const COACH_PLAN_ASSIGNMENT_KEY = "rirfit_coach_plan_assignment";
+const COACH_REQUESTED_VIEW_KEY = "rirfit_coach_requested_view";
+const COACH_REQUESTED_PLAN_KEY = "rirfit_coach_requested_plan";
+
 const formatDate = (value) => {
   if (!value) return "Sin entrenamientos";
   const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -413,6 +417,8 @@ const activityImageFor = (routineName = "") => {
 function MobileAthleteProfileHeader({
   athlete,
   activeSession,
+  title = "Perfil del alumno",
+  planDetail = false,
   onBack,
   onMessage,
   onEditPlan,
@@ -430,7 +436,7 @@ function MobileAthleteProfileHeader({
           <ArrowLeft className="h-7 w-7" strokeWidth={1.8} />
         </button>
         <h1 className="text-center text-[20px] font-semibold tracking-[-0.025em]">
-          Perfil del alumno
+          {title}
         </h1>
         <details className="overflow-menu relative justify-self-end">
           <summary
@@ -462,7 +468,13 @@ function MobileAthleteProfileHeader({
         </details>
       </header>
 
-      <section className="mt-1 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 px-1 min-[440px]:grid-cols-[76px_minmax(90px,1fr)_102px_102px] min-[440px]:gap-x-2.5">
+      <section
+        className={`mt-1 grid items-center gap-x-3 gap-y-3 px-1 ${
+          planDetail
+            ? "grid-cols-[76px_minmax(0,1fr)_112px]"
+            : "grid-cols-[76px_minmax(0,1fr)] min-[440px]:grid-cols-[76px_minmax(90px,1fr)_102px_102px] min-[440px]:gap-x-2.5"
+        }`}
+      >
         <ProfileAvatar
           photoId={athlete.profile?.avatarPhotoId}
           name={athlete.name}
@@ -476,26 +488,30 @@ function MobileAthleteProfileHeader({
             <span className="h-3 w-3 rounded-full bg-[#42ad64]" />
             Activa hoy
           </p>
-          <p className="mt-1.5 whitespace-nowrap text-[11px] leading-tight tracking-[-0.01em] text-[color:var(--text-muted)]">
-            Objetivo · {goalLabel(athlete.profile?.goal)}
-          </p>
+          {!planDetail ? (
+            <p className="mt-1.5 whitespace-nowrap text-[11px] leading-tight tracking-[-0.01em] text-[color:var(--text-muted)]">
+              Objetivo · {goalLabel(athlete.profile?.goal)}
+            </p>
+          ) : null}
         </div>
-        <div className="col-span-2 grid grid-cols-2 gap-2.5 min-[440px]:contents">
+        <div className={planDetail ? "" : "col-span-2 grid grid-cols-2 gap-2.5 min-[440px]:contents"}>
           <button
             type="button"
             onClick={onMessage}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] border border-[color:var(--text)] bg-transparent px-3 text-[14px] font-semibold transition-transform active:scale-[0.98]"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-[color:var(--border-strong)] bg-[color:var(--card)] px-3 text-[14px] font-semibold transition-transform active:scale-[0.98]"
           >
             <MessageCircle className="h-5 w-5" strokeWidth={1.8} />
             Mensaje
           </button>
-          <button
-            type="button"
-            onClick={onEditPlan}
-            className="h-11 rounded-[12px] bg-[#181918] px-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(20,20,20,0.12)] transition-transform active:scale-[0.98] dark:bg-[#f2f1ec] dark:text-[#151515]"
-          >
-            Editar plan
-          </button>
+          {!planDetail ? (
+            <button
+              type="button"
+              onClick={onEditPlan}
+              className="h-11 rounded-[12px] bg-[#181918] px-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(20,20,20,0.12)] transition-transform active:scale-[0.98] dark:bg-[#f2f1ec] dark:text-[#151515]"
+            >
+              Editar plan
+            </button>
+          ) : null}
         </div>
       </section>
     </div>
@@ -827,6 +843,7 @@ function MobileAthletePlanView({
   overview,
   activePlan,
   activePlanTimeProgress,
+  detailMode = false,
   onEditPlan,
   onOpenRoutine,
 }) {
@@ -910,18 +927,20 @@ function MobileAthletePlanView({
   }
 
   return (
-    <div className="pb-5 pt-5 lg:hidden">
+    <div className={`pb-5 lg:hidden ${detailMode ? "pt-3" : "pt-5"}`}>
       <section>
-        <h2 className="text-[25px] font-bold tracking-[-0.05em]">
-          Plan actual
-        </h2>
+        {!detailMode ? (
+          <h2 className="text-[25px] font-bold tracking-[-0.05em]">
+            Plan actual
+          </h2>
+        ) : null}
         <button
           type="button"
           onClick={onEditPlan}
-          className="mt-3 grid min-h-[96px] w-full grid-cols-[minmax(0,1fr)_132px] items-center overflow-hidden rounded-[18px] bg-[#1b1c1b] px-5 py-3 text-left text-white shadow-[0_16px_38px_rgba(0,0,0,0.13)]"
+          className={`${detailMode ? "mt-0" : "mt-3"} grid min-h-[126px] w-full grid-cols-[minmax(0,1fr)_132px] items-center overflow-hidden rounded-[18px] bg-[#1b1c1b] px-5 py-3 text-left text-white shadow-[0_16px_38px_rgba(0,0,0,0.13)]`}
         >
           <span className="min-w-0 pr-4">
-            <strong className="block truncate text-[18px] font-semibold tracking-[-0.025em]">
+            <strong className="block truncate text-[21px] font-semibold tracking-[-0.035em]">
               {activePlan.name}
             </strong>
             <span className="mt-1 block text-[14px] text-white/70">
@@ -992,7 +1011,7 @@ function MobileAthletePlanView({
       <section className="mt-4">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-[24px] font-bold tracking-[-0.045em]">
-            Esta semana
+            {detailMode ? `Semana ${currentWeek}` : "Esta semana"}
           </h3>
           <button
             type="button"
@@ -1003,14 +1022,24 @@ function MobileAthletePlanView({
             <SlidersHorizontal className="h-5 w-5" strokeWidth={1.8} />
           </button>
         </div>
-        <div className="divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+        <div
+          className={
+            detailMode
+              ? "mt-1 grid gap-2"
+              : "divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]"
+          }
+        >
           {scheduleRows.map(
             ({ day, date, routine, routineName, completed }) => (
               <button
                 key={day.slotId || day.dayIndex}
                 type="button"
                 onClick={() => day.routineId && onOpenRoutine(day)}
-                className="grid min-h-[74px] w-full grid-cols-[64px_54px_minmax(0,1fr)_32px] items-center gap-3 py-1 text-left"
+                className={`grid min-h-[74px] w-full grid-cols-[64px_54px_minmax(0,1fr)_32px] items-center gap-3 text-left ${
+                  detailMode
+                    ? "rounded-[14px] border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1"
+                    : "py-1"
+                }`}
               >
                 <img
                   src={activityImageFor(routineName)}
@@ -1062,7 +1091,13 @@ function MobileAthletePlanView({
         </div>
       </section>
 
-      <div className="flex min-h-[56px] items-center gap-4 border-b border-[color:var(--border)]">
+      <div
+        className={`mt-3 flex min-h-[56px] items-center gap-4 ${
+          detailMode
+            ? "rounded-[14px] border border-[color:var(--border)] bg-[color:var(--card)] px-4"
+            : "border-b border-[color:var(--border)]"
+        }`}
+      >
         <CalendarDays
           className="h-6 w-6 text-[color:var(--text-muted)]"
           strokeWidth={1.7}
@@ -1071,6 +1106,9 @@ function MobileAthletePlanView({
         <strong className="text-[16px] font-medium">
           {shortPlanDate(reviewDate)}
         </strong>
+        {detailMode ? (
+          <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
+        ) : null}
       </div>
     </div>
   );
@@ -1930,6 +1968,7 @@ export default function CoachDashboard({
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [planActionId, setPlanActionId] = useState("");
   const [athleteView, setAthleteView] = useState("summary");
+  const [planDetailMode, setPlanDetailMode] = useState(false);
   const [latestCheckIn, setLatestCheckIn] = useState(null);
   const [historyTrainings, setHistoryTrainings] = useState([]);
   const [historyCheckIns, setHistoryCheckIns] = useState([]);
@@ -2006,6 +2045,20 @@ export default function CoachDashboard({
         .catch((err) =>
           toast.error(
             err.message || "No se pudo cargar tu catálogo de planificaciones",
+          ),
+        );
+    } else if (user?.role === "Entrenador") {
+      api
+        .getPlanTemplates()
+        .then((plans) =>
+          setPlanCatalog({
+            plans: Array.isArray(plans) ? plans : [],
+            routines: [],
+          }),
+        )
+        .catch((err) =>
+          toast.error(
+            err.message || "No se pudieron cargar tus plantillas de planes",
           ),
         );
     } else {
@@ -2149,6 +2202,7 @@ export default function CoachDashboard({
     if (!selectedId) {
       setOverview(null);
       setSelectedPlanId("");
+      setPlanDetailMode(false);
       setWeeklyReport(null);
       setLatestCheckIn(null);
       setHistoryTrainings([]);
@@ -2182,6 +2236,38 @@ export default function CoachDashboard({
       active = false;
     };
   }, [loadAthletes, selectedId]);
+
+  useEffect(() => {
+    if (
+      !selectedId ||
+      !overview ||
+      user?.role !== "Entrenador" ||
+      typeof window === "undefined"
+    ) return;
+    const wantsAssignment =
+      window.sessionStorage.getItem(COACH_PLAN_ASSIGNMENT_KEY) === "1";
+    const requestedView = window.sessionStorage.getItem(
+      COACH_REQUESTED_VIEW_KEY,
+    );
+    if (!wantsAssignment && requestedView !== "plan") return;
+
+    window.sessionStorage.removeItem(COACH_PLAN_ASSIGNMENT_KEY);
+    window.sessionStorage.removeItem(COACH_REQUESTED_VIEW_KEY);
+    setAthleteView("plan");
+    setPlanDetailMode(
+      window.sessionStorage.getItem("rirfit_coach_plan_detail_active") === "1",
+    );
+    window.sessionStorage.removeItem("rirfit_coach_plan_detail_active");
+    const requestedPlanId = window.sessionStorage.getItem(
+      COACH_REQUESTED_PLAN_KEY,
+    );
+    window.sessionStorage.removeItem(COACH_REQUESTED_PLAN_KEY);
+    if (requestedPlanId) setSelectedPlanId(requestedPlanId);
+    if (!wantsAssignment) return;
+    setEditingPlan(null);
+    setPlanDraft(null);
+    setCreatingPlan(true);
+  }, [overview, selectedId, user?.role]);
 
   useEffect(() => {
     if (athleteView !== "activity" || !selectedId) return undefined;
@@ -2995,9 +3081,16 @@ export default function CoachDashboard({
               <MobileAthleteProfileHeader
                 athlete={overview.athlete}
                 activeSession={activeSession}
+                title={planDetailMode ? "Plan del alumno" : "Perfil del alumno"}
+                planDetail={planDetailMode}
                 onBack={() => {
-                  setSelectedId("");
-                  if (!activeSession) onSelectCoachAthlete(null);
+                  if (planDetailMode) {
+                    setPlanDetailMode(false);
+                    onNavigate("rutinas");
+                  } else {
+                    setSelectedId("");
+                    if (!activeSession) onSelectCoachAthlete(null);
+                  }
                 }}
                 onMessage={() => onNavigate("coach_messages")}
                 onEditPlan={() => {
@@ -3092,7 +3185,7 @@ export default function CoachDashboard({
               </div>
 
               <div
-                className="mt-2 grid grid-cols-3 border-b border-[color:var(--border)] lg:hidden"
+                className={`mt-2 grid grid-cols-3 border-b border-[color:var(--border)] lg:hidden ${planDetailMode ? "hidden" : ""}`}
                 role="tablist"
                 aria-label="Informacion del alumno"
               >
@@ -3168,6 +3261,7 @@ export default function CoachDashboard({
                     overview={overview}
                     activePlan={activePlan}
                     activePlanTimeProgress={activePlanTimeProgress}
+                    detailMode={planDetailMode}
                     onEditPlan={() => {
                       if (activePlan) setEditingPlan(activePlan);
                       else setCreatingPlan(true);

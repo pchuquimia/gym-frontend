@@ -19,12 +19,14 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Bed,
+  Bell,
   Check,
   Archive,
   CalendarDays,
   ChevronDown,
   ChevronRight,
   Copy,
+  Dumbbell,
   GripVertical,
   History,
   Layers3,
@@ -36,7 +38,9 @@ import {
   Plus,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   Trash2,
+  UserRoundPlus,
 } from "lucide-react";
 import Modal from "../components/shared/Modal";
 import { getExerciseImageUrl } from "../utils/cloudinary";
@@ -46,6 +50,7 @@ import { consumeTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { useAuth } from "../context/AuthContext";
+import { useUserProfile } from "../context/UserContext";
 import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
@@ -56,6 +61,7 @@ import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import DetailModal from "../components/library/DetailModal";
 import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import planningOverviewImage from "../assets/planning-overview.webp";
 import { optionMatches, toArray } from "../constants/exerciseTaxonomy";
 import {
@@ -115,6 +121,77 @@ const getRoutineDetailHeroImage = (routine) => {
 const ROUTINE_EXERCISE_SEARCH_FIELDS =
   "name,localizedNames,nameSpanish,nameEnglish,slug,aliases,category,categories,bodyRegion,navigationRegion,primaryMuscleGroup,muscle,primaryMuscle,movementPattern,movementPatterns,equipment,loadType,weightConfig,exerciseType,laterality,difficulty,goals,tags,branches,type,ownerId,image,imagePublicId,media.image,media.thumbnail,thumb,supportsUnilateral,movementMode,isActive";
 const getEntityId = (value) => String(value?._id || value?.id || value || "");
+
+function CoachCreateMenu({
+  compact = false,
+  onCreateRoutine,
+  onCreatePlan,
+  onAssignPlan,
+}) {
+  const selectAction = (event, action) => {
+    event.currentTarget.closest("details")?.removeAttribute("open");
+    action?.();
+  };
+
+  return (
+    <details className="overflow-menu relative z-40 shrink-0">
+      <summary
+        className={
+          compact
+            ? "grid h-14 w-14 cursor-pointer list-none place-items-center rounded-full bg-[#171817] text-[#fffdf8] transition active:scale-[0.97] [&::-webkit-details-marker]:hidden"
+            : "theme-accent-solid routines-surface inline-flex h-11 cursor-pointer list-none items-center justify-center gap-2 border px-4 text-sm font-black shadow-sm transition active:scale-[0.98] [&::-webkit-details-marker]:hidden"
+        }
+        aria-label="Crear o asignar"
+      >
+        <Plus className="h-5 w-5" strokeWidth={1.9} />
+        {!compact ? <span>Nuevo</span> : null}
+      </summary>
+      <div className="overflow-menu-panel absolute right-0 top-12 z-50 w-64 max-w-[calc(100vw-2rem)] p-1.5">
+        <button
+          type="button"
+          onClick={(event) => selectAction(event, onCreateRoutine)}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition hover:bg-[color:var(--surface-subtle)]"
+        >
+          <Dumbbell className="h-5 w-5" strokeWidth={1.7} />
+          <span>
+            <strong className="block font-semibold">Crear rutina</strong>
+            <small className="block font-normal text-[color:var(--text-muted)]">
+              Añadirla a tu biblioteca
+            </small>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={(event) => selectAction(event, onCreatePlan)}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition hover:bg-[color:var(--surface-subtle)]"
+        >
+          <CalendarDays className="h-5 w-5" strokeWidth={1.7} />
+          <span>
+            <strong className="block font-semibold">Crear plan</strong>
+            <small className="block font-normal text-[color:var(--text-muted)]">
+              Guardarlo como plantilla
+            </small>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={(event) => selectAction(event, onAssignPlan)}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition hover:bg-[color:var(--surface-subtle)]"
+        >
+          <UserRoundPlus className="h-5 w-5" strokeWidth={1.7} />
+          <span>
+            <strong className="block font-semibold">
+              Asignar plan existente
+            </strong>
+            <small className="block font-normal text-[color:var(--text-muted)]">
+              Elegir un alumno
+            </small>
+          </span>
+        </button>
+      </div>
+    </details>
+  );
+}
 const formatPlanDate = (value) =>
   value
     ? new Date(value).toLocaleDateString("es-BO", {
@@ -168,6 +245,161 @@ const PLAN_STATUS_LABELS = {
   completed: "Completada",
   cancelled: "Archivada",
 };
+
+const getAssignedPlanProgress = (plan, now = new Date()) => {
+  if (plan?.status === "completed") return 100;
+  if (!plan?.startDate) return 0;
+  const start = new Date(plan.startDate);
+  const end = new Date(getPlanEndDate(plan));
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  const total = Math.max(1, end.getTime() - start.getTime());
+  return Math.min(
+    100,
+    Math.max(0, Math.round(((now.getTime() - start.getTime()) / total) * 100)),
+  );
+};
+
+function CoachAssignedPlans({ plans, onOpen, createMenu }) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("active");
+  const groups = {
+    active: plans.filter((plan) => ["active", "scheduled"].includes(plan.status)),
+    draft: plans.filter((plan) => ["draft", "paused"].includes(plan.status)),
+    completed: plans.filter((plan) => plan.status === "completed"),
+  };
+  const normalizedQuery = query.trim().toLocaleLowerCase("es");
+  const visible = (groups[filter] || []).filter((plan) =>
+    `${plan.name || ""} ${plan.athlete?.name || ""}`
+      .toLocaleLowerCase("es")
+      .includes(normalizedQuery),
+  );
+  const filters = [
+    { id: "active", label: "Activos", count: groups.active.length },
+    { id: "draft", label: "Borradores", count: groups.draft.length },
+    { id: "completed", label: "Finalizados", count: groups.completed.length },
+  ];
+
+  return (
+    <section className="mt-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-3">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-5 top-1/2 h-6 w-6 -translate-y-1/2 text-[color:var(--text-muted)]" strokeWidth={1.65} />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar plan o alumno"
+            className="theme-accent-focus h-14 w-full rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--card)] pl-14 pr-4 text-[16px] outline-none placeholder:text-[color:var(--text-muted)]"
+          />
+        </label>
+        {createMenu}
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2" role="tablist" aria-label="Filtrar planes">
+        {filters.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === item.id}
+            onClick={() => setFilter(item.id)}
+            className={`min-h-12 rounded-full px-2 text-[14px] font-semibold transition ${
+              filter === item.id
+                ? "bg-[#171817] text-white dark:bg-[#e2ff00] dark:text-black"
+                : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+            }`}
+          >
+            {item.label} <span className="ml-1 opacity-75">{item.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-7 flex items-center justify-between gap-3 px-1">
+        <h2 className="text-[25px] font-bold tracking-[-0.045em]">
+          {filter === "active"
+            ? "Planes activos"
+            : filter === "draft"
+              ? "Planes por revisar"
+              : "Planes finalizados"}
+        </h2>
+        <span className="grid h-10 w-10 place-items-center rounded-full text-[color:var(--text)]" aria-label={`${visible.length} planes`}>
+          <SlidersHorizontal className="h-5 w-5" strokeWidth={1.8} />
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {visible.map((plan) => {
+          const progress = getAssignedPlanProgress(plan);
+          const reviewDate = getPlanEndDate(plan)
+            ? (() => {
+                const date = new Date(getPlanEndDate(plan));
+                date.setUTCDate(date.getUTCDate() - 1);
+                return formatPlanDate(date);
+              })()
+            : "";
+          const elapsedWeeks = Math.min(
+            Number(plan.durationWeeks) || 1,
+            Math.max(1, Math.ceil((progress / 100) * Number(plan.durationWeeks || 1))),
+          );
+          return (
+            <button
+              key={plan._id || plan.id}
+              type="button"
+              onClick={() => onOpen?.(plan)}
+              className="flex min-h-[142px] w-full items-center gap-4 rounded-[1.5rem] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-[0_8px_24px_rgba(25,25,25,0.035)] transition active:scale-[0.99]"
+            >
+              <ProfileAvatar
+                photoId={plan.athlete?.avatarPhotoId}
+                name={plan.athlete?.name}
+                className="h-[72px] w-[72px] shrink-0 rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[17px] font-bold tracking-[-0.025em]">
+                  {plan.athlete?.name || "Alumno"}
+                </span>
+                <strong className="mt-1 block truncate text-[17px] font-semibold tracking-[-0.02em]">
+                  {plan.name}
+                </strong>
+                <span className="mt-1 block text-[14px] text-[color:var(--text-muted)]">
+                  {plan.status === "completed"
+                    ? "Plan completado"
+                    : `Semana ${elapsedWeeks} de ${plan.durationWeeks || 1}`}
+                </span>
+                <span className="mt-3 flex items-center gap-3">
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
+                    <span
+                      className="block h-full rounded-full bg-emerald-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </span>
+                  <span className="text-[14px] tabular-nums text-[color:var(--text-muted)]">
+                    {progress}%
+                  </span>
+                </span>
+                {filter === "active" && reviewDate ? (
+                  <span className="mt-2 flex items-center gap-2 text-[12px] text-[color:var(--text-muted)]">
+                    <CalendarDays className="h-4 w-4" strokeWidth={1.7} />
+                    Revisión {reviewDate}
+                  </span>
+                ) : null}
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+            </button>
+          );
+        })}
+      </div>
+
+      {!visible.length ? (
+        <div className="mt-3 rounded-[1.4rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-10 text-center">
+          <p className="text-sm font-semibold">No hay planes en esta sección</p>
+          <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+            Usa el botón + para crear o asignar un plan.
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
 const getRoutineExerciseSummary = (routine) => {
   const exercises = routine?.exercises || [];
   const optionalCount = exercises.filter((exercise) => exercise.isExtra).length;
@@ -4545,6 +4777,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const queryClient = useQueryClient();
   const dashboardBootstrap = useDashboardBootstrap();
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
@@ -4618,9 +4851,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   );
   const bootstrapActivePlan = dashboardBootstrap.data?.activePlan || null;
   const [activePlan, setActivePlan] = useState(null);
-  const [workspaceView, setWorkspaceView] = useState(() =>
-    isCoach ? "routines" : "plans",
-  );
+  const [workspaceView, setWorkspaceView] = useState(() => "plans");
   const [trainingPlans, setTrainingPlans] = useState(() =>
     Array.isArray(cachedTrainingPlans)
       ? cachedTrainingPlans
@@ -4631,14 +4862,17 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const [planTemplates, setPlanTemplates] = useState(() =>
     Array.isArray(cachedPlanTemplates) ? cachedPlanTemplates : [],
   );
+  const [coachPlans, setCoachPlans] = useState([]);
   const [plansCacheHydrated, setPlansCacheHydrated] = useState(() =>
     Array.isArray(cachedTrainingPlans),
   );
   const [templatesCacheHydrated, setTemplatesCacheHydrated] = useState(() =>
     Array.isArray(cachedPlanTemplates),
   );
-  const [plansLoading, setPlansLoading] = useState(
-    () => !isCoach && !cachedTrainingPlans && !bootstrapActivePlan,
+  const [plansLoading, setPlansLoading] = useState(() =>
+    isCoach
+      ? !cachedPlanTemplates
+      : !cachedTrainingPlans && !bootstrapActivePlan,
   );
   const [plansError, setPlansError] = useState("");
   const planRequestInFlightRef = useRef(null);
@@ -4788,18 +5022,32 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
         return planRequestInFlightRef.current;
       }
 
-      const hasCachedPlans = Boolean(
-        queryClient.getQueryData(getTrainingPlansQueryKey(planCacheScope)) ||
-        dashboardBootstrap.data?.activePlan,
-      );
+      const hasCachedPlans = isCoach
+        ? Boolean(
+            queryClient.getQueryData(getPlanTemplatesQueryKey(planCacheScope)),
+          )
+        : Boolean(
+            queryClient.getQueryData(
+              getTrainingPlansQueryKey(planCacheScope),
+            ) || dashboardBootstrap.data?.activePlan,
+          );
       if (!silent && !hasCachedPlans) setPlansLoading(true);
 
       const operation = (async () => {
         if (isCoach) {
-          setPlanTemplates([]);
+          const [templates, assignedPlans] = await Promise.all([
+            fetchCachedPlanTemplates(queryClient, {
+              scopeId: planCacheScope,
+              force,
+            }),
+            api.getCoachPlans(),
+          ]);
+          setPlanTemplates(templates);
+          setCoachPlans(Array.isArray(assignedPlans) ? assignedPlans : []);
           setTrainingPlans([]);
           setActivePlan(null);
-          return [];
+          setTemplatesCacheHydrated(true);
+          return templates;
         }
 
         const [plans, templates] = await Promise.all([
@@ -4923,12 +5171,6 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       Math.min(52, Math.max(1, Number(completedPlan.durationWeeks) || 4)),
     );
   }, [isCoach, planToExtend, plansLoading, trainingPlans]);
-
-  useEffect(() => {
-    if (isCoach && workspaceView !== "routines") {
-      setWorkspaceView("routines");
-    }
-  }, [isCoach, workspaceView]);
 
   useEffect(() => {
     reloadRoutines({ silent: hadRoutinesOnEntryRef.current });
@@ -5675,17 +5917,58 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     onNavigate?.("registrar");
   };
 
+  const handleCreateCoachRoutine = () => {
+    setWorkspaceView("routines");
+    openCreate();
+  };
+
+  const handleCreateCoachPlan = () => {
+    setWorkspaceView("templates");
+    setEditingPlan(null);
+    setPlanModalOpen(true);
+  };
+
+  const handleAssignCoachPlan = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("rirfit_coach_plan_assignment", "1");
+    }
+    toast.message("Selecciona un alumno", {
+      description: "Abriremos su plan para que elijas una plantilla.",
+    });
+    onNavigate?.("coach_athletes");
+  };
+
+  const handleOpenCoachPlan = (plan) => {
+    const athleteId = plan?.athlete?.id || plan?.athleteId;
+    if (!athleteId || typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      "rirfit_coach_selected_athlete",
+      String(athleteId),
+    );
+    window.sessionStorage.setItem("rirfit_coach_requested_view", "plan");
+    window.sessionStorage.setItem("rirfit_coach_plan_detail_active", "1");
+    window.sessionStorage.setItem(
+      "rirfit_coach_requested_plan",
+      String(plan._id || plan.id),
+    );
+    onNavigate?.("coach_athletes");
+  };
+
   const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
   const visiblePlans = isCoach ? planTemplates : visibleTrainingPlans;
+  const isPlanWorkspace = ["plans", "templates"].includes(workspaceView);
   const workspaceLoading =
     !activePlan &&
-    (workspaceView === "plans"
-      ? plansLoading && visiblePlans.length === 0
+    (isPlanWorkspace
+      ? plansLoading &&
+        (isCoach
+          ? coachPlans.length === 0 && planTemplates.length === 0
+          : visiblePlans.length === 0)
       : routinesLoading && routines.length === 0);
   const workspaceError =
     !activePlan &&
-    (workspaceView === "plans"
-      ? visiblePlans.length === 0
+    (isPlanWorkspace
+      ? (isCoach ? coachPlans.length === 0 && planTemplates.length === 0 : visiblePlans.length === 0)
         ? plansError
         : ""
       : routines.length === 0
@@ -5694,7 +5977,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const workspaceReady = !workspaceLoading && !workspaceError;
 
   const retryWorkspace = () => {
-    if (workspaceView === "plans") {
+    if (isPlanWorkspace) {
       refreshPlans().catch(() => {});
       return;
     }
@@ -5708,7 +5991,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       <section className="space-y-5">
         {!activePlan ? (
           <MobilePageHeader
-            title="Rutinas"
+            title={isCoach ? "Planes" : "Rutinas"}
             variant="main"
             className="routines-page-header"
             onBack={() => setActivePlan(null)}
@@ -5724,7 +6007,29 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                     <RotateCcw className="h-5 w-5" strokeWidth={1.8} />
                   </button>
                 ) : null}
-                {!isManagedClient ? (
+                {!isManagedClient && isCoach ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast.info("Sin notificaciones nuevas", {
+                          description:
+                            "Te avisaremos cuando un plan necesite atención.",
+                        })
+                      }
+                      className="relative grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition active:scale-95"
+                      aria-label="Notificaciones"
+                    >
+                      <Bell className="h-6 w-6" strokeWidth={1.8} />
+                      <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ee5962]" />
+                    </button>
+                    <ProfileAvatar
+                      photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+                      name={user?.name}
+                      className="h-11 w-11 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-xs font-semibold"
+                    />
+                  </div>
+                ) : !isManagedClient ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -5787,6 +6092,12 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 <ArrowLeft className="h-5 w-5" />
                 <span>Todas ({visibleTrainingPlans.length})</span>
               </button>
+            ) : !isManagedClient && isCoach ? (
+              <CoachCreateMenu
+                onCreateRoutine={handleCreateCoachRoutine}
+                onCreatePlan={handleCreateCoachPlan}
+                onAssignPlan={handleAssignCoachPlan}
+              />
             ) : !isManagedClient ? (
               <button
                 type="button"
@@ -5851,44 +6162,44 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
           </aside>
         ) : null}
 
-        {!activePlan && !isCoach ? (
+        {!activePlan ? (
           <div
-            className="routines-workspace-tabs grid grid-cols-2 gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b]"
+            className={`routines-workspace-tabs grid gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b] ${isCoach ? "grid-cols-3" : "grid-cols-2"}`}
             role="tablist"
             aria-label="Gestionar rutinas y planificaciones"
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={workspaceView === "plans"}
-              onClick={() => setWorkspaceView("plans")}
-              className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
-                workspaceView === "plans"
-                  ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
-                  : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
-              }`}
-            >
-              Planificaciones
-              {!isCoach && draftPlanCount ? (
-                <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
-                  {draftPlanCount}{" "}
-                  {draftPlanCount === 1 ? "borrador" : "borradores"}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={workspaceView === "routines"}
-              onClick={() => setWorkspaceView("routines")}
-              className={`inline-flex h-11 items-center justify-center border text-xs font-black uppercase transition ${
-                workspaceView === "routines"
-                  ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
-                  : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
-              }`}
-            >
-              Rutinas
-            </button>
+            {(isCoach
+              ? [
+                  { id: "plans", label: "Asignados" },
+                  { id: "templates", label: "Plantillas" },
+                  { id: "routines", label: "Rutinas" },
+                ]
+              : [
+                  { id: "plans", label: "Planificaciones" },
+                  { id: "routines", label: "Rutinas" },
+                ]
+            ).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === item.id}
+                onClick={() => setWorkspaceView(item.id)}
+                className={`inline-flex h-11 min-w-0 items-center justify-center border px-1 text-xs font-black uppercase transition ${
+                  workspaceView === item.id
+                    ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
+                    : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
+                }`}
+              >
+                <span className="truncate">{item.label}</span>
+                {!isCoach && item.id === "plans" && draftPlanCount ? (
+                  <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
+                    {draftPlanCount}{" "}
+                    {draftPlanCount === 1 ? "borrador" : "borradores"}
+                  </span>
+                ) : null}
+              </button>
+            ))}
           </div>
         ) : null}
 
@@ -5899,7 +6210,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
               delayMs={0}
               mode="inline"
               title={
-                workspaceView === "plans"
+                isPlanWorkspace
                   ? "Cargando planificaciones"
                   : "Cargando rutinas"
               }
@@ -5959,6 +6270,24 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       </section>
 
       {isCoach && workspaceReady && !activePlan && workspaceView === "plans" ? (
+        <CoachAssignedPlans
+          plans={coachPlans}
+          onOpen={handleOpenCoachPlan}
+          createMenu={
+            <CoachCreateMenu
+              compact
+              onCreateRoutine={handleCreateCoachRoutine}
+              onCreatePlan={handleCreateCoachPlan}
+              onAssignPlan={handleAssignCoachPlan}
+            />
+          }
+        />
+      ) : null}
+
+      {isCoach &&
+      workspaceReady &&
+      !activePlan &&
+      workspaceView === "templates" ? (
         <CoachPlanTemplates
           templates={planTemplates}
           routines={routines}

@@ -126,6 +126,7 @@ export const api = {
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
   getCoachAthletes: () => request("/api/coach/athletes"),
+  getCoachPlans: () => request("/api/coach/plans"),
   getCoachPortfolio: () =>
     request(`/api/coach/portfolio?today=${localTodayKey()}`),
   getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),

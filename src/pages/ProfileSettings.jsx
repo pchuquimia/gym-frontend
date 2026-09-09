@@ -690,6 +690,7 @@ export default function ProfileSettings({ onNavigate }) {
         file,
         type: "profile",
         label: "Foto de perfil",
+        visibility: "coach",
       });
       const avatarPhotoId = String(photo.id || photo._id || "");
       if (!avatarPhotoId) {
