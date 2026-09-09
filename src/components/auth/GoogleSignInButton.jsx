@@ -128,7 +128,7 @@ export default function GoogleSignInButton({
             theme: "outline",
             size: "large",
             text,
-            shape: "rectangular",
+            shape: "pill",
             logo_alignment: "left",
             locale: "es",
             width: String(nextWidth),
