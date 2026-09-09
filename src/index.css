@@ -993,24 +993,11 @@ details[open] > .overflow-menu-trigger--overlay {
 
 .google-sign-in-button {
   min-width: 0;
-  height: 2.75rem;
-  overflow: hidden;
-  isolation: isolate;
 }
 
 .google-sign-in-button > div {
   width: 100% !important;
   min-width: 0 !important;
-  height: 2.75rem !important;
-  overflow: hidden !important;
-}
-
-.google-sign-in-button iframe {
-  display: block;
-  max-width: 100% !important;
-  height: 2.75rem !important;
-  margin: 0 !important;
-  border: 0 !important;
 }
 
 .premium-drawer {

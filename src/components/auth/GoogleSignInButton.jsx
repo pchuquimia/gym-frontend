@@ -161,15 +161,12 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`google-sign-in-button relative flex h-11 min-w-0 w-full items-center justify-center overflow-hidden rounded-[4px] transition ${
+      className={`google-sign-in-button relative flex min-w-0 w-full items-center justify-center transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}
     >
-      <div
-        ref={containerRef}
-        className="flex h-11 min-w-0 w-full justify-center overflow-hidden"
-      />
+      <div ref={containerRef} className="flex min-w-0 w-full justify-center" />
     </div>
   );
 }
