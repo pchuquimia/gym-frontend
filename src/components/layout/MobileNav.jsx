@@ -141,13 +141,7 @@ function MobileNav({ activePage, onNavigate }) {
     .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
 
   return (
-    <nav
-      className={`mobile-bottom-nav border border-[color:var(--mobile-nav-border)] shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] lg:hidden ${
-        isCoach
-          ? "mx-0 mb-0 rounded-t-[2rem] border-x-0 border-b-0 bg-[color:var(--card)] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2"
-          : "mx-[18px] mb-[max(0.125rem,calc(env(safe-area-inset-bottom)-0.375rem))] rounded-[2rem] bg-[color:var(--mobile-nav-bg)] p-1.5"
-      }`}
-    >
+    <nav className="mobile-bottom-nav mx-[18px] mb-[max(0.125rem,calc(env(safe-area-inset-bottom)-0.375rem))] rounded-[2rem] border border-[color:var(--mobile-nav-border)] bg-[color:var(--mobile-nav-bg)] p-1.5 shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] lg:hidden">
       <div
         className="grid font-sans text-[11px] font-medium"
         style={{
