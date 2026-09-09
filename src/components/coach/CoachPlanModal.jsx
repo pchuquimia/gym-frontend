@@ -132,6 +132,7 @@ const planDraftSignature = ({
 export default function CoachPlanModal({
   templates = [],
   planTemplates = [],
+  initialPlanTemplateId = "",
   initialData,
   replacingPlan,
   manageRoutinesSeparately = false,
@@ -149,14 +150,27 @@ export default function CoachPlanModal({
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [selectedScheduleIndex, setSelectedScheduleIndex] = useState(0);
   const isEditing = Boolean(initialData?._id || initialData?.id);
+  const requestedPlanTemplate = !isEditing
+    ? planTemplates.find(
+        (item) => String(item._id || item.id) === String(initialPlanTemplateId),
+      ) || null
+    : null;
   const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
-    initialData?.sourcePlanId || initialData?.planTemplateId || "",
+    initialData?.sourcePlanId ||
+      initialData?.planTemplateId ||
+      String(requestedPlanTemplate?._id || requestedPlanTemplate?.id || ""),
   );
-  const [name, setName] = useState(initialData?.name || "Plan de hipertrofia");
-  const [level, setLevel] = useState(initialData?.level || "beginner");
-  const [goal, setGoal] = useState(initialData?.goal || "Hipertrofia");
+  const [name, setName] = useState(
+    initialData?.name || requestedPlanTemplate?.name || "Plan de hipertrofia",
+  );
+  const [level, setLevel] = useState(
+    initialData?.level || requestedPlanTemplate?.level || "beginner",
+  );
+  const [goal, setGoal] = useState(
+    initialData?.goal || requestedPlanTemplate?.goal || "Hipertrofia",
+  );
   const [durationWeeks, setDurationWeeks] = useState(
-    initialData?.durationWeeks || 8,
+    initialData?.durationWeeks || requestedPlanTemplate?.durationWeeks || 8,
   );
   const [startDate, setStartDate] = useState(
     initialData?.startDate
@@ -166,12 +180,19 @@ export default function CoachPlanModal({
   const [scheduleMode, setScheduleMode] = useState(
     initialData?.scheduleMode === "flexible_guided"
       ? "sequential_cycle"
-      : initialData?.scheduleMode || "fixed",
+      : initialData?.scheduleMode ||
+          requestedPlanTemplate?.scheduleMode ||
+          "fixed",
   );
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [schedule, setSchedule] = useState(() =>
-    initialData?.weeklySchedule?.length
-      ? initialData.weeklySchedule.map((day, index) => ({
+    (initialData?.weeklySchedule?.length
+      ? initialData.weeklySchedule
+      : requestedPlanTemplate?.weeklySchedule
+    )?.length
+      ? (
+          initialData?.weeklySchedule || requestedPlanTemplate.weeklySchedule
+        ).map((day, index) => ({
           dayIndex: index + 1,
           slotId: day.slotId || `slot_${index + 1}`,
           order: day.order || index + 1,

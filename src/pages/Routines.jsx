@@ -23,12 +23,15 @@ import {
   Check,
   Archive,
   CalendarDays,
+  Clock3,
   ChevronDown,
   ChevronRight,
   Copy,
   Dumbbell,
+  FileText,
   GripVertical,
   History,
+  Info,
   Layers3,
   Loader2,
   MoreVertical,
@@ -39,6 +42,7 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
+  Target,
   Trash2,
   UserRoundPlus,
 } from "lucide-react";
@@ -263,7 +267,9 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("active");
   const groups = {
-    active: plans.filter((plan) => ["active", "scheduled"].includes(plan.status)),
+    active: plans.filter((plan) =>
+      ["active", "scheduled"].includes(plan.status),
+    ),
     draft: plans.filter((plan) => ["draft", "paused"].includes(plan.status)),
     completed: plans.filter((plan) => plan.status === "completed"),
   };
@@ -283,7 +289,10 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
     <section className="mt-4">
       <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-3">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-5 top-1/2 h-6 w-6 -translate-y-1/2 text-[color:var(--text-muted)]" strokeWidth={1.65} />
+          <Search
+            className="pointer-events-none absolute left-5 top-1/2 h-6 w-6 -translate-y-1/2 text-[color:var(--text-muted)]"
+            strokeWidth={1.65}
+          />
           <input
             type="search"
             value={query}
@@ -295,7 +304,11 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
         {createMenu}
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2" role="tablist" aria-label="Filtrar planes">
+      <div
+        className="mt-4 grid grid-cols-3 gap-2"
+        role="tablist"
+        aria-label="Filtrar planes"
+      >
         {filters.map((item) => (
           <button
             key={item.id}
@@ -322,7 +335,10 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
               ? "Planes por revisar"
               : "Planes finalizados"}
         </h2>
-        <span className="grid h-10 w-10 place-items-center rounded-full text-[color:var(--text)]" aria-label={`${visible.length} planes`}>
+        <span
+          className="grid h-10 w-10 place-items-center rounded-full text-[color:var(--text)]"
+          aria-label={`${visible.length} planes`}
+        >
           <SlidersHorizontal className="h-5 w-5" strokeWidth={1.8} />
         </span>
       </div>
@@ -339,7 +355,10 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
             : "";
           const elapsedWeeks = Math.min(
             Number(plan.durationWeeks) || 1,
-            Math.max(1, Math.ceil((progress / 100) * Number(plan.durationWeeks || 1))),
+            Math.max(
+              1,
+              Math.ceil((progress / 100) * Number(plan.durationWeeks || 1)),
+            ),
           );
           return (
             <button
@@ -617,6 +636,8 @@ const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
+const COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY =
+  "rirfit_coach_plan_template_assignment";
 
 const normalizeBranch = (value) =>
   BRANCH_OPTIONS.includes(value) ? value : DEFAULT_BRANCH;
@@ -1411,6 +1432,25 @@ export function RoutineModal({
     () => groupByMuscle(exercises, exerciseOrderMode),
     [exerciseOrderMode, exercises],
   );
+  const routineExerciseStats = useMemo(() => {
+    const required = exercises.filter((exercise) => !exercise.isExtra);
+    const optional = exercises.filter((exercise) => exercise.isExtra);
+    const muscles = Array.from(
+      new Set(exercises.map((exercise) => exercise.muscle).filter(Boolean)),
+    );
+    return {
+      required: required.length,
+      optional: optional.length,
+      sets: exercises.reduce(
+        (sum, exercise) => sum + (Number(exercise.sets) || 0),
+        0,
+      ),
+      muscleLabel:
+        muscles.length > 1
+          ? `${muscles[0]} +${muscles.length - 1}`
+          : muscles[0] || "Sin grupo",
+    };
+  }, [exercises]);
 
   const progressSourceOptions = useMemo(
     () =>
@@ -1627,11 +1667,7 @@ export function RoutineModal({
         muscle !== selectedMuscle &&
         !nextExercises.some((exercise) => exercise.muscle === muscle),
     );
-    if (
-      exercisePickerMode !== "optional" &&
-      mode === "create" &&
-      nextMuscle
-    ) {
+    if (exercisePickerMode !== "optional" && mode === "create" && nextMuscle) {
       setSelectedMuscle(nextMuscle);
       setExercisePickerFilter(null);
       setSearch("");
@@ -2029,15 +2065,27 @@ export function RoutineModal({
       subtitle={null}
       onClose={requestClose}
       size={isSetupStep ? "default" : "wide"}
+      headerAction={
+        !isSetupStep ? (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSaving || !exercises.length}
+            className="h-11 px-1 text-sm font-semibold text-[color:var(--text)] disabled:opacity-40"
+          >
+            {isSaving ? "Guardando" : "Guardar"}
+          </button>
+        ) : null
+      }
       footer={
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-center text-xs font-semibold text-[color:var(--text-muted)] sm:text-left">
             {error ||
-              (isSetupStep
-                ? routineType
-                  ? "Después elegirás los ejercicios."
-                  : "Selecciona una opción para empezar."
-                : "")}
+               (isSetupStep
+                 ? routineType
+                   ? "Después elegirás los ejercicios."
+                   : "Selecciona una opción para empezar."
+                 : "La rutina se actualizará en los planes donde esté asignada.")}
           </span>
           <div className="grid grid-cols-1 gap-2 sm:flex">
             <Button
@@ -2063,7 +2111,7 @@ export function RoutineModal({
               ) : mode === "create" ? (
                 "Crear rutina"
               ) : (
-                "Guardar cambios"
+                "Guardar rutina"
               )}
             </Button>
           </div>
@@ -2097,8 +2145,8 @@ export function RoutineModal({
                 Elige el enfoque de tu rutina
               </h2>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-[color:var(--text-muted)]">
-                Selecciona una estructura. En el siguiente paso podrás elegir
-                y ordenar los ejercicios.
+                Selecciona una estructura. En el siguiente paso podrás elegir y
+                ordenar los ejercicios.
               </p>
               <div
                 className="mt-6 grid gap-2 sm:grid-cols-2"
@@ -2384,15 +2432,17 @@ export function RoutineModal({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <label className="block">
-                    <span className="text-sm font-medium">
-                      Nombre de la rutina
-                    </span>
+                  <label className="flex min-h-16 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-4">
                     <input
-                      className="theme-accent-focus mt-2 h-14 w-full rounded-2xl border-0 bg-[color:var(--card)] px-4 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
-                      placeholder="Ej. Pecho · Bíceps"
+                      aria-label="Nombre de la rutina"
+                      className="theme-accent-focus min-w-0 flex-1 border-0 bg-transparent p-0 text-[1.45rem] font-semibold leading-tight tracking-[-0.03em] text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+                      placeholder="Ej. LOWER A"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                    />
+                    <Pencil
+                      className="h-5 w-5 shrink-0 text-[color:var(--text)]"
+                      aria-hidden="true"
                     />
                   </label>
                   {locationMode === "multiple" ? (
@@ -2419,92 +2469,92 @@ export function RoutineModal({
                 </div>
               )}
 
-              <div className="flex items-end justify-between gap-3 pt-2">
-                <div>
-                  <h2 className="text-xl font-medium tracking-[-0.025em]">
-                    Ejercicios
-                  </h2>
-                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    {exercises.length}{" "}
-                    {exercises.length === 1 ? "ejercicio" : "ejercicios"} ·{" "}
-                    {exercises.reduce(
-                      (sum, exercise) => sum + (Number(exercise.sets) || 0),
-                      0,
-                    )}{" "}
-                    series
-                  </p>
+              <div className="grid grid-cols-3 divide-x divide-[color:var(--detail-row-divider)] rounded-2xl bg-[color:var(--surface-subtle)] px-2 py-3">
+                <div className="flex min-w-0 items-center justify-center gap-2 px-2">
+                  <Dumbbell className="h-5 w-5 shrink-0" strokeWidth={1.9} />
+                  <span className="truncate text-xs font-medium text-[color:var(--text-muted)]">
+                    {routineExerciseStats.muscleLabel}
+                  </span>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-10 rounded-full px-3 text-xs"
-                    onClick={handleOpenLibrary}
-                    aria-label="Abrir biblioteca de ejercicios"
-                    title="Abrir biblioteca de ejercicios"
-                  >
-                    Biblioteca
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-10 rounded-full px-3 text-xs"
-                    onClick={openExercisePicker}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Agregar
-                  </Button>
+                <div className="flex min-w-0 items-center justify-center gap-2 px-2">
+                  <FileText className="h-5 w-5 shrink-0" strokeWidth={1.9} />
+                  <span className="whitespace-nowrap text-xs font-medium text-[color:var(--text-muted)]">
+                    {routineExerciseStats.required} ejercicios
+                  </span>
+                </div>
+                <div className="flex min-w-0 items-center justify-center gap-2 px-2">
+                  <Layers3 className="h-5 w-5 shrink-0" strokeWidth={1.9} />
+                  <span className="whitespace-nowrap text-xs font-medium text-[color:var(--text-muted)]">
+                    {routineExerciseStats.sets} series
+                  </span>
                 </div>
               </div>
 
-              {exercises.length ? (
-                <section
-                  className="flex items-center justify-between gap-4 border-y border-[color:var(--detail-row-divider)] py-4"
-                  aria-labelledby="routine-order-title"
-                >
-                  <div className="shrink-0">
-                    <h3
-                      id="routine-order-title"
-                      className="text-sm font-medium"
-                    >
-                      Orden
-                    </h3>
-                  </div>
-                  <div
-                    className="grid min-w-0 flex-1 grid-cols-2 rounded-xl bg-[color:var(--surface-subtle)] p-1"
-                    role="radiogroup"
-                    aria-label="Organización de la rutina"
-                  >
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.035em]">
+                    Ejercicios
+                  </h2>
+                </div>
+                {exercises.length ? (
+                  <details className="group relative shrink-0">
+                    <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-full px-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                      <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
+                      <span>
+                        {exerciseOrderMode === "muscle_blocks"
+                          ? "Por grupos"
+                          : "Orden libre"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+                    </summary>
+                    <div className="absolute right-0 top-12 z-30 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2 shadow-overlay">
+                      <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                        Orden de ejecución
+                      </p>
                     <button
                       type="button"
-                      role="radio"
-                      aria-checked={exerciseOrderMode === "muscle_blocks"}
-                      onClick={() =>
+                      onClick={(event) => {
                         handleExerciseOrderModeChange("muscle_blocks")
-                      }
-                      className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                      }}
+                      className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${
                         exerciseOrderMode === "muscle_blocks"
-                          ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
-                          : "text-[color:var(--text-muted)]"
+                          ? "bg-[color:var(--text)] text-[color:var(--card)]"
+                          : "hover:bg-[color:var(--surface-subtle)]"
                       }`}
                     >
-                      Por grupos
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">Por grupos</span>
+                        <span className={`mt-0.5 block text-xs ${exerciseOrderMode === "muscle_blocks" ? "opacity-70" : "text-[color:var(--text-muted)]"}`}>
+                          Mantiene juntos los ejercicios del mismo músculo.
+                        </span>
+                      </span>
+                      {exerciseOrderMode === "muscle_blocks" ? <Check className="mt-0.5 h-4 w-4" /> : null}
                     </button>
                     <button
                       type="button"
-                      role="radio"
-                      aria-checked={exerciseOrderMode === "free"}
-                      onClick={() => handleExerciseOrderModeChange("free")}
-                      className={`h-10 rounded-lg px-2 text-xs font-semibold transition ${
+                      onClick={(event) => {
+                        handleExerciseOrderModeChange("free");
+                        event.currentTarget.closest("details")?.removeAttribute("open");
+                      }}
+                      className={`mt-1 flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${
                         exerciseOrderMode === "free"
-                          ? "bg-[color:var(--card)] text-[color:var(--text)] shadow-sm"
-                          : "text-[color:var(--text-muted)]"
+                          ? "bg-[color:var(--text)] text-[color:var(--card)]"
+                          : "hover:bg-[color:var(--surface-subtle)]"
                       }`}
                     >
-                      Libre
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">Libre</span>
+                        <span className={`mt-0.5 block text-xs ${exerciseOrderMode === "free" ? "opacity-70" : "text-[color:var(--text-muted)]"}`}>
+                          Respeta exactamente el orden que organices.
+                        </span>
+                      </span>
+                      {exerciseOrderMode === "free" ? <Check className="mt-0.5 h-4 w-4" /> : null}
                     </button>
-                  </div>
-                </section>
-              ) : null}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
 
               <div className="space-y-2">
                 {groupedSelected.map(([muscle, list]) => {
@@ -2654,11 +2704,13 @@ export function RoutineModal({
                                                     Opcional
                                                   </span>
                                                 ) : null}
-                                                {(ex.alternatives || []).length >
-                                                0 ? (
+                                                {(ex.alternatives || [])
+                                                  .length > 0 ? (
                                                   <span
                                                     className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-strong,var(--border))] px-2 py-1 text-[9px] font-semibold leading-none text-[color:var(--text)]"
-                                                    title={`Alternativas: ${(ex.alternatives || [])
+                                                    title={`Alternativas: ${(
+                                                      ex.alternatives || []
+                                                    )
                                                       .map((alt) => alt.name)
                                                       .filter(Boolean)
                                                       .join(", ")}`}
@@ -2887,30 +2939,47 @@ export function RoutineModal({
                 })}
 
                 {exercises.length ? (
-                  <button
-                    type="button"
-                    onClick={openOptionalExercisePicker}
-                    className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)]"
-                  >
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
-                      <Plus className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-[color:var(--text)]">
-                        Añadir opcional
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={openExercisePicker}
+                      className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--text)] bg-transparent text-sm font-semibold text-[color:var(--text)] transition active:scale-[0.99]"
+                    >
+                      <Plus className="h-5 w-5" strokeWidth={2} />
+                      Añadir ejercicio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openOptionalExercisePicker}
+                      className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-[color:var(--surface-subtle)] px-4 py-3 text-left transition hover:brightness-[0.98]"
+                    >
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-dashed border-[color:var(--border-strong)] text-[color:var(--text)]">
+                        <Plus className="h-4 w-4" />
                       </span>
-                      <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                        Para días en los que te quede más tiempo
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-[color:var(--text)]">
+                          Añadir opcional
+                        </span>
+                        <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                          Extra si el alumno dispone de más tiempo
+                        </span>
                       </span>
-                    </span>
-                    {exercises.some((exercise) => exercise.isExtra) ? (
-                      <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]">
-                        {exercises.filter((exercise) => exercise.isExtra).length}
-                      </span>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-                    )}
-                  </button>
+                      {routineExerciseStats.optional ? (
+                        <span className="shrink-0 rounded-full bg-[color:var(--card)] px-2.5 py-1 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]">
+                          {routineExerciseStats.optional}
+                        </span>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenLibrary}
+                      className="mx-auto block min-h-10 px-3 text-xs font-medium text-[color:var(--text-muted)] underline-offset-4 hover:underline"
+                    >
+                      Gestionar biblioteca de ejercicios
+                    </button>
+                  </div>
                 ) : null}
 
                 {!exercises.length && (
@@ -3226,8 +3295,8 @@ export function RoutineModal({
                     ? exercisePickerMode === "optional"
                       ? `Añadir ${selectedExerciseIds.length} opcional${selectedExerciseIds.length === 1 ? "" : "es"}`
                       : nextPendingMuscle
-                      ? `Añadir ${selectedExerciseIds.length} y seguir con ${nextPendingMuscle}`
-                      : `Añadir ${selectedExerciseIds.length} ejercicio${selectedExerciseIds.length === 1 ? "" : "s"}`
+                        ? `Añadir ${selectedExerciseIds.length} y seguir con ${nextPendingMuscle}`
+                        : `Añadir ${selectedExerciseIds.length} ejercicio${selectedExerciseIds.length === 1 ? "" : "s"}`
                     : "Selecciona ejercicios"}
                 </Button>
               </div>
@@ -3282,7 +3351,8 @@ export function RoutineModal({
                       {alternativePickerExercise.name}
                     </p>
                     <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                      Mostramos ejercicios de {alternativePickerExercise.muscle}.
+                      Mostramos ejercicios de {alternativePickerExercise.muscle}
+                      .
                     </p>
                   </div>
                 </div>
@@ -3296,7 +3366,9 @@ export function RoutineModal({
                     type="search"
                     autoComplete="off"
                     value={alternativeSearch}
-                    onChange={(event) => setAlternativeSearch(event.target.value)}
+                    onChange={(event) =>
+                      setAlternativeSearch(event.target.value)
+                    }
                     placeholder="Buscar reemplazo"
                     className="theme-accent-focus h-12 w-full rounded-2xl border-0 bg-[color:var(--card)] pl-11 pr-4 text-sm text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
                   />
@@ -3384,7 +3456,9 @@ export function RoutineModal({
                               {option.name}
                             </p>
                             <p className="mt-1.5 truncate text-xs leading-4 text-[color:var(--text-muted)]">
-                              {toArray(option.equipment).slice(0, 2).join(" · ") ||
+                              {toArray(option.equipment)
+                                .slice(0, 2)
+                                .join(" · ") ||
                                 option.muscle ||
                                 "Mismo grupo muscular"}
                             </p>
@@ -3484,7 +3558,7 @@ export function RoutineModal({
                               isUnilateralMovement(current)
                                 ? "left-6"
                                 : "left-1"
-                          }`}
+                            }`}
                           />
                         </button>
                       </div>
@@ -3496,71 +3570,75 @@ export function RoutineModal({
                           Reemplazos
                         </p>
                         <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                          Úsalos cuando el ejercicio principal no esté disponible.
+                          Úsalos cuando el ejercicio principal no esté
+                          disponible.
                         </p>
                       </div>
 
                       {(current.alternatives || []).length > 0 ? (
                         <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
-                        {(current.alternatives || []).map((alt) => (
-                          <div
-                            key={alt.exerciseId}
-                            className="grid min-h-[68px] grid-cols-[44px_minmax(0,1fr)_78px_36px] items-center gap-2 px-3 py-2"
-                          >
-                            <div className="h-11 w-11 overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
-                              <ExerciseThumbnail
-                                src={getExerciseImageUrl(alt, {
-                                  width: 120,
-                                  height: 120,
-                                })}
-                                alt=""
-                                fallback={(alt.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()}
-                                className="h-full w-full text-[10px] font-semibold"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium leading-tight text-[color:var(--text)]">
-                                {alt.name}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-[color:var(--text-muted)]">
-                                Alternativa
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateAlternative(
-                                  currentIndex,
-                                  alt.exerciseId,
-                                  applyUnilateralMode(
-                                    !isUnilateralMovement(alt),
-                                  ),
-                                )
-                              }
-                              className={`h-8 rounded-full px-2 text-[10px] font-medium transition ${
-                                isUnilateralMovement(alt)
-                                  ? "bg-[color:var(--surface-subtle)] text-[color:var(--accent)]"
-                                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                              }`}
+                          {(current.alternatives || []).map((alt) => (
+                            <div
+                              key={alt.exerciseId}
+                              className="grid min-h-[68px] grid-cols-[44px_minmax(0,1fr)_78px_36px] items-center gap-2 px-3 py-2"
                             >
-                              {isUnilateralMovement(alt)
-                                ? "Unilateral"
-                                : "Normal"}
-                            </button>
-                            <button
-                              type="button"
-                              className="grid h-9 w-9 place-items-center rounded-full text-xs text-red-500 transition hover:bg-red-500/10"
-                              onClick={() =>
-                                removeAlternative(currentIndex, alt.exerciseId)
-                              }
-                              aria-label={`Quitar ${alt.name}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                              <div className="h-11 w-11 overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                                <ExerciseThumbnail
+                                  src={getExerciseImageUrl(alt, {
+                                    width: 120,
+                                    height: 120,
+                                  })}
+                                  alt=""
+                                  fallback={(alt.name || "?")
+                                    .charAt(0)
+                                    .toUpperCase()}
+                                  className="h-full w-full text-[10px] font-semibold"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium leading-tight text-[color:var(--text)]">
+                                  {alt.name}
+                                </p>
+                                <p className="mt-1 truncate text-[11px] text-[color:var(--text-muted)]">
+                                  Alternativa
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateAlternative(
+                                    currentIndex,
+                                    alt.exerciseId,
+                                    applyUnilateralMode(
+                                      !isUnilateralMovement(alt),
+                                    ),
+                                  )
+                                }
+                                className={`h-8 rounded-full px-2 text-[10px] font-medium transition ${
+                                  isUnilateralMovement(alt)
+                                    ? "bg-[color:var(--surface-subtle)] text-[color:var(--accent)]"
+                                    : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                {isUnilateralMovement(alt)
+                                  ? "Unilateral"
+                                  : "Normal"}
+                              </button>
+                              <button
+                                type="button"
+                                className="grid h-9 w-9 place-items-center rounded-full text-xs text-red-500 transition hover:bg-red-500/10"
+                                onClick={() =>
+                                  removeAlternative(
+                                    currentIndex,
+                                    alt.exerciseId,
+                                  )
+                                }
+                                aria-label={`Quitar ${alt.name}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       ) : null}
 
@@ -3975,6 +4053,133 @@ function RoutinePreviewImage({ item }) {
       loading="lazy"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+function CoachRoutineLibraryList({
+  routines,
+  onOpen,
+  onDuplicate,
+  onArchive,
+  duplicatingRoutineId,
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <AnimatePresence initial={false} mode="popLayout">
+        {routines.map((routine) => {
+          const routineId = routine.id || routine._id;
+          const usageCount = Number(routine.planUsageCount) || 0;
+          const optionalCount = (routine.exercises || []).filter(
+            (exercise) => exercise.isExtra,
+          ).length;
+          const preview = routine.preview?.[0];
+
+          return (
+            <motion.article
+              key={routineId}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="relative min-h-[7.5rem] overflow-visible rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+            >
+              <button
+                type="button"
+                onClick={() => onOpen(routine)}
+                className="flex h-full min-h-[7.5rem] w-full items-center gap-3 rounded-2xl p-3 pr-12 text-left transition active:scale-[0.995]"
+                aria-label={`Editar ${routine.name}`}
+              >
+                <span className="h-[5.25rem] w-[5.25rem] shrink-0 overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                  {preview ? (
+                    <RoutinePreviewImage item={preview} />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center">
+                      <Dumbbell className="h-7 w-7" strokeWidth={1.8} />
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-lg font-semibold tracking-[-0.025em] text-[color:var(--text)]">
+                    {routine.name}
+                  </span>
+                  <span className="mt-1 block truncate text-sm text-[color:var(--text-muted)]">
+                    {routine.totalExerciseCount} ejercicios · {routine.totalSets}{" "}
+                    series
+                  </span>
+                  <span
+                    className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      usageCount
+                        ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                        : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${usageCount ? "bg-emerald-500 text-white" : "bg-[color:var(--text-muted)]/20"}`}
+                    >
+                      {usageCount ? (
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                      ) : (
+                        <span className="h-px w-2 bg-current" />
+                      )}
+                    </span>
+                    <span className="truncate">
+                      {usageCount
+                        ? `Usada en ${usageCount} ${usageCount === 1 ? "plan" : "planes"}`
+                        : "Sin asignar"}
+                      {optionalCount ? ` · ${optionalCount} opcional${optionalCount === 1 ? "" : "es"}` : ""}
+                    </span>
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+              </button>
+
+              <details className="overflow-menu absolute right-2 top-2 z-20">
+                <summary
+                  className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-full bg-[color:var(--card)] text-[color:var(--text-muted)] shadow-sm [&::-webkit-details-marker]:hidden"
+                  aria-label={`Opciones de ${routine.name}`}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </summary>
+                <div className="overflow-menu-panel absolute right-0 top-10 z-30 w-44">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onOpen(routine);
+                    }}
+                    className="flex h-11 w-full items-center gap-2 px-3 text-left text-sm font-medium"
+                  >
+                    <Pencil className="h-4 w-4" /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(duplicatingRoutineId)}
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onDuplicate(routine);
+                    }}
+                    className="flex h-11 w-full items-center gap-2 px-3 text-left text-sm font-medium disabled:opacity-50"
+                  >
+                    <Copy className="h-4 w-4" /> Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.currentTarget.closest("details")?.removeAttribute("open");
+                      onArchive(routine);
+                    }}
+                    className="flex h-11 w-full items-center gap-2 px-3 text-left text-sm font-medium text-red-600"
+                  >
+                    <Archive className="h-4 w-4" /> Archivar
+                  </button>
+                </div>
+              </details>
+            </motion.article>
+          );
+        })}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -4506,6 +4711,9 @@ function PlanTemplateDetailsModal({
   onOpenRoutine,
   onEdit,
   onDuplicate,
+  onAssign,
+  onArchive,
+  processingId,
 }) {
   const routinesById = useMemo(
     () =>
@@ -4517,84 +4725,224 @@ function PlanTemplateDetailsModal({
   const trainingDays = (template.weeklySchedule || []).filter(
     (day) => day.type === "training",
   ).length;
+  const configuredDays = (template.weeklySchedule || []).filter(
+    (day) => day.type === "training" && day.sourceRoutineId,
+  ).length;
+  const isReady = trainingDays > 0 && configuredDays === trainingDays;
+  const templateId = String(template._id || template.id);
 
   return (
     <Modal
       mobilePage
-      title={template.name}
-      subtitle={`${ROUTINE_LEVEL_LABELS[template.level] || template.level} · ${template.goal} · ${template.durationWeeks} semanas`}
+      hideHeader
       onClose={onClose}
-      footer={
-        <>
-          <Button variant="outline" onClick={() => onEdit(template)}>
-            <Pencil className="h-4 w-4" /> Editar
-          </Button>
-          <Button onClick={() => onDuplicate(template)}>
-            <Copy className="h-4 w-4" />
-            Duplicar
-          </Button>
-        </>
-      }
+      overlayClassName="max-lg:!bottom-[84px]"
+      dialogClassName="max-lg:!h-[calc(100dvh-84px)] max-lg:!max-h-[calc(100dvh-84px)] sm:max-w-[520px]"
+      contentClassName="!p-0"
     >
-      {template.description ? (
-        <p className="mb-4 text-sm font-semibold leading-relaxed text-[color:var(--text-muted)]">
-          {template.description}
-        </p>
-      ) : null}
-      <div className="plan-template-detail-heading mb-3 flex items-center justify-between border-b border-[color:var(--border)] pb-2">
-        <h4 className="text-xs font-black uppercase">Contenido programado</h4>
-        <span className="text-xs font-black text-[color:var(--text-muted)]">
-          {trainingDays} entrenamientos
-        </span>
-      </div>
-      <div className="plan-template-detail-list divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-        {(template.weeklySchedule || []).map((day, index) => {
-          const routine = day.sourceRoutineId
-            ? routinesById.get(String(day.sourceRoutineId))
-            : null;
-          const dayLabel =
-            template.scheduleMode === "fixed"
-              ? PLAN_DAY_NAMES[index]
-              : `Dia ${index + 1}`;
-          const content =
-            day.type === "rest"
-              ? "Descanso"
-              : day.type === "recovery"
-                ? "Recuperacion"
-                : routine?.name || day.focus || "Rutina pendiente";
-          return (
-            <div
-              key={day.slotId || index}
-              className="plan-template-detail-row flex min-h-16 items-center gap-3 py-3"
+      <div className="min-h-full bg-[color:var(--bg)] px-4 pb-28 text-[color:var(--text)]">
+        <header className="sticky top-0 z-30 grid min-h-16 grid-cols-[48px_minmax(0,1fr)_48px] items-center border-b border-[color:var(--border)] bg-[color:var(--bg)]/95 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-11 w-11 place-items-center rounded-full"
+            aria-label="Volver a plantillas"
+          >
+            <ArrowLeft className="h-7 w-7" strokeWidth={2.1} />
+          </button>
+          <h1 className="truncate text-center text-[20px] font-semibold tracking-[-0.03em]">
+            Detalle de plantilla
+          </h1>
+          <details className="overflow-menu relative justify-self-end">
+            <summary
+              className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full [&::-webkit-details-marker]:hidden"
+              aria-label="Opciones de la plantilla"
             >
-              <span className="grid h-11 w-12 shrink-0 place-items-center border border-[color:var(--border)] bg-[color:var(--bg)] text-[11px] font-black uppercase">
-                {dayLabel.slice(0, 3)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                  {day.type === "training"
-                    ? day.focus || "Entrenamiento"
-                    : dayLabel}
-                </p>
-                <p className="mt-1 truncate text-sm font-black uppercase">
-                  {content}
-                </p>
-              </div>
-              {routine ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenRoutine(routine)}
-                  className="grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text-muted)]"
-                  aria-label={`Ver ejercicios de ${routine.name}`}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              ) : day.type === "rest" ? (
-                <Bed className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-              ) : null}
+              <MoreVertical className="h-6 w-6" />
+            </summary>
+            <div className="overflow-menu-panel absolute right-0 top-12 z-40 w-48">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                  onDuplicate(template);
+                }}
+                disabled={Boolean(processingId)}
+                className="flex h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold disabled:opacity-50"
+              >
+                <Copy className="h-4 w-4" />
+                {processingId === templateId ? "Duplicando..." : "Duplicar"}
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                  onArchive(template);
+                }}
+                disabled={Boolean(processingId)}
+                className="flex h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold text-red-600 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> Eliminar
+              </button>
             </div>
-          );
-        })}
+          </details>
+        </header>
+
+        <section className="pt-5">
+          <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-4">
+            <span className="grid h-[92px] w-[92px] place-items-center rounded-[1.25rem] bg-[color:var(--surface-subtle)]">
+              <Dumbbell className="h-11 w-11" strokeWidth={1.8} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-[23px] font-bold leading-tight tracking-[-0.04em]">
+                {template.name}
+              </h2>
+              <p className="mt-1 text-[15px] text-[color:var(--text-muted)]">
+                {ROUTINE_LEVEL_LABELS[template.level] || template.level} ·{" "}
+                {template.durationWeeks} semanas
+              </p>
+              <p className="mt-2 flex items-center gap-2 text-[13px] text-[color:var(--text-muted)]">
+                <FileText className="h-4 w-4" strokeWidth={1.7} />
+                Plantilla reutilizable
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => onEdit(template)}
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border border-[color:var(--border-strong)] bg-[color:var(--card)] text-[15px] font-semibold transition active:scale-[0.98]"
+            >
+              <Pencil className="h-5 w-5" /> Editar
+            </button>
+            <button
+              type="button"
+              onClick={() => onAssign(template)}
+              disabled={!isReady}
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] bg-[#171817] px-3 text-[15px] font-semibold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#e2ff00] dark:text-black"
+            >
+              <UserRoundPlus className="h-5 w-5" /> Asignar a alumno
+            </button>
+          </div>
+        </section>
+
+        <section className="mt-4 grid min-h-[126px] grid-cols-3 items-center rounded-[18px] bg-[#1b1c1b] px-3 py-4 text-center text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)]">
+          <div className="px-2">
+            <CalendarDays className="mx-auto h-6 w-6" strokeWidth={1.7} />
+            <strong className="mt-2 block text-[17px]">
+              {trainingDays} días
+            </strong>
+            <span className="mt-0.5 block text-[12px] text-white/75">
+              por semana
+            </span>
+          </div>
+          <div className="border-x border-white/20 px-2">
+            <Clock3 className="mx-auto h-6 w-6" strokeWidth={1.7} />
+            <strong className="mt-2 block text-[17px]">
+              {template.durationWeeks} semanas
+            </strong>
+          </div>
+          <div className="px-2">
+            <Target className="mx-auto h-6 w-6" strokeWidth={1.7} />
+            <strong className="mt-2 block truncate text-[15px]">
+              {template.goal || "General"}
+            </strong>
+            <span className="mt-0.5 block text-[12px] text-white/75">
+              Objetivo
+            </span>
+          </div>
+        </section>
+
+        <section className="mt-5">
+          <h3 className="text-[23px] font-bold tracking-[-0.045em]">
+            Semana base
+          </h3>
+          <div className="relative mt-3 grid grid-cols-7 gap-2">
+            <span className="absolute left-[7%] right-[7%] top-6 h-px bg-[color:var(--border)]" />
+            {(template.weeklySchedule || []).slice(0, 7).map((day, index) => {
+              const isTraining = day.type === "training";
+              return (
+                <span
+                  key={day.slotId || index}
+                  className={`relative z-10 grid h-12 min-w-0 place-items-center rounded-full text-[13px] font-semibold ${
+                    isTraining
+                      ? "bg-emerald-500 text-white"
+                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                  }`}
+                  title={PLAN_DAY_NAMES[index]}
+                >
+                  {template.scheduleMode === "fixed"
+                    ? PLAN_DAY_INITIALS[index]
+                    : index + 1}
+                </span>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-4 grid gap-2">
+          {(template.weeklySchedule || []).map((day, index) => {
+            if (day.type !== "training") return null;
+            const routine = day.sourceRoutineId
+              ? routinesById.get(String(day.sourceRoutineId))
+              : null;
+            const routineImage = getExerciseImageUrl(routine?.exercises?.[0], {
+              width: 180,
+              height: 140,
+            });
+            const dayLabel =
+              template.scheduleMode === "fixed"
+                ? PLAN_DAY_NAMES[index].slice(0, 3)
+                : `Día ${index + 1}`;
+            return (
+              <button
+                key={day.slotId || index}
+                type="button"
+                onClick={() => routine && onOpenRoutine(routine)}
+                disabled={!routine}
+                className="grid min-h-[78px] w-full grid-cols-[86px_52px_minmax(0,1fr)_28px] items-center gap-3 rounded-[14px] border border-[color:var(--border)] bg-[color:var(--card)] p-1.5 text-left transition active:scale-[0.99] disabled:opacity-65"
+              >
+                <ExerciseThumbnail
+                  src={routineImage}
+                  alt=""
+                  className="h-[66px] w-[86px] rounded-[10px]"
+                />
+                <span className="border-r border-[color:var(--border)] pr-3 text-center text-[11px] font-semibold uppercase text-[color:var(--text-muted)]">
+                  {dayLabel}
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-[15px] font-bold">
+                    {routine?.name || day.focus || "Rutina pendiente"}
+                  </strong>
+                  <span className="mt-1 block text-[13px] text-[color:var(--text-muted)]">
+                    {routine
+                      ? `${routine.exercises?.length || 0} ejercicios`
+                      : "Falta configurar"}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+              </button>
+            );
+          })}
+        </section>
+
+        {template.description ? (
+          <p className="mt-4 text-sm leading-relaxed text-[color:var(--text-muted)]">
+            {template.description}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex min-h-12 items-center gap-3 rounded-[14px] bg-[color:var(--surface-subtle)] px-4 text-[13px] text-[color:var(--text-muted)]">
+          <Info className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+          {isReady
+            ? "Se reutilizará al asignarla; la plantilla original no cambiará."
+            : `Completa ${trainingDays - configuredDays} ${trainingDays - configuredDays === 1 ? "rutina" : "rutinas"} antes de asignarla.`}
+        </div>
       </div>
     </Modal>
   );
@@ -4893,10 +5241,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
   const [showArchivedRoutines, setShowArchivedRoutines] = useState(false);
+  const [routineLibraryFilter, setRoutineLibraryFilter] = useState("all");
   const hasOpenSubpage = Boolean(
     activePlan ||
     modalMode ||
-    viewingPlanTemplate ||
     viewingRoutine ||
     planDayChoice ||
     planModalOpen ||
@@ -4917,7 +5265,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     useQuery({
       queryKey: ["archived-routines", user?.id || user?._id || "self"],
       queryFn: () => api.getRoutines({ includeArchived: true }),
-      enabled: showArchivedRoutines && !isManagedClient,
+      enabled: (showArchivedRoutines || isCoach) && !isManagedClient,
       staleTime: 30 * 1000,
     });
   const archivedRoutines = useMemo(
@@ -5015,6 +5363,25 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     });
     return map;
   }, [isCoach, orderedTrainingPlans, planTemplates]);
+  const routinePlanUsageCountMap = useMemo(() => {
+    const planIdsByRoutine = new Map();
+    planTemplates.forEach((plan) => {
+      const planId = getEntityId(plan) || plan.name;
+      (plan.weeklySchedule || []).forEach((day) => {
+        const routineId = getEntityId(day.sourceRoutineId || day.routineId);
+        if (!routineId) return;
+        const planIds = planIdsByRoutine.get(routineId) || new Set();
+        planIds.add(planId);
+        planIdsByRoutine.set(routineId, planIds);
+      });
+    });
+    return new Map(
+      Array.from(planIdsByRoutine, ([routineId, planIds]) => [
+        routineId,
+        planIds.size,
+      ]),
+    );
+  }, [planTemplates]);
 
   const refreshPlans = useCallback(
     ({ silent = false, force = true } = {}) => {
@@ -5333,6 +5700,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
               ?.plan || null,
           trainingCount:
             routineTrainingCountMap.get(String(routine.id || routine._id)) || 0,
+          planUsageCount:
+            routinePlanUsageCountMap.get(
+              String(routine.id || routine._id),
+            ) || 0,
           totalExerciseCount: exercises.length,
           totalSets,
           muscles: Array.from(muscles),
@@ -5356,9 +5727,14 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     locationMode,
     preferredBranch,
     routineAssignmentById,
+    routinePlanUsageCountMap,
     routineTrainingCountMap,
   ]);
-  const visibleRoutineCards = routineCards;
+  const visibleRoutineCards = isCoach
+    ? routineCards.filter((routine) =>
+        routineLibraryFilter === "used" ? routine.planUsageCount > 0 : true,
+      )
+    : routineCards;
   const routineGroups = useMemo(() => {
     const assigned = visibleRoutineCards.filter(
       (routine) => routine.assignment,
@@ -5692,7 +6068,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
 
   const archivePlanTemplate = async (template) => {
     if (!window.confirm(`¿Eliminar ${template.name} de tus plantillas?`))
-      return;
+      return false;
     const id = String(template._id || template.id);
     if (templateProcessingId) return;
     setTemplateProcessingId(id);
@@ -5700,8 +6076,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       await api.deletePlanTemplate(id);
       await refreshPlans();
       toast.success("Plantilla eliminada de tu biblioteca");
+      return true;
     } catch (error) {
       toast.error(error.message || "No se pudo eliminar la plantilla");
+      return false;
     } finally {
       setTemplateProcessingId("");
     }
@@ -5928,9 +6306,18 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     setPlanModalOpen(true);
   };
 
-  const handleAssignCoachPlan = () => {
+  const handleAssignCoachPlan = (template = null) => {
     if (typeof window !== "undefined") {
       window.sessionStorage.setItem("rirfit_coach_plan_assignment", "1");
+      const templateId = getEntityId(template);
+      if (templateId) {
+        window.sessionStorage.setItem(
+          COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY,
+          templateId,
+        );
+      } else {
+        window.sessionStorage.removeItem(COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY);
+      }
     }
     toast.message("Selecciona un alumno", {
       description: "Abriremos su plan para que elijas una plantilla.",
@@ -5968,7 +6355,11 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const workspaceError =
     !activePlan &&
     (isPlanWorkspace
-      ? (isCoach ? coachPlans.length === 0 && planTemplates.length === 0 : visiblePlans.length === 0)
+      ? (
+          isCoach
+            ? coachPlans.length === 0 && planTemplates.length === 0
+            : visiblePlans.length === 0
+        )
         ? plansError
         : ""
       : routines.length === 0
@@ -6024,7 +6415,9 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                       <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ee5962]" />
                     </button>
                     <ProfileAvatar
-                      photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+                      photoId={
+                        profile?.avatarPhotoId || user?.profile?.avatarPhotoId
+                      }
                       name={user?.name}
                       className="h-11 w-11 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-xs font-semibold"
                     />
@@ -6164,7 +6557,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
 
         {!activePlan ? (
           <div
-            className={`routines-workspace-tabs grid gap-1 bg-[#f0eef2] p-1 dark:bg-[#1b1b1b] ${isCoach ? "grid-cols-3" : "grid-cols-2"}`}
+            className={`routines-workspace-tabs grid gap-1 rounded-full bg-[#f0eef2] p-1 dark:bg-[#1b1b1b] ${isCoach ? "grid-cols-3" : "grid-cols-2"}`}
             role="tablist"
             aria-label="Gestionar rutinas y planificaciones"
           >
@@ -6185,7 +6578,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 role="tab"
                 aria-selected={workspaceView === item.id}
                 onClick={() => setWorkspaceView(item.id)}
-                className={`inline-flex h-11 min-w-0 items-center justify-center border px-1 text-xs font-black uppercase transition ${
+                className={`inline-flex h-11 min-w-0 items-center justify-center rounded-full border px-1 text-[14px] font-semibold transition ${
                   workspaceView === item.id
                     ? "border-[#d8c8c0] bg-white text-[#181918] shadow-sm dark:border-[#e2ff00] dark:bg-[#111] dark:text-[#e2ff00]"
                     : "border-transparent text-[#32262a] dark:text-[#b8b8a6]"
@@ -6575,7 +6968,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
         </section>
       ) : null}
 
-      {!activePlan && workspaceReady && workspaceView === "routines" ? (
+      {!activePlan &&
+      workspaceReady &&
+      workspaceView === "routines" &&
+      !isCoach ? (
         <RoutineToolbar
           showSearch={showSearch}
           searchTerm={searchTerm}
@@ -6591,6 +6987,80 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
             setShowArchivedRoutines((current) => !current)
           }
         />
+      ) : null}
+
+      {!activePlan &&
+      workspaceReady &&
+      workspaceView === "routines" &&
+      isCoach ? (
+        <section className="mt-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text-muted)]" />
+              <input
+                type="search"
+                inputMode="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar rutina"
+                className="theme-accent-focus h-14 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] pl-12 pr-4 text-sm text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => openCreate()}
+              className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#171817] text-white transition active:scale-95 dark:bg-[#e2ff00] dark:text-black"
+              aria-label="Crear rutina"
+            >
+              <Plus className="h-6 w-6" strokeWidth={1.8} />
+            </button>
+          </div>
+
+          <div
+            className="grid grid-cols-3 gap-2"
+            role="tablist"
+            aria-label="Filtrar biblioteca de rutinas"
+          >
+            {[
+              { id: "all", label: "Todas", count: routineCards.length },
+              {
+                id: "used",
+                label: "En uso",
+                count: routineCards.filter((routine) => routine.planUsageCount > 0)
+                  .length,
+              },
+              {
+                id: "archived",
+                label: "Archivadas",
+                count: archivedRoutines.length,
+              },
+            ].map((filter) => {
+              const active = routineLibraryFilter === filter.id;
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setRoutineLibraryFilter(filter.id);
+                    setShowArchivedRoutines(filter.id === "archived");
+                  }}
+                  className={`h-12 min-w-0 rounded-full px-2 text-sm font-medium transition ${
+                    active
+                      ? "bg-[#171817] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                  }`}
+                >
+                  <span className="truncate">{filter.label}</span>{" "}
+                  <span className="ml-1 tabular-nums opacity-75">
+                    {filter.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
 
       {!activePlan &&
@@ -6638,7 +7108,35 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       workspaceView === "routines" &&
       !showArchivedRoutines ? (
         <section className="routine-library-list mt-4 space-y-7 sm:mt-5">
-          {routineGroups.map((group) => (
+          {isCoach ? (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+                    Biblioteca de rutinas
+                  </h2>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    Reutiliza, edita y organiza tus sesiones base.
+                  </p>
+                </div>
+                <SlidersHorizontal
+                  className="h-5 w-5 shrink-0 text-[color:var(--text)]"
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                />
+              </div>
+              <CoachRoutineLibraryList
+                routines={visibleRoutineCards}
+                onOpen={openEdit}
+                onDuplicate={handleDuplicateRoutine}
+                onArchive={requestDeleteRoutine}
+                duplicatingRoutineId={duplicatingRoutineId}
+              />
+            </section>
+          ) : null}
+
+          {!isCoach
+            ? routineGroups.map((group) => (
             <section key={group.id} className="routine-library-group">
               <header className="routine-library-group__header mb-3 px-1">
                 <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
@@ -6825,7 +7323,8 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
                 </AnimatePresence>
               </div>
             </section>
-          ))}
+            ))
+            : null}
 
           {!visibleRoutineCards.length ? (
             <div className="border-y border-[color:var(--border)] py-12 text-center">
@@ -6879,6 +7378,15 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
             await duplicatePlanTemplate(template);
             setViewingPlanTemplate(null);
           }}
+          onAssign={(template) => {
+            setViewingPlanTemplate(null);
+            handleAssignCoachPlan(template);
+          }}
+          onArchive={async (template) => {
+            const archived = await archivePlanTemplate(template);
+            if (archived) setViewingPlanTemplate(null);
+          }}
+          processingId={templateProcessingId}
         />
       ) : null}
       {viewingRoutine ? (

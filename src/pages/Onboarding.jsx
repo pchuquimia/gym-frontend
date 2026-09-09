@@ -72,6 +72,7 @@ const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
     weeklyFrequency: Number(profile.weeklyFrequency || 3),
     weight: profile.weight || "",
     height: profile.height || "",
+    healthNotes: profile.healthNotes || "",
   };
   try {
     const currentDraft = window.localStorage.getItem(DRAFT_KEY);
@@ -191,11 +192,12 @@ export default function Onboarding({ onNavigate = () => {} }) {
     selectOnboardingAccountType,
     logout,
   } = useAuth();
-  const initialAccountType = user?.onboarding?.accountType || "";
+  const isManagedAthlete =
+    user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+  const initialAccountType =
+    user?.onboarding?.accountType || (isManagedAthlete ? "athlete" : "");
   const [accountType, setAccountType] = useState(initialAccountType);
-  const [showAccountType, setShowAccountType] = useState(
-    !initialAccountType,
-  );
+  const [showAccountType, setShowAccountType] = useState(!initialAccountType);
   const [step, setStep] = useState(() =>
     Math.max(
       0,
@@ -323,12 +325,18 @@ export default function Onboarding({ onNavigate = () => {} }) {
         weeklyFrequency: Number(form.weeklyFrequency),
         weight: Number(form.weight),
         height: Number(form.height),
+        healthNotes: form.healthNotes.trim(),
       });
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
-      toast.success("Configuracion completada", {
-        description: "Tu dashboard ya esta preparado con tus objetivos.",
-      });
+      toast.success(
+        isManagedAthlete ? "Evaluación enviada" : "Configuración completada",
+        {
+          description: isManagedAthlete
+            ? "Tu coach ya puede revisar tus respuestas y preparar tu plan."
+            : "Tu dashboard ya está preparado con tus objetivos.",
+        },
+      );
       onNavigate("dashboard");
     } catch (error) {
       if (error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message)) {
@@ -498,6 +506,11 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
           {!showAccountType && accountType === "athlete" && step === 0 ? (
             <div className="mt-2">
+              {isManagedAthlete ? (
+                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#181918] dark:text-[#e2ff00]">
+                  Evaluación inicial para tu coach
+                </p>
+              ) : null}
               <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
                 ¿Cual es tu objetivo principal?
               </h1>
@@ -713,6 +726,30 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
+                {isManagedAthlete ? (
+                  <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
+                    <span className="text-xs font-black uppercase">
+                      Lesiones o condiciones a considerar
+                    </span>
+                    <textarea
+                      maxLength={500}
+                      rows={4}
+                      value={form.healthNotes}
+                      onChange={(event) =>
+                        setForm((value) => ({
+                          ...value,
+                          healthNotes: event.target.value,
+                        }))
+                      }
+                      placeholder="Opcional. Describe molestias, lesiones, restricciones o indicaciones médicas relevantes."
+                      className="mt-3 w-full resize-none border-b border-[color:var(--border)] bg-transparent py-2 text-sm font-semibold leading-6 outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                    />
+                    <span className="mt-2 block text-[11px] leading-5 text-[color:var(--text-muted)]">
+                      Esta información se compartirá únicamente con tu coach
+                      para adaptar la planificación.
+                    </span>
+                  </label>
+                ) : null}
               </div>
               <div className="mt-4 flex items-start gap-3 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-current" />

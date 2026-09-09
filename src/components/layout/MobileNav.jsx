@@ -203,8 +203,12 @@ function MobileNav({ activePage, onNavigate }) {
               >
                 {item.id === "registrar"
                   ? "Entrenar"
-                  : item.id === "rutinas" && user?.role === "Entrenador"
-                    ? "Planes"
+                  : item.id === "rutinas" &&
+                      (user?.role === "Entrenador" ||
+                        user?.trainingMode === "coach_managed")
+                    ? user?.role === "Entrenador"
+                      ? "Planes"
+                      : "Plan"
                     : item.id === "trainer"
                       ? "Inicio"
                       : item.id === "coach_athletes"

@@ -13,7 +13,6 @@ import {
   clearCoachInvitation,
   storeCoachInvitation,
 } from "../utils/coachInvitation";
-import { needsOnboarding } from "../utils/userFlow";
 
 const initials = (name = "") =>
   String(name)
@@ -72,13 +71,10 @@ export default function CoachInvitation({ token, onNavigate = () => {} }) {
     setAccepting(true);
     setError("");
     try {
-      const result = await api.acceptCoachInvitation(token, confirmTransfer);
+      await api.acceptCoachInvitation(token, confirmTransfer);
       clearCoachInvitation();
-      const refreshedUser = await refreshUser({ force: true });
-      const nextUser = refreshedUser || result?.user || user;
-      onNavigate(needsOnboarding(nextUser) ? "onboarding" : "dashboard", {
-        replace: true,
-      });
+      await refreshUser({ force: true });
+      onNavigate("dashboard", { replace: true });
     } catch (requestError) {
       if (requestError.code === "COACH_TRANSFER_CONFIRMATION_REQUIRED") {
         setTransferRequired(true);

@@ -69,6 +69,7 @@ import {
   estimateFullSessionDuration,
   formatSessionDuration,
 } from "../utils/sessionDurationEstimate";
+import { getManagedAthleteJourneyStage } from "../utils/userFlow";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -125,42 +126,6 @@ const ROUTINE_DASHBOARD_IMAGES = Object.freeze({
 function getRoutineDashboardImage(value = "") {
   const key = String(value).trim().toLocaleLowerCase("es").replace(/\s+/g, " ");
   return ROUTINE_DASHBOARD_IMAGES[key] || "/images/workout-hero-model.webp";
-}
-
-function calculateTrainingStreaks(trainings = [], referenceDate = new Date()) {
-  const referenceKey = getISODateKey(referenceDate);
-  const dates = Array.from(
-    new Set(
-      trainings
-        .map((training) => getISODateKey(training.date))
-        .filter((dateKey) => dateKey && dateKey <= referenceKey),
-    ),
-  ).sort();
-  if (!dates.length) return { current: 0, best: 0 };
-
-  const available = new Set(dates);
-  const cursor = new Date(referenceDate);
-  cursor.setHours(0, 0, 0, 0);
-  if (!available.has(getISODateKey(cursor)))
-    cursor.setDate(cursor.getDate() - 1);
-
-  let current = 0;
-  while (available.has(getISODateKey(cursor)) && current < 3650) {
-    current += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  let best = 0;
-  let run = 0;
-  let previous = null;
-  dates.forEach((dateKey) => {
-    const timestamp = new Date(`${dateKey}T12:00:00`).getTime();
-    run = previous !== null && timestamp - previous === DAY_MS ? run + 1 : 1;
-    best = Math.max(best, run);
-    previous = timestamp;
-  });
-
-  return { current, best };
 }
 
 function titleCase(value = "") {
@@ -1953,12 +1918,27 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
     : loadedActivePlan;
-  const weeklySessionGoal = Math.max(
-    0,
-    (activePlan?.weeklySchedule || []).filter(
-      (day) => day?.type === "training" && day?.routineId,
-    ).length,
+  const managedAthleteStage = getManagedAthleteJourneyStage(
+    authUser,
+    activePlan,
   );
+  const coachRelationshipQuery = useQuery({
+    queryKey: ["coach-relationship", authUser?.id || authUser?._id || "self"],
+    queryFn: api.getCoachRelationship,
+    enabled: Boolean(managedAthleteStage),
+    staleTime: 60 * 1000,
+  });
+  const managedCoach = managedAthleteStage
+    ? coachRelationshipQuery.data?.coach || { name: "Tu coach" }
+    : null;
+
+  useEffect(() => {
+    if (managedAthleteStage !== "evaluation_submitted") return undefined;
+    const intervalId = window.setInterval(() => {
+      dashboardBootstrap.refetch();
+    }, 30_000);
+    return () => window.clearInterval(intervalId);
+  }, [dashboardBootstrap, managedAthleteStage]);
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -3287,11 +3267,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const mobileCheckInTask = canUseDailyCheckIn
     ? {
         completed: checkInCompleted,
-        title: checkInCompleted
-          ? "Estado registrado"
-          : "Registra cómo te sientes",
+        title: "Check-in diario",
         subtitle: checkInCompleted
-          ? `Recuperación estimada · ${Math.round(Number(todayDailyMetric.readinessScore))}%`
+          ? `Completado · recuperación ${Math.round(Number(todayDailyMetric.readinessScore))}%`
           : "Sueño, energía y molestias · 20 s",
       }
     : null;
@@ -3384,14 +3362,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     completed: todayAction.type === "completed" || todayAction.type === "rest",
     title:
       todayAction.type === "scheduled"
-        ? `Completa ${mobileRoutineName}`
+        ? mobileRoutineName
         : todayAction.type === "active"
           ? `Continúa ${mobileRoutineName}`
           : todayAction.type === "completed"
             ? mobileRoutineName
-          : todayAction.title,
+            : todayAction.title,
     subtitle: mobileWorkoutSubtitle,
-    actionLabel: todayAction.primaryMobileLabel || todayAction.primaryLabel,
+    actionLabel:
+      todayAction.type === "scheduled"
+        ? "Comenzar entrenamiento"
+        : todayAction.primaryMobileLabel || todayAction.primaryLabel,
     image:
       todayAction.type === "rest"
         ? ""
@@ -3414,25 +3395,24 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       100,
       Math.round((hydrationTotalMl / hydrationGoalMl) * 100),
     ),
-    title: "Reto de hidratación",
+    title: "Hidratación",
     subtitle: `${hydrationTotalMl.toLocaleString("es-BO")} de ${hydrationGoalMl.toLocaleString("es-BO")} ml`,
   };
-  const mobileWeighInCompleted = Boolean(
-    todayWeighInData?.summary?.completedToday,
-  );
-  const mobileWeighInTask = {
-    completed: mobileWeighInCompleted,
-    title: mobileWeighInCompleted ? "Peso registrado" : "Peso semanal",
-    subtitle: mobileWeighInCompleted
-      ? todayWeighInData?.summary?.latest?.weightKg
-        ? `${todayWeighInData.summary.latest.weightKg} kg · registrado hoy`
-        : "Registro completado hoy"
-      : "Toca para registrar",
-  };
-  const trainingStreaks = useMemo(
-    () => calculateTrainingStreaks(orderedTrainings, now),
-    [now, orderedTrainings],
-  );
+  const mobileActivePlanContext = useMemo(() => {
+    if (!activePlan) return null;
+    const durationWeeks = Math.max(1, Number(activePlan.durationWeeks) || 1);
+    const start = toValidDate(activePlan.startDate);
+    const elapsedWeeks = start
+      ? Math.floor((now.getTime() - start.getTime()) / (7 * DAY_MS)) + 1
+      : 1;
+    const currentWeek = Math.min(durationWeeks, Math.max(1, elapsedWeeks));
+    return {
+      name: activePlan.name || "Plan actual",
+      durationWeeks,
+      currentWeek,
+      progress: Math.min(100, Math.round((currentWeek / durationWeeks) * 100)),
+    };
+  }, [activePlan, now]);
 
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
@@ -3441,7 +3421,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     ? weekData.declines || []
     : weekData.improvements || [];
 
-  if (trainingsLoading) {
+  const showingManagedOnboarding =
+    managedAthleteStage === "evaluation_pending" ||
+    managedAthleteStage === "evaluation_submitted";
+
+  if (trainingsLoading && !showingManagedOnboarding) {
     return (
       <OperationLoader
         active
@@ -3453,7 +3437,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     );
   }
 
-  if (trainingsError && !hasTrainingHistory) {
+  if (trainingsError && !hasTrainingHistory && !showingManagedOnboarding) {
     return (
       <section
         role="alert"
@@ -3502,16 +3486,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           ) : null
         }
         weekDays={weekData.days}
-        currentStreak={trainingStreaks.current}
-        bestStreak={trainingStreaks.best}
+        journeyStage={managedAthleteStage}
+        coach={managedCoach}
+        activePlanContext={mobileActivePlanContext}
         checkInTask={mobileCheckInTask}
         workoutTask={mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
-        weighInTask={mobileWeighInTask}
-        weeklySessions={weekData.sessions}
-        weeklyGoal={weeklySessionGoal}
         readOnly={isAdminDatePreview}
         onOpenMenu={() => window.dispatchEvent(new Event("open-main-menu"))}
+        onStartEvaluation={() => onNavigate("onboarding")}
+        onOpenCoach={() => onNavigate("perfil")}
+        onOpenPlan={() => onNavigate("rutinas")}
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}

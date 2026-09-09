@@ -11,7 +11,9 @@ function Modal({
   size = "default",
   mobilePage = false,
   hideHeader = false,
+  headerAction,
   dialogClassName = "",
+  overlayClassName = "",
   contentClassName = "",
   footerClassName = "",
 }) {
@@ -71,7 +73,7 @@ function Modal({
         mobilePage
           ? "bg-[color:var(--bg)] sm:bg-[color:var(--overlay)] sm:backdrop-blur-[3px]"
           : "bg-[color:var(--overlay)] backdrop-blur-[3px]"
-      }`}
+      } ${overlayClassName}`}
     >
       <div
         ref={dialogRef}
@@ -135,6 +137,11 @@ function Modal({
                 <X className="h-4 w-4" />
               )}
             </button>
+            {mobilePage && headerAction ? (
+              <div className="col-start-3 row-start-1 flex min-w-0 items-center justify-end sm:order-last sm:ml-auto">
+                {headerAction}
+              </div>
+            ) : null}
           </div>
         ) : null}
         <div

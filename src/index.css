@@ -3081,6 +3081,482 @@ button,
   .mobile-daily-plan__weekly-marks span.is-done {
     background: var(--mission-accent);
   }
+
+  .mobile-daily-plan__notification {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    color: var(--text);
+  }
+
+  .mobile-daily-plan__notification svg {
+    width: 1.55rem;
+    height: 1.55rem;
+    stroke-width: 1.8;
+  }
+
+  .mobile-daily-plan__coach-card {
+    display: grid;
+    width: 100%;
+    min-height: 5.75rem;
+    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid var(--detail-row-divider);
+    border-radius: 1.4rem;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .mobile-daily-plan__coach-avatar {
+    display: grid;
+    width: 3.5rem;
+    height: 3.5rem;
+    overflow: hidden;
+    place-items: center;
+    border-radius: 1rem;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__coach-avatar svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    stroke-width: 1.75;
+  }
+
+  .mobile-daily-plan__coach-copy strong,
+  .mobile-daily-plan__coach-copy small {
+    display: block;
+  }
+
+  .mobile-daily-plan__coach-copy strong {
+    font-size: 1.05rem;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+  }
+
+  .mobile-daily-plan__coach-copy small {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .mobile-daily-plan__coach-copy small.is-connected {
+    color: #4b8f18;
+  }
+
+  .mobile-daily-plan__coach-copy small.is-connected::before {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-right: 0.45rem;
+    border-radius: 999px;
+    background: var(--mission-accent);
+    content: "";
+  }
+
+  .mobile-daily-plan__coach-card > svg,
+  .mobile-daily-plan__coach-message > svg:last-child,
+  .mobile-daily-plan__plan-card > svg {
+    width: 1.15rem;
+    color: var(--text-subtle);
+  }
+
+  .mobile-daily-plan__onboarding-card {
+    display: grid;
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 1.25rem;
+    border-radius: 1.55rem;
+    background: #191a19;
+    padding: 1.5rem;
+    color: #fff;
+    box-shadow: 0 18px 50px rgb(20 20 18 / 12%);
+  }
+
+  .mobile-daily-plan__onboarding-icon {
+    display: grid;
+    width: 3.75rem;
+    height: 3.75rem;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 25%);
+    border-radius: 1.1rem;
+  }
+
+  .mobile-daily-plan__onboarding-icon.is-complete {
+    border-radius: 999px;
+    border-color: var(--mission-accent);
+    background: var(--mission-accent);
+    color: #111;
+  }
+
+  .mobile-daily-plan__onboarding-icon svg {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .mobile-daily-plan__onboarding-card h3 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 650;
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+  }
+
+  .mobile-daily-plan__onboarding-card p {
+    margin-top: 0.45rem;
+    color: rgb(255 255 255 / 65%);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .mobile-daily-plan__onboarding-card small {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    color: rgb(255 255 255 / 68%);
+    font-size: 0.8rem;
+  }
+
+  .mobile-daily-plan__onboarding-card small svg {
+    width: 1rem;
+  }
+
+  .mobile-daily-plan__primary-action {
+    min-height: 3.35rem;
+    grid-column: 1 / -1;
+    border-radius: 999px;
+    background: var(--mission-accent);
+    color: #111;
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .mobile-daily-plan__preparing {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid rgb(255 255 255 / 15%);
+    border-radius: 1rem;
+    background: rgb(255 255 255 / 5%);
+    padding: 1rem;
+  }
+
+  .mobile-daily-plan__preparing > svg {
+    width: 1.5rem;
+    flex: 0 0 auto;
+  }
+
+  .mobile-daily-plan__preparing strong,
+  .mobile-daily-plan__preparing small {
+    display: block;
+  }
+
+  .mobile-daily-plan__preparing strong {
+    font-size: 0.9rem;
+  }
+
+  .mobile-daily-plan__preparing small {
+    margin-top: 0.25rem;
+  }
+
+  .mobile-daily-plan__journey {
+    padding: 1.8rem 0 1.2rem;
+  }
+
+  .mobile-daily-plan__journey h2,
+  .mobile-daily-plan__waiting-card h2 {
+    font-size: 1.35rem;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: -0.035em;
+  }
+
+  .mobile-daily-plan__journey-track {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1fr);
+    align-items: start;
+    margin-top: 1.4rem;
+  }
+
+  .mobile-daily-plan__journey-track > b {
+    margin-top: 1.25rem;
+    border-top: 2px dotted var(--border-strong);
+  }
+
+  .mobile-daily-plan__journey-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .mobile-daily-plan__journey-step i {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+    color: var(--text);
+    font-style: normal;
+    font-weight: 650;
+  }
+
+  .mobile-daily-plan__journey-step i svg {
+    width: 1.1rem;
+    stroke-width: 2.7;
+  }
+
+  .mobile-daily-plan__journey-step.is-active i,
+  .mobile-daily-plan__journey-step.is-complete i {
+    background: var(--mission-accent);
+    color: #111;
+  }
+
+  .mobile-daily-plan__journey-step.is-current i {
+    background: #191a19;
+    color: #fff;
+  }
+
+  .mobile-daily-plan__journey-step strong {
+    max-width: 9rem;
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 550;
+    line-height: 1.25;
+  }
+
+  .mobile-daily-plan__waiting-card {
+    overflow: hidden;
+    border: 1px solid var(--detail-row-divider);
+    border-radius: 1.35rem;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    padding: 1.15rem;
+  }
+
+  .mobile-daily-plan__waiting-card > div,
+  .mobile-daily-plan__waiting-card > button {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8rem;
+    border: 0;
+    background: transparent;
+    padding: 1rem 0;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .mobile-daily-plan__waiting-card > div {
+    border-bottom: 1px solid var(--detail-row-divider);
+  }
+
+  .mobile-daily-plan__waiting-card svg {
+    width: 1.35rem;
+  }
+
+  .mobile-daily-plan__waiting-card strong,
+  .mobile-daily-plan__waiting-card small {
+    display: block;
+  }
+
+  .mobile-daily-plan__waiting-card strong {
+    font-size: 0.9rem;
+  }
+
+  .mobile-daily-plan__waiting-card small {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .mobile-daily-plan__waiting-card em,
+  .mobile-daily-plan__waiting-card b {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 650;
+  }
+
+  .mobile-daily-plan__waiting-card em {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mission-accent) 14%, var(--card));
+    padding: 0.45rem 0.65rem;
+    color: #4b7d19;
+  }
+
+  .mobile-daily-plan__waiting-card em svg {
+    width: 0.9rem;
+  }
+
+  .mobile-daily-plan__workout-card {
+    display: grid;
+    grid-template-columns: 2.4rem 5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.85rem;
+    margin: 1rem -0.15rem 0;
+    border-radius: 1.5rem;
+    background: #191a19;
+    padding: 1.1rem;
+    color: #fff;
+    text-align: left;
+  }
+
+  .mobile-daily-plan__workout-card .mobile-daily-plan__status {
+    border-color: rgb(255 255 255 / 82%);
+    color: #111;
+  }
+
+  .mobile-daily-plan__workout-card .mobile-daily-plan__status.is-complete {
+    border-color: var(--mission-accent);
+  }
+
+  .mobile-daily-plan__workout-card .mobile-daily-plan__visual {
+    width: 5rem;
+    height: 5rem;
+  }
+
+  .mobile-daily-plan__workout-card .mobile-daily-plan__mission-copy > strong {
+    color: #fff;
+    font-size: 1.25rem;
+  }
+
+  .mobile-daily-plan__workout-card .mobile-daily-plan__mission-copy > small {
+    color: rgb(255 255 255 / 62%);
+  }
+
+  .mobile-daily-plan__workout-action {
+    min-height: 3.2rem;
+    grid-column: 3;
+    border-radius: 999px;
+    background: var(--mission-accent);
+    padding: 0.75rem 1rem;
+    color: #111;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .mobile-daily-plan__mission.is-compact {
+    min-height: 5.75rem;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  }
+
+  .mobile-daily-plan__mission.is-optional {
+    grid-template-columns: 2.5rem 4.25rem minmax(0, 1fr) auto;
+  }
+
+  .mobile-daily-plan__mission.is-optional .mobile-daily-plan__visual {
+    width: 4.25rem;
+    height: 4.25rem;
+  }
+
+  .mobile-daily-plan__mission-copy > em {
+    display: inline-block;
+    margin-top: 0.45rem;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+    padding: 0.25rem 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.67rem;
+    font-style: normal;
+  }
+
+  .mobile-daily-plan__plan-card,
+  .mobile-daily-plan__coach-message {
+    display: grid;
+    width: 100%;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.25rem;
+    border: 1px solid var(--detail-row-divider);
+    border-radius: 1.25rem;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    padding: 1rem;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .mobile-daily-plan__plan-card {
+    grid-template-columns: 3.1rem minmax(0, 1fr) auto auto;
+  }
+
+  .mobile-daily-plan__plan-card > span {
+    display: grid;
+    width: 3.1rem;
+    height: 3.1rem;
+    place-items: center;
+    border-radius: 0.9rem;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__plan-card > span svg {
+    width: 1.25rem;
+  }
+
+  .mobile-daily-plan__plan-card strong,
+  .mobile-daily-plan__plan-card small,
+  .mobile-daily-plan__coach-message strong,
+  .mobile-daily-plan__coach-message small,
+  .mobile-daily-plan__coach-message em {
+    display: block;
+  }
+
+  .mobile-daily-plan__plan-card strong,
+  .mobile-daily-plan__coach-message strong {
+    font-size: 0.92rem;
+    font-weight: 650;
+  }
+
+  .mobile-daily-plan__plan-card small,
+  .mobile-daily-plan__coach-message small,
+  .mobile-daily-plan__coach-message em {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.73rem;
+    font-style: normal;
+  }
+
+  .mobile-daily-plan__plan-card i {
+    display: block;
+    height: 0.3rem;
+    overflow: hidden;
+    margin-top: 0.55rem;
+    border-radius: 999px;
+    background: var(--surface-subtle);
+  }
+
+  .mobile-daily-plan__plan-card i b {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--mission-accent);
+  }
+
+  .mobile-daily-plan__plan-card > em {
+    font-size: 0.76rem;
+    font-style: normal;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .mobile-daily-plan__coach-message {
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  }
+
+  .mobile-daily-plan__coach-message > svg:first-child {
+    width: 1.5rem;
+  }
 }
 
 /* Hydration challenge: focused mobile flow inspired by a native tracker. */

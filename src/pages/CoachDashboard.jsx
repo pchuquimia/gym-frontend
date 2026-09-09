@@ -56,6 +56,8 @@ import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 const COACH_PLAN_ASSIGNMENT_KEY = "rirfit_coach_plan_assignment";
 const COACH_REQUESTED_VIEW_KEY = "rirfit_coach_requested_view";
 const COACH_REQUESTED_PLAN_KEY = "rirfit_coach_requested_plan";
+const COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY =
+  "rirfit_coach_plan_template_assignment";
 
 const formatDate = (value) => {
   if (!value) return "Sin entrenamientos";
@@ -494,7 +496,13 @@ function MobileAthleteProfileHeader({
             </p>
           ) : null}
         </div>
-        <div className={planDetail ? "" : "col-span-2 grid grid-cols-2 gap-2.5 min-[440px]:contents"}>
+        <div
+          className={
+            planDetail
+              ? ""
+              : "col-span-2 grid grid-cols-2 gap-2.5 min-[440px]:contents"
+          }
+        >
           <button
             type="button"
             onClick={onMessage}
@@ -1964,6 +1972,7 @@ export default function CoachDashboard({
   const [loading, setLoading] = useState(true);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
+  const [initialPlanTemplateId, setInitialPlanTemplateId] = useState("");
   const [editingPlan, setEditingPlan] = useState(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [planActionId, setPlanActionId] = useState("");
@@ -2203,6 +2212,7 @@ export default function CoachDashboard({
       setOverview(null);
       setSelectedPlanId("");
       setPlanDetailMode(false);
+      setInitialPlanTemplateId("");
       setWeeklyReport(null);
       setLatestCheckIn(null);
       setHistoryTrainings([]);
@@ -2243,7 +2253,8 @@ export default function CoachDashboard({
       !overview ||
       user?.role !== "Entrenador" ||
       typeof window === "undefined"
-    ) return;
+    )
+      return;
     const wantsAssignment =
       window.sessionStorage.getItem(COACH_PLAN_ASSIGNMENT_KEY) === "1";
     const requestedView = window.sessionStorage.getItem(
@@ -2264,6 +2275,10 @@ export default function CoachDashboard({
     window.sessionStorage.removeItem(COACH_REQUESTED_PLAN_KEY);
     if (requestedPlanId) setSelectedPlanId(requestedPlanId);
     if (!wantsAssignment) return;
+    setInitialPlanTemplateId(
+      window.sessionStorage.getItem(COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY) || "",
+    );
+    window.sessionStorage.removeItem(COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY);
     setEditingPlan(null);
     setPlanDraft(null);
     setCreatingPlan(true);
@@ -3693,11 +3708,13 @@ export default function CoachDashboard({
           athlete={selectedAthlete}
           templates={templates}
           planTemplates={planCatalog.plans}
+          initialPlanTemplateId={initialPlanTemplateId}
           initialData={editingPlan || planDraft?.plan}
           replacingPlan={editingPlan ? null : activePlan}
           onSave={savePlan}
           onClose={() => {
             setCreatingPlan(false);
+            setInitialPlanTemplateId("");
             setEditingPlan(null);
             setPlanDraft(null);
           }}

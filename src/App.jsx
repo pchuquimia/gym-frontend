@@ -28,7 +28,11 @@ import {
   isActiveTrainingSnapshot,
   readActiveTrainingSnapshot,
 } from "./utils/activeTraining";
-import { getUserHome, needsOnboarding } from "./utils/userFlow";
+import {
+  getUserHome,
+  isCoachManagedClient,
+  needsOnboarding,
+} from "./utils/userFlow";
 import {
   clearCoachInvitation,
   invitationTokenFromPath,
@@ -146,6 +150,7 @@ const COACH_ATHLETE_CONTEXT_PAGES = new Set([
 ]);
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "dashboard",
+  "onboarding",
   "registrar",
   "ejercicio_analitica",
   "resumen_sesion",
@@ -479,12 +484,15 @@ function App() {
 
   useEffect(() => {
     if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
-    const isManagedClient =
-      user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+    const isManagedClient = isCoachManagedClient(user);
+    const isManagedEvaluationPending = isManagedClient && needsOnboarding(user);
+    const pendingAllowedPages = new Set(["dashboard", "onboarding"]);
     if (
       isAuthenticated &&
       isManagedClient &&
-      !MANAGED_CLIENT_ALLOWED_PAGES.has(activePage)
+      !(isManagedEvaluationPending
+        ? pendingAllowedPages.has(activePage)
+        : MANAGED_CLIENT_ALLOWED_PAGES.has(activePage))
     ) {
       handleNavigate("dashboard", { replace: true });
     }
@@ -494,7 +502,13 @@ function App() {
   useEffect(() => {
     if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     if (!isAuthenticated) return;
-    if (needsOnboarding(user) && activePage !== "onboarding") {
+    const managedEvaluationPending =
+      isCoachManagedClient(user) && needsOnboarding(user);
+    if (
+      needsOnboarding(user) &&
+      !managedEvaluationPending &&
+      activePage !== "onboarding"
+    ) {
       handleNavigate("onboarding", { replace: true });
       return;
     }
@@ -502,7 +516,13 @@ function App() {
       handleNavigate(getUserHome(user), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePage, isAuthenticated, user?.onboarding?.status, user?.role]);
+  }, [
+    activePage,
+    isAuthenticated,
+    user?.onboarding?.status,
+    user?.role,
+    user?.trainingMode,
+  ]);
 
   useEffect(() => {
     if (
@@ -530,14 +550,11 @@ function App() {
       .acceptCoachInvitation(invitationToken)
       .then(async (result) => {
         clearCoachInvitation();
-        const refreshedUser = await refreshUser({ force: true });
+        await refreshUser({ force: true });
         toast.success("Ya estás conectado con tu coach", {
           description: `${result.coach?.name || "Tu coach"} ya puede preparar tu seguimiento.`,
         });
-        handleNavigate(
-          needsOnboarding(refreshedUser) ? "onboarding" : "dashboard",
-          { replace: true },
-        );
+        handleNavigate("dashboard", { replace: true });
       })
       .catch((error) => {
         if (error.code === "COACH_TRANSFER_CONFIRMATION_REQUIRED") {
