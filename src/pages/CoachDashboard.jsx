@@ -1009,7 +1009,7 @@ function MobileAthletePlanView({
               <button
                 key={day.slotId || day.dayIndex}
                 type="button"
-                onClick={() => day.routineId && onOpenRoutine(day.routineId)}
+                onClick={() => day.routineId && onOpenRoutine(day)}
                 className="grid min-h-[74px] w-full grid-cols-[64px_54px_minmax(0,1fr)_32px] items-center gap-3 py-1 text-left"
               >
                 <img
@@ -1071,6 +1071,262 @@ function MobileAthletePlanView({
         <strong className="text-[16px] font-medium">
           {shortPlanDate(reviewDate)}
         </strong>
+      </div>
+    </div>
+  );
+}
+
+const historyDateLabel = (value) => {
+  const key = String(value || "").slice(0, 10);
+  if (!key) return "Sin fecha";
+  if (key === localDateKey()) return "Hoy";
+  const date = new Date(`${key}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return date
+    .toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+    .replace(".", "");
+};
+
+function MobileAthleteHistoryView({
+  trainings,
+  checkIns,
+  activePlan,
+  loading,
+  onOpenTraining,
+}) {
+  const [showAllSessions, setShowAllSessions] = useState(false);
+  const sortedTrainings = useMemo(
+    () =>
+      [...(trainings || [])].sort((left, right) =>
+        String(right.date || right.createdAt || "").localeCompare(
+          String(left.date || left.createdAt || ""),
+        ),
+      ),
+    [trainings],
+  );
+  const totalSeconds = sortedTrainings.reduce(
+    (total, training) =>
+      total +
+      Number(training.durationOverrideSeconds ?? training.durationSeconds ?? 0),
+    0,
+  );
+  const weeklyTarget = (activePlan?.weeklySchedule || []).filter(
+    (day) => day.type === "training",
+  ).length;
+  const planStart = activePlan?.startDate
+    ? new Date(`${String(activePlan.startDate).slice(0, 10)}T12:00:00`)
+    : null;
+  const today = new Date(`${localDateKey()}T12:00:00`);
+  const periodStart = new Date(today);
+  periodStart.setDate(today.getDate() - 29);
+  const effectiveStart =
+    planStart && planStart > periodStart && planStart <= today
+      ? planStart
+      : periodStart;
+  const elapsedPlanDays = Math.max(
+    1,
+    Math.floor((today.getTime() - effectiveStart.getTime()) / 86400000) + 1,
+  );
+  const expectedTrainings = weeklyTarget
+    ? Math.max(1, Math.round((weeklyTarget * elapsedPlanDays) / 7))
+    : sortedTrainings.length;
+  const adherence = expectedTrainings
+    ? Math.min(
+        100,
+        Math.round((sortedTrainings.length / expectedTrainings) * 100),
+      )
+    : 0;
+  const weeklyCounts = [0, 0, 0, 0];
+  sortedTrainings.forEach((training) => {
+    const date = new Date(
+      `${String(training.date || training.createdAt || "").slice(0, 10)}T12:00:00`,
+    );
+    if (Number.isNaN(date.getTime())) return;
+    const elapsedDays = Math.floor(
+      (date.getTime() - periodStart.getTime()) / 86400000,
+    );
+    if (elapsedDays >= 0 && elapsedDays < 30) {
+      weeklyCounts[Math.min(3, Math.floor(elapsedDays / 7))] += 1;
+    }
+  });
+  const chartMax = Math.max(6, Math.ceil(Math.max(...weeklyCounts, 0) / 2) * 2);
+  const chartTicks = [
+    chartMax,
+    Math.round((chartMax * 2) / 3),
+    Math.round(chartMax / 3),
+    0,
+  ];
+  const visibleSessions = showAllSessions
+    ? sortedTrainings
+    : sortedTrainings.slice(0, 3);
+
+  return (
+    <div className="pb-5 pt-4 lg:hidden">
+      <section>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-[25px] font-bold tracking-[-0.05em]">
+            Últimos 30 días
+          </h2>
+          <span className="grid h-11 w-11 place-items-center rounded-[12px] border border-[color:var(--border-strong)]">
+            <CalendarDays className="h-6 w-6" strokeWidth={1.8} />
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {[0, 1, 2].map((item) => (
+              <span
+                key={item}
+                className="h-14 animate-pulse rounded-[12px] bg-[color:var(--surface-subtle)]"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 grid min-h-[58px] grid-cols-3 divide-x divide-[color:var(--border)] text-center">
+            <div className="px-2">
+              <strong className="block text-[23px] font-bold tracking-[-0.04em]">
+                {sortedTrainings.length}
+              </strong>
+              <span className="mt-1 block text-[13px] text-[color:var(--text-muted)]">
+                Entrenos
+              </span>
+            </div>
+            <div className="px-2">
+              <strong className="block text-[23px] font-bold tracking-[-0.04em]">
+                {adherence}%
+              </strong>
+              <span className="mt-1 block text-[13px] text-[color:var(--text-muted)]">
+                Adherencia
+              </span>
+            </div>
+            <div className="px-2">
+              <strong className="block whitespace-nowrap text-[20px] font-bold tracking-[-0.04em]">
+                {compactDuration(totalSeconds)}
+              </strong>
+              <span className="mt-1 block text-[13px] text-[color:var(--text-muted)]">
+                Tiempo
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-4 border-t border-[color:var(--border)] pt-4">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="text-[23px] font-bold tracking-[-0.045em]">
+            Actividad semanal
+          </h3>
+          <span className="inline-flex items-center gap-2 text-[14px] text-[color:var(--text-muted)]">
+            <span className="h-3 w-3 rounded-full bg-[#459f62]" /> Realizados
+          </span>
+        </div>
+        <div className="mt-2 grid grid-cols-[24px_minmax(0,1fr)] gap-2">
+          <div className="flex h-[88px] flex-col justify-between text-[11px] text-[color:var(--text-muted)]">
+            {chartTicks.map((tick) => (
+              <span key={tick}>{tick}</span>
+            ))}
+          </div>
+          <div className="relative h-[88px] border-b border-l border-[color:var(--border-strong)]">
+            {[0, 1, 2].map((line) => (
+              <span
+                key={line}
+                className="absolute left-0 right-0 h-px bg-[color:var(--border)]"
+                style={{ top: `${line * 33.333}%` }}
+              />
+            ))}
+            <div className="absolute inset-x-0 bottom-0 top-0 flex items-end justify-around px-3">
+              {weeklyCounts.map((count, index) => (
+                <div
+                  key={index}
+                  className="relative flex h-full w-12 items-end justify-center"
+                  title={`Semana ${index + 1}: ${count} entrenamientos`}
+                >
+                  <span
+                    className="w-9 rounded-t-[4px] bg-[#459f62]"
+                    style={{
+                      height: `${count ? Math.max(8, (count / chartMax) * 68) : 0}px`,
+                    }}
+                  />
+                  <span className="absolute -bottom-5 text-[12px] text-[color:var(--text-muted)]">
+                    S{index + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-5 border-t border-[color:var(--border)] pt-3">
+        <div className="flex h-10 items-center justify-between gap-4">
+          <h3 className="text-[24px] font-bold tracking-[-0.045em]">
+            Sesiones
+          </h3>
+          <button
+            type="button"
+            onClick={() => {
+              if (sortedTrainings.length > 3) {
+                setShowAllSessions((current) => !current);
+              }
+            }}
+            aria-disabled={sortedTrainings.length <= 3}
+            className="inline-flex h-10 items-center gap-1 text-[16px] font-medium"
+          >
+            {showAllSessions ? "Ver menos" : "Ver todas"}
+            <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
+          </button>
+        </div>
+        <div className="divide-y divide-[color:var(--border)] border-b border-[color:var(--border)]">
+          {visibleSessions.map((training) => (
+            <button
+              key={training._id || training.id}
+              type="button"
+              onClick={() => onOpenTraining(training)}
+              className="grid min-h-[64px] w-full grid-cols-[80px_minmax(0,1fr)_auto_22px] items-center gap-3 py-1 text-left"
+            >
+              <img
+                src={activityImageFor(training.routineName)}
+                alt=""
+                className="h-14 w-20 rounded-[10px] object-cover"
+              />
+              <span className="min-w-0">
+                <strong className="block truncate text-[17px] font-semibold uppercase tracking-[-0.02em]">
+                  {training.routineName || "Entrenamiento"}
+                </strong>
+                <span className="mt-1 block truncate text-[13px] text-[color:var(--text-muted)]">
+                  {historyDateLabel(training.date || training.createdAt)} ·{" "}
+                  {compactDuration(
+                    training.durationOverrideSeconds ??
+                      training.durationSeconds ??
+                      0,
+                  )}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2 text-[14px] font-medium text-[#409d5e]">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#43ae67] text-white">
+                  <Check className="h-4 w-4" strokeWidth={2.7} />
+                </span>
+                <span className="hidden min-[430px]:inline">Completado</span>
+              </span>
+              <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
+            </button>
+          ))}
+          {!loading && !visibleSessions.length ? (
+            <p className="py-7 text-center text-sm text-[color:var(--text-muted)]">
+              No hay sesiones registradas en los últimos 30 días.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="flex min-h-[48px] items-center gap-4 border-b border-[color:var(--border)]">
+        <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-[color:var(--text-muted)] text-[color:var(--text-muted)]">
+          <Check className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <span className="flex-1 text-[15px] font-medium">
+          {checkIns?.length || 0} check-ins registrados
+        </span>
+        <ChevronRight className="h-5 w-5" strokeWidth={1.8} />
       </div>
     </div>
   );
@@ -1675,6 +1931,9 @@ export default function CoachDashboard({
   const [planActionId, setPlanActionId] = useState("");
   const [athleteView, setAthleteView] = useState("summary");
   const [latestCheckIn, setLatestCheckIn] = useState(null);
+  const [historyTrainings, setHistoryTrainings] = useState([]);
+  const [historyCheckIns, setHistoryCheckIns] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [coachWelcome, setCoachWelcome] = useState(() =>
     typeof window !== "undefined"
@@ -1892,6 +2151,8 @@ export default function CoachDashboard({
       setSelectedPlanId("");
       setWeeklyReport(null);
       setLatestCheckIn(null);
+      setHistoryTrainings([]);
+      setHistoryCheckIns([]);
       return;
     }
     setAthleteView("summary");
@@ -1921,6 +2182,44 @@ export default function CoachDashboard({
       active = false;
     };
   }, [loadAthletes, selectedId]);
+
+  useEffect(() => {
+    if (athleteView !== "activity" || !selectedId) return undefined;
+    let active = true;
+    const to = localDateKey();
+    const fromDate = new Date(`${to}T12:00:00`);
+    fromDate.setDate(fromDate.getDate() - 29);
+    setHistoryLoading(true);
+    Promise.all([
+      api.getTrainings({
+        athleteId: selectedId,
+        from: localDateKey(fromDate),
+        to,
+        page: 1,
+        limit: 90,
+      }),
+      api.getCheckIns(selectedId).catch(() => ({ checkIns: [] })),
+    ])
+      .then(([trainingResponse, checkInResponse]) => {
+        if (!active) return;
+        setHistoryTrainings(
+          Array.isArray(trainingResponse)
+            ? trainingResponse
+            : trainingResponse?.items || [],
+        );
+        setHistoryCheckIns(checkInResponse?.checkIns || []);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setHistoryTrainings([]);
+        setHistoryCheckIns([]);
+        toast.error(err.message || "No se pudo cargar el historial");
+      })
+      .finally(() => active && setHistoryLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [athleteView, selectedId]);
 
   useEffect(() => {
     if (
@@ -2150,7 +2449,7 @@ export default function CoachDashboard({
     }
   };
 
-  const startTraining = (requestedRoutineId = "") => {
+  const startTraining = (requestedPlanDay = null) => {
     if (!selectedAthlete || !trainableRoutines.length) return;
     const selected = onSelectCoachAthlete({
       id: selectedId,
@@ -2163,9 +2462,16 @@ export default function CoachDashboard({
       });
       return;
     }
-    const intendedPlanDay = requestedRoutineId
+    const intendedPlanDay = requestedPlanDay
       ? (activeTrainingPlan?.weeklySchedule || []).find(
-          (day) => String(day.routineId || "") === String(requestedRoutineId),
+          (day) =>
+            (requestedPlanDay.slotId &&
+              String(day.slotId || "") ===
+                String(requestedPlanDay.slotId || "")) ||
+            (!requestedPlanDay.slotId &&
+              Number(day.dayIndex) === Number(requestedPlanDay.dayIndex) &&
+              String(day.routineId || "") ===
+                String(requestedPlanDay.routineId || "")),
         )
       : recommendedPlanDay;
     if (intendedPlanDay?.routineId && typeof localStorage !== "undefined") {
@@ -2183,6 +2489,31 @@ export default function CoachDashboard({
       description: `Registrarás el entrenamiento de ${selectedAthlete.name}.`,
     });
     onNavigate("registrar");
+  };
+
+  const openHistoryTraining = (training) => {
+    const trainingId = training?._id || training?.id;
+    if (!selectedAthlete || !trainingId) return;
+    const selected = onSelectCoachAthlete({
+      id: selectedId,
+      name: selectedAthlete.name,
+      email: selectedAthlete.email,
+    });
+    if (selected === false) {
+      toast.info("Ya existe una sesión supervisada en curso", {
+        description: "Finalízala o cancélala antes de cambiar de alumno.",
+      });
+      return;
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("edit_training_id");
+      localStorage.removeItem("edit_training_date");
+      localStorage.setItem("view_training_id", trainingId);
+      if (training.date) {
+        localStorage.setItem("view_training_date", training.date);
+      }
+    }
+    onNavigate("registrar", { trainingView: true });
   };
 
   const refreshWeeklyReport = async () => {
@@ -2841,7 +3172,7 @@ export default function CoachDashboard({
                       if (activePlan) setEditingPlan(activePlan);
                       else setCreatingPlan(true);
                     }}
-                    onOpenRoutine={(routineId) => startTraining(routineId)}
+                    onOpenRoutine={(day) => startTraining(day)}
                   />
                   <div className="hidden lg:block">
                     <section className="mt-5 flex items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
@@ -3210,23 +3541,32 @@ export default function CoachDashboard({
                 </>
               ) : null}
 
-              <div className="mt-6">
+              <div className={athleteView === "activity" ? "" : "mt-6"}>
                 {athleteView === "activity" ? (
                   <>
-                    <SessionHistory
-                      key={selectedId}
-                      embedded
-                      ownerId={selectedId}
-                      ownerName={selectedAthlete.name}
-                      onNavigate={onNavigate}
-                      prepareTrainingContext={() =>
-                        onSelectCoachAthlete({
-                          id: selectedId,
-                          name: selectedAthlete.name,
-                          email: selectedAthlete.email,
-                        })
-                      }
+                    <MobileAthleteHistoryView
+                      trainings={historyTrainings}
+                      checkIns={historyCheckIns}
+                      activePlan={activePlan}
+                      loading={historyLoading}
+                      onOpenTraining={openHistoryTraining}
                     />
+                    <div className="hidden lg:block">
+                      <SessionHistory
+                        key={selectedId}
+                        embedded
+                        ownerId={selectedId}
+                        ownerName={selectedAthlete.name}
+                        onNavigate={onNavigate}
+                        prepareTrainingContext={() =>
+                          onSelectCoachAthlete({
+                            id: selectedId,
+                            name: selectedAthlete.name,
+                            email: selectedAthlete.email,
+                          })
+                        }
+                      />
+                    </div>
                   </>
                 ) : null}
                 {athleteView === "insights" ? (
