@@ -437,6 +437,26 @@ export function AuthProvider({ children }) {
     [commitUser],
   );
 
+  const selectOnboardingAccountType = useCallback(
+    async (accountType) => {
+      const data = await api.selectOnboardingAccountType(accountType);
+      const nextUser = normalizeUser(data);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
+
+  const completeCoachOnboarding = useCallback(
+    async (payload) => {
+      const data = await api.completeCoachOnboarding(payload);
+      const nextUser = normalizeUser(data);
+      commitUser(nextUser);
+      return nextUser;
+    },
+    [commitUser],
+  );
+
   const logout = useCallback(async () => {
     const userId = userRef.current?.id || userRef.current?._id;
     preserveActiveTraining(userId);
@@ -466,6 +486,8 @@ export function AuthProvider({ children }) {
       verifyEmail,
       updateAccount,
       completeOnboarding,
+      selectOnboardingAccountType,
+      completeCoachOnboarding,
       logout,
       refreshUser,
       developmentAdminMode,
@@ -481,6 +503,8 @@ export function AuthProvider({ children }) {
       verifyEmail,
       updateAccount,
       completeOnboarding,
+      selectOnboardingAccountType,
+      completeCoachOnboarding,
       logout,
       refreshUser,
       developmentAdminMode,

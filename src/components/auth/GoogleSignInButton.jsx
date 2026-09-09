@@ -116,7 +116,7 @@ export default function GoogleSignInButton({
         const renderButton = () => {
           const container = containerRef.current;
           if (!active || !container) return;
-          const nextWidth = Math.floor(Math.min(400, container.offsetWidth));
+          const nextWidth = Math.floor(container.offsetWidth);
           if (nextWidth < 100 || nextWidth === renderedWidth) return;
 
           renderedWidth = nextWidth;
@@ -159,7 +159,7 @@ export default function GoogleSignInButton({
 
   return (
     <div
-      className={`google-sign-in-button relative flex h-12 w-[9.125rem] max-w-full items-center justify-start rounded-[4px] transition ${
+      className={`google-sign-in-button relative flex h-10 w-full items-center justify-start rounded-[4px] transition ${
         disabled ? "pointer-events-none opacity-55" : ""
       }`}
       aria-busy={!ready || disabled}

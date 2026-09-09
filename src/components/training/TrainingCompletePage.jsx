@@ -41,6 +41,7 @@ export default function TrainingCompletePage({
   progressPercent,
   isComplete,
   isFinalizing,
+  finishLabel = "Finalizar entrenamiento",
   onFinish,
   onDismiss,
 }) {
@@ -274,9 +275,7 @@ export default function TrainingCompletePage({
             type="button"
             onClick={onFinish}
             disabled={isFinalizing}
-            aria-label={
-              isFinalizing ? "Finalizando" : "Finalizar entrenamiento"
-            }
+            aria-label={isFinalizing ? "Finalizando" : finishLabel}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[1rem] bg-[#181918] px-4 text-base font-semibold uppercase text-white shadow-[0_10px_28px_rgba(24,25,24,0.2)] disabled:cursor-wait disabled:opacity-80 dark:bg-[#e2ff00] dark:text-black"
             initial={false}
             animate={reduceMotion ? { scale: 1 } : { scale: [1, 1.018, 1] }}
@@ -285,7 +284,7 @@ export default function TrainingCompletePage({
             {isFinalizing ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
             ) : null}
-            {isFinalizing ? "Guardando" : "Finalizar entrenamiento"}
+            {isFinalizing ? "Guardando" : finishLabel}
           </motion.button>
 
           <button
@@ -325,6 +324,7 @@ TrainingCompletePage.propTypes = {
   progressPercent: PropTypes.number.isRequired,
   isComplete: PropTypes.bool.isRequired,
   isFinalizing: PropTypes.bool,
+  finishLabel: PropTypes.string,
   onFinish: PropTypes.func.isRequired,
   onDismiss: PropTypes.func.isRequired,
 };

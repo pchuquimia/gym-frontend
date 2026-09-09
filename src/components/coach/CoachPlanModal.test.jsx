@@ -33,7 +33,7 @@ describe("CoachPlanModal", () => {
 
   it("protege los cambios sin guardar antes de cerrar", async () => {
     const onClose = vi.fn();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirm = vi.spyOn(window, "confirm");
     render(
       <CoachPlanModal
         athlete={{ name: "Atleta" }}
@@ -48,13 +48,19 @@ describe("CoachPlanModal", () => {
     await userEvent.type(screen.getByLabelText("Nombre del plan"), "Otro plan");
     await userEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
-    expect(confirm).toHaveBeenCalledWith(
-      "Tienes cambios sin guardar. ¿Deseas cerrar la planificación?",
-    );
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByText("¿Salir de la planificación?")).toBeVisible();
     expect(onClose).not.toHaveBeenCalled();
 
-    confirm.mockReturnValue(true);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Seguir editando" }),
+    );
+    expect(screen.queryByText("¿Salir de la planificación?")).toBeNull();
+
     await userEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Descartar cambios" }),
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

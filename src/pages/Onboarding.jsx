@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  BriefcaseBusiness,
   Check,
   Dumbbell,
   Flame,
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
@@ -44,6 +46,21 @@ const levels = [
   { id: "beginner", title: "Principiante", detail: "Menos de 1 ano" },
   { id: "intermediate", title: "Intermedio", detail: "1 a 3 anos" },
   { id: "advanced", title: "Avanzado", detail: "Mas de 3 anos" },
+];
+
+const accountTypes = [
+  {
+    id: "athlete",
+    title: "Entreno para mí",
+    detail: "Organiza tus rutinas y registra tu progreso.",
+    icon: UserRound,
+  },
+  {
+    id: "coach",
+    title: "Soy entrenador/a",
+    detail: "Planifica, acompana y revisa el progreso de tus alumnos.",
+    icon: BriefcaseBusiness,
+  },
 ];
 
 const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
@@ -119,8 +136,66 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
   );
 }
 
+function AccountTypeChoice({ selected, icon: Icon, title, detail, onClick }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      className={`group flex min-h-[92px] w-full items-center gap-4 rounded-[22px] border px-4 py-4 text-left transition duration-300 sm:px-5 ${
+        selected
+          ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--bg)] shadow-[0_18px_44px_rgba(0,0,0,0.12)]"
+          : "border-[color:var(--border)] bg-[color:var(--card)] hover:-translate-y-0.5 hover:border-[color:var(--text)]"
+      }`}
+    >
+      <span
+        className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border transition ${
+          selected
+            ? "border-current/30 bg-current/10"
+            : "border-[color:var(--border)] bg-[color:var(--bg)]"
+        }`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-bold tracking-[-0.02em]">
+          {title}
+        </span>
+        <span
+          className={`mt-1 block text-sm font-normal leading-5 ${
+            selected ? "text-current/70" : "text-[color:var(--text-muted)]"
+          }`}
+        >
+          {detail}
+        </span>
+      </span>
+      <span
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
+          selected
+            ? "border-current/30 bg-[color:var(--bg)] text-[color:var(--text)]"
+            : "border-[color:var(--border)]"
+        }`}
+      >
+        {selected ? <Check className="h-3.5 w-3.5" /> : null}
+      </span>
+    </button>
+  );
+}
+
 export default function Onboarding({ onNavigate = () => {} }) {
-  const { user, completeOnboarding, logout } = useAuth();
+  const {
+    user,
+    completeOnboarding,
+    completeCoachOnboarding,
+    selectOnboardingAccountType,
+    logout,
+  } = useAuth();
+  const initialAccountType = user?.onboarding?.accountType || "";
+  const [accountType, setAccountType] = useState(initialAccountType);
+  const [showAccountType, setShowAccountType] = useState(
+    !initialAccountType,
+  );
   const [step, setStep] = useState(() =>
     Math.max(
       0,
@@ -173,6 +248,67 @@ export default function Onboarding({ onNavigate = () => {} }) {
     };
     setErrors(nextErrors);
     return !Object.values(nextErrors).some(Boolean);
+  };
+
+  const persistAccountType = async (nextAccountType) => {
+    if (saving || !nextAccountType) return;
+    try {
+      setSaving(true);
+      await selectOnboardingAccountType(nextAccountType);
+      setAccountType(nextAccountType);
+      setShowAccountType(false);
+      setErrors({});
+      setStep(0);
+    } catch (error) {
+      toast.error(
+        error.message || "No pudimos guardar como quieres usar RIRFIT",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const finishCoach = async () => {
+    if (saving) return;
+    const nextErrors = {
+      username: validateUsername(form.username),
+      name:
+        form.name.trim().length < 2 || form.name.trim().length > 80
+          ? "Ingresa un nombre de 2 a 80 caracteres."
+          : "",
+    };
+    setErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) return;
+
+    try {
+      setSaving(true);
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("rirfit_coach_welcome", "1");
+      }
+      await completeCoachOnboarding({
+        name: form.name.trim(),
+        username: normalizeUsername(form.username),
+      });
+      window.localStorage.removeItem(DRAFT_KEY);
+      window.localStorage.removeItem(LEGACY_DRAFT_KEY);
+      onNavigate("trainer");
+    } catch (error) {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("rirfit_coach_welcome");
+      }
+      if (error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message)) {
+        setErrors((value) => ({
+          ...value,
+          username: "Este nombre de usuario ya esta en uso.",
+        }));
+      } else {
+        toast.error(
+          error.message || "No se pudo preparar tu espacio profesional",
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const finish = async () => {
@@ -235,23 +371,25 @@ export default function Onboarding({ onNavigate = () => {} }) {
         </button>
       </header>
 
-      <div
-        className="mt-5 grid grid-cols-3 gap-2"
-        aria-label="Progreso de configuracion"
-      >
-        {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
-          <div key={label}>
-            <div
-              className={`h-1.5 ${index <= step ? "bg-[#181918] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
-            />
-            <p
-              className={`mt-2 text-[9px] font-black uppercase ${index <= step ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
-            >
-              {index + 1}. {label}
-            </p>
-          </div>
-        ))}
-      </div>
+      {!showAccountType && accountType === "athlete" ? (
+        <div
+          className="mt-5 grid grid-cols-3 gap-2"
+          aria-label="Progreso de configuracion"
+        >
+          {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
+            <div key={label}>
+              <div
+                className={`h-1.5 ${index <= step ? "bg-[#181918] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
+              />
+              <p
+                className={`mt-2 text-[9px] font-black uppercase ${index <= step ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
+              >
+                {index + 1}. {label}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <section className="my-auto py-8 sm:py-12">
         <div className="mx-auto max-w-3xl">
@@ -259,7 +397,106 @@ export default function Onboarding({ onNavigate = () => {} }) {
             Hola, {user?.name?.split(" ")[0] || "atleta"}
           </p>
 
-          {step === 0 ? (
+          {showAccountType ? (
+            <div className="mt-3 max-w-2xl">
+              <h1 className="max-w-xl text-[34px] font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">
+                ¿Cómo quieres usar RIRFIT?
+              </h1>
+              <p className="mt-4 max-w-lg text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+                Empezaremos con las herramientas adecuadas para ti. Podrás
+                activar un espacio profesional más adelante.
+              </p>
+              <div
+                className="mt-7 grid gap-3"
+                role="radiogroup"
+                aria-label="Tipo de cuenta"
+              >
+                {accountTypes.map((option) => (
+                  <AccountTypeChoice
+                    key={option.id}
+                    {...option}
+                    selected={accountType === option.id}
+                    onClick={() => setAccountType(option.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {!showAccountType && accountType === "coach" ? (
+            <div className="mt-3 max-w-2xl">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                Espacio profesional
+              </p>
+              <h1 className="mt-2 max-w-xl text-[34px] font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">
+                Preséntate ante tus alumnos.
+              </h1>
+              <p className="mt-4 max-w-lg text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+                Solo necesitamos cómo quieres aparecer en RIRFIT. Al terminar
+                recibirás tu código privado de invitación.
+              </p>
+              <div className="mt-7 overflow-hidden rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 sm:px-6">
+                <label className="block border-b border-[color:var(--border)] py-5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                    Nombre público
+                  </span>
+                  <input
+                    type="text"
+                    maxLength="80"
+                    autoComplete="name"
+                    value={form.name}
+                    onChange={(event) => {
+                      setForm((value) => ({
+                        ...value,
+                        name: event.target.value,
+                      }));
+                      setErrors((value) => ({ ...value, name: "" }));
+                    }}
+                    placeholder="Tu nombre"
+                    className="mt-2 h-11 w-full bg-transparent text-lg font-semibold tracking-[-0.02em] outline-none placeholder:text-[color:var(--text-muted)]"
+                    aria-label="Nombre público del entrenador"
+                  />
+                  {errors.name ? (
+                    <span className="mt-1 block text-xs font-semibold text-red-500">
+                      {errors.name}
+                    </span>
+                  ) : null}
+                </label>
+                <label className="block py-5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                    Nombre de usuario
+                  </span>
+                  <input
+                    type="text"
+                    maxLength={20}
+                    autoComplete="username"
+                    value={form.username}
+                    onChange={(event) => {
+                      setForm((value) => ({
+                        ...value,
+                        username: event.target.value.toLowerCase(),
+                      }));
+                      setErrors((value) => ({ ...value, username: "" }));
+                    }}
+                    placeholder="coach_rirfit"
+                    className="mt-2 h-11 w-full bg-transparent text-lg font-semibold tracking-[-0.02em] outline-none placeholder:text-[color:var(--text-muted)]"
+                    aria-label="Nombre de usuario profesional"
+                  />
+                  {errors.username ? (
+                    <span className="mt-1 block text-xs font-semibold text-red-500">
+                      {errors.username}
+                    </span>
+                  ) : null}
+                </label>
+              </div>
+              <div className="mt-4 flex items-center gap-3 px-1 text-xs font-normal leading-5 text-[color:var(--text-muted)]">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-[color:var(--text)]" />
+                Ningún alumno será vinculado sin aceptar tu invitación.
+              </div>
+            </div>
+          ) : null}
+
+          {!showAccountType && accountType === "athlete" && step === 0 ? (
             <div className="mt-2">
               <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
                 ¿Cual es tu objetivo principal?
@@ -283,7 +520,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             </div>
           ) : null}
 
-          {step === 1 ? (
+          {!showAccountType && accountType === "athlete" && step === 1 ? (
             <div className="mt-2">
               <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
                 Ajustemos el punto de partida
@@ -348,7 +585,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {!showAccountType && accountType === "athlete" && step === 2 ? (
             <div className="mt-2">
               <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
                 Completa tu perfil base
@@ -501,41 +738,93 @@ export default function Onboarding({ onNavigate = () => {} }) {
       </section>
 
       <footer className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
-        <button
-          type="button"
-          onClick={() => setStep((value) => Math.max(0, value - 1))}
-          disabled={step === 0 || saving}
-          className="inline-flex h-11 items-center gap-2 border border-[color:var(--border)] px-4 text-xs font-black uppercase disabled:invisible"
-        >
-          <ArrowLeft className="h-4 w-4" /> Anterior
-        </button>
-        <p className="hidden text-[10px] font-black uppercase text-[color:var(--text-muted)] sm:block">
-          Paso {step + 1} de 3
-        </p>
-        <button
-          type="button"
-          onClick={
-            step === 2
-              ? finish
-              : () => setStep((value) => Math.min(2, value + 1))
-          }
-          disabled={saving}
-          className="inline-flex h-11 items-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
-        >
-          {step === 2 ? "Preparar dashboard" : "Continuar"}
-          {step === 2 ? (
-            <Check className="h-4 w-4" />
-          ) : (
-            <ArrowRight className="h-4 w-4" />
-          )}
-        </button>
+        {showAccountType ? (
+          <>
+            <button
+              type="button"
+              onClick={() => persistAccountType("athlete")}
+              disabled={saving}
+              className="h-11 px-1 text-xs font-semibold text-[color:var(--text-muted)] underline decoration-[color:var(--border)] underline-offset-4 disabled:opacity-50"
+            >
+              Decidir después
+            </button>
+            <button
+              type="button"
+              onClick={() => persistAccountType(accountType)}
+              disabled={saving || !accountType}
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#181918] px-5 text-xs font-bold text-white disabled:opacity-40 dark:bg-[#e2ff00] dark:text-black"
+            >
+              Continuar <ArrowRight className="h-4 w-4" />
+            </button>
+          </>
+        ) : accountType === "coach" ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAccountType(true)}
+              disabled={saving}
+              className="inline-flex h-11 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)] disabled:opacity-50"
+            >
+              <ArrowLeft className="h-4 w-4" /> Cambiar elección
+            </button>
+            <button
+              type="button"
+              onClick={finishCoach}
+              disabled={saving}
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#181918] px-5 text-xs font-bold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+            >
+              Crear mi espacio <ArrowRight className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                step === 0
+                  ? setShowAccountType(true)
+                  : setStep((value) => Math.max(0, value - 1))
+              }
+              disabled={saving}
+              className="inline-flex h-11 items-center gap-2 border border-[color:var(--border)] px-4 text-xs font-black uppercase disabled:opacity-50"
+            >
+              <ArrowLeft className="h-4 w-4" /> Anterior
+            </button>
+            <p className="hidden text-[10px] font-black uppercase text-[color:var(--text-muted)] sm:block">
+              Paso {step + 1} de 3
+            </p>
+            <button
+              type="button"
+              onClick={
+                step === 2
+                  ? finish
+                  : () => setStep((value) => Math.min(2, value + 1))
+              }
+              disabled={saving}
+              className="inline-flex h-11 items-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+            >
+              {step === 2 ? "Preparar dashboard" : "Continuar"}
+              {step === 2 ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
+            </button>
+          </>
+        )}
       </footer>
 
       <OperationLoader
         active={saving}
         delayMs={200}
         title="Preparando tu cuenta"
-        description="Guardando objetivos y configurando el dashboard."
+        description={
+          showAccountType
+            ? "Preparando el espacio adecuado para ti."
+            : accountType === "coach"
+              ? "Creando tu perfil profesional y codigo de invitacion."
+              : "Guardando objetivos y configurando el dashboard."
+        }
       />
     </div>
   );

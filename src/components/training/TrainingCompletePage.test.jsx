@@ -67,6 +67,24 @@ describe("TrainingCompletePage", () => {
     expect(props.onClearPhoto).toHaveBeenCalledOnce();
   });
 
+  it("explica cuando la foto debe volver a intentarse", () => {
+    renderModal({
+      photoPreview: "workout.webp",
+      photoError:
+        "El entrenamiento se guardó, pero la foto no pudo subirse.",
+      finishLabel: "Reintentar foto",
+    });
+
+    expect(
+      screen.getByText(
+        "El entrenamiento se guardó, pero la foto no pudo subirse.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reintentar foto" }),
+    ).toBeInTheDocument();
+  });
+
   it("presenta un resumen parcial cuando se finaliza anticipadamente", () => {
     renderModal({
       completedExercises: 3,

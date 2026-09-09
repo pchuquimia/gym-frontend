@@ -446,12 +446,22 @@ export default function CoachDashboard({
   const [planActionId, setPlanActionId] = useState("");
   const [athleteView, setAthleteView] = useState("plan");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [coachWelcome, setCoachWelcome] = useState(() =>
+    typeof window !== "undefined"
+      ? window.sessionStorage.getItem("rirfit_coach_welcome") === "1"
+      : false,
+  );
   const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
   const [linkCodeLoading, setLinkCodeLoading] = useState(true);
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
   const [planDraft, setPlanDraft] = useState(null);
+
+  useEffect(() => {
+    if (!coachWelcome || typeof window === "undefined") return;
+    window.sessionStorage.removeItem("rirfit_coach_welcome");
+  }, [coachWelcome]);
 
   const loadAthletes = useCallback(
     async ({ silent = false } = {}) => {
@@ -901,6 +911,50 @@ export default function CoachDashboard({
           </Button>
         </div>
       </header>
+
+      {coachWelcome ? (
+        <section className="mt-4 overflow-hidden rounded-[22px] bg-[#181918] px-5 py-5 text-white shadow-[0_22px_55px_rgba(0,0,0,0.16)] dark:bg-[#e2ff00] dark:text-black sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-xl">
+              <span className="grid h-10 w-10 place-items-center rounded-full border border-current/20 bg-white/10 dark:bg-black/5">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-current/60">
+                Tu espacio profesional está listo
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">
+                Empieza con tu primer alumno.
+              </h2>
+              <p className="mt-2 text-sm font-normal leading-6 text-current/70">
+                Comparte tu código privado. El alumno conservará el control y
+                deberá aceptar la vinculación desde su perfil.
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:min-w-48">
+              <div className="rounded-full border border-current/20 px-4 py-2 text-center font-mono text-xs font-bold tracking-[0.08em]">
+                {linkCodeLoading ? "PREPARANDO CÓDIGO" : linkInfo.coachCode}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteOpen(true);
+                  setCoachWelcome(false);
+                }}
+                className="h-11 rounded-full bg-white px-5 text-xs font-bold text-black dark:bg-black dark:text-white"
+              >
+                Invitar alumno
+              </button>
+              <button
+                type="button"
+                onClick={() => setCoachWelcome(false)}
+                className="h-11 rounded-full border border-current/25 px-5 text-xs font-bold"
+              >
+                Explorar mi panel
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {inviteOpen ? (
         <section className="mt-4 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">

@@ -146,6 +146,7 @@ export default function CoachPlanModal({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [selectedScheduleIndex, setSelectedScheduleIndex] = useState(0);
   const isEditing = Boolean(initialData?._id || initialData?.id);
   const [selectedPlanTemplateId, setSelectedPlanTemplateId] = useState(
@@ -278,17 +279,23 @@ export default function CoachPlanModal({
   useEffect(() => {
     onCloseRef.current = () => {
       if (saving) return;
-      if (
-        hasUnsavedChangesRef.current &&
-        !window.confirm(
-          "Tienes cambios sin guardar. ¿Deseas cerrar la planificación?",
-        )
-      ) {
+      if (closeConfirmationOpen) {
+        setCloseConfirmationOpen(false);
+        return;
+      }
+      if (hasUnsavedChangesRef.current) {
+        setCloseConfirmationOpen(true);
         return;
       }
       onClose();
     };
-  }, [onClose, saving]);
+  }, [closeConfirmationOpen, onClose, saving]);
+
+  const discardChangesAndClose = () => {
+    hasUnsavedChangesRef.current = false;
+    setCloseConfirmationOpen(false);
+    onClose();
+  };
 
   const createEditorSlotId = (mode) => {
     slotSequenceRef.current += 1;
@@ -1075,6 +1082,58 @@ export default function CoachPlanModal({
           </div>
         </footer>
       </div>
+
+      {closeConfirmationOpen ? (
+        <div className="fixed inset-0 z-[110] flex items-end bg-black/45 p-0 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setCloseConfirmationOpen(false)}
+            aria-label="Cerrar aviso"
+          />
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="discard-plan-title"
+            aria-describedby="discard-plan-description"
+            className="relative w-full rounded-t-[1.75rem] bg-[color:var(--bg)] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 text-[color:var(--text)] shadow-2xl sm:max-w-sm sm:rounded-[1.75rem] sm:p-5"
+          >
+            <div className="mx-auto h-1 w-10 rounded-full bg-[color:var(--border)] sm:hidden" />
+            <div className="px-1 pb-2 pt-5">
+              <p className="text-xs font-medium text-[color:var(--text-muted)]">
+                Cambios sin guardar
+              </p>
+              <h3
+                id="discard-plan-title"
+                className="mt-1 text-xl font-semibold tracking-[-0.02em]"
+              >
+                ¿Salir de la planificación?
+              </h3>
+              <p
+                id="discard-plan-description"
+                className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]"
+              >
+                Si sales ahora, perderás los cambios realizados en este plan.
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2">
+              <Button
+                className="h-12 rounded-2xl text-sm"
+                onClick={() => setCloseConfirmationOpen(false)}
+              >
+                Seguir editando
+              </Button>
+              <button
+                type="button"
+                onClick={discardChangesAndClose}
+                className="h-12 rounded-2xl bg-[color:var(--card)] px-3 text-sm font-medium text-red-600 transition hover:bg-red-500/10"
+              >
+                Descartar cambios
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

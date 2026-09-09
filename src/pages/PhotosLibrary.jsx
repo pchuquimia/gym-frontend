@@ -101,7 +101,7 @@ function AuthenticatedPhotoImage({
   onContentReady,
   dataAlignmentMethod,
 }) {
-  const [objectUrl, setObjectUrl] = useState("");
+  const [resolvedSource, setResolvedSource] = useState("");
   const contentUrl = photo?.contentUrl || "";
   const contentQuery = useQuery({
     queryKey: ["photo-content", photo?.id, width, height],
@@ -118,19 +118,30 @@ function AuthenticatedPhotoImage({
     let active = true;
     if (!contentQuery.data) {
       Promise.resolve().then(() => {
-        if (active) setObjectUrl("");
+        if (active) setResolvedSource("");
       });
       return () => {
         active = false;
       };
     }
-    const nextUrl = URL.createObjectURL(contentQuery.data);
-    Promise.resolve().then(() => {
-      if (active) setObjectUrl(nextUrl);
+
+    // Data URLs are more reliable than blob URLs in iOS standalone/PWA mode.
+    // The backend already returns a resized image, so the memory impact stays
+    // bounded while avoiding Safari revoking the source during view changes.
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (active && typeof reader.result === "string") {
+        setResolvedSource(reader.result);
+      }
     });
+    reader.addEventListener("error", () => {
+      if (active) setResolvedSource("");
+    });
+    reader.readAsDataURL(contentQuery.data);
+
     return () => {
       active = false;
-      URL.revokeObjectURL(nextUrl);
+      if (reader.readyState === FileReader.LOADING) reader.abort();
     };
   }, [contentQuery.data]);
 
@@ -138,7 +149,7 @@ function AuthenticatedPhotoImage({
     if (contentQuery.data) onContentReady?.(contentQuery.data);
   }, [contentQuery.data, onContentReady]);
 
-  const source = objectUrl || (!contentUrl ? photo?.url || "" : "");
+  const source = resolvedSource || (!contentUrl ? photo?.url || "" : "");
   if (source) {
     return (
       <img

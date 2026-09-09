@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import AuthDivider from "../components/auth/AuthDivider";
 import { isGoogleSignInConfigured } from "../config/googleAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
@@ -377,23 +378,21 @@ export default function Register({ onNavigate = () => {} }) {
           {submitting ? "Creando cuenta..." : "Crear cuenta"}
           {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
         </Button>
-        <div className="space-y-4 pt-3">
-          <p className="font-sans text-sm font-normal text-[#50524d]">
-            O regístrate con
-          </p>
-          <div className="space-y-3">
-            {isGoogleSignInConfigured ? (
+        {isGoogleSignInConfigured ? (
+          <div className="space-y-4 pt-4">
+            <AuthDivider />
+            <div className="w-full">
               <GoogleSignInButton
-                text="signup_with"
+                text="continue_with"
                 disabled={submitting || googleSubmitting}
                 onCredential={handleGoogleCredential}
                 onError={() =>
                   setRequestError("No pudimos cargar el acceso con Google.")
                 }
               />
-            ) : null}
+            </div>
           </div>
-        </div>
+        ) : null}
         <OperationLoader
           active={submitting || googleSubmitting}
           delayMs={500}

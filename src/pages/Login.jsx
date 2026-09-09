@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import AuthField from "../components/auth/AuthField";
 import GoogleSignInButton from "../components/auth/GoogleSignInButton";
+import AuthDivider from "../components/auth/AuthDivider";
 import { isGoogleSignInConfigured } from "../config/googleAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
@@ -287,13 +288,12 @@ function LoginForm({ onNavigate }) {
           ¿Olvidaste tu contraseña?
         </button>
       </div>
-      <div className="space-y-4 pt-3">
-        <p className="font-sans text-sm font-normal text-[#50524d]">
-          O inicia sesión con
-        </p>
-        <div className="space-y-3">
-          {isGoogleSignInConfigured ? (
+      {isGoogleSignInConfigured ? (
+        <div className="space-y-4 pt-4">
+          <AuthDivider />
+          <div className="w-full">
             <GoogleSignInButton
+              text="continue_with"
               disabled={submitting || googleSubmitting}
               remember={keepLoggedIn}
               onCredential={handleGoogleCredential}
@@ -301,9 +301,9 @@ function LoginForm({ onNavigate }) {
                 setError("No pudimos cargar el acceso con Google.")
               }
             />
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
       <OperationLoader
         active={submitting || googleSubmitting}
         delayMs={500}

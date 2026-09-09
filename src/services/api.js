@@ -89,6 +89,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  selectOnboardingAccountType: (accountType) =>
+    request("/api/auth/onboarding/account-type", {
+      method: "PATCH",
+      body: JSON.stringify({ accountType }),
+    }),
+  completeCoachOnboarding: (payload) =>
+    request("/api/auth/onboarding/coach", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   updateSecurity: (payload) =>
     request("/api/auth/security", {
       method: "PATCH",

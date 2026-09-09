@@ -100,7 +100,7 @@ const PAGE_ROLES = {
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
-  onboarding: ["Cliente"],
+  onboarding: ["Cliente", "Entrenador"],
 };
 
 const SNAPSHOT_KEY = "active_training_snapshot";

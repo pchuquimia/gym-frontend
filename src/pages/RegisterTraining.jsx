@@ -1403,6 +1403,7 @@ export default function RegisterTraining({
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
+  const [pendingPhotoTrainingId, setPendingPhotoTrainingId] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
   const [completionPageOpen, setCompletionPageOpen] = useState(false);
@@ -4359,6 +4360,7 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    setPendingPhotoTrainingId("");
     setFinishWarningOpen(false);
     setFinishWarningExercises([]);
     setCompletionPageOpen(false);
@@ -5408,6 +5410,46 @@ export default function RegisterTraining({
       finalizingRef.current = false;
       setIsFinalizing(false);
     };
+    const completeFinalization = (savedTrainingId) => {
+      toast.success("Entrenamiento guardado correctamente.");
+      setPendingPhotoTrainingId("");
+      resetState();
+      if (typeof onNavigate === "function") {
+        window.setTimeout(() => {
+          onNavigate("resumen_sesion", { trainingId: savedTrainingId });
+        }, 0);
+      }
+    };
+    const uploadTrainingPhoto = async (savedTrainingId) => {
+      if (!trainingPhotoFile) return;
+      const routineLabel = selectedRoutine?.name
+        ? `Entrenamiento - ${selectedRoutine.name}`
+        : "Foto en entrenamiento";
+      await addPhoto({
+        file: trainingPhotoFile,
+        date: sessionDate || getLocalISODate(),
+        label: routineLabel,
+        routineName: selectedRoutine?.name || "",
+        type: "gym",
+        view: "front",
+        visibility: "private",
+        sessionId: String(savedTrainingId),
+      });
+    };
+
+    if (pendingPhotoTrainingId) {
+      try {
+        await uploadTrainingPhoto(pendingPhotoTrainingId);
+        completeFinalization(pendingPhotoTrainingId);
+      } catch (error) {
+        console.error("No se pudo reintentar la foto", error);
+        setTrainingPhotoError(
+          "El entrenamiento ya está guardado, pero la foto todavía no pudo subirse. Revisa tu conexión e intenta nuevamente.",
+        );
+        releaseFinalization();
+      }
+      return;
+    }
     const finishAt = Date.now();
     const lastCompletedAt = getLastCompletedEntryTime();
     const effectiveFinishAt =
@@ -5612,33 +5654,24 @@ export default function RegisterTraining({
       if (typeof localStorage !== "undefined") {
         localStorage.setItem("last_training_id", String(savedTrainingId));
       }
-      if (savedTraining && trainingPhotoFile) {
-        const routineLabel = selectedRoutine?.name
-          ? `Entrenamiento - ${selectedRoutine.name}`
-          : "Foto en entrenamiento";
+      if (trainingPhotoFile) {
         try {
-          await addPhoto({
-            file: trainingPhotoFile,
-            date: dateStr,
-            label: routineLabel,
-            type: "gym",
-            sessionId: String(savedTrainingId),
-          });
+          await uploadTrainingPhoto(savedTrainingId);
         } catch (err) {
           console.error("No se pudo subir la foto", err);
-          toast.error("No se pudo subir la foto del entrenamiento.");
+          setPendingPhotoTrainingId(String(savedTrainingId));
+          setTrainingPhotoError(
+            "El entrenamiento se guardó, pero la foto no pudo subirse. Revisa tu conexión e intenta nuevamente.",
+          );
+          toast.error("La foto no pudo subirse. Puedes intentarlo nuevamente.");
+          releaseFinalization();
+          return;
         }
       }
       (savedTraining?.registrationWarnings || []).forEach((warning) => {
         if (warning?.message) toast.warning(warning.message);
       });
-      toast.success("Entrenamiento guardado correctamente.");
-      resetState();
-      if (typeof onNavigate === "function") {
-        window.setTimeout(() => {
-          onNavigate("resumen_sesion", { trainingId: savedTrainingId });
-        }, 0);
-      }
+      completeFinalization(savedTrainingId);
     } catch (err) {
       console.error("No se pudo guardar el entrenamiento", err);
       releaseFinalization();
@@ -5983,6 +6016,13 @@ export default function RegisterTraining({
         onPhotoChange={handleTrainingPhotoChange}
         onClearPhoto={clearTrainingPhoto}
         isFinalizing={isFinalizing}
+        finishLabel={
+          pendingPhotoTrainingId
+            ? trainingPhotoFile
+              ? "Reintentar foto"
+              : "Continuar sin foto"
+            : "Finalizar entrenamiento"
+        }
         onFinish={confirmFinishTraining}
         onDismiss={handleDismissCompletionPage}
       />

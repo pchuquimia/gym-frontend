@@ -532,8 +532,10 @@ export function TrainingProvider({
       const uploaded = await api.uploadPhoto(form);
       const normalized = normalizePhoto(uploaded);
       queryClient.setQueryData(photosKey, (prev = []) => [normalized, ...prev]);
-      queryClient.invalidateQueries({ queryKey: ["photo-library"] });
-      queryClient.invalidateQueries({ queryKey: ["photo-summary"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["photo-library"] }),
+        queryClient.invalidateQueries({ queryKey: ["photo-summary"] }),
+      ]);
       return normalized;
     }
     const payload = {

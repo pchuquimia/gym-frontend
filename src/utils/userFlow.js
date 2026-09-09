@@ -1,5 +1,6 @@
 export const needsOnboarding = (user) =>
-  user?.role === "Cliente" && user?.onboarding?.status === "pending";
+  ["Cliente", "Entrenador"].includes(user?.role) &&
+  user?.onboarding?.status === "pending";
 
 export const getUserHome = (user) => {
   if (needsOnboarding(user)) return "onboarding";
