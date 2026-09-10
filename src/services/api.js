@@ -146,6 +146,13 @@ export const api = {
       body: JSON.stringify({ confirmTransfer }),
     }),
   getCoachRelationship: () => request("/api/coach/relationship"),
+  getCoachIntakeForm: () => request("/api/coach/intake-form"),
+  getCoachWorkflowSettings: () => request("/api/coach/workflow-settings"),
+  updateCoachWorkflowSettings: (payload) =>
+    request("/api/coach/workflow-settings", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
   connectCoach: (coachCode, confirmTransfer = false) =>
     request("/api/coach/relationship", {
       method: "POST",
@@ -176,6 +183,20 @@ export const api = {
     ),
   saveCheckIn: (payload) =>
     request("/api/check-ins", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getMeasurements: (athleteId = "") =>
+    request(`/api/measurements${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  saveMeasurements: (payload) =>
+    request("/api/measurements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getAssessments: (athleteId = "") =>
+    request(`/api/assessments${athleteId ? `?athleteId=${athleteId}` : ""}`),
+  saveFinalAssessment: (payload) =>
+    request("/api/assessments/final", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

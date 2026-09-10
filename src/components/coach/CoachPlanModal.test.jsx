@@ -31,6 +31,38 @@ describe("CoachPlanModal", () => {
     vi.restoreAllMocks();
   });
 
+  it("mantiene la selección de inicio antes de crear la planificación", async () => {
+    render(
+      <CoachPlanModal
+        athlete={{
+          name: "Laura M.",
+          profile: { goal: "strength" },
+        }}
+        replacingPlan={initialPlan}
+        manageRoutinesSeparately
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("¿Cómo quieres empezar?")).toBeVisible();
+    expect(screen.getByText("Recomendado")).toBeVisible();
+    expect(screen.getByRole("button", { name: /Desde cero/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: /Usar plantilla/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Duplicar plan anterior/ }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /Plan rápido/ })).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Define la base del plan")).toBeVisible();
+  });
+
   it("protege los cambios sin guardar antes de cerrar", async () => {
     const onClose = vi.fn();
     const confirm = vi.spyOn(window, "confirm");
@@ -117,8 +149,16 @@ describe("CoachPlanModal", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
 
-    expect(screen.getByLabelText("Enfoque de Lunes")).toBeVisible();
+    expect(screen.queryByLabelText("Enfoque de Lunes")).toBeNull();
     expect(screen.queryByLabelText("Enfoque de Martes")).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Lunes: Entrenar" }),
+    );
+    expect(screen.getByLabelText("Enfoque de Lunes")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Cerrar edición del día" }),
+    );
 
     await userEvent.click(
       screen.getByRole("button", { name: "Editar Martes: Entrenar" }),
@@ -126,6 +166,7 @@ describe("CoachPlanModal", () => {
     expect(screen.getByLabelText("Enfoque de Martes")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Descansar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Guardar día" }));
     await userEvent.click(
       screen.getByRole("button", { name: "Guardar cambios" }),
     );
@@ -135,5 +176,74 @@ describe("CoachPlanModal", () => {
       type: "rest",
       sourceRoutineId: "",
     });
+  });
+
+  it("precarga la base del plan desde la evaluación del alumno", () => {
+    render(
+      <CoachPlanModal
+        athlete={{
+          name: "Laura M.",
+          profile: {
+            goal: "strength",
+            experienceLevel: "intermediate",
+            weeklyFrequency: 3,
+          },
+          coachIntake: {
+            status: "submitted",
+            submittedAt: "2026-09-09T12:00:00.000Z",
+            answers: [],
+          },
+        }}
+        initialSource="evaluation"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Sugerido desde su evaluación")).toBeVisible();
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue(
+      "Fuerza · Bloque inicial",
+    );
+    expect(
+      screen.getByRole("button", { name: "Ganar fuerza" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("permite activar ahora o programar el inicio al revisar un plan nuevo", async () => {
+    render(
+      <CoachPlanModal
+        athlete={{
+          name: "Laura M.",
+          coachIntake: {
+            status: "submitted",
+            submittedAt: "2026-09-09T12:00:00.000Z",
+            answers: [],
+          },
+        }}
+        initialSource="evaluation"
+        manageRoutinesSeparately
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Continuar: organizar semana/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Revisar planificación/ }),
+    );
+
+    expect(screen.getByText("Inicio del plan")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Activar ahora" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Programar fecha" }),
+    );
+    expect(screen.getByText("Fecha de activación")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    ).toBeVisible();
   });
 });

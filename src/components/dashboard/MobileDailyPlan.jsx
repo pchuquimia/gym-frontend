@@ -8,6 +8,9 @@ import {
   Dumbbell,
   MessageCircle,
   MoonStar,
+  Camera,
+  Ruler,
+  Scale,
   UserRound,
 } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
@@ -294,6 +297,7 @@ function CheckInMission({ task, onOpen, readOnly }) {
 }
 
 function WorkoutMission({ task, onOpen, readOnly }) {
+  if (!task) return null;
   return (
     <div
       className={`mobile-daily-plan__workout-card ${task.completed ? "is-complete" : ""}`}
@@ -351,6 +355,35 @@ function HydrationMission({ task, onOpen, readOnly }) {
   );
 }
 
+const TRACKING_ICONS = { weight: Scale, photos: Camera, measurements: Ruler };
+
+function TrackingMission({ task, onOpen, readOnly }) {
+  const Icon = TRACKING_ICONS[task.type] || ClipboardCheck;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen?.(task.type)}
+      disabled={readOnly}
+      className={`mobile-daily-plan__mission ${task.required ? "is-compact" : "is-optional"}`}
+    >
+      <MissionStatus completed={task.completed} />
+      <span className="mobile-daily-plan__visual">
+        <Icon />
+      </span>
+      <span className="mobile-daily-plan__mission-copy">
+        <strong>{task.title}</strong>
+        <small>{task.subtitle}</small>
+        {!task.required ? <em>Opcional</em> : null}
+      </span>
+      {task.completed ? (
+        <span className="mobile-daily-plan__ready">Completado</span>
+      ) : (
+        <ChevronRight className="mobile-daily-plan__chevron" />
+      )}
+    </button>
+  );
+}
+
 function ActivePlanContext({ plan, onOpen }) {
   if (!plan) return null;
   return (
@@ -389,6 +422,7 @@ export default function MobileDailyPlan({
   checkInTask = null,
   workoutTask,
   hydrationTask = null,
+  trackingMissions = [],
   readOnly = false,
   onOpenMenu,
   onStartEvaluation,
@@ -397,11 +431,15 @@ export default function MobileDailyPlan({
   onOpenCheckIn,
   onOpenWorkout,
   onOpenHydration,
+  onOpenTrackingMission,
 }) {
-  const taskCount = 1 + (checkInTask ? 1 : 0);
+  const requiredTracking = trackingMissions.filter((task) => task.required);
+  const taskCount =
+    (workoutTask ? 1 : 0) + (checkInTask ? 1 : 0) + requiredTracking.length;
   const completedCount =
     Number(Boolean(workoutTask?.completed)) +
-    Number(Boolean(checkInTask?.completed));
+    Number(Boolean(checkInTask?.completed)) +
+    requiredTracking.filter((task) => task.completed).length;
   const progress = taskCount ? (completedCount / taskCount) * 100 : 0;
 
   return (
@@ -433,7 +471,7 @@ export default function MobileDailyPlan({
         <ManagedOnboarding
           stage={journeyStage}
           coach={coach}
-          submittedAt={user?.onboarding?.completedAt}
+          submittedAt={user?.coachIntake?.submittedAt}
           onStartEvaluation={onStartEvaluation}
           onOpenCoach={onOpenCoach}
         />
@@ -471,6 +509,14 @@ export default function MobileDailyPlan({
                 onOpen={onOpenWorkout}
                 readOnly={readOnly}
               />
+              {trackingMissions.map((task) => (
+                <TrackingMission
+                  key={task.id}
+                  task={task}
+                  onOpen={onOpenTrackingMission}
+                  readOnly={readOnly}
+                />
+              ))}
               <HydrationMission
                 task={hydrationTask}
                 onOpen={onOpenHydration}

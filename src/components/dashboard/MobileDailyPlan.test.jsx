@@ -57,7 +57,11 @@ describe("MobileDailyPlan", () => {
         name: "Pedro Invitado",
         onboarding: {
           status: "complete",
-          completedAt: "2026-09-09T13:24:00.000Z",
+        },
+        coachIntake: {
+          coachId: "coach-1",
+          status: "submitted",
+          submittedAt: "2026-09-09T13:24:00.000Z",
         },
       },
     });

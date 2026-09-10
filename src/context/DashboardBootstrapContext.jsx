@@ -30,6 +30,7 @@ export function DashboardBootstrapProvider({
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
     retry: (failureCount, error) => error?.status !== 401 && failureCount < 2,
   });
   const value = useMemo(

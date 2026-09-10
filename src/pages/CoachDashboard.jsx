@@ -425,6 +425,7 @@ function MobileAthleteProfileHeader({
   onMessage,
   onEditPlan,
   onRelease,
+  planActionLabel = "Editar plan",
 }) {
   return (
     <div className="lg:hidden">
@@ -517,11 +518,182 @@ function MobileAthleteProfileHeader({
               onClick={onEditPlan}
               className="h-11 rounded-[12px] bg-[#181918] px-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(20,20,20,0.12)] transition-transform active:scale-[0.98] dark:bg-[#f2f1ec] dark:text-[#151515]"
             >
-              Editar plan
+              {planActionLabel}
             </button>
           ) : null}
         </div>
       </section>
+    </div>
+  );
+}
+
+const intakeAnswerText = (answer) => {
+  if (Array.isArray(answer?.value)) return answer.value.join(", ");
+  return String(answer?.value || "").trim() || "Sin respuesta";
+};
+
+const experienceLabel = (value) =>
+  ({
+    beginner: "Principiante",
+    intermediate: "Intermedio",
+    advanced: "Avanzado",
+  })[value] || "Sin definir";
+
+function AthleteIntakeReview({ athlete, hasPlan, onBack, onCreatePlan }) {
+  const submitted = Boolean(
+    athlete?.coachIntake?.status === "submitted" &&
+    athlete?.coachIntake?.submittedAt,
+  );
+  const answers = athlete?.coachIntake?.answers || [];
+  const healthAnswers = answers.filter((answer) =>
+    /medical|condition|injur|lesi|dolor|salud/i.test(
+      `${answer.key} ${answer.label}`,
+    ),
+  );
+  const equipmentAnswers = answers.filter((answer) =>
+    /equipment|equipamiento|material|gimnasio/i.test(
+      `${answer.key} ${answer.label}`,
+    ),
+  );
+  const otherAnswers = answers.filter(
+    (answer) =>
+      !healthAnswers.includes(answer) && !equipmentAnswers.includes(answer),
+  );
+  const healthSummary =
+    athlete?.profile?.healthNotes ||
+    healthAnswers.map(intakeAnswerText).filter(Boolean).join(" · ") ||
+    "Sin restricciones declaradas";
+  const equipmentSummary =
+    equipmentAnswers.map(intakeAnswerText).filter(Boolean).join(" · ") ||
+    "Por confirmar";
+
+  return (
+    <div className="fixed inset-0 z-[85] flex h-dvh flex-col overflow-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
+      <header className="shrink-0 border-b border-[color:var(--border)]">
+        <div className="mx-auto grid min-h-16 w-full max-w-lg grid-cols-[48px_minmax(0,1fr)_48px] items-center px-5 sm:min-h-20">
+          <button
+            type="button"
+            onClick={onBack}
+            className="grid h-11 w-11 place-items-center rounded-full"
+            aria-label="Volver al perfil"
+          >
+            <ArrowLeft className="h-6 w-6" strokeWidth={1.8} />
+          </button>
+          <h1 className="truncate text-center text-lg font-semibold tracking-[-0.03em]">
+            Evaluación de {compactName(athlete?.name)}
+          </h1>
+          <span />
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-lg space-y-5 px-5 py-5">
+          <div
+            className={`flex items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold ${submitted ? "bg-[#e9f7ec] text-[#2b7f43]" : "bg-amber-50 text-amber-800"}`}
+          >
+            {submitted ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : (
+              <AlertTriangle className="h-5 w-5" />
+            )}
+            {submitted
+              ? "Evaluación inicial completada"
+              : "Evaluación pendiente"}
+          </div>
+
+          <header>
+            <h2 className="text-3xl font-semibold tracking-[-0.05em]">
+              Resumen para planificar
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+              Datos base y respuestas proporcionadas por el alumno.
+            </p>
+          </header>
+
+          <section className="grid gap-2">
+            {[
+              [Target, "Objetivo", goalLabel(athlete?.profile?.goal)],
+              [
+                BarChart3,
+                "Experiencia",
+                experienceLabel(athlete?.profile?.experienceLevel),
+              ],
+              [
+                CalendarDays,
+                "Disponibilidad",
+                `${athlete?.profile?.weeklyFrequency || "—"} días por semana`,
+              ],
+              [Dumbbell, "Equipamiento", equipmentSummary],
+              [AlertTriangle, "Salud y restricciones", healthSummary],
+              [
+                Activity,
+                "Datos iniciales",
+                `${athlete?.profile?.weight || "—"} kg · ${athlete?.profile?.height || "—"} cm`,
+              ],
+            ].map(([Icon, label, value]) => (
+              <article
+                key={label}
+                className="flex min-h-20 items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
+                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] text-[color:var(--text-muted)]">
+                    {label}
+                  </span>
+                  <strong className="mt-1 block text-sm font-semibold">
+                    {value}
+                  </strong>
+                </span>
+              </article>
+            ))}
+          </section>
+
+          {otherAnswers.length ? (
+            <section>
+              <h3 className="text-xl font-semibold tracking-[-0.03em]">
+                Respuestas del formulario
+              </h3>
+              <div className="mt-3 overflow-hidden rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)]">
+                {otherAnswers.map((answer) => (
+                  <article
+                    key={answer.key}
+                    className="border-b border-[color:var(--detail-row-divider)] p-4 last:border-b-0"
+                  >
+                    <p className="text-[11px] font-medium text-[color:var(--text-muted)]">
+                      {answer.label}
+                    </p>
+                    <p className="mt-1 text-sm font-medium leading-6">
+                      {intakeAnswerText(answer)}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </div>
+      <footer className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto w-full max-w-lg">
+          {!hasPlan && submitted ? (
+            <button
+              type="button"
+              onClick={onCreatePlan}
+              className="h-12 w-full rounded-[14px] bg-[#181918] text-sm font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
+            >
+              Crear planificación desde la evaluación
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-12 w-full rounded-[14px] border border-[color:var(--border-strong)] text-sm font-semibold"
+            >
+              Volver al perfil
+            </button>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }
@@ -535,6 +707,8 @@ function AthleteSummaryView({
   latestCheckIn,
   onOpenPlan,
   onOpenHistory,
+  onReviewIntake,
+  onCreatePlan,
 }) {
   const todayKey = localDateKey();
   const recentTrainings = overview?.recentTrainings || [];
@@ -607,68 +781,216 @@ function AthleteSummaryView({
       )
     : 1;
   const latestTraining = recentTrainings[0];
+  const intakeSubmitted = Boolean(
+    overview.athlete.coachIntake?.status === "submitted" &&
+    overview.athlete.coachIntake?.submittedAt,
+  );
 
   return (
     <div className="space-y-7 pb-4 pt-5">
-      <section>
-        <h3 className="text-[25px] font-semibold tracking-[-0.045em]">Hoy</h3>
-        <div className="mt-3 overflow-hidden rounded-[20px] bg-[#1d1e1d] px-5 text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)] dark:bg-[#111]">
-          <button
-            type="button"
-            onClick={onOpenHistory}
-            className="flex min-h-[82px] w-full items-center gap-4 border-b border-white/20 text-left"
-          >
+      {!activePlan ? (
+        <section
+          className={`rounded-[20px] border p-4 ${intakeSubmitted ? "border-[#9ed9ad] bg-[#eff9f1] dark:bg-emerald-950/25" : "border-amber-200 bg-amber-50 dark:bg-amber-950/25"}`}
+        >
+          <div className="flex items-start gap-3">
             <span
-              className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${todayTraining ? "bg-[#9ae6aa] text-[#102916]" : "bg-white/10 text-white"}`}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${intakeSubmitted ? "bg-[#43ad65] text-white" : "bg-amber-100 text-amber-700"}`}
             >
-              {todayTraining ? (
-                <Check className="h-6 w-6" strokeWidth={2.4} />
+              {intakeSubmitted ? (
+                <CheckCircle2 className="h-6 w-6" />
               ) : (
-                <CalendarDays className="h-5 w-5" />
+                <ClipboardList className="h-5 w-5" />
               )}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[17px] font-semibold uppercase tracking-[-0.025em]">
-              {todayRoutineName}
-            </span>
-            <span
-              className={`shrink-0 text-sm font-semibold ${todayTraining ? "text-[#91e5a6]" : "text-white/65"}`}
-            >
-              {todayTraining
-                ? "Completado"
-                : plannedRoutineName
-                  ? "Programado"
-                  : "Sin sesión"}
-            </span>
-          </button>
-          <div className="flex min-h-[82px] items-center gap-4">
-            <span
-              className={`h-4 w-4 shrink-0 rounded-full ${checkedInToday ? "bg-[#9ae6aa]" : "bg-[#ff806f]"}`}
-            />
-            <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.025em]">
-              Check-in diario
-            </span>
-            <span
-              className={`shrink-0 text-sm font-semibold ${checkedInToday ? "text-[#91e5a6]" : "text-[#ff8b7c]"}`}
-            >
-              {checkedInToday ? "Registrado" : "Pendiente"}
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-white/65" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium opacity-70">
+                Evaluación inicial
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                {intakeSubmitted
+                  ? "Lista para planificar"
+                  : "Pendiente del alumno"}
+              </h3>
+              <p className="mt-1 text-xs leading-5 opacity-70">
+                {intakeSubmitted
+                  ? `${overview.athlete.profile?.weeklyFrequency || "—"} días disponibles · ${experienceLabel(overview.athlete.profile?.experienceLevel)}`
+                  : "Cuando envíe sus respuestas podrás crear un plan con recomendaciones."}
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={onReviewIntake}
+              className="h-11 w-full rounded-[12px] border border-current/25 px-3 text-xs font-semibold"
+            >
+              {intakeSubmitted ? "Ver evaluación" : "Ver estado"}
+            </button>
+          </div>
+        </section>
+      ) : (
+        <button
+          type="button"
+          onClick={onReviewIntake}
+          className="flex min-h-16 w-full items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-left"
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
+            <ClipboardList className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <strong className="block text-sm font-semibold">
+              Evaluación y datos del alumno
+            </strong>
+            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+              {intakeSubmitted
+                ? "Inicial completada · Ver respuestas"
+                : "Evaluación inicial pendiente"}
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+        </button>
+      )}
+      {!activePlan && intakeSubmitted ? (
+        <section>
+          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
+            Recomendación
+          </h3>
+          <button
+            type="button"
+            onClick={onCreatePlan}
+            className="mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[#9ed9ad] bg-[#eff9f1] p-4 text-left dark:bg-emerald-950/25"
+          >
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#43ad65] text-white">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block text-sm font-semibold">
+                {overview.athlete.profile?.weeklyFrequency || 3} días
+                disponibles ·{" "}
+                {experienceLabel(overview.athlete.profile?.experienceLevel)}
+              </strong>
+              <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
+                Crear una planificación adaptada a su evaluación.
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0" />
+          </button>
+        </section>
+      ) : null}
+      {overview.followUpRecords?.latestAssessment ? (
+        <section className="rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+              <ClipboardList className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-[color:var(--text-muted)]">
+                Evaluación final ·{" "}
+                {formatDate(overview.followUpRecords.latestAssessment.dateKey)}
+              </p>
+              <h3 className="mt-1 text-lg font-semibold">
+                Progreso{" "}
+                {overview.followUpRecords.latestAssessment.answers?.progress}/5
+              </h3>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                Objetivo:{" "}
+                {overview.followUpRecords.latestAssessment.answers
+                  ?.goalReached === "yes"
+                  ? "alcanzado"
+                  : overview.followUpRecords.latestAssessment.answers
+                        ?.goalReached === "partly"
+                    ? "alcanzado en parte"
+                    : "no alcanzado"}
+              </p>
+            </div>
+          </div>
+          {overview.followUpRecords.latestAssessment.answers?.pain ||
+          overview.followUpRecords.latestAssessment.answers?.feedback ? (
+            <details className="mt-3 border-t border-[color:var(--detail-row-divider)] pt-3">
+              <summary className="cursor-pointer text-sm font-semibold">
+                Ver respuestas
+              </summary>
+              <div className="mt-3 space-y-3 text-sm">
+                {overview.followUpRecords.latestAssessment.answers?.pain ? (
+                  <p>
+                    <strong>Molestias:</strong>{" "}
+                    {overview.followUpRecords.latestAssessment.answers.pain}
+                  </p>
+                ) : null}
+                {overview.followUpRecords.latestAssessment.answers?.feedback ? (
+                  <p>
+                    <strong>Comentario:</strong>{" "}
+                    {overview.followUpRecords.latestAssessment.answers.feedback}
+                  </p>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+      {activePlan ? (
+        <section>
+          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">Hoy</h3>
+          <div className="mt-3 overflow-hidden rounded-[20px] bg-[#1d1e1d] px-5 text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)] dark:bg-[#111]">
+            <button
+              type="button"
+              onClick={onOpenHistory}
+              className="flex min-h-[82px] w-full items-center gap-4 border-b border-white/20 text-left"
+            >
+              <span
+                className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${todayTraining ? "bg-[#9ae6aa] text-[#102916]" : "bg-white/10 text-white"}`}
+              >
+                {todayTraining ? (
+                  <Check className="h-6 w-6" strokeWidth={2.4} />
+                ) : (
+                  <CalendarDays className="h-5 w-5" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold uppercase tracking-[-0.025em]">
+                {todayRoutineName}
+              </span>
+              <span
+                className={`shrink-0 text-sm font-semibold ${todayTraining ? "text-[#91e5a6]" : "text-white/65"}`}
+              >
+                {todayTraining
+                  ? "Completado"
+                  : plannedRoutineName
+                    ? "Programado"
+                    : "Sin sesión"}
+              </span>
+            </button>
+            <div className="flex min-h-[82px] items-center gap-4">
+              <span
+                className={`h-4 w-4 shrink-0 rounded-full ${checkedInToday ? "bg-[#9ae6aa]" : "bg-[#ff806f]"}`}
+              />
+              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.025em]">
+                Check-in diario
+              </span>
+              <span
+                className={`shrink-0 text-sm font-semibold ${checkedInToday ? "text-[#91e5a6]" : "text-[#ff8b7c]"}`}
+              >
+                {checkedInToday ? "Registrado" : "Pendiente"}
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-white/65" />
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section>
         <div className="flex items-end justify-between gap-4">
           <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
             Plan actual
           </h3>
-          <button
-            type="button"
-            onClick={onOpenPlan}
-            className="flex h-10 items-center gap-1 text-sm font-medium"
-          >
-            Ver plan <ChevronRight className="h-4 w-4" />
-          </button>
+          {activePlan ? (
+            <button
+              type="button"
+              onClick={onOpenPlan}
+              className="flex h-10 items-center gap-1 text-sm font-medium"
+            >
+              Ver plan <ChevronRight className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
         {activePlan ? (
           <button
@@ -721,119 +1043,123 @@ function AthleteSummaryView({
         )}
       </section>
 
-      <section>
-        <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-          Esta semana
-        </h3>
-        <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] text-center">
-          <div className="px-2">
-            <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-              {completedDays.size}/{weeklyTarget}
-            </strong>
-            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-              Entrenos
-            </span>
-          </div>
-          <div className="px-2">
-            <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-              {adherence}%
-            </strong>
-            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-              Adherencia
-            </span>
-          </div>
-          <div className="px-2">
-            <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-              {compactDuration(averageSeconds)}
-            </strong>
-            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-              Promedio
-            </span>
-          </div>
-        </div>
-        <div className="mt-6 grid grid-cols-7 gap-3 px-2">
-          {weekKeys.map((key, index) => (
-            <div key={key} className="flex flex-col items-center gap-2">
-              <span className="flex h-14 items-end">
-                <span
-                  className={`block w-7 rounded-[7px] ${completedDays.has(key) ? "bg-[#43a65f]" : "bg-[color:var(--border)] opacity-55"}`}
-                  style={{
-                    height: completedDays.has(key)
-                      ? `${Math.max(
-                          28,
-                          Math.round(
-                            (Number(durationByDay.get(key) || 0) /
-                              longestDaySeconds) *
-                              56,
-                          ),
-                        )}px`
-                      : "52px",
-                  }}
-                />
-              </span>
-              <span className="text-[11px] font-medium text-[color:var(--text-muted)]">
-                {["L", "M", "M", "J", "V", "S", "D"][index]}
+      {activePlan ? (
+        <section>
+          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
+            Esta semana
+          </h3>
+          <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] text-center">
+            <div className="px-2">
+              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
+                {completedDays.size}/{weeklyTarget}
+              </strong>
+              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                Entrenos
               </span>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="px-2">
+              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
+                {adherence}%
+              </strong>
+              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                Adherencia
+              </span>
+            </div>
+            <div className="px-2">
+              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
+                {compactDuration(averageSeconds)}
+              </strong>
+              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                Promedio
+              </span>
+            </div>
+          </div>
+          <div className="mt-6 grid grid-cols-7 gap-3 px-2">
+            {weekKeys.map((key, index) => (
+              <div key={key} className="flex flex-col items-center gap-2">
+                <span className="flex h-14 items-end">
+                  <span
+                    className={`block w-7 rounded-[7px] ${completedDays.has(key) ? "bg-[#43a65f]" : "bg-[color:var(--border)] opacity-55"}`}
+                    style={{
+                      height: completedDays.has(key)
+                        ? `${Math.max(
+                            28,
+                            Math.round(
+                              (Number(durationByDay.get(key) || 0) /
+                                longestDaySeconds) *
+                                56,
+                            ),
+                          )}px`
+                        : "52px",
+                    }}
+                  />
+                </span>
+                <span className="text-[11px] font-medium text-[color:var(--text-muted)]">
+                  {["L", "M", "M", "J", "V", "S", "D"][index]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <section>
-        <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-          Actividad reciente
-        </h3>
-        <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-          {latestTraining ? (
-            <button
-              type="button"
-              onClick={onOpenHistory}
-              className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
-            >
-              <img
-                src={activityImageFor(latestTraining.routineName)}
-                alt=""
-                className="h-16 w-20 shrink-0 rounded-[12px] object-cover"
-              />
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-[16px] font-semibold">
-                  Completó {latestTraining.routineName || "entrenamiento"}
-                </strong>
-                <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                  {relativeTrainingDate(latestTraining.date)} ·{" "}
-                  {compactDuration(latestTraining.durationSeconds)}
+      {activePlan ? (
+        <section>
+          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
+            Actividad reciente
+          </h3>
+          <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
+            {latestTraining ? (
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
+              >
+                <img
+                  src={activityImageFor(latestTraining.routineName)}
+                  alt=""
+                  className="h-16 w-20 shrink-0 rounded-[12px] object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  <strong className="block truncate text-[16px] font-semibold">
+                    Completó {latestTraining.routineName || "entrenamiento"}
+                  </strong>
+                  <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
+                    {relativeTrainingDate(latestTraining.date)} ·{" "}
+                    {compactDuration(latestTraining.durationSeconds)}
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0" />
-            </button>
-          ) : null}
-          {latestCheckIn ? (
-            <button
-              type="button"
-              onClick={onOpenHistory}
-              className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
-            >
-              <span className="grid h-16 w-20 shrink-0 place-items-center rounded-[12px] bg-[color:var(--card)]">
-                <SquareCheckBig className="h-8 w-8" strokeWidth={1.8} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-[16px] font-semibold">
-                  Registró su estado
-                </strong>
-                <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                  {checkedInToday ? "Hoy" : formatDate(checkInDate)}
+                <ChevronRight className="h-5 w-5 shrink-0" />
+              </button>
+            ) : null}
+            {latestCheckIn ? (
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
+              >
+                <span className="grid h-16 w-20 shrink-0 place-items-center rounded-[12px] bg-[color:var(--card)]">
+                  <SquareCheckBig className="h-8 w-8" strokeWidth={1.8} />
                 </span>
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0" />
-            </button>
-          ) : null}
-          {!latestTraining && !latestCheckIn ? (
-            <p className="py-8 text-center text-sm text-[color:var(--text-muted)]">
-              Todavía no hay actividad registrada.
-            </p>
-          ) : null}
-        </div>
-      </section>
+                <span className="min-w-0 flex-1">
+                  <strong className="block truncate text-[16px] font-semibold">
+                    Registró su estado
+                  </strong>
+                  <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
+                    {checkedInToday ? "Hoy" : formatDate(checkInDate)}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0" />
+              </button>
+            ) : null}
+            {!latestTraining && !latestCheckIn ? (
+              <p className="py-8 text-center text-sm text-[color:var(--text-muted)]">
+                Todavía no hay actividad registrada.
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -870,13 +1196,27 @@ function MobileAthletePlanView({
       )
     : 1;
   const endDate = activePlan ? getPlanEndDate(activePlan) : "";
-  const reviewDate = endDate
+  const reviewDate = activePlan?.effectiveFollowUp?.review?.enabled
     ? (() => {
-        const date = new Date(`${String(endDate).slice(0, 10)}T12:00:00`);
-        date.setDate(date.getDate() - 1);
+        const interval = Math.max(
+          1,
+          Number(activePlan.effectiveFollowUp.review.intervalWeeks) || 4,
+        );
+        const reviewWeek = Math.min(
+          Number(activePlan.durationWeeks || interval),
+          Math.ceil(currentWeek / interval) * interval,
+        );
+        const date = new Date(planStart);
+        date.setDate(date.getDate() + reviewWeek * 7 - 1);
         return localDateKey(date);
       })()
-    : "";
+    : endDate
+      ? (() => {
+          const date = new Date(`${String(endDate).slice(0, 10)}T12:00:00`);
+          date.setDate(date.getDate() - 1);
+          return localDateKey(date);
+        })()
+      : "";
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const routineById = new Map(
@@ -1997,6 +2337,9 @@ export default function CoachDashboard({
   const [reportLoading, setReportLoading] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
   const [planDraft, setPlanDraft] = useState(null);
+  const [intakeReviewOpen, setIntakeReviewOpen] = useState(false);
+  const [planAssignedNotice, setPlanAssignedNotice] = useState("");
+  const [planCreationSource, setPlanCreationSource] = useState("");
 
   useEffect(() => {
     onSelectCoachAthleteRef.current = onSelectCoachAthlete;
@@ -2217,6 +2560,9 @@ export default function CoachDashboard({
       setLatestCheckIn(null);
       setHistoryTrainings([]);
       setHistoryCheckIns([]);
+      setIntakeReviewOpen(false);
+      setPlanAssignedNotice("");
+      setPlanCreationSource("");
       return;
     }
     setAthleteView("summary");
@@ -2449,9 +2795,9 @@ export default function CoachDashboard({
       routine.isAvailableForTraining !== false && routine.isArchived !== true,
   );
 
-  const savePlan = async (payload) => {
+  const savePlan = async (payload, { activate = false } = {}) => {
     try {
-      const saved = editingPlan
+      let saved = editingPlan
         ? await api.updateCoachPlan(
             selectedId,
             editingPlan._id || editingPlan.id,
@@ -2461,6 +2807,13 @@ export default function CoachDashboard({
             ...payload,
             branch: "general",
           });
+      if (!editingPlan && activate) {
+        saved = await api.updateCoachPlanStatus(
+          selectedId,
+          saved._id || saved.id,
+          "active",
+        );
+      }
       const data = await api.getCoachAthleteOverview(selectedId);
       setOverview(data);
       setSelectedPlanId(String(saved._id || saved.id));
@@ -2468,11 +2821,27 @@ export default function CoachDashboard({
       setCreatingPlan(false);
       setEditingPlan(null);
       setPlanDraft(null);
-      toast.success(editingPlan ? "Plan actualizado" : "Planificacion creada", {
-        description: editingPlan
-          ? `${payload.name} fue actualizado para ${selectedAthlete?.name}.`
-          : `Revisa ${payload.name} y activalo cuando este completo.`,
-      });
+      setPlanCreationSource("");
+      if (activate) {
+        setAthleteView("summary");
+        setPlanDetailMode(false);
+        setPlanAssignedNotice(payload.name);
+      }
+      toast.success(
+        editingPlan
+          ? "Plan actualizado"
+          : activate
+            ? "Planificación asignada"
+            : "Planificación guardada",
+        {
+          description: editingPlan
+            ? `${payload.name} fue actualizado para ${selectedAthlete?.name}.`
+            : activate
+              ? `${selectedAthlete?.name} ya puede ver ${payload.name}.`
+              : `El borrador ${payload.name} quedó listo para continuar.`,
+        },
+      );
+      return saved;
     } catch (err) {
       toast.error(err.message || "No se pudo crear el plan");
       throw err;
@@ -3112,6 +3481,7 @@ export default function CoachDashboard({
                   if (activePlan) setEditingPlan(activePlan);
                   else setCreatingPlan(true);
                 }}
+                planActionLabel={activePlan ? "Editar plan" : "Crear plan"}
                 onRelease={releaseAthlete}
               />
 
@@ -3258,16 +3628,42 @@ export default function CoachDashboard({
               </div>
 
               {athleteView === "summary" ? (
-                <AthleteSummaryView
-                  overview={overview}
-                  activePlan={activePlan}
-                  activePlanTimeProgress={activePlanTimeProgress}
-                  recommendedPlanDay={recommendedPlanDay}
-                  routineNameById={routineNameById}
-                  latestCheckIn={latestCheckIn}
-                  onOpenPlan={() => setAthleteView("plan")}
-                  onOpenHistory={() => setAthleteView("activity")}
-                />
+                <>
+                  {planAssignedNotice ? (
+                    <div className="mt-4 flex items-center gap-3 rounded-[18px] border border-[#a8dbb5] bg-[#eff9f1] p-4 text-[#26723d] dark:bg-emerald-950/30 dark:text-emerald-200">
+                      <CheckCircle2 className="h-5 w-5 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block text-sm font-semibold">
+                          Planificación asignada
+                        </strong>
+                        <span className="mt-1 block truncate text-xs opacity-75">
+                          {planAssignedNotice} ya está disponible para el
+                          alumno.
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPlanAssignedNotice("")}
+                        className="grid h-9 w-9 place-items-center rounded-full"
+                        aria-label="Cerrar aviso"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
+                  <AthleteSummaryView
+                    overview={overview}
+                    activePlan={activePlan}
+                    activePlanTimeProgress={activePlanTimeProgress}
+                    recommendedPlanDay={recommendedPlanDay}
+                    routineNameById={routineNameById}
+                    latestCheckIn={latestCheckIn}
+                    onOpenPlan={() => setAthleteView("plan")}
+                    onOpenHistory={() => setAthleteView("activity")}
+                    onReviewIntake={() => setIntakeReviewOpen(true)}
+                    onCreatePlan={() => setCreatingPlan(true)}
+                  />
+                </>
               ) : null}
 
               {athleteView === "plan" ? (
@@ -3703,12 +4099,26 @@ export default function CoachDashboard({
         </div>
       )}
 
+      {intakeReviewOpen && overview?.athlete ? (
+        <AthleteIntakeReview
+          athlete={overview.athlete}
+          hasPlan={Boolean(activePlan)}
+          onBack={() => setIntakeReviewOpen(false)}
+          onCreatePlan={() => {
+            setIntakeReviewOpen(false);
+            setPlanCreationSource("evaluation");
+            setCreatingPlan(true);
+          }}
+        />
+      ) : null}
+
       {(creatingPlan || editingPlan || planDraft) && selectedAthlete ? (
         <CoachPlanModal
-          athlete={selectedAthlete}
+          athlete={overview?.athlete || selectedAthlete}
           templates={templates}
           planTemplates={planCatalog.plans}
           initialPlanTemplateId={initialPlanTemplateId}
+          initialSource={planCreationSource}
           initialData={editingPlan || planDraft?.plan}
           replacingPlan={editingPlan ? null : activePlan}
           onSave={savePlan}
@@ -3717,6 +4127,7 @@ export default function CoachDashboard({
             setInitialPlanTemplateId("");
             setEditingPlan(null);
             setPlanDraft(null);
+            setPlanCreationSource("");
           }}
         />
       ) : null}

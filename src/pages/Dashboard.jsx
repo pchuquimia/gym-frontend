@@ -1918,9 +1918,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
     : loadedActivePlan;
+  const bootstrapTrackingMissions =
+    dashboardBootstrap.data?.followUp?.missions || [];
   const managedAthleteStage = getManagedAthleteJourneyStage(
     authUser,
     activePlan,
+    bootstrapTrackingMissions.some(
+      (mission) => mission.type === "final_evaluation" && !mission.completed,
+    ),
   );
   const coachRelationshipQuery = useQuery({
     queryKey: ["coach-relationship", authUser?.id || authUser?._id || "self"],
@@ -3264,15 +3269,28 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     todayDailyMetric?.readinessScore !== null &&
     todayDailyMetric?.readinessScore !== undefined &&
     Number.isFinite(Number(todayDailyMetric.readinessScore));
-  const mobileCheckInTask = canUseDailyCheckIn
-    ? {
-        completed: checkInCompleted,
-        title: "Check-in diario",
-        subtitle: checkInCompleted
-          ? `Completado · recuperación ${Math.round(Number(todayDailyMetric.readinessScore))}%`
-          : "Sueño, energía y molestias · 20 s",
-      }
-    : null;
+  const followUpMissions = bootstrapTrackingMissions;
+  const scheduledCheckIn = followUpMissions.find(
+    (mission) => mission.type === "check_in",
+  );
+  const mobileCheckInTask =
+    canUseDailyCheckIn && (!managedAthleteStage || scheduledCheckIn)
+      ? {
+          completed: checkInCompleted,
+          title: "Check-in diario",
+          subtitle: checkInCompleted
+            ? `Completado · recuperación ${Math.round(Number(todayDailyMetric.readinessScore))}%`
+            : "Sueño, energía y molestias · 20 s",
+        }
+      : null;
+  const mobileTrackingMissions = followUpMissions.filter(
+    (mission) => mission.type !== "check_in",
+  );
+  const isPostPlanFollowUp =
+    !activePlan &&
+    mobileTrackingMissions.some(
+      (mission) => mission.type === "final_evaluation" && !mission.completed,
+    );
   const mobileRoutine = useMemo(() => {
     if (todayAction.type === "active") {
       return (
@@ -3490,8 +3508,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         coach={managedCoach}
         activePlanContext={mobileActivePlanContext}
         checkInTask={mobileCheckInTask}
-        workoutTask={mobileWorkoutTask}
+        workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
+        trackingMissions={mobileTrackingMissions}
         readOnly={isAdminDatePreview}
         onOpenMenu={() => window.dispatchEvent(new Event("open-main-menu"))}
         onStartEvaluation={() => onNavigate("onboarding")}
@@ -3500,6 +3519,33 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}
+        onOpenTrackingMission={(type) => {
+          if (type === "weight") onNavigate("pesajes");
+          else if (type === "photos") onNavigate("fotos");
+          else if (type === "measurements") {
+            const mission = mobileTrackingMissions.find(
+              (item) => item.type === "measurements",
+            );
+            if (mission?.fields?.length) {
+              sessionStorage.setItem(
+                "measurement_mission_fields",
+                JSON.stringify(mission.fields),
+              );
+            }
+            onNavigate("medidas");
+          } else if (type === "final_evaluation") {
+            const mission = mobileTrackingMissions.find(
+              (item) => item.type === "final_evaluation",
+            );
+            if (mission?.planId) {
+              sessionStorage.setItem(
+                "final_assessment_plan_id",
+                mission.planId,
+              );
+            }
+            onNavigate("evaluacion_final");
+          }
+        }}
         onOpenWeighIn={() =>
           needsDailyWeighIn ? setQuickWeightOpen(true) : onNavigate("pesajes")
         }

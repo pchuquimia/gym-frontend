@@ -1648,6 +1648,15 @@ export default function ProfileSettings({ onNavigate }) {
               )}
             </Section>
           ) : null}
+          {["Admin", "Entrenador"].includes(user?.role) ? (
+            <Section title="Coaching">
+              <SettingsRow
+                title="Evaluaciones y seguimiento"
+                value="Preguntas, fotos, medidas y revisiones"
+                onClick={() => onNavigate?.("coach_workflow")}
+              />
+            </Section>
+          ) : null}
           <Section title="Entrenamiento">
             <SettingsRow
               title="Lugares de entrenamiento"

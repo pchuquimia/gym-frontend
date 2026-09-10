@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import OperationLoader from "../components/system/OperationLoader";
 import { normalizeUsername, validateUsername } from "../utils/authValidation";
+import { api } from "../services/api";
 
 const DRAFT_KEY = "rirfit_onboarding_draft";
 const LEGACY_DRAFT_KEY = "apex_onboarding_draft";
@@ -63,7 +64,12 @@ const accountTypes = [
   },
 ];
 
-const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
+const readDraft = (
+  profile = {},
+  accountName = "",
+  accountUsername = "",
+  intakeCoachId = "",
+) => {
   const initialDraft = {
     name: accountName && accountName !== "Atleta" ? accountName : "",
     username: accountUsername || "",
@@ -73,6 +79,8 @@ const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
     weight: profile.weight || "",
     height: profile.height || "",
     healthNotes: profile.healthNotes || "",
+    intakeAnswers: {},
+    intakeCoachId,
   };
   try {
     const currentDraft = window.localStorage.getItem(DRAFT_KEY);
@@ -82,7 +90,17 @@ const readDraft = (profile = {}, accountName = "", accountUsername = "") => {
       window.localStorage.setItem(DRAFT_KEY, legacyDraft);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
     }
-    if (stored) return { ...initialDraft, ...stored };
+    if (stored) {
+      return {
+        ...initialDraft,
+        ...stored,
+        intakeAnswers:
+          String(stored.intakeCoachId || "") === String(intakeCoachId || "")
+            ? stored.intakeAnswers || {}
+            : {},
+        intakeCoachId,
+      };
+    }
   } catch {
     // Start from the server profile if the local draft is unreadable.
   }
@@ -202,16 +220,50 @@ export default function Onboarding({ onNavigate = () => {} }) {
     Math.max(
       0,
       Math.min(
-        2,
-        Number(readDraft(user?.profile, user?.name, user?.username).step || 0),
+        isManagedAthlete ? 3 : 2,
+        Number(
+          readDraft(
+            user?.profile,
+            user?.name,
+            user?.username,
+            user?.assignedTrainerId,
+          ).step || 0,
+        ),
       ),
     ),
   );
   const [form, setForm] = useState(() =>
-    readDraft(user?.profile, user?.name, user?.username),
+    readDraft(
+      user?.profile,
+      user?.name,
+      user?.username,
+      user?.assignedTrainerId,
+    ),
   );
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [intakeQuestions, setIntakeQuestions] = useState([]);
+  const [intakeLoading, setIntakeLoading] = useState(isManagedAthlete);
+
+  useEffect(() => {
+    if (!isManagedAthlete) return undefined;
+    let active = true;
+    api
+      .getCoachIntakeForm()
+      .then((data) => {
+        if (active) setIntakeQuestions(data.questions || []);
+      })
+      .catch((error) => {
+        if (active)
+          toast.error(error.message || "No se pudo cargar la evaluación");
+      })
+      .finally(() => {
+        if (active) setIntakeLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isManagedAthlete]);
 
   useEffect(() => {
     try {
@@ -315,6 +367,21 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
   const finish = async () => {
     if (!validateBody() || saving) return;
+    const missingAnswer = intakeQuestions.find((question) => {
+      if (!question.required) return false;
+      const value = form.intakeAnswers?.[question.key];
+      return Array.isArray(value)
+        ? value.length === 0
+        : String(value ?? "").trim() === "";
+    });
+    if (missingAnswer) {
+      setErrors((value) => ({
+        ...value,
+        [`intake_${missingAnswer.key}`]: "Esta respuesta es obligatoria.",
+      }));
+      setStep(3);
+      return;
+    }
     try {
       setSaving(true);
       await completeOnboarding({
@@ -326,6 +393,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
         weight: Number(form.weight),
         height: Number(form.height),
         healthNotes: form.healthNotes.trim(),
+        intakeAnswers: intakeQuestions.map((question) => ({
+          key: question.key,
+          value: form.intakeAnswers?.[question.key] ?? "",
+        })),
       });
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
@@ -771,6 +842,140 @@ export default function Onboarding({ onNavigate = () => {} }) {
               </div>
             </div>
           ) : null}
+
+          {!showAccountType &&
+          accountType === "athlete" &&
+          isManagedAthlete &&
+          step === 3 ? (
+            <div className="mt-2">
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#181918] dark:text-[#e2ff00]">
+                Preguntas de tu coach
+              </p>
+              <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
+                Últimos detalles
+              </h1>
+              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
+                Estas respuestas se compartirán únicamente con tu coach para
+                personalizar tu planificación.
+              </p>
+              {intakeLoading ? (
+                <OperationLoader
+                  active
+                  delayMs={0}
+                  mode="inline"
+                  title="Cargando preguntas"
+                />
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  {intakeQuestions.map((question, index) => {
+                    const value =
+                      form.intakeAnswers?.[question.key] ??
+                      (question.type === "multiple_choice" ? [] : "");
+                    const error = errors[`intake_${question.key}`];
+                    const updateAnswer = (nextValue) => {
+                      setForm((current) => ({
+                        ...current,
+                        intakeAnswers: {
+                          ...current.intakeAnswers,
+                          [question.key]: nextValue,
+                        },
+                      }));
+                      setErrors((current) => ({
+                        ...current,
+                        [`intake_${question.key}`]: "",
+                      }));
+                    };
+                    return (
+                      <fieldset
+                        key={question.key}
+                        className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+                      >
+                        <legend className="sr-only">{question.label}</legend>
+                        <p className="text-sm font-black">
+                          {index + 1}. {question.label}
+                          {!question.required ? (
+                            <span className="ml-2 text-[10px] font-semibold uppercase text-[color:var(--text-muted)]">
+                              Opcional
+                            </span>
+                          ) : null}
+                        </p>
+                        {question.type === "long_text" ? (
+                          <textarea
+                            rows={3}
+                            maxLength={1000}
+                            value={value}
+                            onChange={(event) =>
+                              updateAnswer(event.target.value)
+                            }
+                            className="mt-3 w-full resize-none border-b border-[color:var(--border)] bg-transparent py-2 text-sm font-semibold outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                          />
+                        ) : question.type === "single_choice" ||
+                          question.type === "yes_no" ? (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {(question.type === "yes_no"
+                              ? ["Sí", "No"]
+                              : question.options || []
+                            ).map((option) => (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => updateAnswer(option)}
+                                className={`min-h-11 border px-3 text-left text-sm font-bold ${value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        ) : question.type === "multiple_choice" ? (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {(question.options || []).map((option) => {
+                              const selected =
+                                Array.isArray(value) && value.includes(option);
+                              return (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  onClick={() =>
+                                    updateAnswer(
+                                      selected
+                                        ? value.filter(
+                                            (item) => item !== option,
+                                          )
+                                        : [...value, option],
+                                    )
+                                  }
+                                  className={`min-h-11 border px-3 text-left text-sm font-bold ${selected ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
+                                >
+                                  {option}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <input
+                            type={
+                              question.type === "number" ? "number" : "text"
+                            }
+                            maxLength={1000}
+                            value={value}
+                            onChange={(event) =>
+                              updateAnswer(event.target.value)
+                            }
+                            className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-sm font-semibold outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                          />
+                        )}
+                        {error ? (
+                          <span className="mt-2 block text-xs font-bold text-red-500">
+                            {error}
+                          </span>
+                        ) : null}
+                      </fieldset>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -828,20 +1033,25 @@ export default function Onboarding({ onNavigate = () => {} }) {
               <ArrowLeft className="h-4 w-4" /> Anterior
             </button>
             <p className="hidden text-[10px] font-black uppercase text-[color:var(--text-muted)] sm:block">
-              Paso {step + 1} de 3
+              Paso {step + 1} de {isManagedAthlete ? 4 : 3}
             </p>
             <button
               type="button"
               onClick={
-                step === 2
+                step === (isManagedAthlete ? 3 : 2)
                   ? finish
-                  : () => setStep((value) => Math.min(2, value + 1))
+                  : () =>
+                      setStep((value) =>
+                        Math.min(isManagedAthlete ? 3 : 2, value + 1),
+                      )
               }
               disabled={saving}
               className="inline-flex h-11 items-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
             >
-              {step === 2 ? "Preparar dashboard" : "Continuar"}
-              {step === 2 ? (
+              {step === (isManagedAthlete ? 3 : 2)
+                ? "Enviar evaluación"
+                : "Continuar"}
+              {step === (isManagedAthlete ? 3 : 2) ? (
                 <Check className="h-4 w-4" />
               ) : (
                 <ArrowRight className="h-4 w-4" />

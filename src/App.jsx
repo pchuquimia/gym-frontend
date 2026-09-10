@@ -31,6 +31,7 @@ import {
 import {
   getUserHome,
   isCoachManagedClient,
+  needsCoachIntake,
   needsOnboarding,
 } from "./utils/userFlow";
 import {
@@ -61,6 +62,11 @@ const ExerciseHistoryEditor = lazy(
 const ExerciseImageStudio = lazy(() => import("./pages/ExerciseImageStudio"));
 const SessionSummaryPage = lazy(() => import("./pages/SessionSummaryPage"));
 const DataIntelligencePage = lazy(() => import("./pages/DataIntelligencePage"));
+const CoachWorkflowSettings = lazy(
+  () => import("./pages/CoachWorkflowSettings"),
+);
+const AthleteMeasurements = lazy(() => import("./pages/AthleteMeasurements"));
+const FinalAssessment = lazy(() => import("./pages/FinalAssessment"));
 const Routines = lazy(() => import("./pages/Routines"));
 const PhotosLibrary = lazy(() => import("./pages/PhotosLibrary"));
 const TrainingAdmin = lazy(() => import("./pages/TrainingAdmin"));
@@ -99,6 +105,12 @@ const PAGES = {
   trainer: { label: "Mis atletas", component: CoachDashboard },
   coach_athletes: { label: "Alumnos", component: CoachDashboard },
   coach_messages: { label: "Mensajes", component: CoachMessages },
+  coach_workflow: {
+    label: "Evaluaciones y seguimiento",
+    component: CoachWorkflowSettings,
+  },
+  medidas: { label: "Medidas corporales", component: AthleteMeasurements },
+  evaluacion_final: { label: "Evaluación final", component: FinalAssessment },
   coach_admin: { label: "Coaches y atletas", component: CoachManagement },
   admin_sesiones: { label: "Historial de sesiones", component: TrainingAdmin },
   perfil: { label: "Perfil y Ajustes", component: ProfileSettings },
@@ -117,6 +129,7 @@ const PAGE_ROLES = {
   trainer: ["Admin", "Entrenador"],
   coach_athletes: ["Entrenador"],
   coach_messages: ["Entrenador"],
+  coach_workflow: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
   onboarding: ["Cliente", "Entrenador"],
 };
@@ -128,6 +141,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "trainer",
   "coach_athletes",
   "coach_messages",
+  "coach_workflow",
   "rutinas",
   "library",
   "ejercicio_analitica",
@@ -138,6 +152,8 @@ const COACH_ALLOWED_PAGES = new Set([
   "pesajes",
   "check_in",
   "hidratacion",
+  "medidas",
+  "evaluacion_final",
   "perfil",
   "planes",
   "onboarding",
@@ -158,6 +174,8 @@ const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "pesajes",
   "check_in",
   "hidratacion",
+  "medidas",
+  "evaluacion_final",
   "admin_sesiones",
   "fotos",
   "perfil",
@@ -485,7 +503,8 @@ function App() {
   useEffect(() => {
     if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     const isManagedClient = isCoachManagedClient(user);
-    const isManagedEvaluationPending = isManagedClient && needsOnboarding(user);
+    const isManagedEvaluationPending =
+      isManagedClient && needsCoachIntake(user);
     const pendingAllowedPages = new Set(["dashboard", "onboarding"]);
     if (
       isAuthenticated &&
@@ -497,13 +516,21 @@ function App() {
       handleNavigate("dashboard", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePage, isAuthenticated, user?.role, user?.trainingMode]);
+  }, [
+    activePage,
+    isAuthenticated,
+    user?.assignedTrainerId,
+    user?.coachIntake?.coachId,
+    user?.coachIntake?.status,
+    user?.role,
+    user?.trainingMode,
+  ]);
 
   useEffect(() => {
     if (PUBLIC_PAGES.has(activePage) || activePage === "invitation") return;
     if (!isAuthenticated) return;
     const managedEvaluationPending =
-      isCoachManagedClient(user) && needsOnboarding(user);
+      isCoachManagedClient(user) && needsCoachIntake(user);
     if (
       needsOnboarding(user) &&
       !managedEvaluationPending &&
@@ -512,13 +539,20 @@ function App() {
       handleNavigate("onboarding", { replace: true });
       return;
     }
-    if (!needsOnboarding(user) && activePage === "onboarding") {
+    if (
+      !needsOnboarding(user) &&
+      !managedEvaluationPending &&
+      activePage === "onboarding"
+    ) {
       handleNavigate(getUserHome(user), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activePage,
     isAuthenticated,
+    user?.assignedTrainerId,
+    user?.coachIntake?.coachId,
+    user?.coachIntake?.status,
     user?.onboarding?.status,
     user?.role,
     user?.trainingMode,
@@ -532,7 +566,15 @@ function App() {
       handleNavigate(getUserHome(user), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user?.onboarding?.status, user?.role]);
+  }, [
+    isAuthenticated,
+    user?.assignedTrainerId,
+    user?.coachIntake?.coachId,
+    user?.coachIntake?.status,
+    user?.onboarding?.status,
+    user?.role,
+    user?.trainingMode,
+  ]);
 
   useEffect(() => {
     if (
@@ -589,6 +631,7 @@ function App() {
       "data_intelligence",
       "pesajes",
       "hidratacion",
+      "medidas",
     ].includes(activePage)
       ? coachAthlete?.id || ""
       : "";

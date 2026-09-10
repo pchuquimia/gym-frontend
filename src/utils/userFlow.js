@@ -5,10 +5,28 @@ export const needsOnboarding = (user) =>
 export const isCoachManagedClient = (user) =>
   user?.role === "Cliente" && user?.trainingMode === "coach_managed";
 
-export const getManagedAthleteJourneyStage = (user, activePlan = null) => {
+export const needsCoachIntake = (user) => {
+  if (!isCoachManagedClient(user)) return false;
+  const assignedCoachId = String(user?.assignedTrainerId || "");
+  const intakeCoachId = String(user?.coachIntake?.coachId || "");
+  return (
+    !assignedCoachId ||
+    user?.coachIntake?.status !== "submitted" ||
+    !user?.coachIntake?.submittedAt ||
+    intakeCoachId !== assignedCoachId
+  );
+};
+
+export const getManagedAthleteJourneyStage = (
+  user,
+  activePlan = null,
+  hasPendingPlanFollowUp = false,
+) => {
   if (!isCoachManagedClient(user)) return null;
-  if (needsOnboarding(user)) return "evaluation_pending";
-  return activePlan ? "plan_assigned" : "evaluation_submitted";
+  if (needsCoachIntake(user)) return "evaluation_pending";
+  return activePlan || hasPendingPlanFollowUp
+    ? "plan_assigned"
+    : "evaluation_submitted";
 };
 
 export const getUserHome = (user) => {
