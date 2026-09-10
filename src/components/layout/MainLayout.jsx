@@ -58,7 +58,8 @@ function MainLayout({
   const useImageStudioChrome = activePage === "imagenes_ejercicios";
   const useTrainingChrome = activePage === "registrar";
   const useOnboardingChrome = activePage === "onboarding";
-  const useProfileChrome = activePage === "perfil";
+  const useProfileChrome =
+    activePage === "perfil" || activePage === "coach_workflow";
   const useSessionSummaryChrome = activePage === "resumen_sesion";
   const useLibraryChrome = activePage === "library";
   const useRoutinesChrome = activePage === "rutinas";

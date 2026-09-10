@@ -113,18 +113,18 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`flex min-h-24 w-full items-center gap-3 border p-4 text-left transition ${
+      className={`flex min-h-[88px] w-full items-center gap-3 rounded-[18px] border p-4 text-left transition ${
         selected
-          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : "border-[color:var(--border)] bg-[color:var(--card)] hover:border-[#181918]/50 dark:hover:border-[#e2ff00]/50"
+          ? "border-[#181918] bg-[#181918] text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+          : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[#181918]/50 dark:hover:border-[#e2ff00]/50"
       }`}
     >
       {Icon ? (
         <span
-          className={`grid h-11 w-11 shrink-0 place-items-center ${
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-[13px] ${
             selected
-              ? "border border-current bg-transparent text-current"
-              : "bg-[color:var(--bg)] text-[color:var(--text-muted)]"
+              ? "bg-white/10 text-current dark:bg-black/10"
+              : "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
           }`}
         >
           <Icon className="h-5 w-5" />
@@ -132,14 +132,14 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       ) : null}
       <span className="min-w-0 flex-1">
         <span
-          className={`block text-sm font-black uppercase ${
+          className={`block text-base font-semibold tracking-[-0.02em] ${
             selected ? "text-current" : "text-[color:var(--text)]"
           }`}
         >
           {title}
         </span>
         <span
-          className={`mt-1 block text-xs font-semibold ${
+          className={`mt-1 block text-sm font-normal leading-5 ${
             selected ? "text-current/80" : "text-[color:var(--text-muted)]"
           }`}
         >
@@ -147,7 +147,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
         </span>
       </span>
       {selected ? (
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current bg-transparent text-current">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[#181918] dark:bg-black dark:text-[#e2ff00]">
           <Check className="h-3.5 w-3.5" />
         </span>
       ) : null}
@@ -162,17 +162,17 @@ function AccountTypeChoice({ selected, icon: Icon, title, detail, onClick }) {
       role="radio"
       aria-checked={selected}
       onClick={onClick}
-      className={`group flex min-h-[92px] w-full items-center gap-4 rounded-[22px] border px-4 py-4 text-left transition duration-300 sm:px-5 ${
+      className={`group flex min-h-[104px] w-full items-center gap-4 rounded-[20px] border px-4 py-4 text-left transition duration-300 ${
         selected
-          ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--bg)] shadow-[0_18px_44px_rgba(0,0,0,0.12)]"
-          : "border-[color:var(--border)] bg-[color:var(--card)] hover:-translate-y-0.5 hover:border-[color:var(--text)]"
+          ? "border-[#181918] bg-[#181918] text-white shadow-[0_14px_36px_rgba(0,0,0,0.14)] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+          : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[color:var(--text)]"
       }`}
     >
       <span
-        className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border transition ${
+        className={`grid h-12 w-12 shrink-0 place-items-center rounded-[14px] transition ${
           selected
-            ? "border-current/30 bg-current/10"
-            : "border-[color:var(--border)] bg-[color:var(--bg)]"
+            ? "bg-white/10 dark:bg-black/10"
+            : "bg-[color:var(--surface-subtle)]"
         }`}
       >
         <Icon className="h-5 w-5" />
@@ -366,7 +366,15 @@ export default function Onboarding({ onNavigate = () => {} }) {
   };
 
   const finish = async () => {
-    if (!validateBody() || saving) return;
+    if (saving) return;
+    if (!validateBody()) {
+      toast.error("Revisa los datos de tu perfil", {
+        description:
+          "Completa los campos pendientes antes de enviar la evaluación.",
+      });
+      setStep(2);
+      return;
+    }
     const missingAnswer = intakeQuestions.find((question) => {
       if (!question.required) return false;
       const value = form.intakeAnswers?.[question.key];
@@ -379,6 +387,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
         ...value,
         [`intake_${missingAnswer.key}`]: "Esta respuesta es obligatoria.",
       }));
+      toast.error("Completa la evaluación", {
+        description: `Falta responder: ${missingAnswer.label}`,
+      });
       setStep(3);
       return;
     }
@@ -401,14 +412,15 @@ export default function Onboarding({ onNavigate = () => {} }) {
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
       toast.success(
-        isManagedAthlete ? "Evaluación enviada" : "Configuración completada",
+        isManagedAthlete ? "Formulario enviado" : "Configuración completada",
         {
           description: isManagedAthlete
             ? "Tu coach ya puede revisar tus respuestas y preparar tu plan."
             : "Tu dashboard ya está preparado con tus objetivos.",
+          duration: 5000,
         },
       );
-      onNavigate("dashboard");
+      onNavigate("dashboard", { replace: true });
     } catch (error) {
       if (error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message)) {
         setErrors((value) => ({
@@ -431,62 +443,90 @@ export default function Onboarding({ onNavigate = () => {} }) {
   };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl flex-col text-[color:var(--text)]">
-      <header className="flex items-center justify-between border-b border-[color:var(--border)] pb-4">
-        <div>
-          <p className="text-xl font-black italic leading-none">
-            RIR <span className="text-[#181918] dark:text-[#e2ff00]">FIT</span>
+    <div className="routines-shell fixed inset-0 z-40 flex h-dvh w-full flex-col overflow-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
+      <header className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--bg)]">
+        <div className="mx-auto grid min-h-16 w-full max-w-lg grid-cols-[72px_minmax(0,1fr)_72px] items-center px-5">
+          <p className="text-base font-semibold italic tracking-[-0.04em]">
+            RIRFIT
           </p>
-          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-            Configuracion inicial
-          </p>
+          <h1 className="truncate text-center text-lg font-semibold tracking-[-0.03em]">
+            Configuración inicial
+          </h1>
+          <button
+            type="button"
+            onClick={exit}
+            aria-label="Salir de la configuración"
+            className="ml-auto grid h-10 w-10 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text-muted)]"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={exit}
-          className="inline-flex h-10 items-center gap-2 border border-[color:var(--border)] px-3 text-[10px] font-black uppercase text-[color:var(--text-muted)]"
-        >
-          <LogOut className="h-4 w-4" /> Salir
-        </button>
+
+        {!showAccountType && accountType === "athlete" ? (
+          <div
+            className={`mx-auto grid w-full max-w-lg px-5 pb-4 pt-2 ${isManagedAthlete ? "grid-cols-4" : "grid-cols-3"}`}
+            aria-label="Progreso de configuración"
+          >
+            {(isManagedAthlete
+              ? ["Objetivo", "Experiencia", "Perfil", "Evaluación"]
+              : ["Objetivo", "Experiencia", "Perfil"]
+            ).map((label, index) => {
+              const complete = index < step;
+              const active = index === step;
+              return (
+                <div
+                  key={label}
+                  className="relative flex min-w-0 flex-col items-center gap-1.5"
+                >
+                  {index ? (
+                    <span
+                      className={`absolute right-1/2 top-3 h-px w-full ${index <= step ? "bg-[#43ad65]" : "bg-[color:var(--border)]"}`}
+                    />
+                  ) : null}
+                  <span
+                    className={`relative z-10 grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
+                      complete
+                        ? "bg-[#43ad65] text-white"
+                        : active
+                          ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
+                          : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    }`}
+                  >
+                    {complete ? (
+                      <Check className="h-4 w-4" strokeWidth={2.8} />
+                    ) : (
+                      index + 1
+                    )}
+                  </span>
+                  <span
+                    className={`relative z-10 max-w-full truncate bg-[color:var(--bg)] px-1 text-[10px] ${active ? "font-semibold" : "text-[color:var(--text-muted)]"}`}
+                  >
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </header>
 
-      {!showAccountType && accountType === "athlete" ? (
-        <div
-          className="mt-5 grid grid-cols-3 gap-2"
-          aria-label="Progreso de configuracion"
-        >
-          {["Objetivo", "Experiencia", "Tu perfil"].map((label, index) => (
-            <div key={label}>
-              <div
-                className={`h-1.5 ${index <= step ? "bg-[#181918] dark:bg-[#e2ff00]" : "bg-[color:var(--border)]"}`}
-              />
-              <p
-                className={`mt-2 text-[9px] font-black uppercase ${index <= step ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
-              >
-                {index + 1}. {label}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <section className="my-auto py-8 sm:py-12">
-        <div className="mx-auto max-w-3xl">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#181918] dark:text-[#e2ff00]">
+      <section className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-lg px-5 py-6">
+          <p className="text-xs font-medium text-[color:var(--text-muted)]">
             Hola, {user?.name?.split(" ")[0] || "atleta"}
           </p>
 
           {showAccountType ? (
-            <div className="mt-3 max-w-2xl">
-              <h1 className="max-w-xl text-[34px] font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">
+            <div className="mt-3">
+              <h1 className="text-[32px] font-semibold leading-[1.02] tracking-[-0.05em]">
                 ¿Cómo quieres usar RIRFIT?
               </h1>
-              <p className="mt-4 max-w-lg text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+              <p className="mt-3 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
                 Empezaremos con las herramientas adecuadas para ti. Podrás
                 activar un espacio profesional más adelante.
               </p>
               <div
-                className="mt-7 grid gap-3"
+                className="mt-6 grid gap-3"
                 role="radiogroup"
                 aria-label="Tipo de cuenta"
               >
@@ -503,20 +543,20 @@ export default function Onboarding({ onNavigate = () => {} }) {
           ) : null}
 
           {!showAccountType && accountType === "coach" ? (
-            <div className="mt-3 max-w-2xl">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+            <div className="mt-3">
+              <p className="text-xs font-medium text-[color:var(--text-muted)]">
                 Espacio profesional
               </p>
-              <h1 className="mt-2 max-w-xl text-[34px] font-semibold leading-[0.98] tracking-[-0.055em] sm:text-5xl">
+              <h1 className="mt-2 text-[32px] font-semibold leading-[1.02] tracking-[-0.05em]">
                 Preséntate ante tus alumnos.
               </h1>
-              <p className="mt-4 max-w-lg text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+              <p className="mt-3 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
                 Solo necesitamos cómo quieres aparecer en RIRFIT. Al terminar
                 recibirás tu código privado de invitación.
               </p>
-              <div className="mt-7 overflow-hidden rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 sm:px-6">
-                <label className="block border-b border-[color:var(--border)] py-5">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+              <div className="mt-6 space-y-3 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_6px_24px_rgba(0,0,0,0.04)]">
+                <label className="block">
+                  <span className="text-xs font-medium text-[color:var(--text-muted)]">
                     Nombre público
                   </span>
                   <input
@@ -532,7 +572,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, name: "" }));
                     }}
                     placeholder="Tu nombre"
-                    className="mt-2 h-11 w-full bg-transparent text-lg font-semibold tracking-[-0.02em] outline-none placeholder:text-[color:var(--text-muted)]"
+                    className="mt-2 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-base font-medium outline-none placeholder:text-[color:var(--text-muted)]"
                     aria-label="Nombre público del entrenador"
                   />
                   {errors.name ? (
@@ -541,8 +581,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
-                <label className="block py-5">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                <label className="block">
+                  <span className="text-xs font-medium text-[color:var(--text-muted)]">
                     Nombre de usuario
                   </span>
                   <input
@@ -558,7 +598,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, username: "" }));
                     }}
                     placeholder="coach_rirfit"
-                    className="mt-2 h-11 w-full bg-transparent text-lg font-semibold tracking-[-0.02em] outline-none placeholder:text-[color:var(--text-muted)]"
+                    className="mt-2 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-base font-medium outline-none placeholder:text-[color:var(--text-muted)]"
                     aria-label="Nombre de usuario profesional"
                   />
                   {errors.username ? (
@@ -578,18 +618,18 @@ export default function Onboarding({ onNavigate = () => {} }) {
           {!showAccountType && accountType === "athlete" && step === 0 ? (
             <div className="mt-2">
               {isManagedAthlete ? (
-                <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#181918] dark:text-[#e2ff00]">
+                <p className="mb-2 inline-flex rounded-full bg-[#e6f6e9] px-3 py-1.5 text-xs font-semibold text-[#27743d]">
                   Evaluación inicial para tu coach
                 </p>
               ) : null}
-              <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
-                ¿Cual es tu objetivo principal?
+              <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
+                ¿Cuál es tu objetivo principal?
               </h1>
-              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Usaremos esta eleccion para orientar tus metricas y
+              <p className="mt-2 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+                Usaremos esta elección para orientar tus métricas y
                 recomendaciones.
               </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid gap-3">
                 {goals.map((goal) => (
                   <ChoiceCard
                     key={goal.id}
@@ -606,14 +646,14 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
           {!showAccountType && accountType === "athlete" && step === 1 ? (
             <div className="mt-2">
-              <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
+              <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
                 Ajustemos el punto de partida
               </h1>
-              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
+              <p className="mt-2 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
                 Esto calibra la complejidad y frecuencia sugerida, no limita tus
                 rutinas.
               </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid gap-3">
                 {levels.map((level) => (
                   <ChoiceCard
                     key={level.id}
@@ -628,17 +668,15 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   />
                 ))}
               </div>
-              <div className="mt-7 border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+              <div className="mt-5 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_6px_24px_rgba(0,0,0,0.04)]">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase">
-                      Dias por semana
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    <p className="text-base font-semibold">Días por semana</p>
+                    <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
                       Una meta realista ayuda a medir adherencia.
                     </p>
                   </div>
-                  <span className="text-3xl font-black text-[#181918] dark:text-[#e2ff00]">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#181918] text-xl font-semibold text-white dark:bg-[#e2ff00] dark:text-black">
                     {form.weeklyFrequency}
                   </span>
                 </div>
@@ -655,7 +693,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                           weeklyFrequency: frequency,
                         }))
                       }
-                      className={`h-11 border text-sm font-black ${
+                      className={`h-11 rounded-[12px] border text-sm font-semibold ${
                         form.weeklyFrequency === frequency
                           ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
                           : "border-[color:var(--border)] bg-[color:var(--bg)]"
@@ -671,16 +709,16 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
           {!showAccountType && accountType === "athlete" && step === 2 ? (
             <div className="mt-2">
-              <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
+              <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
                 Completa tu perfil base
               </h1>
-              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Evitamos valores genericos: tus calculos comenzaran con datos
+              <p className="mt-2 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
+                Evitamos valores genéricos: tus cálculos comenzarán con datos
                 reales.
               </p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
-                  <span className="text-xs font-black uppercase">
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <label className="col-span-2 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
+                  <span className="text-sm font-semibold">
                     Nombre de usuario
                   </span>
                   <input
@@ -696,7 +734,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, username: "" }));
                     }}
                     placeholder="usuario"
-                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                    className="mt-2 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-base font-medium outline-none placeholder:text-[color:var(--text-muted)]"
                     aria-label="Nombre de usuario"
                   />
                   {errors.username ? (
@@ -705,8 +743,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
-                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
-                  <span className="text-xs font-black uppercase">
+                <label className="col-span-2 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
+                  <span className="text-sm font-semibold">
                     ¿Cómo quieres que te llamemos?
                   </span>
                   <input
@@ -722,7 +760,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       setErrors((value) => ({ ...value, name: "" }));
                     }}
                     placeholder="Tu nombre"
-                    className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-lg font-bold outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                    className="mt-2 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-base font-medium outline-none placeholder:text-[color:var(--text-muted)]"
                     aria-label="Nombre para tu perfil"
                   />
                   {errors.name ? (
@@ -731,12 +769,12 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
-                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-                  <span className="flex items-center gap-2 text-xs font-black uppercase">
+                <label className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
                     <Scale className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
                     Peso actual
                   </span>
-                  <span className="mt-3 flex items-end gap-2">
+                  <span className="mt-2 flex items-center gap-2 rounded-[13px] bg-[color:var(--surface-subtle)] px-3">
                     <input
                       type="number"
                       min="20"
@@ -751,10 +789,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, weight: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 bg-transparent text-xl font-semibold outline-none"
                       aria-label="Peso actual en kilogramos"
                     />
-                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
+                    <span className="text-xs font-medium text-[color:var(--text-muted)]">
                       kg
                     </span>
                   </span>
@@ -764,12 +802,12 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
-                <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-                  <span className="flex items-center gap-2 text-xs font-black uppercase">
+                <label className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
                     <Target className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
                     Altura
                   </span>
-                  <span className="mt-3 flex items-end gap-2">
+                  <span className="mt-2 flex items-center gap-2 rounded-[13px] bg-[color:var(--surface-subtle)] px-3">
                     <input
                       type="number"
                       min="80"
@@ -784,10 +822,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }));
                         setErrors((value) => ({ ...value, height: "" }));
                       }}
-                      className="h-12 min-w-0 flex-1 border-b border-[color:var(--border)] bg-transparent text-2xl font-black outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                      className="h-12 min-w-0 flex-1 bg-transparent text-xl font-semibold outline-none"
                       aria-label="Altura en centimetros"
                     />
-                    <span className="pb-3 text-xs font-black text-[color:var(--text-muted)]">
+                    <span className="text-xs font-medium text-[color:var(--text-muted)]">
                       cm
                     </span>
                   </span>
@@ -798,8 +836,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   ) : null}
                 </label>
                 {isManagedAthlete ? (
-                  <label className="border border-[color:var(--border)] bg-[color:var(--card)] p-4 sm:col-span-2">
-                    <span className="text-xs font-black uppercase">
+                  <label className="col-span-2 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
+                    <span className="text-sm font-semibold">
                       Lesiones o condiciones a considerar
                     </span>
                     <textarea
@@ -813,7 +851,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                         }))
                       }
                       placeholder="Opcional. Describe molestias, lesiones, restricciones o indicaciones médicas relevantes."
-                      className="mt-3 w-full resize-none border-b border-[color:var(--border)] bg-transparent py-2 text-sm font-semibold leading-6 outline-none placeholder:text-[color:var(--text-muted)] focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                      className="mt-2 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none placeholder:text-[color:var(--text-muted)]"
                     />
                     <span className="mt-2 block text-[11px] leading-5 text-[color:var(--text-muted)]">
                       Esta información se compartirá únicamente con tu coach
@@ -822,7 +860,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   </label>
                 ) : null}
               </div>
-              <div className="mt-4 flex items-start gap-3 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
+              <div className="mt-4 flex items-start gap-3 rounded-[16px] bg-[#e9f7ec] p-4 text-[#276f3c] dark:bg-emerald-950/30 dark:text-emerald-200">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-current" />
                 <p className="text-xs font-semibold text-current/80">
                   Configuraremos{" "}
@@ -848,13 +886,13 @@ export default function Onboarding({ onNavigate = () => {} }) {
           isManagedAthlete &&
           step === 3 ? (
             <div className="mt-2">
-              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#181918] dark:text-[#e2ff00]">
+              <p className="mb-2 inline-flex rounded-full bg-[#e6f6e9] px-3 py-1.5 text-xs font-semibold text-[#27743d]">
                 Preguntas de tu coach
               </p>
-              <h1 className="text-3xl font-black uppercase leading-none sm:text-4xl">
+              <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
                 Últimos detalles
               </h1>
-              <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
+              <p className="mt-2 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
                 Estas respuestas se compartirán únicamente con tu coach para
                 personalizar tu planificación.
               </p>
@@ -866,7 +904,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   title="Cargando preguntas"
                 />
               ) : (
-                <div className="mt-6 grid gap-4">
+                <div className="mt-5 grid gap-3">
                   {intakeQuestions.map((question, index) => {
                     const value =
                       form.intakeAnswers?.[question.key] ??
@@ -888,13 +926,13 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     return (
                       <fieldset
                         key={question.key}
-                        className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+                        className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]"
                       >
                         <legend className="sr-only">{question.label}</legend>
-                        <p className="text-sm font-black">
+                        <p className="text-sm font-semibold">
                           {index + 1}. {question.label}
                           {!question.required ? (
-                            <span className="ml-2 text-[10px] font-semibold uppercase text-[color:var(--text-muted)]">
+                            <span className="ml-2 rounded-full bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-medium text-[color:var(--text-muted)]">
                               Opcional
                             </span>
                           ) : null}
@@ -907,7 +945,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                             onChange={(event) =>
                               updateAnswer(event.target.value)
                             }
-                            className="mt-3 w-full resize-none border-b border-[color:var(--border)] bg-transparent py-2 text-sm font-semibold outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                            className="mt-3 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none"
                           />
                         ) : question.type === "single_choice" ||
                           question.type === "yes_no" ? (
@@ -920,7 +958,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                                 key={option}
                                 type="button"
                                 onClick={() => updateAnswer(option)}
-                                className={`min-h-11 border px-3 text-left text-sm font-bold ${value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
+                                className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
                               >
                                 {option}
                               </button>
@@ -944,7 +982,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                                         : [...value, option],
                                     )
                                   }
-                                  className={`min-h-11 border px-3 text-left text-sm font-bold ${selected ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
+                                  className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${selected ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
                                 >
                                   {option}
                                 </button>
@@ -961,7 +999,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                             onChange={(event) =>
                               updateAnswer(event.target.value)
                             }
-                            className="mt-3 h-12 w-full border-b border-[color:var(--border)] bg-transparent text-sm font-semibold outline-none focus:border-[#181918] dark:focus:border-[#e2ff00]"
+                            className="mt-3 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-sm font-normal outline-none"
                           />
                         )}
                         {error ? (
@@ -979,86 +1017,85 @@ export default function Onboarding({ onNavigate = () => {} }) {
         </div>
       </section>
 
-      <footer className="flex items-center justify-between gap-3 border-t border-[color:var(--border)] pt-4">
-        {showAccountType ? (
-          <>
-            <button
-              type="button"
-              onClick={() => persistAccountType("athlete")}
-              disabled={saving}
-              className="h-11 px-1 text-xs font-semibold text-[color:var(--text-muted)] underline decoration-[color:var(--border)] underline-offset-4 disabled:opacity-50"
-            >
-              Decidir después
-            </button>
-            <button
-              type="button"
-              onClick={() => persistAccountType(accountType)}
-              disabled={saving || !accountType}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#181918] px-5 text-xs font-bold text-white disabled:opacity-40 dark:bg-[#e2ff00] dark:text-black"
-            >
-              Continuar <ArrowRight className="h-4 w-4" />
-            </button>
-          </>
-        ) : accountType === "coach" ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setShowAccountType(true)}
-              disabled={saving}
-              className="inline-flex h-11 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)] disabled:opacity-50"
-            >
-              <ArrowLeft className="h-4 w-4" /> Cambiar elección
-            </button>
-            <button
-              type="button"
-              onClick={finishCoach}
-              disabled={saving}
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#181918] px-5 text-xs font-bold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
-            >
-              Crear mi espacio <ArrowRight className="h-4 w-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() =>
-                step === 0
-                  ? setShowAccountType(true)
-                  : setStep((value) => Math.max(0, value - 1))
-              }
-              disabled={saving}
-              className="inline-flex h-11 items-center gap-2 border border-[color:var(--border)] px-4 text-xs font-black uppercase disabled:opacity-50"
-            >
-              <ArrowLeft className="h-4 w-4" /> Anterior
-            </button>
-            <p className="hidden text-[10px] font-black uppercase text-[color:var(--text-muted)] sm:block">
-              Paso {step + 1} de {isManagedAthlete ? 4 : 3}
-            </p>
-            <button
-              type="button"
-              onClick={
-                step === (isManagedAthlete ? 3 : 2)
-                  ? finish
-                  : () =>
-                      setStep((value) =>
-                        Math.min(isManagedAthlete ? 3 : 2, value + 1),
-                      )
-              }
-              disabled={saving}
-              className="inline-flex h-11 items-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
-            >
-              {step === (isManagedAthlete ? 3 : 2)
-                ? "Enviar evaluación"
-                : "Continuar"}
-              {step === (isManagedAthlete ? 3 : 2) ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <ArrowRight className="h-4 w-4" />
-              )}
-            </button>
-          </>
-        )}
+      <footer className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-2">
+          {showAccountType ? (
+            <>
+              <button
+                type="button"
+                onClick={() => persistAccountType("athlete")}
+                disabled={saving}
+                className="h-12 px-2 text-sm font-medium text-[color:var(--text-muted)] disabled:opacity-50"
+              >
+                Decidir después
+              </button>
+              <button
+                type="button"
+                onClick={() => persistAccountType(accountType)}
+                disabled={saving || !accountType}
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-6 text-sm font-semibold text-white disabled:opacity-40 dark:bg-[#e2ff00] dark:text-black"
+              >
+                Continuar <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : accountType === "coach" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowAccountType(true)}
+                disabled={saving}
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-[color:var(--border)] px-4 text-sm font-medium text-[color:var(--text-muted)] disabled:opacity-50"
+              >
+                <ArrowLeft className="h-4 w-4" /> Cambiar elección
+              </button>
+              <button
+                type="button"
+                onClick={finishCoach}
+                disabled={saving}
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+              >
+                Crear mi espacio <ArrowRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  step === 0
+                    ? setShowAccountType(true)
+                    : setStep((value) => Math.max(0, value - 1))
+                }
+                disabled={saving}
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-[color:var(--border-strong)] bg-[color:var(--card)] px-4 text-sm font-semibold disabled:opacity-50"
+              >
+                <ArrowLeft className="h-4 w-4" /> Anterior
+              </button>
+              <button
+                type="button"
+                onClick={
+                  step === (isManagedAthlete ? 3 : 2)
+                    ? finish
+                    : () =>
+                        setStep((value) =>
+                          Math.min(isManagedAthlete ? 3 : 2, value + 1),
+                        )
+                }
+                disabled={saving}
+                className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+              >
+                {step === (isManagedAthlete ? 3 : 2)
+                  ? "Enviar evaluación"
+                  : "Continuar"}
+                {step === (isManagedAthlete ? 3 : 2) ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <ArrowRight className="h-4 w-4" />
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </footer>
 
       <OperationLoader
