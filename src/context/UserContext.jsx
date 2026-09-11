@@ -51,7 +51,10 @@ export function UserProvider({ children, enabled = true }) {
   const [security, setSecurity] = useState(defaultSecurity);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
-  const [capabilities, setCapabilities] = useState({ emailChange: false });
+  const [capabilities, setCapabilities] = useState({
+    emailChange: false,
+    requiresPasswordForDeletion: true,
+  });
 
   const refreshProfile = useCallback(async () => {
     try {
@@ -60,7 +63,11 @@ export function UserProvider({ children, enabled = true }) {
       const data = await api.getProfile();
       setProfile(mergeProfile(data.profile));
       setSecurity({ ...defaultSecurity, ...(data.security || {}) });
-      setCapabilities({ emailChange: Boolean(data.capabilities?.emailChange) });
+      setCapabilities({
+        emailChange: Boolean(data.capabilities?.emailChange),
+        requiresPasswordForDeletion:
+          data.capabilities?.requiresPasswordForDeletion !== false,
+      });
     } catch (requestError) {
       setError(requestError.message || "No se pudo cargar el perfil.");
     } finally {
@@ -117,6 +124,9 @@ export function UserProvider({ children, enabled = true }) {
       capabilities: useBootstrap
         ? {
             emailChange: Boolean(bootstrapProfile?.capabilities?.emailChange),
+            requiresPasswordForDeletion:
+              bootstrapProfile?.capabilities?.requiresPasswordForDeletion !==
+              false,
           }
         : capabilities,
     }),

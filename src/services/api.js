@@ -79,6 +79,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
+  deleteAccount: (payload) =>
+    request("/api/auth/account", {
+      method: "DELETE",
+      body: JSON.stringify(payload),
+    }),
   updateProfile: (payload) =>
     request("/api/auth/profile", {
       method: "PATCH",
@@ -129,6 +134,9 @@ export const api = {
   getCoachPlans: () => request("/api/coach/plans"),
   getCoachPortfolio: () =>
     request(`/api/coach/portfolio?today=${localTodayKey()}`),
+  getCoachNotifications: () => request("/api/coach/notifications"),
+  markCoachNotificationsRead: () =>
+    request("/api/coach/notifications/read", { method: "POST" }),
   getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),
   getCoachLinkCode: () => request("/api/coach/link-code"),
   regenerateCoachLinkCode: () =>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Building2,
   Camera,
   Check,
@@ -14,6 +15,7 @@ import {
   Save,
   Smartphone,
   Tablet,
+  Trash2,
   Unlink,
   Upload,
   UserRoundCheck,
@@ -115,7 +117,9 @@ const formatProfileDate = (value) => {
 const viewFromUrl = () => {
   if (typeof window === "undefined") return "settings";
   const requested = new URLSearchParams(window.location.search).get("perfil");
-  return ["personal", "security", "locations"].includes(requested)
+  return ["personal", "security", "locations", "delete_account"].includes(
+    requested,
+  )
     ? requested
     : "settings";
 };
@@ -365,7 +369,7 @@ function SessionRow({ session }) {
 }
 
 export default function ProfileSettings({ onNavigate }) {
-  const { user, logout, updateAccount, refreshUser } = useAuth();
+  const { user, logout, deleteAccount, updateAccount, refreshUser } = useAuth();
   const {
     photos = [],
     branch,
@@ -435,6 +439,15 @@ export default function ProfileSettings({ onNavigate }) {
   });
   const [coachCode, setCoachCode] = useState("");
   const [coachSaving, setCoachSaving] = useState(false);
+  const [deletionForm, setDeletionForm] = useState({
+    email: "",
+    password: "",
+    confirmation: "",
+  });
+  const [deletionState, setDeletionState] = useState({
+    saving: false,
+    error: "",
+  });
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -824,6 +837,28 @@ export default function ProfileSettings({ onNavigate }) {
     if (didLogout) onNavigate?.("login");
   };
 
+  const openAccountDeletion = () => {
+    setDeletionForm({ email: "", password: "", confirmation: "" });
+    setDeletionState({ saving: false, error: "" });
+    navigateView("delete_account");
+  };
+
+  const handleAccountDeletion = async (event) => {
+    event.preventDefault();
+    if (deletionState.saving) return;
+    setDeletionState({ saving: true, error: "" });
+    try {
+      await deleteAccount(deletionForm);
+      toast.success("Tu cuenta fue eliminada permanentemente");
+      onNavigate?.("login");
+    } catch (error) {
+      setDeletionState({
+        saving: false,
+        error: error.message || "No se pudo eliminar la cuenta.",
+      });
+    }
+  };
+
   const handleLanguageChange = async (event) => {
     const language = event.target.value === "en" ? "en" : "es";
     if (language === profile.language || languageSaving) return;
@@ -932,6 +967,153 @@ export default function ProfileSettings({ onNavigate }) {
         >
           Reintentar
         </button>
+      </main>
+    );
+  }
+
+  if (view === "delete_account") {
+    const requiresPassword = capabilities.requiresPasswordForDeletion !== false;
+    const deletionReady =
+      deletionForm.email.trim().toLowerCase() ===
+        String(user?.email || "").toLowerCase() &&
+      deletionForm.confirmation === "ELIMINAR" &&
+      (!requiresPassword || deletionForm.password.length > 0);
+
+    return (
+      <main className="settings-shell profile-reference-shell mx-auto w-full max-w-xl space-y-5 pb-8 text-[color:var(--text)]">
+        <ProfilePageHeader title="Eliminar cuenta" onBack={goBack} />
+        <BackButton onClick={goBack} />
+
+        <section className="rounded-[1.5rem] border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--danger)] text-white">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold">Eliminación permanente</h1>
+              <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+                Esta acción no se puede deshacer. Perderás el acceso a tu cuenta
+                y a toda la información asociada.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <Section title="Qué se eliminará">
+          <ul className="grid gap-2 px-5 py-4 text-sm leading-5 text-[color:var(--text-muted)]">
+            <li>• Tu perfil, credenciales y sesiones abiertas.</li>
+            <li>• Rutinas, planes, entrenamientos e historial.</li>
+            <li>• Fotos, pesajes, medidas, check-ins y evaluaciones.</li>
+            <li>• Preferencias y ejercicios personalizados.</li>
+          </ul>
+          {user?.assignedTrainerId ? (
+            <p className="border-t border-[color:var(--detail-row-divider)] px-5 py-3 text-xs leading-5 text-[color:var(--text-muted)]">
+              Avisaremos a tu coach que la cuenta fue eliminada, sin compartir
+              respuestas ni información de salud.
+            </p>
+          ) : null}
+        </Section>
+
+        <section className="rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] p-5 shadow-xs">
+          <h2 className="text-base font-semibold">Antes de continuar</h2>
+          <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+            Si pagas una suscripción mediante Apple, eliminar la cuenta no
+            cancela automáticamente la renovación en App Store.
+          </p>
+          <a
+            href="https://apps.apple.com/account/subscriptions"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-xs font-semibold underline underline-offset-2"
+          >
+            Administrar suscripciones de Apple
+          </a>
+        </section>
+
+        <form
+          onSubmit={handleAccountDeletion}
+          className="rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] p-5 shadow-xs"
+        >
+          <h2 className="text-base font-semibold">Confirma tu identidad</h2>
+          <div className="mt-4 grid gap-4">
+            <Field id="delete-account-email" label="Escribe tu correo">
+              <input
+                id="delete-account-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={deletionForm.email}
+                onChange={(event) =>
+                  setDeletionForm((current) => ({
+                    ...current,
+                    email: event.target.value,
+                  }))
+                }
+                placeholder={user?.email || "correo@ejemplo.com"}
+                className={inputClass}
+              />
+            </Field>
+            {requiresPassword ? (
+              <Field id="delete-account-password" label="Contraseña actual">
+                <input
+                  id="delete-account-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={deletionForm.password}
+                  onChange={(event) =>
+                    setDeletionForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                />
+              </Field>
+            ) : null}
+            <Field
+              id="delete-account-confirmation"
+              label="Escribe ELIMINAR para confirmar"
+            >
+              <input
+                id="delete-account-confirmation"
+                value={deletionForm.confirmation}
+                onChange={(event) =>
+                  setDeletionForm((current) => ({
+                    ...current,
+                    confirmation: event.target.value.toUpperCase(),
+                  }))
+                }
+                autoComplete="off"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+
+          {deletionState.error ? (
+            <p
+              className="mt-4 text-sm font-semibold text-[color:var(--danger)]"
+              role="alert"
+            >
+              {deletionState.error}
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={!deletionReady || deletionState.saving}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--danger)] px-5 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deletionState.saving
+              ? "Eliminando cuenta..."
+              : "Eliminar mi cuenta permanentemente"}
+          </button>
+          <p className="mt-3 text-center text-[11px] leading-4 text-[color:var(--text-subtle)]">
+            La eliminación comienza inmediatamente. Algunas copias de seguridad
+            pueden permanecer temporalmente por obligaciones legales o durante
+            su ciclo técnico de borrado.
+          </p>
+        </form>
       </main>
     );
   }
@@ -1673,6 +1855,14 @@ export default function ProfileSettings({ onNavigate }) {
               title="Plan y suscripción"
               onClick={() => onNavigate?.("planes")}
             />
+            {!user?.isDemo && user?.role !== "Admin" ? (
+              <SettingsRow
+                icon={Trash2}
+                title="Eliminar cuenta"
+                subtitle="Elimina permanentemente tu cuenta y tus datos"
+                onClick={openAccountDeletion}
+              />
+            ) : null}
           </Section>
           <button
             type="button"

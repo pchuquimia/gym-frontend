@@ -278,15 +278,10 @@ function QuestionActions({ enabled, onEnabled, onDelete, index }) {
 
 function RequiredControl({ checked, onChange }) {
   return (
-    <div className="mt-3 flex items-center justify-between gap-4 border-t border-[color:var(--detail-row-divider)] pt-3">
-      <div>
-        <p className="text-sm font-semibold text-[color:var(--text)]">
-          Tarea obligatoria
-        </p>
-        <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-          El alumno deberá completarla para cerrar el día.
-        </p>
-      </div>
+    <div className="mt-4 flex min-h-11 items-center justify-between gap-4 rounded-xl bg-[color:var(--surface-subtle)] px-3">
+      <p className="text-sm font-semibold text-[color:var(--text)]">
+        Obligatorio para el alumno
+      </p>
       <Toggle
         checked={checked}
         onChange={onChange}
@@ -300,9 +295,7 @@ function FrequencyControls({ value, onChange, withWeekday = false }) {
   const unit = value.frequencyUnit || "week";
   const interval = value.frequencyInterval || value.intervalWeeks || 1;
   return (
-    <div
-      className={`grid gap-2 ${withWeekday && unit === "week" ? "grid-cols-[0.65fr_0.9fr_1.15fr]" : "grid-cols-2"}`}
-    >
+    <div className="grid grid-cols-2 gap-2">
       <label className="text-xs font-medium text-[color:var(--text-muted)]">
         Repetir cada
         <input
@@ -343,7 +336,7 @@ function FrequencyControls({ value, onChange, withWeekday = false }) {
         </select>
       </label>
       {withWeekday && unit === "week" ? (
-        <label className="text-xs font-medium text-[color:var(--text-muted)]">
+        <label className="col-span-2 text-xs font-medium text-[color:var(--text-muted)]">
           Día de registro
           <select
             value={value.weekday || 1}
@@ -377,9 +370,9 @@ function FollowUpCard({
 
   return (
     <section
-      className={`border-b border-[color:var(--detail-row-divider)] py-1 transition-colors last:border-b-0 ${enabled ? "" : "opacity-60"}`}
+      className={`overflow-hidden rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] shadow-sm transition ${enabled ? "" : "opacity-70"}`}
     >
-      <header className="flex items-center gap-2 py-2.5">
+      <header className="flex items-center gap-2 p-3.5">
         <button
           type="button"
           onClick={() => enabled && setExpanded((current) => !current)}
@@ -396,7 +389,7 @@ function FollowUpCard({
             <span className="block text-[15px] font-semibold tracking-[-0.015em]">
               {title}
             </span>
-            <span className="mt-0.5 block truncate text-xs leading-4 text-[color:var(--text-muted)]">
+            <span className="mt-0.5 block text-xs leading-4 text-[color:var(--text-muted)]">
               {enabled ? summary : description}
             </span>
           </span>
@@ -413,7 +406,9 @@ function FollowUpCard({
         />
       </header>
       {enabled && expanded ? (
-        <div className="mb-3 ml-12 pr-1">{children}</div>
+        <div className="border-t border-[color:var(--detail-row-divider)] px-4 pb-4 pt-3">
+          {children}
+        </div>
       ) : null}
     </section>
   );
@@ -519,6 +514,12 @@ function QuestionCard({ question, index, onChange, onDelete }) {
                         )
                           ? question.options
                           : [],
+                        detailPrompt:
+                          value === "yes_no" ? question.detailPrompt || "" : "",
+                        detailRequired:
+                          value === "yes_no"
+                            ? Boolean(question.detailRequired)
+                            : false,
                       })
                     }
                     className={`min-h-10 rounded-full border px-4 text-sm font-medium transition ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--detail-module-border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"}`}
@@ -549,6 +550,47 @@ function QuestionCard({ question, index, onChange, onDelete }) {
                 className="mt-2 h-11 w-full rounded-xl border border-[color:var(--detail-module-border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none"
               />
             </label>
+          ) : null}
+
+          {question.type === "yes_no" ? (
+            <div className="mt-4 rounded-2xl border border-[color:var(--detail-module-border)] bg-[color:var(--surface-subtle)] p-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Pregunta adicional al responder Sí
+                </span>
+                <input
+                  value={question.detailPrompt || ""}
+                  onChange={(event) =>
+                    onChange({
+                      detailPrompt: event.target.value,
+                      detailRequired: event.target.value
+                        ? question.detailRequired
+                        : false,
+                    })
+                  }
+                  maxLength={180}
+                  placeholder="Déjalo vacío si no necesitas más información"
+                  className="mt-2 h-11 w-full rounded-xl border border-[color:var(--detail-module-border)] bg-[color:var(--bg)] px-3 text-sm text-[color:var(--text)] outline-none"
+                />
+              </label>
+              {question.detailPrompt ? (
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-[color:var(--text)]">
+                      Detalle obligatorio
+                    </p>
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      Solo cuando el atleta responda Sí
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={Boolean(question.detailRequired)}
+                    onChange={(detailRequired) => onChange({ detailRequired })}
+                    label={`Exigir detalle en la pregunta ${index + 1}`}
+                  />
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl bg-[color:var(--surface-subtle)] p-4">
@@ -643,7 +685,13 @@ function PreviewQuestion({ question, answer, onAnswer }) {
                   key={option}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => onAnswer({ value: option, detail: "" })}
+                  onClick={() =>
+                    onAnswer({
+                      value: option,
+                      detail:
+                        answer?.value === option ? answer.detail || "" : "",
+                    })
+                  }
                   className={`h-20 rounded-[1.5rem] border text-lg font-semibold transition ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--detail-module-border)] bg-[color:var(--card)] text-[color:var(--text)]"}`}
                 >
                   {option}
@@ -651,10 +699,13 @@ function PreviewQuestion({ question, answer, onAnswer }) {
               );
             })}
           </div>
-          {answer?.value === "Sí" ? (
+          {answer?.value === "Sí" && question.detailPrompt ? (
             <label className="mt-5 block">
               <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                ¿Cuál? <span className="normal-case">(opcional)</span>
+                {question.detailPrompt}{" "}
+                {!question.detailRequired ? (
+                  <span className="normal-case">(opcional)</span>
+                ) : null}
               </span>
               <input
                 type="text"
@@ -662,7 +713,7 @@ function PreviewQuestion({ question, answer, onAnswer }) {
                 onChange={(event) =>
                   onAnswer({ ...answer, detail: event.target.value })
                 }
-                placeholder="Cuéntanos cuál..."
+                placeholder="Escribe los detalles..."
                 className={`${fieldClass} mt-2 h-14`}
               />
             </label>
@@ -897,6 +948,8 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
           required: false,
           enabled: true,
           options: [],
+          detailPrompt: "",
+          detailRequired: false,
         },
       ],
     }));
@@ -1096,25 +1149,23 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
             </section>
           ) : (
             <section aria-labelledby="follow-up-title">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 px-0.5">
                 <div>
                   <h2
                     id="follow-up-title"
-                    className="text-xl font-semibold tracking-[-0.03em]"
+                    className="text-xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]"
                   >
-                    Seguimiento recurrente
+                    Tareas de seguimiento
                   </h2>
-                  <p className="mt-1 max-w-xl text-xs leading-5 text-[color:var(--text-muted)]">
-                    Activa las tareas y define cada cuánto debe completarlas el
-                    alumno.
+                  <p className="mt-0.5 text-[10px] text-[color:var(--text-subtle)]">
+                    Activa una tarea y tócala para configurar su frecuencia
                   </p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold text-[color:var(--text-muted)]">
-                  {enabledFollowUps} activas
+                <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                  {enabledFollowUps} de {Object.keys(settings.followUp).length}
                 </span>
               </div>
-              <SectionTitle title="Tareas" description="" />
-              <div className="mt-2 border-y border-[color:var(--detail-row-divider)]">
+              <div className="mt-3 grid gap-2.5">
                 <FollowUpCard
                   icon={HeartPulse}
                   title="Check-in de bienestar"
@@ -1357,26 +1408,6 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
         </Modal>
       ) : null}
     </>
-  );
-}
-
-function SectionTitle({ title, description, meta }) {
-  return (
-    <div className="mt-6 flex items-end justify-between gap-4 px-1">
-      <div>
-        <h3 className="text-[16px] font-semibold">{title}</h3>
-        {description ? (
-          <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-            {description}
-          </p>
-        ) : null}
-      </div>
-      {meta ? (
-        <span className="text-xs font-medium text-[color:var(--text-subtle)]">
-          {meta}
-        </span>
-      ) : null}
-    </div>
   );
 }
 

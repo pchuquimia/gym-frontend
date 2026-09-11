@@ -70,6 +70,17 @@ const formatDate = (value) => {
       });
 };
 
+const formatNotificationDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("es-BO", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const getPlanEndDate = (plan) => {
   if (plan?.endDate) return plan.endDate;
   if (!plan?.startDate) return "";
@@ -1750,6 +1761,58 @@ function CoachHome({
   onDismissWelcome,
 }) {
   const { profile } = useUserProfile();
+  const [notificationFeed, setNotificationFeed] = useState({
+    items: [],
+    unread: 0,
+    loading: true,
+  });
+  useEffect(() => {
+    let active = true;
+    api
+      .getCoachNotifications()
+      .then((data) => {
+        if (!active) return;
+        setNotificationFeed({
+          items: Array.isArray(data.notifications) ? data.notifications : [],
+          unread: Number(data.unread || 0),
+          loading: false,
+        });
+      })
+      .catch(() => {
+        if (active) {
+          setNotificationFeed((current) => ({ ...current, loading: false }));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const markNotificationsRead = () => {
+    if (!notificationFeed.unread) return;
+    const readAt = new Date().toISOString();
+    setNotificationFeed((current) => ({
+      ...current,
+      unread: 0,
+      items: current.items.map((item) =>
+        item.readAt ? item : { ...item, readAt },
+      ),
+    }));
+    api.markCoachNotificationsRead().catch(() => {
+      api
+        .getCoachNotifications()
+        .then((data) => {
+          setNotificationFeed({
+            items: Array.isArray(data.notifications) ? data.notifications : [],
+            unread: Number(data.unread || 0),
+            loading: false,
+          });
+        })
+        .catch(() => {
+          // Keep the optimistic state until the next dashboard refresh.
+        });
+    });
+  };
   const athleteById = useMemo(
     () =>
       new Map(
@@ -1818,22 +1881,58 @@ function CoachHome({
           Mis alumnos
         </h1>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              toast.info("Sin notificaciones nuevas", {
-                description:
-                  "Te avisaremos cuando un alumno requiera atención.",
-              })
-            }
-            className="relative grid h-14 w-14 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] transition-transform active:scale-95"
-            aria-label="Notificaciones"
-          >
-            <Bell className="h-6 w-6" strokeWidth={1.8} />
-            {attentionCount > 0 ? (
-              <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-[color:var(--card)]" />
-            ) : null}
-          </button>
+          <details className="overflow-menu relative">
+            <summary
+              onClick={markNotificationsRead}
+              className="overflow-menu-trigger relative grid h-14 w-14 cursor-pointer list-none place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] transition-transform active:scale-95 [&::-webkit-details-marker]:hidden"
+              aria-label="Notificaciones"
+            >
+              <Bell className="h-6 w-6" strokeWidth={1.8} />
+              {notificationFeed.unread > 0 ? (
+                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-[color:var(--card)]" />
+              ) : null}
+            </summary>
+            <div className="overflow-menu-panel absolute right-0 top-16 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden">
+              <div className="border-b border-[color:var(--border)] px-4 py-3">
+                <p className="text-sm font-bold">Notificaciones</p>
+              </div>
+              {notificationFeed.loading ? (
+                <p className="px-4 py-5 text-sm text-[color:var(--text-muted)]">
+                  Cargando...
+                </p>
+              ) : notificationFeed.items.length ? (
+                <div className="max-h-80 overflow-y-auto">
+                  {notificationFeed.items.map((item) => (
+                    <article
+                      key={item._id}
+                      className="border-b border-[color:var(--border)] px-4 py-3 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-2">
+                        {!item.readAt ? (
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-600" />
+                        ) : null}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold leading-5">
+                            {item.title}
+                          </p>
+                          <p className="mt-0.5 text-xs leading-4 text-[color:var(--text-muted)]">
+                            {item.message}
+                          </p>
+                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-subtle)]">
+                            {formatNotificationDate(item.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-4 py-5 text-sm text-[color:var(--text-muted)]">
+                  No tienes notificaciones.
+                </p>
+              )}
+            </div>
+          </details>
           <button
             type="button"
             onClick={() => onNavigate("perfil")}

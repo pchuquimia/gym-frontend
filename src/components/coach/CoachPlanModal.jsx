@@ -421,38 +421,64 @@ function FollowUpCard({
   onEnabled,
   required,
   onRequired,
+  readOnly = false,
   children,
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <section className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-      <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-          <Icon className="h-5 w-5" strokeWidth={1.8} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <strong className="block text-sm font-semibold">{title}</strong>
-          <span className="mt-0.5 block truncate text-xs text-[color:var(--text-muted)]">
-            {subtitle}
+    <section
+      className={`overflow-hidden rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm ${enabled ? "" : "opacity-70"}`}
+    >
+      <div className="flex items-center gap-2 p-3.5">
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          disabled={readOnly || !enabled}
+          aria-expanded={!readOnly && enabled ? expanded : false}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
+        >
+          <span
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] ${enabled ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"}`}
+          >
+            <Icon className="h-5 w-5" strokeWidth={1.8} />
           </span>
-        </span>
-        <Toggle
-          checked={enabled}
-          onChange={onEnabled}
-          label={`Activar ${title}`}
-        />
+          <span className="min-w-0 flex-1">
+            <strong className="block text-sm font-semibold">{title}</strong>
+            <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+              {enabled ? subtitle : "Desactivado"}
+            </span>
+          </span>
+          {!readOnly && enabled ? (
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+          ) : null}
+        </button>
+        {readOnly ? (
+          <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
+            General
+          </span>
+        ) : (
+          <Toggle
+            checked={enabled}
+            onChange={onEnabled}
+            label={`Activar ${title}`}
+          />
+        )}
       </div>
-      {enabled ? (
-        <div className="mt-3 border-t border-[color:var(--detail-row-divider)] pt-3">
+      {!readOnly && enabled && expanded ? (
+        <div className="border-t border-[color:var(--detail-row-divider)] px-4 pb-4 pt-3">
           {children}
           {typeof required === "boolean" ? (
-            <label className="mt-3 flex items-center justify-between rounded-xl bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium">
-              Tarea obligatoria
-              <input
-                type="checkbox"
+            <div className="mt-4 flex min-h-11 items-center justify-between rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm font-medium">
+              Obligatorio para el alumno
+              <Toggle
                 checked={required}
-                onChange={(event) => onRequired(event.target.checked)}
+                onChange={onRequired}
+                label={`Marcar ${title} como obligatorio`}
               />
-            </label>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -1484,18 +1510,27 @@ export default function CoachPlanModal({
     </div>
   );
 
+  const enabledFollowUpCount = [
+    followUp.checkIn,
+    followUp.weight,
+    followUp.photos,
+    followUp.measurements,
+    followUp.review,
+    followUp.finalEvaluation,
+  ].filter((item) => item.enabled).length;
+
   const followUpScreen = () => (
     <div className="space-y-4">
       <AthleteContext athlete={athlete} compact />
-      <section className="flex items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4">
+      <section className="flex items-center gap-3 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-3.5 shadow-sm">
         <span className="min-w-0 flex-1">
           <strong className="block text-sm font-semibold">
-            Usar configuración del coach
+            Usar seguimiento general
           </strong>
           <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
             {followUp.useCoachDefaults
-              ? "Se mantendrá sincronizada con tus reglas generales"
-              : `Personalizado para ${athlete?.name?.split(" ")[0]}`}
+              ? "Hereda tus reglas generales y se mantiene actualizado"
+              : `Configuración exclusiva para ${athlete?.name?.split(" ")[0]}`}
           </span>
         </span>
         <Toggle
@@ -1503,282 +1538,216 @@ export default function CoachPlanModal({
           onChange={(useCoachDefaults) =>
             setFollowUp((current) => ({ ...current, useCoachDefaults }))
           }
-          label="Usar configuración del coach"
+          label="Usar seguimiento general"
         />
       </section>
-      <header>
-        <h1 className="text-3xl font-semibold tracking-[-0.05em]">
-          Tareas de seguimiento
-        </h1>
-        <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-          Define qué deberá registrar y con qué frecuencia.
-        </p>
+      <header className="flex items-end justify-between gap-3 px-0.5">
+        <div className="min-w-0">
+          <h1 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            Tareas de seguimiento
+          </h1>
+          <p className="mt-0.5 text-[11px] leading-4 text-[color:var(--text-muted)]">
+            {followUp.useCoachDefaults
+              ? "Consulta las tareas incluidas en el seguimiento general."
+              : "Activa una tarea y tócala para configurar su frecuencia."}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+          {enabledFollowUpCount} de 6
+        </span>
       </header>
-      <div className="overflow-hidden rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)]">
-        {[
-          [
-            "checkIn",
-            ClipboardCheck,
-            "Check-in",
+      <div className="space-y-2.5">
+        <FollowUpCard
+          icon={ClipboardCheck}
+          title="Check-in"
+          subtitle={
             followUp.checkIn.cadence === "workout_days"
               ? "Cada día de entrenamiento"
               : followUp.checkIn.cadence === "daily"
                 ? "Todos los días"
-                : `Cada semana, ${DAY_NAMES[(followUp.checkIn.weekdays?.[0] || 1) - 1]}`,
-            true,
-          ],
-          [
-            "weight",
-            Scale,
-            "Peso",
-            cadenceText(followUp.weight),
-            followUp.weight.required,
-          ],
-          [
-            "photos",
-            Camera,
-            "Fotos de progreso",
-            cadenceText(followUp.photos),
-            followUp.photos.required,
-          ],
-          [
-            "measurements",
-            Ruler,
-            "Medidas",
-            cadenceText(followUp.measurements),
-            followUp.measurements.required,
-          ],
-          [
-            "review",
-            Target,
-            "Revisión del plan",
-            `Cada ${followUp.review.intervalWeeks} semanas`,
-            true,
-          ],
-          [
-            "finalEvaluation",
-            FileText,
-            "Evaluación final",
-            "Al finalizar el bloque",
-            false,
-          ],
-        ].map(([key, Icon, title, subtitle, required]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFollowUpEditorKey(key)}
-            className="flex min-h-[68px] w-full items-center gap-3 border-b border-[color:var(--detail-row-divider)] px-3 text-left last:border-b-0"
-          >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-              <Icon className="h-5 w-5" strokeWidth={1.8} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <strong className="block text-sm font-semibold">{title}</strong>
-              <span className="mt-0.5 block truncate text-xs text-[color:var(--text-muted)]">
-                {followUp.useCoachDefaults
-                  ? `Según protocolo · ${subtitle}`
-                  : subtitle}
-              </span>
-            </span>
-            <span
-              className={`rounded-full px-2 py-1 text-[10px] font-semibold ${required ? "bg-[#e7f7ea] text-[#27743d]" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"}`}
-            >
-              {required ? "Obligatorio" : "Opcional"}
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0" />
-          </button>
-        ))}
-      </div>
-      {followUp.useCoachDefaults ? null : (
-        <div className="hidden space-y-3" aria-hidden="true">
-          <FollowUpCard
-            icon={ClipboardCheck}
-            title="Check-in"
-            subtitle={
-              followUp.checkIn.cadence === "workout_days"
-                ? "Cada día de entrenamiento"
-                : followUp.checkIn.cadence === "daily"
-                  ? "Todos los días"
-                  : `Cada semana, ${DAY_NAMES[(followUp.checkIn.weekdays?.[0] || 1) - 1]}`
+                : `Cada semana, ${DAY_NAMES[(followUp.checkIn.weekdays?.[0] || 1) - 1]}`
+          }
+          enabled={followUp.checkIn.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) => updateFollowUp("checkIn", { enabled })}
+        >
+          <select
+            value={followUp.checkIn.cadence}
+            onChange={(event) =>
+              updateFollowUp("checkIn", { cadence: event.target.value })
             }
-            enabled={followUp.checkIn.enabled}
-            onEnabled={(enabled) => updateFollowUp("checkIn", { enabled })}
+            className="h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm outline-none"
           >
+            <option value="workout_days">Días de entrenamiento</option>
+            <option value="daily">Todos los días</option>
+            <option value="weekly">Una vez por semana</option>
+          </select>
+          {followUp.checkIn.cadence === "weekly" ? (
             <select
-              value={followUp.checkIn.cadence}
+              value={followUp.checkIn.weekdays?.[0] || 1}
               onChange={(event) =>
-                updateFollowUp("checkIn", { cadence: event.target.value })
+                updateFollowUp("checkIn", {
+                  weekdays: [Number(event.target.value)],
+                })
               }
-              className="h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm outline-none"
+              className="mt-2 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm outline-none"
             >
-              <option value="workout_days">Días de entrenamiento</option>
-              <option value="daily">Todos los días</option>
-              <option value="weekly">Una vez por semana</option>
+              {WEEKDAY_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
-            {followUp.checkIn.cadence === "weekly" ? (
-              <select
-                value={followUp.checkIn.weekdays?.[0] || 1}
+          ) : null}
+        </FollowUpCard>
+        <FollowUpCard
+          icon={Scale}
+          title="Peso"
+          subtitle={cadenceText(followUp.weight)}
+          enabled={followUp.weight.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) => updateFollowUp("weight", { enabled })}
+          required={followUp.weight.required}
+          onRequired={(required) => updateFollowUp("weight", { required })}
+        >
+          <FrequencyEditor
+            value={followUp.weight}
+            onChange={(changes) => updateFollowUp("weight", changes)}
+            showWeekday
+          />
+        </FollowUpCard>
+        <FollowUpCard
+          icon={Camera}
+          title="Fotos de progreso"
+          subtitle={cadenceText(followUp.photos)}
+          enabled={followUp.photos.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
+          required={followUp.photos.required}
+          onRequired={(required) => updateFollowUp("photos", { required })}
+        >
+          <FrequencyEditor
+            value={followUp.photos}
+            onChange={(changes) => updateFollowUp("photos", changes)}
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PHOTO_VIEWS.map(([value, label]) => {
+              const selected = followUp.photos.views.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    updateFollowUp("photos", {
+                      views: selected
+                        ? followUp.photos.views.filter((item) => item !== value)
+                        : [...followUp.photos.views, value],
+                    })
+                  }
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </FollowUpCard>
+        <FollowUpCard
+          icon={Ruler}
+          title="Medidas"
+          subtitle={cadenceText(followUp.measurements)}
+          enabled={followUp.measurements.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) => updateFollowUp("measurements", { enabled })}
+          required={followUp.measurements.required}
+          onRequired={(required) =>
+            updateFollowUp("measurements", { required })
+          }
+        >
+          <FrequencyEditor
+            value={followUp.measurements}
+            onChange={(changes) => updateFollowUp("measurements", changes)}
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {MEASUREMENT_FIELDS.map(([value, label]) => {
+              const selected = followUp.measurements.fields.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    updateFollowUp("measurements", {
+                      fields: selected
+                        ? followUp.measurements.fields.filter(
+                            (item) => item !== value,
+                          )
+                        : [...followUp.measurements.fields, value],
+                    })
+                  }
+                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </FollowUpCard>
+        <FollowUpCard
+          icon={Target}
+          title="Revisión del plan"
+          subtitle={`Cada ${followUp.review.intervalWeeks} semanas`}
+          enabled={followUp.review.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) => updateFollowUp("review", { enabled })}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[11px] text-[color:var(--text-muted)]">
+              Revisar cada (semanas)
+              <input
+                type="number"
+                min="1"
+                max="12"
+                value={followUp.review.intervalWeeks}
                 onChange={(event) =>
-                  updateFollowUp("checkIn", {
-                    weekdays: [Number(event.target.value)],
+                  updateFollowUp("review", {
+                    intervalWeeks: Number(event.target.value),
                   })
                 }
-                className="mt-2 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm outline-none"
-              >
-                {WEEKDAY_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-          </FollowUpCard>
-          <FollowUpCard
-            icon={Scale}
-            title="Peso"
-            subtitle={cadenceText(followUp.weight)}
-            enabled={followUp.weight.enabled}
-            onEnabled={(enabled) => updateFollowUp("weight", { enabled })}
-            required={followUp.weight.required}
-            onRequired={(required) => updateFollowUp("weight", { required })}
-          >
-            <FrequencyEditor
-              value={followUp.weight}
-              onChange={(changes) => updateFollowUp("weight", changes)}
-              showWeekday
-            />
-          </FollowUpCard>
-          <FollowUpCard
-            icon={Camera}
-            title="Fotos de progreso"
-            subtitle={cadenceText(followUp.photos)}
-            enabled={followUp.photos.enabled}
-            onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
-            required={followUp.photos.required}
-            onRequired={(required) => updateFollowUp("photos", { required })}
-          >
-            <FrequencyEditor
-              value={followUp.photos}
-              onChange={(changes) => updateFollowUp("photos", changes)}
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {PHOTO_VIEWS.map(([value, label]) => {
-                const selected = followUp.photos.views.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      updateFollowUp("photos", {
-                        views: selected
-                          ? followUp.photos.views.filter(
-                              (item) => item !== value,
-                            )
-                          : [...followUp.photos.views, value],
-                      })
-                    }
-                    className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </FollowUpCard>
-          <FollowUpCard
-            icon={Ruler}
-            title="Medidas"
-            subtitle={cadenceText(followUp.measurements)}
-            enabled={followUp.measurements.enabled}
-            onEnabled={(enabled) => updateFollowUp("measurements", { enabled })}
-            required={followUp.measurements.required}
-            onRequired={(required) =>
-              updateFollowUp("measurements", { required })
-            }
-          >
-            <FrequencyEditor
-              value={followUp.measurements}
-              onChange={(changes) => updateFollowUp("measurements", changes)}
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {MEASUREMENT_FIELDS.map(([value, label]) => {
-                const selected = followUp.measurements.fields.includes(value);
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      updateFollowUp("measurements", {
-                        fields: selected
-                          ? followUp.measurements.fields.filter(
-                              (item) => item !== value,
-                            )
-                          : [...followUp.measurements.fields, value],
-                      })
-                    }
-                    className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </FollowUpCard>
-          <FollowUpCard
-            icon={Target}
-            title="Revisión del plan"
-            subtitle={`Cada ${followUp.review.intervalWeeks} semanas`}
-            enabled={followUp.review.enabled}
-            onEnabled={(enabled) => updateFollowUp("review", { enabled })}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-[11px] text-[color:var(--text-muted)]">
-                Cada semanas
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={followUp.review.intervalWeeks}
-                  onChange={(event) =>
-                    updateFollowUp("review", {
-                      intervalWeeks: Number(event.target.value),
-                    })
-                  }
-                  className="mt-1 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
-                />
-              </label>
-              <label className="text-[11px] text-[color:var(--text-muted)]">
-                Avisar antes
-                <input
-                  type="number"
-                  min="0"
-                  max="14"
-                  value={followUp.review.leadDays}
-                  onChange={(event) =>
-                    updateFollowUp("review", {
-                      leadDays: Number(event.target.value),
-                    })
-                  }
-                  className="mt-1 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
-                />
-              </label>
-            </div>
-          </FollowUpCard>
-          <FollowUpCard
-            icon={FileText}
-            title="Evaluación final"
-            subtitle="Al finalizar el bloque"
-            enabled={followUp.finalEvaluation.enabled}
-            onEnabled={(enabled) =>
-              updateFollowUp("finalEvaluation", { enabled })
-            }
-          >
-            <p className="text-xs leading-5 text-[color:var(--text-muted)]">
-              Se solicitará antes de preparar el siguiente bloque.
-            </p>
-          </FollowUpCard>
-        </div>
-      )}
+                className="mt-1 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+              />
+            </label>
+            <label className="text-[11px] text-[color:var(--text-muted)]">
+              Avisarme antes (días)
+              <input
+                type="number"
+                min="0"
+                max="14"
+                value={followUp.review.leadDays}
+                onChange={(event) =>
+                  updateFollowUp("review", {
+                    leadDays: Number(event.target.value),
+                  })
+                }
+                className="mt-1 h-10 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+              />
+            </label>
+          </div>
+        </FollowUpCard>
+        <FollowUpCard
+          icon={FileText}
+          title="Evaluación final"
+          subtitle="Al finalizar el bloque"
+          enabled={followUp.finalEvaluation.enabled}
+          readOnly={followUp.useCoachDefaults}
+          onEnabled={(enabled) =>
+            updateFollowUp("finalEvaluation", { enabled })
+          }
+        >
+          <p className="text-xs leading-5 text-[color:var(--text-muted)]">
+            Se solicitará antes de preparar el siguiente bloque.
+          </p>
+        </FollowUpCard>
+      </div>
       <p className="rounded-[14px] bg-[#edf8ef] px-3 py-2.5 text-center text-xs font-medium text-[#26723d]">
         {athlete?.name?.split(" ")[0]} verá cada tarea en Misiones de hoy.
       </p>
@@ -2040,18 +2009,11 @@ export default function CoachPlanModal({
               `Cada ${followUp.review.intervalWeeks} semanas`,
             ],
           ].map(([Icon, title, subtitle], index) => {
-            const editorKeys = [
-              "checkIn",
-              "weight",
-              "photos",
-              "measurements",
-              "review",
-            ];
             return (
               <button
                 key={title}
                 type="button"
-                onClick={() => setFollowUpEditorKey(editorKeys[index])}
+                onClick={() => setCustomizingFollowUp(true)}
                 className="flex min-h-14 w-full items-center gap-3 border-b border-[color:var(--detail-row-divider)] px-3 text-left last:border-b-0"
               >
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[color:var(--surface-subtle)]">

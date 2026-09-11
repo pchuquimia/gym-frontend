@@ -246,4 +246,35 @@ describe("CoachPlanModal", () => {
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeVisible();
   });
+
+  it("gestiona el seguimiento del alumno en cards editables sin abrir otro panel", async () => {
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Laura M." }}
+        initialData={initialPlan}
+        manageRoutinesSeparately
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Revisar planificación/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Personalizar seguimiento/ }),
+    );
+
+    expect(screen.getByText("Tareas de seguimiento")).toBeVisible();
+    expect(screen.getAllByText("General")).toHaveLength(6);
+
+    await userEvent.click(
+      screen.getByRole("switch", { name: "Usar seguimiento general" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Peso/ }));
+
+    expect(screen.getByText("Obligatorio para el alumno")).toBeVisible();
+    expect(screen.queryByLabelText("Cerrar edición de seguimiento")).toBeNull();
+  });
 });

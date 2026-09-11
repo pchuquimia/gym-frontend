@@ -472,6 +472,19 @@ export function AuthProvider({ children }) {
     return true;
   }, [commitUser, developmentAdminMode, queryClient]);
 
+  const deleteAccount = useCallback(
+    async (payload) => {
+      const data = await api.deleteAccount(payload);
+      setDevAutoLoginDisabled(true);
+      clearAuthToken();
+      queryClient.clear();
+      clearUserScopedStorage();
+      commitUser(null);
+      return data;
+    },
+    [commitUser, queryClient],
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -488,6 +501,7 @@ export function AuthProvider({ children }) {
       completeOnboarding,
       selectOnboardingAccountType,
       completeCoachOnboarding,
+      deleteAccount,
       logout,
       refreshUser,
       developmentAdminMode,
@@ -505,6 +519,7 @@ export function AuthProvider({ children }) {
       completeOnboarding,
       selectOnboardingAccountType,
       completeCoachOnboarding,
+      deleteAccount,
       logout,
       refreshUser,
       developmentAdminMode,

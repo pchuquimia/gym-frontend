@@ -237,11 +237,21 @@ const termsSections = [
 
 const deletionSections = [
   {
-    title: "Solicita la eliminación",
+    title: "Elimina tu cuenta desde RIRFIT",
     content: (
       <ol>
         <li>
-          Escribe desde el correo asociado a tu cuenta a{` `}
+          Inicia sesión y entra en <strong>Perfil</strong>, luego en{` `}
+          <strong>Cuenta y seguridad</strong> y elige{` `}
+          <strong>Eliminar cuenta</strong>.
+        </li>
+        <li>
+          Revisa qué datos se borrarán, confirma tu identidad y pulsa{` `}
+          <strong>Eliminar mi cuenta permanentemente</strong>.
+        </li>
+        <li>
+          Si no puedes iniciar sesión, escribe desde el correo asociado a tu
+          cuenta a{` `}
           <a
             href={`mailto:${SUPPORT_EMAIL}?subject=Eliminación%20de%20cuenta%20RIRFIT`}
           >
@@ -250,17 +260,9 @@ const deletionSections = [
           .
         </li>
         <li>
-          Usa el asunto <strong>“Eliminación de cuenta RIRFIT”</strong> e indica
-          tu nombre de usuario. No envíes tu contraseña.
-        </li>
-        <li>
-          Te pediremos confirmar la solicitud desde el correo registrado para
-          evitar que otra persona elimine tu cuenta.
-        </li>
-        <li>
-          Tras verificarla, eliminaremos o desvincularemos la cuenta y los datos
-          asociados que no debamos conservar por una obligación legal,
-          prevención de fraude o resolución de disputas.
+          La eliminación es permanente. Solo podríamos conservar temporalmente
+          información exigida por ley, necesaria para prevenir fraude o incluida
+          en copias de seguridad durante su ciclo técnico de borrado.
         </li>
       </ol>
     ),
@@ -284,7 +286,8 @@ const deletionSections = [
         Quitar RIRFIT desde la configuración de aplicaciones de Facebook o
         Google revoca el acceso futuro de RIRFIT a esa cuenta, pero no sustituye
         una solicitud de eliminación de los datos ya guardados en RIRFIT. Para
-        eliminarlos, completa los pasos anteriores.
+        eliminarlos, usa la opción <strong>Eliminar cuenta</strong> dentro de
+        RIRFIT o completa la solicitud de soporte indicada arriba.
       </p>
     ),
   },
@@ -320,7 +323,7 @@ const pageContent = {
     eyebrow: "Control sobre tus datos",
     title: "Eliminación de cuenta y datos",
     intro:
-      "Puedes solicitar la eliminación permanente de tu cuenta de RIRFIT y de la información personal asociada.",
+      "Puedes iniciar directamente la eliminación permanente de tu cuenta de RIRFIT y de la información personal asociada.",
     sections: deletionSections,
   },
 };

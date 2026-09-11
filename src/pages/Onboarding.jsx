@@ -107,6 +107,20 @@ const readDraft = (
   return initialDraft;
 };
 
+const intakePrimaryValue = (question, value) =>
+  question.type === "yes_no" && value && typeof value === "object"
+    ? value.value
+    : value;
+
+const serializeIntakeAnswer = (question, value) => {
+  if (question.type !== "yes_no" || !value || typeof value !== "object") {
+    return value ?? "";
+  }
+  const primary = String(value.value || "").trim();
+  const detail = String(value.detail || "").trim();
+  return primary === "Sí" && detail ? `${primary}: ${detail}` : primary;
+};
+
 function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
   return (
     <button
@@ -378,9 +392,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
     const missingAnswer = intakeQuestions.find((question) => {
       if (!question.required) return false;
       const value = form.intakeAnswers?.[question.key];
-      return Array.isArray(value)
-        ? value.length === 0
-        : String(value ?? "").trim() === "";
+      const primaryValue = intakePrimaryValue(question, value);
+      return Array.isArray(primaryValue)
+        ? primaryValue.length === 0
+        : String(primaryValue ?? "").trim() === "";
     });
     if (missingAnswer) {
       setErrors((value) => ({
@@ -389,6 +404,22 @@ export default function Onboarding({ onNavigate = () => {} }) {
       }));
       toast.error("Completa la evaluación", {
         description: `Falta responder: ${missingAnswer.label}`,
+      });
+      setStep(3);
+      return;
+    }
+    const missingDetail = intakeQuestions.find((question) => {
+      if (question.type !== "yes_no" || !question.detailRequired) return false;
+      const value = form.intakeAnswers?.[question.key];
+      return value?.value === "Sí" && String(value?.detail || "").trim() === "";
+    });
+    if (missingDetail) {
+      setErrors((value) => ({
+        ...value,
+        [`intake_${missingDetail.key}`]: "Completa el detalle para continuar.",
+      }));
+      toast.error("Completa la evaluación", {
+        description: missingDetail.detailPrompt,
       });
       setStep(3);
       return;
@@ -406,7 +437,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
         healthNotes: form.healthNotes.trim(),
         intakeAnswers: intakeQuestions.map((question) => ({
           key: question.key,
-          value: form.intakeAnswers?.[question.key] ?? "",
+          value: serializeIntakeAnswer(
+            question,
+            form.intakeAnswers?.[question.key],
+          ),
         })),
       });
       window.localStorage.removeItem(DRAFT_KEY);
@@ -908,7 +942,11 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   {intakeQuestions.map((question, index) => {
                     const value =
                       form.intakeAnswers?.[question.key] ??
-                      (question.type === "multiple_choice" ? [] : "");
+                      (question.type === "multiple_choice"
+                        ? []
+                        : question.type === "yes_no"
+                          ? { value: "", detail: "" }
+                          : "");
                     const error = errors[`intake_${question.key}`];
                     const updateAnswer = (nextValue) => {
                       setForm((current) => ({
@@ -947,13 +985,64 @@ export default function Onboarding({ onNavigate = () => {} }) {
                             }
                             className="mt-3 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none"
                           />
-                        ) : question.type === "single_choice" ||
-                          question.type === "yes_no" ? (
+                        ) : question.type === "yes_no" ? (
+                          <div className="mt-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              {["Sí", "No"].map((option) => {
+                                const answer =
+                                  value && typeof value === "object"
+                                    ? value
+                                    : {
+                                        value: String(value || ""),
+                                        detail: "",
+                                      };
+                                return (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() =>
+                                      updateAnswer({
+                                        value: option,
+                                        detail:
+                                          answer.value === option
+                                            ? answer.detail || ""
+                                            : "",
+                                      })
+                                    }
+                                    className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${answer.value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
+                                  >
+                                    {option}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {(value?.value || value) === "Sí" &&
+                            question.detailPrompt ? (
+                              <label className="mt-3 block">
+                                <span className="text-xs font-medium text-[color:var(--text-muted)]">
+                                  {question.detailPrompt}
+                                  {!question.detailRequired
+                                    ? " (opcional)"
+                                    : ""}
+                                </span>
+                                <textarea
+                                  rows={3}
+                                  maxLength={1000}
+                                  value={value?.detail || ""}
+                                  onChange={(event) =>
+                                    updateAnswer({
+                                      value: "Sí",
+                                      detail: event.target.value,
+                                    })
+                                  }
+                                  className="mt-2 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none"
+                                />
+                              </label>
+                            ) : null}
+                          </div>
+                        ) : question.type === "single_choice" ? (
                           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {(question.type === "yes_no"
-                              ? ["Sí", "No"]
-                              : question.options || []
-                            ).map((option) => (
+                            {(question.options || []).map((option) => (
                               <button
                                 key={option}
                                 type="button"
