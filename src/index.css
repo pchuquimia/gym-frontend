@@ -2590,7 +2590,7 @@ button,
 /* Mobile daily mission: focused home experience, while desktop keeps analytics. */
 @media (max-width: 767px) {
   .mobile-daily-plan {
-    --mission-accent: #c8ef00;
+    --mission-accent: #181918;
     --mission-thumbnail-size: clamp(4.5rem, 21vw, 5rem);
     width: 100%;
     padding: 0 0 2rem;
@@ -2599,7 +2599,7 @@ button,
   }
 
   .dark .mobile-daily-plan {
-    --mission-accent: #e2ff00;
+    --mission-accent: #f5f5ee;
   }
 
   .mobile-daily-plan button {
@@ -3096,6 +3096,30 @@ button,
     stroke-width: 1.8;
   }
 
+  .mobile-daily-plan__notification {
+    position: relative;
+    border: 0;
+    background: transparent;
+  }
+
+  .mobile-daily-plan__notification i {
+    position: absolute;
+    top: 0.15rem;
+    right: 0.05rem;
+    display: grid;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    place-items: center;
+    border: 2px solid var(--bg);
+    border-radius: 999px;
+    background: #181918;
+    padding: 0 0.2rem;
+    color: #fff;
+    font-size: 0.58rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+
   .mobile-daily-plan__coach-card {
     display: grid;
     width: 100%;
@@ -3145,7 +3169,7 @@ button,
   }
 
   .mobile-daily-plan__coach-copy small.is-connected {
-    color: #4b8f18;
+    color: var(--text-muted);
   }
 
   .mobile-daily-plan__coach-copy small.is-connected::before {
@@ -3154,7 +3178,7 @@ button,
     height: 0.55rem;
     margin-right: 0.45rem;
     border-radius: 999px;
-    background: var(--mission-accent);
+    background: currentColor;
     content: "";
   }
 
@@ -3440,9 +3464,9 @@ button,
     min-height: 3.2rem;
     grid-column: 3;
     border-radius: 999px;
-    background: var(--mission-accent);
+    background: #f5f1e8;
     padding: 0.75rem 1rem;
-    color: #111;
+    color: #181918;
     font-size: 0.82rem;
     font-weight: 700;
   }
@@ -3450,6 +3474,16 @@ button,
   .mobile-daily-plan__mission.is-compact {
     min-height: 5.75rem;
     grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  }
+
+  .mobile-daily-plan__mission.is-tracking {
+    min-height: 6rem;
+    grid-template-columns: 2.5rem 3.5rem minmax(0, 1fr) auto;
+  }
+
+  .mobile-daily-plan__mission.is-tracking .mobile-daily-plan__visual {
+    width: 3.5rem;
+    height: 3.5rem;
   }
 
   .mobile-daily-plan__mission.is-optional {
@@ -3556,6 +3590,66 @@ button,
 
   .mobile-daily-plan__coach-message > svg:first-child {
     width: 1.5rem;
+  }
+
+  .mobile-daily-plan__notifications {
+    margin: 0.75rem 0 1rem;
+    border: 1px solid var(--detail-row-divider);
+    border-radius: 1rem;
+    background: var(--card);
+    padding: 0.85rem 1rem;
+  }
+
+  .mobile-daily-plan__notifications summary,
+  .mobile-daily-plan__optional-tasks summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.82rem;
+    font-weight: 650;
+  }
+
+  .mobile-daily-plan__notifications summary::-webkit-details-marker,
+  .mobile-daily-plan__optional-tasks summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-daily-plan__notifications > div {
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--detail-row-divider);
+  }
+
+  .mobile-daily-plan__notifications > div:first-of-type {
+    margin-top: 0.65rem;
+  }
+
+  .mobile-daily-plan__notifications strong,
+  .mobile-daily-plan__notifications small {
+    display: block;
+  }
+
+  .mobile-daily-plan__notifications strong {
+    font-size: 0.82rem;
+  }
+
+  .mobile-daily-plan__notifications small {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .mobile-daily-plan__optional-tasks {
+    border-top: 1px solid var(--detail-row-divider);
+    padding: 1rem 0;
+  }
+
+  .mobile-daily-plan__optional-tasks summary {
+    color: var(--text-muted);
+  }
+
+  .mobile-daily-plan__optional-tasks[open] summary {
+    margin-bottom: 0.25rem;
+    color: var(--text);
   }
 }
 

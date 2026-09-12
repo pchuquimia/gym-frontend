@@ -360,20 +360,20 @@ function Sidebar({
                         onClick={() => onNavigate?.(item.id)}
                         className={`relative flex min-h-9 items-center gap-2.5 rounded-control border px-2.5 py-1.5 font-sans text-[13px] transition-colors duration-150 ${
                           isActive
-                            ? "border-[color:var(--accent)] bg-[color:var(--accent)] font-semibold text-[color:var(--accent-contrast)] shadow-soft"
+                            ? "border-[color:var(--accent)] bg-[color:var(--accent)] font-semibold !text-[color:var(--accent-contrast)] shadow-soft"
                             : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                         }`}
                       >
                         {isActive && (
                           <span
-                            className="absolute left-1 h-4 w-1 rounded-full bg-[color:var(--accent)]"
+                            className="absolute left-1 h-4 w-1 rounded-full bg-[color:var(--accent-contrast)]"
                             aria-hidden="true"
                           />
                         )}
                         <Icon
                           className={`h-[18px] w-[18px] shrink-0 ${
                             isActive
-                              ? "text-[color:var(--accent-strong)]"
+                              ? "!text-[color:var(--accent-contrast)]"
                               : "text-[color:var(--text-muted)]"
                           }`}
                           strokeWidth={2}

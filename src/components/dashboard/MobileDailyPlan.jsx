@@ -6,12 +6,10 @@ import {
   ClipboardCheck,
   Clock3,
   Dumbbell,
-  MessageCircle,
   MoonStar,
   Camera,
   Ruler,
   Scale,
-  UserRound,
 } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
 
@@ -73,7 +71,15 @@ function WeekDay({ day }) {
   );
 }
 
-function DashboardHeader({ date, profile, user, adminControl, onOpenMenu }) {
+function DashboardHeader({
+  date,
+  profile,
+  user,
+  adminControl,
+  onOpenMenu,
+  notificationUnread = 0,
+  onOpenNotifications,
+}) {
   return (
     <header className="mobile-daily-plan__header">
       <div>
@@ -82,9 +88,15 @@ function DashboardHeader({ date, profile, user, adminControl, onOpenMenu }) {
       </div>
       <div className="mobile-daily-plan__header-actions">
         {adminControl}
-        <span className="mobile-daily-plan__notification" aria-hidden="true">
+        <button
+          type="button"
+          className="mobile-daily-plan__notification"
+          onClick={onOpenNotifications}
+          aria-label={`Notificaciones${notificationUnread ? `, ${notificationUnread} sin leer` : ""}`}
+        >
           <Bell />
-        </span>
+          {notificationUnread ? <i>{notificationUnread}</i> : null}
+        </button>
         <button
           type="button"
           onClick={onOpenMenu}
@@ -135,82 +147,44 @@ function CoachContext({ coach, activePlan, onOpen }) {
   );
 }
 
-function JourneySteps({ submitted }) {
-  return (
-    <section className="mobile-daily-plan__journey">
-      <h2>{submitted ? "Siguiente paso" : "Qué sucede después"}</h2>
-      <div className="mobile-daily-plan__journey-track">
-        <span
-          className={`mobile-daily-plan__journey-step ${submitted ? "is-complete" : "is-active"}`}
-        >
-          <i>{submitted ? <Check /> : "1"}</i>
-          <strong>
-            {submitted ? "Evaluación enviada" : "Envías tu evaluación"}
-          </strong>
-        </span>
-        <b aria-hidden="true" />
-        <span
-          className={`mobile-daily-plan__journey-step ${submitted ? "is-current" : ""}`}
-        >
-          <i>2</i>
-          <strong>Tu coach prepara tu plan</strong>
-        </span>
-      </div>
-    </section>
-  );
-}
-
 function ManagedOnboarding({
   stage,
   coach,
   submittedAt,
+  planning,
   onStartEvaluation,
-  onOpenCoach,
 }) {
-  const submitted = stage === "evaluation_submitted";
+  const pending = stage === "evaluation_pending";
+  const scheduled = stage === "plan_scheduled";
+  const title = pending
+    ? "Completa tu evaluación inicial"
+    : scheduled
+      ? "Tu plan está listo"
+      : "Tu coach está preparando tu plan";
+  const description = pending
+    ? "Responde unas preguntas para que tu planificación parta de tu situación real."
+    : scheduled
+      ? `${planning?.name || "Tu nueva planificación"} comenzará${planning?.startDate ? ` el ${new Date(planning.startDate).toLocaleDateString("es-BO", { day: "numeric", month: "long", timeZone: "UTC" })}` : " pronto"}.`
+      : `${coach?.name || "Tu coach"} ya recibió tu evaluación y está definiendo tus entrenamientos.`;
   return (
     <>
       <section className="mobile-daily-plan__onboarding">
         <div className="mobile-daily-plan__section-heading">
-          <h2>{submitted ? "Todo listo" : "Empecemos"}</h2>
-          <span>Paso {submitted ? "2" : "1"} de 2</span>
+          <h2>{pending ? "Tu punto de partida" : "Estado de tu plan"}</h2>
+          {!pending ? <span>Evaluación enviada</span> : null}
         </div>
-
-        {submitted ? (
-          <div className="mobile-daily-plan__onboarding-card is-submitted">
-            <span className="mobile-daily-plan__onboarding-icon is-complete">
-              <Check />
-            </span>
-            <div>
-              <h3>Evaluación enviada</h3>
-              <p>{coach?.name || "Tu coach"} ya recibió tus respuestas.</p>
-              <small>
-                <Clock3 /> {formatSubmittedAt(submittedAt)}
-              </small>
-            </div>
-            <div className="mobile-daily-plan__preparing">
-              <ClipboardCheck />
-              <span>
-                <strong>Tu plan está en preparación</strong>
-                <small>Te avisaremos cuando esté disponible.</small>
-              </span>
-            </div>
+        <div className="mobile-daily-plan__onboarding-card">
+          <span className="mobile-daily-plan__onboarding-icon">
+            {scheduled ? <Check /> : <ClipboardCheck />}
+          </span>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <small>
+              <Clock3 /> {pending ? "5–7 min" : formatSubmittedAt(submittedAt)}
+            </small>
           </div>
-        ) : (
-          <div className="mobile-daily-plan__onboarding-card">
-            <span className="mobile-daily-plan__onboarding-icon">
-              <ClipboardCheck />
-            </span>
-            <div>
-              <h3>Completa tu evaluación inicial</h3>
-              <p>
-                Cuéntale a tu coach tus objetivos, experiencia y estado de
-                salud.
-              </p>
-              <small>
-                <Clock3 /> 5–7 min
-              </small>
-            </div>
+          {pending ? (
             <button
               type="button"
               onClick={onStartEvaluation}
@@ -218,57 +192,9 @@ function ManagedOnboarding({
             >
               Comenzar evaluación
             </button>
-          </div>
-        )}
+          ) : null}
+        </div>
       </section>
-
-      <JourneySteps submitted={submitted} />
-
-      {submitted ? (
-        <section className="mobile-daily-plan__waiting-card">
-          <h2>Mientras esperas</h2>
-          <div>
-            <UserRound />
-            <span>
-              <strong>Completa tu perfil</strong>
-              <small>Tu información básica está lista.</small>
-            </span>
-            <em>
-              <Check /> Listo
-            </em>
-          </div>
-          <button type="button" onClick={onOpenCoach}>
-            <MessageCircle />
-            <span>
-              <strong>Habla con tu coach</strong>
-              <small>Puedes hacerle cualquier consulta.</small>
-            </span>
-            <b>Ver vínculo</b>
-          </button>
-        </section>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={onOpenCoach}
-        className="mobile-daily-plan__coach-message"
-      >
-        <MessageCircle />
-        <span>
-          <strong>
-            {submitted
-              ? "Tu evaluación está en revisión"
-              : "Mensaje de bienvenida"}
-          </strong>
-          <small>
-            {submitted
-              ? "Pronto tendrás novedades."
-              : "Revisaremos juntos tu punto de partida."}
-          </small>
-          <em>{coach?.name || "Tu coach"}</em>
-        </span>
-        <ChevronRight />
-      </button>
     </>
   );
 }
@@ -364,7 +290,7 @@ function TrackingMission({ task, onOpen, readOnly }) {
       type="button"
       onClick={() => onOpen?.(task.type)}
       disabled={readOnly}
-      className={`mobile-daily-plan__mission ${task.required ? "is-compact" : "is-optional"}`}
+      className={`mobile-daily-plan__mission ${task.required ? "is-tracking" : "is-optional"}`}
     >
       <MissionStatus completed={task.completed} />
       <span className="mobile-daily-plan__visual">
@@ -417,6 +343,7 @@ export default function MobileDailyPlan({
   adminControl = null,
   weekDays = [],
   journeyStage = null,
+  planningContext = null,
   coach = null,
   activePlanContext = null,
   checkInTask = null,
@@ -432,8 +359,12 @@ export default function MobileDailyPlan({
   onOpenWorkout,
   onOpenHydration,
   onOpenTrackingMission,
+  notifications = [],
+  notificationUnread = 0,
+  onReadNotifications,
 }) {
   const requiredTracking = trackingMissions.filter((task) => task.required);
+  const optionalTracking = trackingMissions.filter((task) => !task.required);
   const taskCount =
     (workoutTask ? 1 : 0) + (checkInTask ? 1 : 0) + requiredTracking.length;
   const completedCount =
@@ -453,7 +384,27 @@ export default function MobileDailyPlan({
         user={user}
         adminControl={adminControl}
         onOpenMenu={onOpenMenu}
+        notificationUnread={notificationUnread}
+        onOpenNotifications={() => {
+          const panel = document.getElementById("athlete-notification-panel");
+          if (panel) panel.open = !panel.open;
+          onReadNotifications?.();
+        }}
       />
+      {notifications.length ? (
+        <details
+          id="athlete-notification-panel"
+          className="mobile-daily-plan__notifications"
+        >
+          <summary>Últimas novedades</summary>
+          {notifications.slice(0, 3).map((item) => (
+            <div key={item._id || item.id}>
+              <strong>{item.title}</strong>
+              <small>{item.message}</small>
+            </div>
+          ))}
+        </details>
+      ) : null}
       {coach ? (
         <CoachContext
           coach={coach}
@@ -461,19 +412,21 @@ export default function MobileDailyPlan({
           onOpen={onOpenCoach}
         />
       ) : null}
-      <div className="mobile-daily-plan__week" aria-label="Actividad semanal">
-        {weekDays.map((day) => (
-          <WeekDay key={day.key} day={day} />
-        ))}
-      </div>
+      {!journeyStage || journeyStage === "plan_assigned" ? (
+        <div className="mobile-daily-plan__week" aria-label="Actividad semanal">
+          {weekDays.map((day) => (
+            <WeekDay key={day.key} day={day} />
+          ))}
+        </div>
+      ) : null}
 
       {journeyStage && journeyStage !== "plan_assigned" ? (
         <ManagedOnboarding
           stage={journeyStage}
           coach={coach}
           submittedAt={user?.coachIntake?.submittedAt}
+          planning={planningContext}
           onStartEvaluation={onStartEvaluation}
-          onOpenCoach={onOpenCoach}
         />
       ) : (
         <>
@@ -499,17 +452,17 @@ export default function MobileDailyPlan({
               />
             </div>
             <div className="mobile-daily-plan__mission-list">
-              <CheckInMission
-                task={checkInTask}
-                onOpen={onOpenCheckIn}
-                readOnly={readOnly}
-              />
               <WorkoutMission
                 task={workoutTask}
                 onOpen={onOpenWorkout}
                 readOnly={readOnly}
               />
-              {trackingMissions.map((task) => (
+              <CheckInMission
+                task={checkInTask}
+                onOpen={onOpenCheckIn}
+                readOnly={readOnly}
+              />
+              {requiredTracking.map((task) => (
                 <TrackingMission
                   key={task.id}
                   task={task}
@@ -517,29 +470,27 @@ export default function MobileDailyPlan({
                   readOnly={readOnly}
                 />
               ))}
-              <HydrationMission
-                task={hydrationTask}
-                onOpen={onOpenHydration}
-                readOnly={readOnly}
-              />
+              {optionalTracking.length || hydrationTask ? (
+                <details className="mobile-daily-plan__optional-tasks">
+                  <summary>Otros registros</summary>
+                  {optionalTracking.map((task) => (
+                    <TrackingMission
+                      key={task.id}
+                      task={task}
+                      onOpen={onOpenTrackingMission}
+                      readOnly={readOnly}
+                    />
+                  ))}
+                  <HydrationMission
+                    task={hydrationTask}
+                    onOpen={onOpenHydration}
+                    readOnly={readOnly}
+                  />
+                </details>
+              ) : null}
             </div>
           </section>
           <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
-          {coach ? (
-            <button
-              type="button"
-              onClick={onOpenCoach}
-              className="mobile-daily-plan__coach-message"
-            >
-              <MessageCircle />
-              <span>
-                <strong>Tu coach está acompañando tu plan</strong>
-                <small>Consulta cualquier ajuste antes de entrenar.</small>
-                <em>{coach.name}</em>
-              </span>
-              <ChevronRight />
-            </button>
-          ) : null}
         </>
       )}
     </section>

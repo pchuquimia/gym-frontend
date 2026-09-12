@@ -31,6 +31,61 @@ describe("CoachPlanModal", () => {
     vi.restoreAllMocks();
   });
 
+  it("conserva los datos entre pestañas y guarda directamente desde seguimiento", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Laura" }}
+        initialData={initialPlan}
+        manageRoutinesSeparately
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+    await userEvent.clear(screen.getByLabelText("Nombre del plan"));
+    await userEvent.type(
+      screen.getByLabelText("Nombre del plan"),
+      "Fuerza actualizada",
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "Seguimiento" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Personalizado" }),
+    );
+    await userEvent.click(screen.getByRole("switch", { name: "Activar Peso" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      name: "Fuerza actualizada",
+      followUp: { useCoachDefaults: false, weight: { enabled: false } },
+    });
+  });
+
+  it("dirige a General y explica un dato inválido al guardar desde otra pestaña", async () => {
+    const onSave = vi.fn();
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Laura" }}
+        initialData={initialPlan}
+        manageRoutinesSeparately
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+    await userEvent.clear(screen.getByLabelText("Nombre del plan"));
+    await userEvent.click(screen.getByRole("tab", { name: "Semana" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Escribe un nombre para el plan.")).toBeVisible();
+  });
+
   it("mantiene la selección de inicio antes de crear la planificación", async () => {
     render(
       <CoachPlanModal
@@ -60,7 +115,7 @@ describe("CoachPlanModal", () => {
     expect(screen.getByRole("button", { name: /Plan rápido/ })).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(screen.getByText("Define la base del plan")).toBeVisible();
+    expect(screen.getByText("Datos del plan")).toBeVisible();
   });
 
   it("protege los cambios sin guardar antes de cerrar", async () => {
@@ -96,7 +151,7 @@ describe("CoachPlanModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("crea bloques nuevos al cambiar de semana fija a ciclo libre", async () => {
+  it("conserva las sesiones al cambiar de semana fija a ciclo libre", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
       <CoachPlanModal
@@ -108,9 +163,12 @@ describe("CoachPlanModal", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
+    await userEvent.click(screen.getByRole("tab", { name: "Semana" }));
     await userEvent.click(
       screen.getByRole("button", { name: /Ciclo flexible/ }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Aplicar cambio" }),
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Guardar cambios" }),
@@ -119,12 +177,12 @@ describe("CoachPlanModal", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     const payload = onSave.mock.calls[0][0];
     expect(payload.scheduleMode).toBe("sequential_cycle");
-    expect(payload.weeklySchedule).toHaveLength(4);
+    expect(payload.weeklySchedule).toHaveLength(7);
     expect(payload.weeklySchedule).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          slotId: expect.stringMatching(/^slot_sequential_cycle_/),
-          sourceRoutineId: "",
+          slotId: "existing_slot_1",
+          sourceRoutineId: "routine_1",
         }),
       ]),
     );
@@ -132,10 +190,10 @@ describe("CoachPlanModal", () => {
       payload.weeklySchedule.some((day) =>
         day.slotId.startsWith("existing_slot_"),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("edita un solo día a la vez desde el resumen semanal", async () => {
+  it("elige la actividad del día sin confirmación y no cierra al tocar fuera", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
       <CoachPlanModal
@@ -147,35 +205,155 @@ describe("CoachPlanModal", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-
-    expect(screen.queryByLabelText("Enfoque de Lunes")).toBeNull();
-    expect(screen.queryByLabelText("Enfoque de Martes")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "Semana" }));
 
     await userEvent.click(
       screen.getByRole("button", { name: "Editar Lunes: Entrenar" }),
     );
-    expect(screen.getByLabelText("Enfoque de Lunes")).toBeVisible();
+    expect(
+      screen.getByRole("dialog", { name: "Elegir actividad del día" }),
+    ).toBeVisible();
+
+    await userEvent.click(screen.getByTestId("day-activity-backdrop"));
+    expect(
+      screen.getByRole("dialog", { name: "Elegir actividad del día" }),
+    ).toBeVisible();
     await userEvent.click(
-      screen.getByRole("button", { name: "Cerrar edición del día" }),
+      screen.getByRole("button", { name: "Cerrar selección de actividad" }),
     );
 
     await userEvent.click(
       screen.getByRole("button", { name: "Editar Martes: Entrenar" }),
     );
-    expect(screen.getByLabelText("Enfoque de Martes")).toBeVisible();
-
-    await userEvent.click(screen.getByRole("button", { name: "Descansar" }));
-    await userEvent.click(screen.getByRole("button", { name: "Guardar día" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Elegir Descanso" }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "Elegir actividad del día" }),
+    ).toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: "Guardar cambios" }),
     );
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].weeklySchedule[0].focus).toBe("Enfoque 1");
     expect(onSave.mock.calls[0][0].weeklySchedule[1]).toMatchObject({
       type: "rest",
       sourceRoutineId: "",
     });
+  });
+
+  it("abre directamente la edición de una rutina ya asignada", async () => {
+    const onEditRoutine = vi.fn();
+    const sourceRoutine = {
+      id: "source_1",
+      name: "Plantilla global",
+      exercises: [],
+    };
+    const assignedRoutine = {
+      id: "assigned_1",
+      name: "Tren superior del alumno",
+      exercises: [],
+    };
+    const personalizedPlan = {
+      ...initialPlan,
+      weeklySchedule: createFixedSchedule().map((day, index) =>
+        index === 0
+          ? {
+              ...day,
+              sourceRoutineId: "source_1",
+              routineId: "assigned_1",
+            }
+          : day,
+      ),
+    };
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Atleta" }}
+        initialData={personalizedPlan}
+        templates={[sourceRoutine]}
+        assignedRoutines={[assignedRoutine]}
+        onEditRoutine={onEditRoutine}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "Semana" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar sesión de Lunes" }),
+    );
+
+    expect(onEditRoutine).toHaveBeenCalledWith(
+      assignedRoutine,
+      expect.objectContaining({
+        sourceRoutineId: "source_1",
+        routineId: "assigned_1",
+      }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: "Elegir actividad del día" }),
+    ).toBeNull();
+  });
+
+  it("abre la biblioteca al seleccionar una rutina y vuelve a Semana al elegirla", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const planWithoutMondayRoutine = {
+      ...initialPlan,
+      weeklySchedule: createFixedSchedule().map((day, index) =>
+        index === 0
+          ? { ...day, focus: "", sourceRoutineId: "", routineId: null }
+          : day,
+      ),
+    };
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Atleta" }}
+        initialData={planWithoutMondayRoutine}
+        templates={[
+          {
+            id: "routine_push",
+            name: "Empuje completo",
+            exercises: [{ id: "exercise_1" }, { id: "exercise_2" }],
+            exerciseOrderMode: "free",
+          },
+        ]}
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("tab", { name: "Semana" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Lunes: Entrenar" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Elegir Entrenamiento" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Seleccionar rutina" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Buscar rutina")).toBeVisible();
+    expect(screen.getByText("2 ejercicios · Orden libre")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Elegir rutina Empuje completo" }),
+    );
+
+    expect(screen.getByRole("tab", { name: "Semana" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Empuje completo")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    );
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].weeklySchedule[0].sourceRoutineId).toBe(
+      "routine_push",
+    );
   });
 
   it("precarga la base del plan desde la evaluación del alumno", () => {
@@ -258,23 +436,49 @@ describe("CoachPlanModal", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /Continuar/ }));
-    await userEvent.click(
-      screen.getByRole("button", { name: /Revisar planificación/ }),
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: /Personalizar seguimiento/ }),
-    );
+    await userEvent.click(screen.getByRole("tab", { name: "Seguimiento" }));
 
     expect(screen.getByText("Tareas de seguimiento")).toBeVisible();
-    expect(screen.getAllByText("General")).toHaveLength(6);
+    expect(screen.getByText("Laura M.")).toBeVisible();
+    expect(screen.getByText(/Objetivo/)).toBeVisible();
+    expect(screen.getAllByText("General")).toHaveLength(7);
 
     await userEvent.click(
-      screen.getByRole("switch", { name: "Usar seguimiento general" }),
+      screen.getByRole("button", { name: "Personalizado" }),
     );
     await userEvent.click(screen.getByRole("button", { name: /Peso/ }));
 
     expect(screen.getByText("Obligatorio para el alumno")).toBeVisible();
     expect(screen.queryByLabelText("Cerrar edición de seguimiento")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Guardar cambios" }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "General" }));
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue("Plan actual");
+  });
+
+  it("permite guardar y asignar un borrador existente desde móvil", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CoachPlanModal
+        athlete={{ name: "Laura M." }}
+        initialData={{ ...initialPlan, status: "draft" }}
+        manageRoutinesSeparately
+        onSave={onSave}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Guardar borrador" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar y asignar" }),
+    );
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][1]).toEqual({
+      activate: true,
+      notifyAthlete: true,
+    });
   });
 });

@@ -1926,6 +1926,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     bootstrapTrackingMissions.some(
       (mission) => mission.type === "final_evaluation" && !mission.completed,
     ),
+    dashboardBootstrap.data?.planning,
   );
   const coachRelationshipQuery = useQuery({
     queryKey: ["coach-relationship", authUser?.id || authUser?._id || "self"],
@@ -1938,12 +1939,25 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     : null;
 
   useEffect(() => {
-    if (managedAthleteStage !== "evaluation_submitted") return undefined;
+    if (
+      !["evaluation_submitted", "plan_drafting", "plan_scheduled"].includes(
+        managedAthleteStage,
+      )
+    ) {
+      return undefined;
+    }
     const intervalId = window.setInterval(() => {
       dashboardBootstrap.refetch();
     }, 30_000);
     return () => window.clearInterval(intervalId);
   }, [dashboardBootstrap, managedAthleteStage]);
+  const athleteNotificationsQuery = useQuery({
+    queryKey: ["athlete-notifications", authUser?.id || authUser?._id || "self"],
+    queryFn: api.getNotifications,
+    enabled: authUser?.role === "Cliente",
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -3258,10 +3272,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     if (todayAction.type === "empty") onNavigate("rutinas");
   };
 
-  const canUseDailyCheckIn = hasPremiumFeature(
-    authUser,
-    PREMIUM_FEATURES.DAILY_CHECKIN,
-  );
+  const canUseDailyCheckIn =
+    Boolean(managedAthleteStage) ||
+    hasPremiumFeature(authUser, PREMIUM_FEATURES.DAILY_CHECKIN);
   const todayDailyMetric = (dashboardBootstrap.data?.dailyMetrics || []).find(
     (metric) => metric?.dateKey === todayKey,
   );
@@ -3505,7 +3518,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }
         weekDays={weekData.days}
         journeyStage={managedAthleteStage}
+        planningContext={dashboardBootstrap.data?.planning || null}
         coach={managedCoach}
+        notifications={athleteNotificationsQuery.data?.notifications || []}
+        notificationUnread={athleteNotificationsQuery.data?.unread || 0}
+        onReadNotifications={async () => {
+          try {
+            await api.markNotificationsRead();
+            await athleteNotificationsQuery.refetch();
+          } catch {
+            // La campana sigue disponible y se reintentará en el próximo sondeo.
+          }
+        }}
         activePlanContext={mobileActivePlanContext}
         checkInTask={mobileCheckInTask}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}

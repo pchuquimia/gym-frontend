@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import OperationLoader from "../components/system/OperationLoader";
+import CoachIntakeQuestionnaire from "../components/coach/CoachIntakeQuestionnaire";
 import { normalizeUsername, validateUsername } from "../utils/authValidation";
 import { api } from "../services/api";
 
@@ -129,8 +130,8 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
       onClick={onClick}
       className={`flex min-h-[88px] w-full items-center gap-3 rounded-[18px] border p-4 text-left transition ${
         selected
-          ? "border-[#181918] bg-[#181918] text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
-          : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[#181918]/50 dark:hover:border-[#e2ff00]/50"
+          ? "border-[#181918] bg-[#181918] text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:border-[#eeeae2] dark:bg-[#eeeae2] dark:text-black"
+          : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[#181918]/50 dark:hover:border-[#eeeae2]/50"
       }`}
     >
       {Icon ? (
@@ -161,7 +162,7 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
         </span>
       </span>
       {selected ? (
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[#181918] dark:bg-black dark:text-[#e2ff00]">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[#181918] dark:bg-black dark:text-[#eeeae2]">
           <Check className="h-3.5 w-3.5" />
         </span>
       ) : null}
@@ -178,7 +179,7 @@ function AccountTypeChoice({ selected, icon: Icon, title, detail, onClick }) {
       onClick={onClick}
       className={`group flex min-h-[104px] w-full items-center gap-4 rounded-[20px] border px-4 py-4 text-left transition duration-300 ${
         selected
-          ? "border-[#181918] bg-[#181918] text-white shadow-[0_14px_36px_rgba(0,0,0,0.14)] dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+          ? "border-[#181918] bg-[#181918] text-white shadow-[0_14px_36px_rgba(0,0,0,0.14)] dark:border-[#eeeae2] dark:bg-[#eeeae2] dark:text-black"
           : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[color:var(--text)]"
       }`}
     >
@@ -228,23 +229,27 @@ export default function Onboarding({ onNavigate = () => {} }) {
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
   const initialAccountType =
     user?.onboarding?.accountType || (isManagedAthlete ? "athlete" : "");
+  const managedProfileAlreadyComplete =
+    isManagedAthlete && user?.onboarding?.status === "complete";
   const [accountType, setAccountType] = useState(initialAccountType);
   const [showAccountType, setShowAccountType] = useState(!initialAccountType);
   const [step, setStep] = useState(() =>
-    Math.max(
-      0,
-      Math.min(
-        isManagedAthlete ? 3 : 2,
-        Number(
-          readDraft(
-            user?.profile,
-            user?.name,
-            user?.username,
-            user?.assignedTrainerId,
-          ).step || 0,
+    managedProfileAlreadyComplete
+      ? 3
+      : Math.max(
+          0,
+          Math.min(
+            isManagedAthlete ? 3 : 2,
+            Number(
+              readDraft(
+                user?.profile,
+                user?.name,
+                user?.username,
+                user?.assignedTrainerId,
+              ).step || 0,
+            ),
+          ),
         ),
-      ),
-    ),
   );
   const [form, setForm] = useState(() =>
     readDraft(
@@ -258,26 +263,49 @@ export default function Onboarding({ onNavigate = () => {} }) {
   const [saving, setSaving] = useState(false);
   const [intakeQuestions, setIntakeQuestions] = useState([]);
   const [intakeLoading, setIntakeLoading] = useState(isManagedAthlete);
+  const [intakeError, setIntakeError] = useState("");
+  const [intakeSettingsVersion, setIntakeSettingsVersion] = useState("");
+
+  const loadIntakeForm = useCallback(async () => {
+    if (!isManagedAthlete) return null;
+    setIntakeLoading(true);
+    setIntakeError("");
+    try {
+      const data = await api.getCoachIntakeForm();
+      const questions = Array.isArray(data.questions) ? data.questions : [];
+      const nextVersion = String(data.version || "");
+      setIntakeQuestions(questions);
+      setIntakeSettingsVersion(nextVersion);
+      setForm((current) => {
+        const draftVersion = String(current.intakeSettingsVersion || "");
+        const versionChanged = Boolean(
+          draftVersion && nextVersion && draftVersion !== nextVersion,
+        );
+        return {
+          ...current,
+          intakeSettingsVersion: nextVersion,
+          ...(versionChanged
+            ? { intakeAnswers: {}, intakeQuestionIndex: 0 }
+            : {}),
+        };
+      });
+      if (!questions.length) {
+        setIntakeError("Tu coach todavía no tiene preguntas activas.");
+      }
+      return data;
+    } catch (error) {
+      const message = error.message || "No se pudo cargar la evaluación";
+      setIntakeError(message);
+      toast.error(message);
+      return null;
+    } finally {
+      setIntakeLoading(false);
+    }
+  }, [isManagedAthlete]);
 
   useEffect(() => {
-    if (!isManagedAthlete) return undefined;
-    let active = true;
-    api
-      .getCoachIntakeForm()
-      .then((data) => {
-        if (active) setIntakeQuestions(data.questions || []);
-      })
-      .catch((error) => {
-        if (active)
-          toast.error(error.message || "No se pudo cargar la evaluación");
-      })
-      .finally(() => {
-        if (active) setIntakeLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isManagedAthlete]);
+    loadIntakeForm();
+  }, [loadIntakeForm]);
 
   useEffect(() => {
     try {
@@ -379,7 +407,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
     }
   };
 
-  const finish = async () => {
+  const finish = async (submittedAnswers = form.intakeAnswers) => {
     if (saving) return;
     if (!validateBody()) {
       toast.error("Revisa los datos de tu perfil", {
@@ -391,7 +419,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
     }
     const missingAnswer = intakeQuestions.find((question) => {
       if (!question.required) return false;
-      const value = form.intakeAnswers?.[question.key];
+      const value = submittedAnswers?.[question.key];
       const primaryValue = intakePrimaryValue(question, value);
       return Array.isArray(primaryValue)
         ? primaryValue.length === 0
@@ -410,7 +438,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
     }
     const missingDetail = intakeQuestions.find((question) => {
       if (question.type !== "yes_no" || !question.detailRequired) return false;
-      const value = form.intakeAnswers?.[question.key];
+      const value = submittedAnswers?.[question.key];
       return value?.value === "Sí" && String(value?.detail || "").trim() === "";
     });
     if (missingDetail) {
@@ -439,9 +467,10 @@ export default function Onboarding({ onNavigate = () => {} }) {
           key: question.key,
           value: serializeIntakeAnswer(
             question,
-            form.intakeAnswers?.[question.key],
+            submittedAnswers?.[question.key],
           ),
         })),
+        intakeSettingsVersion,
       });
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);
@@ -456,7 +485,20 @@ export default function Onboarding({ onNavigate = () => {} }) {
       );
       onNavigate("dashboard", { replace: true });
     } catch (error) {
-      if (error.code === "USERNAME_TAKEN" || /usuario/i.test(error.message)) {
+      if (error.code === "INTAKE_FORM_UPDATED") {
+        setForm((value) => ({
+          ...value,
+          intakeAnswers: {},
+          intakeQuestionIndex: 0,
+        }));
+        await loadIntakeForm();
+        toast.error("Tu coach actualizó la evaluación", {
+          description: "Revisa las preguntas nuevas antes de enviarla.",
+        });
+      } else if (
+        error.code === "USERNAME_TAKEN" ||
+        /usuario/i.test(error.message)
+      ) {
         setErrors((value) => ({
           ...value,
           username: "Este nombre de usuario ya está en uso.",
@@ -475,6 +517,79 @@ export default function Onboarding({ onNavigate = () => {} }) {
     window.localStorage.removeItem(LEGACY_DRAFT_KEY);
     onNavigate("login");
   };
+
+  if (isManagedAthlete && step === 3) {
+    if (intakeLoading) {
+      return (
+        <div className="fixed inset-0 z-40 bg-[color:var(--surface-subtle)]">
+          <OperationLoader
+            active
+            delayMs={0}
+            mode="screen"
+            title="Cargando evaluación"
+            description="Preparando las preguntas de tu coach."
+          />
+        </div>
+      );
+    }
+
+    if (intakeError || !intakeQuestions.length) {
+      return (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-[color:var(--surface-subtle)] px-5 text-center text-[color:var(--text)]">
+          <div className="w-full max-w-sm">
+            <h1 className="text-2xl font-semibold tracking-[-0.04em]">
+              No pudimos abrir la evaluación
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+              {intakeError || "No hay preguntas disponibles en este momento."}
+            </p>
+            <button
+              type="button"
+              onClick={loadIntakeForm}
+              className="mt-6 h-12 w-full rounded-full bg-[color:var(--accent)] px-5 text-sm font-semibold text-[color:var(--accent-contrast)]"
+            >
+              Reintentar
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                managedProfileAlreadyComplete
+                  ? onNavigate("dashboard", { replace: true })
+                  : setStep(2)
+              }
+              className="mt-3 h-11 w-full text-sm font-medium text-[color:var(--text-muted)]"
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+        <CoachIntakeQuestionnaire
+          key={intakeSettingsVersion || "coach-intake"}
+          questions={intakeQuestions}
+          answers={form.intakeAnswers}
+          onAnswersChange={(intakeAnswers) =>
+            setForm((value) => ({ ...value, intakeAnswers }))
+          }
+          initialIndex={form.intakeQuestionIndex || 0}
+          onIndexChange={(intakeQuestionIndex) =>
+            setForm((value) => ({ ...value, intakeQuestionIndex }))
+          }
+          onBack={() =>
+            managedProfileAlreadyComplete
+              ? onNavigate("dashboard", { replace: true })
+              : setStep(2)
+          }
+          onComplete={finish}
+          submitting={saving}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="routines-shell fixed inset-0 z-40 flex h-dvh w-full flex-col overflow-hidden bg-[color:var(--bg)] text-[color:var(--text)]">
@@ -514,15 +629,15 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 >
                   {index ? (
                     <span
-                      className={`absolute right-1/2 top-3 h-px w-full ${index <= step ? "bg-[#43ad65]" : "bg-[color:var(--border)]"}`}
+                    className={`absolute right-1/2 top-3 h-px w-full ${index <= step ? "bg-[#181918] dark:bg-[#eeeae2]" : "bg-[color:var(--border)]"}`}
                     />
                   ) : null}
                   <span
                     className={`relative z-10 grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
                       complete
-                        ? "bg-[#43ad65] text-white"
+                        ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black"
                         : active
-                          ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
+                          ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black"
                           : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                     }`}
                   >
@@ -710,7 +825,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       Una meta realista ayuda a medir adherencia.
                     </p>
                   </div>
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#181918] text-xl font-semibold text-white dark:bg-[#e2ff00] dark:text-black">
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-[#181918] text-xl font-semibold text-white dark:bg-[#eeeae2] dark:text-black">
                     {form.weeklyFrequency}
                   </span>
                 </div>
@@ -729,7 +844,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                       }
                       className={`h-11 rounded-[12px] border text-sm font-semibold ${
                         form.weeklyFrequency === frequency
-                          ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+                          ? "border-[#181918] bg-[#181918] text-white dark:border-[#eeeae2] dark:bg-[#eeeae2] dark:text-black"
                           : "border-[color:var(--border)] bg-[color:var(--bg)]"
                       }`}
                     >
@@ -805,7 +920,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 </label>
                 <label className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
                   <span className="flex items-center gap-2 text-sm font-semibold">
-                    <Scale className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
+                    <Scale className="h-4 w-4 text-[#181918] dark:text-[#eeeae2]" />
                     Peso actual
                   </span>
                   <span className="mt-2 flex items-center gap-2 rounded-[13px] bg-[color:var(--surface-subtle)] px-3">
@@ -838,7 +953,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 </label>
                 <label className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
                   <span className="flex items-center gap-2 text-sm font-semibold">
-                    <Target className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
+                    <Target className="h-4 w-4 text-[#181918] dark:text-[#eeeae2]" />
                     Altura
                   </span>
                   <span className="mt-2 flex items-center gap-2 rounded-[13px] bg-[color:var(--surface-subtle)] px-3">
@@ -869,32 +984,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
                     </span>
                   ) : null}
                 </label>
-                {isManagedAthlete ? (
-                  <label className="col-span-2 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
-                    <span className="text-sm font-semibold">
-                      Lesiones o condiciones a considerar
-                    </span>
-                    <textarea
-                      maxLength={500}
-                      rows={4}
-                      value={form.healthNotes}
-                      onChange={(event) =>
-                        setForm((value) => ({
-                          ...value,
-                          healthNotes: event.target.value,
-                        }))
-                      }
-                      placeholder="Opcional. Describe molestias, lesiones, restricciones o indicaciones médicas relevantes."
-                      className="mt-2 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none placeholder:text-[color:var(--text-muted)]"
-                    />
-                    <span className="mt-2 block text-[11px] leading-5 text-[color:var(--text-muted)]">
-                      Esta información se compartirá únicamente con tu coach
-                      para adaptar la planificación.
-                    </span>
-                  </label>
-                ) : null}
               </div>
-              <div className="mt-4 flex items-start gap-3 rounded-[16px] bg-[#e9f7ec] p-4 text-[#276f3c] dark:bg-emerald-950/30 dark:text-emerald-200">
+              <div className="mt-4 flex items-start gap-3 rounded-[16px] bg-[color:var(--surface-subtle)] p-4 text-[color:var(--text)]">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-current" />
                 <p className="text-xs font-semibold text-current/80">
                   Configuraremos{" "}
@@ -912,195 +1003,6 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   por semana.
                 </p>
               </div>
-            </div>
-          ) : null}
-
-          {!showAccountType &&
-          accountType === "athlete" &&
-          isManagedAthlete &&
-          step === 3 ? (
-            <div className="mt-2">
-              <p className="mb-2 inline-flex rounded-full bg-[#e6f6e9] px-3 py-1.5 text-xs font-semibold text-[#27743d]">
-                Preguntas de tu coach
-              </p>
-              <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
-                Últimos detalles
-              </h1>
-              <p className="mt-2 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
-                Estas respuestas se compartirán únicamente con tu coach para
-                personalizar tu planificación.
-              </p>
-              {intakeLoading ? (
-                <OperationLoader
-                  active
-                  delayMs={0}
-                  mode="inline"
-                  title="Cargando preguntas"
-                />
-              ) : (
-                <div className="mt-5 grid gap-3">
-                  {intakeQuestions.map((question, index) => {
-                    const value =
-                      form.intakeAnswers?.[question.key] ??
-                      (question.type === "multiple_choice"
-                        ? []
-                        : question.type === "yes_no"
-                          ? { value: "", detail: "" }
-                          : "");
-                    const error = errors[`intake_${question.key}`];
-                    const updateAnswer = (nextValue) => {
-                      setForm((current) => ({
-                        ...current,
-                        intakeAnswers: {
-                          ...current.intakeAnswers,
-                          [question.key]: nextValue,
-                        },
-                      }));
-                      setErrors((current) => ({
-                        ...current,
-                        [`intake_${question.key}`]: "",
-                      }));
-                    };
-                    return (
-                      <fieldset
-                        key={question.key}
-                        className="rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_5px_18px_rgba(0,0,0,0.035)]"
-                      >
-                        <legend className="sr-only">{question.label}</legend>
-                        <p className="text-sm font-semibold">
-                          {index + 1}. {question.label}
-                          {!question.required ? (
-                            <span className="ml-2 rounded-full bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-medium text-[color:var(--text-muted)]">
-                              Opcional
-                            </span>
-                          ) : null}
-                        </p>
-                        {question.type === "long_text" ? (
-                          <textarea
-                            rows={3}
-                            maxLength={1000}
-                            value={value}
-                            onChange={(event) =>
-                              updateAnswer(event.target.value)
-                            }
-                            className="mt-3 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none"
-                          />
-                        ) : question.type === "yes_no" ? (
-                          <div className="mt-3">
-                            <div className="grid grid-cols-2 gap-2">
-                              {["Sí", "No"].map((option) => {
-                                const answer =
-                                  value && typeof value === "object"
-                                    ? value
-                                    : {
-                                        value: String(value || ""),
-                                        detail: "",
-                                      };
-                                return (
-                                  <button
-                                    key={option}
-                                    type="button"
-                                    onClick={() =>
-                                      updateAnswer({
-                                        value: option,
-                                        detail:
-                                          answer.value === option
-                                            ? answer.detail || ""
-                                            : "",
-                                      })
-                                    }
-                                    className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${answer.value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
-                                  >
-                                    {option}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            {(value?.value || value) === "Sí" &&
-                            question.detailPrompt ? (
-                              <label className="mt-3 block">
-                                <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                                  {question.detailPrompt}
-                                  {!question.detailRequired
-                                    ? " (opcional)"
-                                    : ""}
-                                </span>
-                                <textarea
-                                  rows={3}
-                                  maxLength={1000}
-                                  value={value?.detail || ""}
-                                  onChange={(event) =>
-                                    updateAnswer({
-                                      value: "Sí",
-                                      detail: event.target.value,
-                                    })
-                                  }
-                                  className="mt-2 w-full resize-none rounded-[13px] bg-[color:var(--surface-subtle)] p-3 text-sm font-normal leading-6 outline-none"
-                                />
-                              </label>
-                            ) : null}
-                          </div>
-                        ) : question.type === "single_choice" ? (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {(question.options || []).map((option) => (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => updateAnswer(option)}
-                                className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${value === option ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
-                              >
-                                {option}
-                              </button>
-                            ))}
-                          </div>
-                        ) : question.type === "multiple_choice" ? (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {(question.options || []).map((option) => {
-                              const selected =
-                                Array.isArray(value) && value.includes(option);
-                              return (
-                                <button
-                                  key={option}
-                                  type="button"
-                                  onClick={() =>
-                                    updateAnswer(
-                                      selected
-                                        ? value.filter(
-                                            (item) => item !== option,
-                                          )
-                                        : [...value, option],
-                                    )
-                                  }
-                                  className={`min-h-11 rounded-[12px] border px-3 text-left text-sm font-medium ${selected ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
-                                >
-                                  {option}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <input
-                            type={
-                              question.type === "number" ? "number" : "text"
-                            }
-                            maxLength={1000}
-                            value={value}
-                            onChange={(event) =>
-                              updateAnswer(event.target.value)
-                            }
-                            className="mt-3 h-12 w-full rounded-[13px] bg-[color:var(--surface-subtle)] px-3 text-sm font-normal outline-none"
-                          />
-                        )}
-                        {error ? (
-                          <span className="mt-2 block text-xs font-bold text-red-500">
-                            {error}
-                          </span>
-                        ) : null}
-                      </fieldset>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           ) : null}
         </div>
@@ -1122,7 +1024,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 type="button"
                 onClick={() => persistAccountType(accountType)}
                 disabled={saving || !accountType}
-                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-6 text-sm font-semibold text-white disabled:opacity-40 dark:bg-[#e2ff00] dark:text-black"
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-6 text-sm font-semibold text-white disabled:opacity-40 dark:bg-[#eeeae2] dark:text-black"
               >
                 Continuar <ArrowRight className="h-4 w-4" />
               </button>
@@ -1141,7 +1043,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 type="button"
                 onClick={finishCoach}
                 disabled={saving}
-                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#eeeae2] dark:text-black"
               >
                 Crear mi espacio <ArrowRight className="h-4 w-4" />
               </button>
@@ -1164,14 +1066,14 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 type="button"
                 onClick={
                   step === (isManagedAthlete ? 3 : 2)
-                    ? finish
+                    ? () => finish()
                     : () =>
                         setStep((value) =>
                           Math.min(isManagedAthlete ? 3 : 2, value + 1),
                         )
                 }
                 disabled={saving}
-                className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#e2ff00] dark:text-black"
+                className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#181918] px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-[#eeeae2] dark:text-black"
               >
                 {step === (isManagedAthlete ? 3 : 2)
                   ? "Enviar evaluación"

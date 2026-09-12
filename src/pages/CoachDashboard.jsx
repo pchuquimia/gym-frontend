@@ -25,6 +25,9 @@ import {
   MoreVertical,
   MessageCircle,
   Search,
+  Scale,
+  Camera,
+  Ruler,
   SlidersHorizontal,
   Sparkles,
   SquareCheckBig,
@@ -58,6 +61,10 @@ const COACH_REQUESTED_VIEW_KEY = "rirfit_coach_requested_view";
 const COACH_REQUESTED_PLAN_KEY = "rirfit_coach_requested_plan";
 const COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY =
   "rirfit_coach_plan_template_assignment";
+const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
+const COACH_ROUTINE_OWNER_KEY = "rirfit_coach_routine_owner";
+const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
+const COACH_ROUTINE_RETURN_PLAN_KEY = "rirfit_coach_routine_return_plan";
 
 const formatDate = (value) => {
   if (!value) return "Sin entrenamientos";
@@ -169,7 +176,7 @@ function AthleteRow({ athlete, selected, blocked = false, onClick }) {
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-md text-sm font-black dark:rounded-[3px] ${
           selected
             ? "border border-current bg-transparent text-current"
-            : "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
+            : "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black"
         }`}
       >
         {initials(athlete.name)}
@@ -294,7 +301,7 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
   return (
     <section className="min-w-0 space-y-5">
       <div>
-        <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+        <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
           Coach Pro
         </p>
         <h2 className="mt-1 text-2xl font-black uppercase">
@@ -311,7 +318,7 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
             key={label}
             className="border border-[color:var(--border)] bg-[color:var(--card)] p-4"
           >
-            <Icon className="h-4 w-4 text-[#181918] dark:text-[#e2ff00]" />
+            <Icon className="h-4 w-4 text-[#181918] dark:text-[#eeeae2]" />
             <p className="mt-4 text-2xl font-black">{value}</p>
             <p className="mt-1 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
               {label}
@@ -351,7 +358,7 @@ function PortfolioOverview({ portfolio, onSelectAthlete }) {
             ))
           ) : (
             <div className="py-10 text-center">
-              <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-500" />
+              <CheckCircle2 className="mx-auto h-7 w-7 text-[color:var(--text)]" />
               <p className="mt-2 text-sm font-black">Todo bajo control</p>
               <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
                 No hay alertas que requieran intervencion.
@@ -438,6 +445,13 @@ function MobileAthleteProfileHeader({
   onRelease,
   planActionLabel = "Editar plan",
 }) {
+  const lastActivityDays = daysSince(athlete.lastTraining?.date);
+  const activityLabel =
+    lastActivityDays === 0
+      ? "Entrenó hoy"
+      : lastActivityDays != null
+        ? `Último entreno hace ${lastActivityDays} ${lastActivityDays === 1 ? "día" : "días"}`
+        : "Alumno vinculado";
   return (
     <div className="lg:hidden">
       <header className="grid h-14 grid-cols-[44px_minmax(0,1fr)_44px] items-center">
@@ -499,8 +513,8 @@ function MobileAthleteProfileHeader({
             {compactName(athlete.name)}
           </h2>
           <p className="mt-1.5 flex items-center gap-2 text-[13px] text-[color:var(--text-muted)]">
-            <span className="h-3 w-3 rounded-full bg-[#42ad64]" />
-            Activa hoy
+            <span className="h-3 w-3 rounded-full bg-[#181918] dark:bg-[#eeeae2]" />
+            {activityLabel}
           </p>
           {!planDetail ? (
             <p className="mt-1.5 whitespace-nowrap text-[11px] leading-tight tracking-[-0.01em] text-[color:var(--text-muted)]">
@@ -690,7 +704,7 @@ function AthleteIntakeReview({ athlete, hasPlan, onBack, onCreatePlan }) {
             <button
               type="button"
               onClick={onCreatePlan}
-              className="h-12 w-full rounded-[14px] bg-[#181918] text-sm font-semibold text-white dark:bg-[#e2ff00] dark:text-black"
+              className="h-12 w-full rounded-[14px] bg-[#181918] text-sm font-semibold text-white dark:bg-[#eeeae2] dark:text-black"
             >
               Crear planificación desde la evaluación
             </button>
@@ -721,6 +735,7 @@ function AthleteSummaryView({
   onReviewIntake,
   onCreatePlan,
 }) {
+  const isLivePlan = activePlan?.status === "active";
   const todayKey = localDateKey();
   const recentTrainings = overview?.recentTrainings || [];
   const todayTraining = recentTrainings.find(
@@ -801,11 +816,11 @@ function AthleteSummaryView({
     <div className="space-y-7 pb-4 pt-5">
       {!activePlan ? (
         <section
-          className={`rounded-[20px] border p-4 ${intakeSubmitted ? "border-[#9ed9ad] bg-[#eff9f1] dark:bg-emerald-950/25" : "border-amber-200 bg-amber-50 dark:bg-amber-950/25"}`}
+          className={`rounded-[20px] border p-4 ${intakeSubmitted ? "border-[color:var(--border)] bg-[color:var(--card)]" : "border-amber-200 bg-amber-50 dark:bg-amber-950/25"}`}
         >
           <div className="flex items-start gap-3">
             <span
-              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${intakeSubmitted ? "bg-[#43ad65] text-white" : "bg-amber-100 text-amber-700"}`}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${intakeSubmitted ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-amber-100 text-amber-700"}`}
             >
               {intakeSubmitted ? (
                 <CheckCircle2 className="h-6 w-6" />
@@ -869,9 +884,9 @@ function AthleteSummaryView({
           <button
             type="button"
             onClick={onCreatePlan}
-            className="mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[#9ed9ad] bg-[#eff9f1] p-4 text-left dark:bg-emerald-950/25"
+            className="mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left"
           >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#43ad65] text-white">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black">
               <Sparkles className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
@@ -891,7 +906,7 @@ function AthleteSummaryView({
       {overview.followUpRecords?.latestAssessment ? (
         <section className="rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-4">
           <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
               <ClipboardList className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
@@ -939,7 +954,7 @@ function AthleteSummaryView({
           ) : null}
         </section>
       ) : null}
-      {activePlan ? (
+      {isLivePlan ? (
         <section>
           <h3 className="text-[25px] font-semibold tracking-[-0.045em]">Hoy</h3>
           <div className="mt-3 overflow-hidden rounded-[20px] bg-[#1d1e1d] px-5 text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)] dark:bg-[#111]">
@@ -949,7 +964,7 @@ function AthleteSummaryView({
               className="flex min-h-[82px] w-full items-center gap-4 border-b border-white/20 text-left"
             >
               <span
-                className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${todayTraining ? "bg-[#9ae6aa] text-[#102916]" : "bg-white/10 text-white"}`}
+                className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${todayTraining ? "bg-white text-black" : "bg-white/10 text-white"}`}
               >
                 {todayTraining ? (
                   <Check className="h-6 w-6" strokeWidth={2.4} />
@@ -961,7 +976,7 @@ function AthleteSummaryView({
                 {todayRoutineName}
               </span>
               <span
-                className={`shrink-0 text-sm font-semibold ${todayTraining ? "text-[#91e5a6]" : "text-white/65"}`}
+                className={`shrink-0 text-sm font-semibold ${todayTraining ? "text-white" : "text-white/65"}`}
               >
                 {todayTraining
                   ? "Completado"
@@ -972,13 +987,13 @@ function AthleteSummaryView({
             </button>
             <div className="flex min-h-[82px] items-center gap-4">
               <span
-                className={`h-4 w-4 shrink-0 rounded-full ${checkedInToday ? "bg-[#9ae6aa]" : "bg-[#ff806f]"}`}
+                className={`h-4 w-4 shrink-0 rounded-full ${checkedInToday ? "bg-white" : "bg-[#ff806f]"}`}
               />
               <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.025em]">
                 Check-in diario
               </span>
               <span
-                className={`shrink-0 text-sm font-semibold ${checkedInToday ? "text-[#91e5a6]" : "text-[#ff8b7c]"}`}
+                className={`shrink-0 text-sm font-semibold ${checkedInToday ? "text-white" : "text-[#ff8b7c]"}`}
               >
                 {checkedInToday ? "Registrado" : "Pendiente"}
               </span>
@@ -991,7 +1006,7 @@ function AthleteSummaryView({
       <section>
         <div className="flex items-end justify-between gap-4">
           <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-            Plan actual
+            {isLivePlan ? "Plan actual" : "Planificación"}
           </h3>
           {activePlan ? (
             <button
@@ -1017,12 +1032,20 @@ function AthleteSummaryView({
                 {activePlan.name}
               </strong>
               <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                Semana {currentWeek} de {activePlan.durationWeeks || 1}
+                {isLivePlan
+                  ? `Semana ${currentWeek} de ${activePlan.durationWeeks || 1}`
+                  : activePlan.status === "scheduled"
+                    ? `Programado para ${formatDate(activePlan.startDate)}`
+                    : activePlan.status === "paused"
+                      ? "Plan pausado"
+                      : activePlan.status === "completed"
+                        ? "Plan finalizado"
+                        : "Borrador en preparación"}
               </span>
-              <span className="mt-3 flex items-center gap-3">
+              {isLivePlan ? <span className="mt-3 flex items-center gap-3">
                 <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]">
                   <span
-                    className="block h-full rounded-full bg-[#43a65f]"
+                    className="block h-full rounded-full bg-[#181918] dark:bg-[#eeeae2]"
                     style={{
                       width: `${activePlanTimeProgress?.percentage || 0}%`,
                     }}
@@ -1031,7 +1054,7 @@ function AthleteSummaryView({
                 <span className="text-xs font-medium text-[color:var(--text-muted)]">
                   {activePlanTimeProgress?.percentage || 0}%
                 </span>
-              </span>
+              </span> : null}
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
           </button>
@@ -1054,7 +1077,7 @@ function AthleteSummaryView({
         )}
       </section>
 
-      {activePlan ? (
+      {isLivePlan ? (
         <section>
           <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
             Esta semana
@@ -1090,7 +1113,7 @@ function AthleteSummaryView({
               <div key={key} className="flex flex-col items-center gap-2">
                 <span className="flex h-14 items-end">
                   <span
-                    className={`block w-7 rounded-[7px] ${completedDays.has(key) ? "bg-[#43a65f]" : "bg-[color:var(--border)] opacity-55"}`}
+                    className={`block w-7 rounded-[7px] ${completedDays.has(key) ? "bg-[#181918] dark:bg-[#eeeae2]" : "bg-[color:var(--border)] opacity-55"}`}
                     style={{
                       height: completedDays.has(key)
                         ? `${Math.max(
@@ -1114,7 +1137,7 @@ function AthleteSummaryView({
         </section>
       ) : null}
 
-      {activePlan ? (
+      {isLivePlan ? (
         <section>
           <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
             Actividad reciente
@@ -1175,6 +1198,120 @@ function AthleteSummaryView({
   );
 }
 
+function MobileAthleteFollowUpView({ overview, latestCheckIn }) {
+  const records = overview?.followUpRecords || {};
+  const checkIn = records.checkIns?.[0] || latestCheckIn || null;
+  const weight = records.weights?.[0] || null;
+  const previousWeight = records.weights?.[1] || null;
+  const measurement = records.measurements?.[0] || null;
+  const assessment = records.assessments?.[0] || null;
+  const weightDelta =
+    weight && previousWeight
+      ? Number(weight.weightKg) - Number(previousWeight.weightKg)
+      : null;
+  const items = [
+    checkIn && {
+      id: `checkin-${checkIn._id || checkIn.dateKey}`,
+      label: "Check-in",
+      value: `${checkIn.readinessScore}/100`,
+      detail:
+        checkIn.readinessState === "recover"
+          ? "Requiere recuperación"
+          : checkIn.readinessState === "adjust"
+            ? "Conviene ajustar"
+            : "Listo para entrenar",
+      date: checkIn.dateKey,
+      Icon: ClipboardList,
+    },
+    weight && {
+      id: `weight-${weight._id || weight.dateKey}`,
+      label: "Peso",
+      value: `${weight.weightKg} kg`,
+      detail:
+        weightDelta == null
+          ? "Primer registro"
+          : `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)} kg desde el anterior`,
+      date: weight.dateKey,
+      Icon: Scale,
+    },
+    measurement && {
+      id: `measurement-${measurement._id || measurement.dateKey}`,
+      label: "Medidas",
+      value: `${Object.values(measurement.values || {}).filter((value) => value != null).length} registradas`,
+      detail: measurement.notes || "Registro corporal",
+      date: measurement.dateKey,
+      Icon: Ruler,
+    },
+    records.photos?.[0] && {
+      id: `photos-${records.photos[0]._id || records.photos[0].date}`,
+      label: "Fotos de progreso",
+      value: `${records.photos.length} recientes`,
+      detail: "Visibles para el coach",
+      date: records.photos[0].date,
+      Icon: Camera,
+    },
+    assessment && {
+      id: `assessment-${assessment._id || assessment.dateKey}`,
+      label: "Evaluación final",
+      value: `${assessment.answers?.progress || "—"}/5`,
+      detail: assessment.answers?.feedback || "Bloque evaluado",
+      date: assessment.dateKey,
+      Icon: FileText,
+    },
+  ].filter(Boolean);
+
+  return (
+    <section className="pb-6 pt-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            Señales del alumno
+          </p>
+          <h2 className="mt-1 text-[25px] font-bold tracking-[-0.05em]">
+            Seguimiento
+          </h2>
+        </div>
+        <span className="rounded-full bg-[color:var(--surface-subtle)] px-3 py-1 text-xs font-semibold">
+          {items.length} recientes
+        </span>
+      </div>
+      {items.length ? (
+        <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
+          {items.map(({ id, label, value, detail, date, Icon }) => (
+            <article
+              key={id}
+              className="grid min-h-[88px] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 py-3"
+            >
+              <span className="grid h-10 w-10 place-items-center rounded-[12px] bg-[color:var(--surface-subtle)]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <strong className="block text-sm font-semibold">{label}</strong>
+                <small className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
+                  {detail}
+                </small>
+              </span>
+              <span className="text-right">
+                <strong className="block text-sm font-semibold">{value}</strong>
+                <small className="mt-1 block text-[11px] text-[color:var(--text-muted)]">
+                  {formatDate(date)}
+                </small>
+              </span>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 rounded-[18px] border border-[color:var(--border)] p-5">
+          <h3 className="text-base font-semibold">Aún no hay registros</h3>
+          <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
+            Los check-ins, pesos, fotos, medidas y evaluaciones aparecerán aquí.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 const shortPlanDate = (value) => {
   if (!value) return "Sin fecha";
   const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -1192,6 +1329,19 @@ function MobileAthletePlanView({
   onEditPlan,
   onOpenRoutine,
 }) {
+  const isLivePlan = activePlan?.status === "active";
+  const planStatusLabel =
+    activePlan?.status === "scheduled"
+      ? "Programado"
+      : activePlan?.status === "draft"
+        ? "Borrador"
+        : activePlan?.status === "paused"
+          ? "Pausado"
+          : activePlan?.status === "completed"
+            ? "Finalizado"
+            : activePlan?.status === "cancelled"
+              ? "Archivado"
+              : "Activo";
   const todayKey = localDateKey();
   const today = new Date(`${todayKey}T12:00:00`);
   const planStart = activePlan?.startDate
@@ -1303,12 +1453,16 @@ function MobileAthletePlanView({
               {activePlan.name}
             </strong>
             <span className="mt-1 block text-[14px] text-white/70">
-              Semana {currentWeek} de {weekCount}
+              {isLivePlan
+                ? `Semana ${currentWeek} de ${weekCount}`
+                : activePlan.status === "scheduled"
+                  ? `Comienza el ${shortPlanDate(activePlan.startDate)}`
+                  : planStatusLabel}
             </span>
-            <span className="mt-3 flex items-center gap-3">
+            {isLivePlan ? <span className="mt-3 flex items-center gap-3">
               <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/20">
                 <span
-                  className="block h-full rounded-full bg-[#54c577]"
+                  className="block h-full rounded-full bg-white"
                   style={{
                     width: `${activePlanTimeProgress?.percentage || 0}%`,
                   }}
@@ -1317,7 +1471,7 @@ function MobileAthletePlanView({
               <span className="text-[15px] font-medium">
                 {activePlanTimeProgress?.percentage || 0}%
               </span>
-            </span>
+            </span> : null}
           </span>
           <span className="flex h-full flex-col items-center justify-center border-l border-white/15 pl-5 text-center">
             <CalendarDays className="h-6 w-6" strokeWidth={1.7} />
@@ -1352,7 +1506,7 @@ function MobileAthletePlanView({
                       {week}
                     </span>
                     {completed ? (
-                      <span className="absolute -bottom-2 left-1/2 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full border-2 border-[color:var(--bg)] bg-[#43ae67] text-white">
+                      <span className="absolute -bottom-2 left-1/2 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full border-2 border-[color:var(--bg)] bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black">
                         <Check className="h-3.5 w-3.5" strokeWidth={2.8} />
                       </span>
                     ) : null}
@@ -1420,7 +1574,7 @@ function MobileAthletePlanView({
                     {routineName}
                   </strong>
                   <span
-                    className={`mt-1 block truncate text-[14px] ${completed ? "text-[#43ae67]" : "text-[color:var(--text-muted)]"}`}
+                    className={`mt-1 block truncate text-[14px] ${completed ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]"}`}
                   >
                     {completed
                       ? "Completado"
@@ -1430,7 +1584,7 @@ function MobileAthletePlanView({
                   </span>
                 </span>
                 {completed ? (
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#43ae67] text-white">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black">
                     <Check className="h-5 w-5" strokeWidth={2.6} />
                   </span>
                 ) : (
@@ -1614,7 +1768,8 @@ function MobileAthleteHistoryView({
             Actividad semanal
           </h3>
           <span className="inline-flex items-center gap-2 text-[14px] text-[color:var(--text-muted)]">
-            <span className="h-3 w-3 rounded-full bg-[#459f62]" /> Realizados
+            <span className="h-3 w-3 rounded-full bg-[#181918] dark:bg-[#eeeae2]" />
+            Realizados
           </span>
         </div>
         <div className="mt-2 grid grid-cols-[24px_minmax(0,1fr)] gap-2">
@@ -1639,7 +1794,7 @@ function MobileAthleteHistoryView({
                   title={`Semana ${index + 1}: ${count} entrenamientos`}
                 >
                   <span
-                    className="w-9 rounded-t-[4px] bg-[#459f62]"
+                    className="w-9 rounded-t-[4px] bg-[#181918] dark:bg-[#eeeae2]"
                     style={{
                       height: `${count ? Math.max(8, (count / chartMax) * 68) : 0}px`,
                     }}
@@ -1699,8 +1854,8 @@ function MobileAthleteHistoryView({
                   )}
                 </span>
               </span>
-              <span className="inline-flex items-center gap-2 text-[14px] font-medium text-[#409d5e]">
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#43ae67] text-white">
+              <span className="inline-flex items-center gap-2 text-[14px] font-medium text-[color:var(--text-muted)]">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black">
                   <Check className="h-4 w-4" strokeWidth={2.7} />
                 </span>
                 <span className="hidden min-[430px]:inline">Completado</span>
@@ -1903,9 +2058,14 @@ function CoachHome({
               ) : notificationFeed.items.length ? (
                 <div className="max-h-80 overflow-y-auto">
                   {notificationFeed.items.map((item) => (
-                    <article
+                    <button
+                      type="button"
                       key={item._id}
-                      className="border-b border-[color:var(--border)] px-4 py-3 last:border-b-0"
+                      disabled={!item.athleteId}
+                      onClick={() =>
+                        item.athleteId && onOpenAthlete(item.athleteId)
+                      }
+                      className="block w-full border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 disabled:cursor-default"
                     >
                       <div className="flex items-start gap-2">
                         {!item.readAt ? (
@@ -1923,7 +2083,7 @@ function CoachHome({
                           </p>
                         </div>
                       </div>
-                    </article>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -2086,7 +2246,7 @@ function CoachHome({
                 {loading ? "—" : withoutRoutine}
               </strong>
               <span className="mt-1.5 block text-[13px] leading-tight text-current/70">
-                planes por revisar
+                sin rutina asignada
               </span>
             </span>
           </button>
@@ -2272,11 +2432,11 @@ function WeeklyReportPanel({
     <section className="mt-5 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
             Informe semanal
           </p>
           <h3 className="mt-1 text-xl font-black uppercase">
-            {report.period.from} al {report.period.to}
+            {formatDate(report.period.from)} al {formatDate(report.period.to)}
           </h3>
         </div>
         <div className="flex gap-2">
@@ -2857,7 +3017,8 @@ export default function CoachDashboard({
     overview?.plans?.find((plan) => plan.status === "active") ||
     overview?.plans?.find((plan) => plan.status === "scheduled") ||
     overview?.plans?.find((plan) => plan.status === "draft") ||
-    overview?.plans?.[0];
+    overview?.plans?.find((plan) => plan.status === "paused") ||
+    null;
   const activePlanTimeProgress = activePlan
     ? getPlanTimeProgress(activePlan)
     : null;
@@ -2894,7 +3055,10 @@ export default function CoachDashboard({
       routine.isAvailableForTraining !== false && routine.isArchived !== true,
   );
 
-  const savePlan = async (payload, { activate = false } = {}) => {
+  const savePlan = async (
+    payload,
+    { activate = false, notifyAthlete = true } = {},
+  ) => {
     try {
       let saved = editingPlan
         ? await api.updateCoachPlan(
@@ -2906,11 +3070,12 @@ export default function CoachDashboard({
             ...payload,
             branch: "general",
           });
-      if (!editingPlan && activate) {
+      if (activate) {
         saved = await api.updateCoachPlanStatus(
           selectedId,
           saved._id || saved.id,
           "active",
+          notifyAthlete,
         );
       }
       const data = await api.getCoachAthleteOverview(selectedId);
@@ -3212,7 +3377,7 @@ export default function CoachDashboard({
 
       <header className="hidden items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4 lg:flex">
         <div>
-          <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
             Coach · {athletes.length}{" "}
             {athletes.length === 1 ? "atleta" : "atletas"}
           </p>
@@ -3300,7 +3465,7 @@ export default function CoachDashboard({
       ) : null}
 
       {coachWelcome ? (
-        <section className="mt-4 overflow-hidden rounded-[22px] bg-[#181918] px-5 py-5 text-white shadow-[0_22px_55px_rgba(0,0,0,0.16)] dark:bg-[#e2ff00] dark:text-black sm:px-6 sm:py-6">
+        <section className="mt-4 overflow-hidden rounded-[22px] bg-[#181918] px-5 py-5 text-white shadow-[0_22px_55px_rgba(0,0,0,0.16)] dark:bg-[#eeeae2] dark:text-black sm:px-6 sm:py-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
               <span className="grid h-10 w-10 place-items-center rounded-full border border-current/20 bg-white/10 dark:bg-black/5">
@@ -3587,11 +3752,11 @@ export default function CoachDashboard({
               <div className="hidden lg:block">
                 <div className="border-b border-[color:var(--border)] pb-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#181918] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#e2ff00] dark:text-black">
+                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#181918] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#eeeae2] dark:text-black">
                       {initials(overview.athlete.name)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+                      <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
                         {goalLabel(overview.athlete.profile?.goal)}
                       </p>
                       <h2 className="mt-1 line-clamp-2 break-words text-[22px] font-black uppercase leading-none sm:text-[28px]">
@@ -3669,13 +3834,14 @@ export default function CoachDashboard({
               </div>
 
               <div
-                className={`mt-2 grid grid-cols-3 border-b border-[color:var(--border)] lg:hidden ${planDetailMode ? "hidden" : ""}`}
+                className={`mt-2 grid grid-cols-4 border-b border-[color:var(--border)] lg:hidden ${planDetailMode ? "hidden" : ""}`}
                 role="tablist"
                 aria-label="Informacion del alumno"
               >
                 {[
                   { id: "summary", label: "Resumen" },
                   { id: "plan", label: "Plan" },
+                  { id: "insights", label: "Seguimiento" },
                   { id: "activity", label: "Historial" },
                 ].map((item) => (
                   <button
@@ -3684,7 +3850,7 @@ export default function CoachDashboard({
                     role="tab"
                     aria-selected={athleteView === item.id}
                     onClick={() => setAthleteView(item.id)}
-                    className={`relative flex h-11 items-center justify-center border-b-[3px] text-[17px] transition-colors ${
+                    className={`relative flex h-11 items-center justify-center border-b-[3px] text-[clamp(13px,3.8vw,16px)] transition-colors ${
                       athleteView === item.id
                         ? "border-[color:var(--text)] font-semibold text-[color:var(--text)]"
                         : "border-transparent font-normal text-[color:var(--text-muted)]"
@@ -3716,7 +3882,7 @@ export default function CoachDashboard({
                       onClick={() => setAthleteView(item.id)}
                       className={`relative flex h-12 items-center justify-center gap-2 border-b-2 text-[11px] font-black uppercase transition ${
                         athleteView === item.id
-                          ? "border-[#181918] text-[#181918] dark:border-[#e2ff00] dark:text-[#e2ff00]"
+                          ? "border-[#181918] text-[#181918] dark:border-[#eeeae2] dark:text-[#eeeae2]"
                           : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                       }`}
                     >
@@ -3729,7 +3895,7 @@ export default function CoachDashboard({
               {athleteView === "summary" ? (
                 <>
                   {planAssignedNotice ? (
-                    <div className="mt-4 flex items-center gap-3 rounded-[18px] border border-[#a8dbb5] bg-[#eff9f1] p-4 text-[#26723d] dark:bg-emerald-950/30 dark:text-emerald-200">
+                    <div className="mt-4 flex items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-[color:var(--text)]">
                       <CheckCircle2 className="h-5 w-5 shrink-0" />
                       <span className="min-w-0 flex-1">
                         <strong className="block text-sm font-semibold">
@@ -3837,7 +4003,7 @@ export default function CoachDashboard({
                               onClick={() => setSelectedPlanId(id)}
                               className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
                                 isCurrent
-                                  ? "border-[#181918] dark:border-[#e2ff00]"
+                                  ? "border-[#181918] dark:border-[#eeeae2]"
                                   : "border-[color:var(--border)]"
                               }`}
                             >
@@ -3993,7 +4159,7 @@ export default function CoachDashboard({
                                         ?.removeAttribute("open");
                                       updatePlanStatus(activePlan, "completed");
                                     }}
-                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                    className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
                                   >
                                     <CheckCircle2 className="h-4 w-4" />{" "}
                                     Finalizar plan
@@ -4064,7 +4230,7 @@ export default function CoachDashboard({
                             </div>
                             <div className="mt-2 h-1.5 overflow-hidden bg-[color:var(--border)]">
                               <div
-                                className="h-full bg-[#181918] transition-all dark:bg-[#e2ff00]"
+                                className="h-full bg-[#181918] transition-all dark:bg-[#eeeae2]"
                                 style={{
                                   width: `${Math.round(
                                     ((activePlanTrainingDays.length -
@@ -4174,23 +4340,31 @@ export default function CoachDashboard({
                   </>
                 ) : null}
                 {athleteView === "insights" ? (
-                  canUseReports ? (
-                    <WeeklyReportPanel
-                      report={weeklyReport}
-                      loading={reportLoading}
-                      onRefresh={refreshWeeklyReport}
-                      onCopy={copyWeeklyReport}
-                      onGenerateDraft={generatePlanDraft}
-                      draftLoading={draftLoading}
+                  <>
+                    <MobileAthleteFollowUpView
+                      overview={overview}
+                      latestCheckIn={latestCheckIn}
                     />
-                  ) : (
-                    <PremiumGate
-                      plan="Coach Pro"
-                      title="Informes y planificacion asistida"
-                      description="Compara semanas, detecta riesgos y prepara borradores editables para cada atleta."
-                      onNavigate={onNavigate}
-                    />
-                  )
+                    <div className="hidden lg:block">
+                      {canUseReports ? (
+                        <WeeklyReportPanel
+                          report={weeklyReport}
+                          loading={reportLoading}
+                          onRefresh={refreshWeeklyReport}
+                          onCopy={copyWeeklyReport}
+                          onGenerateDraft={generatePlanDraft}
+                          draftLoading={draftLoading}
+                        />
+                      ) : (
+                        <PremiumGate
+                          plan="Coach Pro"
+                          title="Informes y planificacion asistida"
+                          description="Compara semanas, detecta riesgos y prepara borradores editables para cada atleta."
+                          onNavigate={onNavigate}
+                        />
+                      )}
+                    </div>
+                  </>
                 ) : null}
               </div>
             </section>
@@ -4215,11 +4389,44 @@ export default function CoachDashboard({
         <CoachPlanModal
           athlete={overview?.athlete || selectedAthlete}
           templates={templates}
+          assignedRoutines={overview?.routines || []}
           planTemplates={planCatalog.plans}
           initialPlanTemplateId={initialPlanTemplateId}
           initialSource={planCreationSource}
           initialData={editingPlan || planDraft?.plan}
           replacingPlan={editingPlan ? null : activePlan}
+          onEditRoutine={(routine, day) => {
+            const routineId = String(
+              day?.routineId || routine?.id || routine?._id || "",
+            );
+            if (!routineId) return;
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem(
+                TRAINING_ROUTINE_EDIT_TARGET_KEY,
+                JSON.stringify({ routineId, savedAt: Date.now() }),
+              );
+            }
+            if (typeof sessionStorage !== "undefined") {
+              sessionStorage.setItem(COACH_ROUTINE_OWNER_KEY, selectedId);
+              sessionStorage.setItem(
+                COACH_ROUTINE_OWNER_NAME_KEY,
+                String(selectedAthlete?.name || overview?.athlete?.name || ""),
+              );
+              const planId = String(
+                editingPlan?._id ||
+                  editingPlan?.id ||
+                  activePlan?._id ||
+                  activePlan?.id ||
+                  "",
+              );
+              if (planId) {
+                sessionStorage.setItem(COACH_ROUTINE_RETURN_PLAN_KEY, planId);
+              } else {
+                sessionStorage.removeItem(COACH_ROUTINE_RETURN_PLAN_KEY);
+              }
+            }
+            onNavigate("rutinas");
+          }}
           onSave={savePlan}
           onClose={() => {
             setCreatingPlan(false);

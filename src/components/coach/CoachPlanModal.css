@@ -1,0 +1,369 @@
+.plan-editor {
+  --plan-accent: #191918;
+  --plan-tint: #eeebe5;
+  --plan-on-accent: #fffdfa;
+  --plan-line: #ded9d0;
+  --plan-ink: #252422;
+  --plan-shadow: 0 2px 8px rgb(35 33 29 / 4%);
+  font-family: var(--mobile-ui-font, Inter, sans-serif);
+  font-stretch: normal;
+}
+
+.dark .plan-editor {
+  --plan-accent: #eeeae2;
+  --plan-tint: #292826;
+  --plan-on-accent: #191918;
+  --plan-line: #46433f;
+  --plan-ink: #eeeae2;
+  --plan-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.plan-editor .plan-editor__header {
+  border-bottom-color: var(--border);
+  background: var(--card);
+}
+
+.plan-editor .plan-editor__tabs {
+  gap: 2px;
+  padding: 3px;
+  margin: 0 auto 12px;
+  width: calc(100% - 40px);
+  max-width: 472px;
+  border: 1px solid var(--plan-line);
+  border-radius: 12px;
+  background: var(--plan-tint);
+}
+
+.plan-editor .plan-editor__tabs button {
+  position: relative;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 12px;
+  transition:
+    background-color 160ms,
+    color 160ms;
+}
+
+.plan-editor .plan-editor__tabs button[aria-selected="true"] {
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+
+.plan-editor .plan-editor__athlete {
+  border-color: var(--plan-line);
+  box-shadow: var(--plan-shadow);
+  padding: 12px 14px;
+  border-radius: 18px;
+}
+
+.plan-editor .plan-editor__athlete h3 {
+  font-size: 16px;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.plan-editor .plan-editor__athlete p {
+  line-height: 1.5;
+}
+
+.plan-editor #plan-tab-content h1 {
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+
+.plan-editor #plan-tab-content .plan-editor__followup h1 {
+  font-size: 18px;
+  letter-spacing: -0.025em;
+  text-transform: none;
+  color: var(--text);
+}
+
+.plan-editor .plan-editor__general > header p,
+.plan-editor .plan-editor__week > header p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.plan-editor .plan-editor__general fieldset button[aria-pressed="true"],
+.plan-editor .plan-editor__segmented button[aria-pressed="true"] {
+  background: var(--plan-accent);
+  border-color: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+
+.plan-editor .plan-editor__general fieldset:first-of-type button {
+  min-height: 48px;
+  border-radius: 14px;
+  text-align: left;
+  padding-inline: 14px;
+}
+
+.plan-editor
+  .plan-editor__general
+  fieldset:first-of-type
+  button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--plan-accent);
+}
+
+.plan-editor .plan-editor__segmented {
+  padding: 4px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.plan-editor .plan-editor__segmented button {
+  border-radius: 10px;
+}
+
+.plan-editor .plan-editor__dates,
+.plan-editor .plan-editor__session,
+.plan-editor .plan-editor__task {
+  box-shadow: var(--plan-shadow);
+  border-radius: 12px;
+}
+
+.plan-editor .plan-editor__dates > div > label {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.plan-editor .plan-editor__task > div:first-child {
+  padding: 9px 12px;
+}
+
+.plan-editor .plan-editor__task-icon {
+  background: transparent;
+  color: var(--text);
+  width: 28px;
+  height: 34px;
+}
+
+.plan-editor .plan-editor__task:has([aria-expanded="true"]) {
+  border-color: var(--plan-line);
+}
+
+.plan-editor button[role="switch"][aria-checked="true"] {
+  background: var(--plan-accent);
+}
+
+.plan-editor input:not([type="checkbox"]),
+.plan-editor select,
+.plan-editor textarea {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.plan-editor :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--plan-accent);
+  outline-offset: 3px;
+}
+
+.plan-editor .plan-editor__footer {
+  background: var(--card);
+  box-shadow: 0 -4px 20px rgb(35 33 29 / 4%);
+}
+
+.plan-editor .plan-editor__footer button {
+  min-height: 50px;
+  border-radius: 16px;
+}
+
+@media (hover: hover) {
+  .plan-editor .plan-editor__tabs button:not([aria-selected="true"]):hover,
+  .plan-editor .plan-editor__session:hover {
+    background: var(--plan-tint);
+  }
+}
+
+.plan-editor .plan-editor__footer button {
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+
+.plan-editor .plan-editor__general > label > input {
+  height: 48px;
+  border-radius: 10px;
+  padding-inline: 14px;
+}
+
+.plan-editor .plan-editor__name-hint,
+.plan-editor .plan-editor__followup-hint,
+.plan-editor .plan-editor__mission-hint {
+  display: none;
+}
+
+.plan-editor .plan-editor__dates {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.plan-editor .plan-editor__dates > div {
+  margin-top: 0;
+  gap: 12px;
+}
+
+.plan-editor .plan-editor__dates label > input,
+.plan-editor .plan-editor__dates label > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 46px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--plan-line);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.plan-editor .plan-editor__dates label > input {
+  display: block;
+  font-size: 14px;
+}
+
+.plan-editor .plan-editor__day-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+
+.plan-editor .plan-editor__day-badge > span {
+  font-size: 10px;
+}
+.plan-editor .plan-editor__day-badge > strong {
+  font-size: 23px;
+  line-height: 1.1;
+}
+.plan-editor .plan-editor__session {
+  min-height: 80px;
+}
+.plan-editor .plan-editor__session > span:nth-child(2) > strong {
+  font-size: 16px;
+}
+
+.plan-editor .plan-editor__count {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--plan-tint);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-editor .plan-editor__rest {
+  background: var(--plan-tint);
+}
+.plan-editor .plan-editor__add {
+  min-height: 52px;
+}
+.plan-editor .plan-editor__routine-search {
+  box-shadow: var(--plan-shadow);
+}
+.plan-editor .plan-editor__routine-search input {
+  height: 100%;
+  padding: 0;
+  border: 0;
+}
+.plan-editor .plan-editor__routine-option {
+  box-shadow: var(--plan-shadow);
+  transition:
+    border-color 160ms,
+    background-color 160ms,
+    transform 160ms;
+}
+.plan-editor .plan-editor__routine-option[aria-pressed="true"] {
+  border-color: var(--plan-accent);
+}
+.plan-editor .plan-editor__routine-icon {
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+.plan-editor .plan-editor__day-activity {
+  border: 1px solid var(--plan-line);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 24%);
+}
+.plan-editor .plan-editor__day-activity-option {
+  box-shadow: var(--plan-shadow);
+  transition:
+    border-color 160ms,
+    background-color 160ms,
+    transform 160ms;
+}
+.plan-editor .plan-editor__day-activity-option[aria-pressed="true"] {
+  border-color: var(--plan-accent);
+}
+.plan-editor .plan-editor__day-activity-icon {
+  background: var(--plan-tint);
+  color: var(--plan-ink);
+}
+.plan-editor
+  .plan-editor__day-activity-option[aria-pressed="true"]
+  .plan-editor__day-activity-icon {
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+.plan-editor .plan-editor__source {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.plan-editor .plan-editor__source > div {
+  border: 1px solid var(--plan-line);
+}
+.plan-editor .plan-editor__source button[aria-pressed="true"] {
+  background: var(--plan-accent);
+  color: var(--plan-on-accent);
+}
+.plan-editor .plan-editor__required {
+  padding-inline: 0;
+  border-top: 1px solid var(--plan-line);
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  margin-top: 12px;
+}
+.plan-editor .plan-editor__task-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.plan-editor .plan-editor__athlete p > span:first-child {
+  display: none;
+}
+
+@media (hover: hover) {
+  .plan-editor .plan-editor__routine-option:hover,
+  .plan-editor .plan-editor__day-activity-option:hover {
+    border-color: var(--plan-accent);
+    background: var(--plan-tint);
+  }
+}
+
+@media (min-width: 380px) {
+  .plan-editor .plan-editor__task .grid:has(label:nth-of-type(3)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .plan-editor .plan-editor__task .grid:has(label:nth-of-type(3)) > label {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .plan-editor .plan-editor__general fieldset:first-of-type button {
+    padding-inline: 8px;
+    gap: 6px;
+    font-size: 12px;
+  }
+}

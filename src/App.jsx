@@ -137,6 +137,8 @@ const PAGE_ROLES = {
 const SNAPSHOT_KEY = "active_training_snapshot";
 const LEGACY_TRAINING_KEY = "active_training";
 const COACH_ATHLETE_KEY = "coach_athlete_context";
+const COACH_ROUTINE_OWNER_KEY = "rirfit_coach_routine_owner";
+const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
 const COACH_ALLOWED_PAGES = new Set([
   "trainer",
   "coach_athletes",
@@ -285,6 +287,13 @@ function App() {
 
   useEffect(() => {
     setPageHidesMobileNavigation(false);
+  }, [activePage]);
+
+  useEffect(() => {
+    if (activePage !== "rutinas" && typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(COACH_ROUTINE_OWNER_KEY);
+      sessionStorage.removeItem(COACH_ROUTINE_OWNER_NAME_KEY);
+    }
   }, [activePage]);
 
   useEffect(() => {
@@ -621,19 +630,24 @@ function App() {
   );
   const PageComponent = pageEntry.component;
   const allowedRoles = PAGE_ROLES[activePage] || [];
+  const routineEditorOwnerId =
+    activePage === "rutinas" && typeof sessionStorage !== "undefined"
+      ? String(sessionStorage.getItem(COACH_ROUTINE_OWNER_KEY) || "")
+      : "";
   const supervisedOwnerId =
     ["Admin", "Entrenador"].includes(user?.role) &&
-    [
-      "registrar",
-      "ejercicio_analitica",
-      "editor_historial",
-      "resumen_sesion",
-      "data_intelligence",
-      "pesajes",
-      "hidratacion",
-      "medidas",
-    ].includes(activePage)
-      ? coachAthlete?.id || ""
+    (routineEditorOwnerId ||
+      [
+        "registrar",
+        "ejercicio_analitica",
+        "editor_historial",
+        "resumen_sesion",
+        "data_intelligence",
+        "pesajes",
+        "hidratacion",
+        "medidas",
+      ].includes(activePage))
+      ? routineEditorOwnerId || coachAthlete?.id || ""
       : "";
   const authenticatedUserId = String(user?.id || user?._id || "anonymous");
   const providerScopeKey = `${authenticatedUserId}:${supervisedOwnerId || "self"}`;
@@ -749,6 +763,7 @@ function App() {
                         onNavigate={handleNavigate}
                         onBack={handleBack}
                         coachAthlete={coachAthlete}
+                        dataOwnerId={supervisedOwnerId}
                         onSelectCoachAthlete={selectCoachAthlete}
                         onMobileNavVisibilityChange={
                           handleMobileNavVisibilityChange

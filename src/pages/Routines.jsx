@@ -635,6 +635,8 @@ const ROUTINE_TYPES = [
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
+const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
+const COACH_ROUTINE_RETURN_PLAN_KEY = "rirfit_coach_routine_return_plan";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
 const COACH_PLAN_TEMPLATE_ASSIGNMENT_KEY =
   "rirfit_coach_plan_template_assignment";
@@ -1078,6 +1080,7 @@ export function RoutineModal({
   locationMode = "single",
   defaultBranch = "sopocachi",
   allowedBranches = BRANCH_OPTIONS,
+  contextLabel = "",
 }) {
   const [routineId] = useState(
     () =>
@@ -2062,7 +2065,7 @@ export function RoutineModal({
     <Modal
       mobilePage
       title={mode === "create" ? "Nueva rutina" : "Editar rutina"}
-      subtitle={null}
+      subtitle={contextLabel || null}
       onClose={requestClose}
       size={isSetupStep ? "default" : "wide"}
       headerAction={
@@ -2119,6 +2122,21 @@ export function RoutineModal({
       }
     >
       <div className="pb-3 text-[color:var(--text)]">
+        {contextLabel ? (
+          <div className="mb-4 flex min-h-12 items-center gap-3 rounded-[14px] bg-[color:var(--surface-subtle)] px-3 py-2.5">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[color:var(--card)]">
+              <UserRoundPlus className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <strong className="block text-sm font-semibold">
+                Rutina del alumno
+              </strong>
+              <span className="block truncate text-xs text-[color:var(--text-muted)]">
+                {contextLabel}
+              </span>
+            </span>
+          </div>
+        ) : null}
         {mode === "create" ? (
           <div
             className="mb-5 grid grid-cols-2 gap-1.5"
@@ -5148,7 +5166,12 @@ function RoutineDetailsModal({
   );
 }
 
-function Routines({ onNavigate, onMobileNavVisibilityChange }) {
+function Routines({
+  onNavigate,
+  onMobileNavVisibilityChange,
+  dataOwnerId = "",
+  coachAthlete = null,
+}) {
   const queryClient = useQueryClient();
   const dashboardBootstrap = useDashboardBootstrap();
   const { user } = useAuth();
@@ -5156,6 +5179,10 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+  const routineOwnerName =
+    dataOwnerId && typeof sessionStorage !== "undefined"
+      ? String(sessionStorage.getItem(COACH_ROUTINE_OWNER_NAME_KEY) || "")
+      : "";
   const handleRoutineOptionsToggle = useCallback((event) => {
     const currentMenu = event.currentTarget;
 
@@ -5290,8 +5317,15 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
   );
   const { data: archivedRoutineData = [], refetch: refreshArchivedRoutines } =
     useQuery({
-      queryKey: ["archived-routines", user?.id || user?._id || "self"],
-      queryFn: () => api.getRoutines({ includeArchived: true }),
+      queryKey: [
+        "archived-routines",
+        dataOwnerId || user?.id || user?._id || "self",
+      ],
+      queryFn: () =>
+        api.getRoutines({
+          includeArchived: true,
+          athleteId: dataOwnerId,
+        }),
       enabled: (showArchivedRoutines || isCoach) && !isManagedClient,
       staleTime: 30 * 1000,
     });
@@ -5871,10 +5905,9 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
 
   useEffect(() => {
     if (!editTargetRoutineId || isManagedClient) return;
-    const target = routines.find(
+    const target = [...routines, ...archivedRoutineData].find(
       (routine) =>
-        routine.id === editTargetRoutineId ||
-        routine._id === editTargetRoutineId,
+        String(routine.id || routine._id) === String(editTargetRoutineId),
     );
     if (!target) return;
     // This effect bridges a navigation intent stored before the page mounted.
@@ -5886,7 +5919,7 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
     if (typeof localStorage !== "undefined") {
       localStorage.removeItem(TRAINING_ROUTINE_EDIT_TARGET_KEY);
     }
-  }, [editTargetRoutineId, isManagedClient, routines]);
+  }, [archivedRoutineData, editTargetRoutineId, isManagedClient, routines]);
 
   const closeModal = () => {
     setSelectedRoutine(null);
@@ -5964,6 +5997,24 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
       );
     }
     closeModal();
+    if (isCoach && dataOwnerId && typeof sessionStorage !== "undefined") {
+      const returnPlanId = String(
+        sessionStorage.getItem(COACH_ROUTINE_RETURN_PLAN_KEY) || "",
+      );
+      sessionStorage.setItem(
+        "rirfit_coach_selected_athlete",
+        String(dataOwnerId),
+      );
+      sessionStorage.setItem("rirfit_coach_requested_view", "plan");
+      if (returnPlanId) {
+        sessionStorage.setItem("rirfit_coach_requested_plan", returnPlanId);
+      } else {
+        sessionStorage.removeItem("rirfit_coach_requested_plan");
+      }
+      sessionStorage.removeItem(COACH_ROUTINE_RETURN_PLAN_KEY);
+      onNavigate?.("coach_athletes", { replace: true });
+      return;
+    }
     if (routine.trainingPlanId) {
       await refreshPlans();
     }
@@ -7447,6 +7498,11 @@ function Routines({ onNavigate, onMobileNavVisibilityChange }) {
           locationMode={locationMode}
           defaultBranch={preferredBranch}
           allowedBranches={allowedBranches}
+          contextLabel={
+            dataOwnerId
+              ? `Personalizada para ${coachAthlete?.name || routineOwnerName || "el alumno"}`
+              : ""
+          }
           onRetryLibrary={() => window.location.reload()}
           onSave={handleSave}
           onClose={closeModal}

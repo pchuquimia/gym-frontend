@@ -44,6 +44,14 @@ describe("userFlow", () => {
     expect(getManagedAthleteJourneyStage(user, null, true)).toBe(
       "plan_assigned",
     );
+    expect(
+      getManagedAthleteJourneyStage(user, null, false, { status: "draft" }),
+    ).toBe("plan_drafting");
+    expect(
+      getManagedAthleteJourneyStage(user, null, false, {
+        status: "scheduled",
+      }),
+    ).toBe("plan_scheduled");
   });
 
   it("no confunde un onboarding antiguo con una evaluacion del coach", () => {

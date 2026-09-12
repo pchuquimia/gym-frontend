@@ -21,12 +21,16 @@ export const getManagedAthleteJourneyStage = (
   user,
   activePlan = null,
   hasPendingPlanFollowUp = false,
+  planning = null,
 ) => {
   if (!isCoachManagedClient(user)) return null;
   if (needsCoachIntake(user)) return "evaluation_pending";
-  return activePlan || hasPendingPlanFollowUp
-    ? "plan_assigned"
-    : "evaluation_submitted";
+  if (activePlan || planning?.status === "active" || hasPendingPlanFollowUp) {
+    return "plan_assigned";
+  }
+  if (planning?.status === "scheduled") return "plan_scheduled";
+  if (planning?.status === "draft") return "plan_drafting";
+  return "evaluation_submitted";
 };
 
 export const getUserHome = (user) => {

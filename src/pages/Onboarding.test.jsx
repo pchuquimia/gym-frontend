@@ -44,7 +44,18 @@ describe("Onboarding managed evaluation", () => {
     window.sessionStorage.clear();
     vi.clearAllMocks();
     auth.completeOnboarding.mockResolvedValue({});
-    mocks.getCoachIntakeForm.mockResolvedValue({ questions: [] });
+    mocks.getCoachIntakeForm.mockResolvedValue({
+      version: "form-v1",
+      questions: [
+        {
+          key: "notes",
+          label: "¿Hay algo más que tu coach deba saber?",
+          type: "long_text",
+          required: false,
+          options: [],
+        },
+      ],
+    });
   });
 
   const setManagedUser = (profile) => {
@@ -99,11 +110,66 @@ describe("Onboarding managed evaluation", () => {
     );
 
     await waitFor(() => expect(auth.completeOnboarding).toHaveBeenCalled());
+    expect(auth.completeOnboarding).toHaveBeenCalledWith(
+      expect.objectContaining({ intakeSettingsVersion: "form-v1" }),
+    );
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
       "Formulario enviado",
       expect.any(Object),
     );
     expect(onNavigate).toHaveBeenCalledWith("dashboard", { replace: true });
+  });
+
+  it("lleva a un alumno ya configurado directamente a las preguntas", async () => {
+    setManagedUser({ weight: 60 });
+    window.localStorage.removeItem("rirfit_onboarding_draft");
+
+    render(<Onboarding />);
+
+    expect(await screen.findByText("Pregunta 1 de 1")).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: /objetivo principal/i }),
+    ).toBeNull();
+  });
+
+  it("muestra una recuperación clara cuando falla la carga", async () => {
+    setManagedUser({ weight: 60 });
+    mocks.getCoachIntakeForm.mockRejectedValueOnce(new Error("Sin conexión"));
+
+    render(<Onboarding />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /no pudimos abrir la evaluación/i,
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /reintentar/i })).toBeVisible();
+  });
+
+  it("descarta respuestas antiguas si el coach cambió el formulario", async () => {
+    setManagedUser({ weight: 60 });
+    window.localStorage.setItem(
+      "rirfit_onboarding_draft",
+      JSON.stringify({
+        step: 3,
+        intakeCoachId: "coach-1",
+        intakeSettingsVersion: "form-anterior",
+        intakeQuestionIndex: 4,
+        intakeAnswers: { old_question: "Respuesta anterior" },
+      }),
+    );
+
+    render(<Onboarding />);
+
+    await screen.findByText("Pregunta 1 de 1");
+    await waitFor(() => {
+      const draft = JSON.parse(
+        window.localStorage.getItem("rirfit_onboarding_draft"),
+      );
+      expect(draft.intakeSettingsVersion).toBe("form-v1");
+      expect(draft.intakeQuestionIndex).toBe(0);
+      expect(draft.intakeAnswers).toEqual({});
+    });
   });
 });
 

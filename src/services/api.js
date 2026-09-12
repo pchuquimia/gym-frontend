@@ -137,6 +137,9 @@ export const api = {
   getCoachNotifications: () => request("/api/coach/notifications"),
   markCoachNotificationsRead: () =>
     request("/api/coach/notifications/read", { method: "POST" }),
+  getNotifications: () => request("/api/notifications"),
+  markNotificationsRead: () =>
+    request("/api/notifications/read", { method: "POST" }),
   getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),
   getCoachLinkCode: () => request("/api/coach/link-code"),
   regenerateCoachLinkCode: () =>
@@ -226,10 +229,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  updateCoachPlanStatus: (athleteId, planId, status) =>
+  updateCoachPlanStatus: (athleteId, planId, status, notifyAthlete = true) =>
     request(`/api/coach/athletes/${athleteId}/plans/${planId}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, notifyAthlete }),
     }),
   updateCoachPlan: (athleteId, planId, payload) =>
     request(`/api/coach/athletes/${athleteId}/plans/${planId}`, {

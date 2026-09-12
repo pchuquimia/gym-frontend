@@ -65,8 +65,11 @@ describe("MobileDailyPlan", () => {
         },
       },
     });
-    expect(screen.getAllByText("Evaluación enviada")).toHaveLength(2);
-    expect(screen.getByText("Tu plan está en preparación")).toBeVisible();
+    expect(screen.getByText("Evaluación enviada")).toBeVisible();
+    expect(
+      screen.getByText("Tu coach está preparando tu plan"),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Actividad semanal")).toBeNull();
     expect(screen.queryByText("Comenzar entrenamiento")).toBeNull();
   });
 
@@ -89,12 +92,54 @@ describe("MobileDailyPlan", () => {
         subtitle: "1.400 de 2.500 ml",
         completed: false,
       },
+      trackingMissions: [
+        {
+          id: "weight-today",
+          type: "weight",
+          title: "Peso de seguimiento",
+          subtitle: "Registrar peso actual",
+          required: true,
+          completed: false,
+        },
+      ],
     });
     expect(screen.getByText("Misión de hoy")).toBeVisible();
-    expect(screen.getByText("1 de 2")).toBeVisible();
-    expect(screen.getByText("Opcional")).toBeVisible();
+    expect(screen.getByText("1 de 3")).toBeVisible();
+    expect(screen.getByText("Otros registros")).toBeVisible();
+    const workoutAction = screen.getByRole("button", {
+      name: "Comenzar entrenamiento",
+    });
+    expect(workoutAction).toBeVisible();
+    expect(workoutAction).toHaveClass("mobile-daily-plan__workout-action");
     expect(
-      screen.getByRole("button", { name: "Comenzar entrenamiento" }),
+      screen.getByRole("button", { name: /Peso de seguimiento/ }),
+    ).toHaveClass("is-tracking");
+  });
+
+  it("distingue un borrador de un plan programado", () => {
+    const { rerender } = renderPlan({
+      journeyStage: "plan_drafting",
+      planningContext: { status: "draft", name: "Bloque inicial" },
+    });
+    expect(
+      screen.getByText("Tu coach está preparando tu plan"),
     ).toBeVisible();
+    expect(screen.queryByText("Misión de hoy")).toBeNull();
+
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MobileDailyPlan
+          {...baseProps}
+          journeyStage="plan_scheduled"
+          planningContext={{
+            status: "scheduled",
+            name: "Bloque inicial",
+            startDate: "2026-09-14T00:00:00.000Z",
+          }}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Tu plan está listo")).toBeVisible();
+    expect(screen.getByText(/Bloque inicial comenzará/)).toBeVisible();
   });
 });

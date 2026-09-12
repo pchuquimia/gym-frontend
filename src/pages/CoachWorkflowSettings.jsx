@@ -18,7 +18,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
-  ArrowRight,
   Camera,
   Check,
   ChevronDown,
@@ -37,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/shared/Modal";
+import CoachIntakeQuestionnaire from "../components/coach/CoachIntakeQuestionnaire";
 import OperationLoader from "../components/system/OperationLoader";
 import { api } from "../services/api";
 
@@ -624,234 +624,17 @@ function QuestionCard({ question, index, onChange, onDelete }) {
   );
 }
 
-function PreviewQuestion({ question, answer, onAnswer }) {
-  const options = question.options?.length
-    ? question.options
-    : ["Opción 1", "Opción 2"];
-  const typeLabels = {
-    short_text: "Respuesta abierta",
-    long_text: "Respuesta abierta de varias líneas",
-    number: "Respuesta numérica",
-    single_choice: "Elige una opción",
-    multiple_choice: "Elige una o varias",
-    yes_no: "Decisión binaria",
-  };
-  const fieldClass =
-    "w-full rounded-[1.5rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-4 text-base text-[color:var(--text)] outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)]";
-
-  return (
-    <fieldset>
-      <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-        {typeLabels[question.type] || "Respuesta"}
-      </legend>
-      <h4 className="mt-4 font-serif text-[clamp(1.8rem,7vw,2.35rem)] font-semibold leading-[1.08] tracking-[-0.025em] text-[color:var(--text)]">
-        {question.label}
-      </h4>
-
-      {question.type === "long_text" ? (
-        <textarea
-          value={answer || ""}
-          onChange={(event) => onAnswer(event.target.value)}
-          rows={6}
-          placeholder="Escribe tu respuesta..."
-          className={`${fieldClass} mt-7 resize-none py-4`}
-        />
-      ) : null}
-      {question.type === "short_text" ? (
-        <input
-          type="text"
-          value={answer || ""}
-          onChange={(event) => onAnswer(event.target.value)}
-          placeholder="Escribe tu respuesta..."
-          className={`${fieldClass} mt-7 h-16`}
-        />
-      ) : null}
-      {question.type === "number" ? (
-        <input
-          type="number"
-          value={answer || ""}
-          onChange={(event) => onAnswer(event.target.value)}
-          placeholder="Ingresa un número"
-          className={`${fieldClass} mt-7 h-20 text-center font-serif text-3xl`}
-        />
-      ) : null}
-      {question.type === "yes_no" ? (
-        <div className="mt-7">
-          <div className="grid grid-cols-2 gap-3">
-            {["Sí", "No"].map((option) => {
-              const selected = answer?.value === option;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() =>
-                    onAnswer({
-                      value: option,
-                      detail:
-                        answer?.value === option ? answer.detail || "" : "",
-                    })
-                  }
-                  className={`h-20 rounded-[1.5rem] border text-lg font-semibold transition ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--detail-module-border)] bg-[color:var(--card)] text-[color:var(--text)]"}`}
-                >
-                  {option}
-                </button>
-              );
-            })}
-          </div>
-          {answer?.value === "Sí" && question.detailPrompt ? (
-            <label className="mt-5 block">
-              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                {question.detailPrompt}{" "}
-                {!question.detailRequired ? (
-                  <span className="normal-case">(opcional)</span>
-                ) : null}
-              </span>
-              <input
-                type="text"
-                value={answer.detail || ""}
-                onChange={(event) =>
-                  onAnswer({ ...answer, detail: event.target.value })
-                }
-                placeholder="Escribe los detalles..."
-                className={`${fieldClass} mt-2 h-14`}
-              />
-            </label>
-          ) : null}
-        </div>
-      ) : null}
-      {question.type === "single_choice" ? (
-        <div className="mt-7 grid gap-3">
-          {options.map((option) => {
-            const selected = answer === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onAnswer(option)}
-                className={`min-h-14 rounded-[1.5rem] border px-5 text-left text-base font-medium transition ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--detail-module-border)] bg-[color:var(--card)] text-[color:var(--text)]"}`}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {question.type === "multiple_choice" ? (
-        <div className="mt-7 grid gap-3">
-          {options.map((option) => {
-            const selected = Array.isArray(answer) && answer.includes(option);
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={selected}
-                onClick={() =>
-                  onAnswer(
-                    selected
-                      ? answer.filter((item) => item !== option)
-                      : [...(Array.isArray(answer) ? answer : []), option],
-                  )
-                }
-                className={`flex min-h-14 items-center justify-between rounded-[1.5rem] border px-5 text-left text-base font-medium transition ${selected ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--detail-module-border)] bg-[color:var(--card)] text-[color:var(--text)]"}`}
-              >
-                {option}
-                {selected ? <Check className="h-5 w-5" /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </fieldset>
-  );
-}
-
 function WorkflowPreview({ questions, onClose }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-  const question = questions[currentIndex];
-  const progress = ((currentIndex + 1) / questions.length) * 100;
-
-  const goBack = () => {
-    if (currentIndex === 0) onClose();
-    else setCurrentIndex((current) => current - 1);
-  };
-
-  const goForward = () => {
-    if (currentIndex === questions.length - 1) onClose();
-    else setCurrentIndex((current) => current + 1);
-  };
-
-  if (!question) return null;
-
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        goForward();
-      }}
-      className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col bg-[color:var(--surface-subtle)] sm:min-h-[680px]"
-    >
-      <div className="px-5 pt-5">
-        <div className="flex items-center justify-between gap-4 text-xs font-medium uppercase tracking-wide">
-          <span className="text-[color:var(--text-muted)]">
-            Pregunta {currentIndex + 1} de {questions.length}
-          </span>
-          <span className="normal-case tracking-normal text-[color:var(--text)]">
-            {question.required ? "Obligatoria" : "Opcional"}
-          </span>
-        </div>
-        <div className="mt-3 h-1 overflow-hidden rounded-full bg-[color:var(--detail-row-divider)]">
-          <div
-            className="h-full rounded-full bg-[color:var(--accent)] transition-[width]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 px-5 pb-8 pt-8">
-        <PreviewQuestion
-          question={question}
-          answer={answers[question.key]}
-          onAnswer={(answer) =>
-            setAnswers((current) => ({
-              ...current,
-              [question.key]: answer,
-            }))
-          }
-        />
-      </div>
-
-      <div className="sticky bottom-0 border-t border-[color:var(--detail-row-divider)] bg-[color:var(--surface-subtle)]/95 px-5 py-4 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={goBack}
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-[color:var(--detail-module-border)] bg-[color:var(--card)]"
-            aria-label={currentIndex === 0 ? "Cerrar vista previa" : "Anterior"}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="submit"
-            className="theme-accent-solid flex h-14 flex-1 items-center justify-center gap-3 rounded-full text-base font-semibold"
-          >
-            {currentIndex === questions.length - 1 ? "Finalizar" : "Continuar"}
-            <ArrowRight className="h-5 w-5" />
-          </button>
-        </div>
-        {!question.required ? (
-          <button
-            type="button"
-            onClick={goForward}
-            className="mt-3 w-full text-center text-sm text-[color:var(--text-muted)]"
-          >
-            Saltar
-          </button>
-        ) : null}
-      </div>
-    </form>
+    <CoachIntakeQuestionnaire
+      questions={questions}
+      answers={answers}
+      onAnswersChange={setAnswers}
+      onComplete={onClose}
+      onBack={onClose}
+      submitLabel="Finalizar"
+    />
   );
 }
 
@@ -877,17 +660,7 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
     let active = true;
     api
       .getCoachWorkflowSettings()
-      .then(
-        (data) =>
-          active &&
-          setSettings({
-            ...data,
-            intakeQuestions: data.intakeQuestions.map((question) => ({
-              ...question,
-              enabled: true,
-            })),
-          }),
-      )
+      .then((data) => active && setSettings(data))
       .catch((error) =>
         toast.error(error.message || "No se pudo cargar la configuración"),
       )
@@ -901,6 +674,11 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
     () =>
       settings?.intakeQuestions?.filter((question) => question.enabled)
         .length || 0,
+    [settings],
+  );
+  const previewQuestions = useMemo(
+    () =>
+      settings?.intakeQuestions?.filter((question) => question.enabled) || [],
     [settings],
   );
   const enabledFollowUps = useMemo(
@@ -982,6 +760,11 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
 
   const save = async () => {
     if (saving) return;
+    if (!enabledQuestions) {
+      toast.error("Activa al menos una pregunta para el alumno");
+      setTab("evaluation");
+      return;
+    }
     const empty = settings.intakeQuestions.find(
       (question) => !question.label.trim(),
     );
@@ -1109,7 +892,8 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setPreviewOpen(true)}
-                  className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
+                  disabled={!enabledQuestions}
+                  className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-3 text-xs font-semibold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Eye className="h-4 w-4" /> Vista previa
                 </button>
@@ -1402,7 +1186,7 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
           contentClassName="!p-0 bg-[color:var(--surface-subtle)]"
         >
           <WorkflowPreview
-            questions={settings.intakeQuestions}
+            questions={previewQuestions}
             onClose={() => setPreviewOpen(false)}
           />
         </Modal>
