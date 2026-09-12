@@ -1,19 +1,33 @@
 import { motion, useReducedMotion } from "framer-motion";
-import {
-  Bell,
-  Check,
-  ChevronRight,
-  ClipboardCheck,
-  Clock3,
-  Dumbbell,
-  MoonStar,
-  Camera,
-  Ruler,
-  Scale,
-} from "lucide-react";
+import { Bell, Check, ChevronRight, Clock3 } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
 
 const WEEKDAY_LABELS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+const DAILY_CARD_IMAGES = Object.freeze({
+  checkIn: "/images/daily-checkin-card.webp",
+  completed: "/images/daily-plan-ready-card.webp",
+  finalAssessment: "/images/daily-final-assessment-card.webp",
+  hydration: "/images/daily-hydration-card.webp",
+  measurements: "/images/daily-measurements-card.webp",
+  photos: "/images/daily-progress-photos-card.webp",
+  plan: "/images/daily-planning-card.webp",
+  ready: "/images/daily-plan-ready-card.webp",
+  recovery: "/images/daily-recovery-card.webp",
+  weight: "/images/daily-weight-card.webp",
+});
+
+function CardThumbnail({ src }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width="512"
+      height="512"
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
 
 const formatHeaderDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -130,8 +144,6 @@ function CoachContext({ coach, activePlan, onOpen }) {
             name={coachName}
             className="h-full w-full"
           />
-        ) : activePlan ? (
-          <Dumbbell aria-hidden="true" />
         ) : (
           <ProfileAvatar name={coachName} className="h-full w-full" />
         )}
@@ -166,6 +178,11 @@ function ManagedOnboarding({
     : scheduled
       ? `${planning?.name || "Tu nueva planificación"} comenzará${planning?.startDate ? ` el ${new Date(planning.startDate).toLocaleDateString("es-BO", { day: "numeric", month: "long", timeZone: "UTC" })}` : " pronto"}.`
       : `${coach?.name || "Tu coach"} ya recibió tu evaluación y está definiendo tus entrenamientos.`;
+  const thumbnail = pending
+    ? DAILY_CARD_IMAGES.checkIn
+    : scheduled
+      ? DAILY_CARD_IMAGES.ready
+      : DAILY_CARD_IMAGES.plan;
   return (
     <>
       <section className="mobile-daily-plan__onboarding">
@@ -174,8 +191,8 @@ function ManagedOnboarding({
           {!pending ? <span>Evaluación enviada</span> : null}
         </div>
         <div className="mobile-daily-plan__onboarding-card">
-          <span className="mobile-daily-plan__onboarding-icon">
-            {scheduled ? <Check /> : <ClipboardCheck />}
+          <span className="mobile-daily-plan__onboarding-icon is-image">
+            <CardThumbnail src={thumbnail} />
           </span>
           <div>
             <h3>{title}</h3>
@@ -206,9 +223,12 @@ function CheckInMission({ task, onOpen, readOnly }) {
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className="mobile-daily-plan__mission is-compact"
+      className="mobile-daily-plan__mission is-tracking"
     >
       <MissionStatus completed={task.completed} />
+      <span className="mobile-daily-plan__visual mobile-daily-plan__visual--wellness">
+        <CardThumbnail src={DAILY_CARD_IMAGES.checkIn} />
+      </span>
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
@@ -233,13 +253,15 @@ function WorkoutMission({ task, onOpen, readOnly }) {
         tone={task.type === "rest" ? "rest" : "default"}
       />
       <span className="mobile-daily-plan__visual mobile-daily-plan__visual--workout">
-        {task.image ? (
-          <img src={task.image} alt="" />
-        ) : task.type === "rest" ? (
-          <MoonStar />
-        ) : (
-          <Dumbbell />
-        )}
+        <CardThumbnail
+          src={
+            task.type === "rest"
+              ? DAILY_CARD_IMAGES.recovery
+              : task.type === "completed"
+                ? DAILY_CARD_IMAGES.completed
+                : task.image || "/images/workout-hero-model.webp"
+          }
+        />
       </span>
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
@@ -269,7 +291,7 @@ function HydrationMission({ task, onOpen, readOnly }) {
     >
       <MissionStatus completed={task.completed} />
       <span className="mobile-daily-plan__visual mobile-daily-plan__visual--hydration">
-        <img src="/images/daily-hydration.webp" alt="" />
+        <CardThumbnail src={DAILY_CARD_IMAGES.hydration} />
       </span>
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
@@ -281,10 +303,15 @@ function HydrationMission({ task, onOpen, readOnly }) {
   );
 }
 
-const TRACKING_ICONS = { weight: Scale, photos: Camera, measurements: Ruler };
+const TRACKING_IMAGES = Object.freeze({
+  final_evaluation: DAILY_CARD_IMAGES.finalAssessment,
+  measurements: DAILY_CARD_IMAGES.measurements,
+  photos: DAILY_CARD_IMAGES.photos,
+  weight: DAILY_CARD_IMAGES.weight,
+});
 
 function TrackingMission({ task, onOpen, readOnly }) {
-  const Icon = TRACKING_ICONS[task.type] || ClipboardCheck;
+  const thumbnail = TRACKING_IMAGES[task.type] || DAILY_CARD_IMAGES.checkIn;
   return (
     <button
       type="button"
@@ -294,7 +321,7 @@ function TrackingMission({ task, onOpen, readOnly }) {
     >
       <MissionStatus completed={task.completed} />
       <span className="mobile-daily-plan__visual">
-        <Icon />
+        <CardThumbnail src={thumbnail} />
       </span>
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
@@ -319,7 +346,7 @@ function ActivePlanContext({ plan, onOpen }) {
       className="mobile-daily-plan__plan-card"
     >
       <span>
-        <Dumbbell />
+        <CardThumbnail src={DAILY_CARD_IMAGES.plan} />
       </span>
       <div>
         <strong>{plan.name}</strong>

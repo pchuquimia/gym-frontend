@@ -358,6 +358,7 @@ function Sidebar({
                         type="button"
                         variant="ghost"
                         onClick={() => onNavigate?.(item.id)}
+                        aria-current={isActive ? "page" : undefined}
                         className={`relative flex min-h-9 items-center gap-2.5 rounded-control border px-2.5 py-1.5 font-sans text-[13px] transition-colors duration-150 ${
                           isActive
                             ? "border-[color:var(--accent)] bg-[color:var(--accent)] font-semibold !text-[color:var(--accent-contrast)] shadow-soft"

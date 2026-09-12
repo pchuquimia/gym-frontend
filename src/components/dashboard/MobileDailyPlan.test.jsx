@@ -43,11 +43,14 @@ const renderPlan = (props = {}) => {
 
 describe("MobileDailyPlan", () => {
   it("prioriza la evaluacion al aceptar la invitacion", () => {
-    renderPlan({ journeyStage: "evaluation_pending" });
+    const { container } = renderPlan({ journeyStage: "evaluation_pending" });
     expect(
       screen.getByRole("button", { name: "Comenzar evaluación" }),
     ).toBeVisible();
     expect(screen.queryByText("Misión de hoy")).toBeNull();
+    expect(
+      container.querySelector(".mobile-daily-plan__onboarding-icon img"),
+    ).toHaveAttribute("src", "/images/daily-checkin-card.webp");
   });
 
   it("confirma el envio mientras el coach prepara el plan", () => {
@@ -66,15 +69,13 @@ describe("MobileDailyPlan", () => {
       },
     });
     expect(screen.getByText("Evaluación enviada")).toBeVisible();
-    expect(
-      screen.getByText("Tu coach está preparando tu plan"),
-    ).toBeVisible();
+    expect(screen.getByText("Tu coach está preparando tu plan")).toBeVisible();
     expect(screen.queryByLabelText("Actividad semanal")).toBeNull();
     expect(screen.queryByText("Comenzar entrenamiento")).toBeNull();
   });
 
   it("muestra las misiones y no cuenta la hidratacion opcional", () => {
-    renderPlan({
+    const { container } = renderPlan({
       journeyStage: "plan_assigned",
       activePlanContext: {
         name: "Mes 1 · Adaptación",
@@ -114,6 +115,15 @@ describe("MobileDailyPlan", () => {
     expect(
       screen.getByRole("button", { name: /Peso de seguimiento/ }),
     ).toHaveClass("is-tracking");
+    expect(
+      container.querySelector('img[src="/images/daily-checkin-card.webp"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('img[src="/images/daily-weight-card.webp"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('img[src="/images/daily-planning-card.webp"]'),
+    ).toBeInTheDocument();
   });
 
   it("distingue un borrador de un plan programado", () => {
@@ -121,9 +131,7 @@ describe("MobileDailyPlan", () => {
       journeyStage: "plan_drafting",
       planningContext: { status: "draft", name: "Bloque inicial" },
     });
-    expect(
-      screen.getByText("Tu coach está preparando tu plan"),
-    ).toBeVisible();
+    expect(screen.getByText("Tu coach está preparando tu plan")).toBeVisible();
     expect(screen.queryByText("Misión de hoy")).toBeNull();
 
     rerender(

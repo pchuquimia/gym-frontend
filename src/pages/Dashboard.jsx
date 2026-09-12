@@ -123,6 +123,14 @@ const ROUTINE_DASHBOARD_IMAGES = Object.freeze({
   pull: "/images/routine-pull.webp",
 });
 
+const DASHBOARD_ACTION_IMAGES = Object.freeze({
+  active: "/images/workout-hero-model.webp",
+  completed: "/images/daily-plan-ready-card.webp",
+  empty: "/images/daily-planning-card.webp",
+  rest: "/images/daily-recovery-card.webp",
+  scheduled: "/images/workout-hero-model.webp",
+});
+
 function getRoutineDashboardImage(value = "") {
   const key = String(value).trim().toLocaleLowerCase("es").replace(/\s+/g, " ");
   return ROUTINE_DASHBOARD_IMAGES[key] || "/images/workout-hero-model.webp";
@@ -857,10 +865,10 @@ function PeriodComparisonPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#e2ff00]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#f5f1e8]">
                 Semana actual vs anterior
               </p>
-              <span className="border border-[#181918]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#181918] dark:border-[#e2ff00]/30 dark:text-[#e2ff00]">
+              <span className="border border-[#181918]/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#181918] dark:border-[#f5f1e8]/30 dark:text-[#f5f1e8]">
                 Pro
               </span>
             </div>
@@ -875,7 +883,7 @@ function PeriodComparisonPanel({
           <button
             type="button"
             onClick={onUpgrade}
-            className="h-10 shrink-0 bg-[#181918] px-4 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="h-10 shrink-0 bg-[#181918] px-4 text-xs font-black uppercase text-white dark:bg-[#f5f1e8] dark:text-black"
           >
             Ver Premium
           </button>
@@ -968,7 +976,7 @@ function PeriodComparisonPanel({
     <section className="dashboard-pilot__card dashboard-pilot__comparison border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#181918] dark:text-[#f5f1e8]">
             Semana actual vs anterior
           </p>
           <h2 className="mt-1 text-lg font-black uppercase text-[color:var(--text)]">
@@ -994,7 +1002,7 @@ function PeriodComparisonPanel({
               <p className="truncate text-[9px] font-black uppercase text-[color:var(--text-muted)]">
                 {label}
               </p>
-              <Icon className="h-3.5 w-3.5 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[#181918] dark:text-[#f5f1e8]" />
             </div>
             <p className="mt-2 text-xl font-black text-[color:var(--text)]">
               {value}
@@ -1026,7 +1034,7 @@ function WeekStrip({ days }) {
           <p
             className={`mt-1 h-4 text-[9px] font-black ${
               day.trained
-                ? "text-[#181918] dark:text-[#e2ff00]"
+                ? "text-[#181918] dark:text-[#f5f1e8]"
                 : "text-[#c9c9c9] dark:text-[#454545]"
             }`}
           >
@@ -1069,7 +1077,7 @@ function MonthActivityChart({
 
   return (
     <section
-      className={`dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none ${className}`}
+      className={`dashboard-month-card rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:shadow-none ${className}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -1100,7 +1108,7 @@ function MonthActivityChart({
                     : "Descanso"}
             </span>
             {selectedDay.incompleteSets > 0 ? (
-              <span className="ml-1 text-[#101110] dark:text-[#e2ff00]">
+              <span className="ml-1 text-[#101110] dark:text-[#f5f1e8]">
                 · {selectedDay.incompleteSets}{" "}
                 {selectedDay.incompleteSets === 1 ? "pendiente" : "pendientes"}
               </span>
@@ -1169,8 +1177,8 @@ function MonthActivityChart({
                         <motion.span
                           className={`absolute inset-x-0 bottom-0 block ${
                             overloaded
-                              ? "bg-[#101110] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#e2ff00] dark:shadow-[0_0_10px_rgba(226,255,0,0.3)]"
-                              : "bg-[#181918] dark:bg-[#b8d000]"
+                              ? "bg-[#101110] shadow-[0_0_8px_rgba(42,23,17,0.2)] dark:bg-[#f5f1e8] dark:shadow-[0_0_10px_rgba(245,241,232,0.2)]"
+                              : "bg-[#181918] dark:bg-[#d8d3ca]"
                           }`}
                           initial={
                             reduceMotion
@@ -1192,7 +1200,7 @@ function MonthActivityChart({
                   <span
                     className={`mt-1 grid h-4 min-w-4 place-items-center rounded-[2px] px-0.5 text-[8px] font-black leading-none md:text-[9px] ${
                       day.isToday
-                        ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
+                        ? "bg-[#181918] text-white dark:bg-[#f5f1e8] dark:text-black"
                         : "text-[color:var(--text-muted)]"
                     }`}
                   >
@@ -1244,7 +1252,7 @@ function CollapsibleSection({
 }) {
   return (
     <section
-      className={`dashboard-trend-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none ${className}`}
+      className={`dashboard-trend-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:shadow-none ${className}`}
     >
       <button
         type="button"
@@ -1253,7 +1261,7 @@ function CollapsibleSection({
         className="flex w-full items-center justify-between gap-3 p-4 text-left"
       >
         <span>
-          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-[#1a1a1a] dark:text-[#e2ff00]">
+          <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-[#1a1a1a] dark:text-[#f5f1e8]">
             {subtitle}
           </span>
           <span className="mt-1 block text-lg font-black text-[color:var(--text)]">
@@ -1471,29 +1479,12 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
       : action.tone === "warning"
         ? "var(--warning)"
         : "var(--accent-strong)";
-  const toneBackground =
-    action.tone === "success"
-      ? "var(--accent-soft)"
-      : action.tone === "warning"
-        ? "var(--warning-soft)"
-        : "var(--accent-soft)";
-  const toneIconColor =
-    action.tone === "warning" ? "var(--warning)" : "var(--accent-contrast)";
-  const StatusIcon =
-    action.type === "active"
-      ? Activity
-      : action.type === "completed"
-        ? Check
-        : action.type === "rest"
-          ? Gauge
-          : action.type === "scheduled"
-            ? Dumbbell
-            : Target;
+  const thumbnail = action.image || DASHBOARD_ACTION_IMAGES[action.type];
 
   return (
     <section
       data-dashboard-action={action.type}
-      className="dashboard-pilot__card dashboard-today-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:rounded-[4px] dark:shadow-none"
+      className="dashboard-pilot__card dashboard-today-card overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm dark:shadow-none"
     >
       <div className="dashboard-today-card__accent h-0.5 bg-[color:var(--accent)] sm:h-1" />
       <div
@@ -1506,14 +1497,14 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
         >
           <div className="min-w-0 flex-1">
             <div className="dashboard-today-card__eyebrow flex items-center gap-2">
-              <span
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
-                style={{
-                  backgroundColor: toneBackground,
-                  color: toneIconColor,
-                }}
-              >
-                <StatusIcon className="h-3.5 w-3.5" />
+              <span className="dashboard-today-card__thumbnail grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full">
+                <img
+                  src={thumbnail}
+                  alt=""
+                  width="512"
+                  height="512"
+                  decoding="async"
+                />
               </span>
               <p
                 className="text-[10px] font-black uppercase tracking-[0.18em]"
@@ -1952,7 +1943,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     return () => window.clearInterval(intervalId);
   }, [dashboardBootstrap, managedAthleteStage]);
   const athleteNotificationsQuery = useQuery({
-    queryKey: ["athlete-notifications", authUser?.id || authUser?._id || "self"],
+    queryKey: [
+      "athlete-notifications",
+      authUser?.id || authUser?._id || "self",
+    ],
     queryFn: api.getNotifications,
     enabled: authUser?.role === "Cliente",
     staleTime: 30 * 1000,
@@ -3105,6 +3099,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         progress,
         primaryLabel: "Continuar entrenamiento",
         primaryMobileLabel: "Continuar",
+        image: getRoutineDashboardImage(routine?.name),
       };
     }
 
@@ -3185,6 +3180,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         ].filter(Boolean),
         primaryLabel: "Iniciar entrenamiento",
         secondaryLabel: "Ver recuperación",
+        image: getRoutineDashboardImage(recovery.scheduledRoutine.name),
       };
     }
 
@@ -3488,7 +3484,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           <button
             type="button"
             onClick={() => reloadTrainings()}
-            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
+            className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-[#181918] px-5 text-xs font-black uppercase text-white dark:bg-[#f5f1e8] dark:text-black"
           >
             <RotateCcw className="h-4 w-4" />
             Reintentar
@@ -3581,7 +3577,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             <h1 className="text-[22px] font-bold leading-[0.95] tracking-[-0.035em] text-[#1a1a1a] md:text-3xl md:font-black md:italic md:leading-[0.9] md:tracking-normal dark:text-white">
               RIR
               <br />
-              <span className="dashboard-pilot__brand-accent text-[#181918] dark:text-[#e2ff00]">
+              <span className="dashboard-pilot__brand-accent text-[#181918] dark:text-[#f5f1e8]">
                 FIT
               </span>
             </h1>
@@ -3607,7 +3603,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               <Weight className="h-5 w-5 motion-safe:animate-pulse" />
               <span
                 aria-hidden="true"
-                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#181918] dark:bg-[#e2ff00]"
+                className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#181918] dark:bg-[#f5f1e8]"
               />
             </button>
           ) : null}
@@ -3642,7 +3638,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         />
         <WeekStrip days={weekData.days} />
       </div>
-      <p className="dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d8c0] md:block">
+      <p className="dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d3ca] md:block">
         Recuperación actual
       </p>
 
@@ -3659,7 +3655,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
               ? "Ver detalle de recuperación"
               : "Registrar primera sesión"
           }
-          className="dashboard-pilot__card dashboard-pilot__recovery dashboard-recovery-card w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:rounded-[4px] dark:shadow-none"
+          className="dashboard-pilot__card dashboard-pilot__recovery dashboard-recovery-card w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm transition hover:border-[color:var(--border-strong)] dark:shadow-none"
         >
           {isPostWorkout ? (
             <div className="flex items-center gap-3 text-left">
@@ -3726,7 +3722,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                     : "Registra tu primera sesión"}
                 </p>
                 {hasTrainingHistory && recovery.activePlan ? (
-                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+                  <p className="mt-2 truncate text-[10px] font-black uppercase text-[#181918] dark:text-[#f5f1e8]">
                     {recovery.activePlan.name}
                   </p>
                 ) : null}
@@ -3735,7 +3731,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 <div
                   className="dashboard-pilot__recovery-ring grid h-20 w-20 place-items-center rounded-full p-[6px] sm:h-36 sm:w-36 sm:p-[9px]"
                   style={{
-                    background: `conic-gradient(${isDark ? "#e2ff00" : "#181918"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
+                    background: `conic-gradient(${isDark ? "#f5f1e8" : "#181918"} ${hasTrainingHistory ? recoveryDisplayValue : 0}%, ${isDark ? "#292929" : "#d7d7d7"} 0)`,
                   }}
                 >
                   <div className="grid h-full w-full place-items-center rounded-full bg-[color:var(--card)]">
@@ -3793,7 +3789,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 indexBy="month"
                 margin={{ top: 12, right: 8, bottom: 28, left: 46 }}
                 padding={0.35}
-                colors={isDark ? "#e2ff00" : "#181918"}
+                colors={isDark ? "#f5f1e8" : "#181918"}
                 borderRadius={6}
                 enableLabel={false}
                 axisTop={null}
