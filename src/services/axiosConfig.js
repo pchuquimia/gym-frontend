@@ -115,7 +115,8 @@ axiosClient.interceptors.response.use(
 
     normalized.status = error.response?.status;
     normalized.details = error.response?.data?.details;
-    normalized.code = responseData?.code;
+    normalized.code = responseData?.code || error.code;
+    normalized.name = error.name || "Error";
 
     throw normalized;
   },

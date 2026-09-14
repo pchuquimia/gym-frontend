@@ -2828,15 +2828,14 @@ export default function CoachDashboard({
     setSelectedPlanId("");
     setWeeklyReport(null);
     let active = true;
+    const controller = new AbortController();
     setLoadingOverview(true);
-    Promise.all([
-      api.getCoachAthleteOverview(selectedId),
-      api.getLatestCheckIn(selectedId).catch(() => null),
-    ])
-      .then(([data, checkInResponse]) => {
+    api
+      .getCoachAthleteOverview(selectedId, { signal: controller.signal })
+      .then((data) => {
         if (!active) return;
         setOverview(data);
-        setLatestCheckIn(checkInResponse?.checkIn || null);
+        setLatestCheckIn(data?.followUpRecords?.checkIns?.[0] || null);
       })
       .catch((err) => {
         if (!active) return;
@@ -2849,6 +2848,7 @@ export default function CoachDashboard({
       .finally(() => active && setLoadingOverview(false));
     return () => {
       active = false;
+      controller.abort();
     };
   }, [loadAthletes, selectedId]);
 

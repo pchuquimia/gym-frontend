@@ -135,7 +135,10 @@ function WeightTracking({ coachAthlete = null }) {
         weightKg: numericWeight,
         note,
       });
-      await queryClient.invalidateQueries({ queryKey: ["weigh-ins"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["weigh-ins"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] }),
+      ]);
       toast.success(selectedEntry ? "Pesaje actualizado" : "Pesaje registrado");
     } catch (requestError) {
       toast.error(requestError.message || "No se pudo guardar el pesaje");
@@ -154,7 +157,10 @@ function WeightTracking({ coachAthlete = null }) {
         setWeight("");
         setNote("");
       }
-      await queryClient.invalidateQueries({ queryKey: ["weigh-ins"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["weigh-ins"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] }),
+      ]);
       toast.success("Pesaje eliminado");
     } catch (requestError) {
       toast.error(requestError.message || "No se pudo eliminar el pesaje");

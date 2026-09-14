@@ -71,7 +71,7 @@ export const api = {
     }),
   devAdminLogin: () => request("/api/auth/dev-admin", { method: "POST" }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
-  me: () => request("/api/auth/me"),
+  me: () => request("/api/auth/me", { timeout: 8_000 }),
   getProfile: () => request("/api/auth/profile"),
   getProfileSummary: () => request("/api/auth/profile-summary"),
   updateAccount: (payload) =>
@@ -141,7 +141,8 @@ export const api = {
   markNotificationsRead: () =>
     request("/api/notifications/read", { method: "POST" }),
   getCoachPlanCatalog: () => request("/api/coach/plan-catalog"),
-  getCoachLinkCode: () => request("/api/coach/link-code"),
+  getCoachLinkCode: () =>
+    request("/api/coach/link-code?includeAthleteCount=false"),
   regenerateCoachLinkCode: () =>
     request("/api/coach/link-code/regenerate", { method: "POST" }),
   getCoachInvitation: (token) =>
@@ -175,8 +176,8 @@ export const api = {
     request(`/api/coach/athletes/${athleteId}/relationship`, {
       method: "DELETE",
     }),
-  getCoachAthleteOverview: (athleteId) =>
-    request(`/api/coach/athletes/${athleteId}/overview`),
+  getCoachAthleteOverview: (athleteId, options = {}) =>
+    request(`/api/coach/athletes/${athleteId}/overview`, options),
   getCoachWeeklyReport: (athleteId) =>
     request(
       `/api/coach/athletes/${athleteId}/weekly-report?today=${localTodayKey()}`,
@@ -621,12 +622,15 @@ export const api = {
     if (athleteId) query.set("athleteId", athleteId);
     return request(`/api/analytics/intelligence?${query}`);
   },
-  getDashboardBootstrap: (params = {}) => {
+  getDashboardBootstrap: (params = {}, options = {}) => {
     const query = new URLSearchParams({
       athleteId: params.athleteId ?? "",
       today: params.today ?? localTodayKey(),
     });
-    return request(`/api/dashboard/bootstrap?${query}`, { timeout: 45_000 });
+    return request(`/api/dashboard/bootstrap?${query}`, {
+      timeout: 12_000,
+      ...options,
+    });
   },
 
   getPhotos: (params = {}) => {

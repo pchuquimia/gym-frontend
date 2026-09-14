@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../services/api";
 
 export default function FinalAssessment({ onBack, onNavigate }) {
+  const queryClient = useQueryClient();
   const storedPlanId =
     typeof sessionStorage !== "undefined"
       ? sessionStorage.getItem("final_assessment_plan_id") || ""
@@ -26,6 +28,9 @@ export default function FinalAssessment({ onBack, onNavigate }) {
     try {
       setSaving(true);
       await api.saveFinalAssessment({ planId: storedPlanId, answers: form });
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard-bootstrap"],
+      });
       sessionStorage.removeItem("final_assessment_plan_id");
       toast.success("Evaluación enviada a tu coach");
       onNavigate?.("dashboard");

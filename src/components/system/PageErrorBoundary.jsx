@@ -1,6 +1,7 @@
 import { Component } from "react";
 import PropTypes from "prop-types";
 import { AlertTriangle, House, RotateCcw } from "lucide-react";
+import { reloadForAssetError } from "../../utils/startupRecovery";
 
 const getErrorCode = (error) => {
   const source = `${error?.name || "Error"}:${error?.message || "unknown"}`;
@@ -22,6 +23,7 @@ export default class PageErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
+    if (reloadForAssetError(error)) return;
     console.error("No se pudo mostrar la pagina activa", error, info);
     try {
       window.localStorage.setItem(
@@ -46,6 +48,7 @@ export default class PageErrorBoundary extends Component {
   }
 
   handleRetry = () => {
+    if (reloadForAssetError(this.state.error)) return;
     this.setState({ error: null });
     window.dispatchEvent(new Event("app-page-retry"));
   };

@@ -667,7 +667,7 @@ function App() {
     return (
       <OperationLoader
         active
-        delayMs={250}
+        delayMs={0}
         title="Conectando con el servidor"
         description="Estamos verificando tu sesion y preparando la aplicacion."
       />
@@ -750,7 +750,7 @@ function App() {
                     fallback={
                       <OperationLoader
                         active
-                        delayMs={120}
+                        delayMs={0}
                         mode="inline"
                         title={`Abriendo ${pageEntry.label}`}
                       />

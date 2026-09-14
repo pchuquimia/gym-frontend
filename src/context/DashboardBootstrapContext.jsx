@@ -25,13 +25,18 @@ export function DashboardBootstrapProvider({
   const today = localTodayKey();
   const query = useQuery({
     queryKey: ["dashboard-bootstrap", ownerId || "self", today],
-    queryFn: () => api.getDashboardBootstrap({ athleteId: ownerId, today }),
+    queryFn: ({ signal }) =>
+      api.getDashboardBootstrap({ athleteId: ownerId, today }, { signal }),
     enabled,
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: "always",
-    retry: (failureCount, error) => error?.status !== 401 && failureCount < 2,
+    refetchOnMount: true,
+    retry: (failureCount, error) =>
+      error?.status !== 401 &&
+      error?.code !== "ERR_CANCELED" &&
+      failureCount < 1,
+    retryDelay: 750,
   });
   const value = useMemo(
     () => ({

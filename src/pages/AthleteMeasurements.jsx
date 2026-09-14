@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Ruler, Save } from "lucide-react";
 import { toast } from "sonner";
 import OperationLoader from "../components/system/OperationLoader";
@@ -25,6 +26,7 @@ export default function AthleteMeasurements({
   onNavigate,
   coachAthlete,
 }) {
+  const queryClient = useQueryClient();
   const athleteId = coachAthlete?.id || "";
   const requestedFields = (() => {
     if (athleteId || typeof sessionStorage === "undefined") return FIELDS;
@@ -69,6 +71,9 @@ export default function AthleteMeasurements({
       await api.saveMeasurements({
         ...form,
         athleteId: athleteId || undefined,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard-bootstrap"],
       });
       toast.success("Medidas registradas");
       await load();
