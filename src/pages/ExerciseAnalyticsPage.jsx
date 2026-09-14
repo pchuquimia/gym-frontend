@@ -141,7 +141,7 @@ export default function ExerciseAnalyticsPage({
           date: session.date,
           routineName: session.routineName || "",
           sessionKey: `session:${session.id || `${session.date}:${index}`}`,
-          sets: flattenSets(session.sets),
+          sets: flattenSets(session.sets, session),
         })),
       ...trainings.flatMap((training) =>
         (training.exercises || [])

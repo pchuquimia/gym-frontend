@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getEffectiveWeightKg,
+  getWeightBasisLabel,
   inferWeightConfig,
 } from "./weightConfig";
 
@@ -32,6 +33,12 @@ describe("weightConfig", () => {
 
   it("mantiene intacto el significado de registros históricos", () => {
     expect(getEffectiveWeightKg(40, { weightBasis: "legacy" })).toBe(40);
+  });
+
+  it("describe una prensa sin peso base como discos por lado", () => {
+    expect(
+      getWeightBasisLabel({ weightBasis: "per_side", barWeightKg: 0 }),
+    ).toBe("Discos por lado");
   });
 
   it("respeta la configuración persistida en el catálogo", () => {

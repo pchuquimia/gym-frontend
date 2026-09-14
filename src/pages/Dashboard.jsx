@@ -3532,7 +3532,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}
         readOnly={isAdminDatePreview}
-        onOpenMenu={() => window.dispatchEvent(new Event("open-main-menu"))}
+        onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
         onOpenPlan={() => onNavigate("rutinas")}
@@ -3540,8 +3540,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}
         onOpenTrackingMission={(type) => {
-          if (type === "weight") onNavigate("pesajes");
-          else if (type === "photos") onNavigate("fotos");
+          if (type === "weight") setQuickWeightOpen(true);
+          else if (type === "photos") {
+            sessionStorage.setItem("rirfit_photo_capture_intent", "1");
+            onNavigate("fotos");
+          }
           else if (type === "measurements") {
             const mission = mobileTrackingMissions.find(
               (item) => item.type === "measurements",
@@ -3551,6 +3554,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
                 "measurement_mission_fields",
                 JSON.stringify(mission.fields),
               );
+            } else {
+              sessionStorage.removeItem("measurement_mission_fields");
             }
             onNavigate("medidas");
           } else if (type === "final_evaluation") {
@@ -3566,9 +3571,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             onNavigate("evaluacion_final");
           }
         }}
-        onOpenWeighIn={() =>
-          needsDailyWeighIn ? setQuickWeightOpen(true) : onNavigate("pesajes")
-        }
+        onOpenWeighIn={() => setQuickWeightOpen(true)}
       />
       <header className="dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">

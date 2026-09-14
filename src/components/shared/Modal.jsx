@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, X } from "lucide-react";
 
 function Modal({
@@ -16,6 +17,7 @@ function Modal({
   overlayClassName = "",
   contentClassName = "",
   footerClassName = "",
+  portal = false,
 }) {
   const sizeClasses = {
     small: "max-w-xl",
@@ -32,7 +34,7 @@ function Modal({
   }, [onClose]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
+    scrollRef.current?.scrollTo?.({ top: 0 });
     const previouslyFocused = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     const previousRootOverflow = document.documentElement.style.overflow;
@@ -67,7 +69,7 @@ function Modal({
     };
   }, []);
 
-  return (
+  const modal = (
     <div
       className={`fixed inset-0 z-[80] grid place-items-end p-0 sm:place-items-center sm:p-4 ${
         mobilePage
@@ -165,6 +167,11 @@ function Modal({
       ) : null}
     </div>
   );
+
+  if (portal && typeof document !== "undefined") {
+    return createPortal(modal, document.body);
+  }
+  return modal;
 }
 
 export default Modal;

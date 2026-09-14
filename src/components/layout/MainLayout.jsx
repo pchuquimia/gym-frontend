@@ -188,6 +188,7 @@ function MainLayout({
         useDailyCheckInChrome ||
         useLibraryChrome ||
         useRoutinesChrome ||
+        usePhotosChrome ||
         useCoachChrome
       ? "max-lg:pb-28 max-lg:pt-0"
       : useProfileChrome || useSessionSummaryChrome
@@ -333,7 +334,12 @@ function MainLayout({
 
       {!useOnboardingChrome && !hideMobileNav ? (
         <div className="mobile-nav-slot fixed inset-x-0 bottom-0 z-40 lg:hidden">
-          <MobileNav activePage={activePage} onNavigate={handleNavigate} />
+          <MobileNav
+            activePage={activePage}
+            onNavigate={handleNavigate}
+            onOpenMenu={() => setShowDrawer(true)}
+            menuOpen={showDrawer}
+          />
         </div>
       ) : null}
     </div>

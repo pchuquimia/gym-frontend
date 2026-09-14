@@ -575,6 +575,12 @@ export const api = {
       timeout: 45_000,
     });
   },
+  migrateExerciseWeights: (payload) =>
+    request("/api/trainings/exercise-weight-migration", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeout: 120_000,
+    }),
   updateTraining: (id, payload) =>
     request(`/api/trainings/${id}`, {
       method: "PUT",
@@ -604,6 +610,23 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   deleteTraining: (id) => request(`/api/trainings/${id}`, { method: "DELETE" }),
+  getActiveTrainingDraft: (ownerId = "") => {
+    const query = new URLSearchParams({ ownerId }).toString();
+    return request(`/api/training-drafts/active?${query}`, { timeout: 6_000 });
+  },
+  saveActiveTrainingDraft: (payload) =>
+    request("/api/training-drafts/active", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      timeout: 12_000,
+    }),
+  deleteActiveTrainingDraft: (ownerId = "") => {
+    const query = new URLSearchParams({ ownerId }).toString();
+    return request(`/api/training-drafts/active?${query}`, {
+      method: "DELETE",
+      timeout: 8_000,
+    });
+  },
   getTrainingsSummary: (params = {}) => {
     const query = new URLSearchParams({
       from: params.from ?? "",

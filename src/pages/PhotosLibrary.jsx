@@ -10,21 +10,23 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ChevronDown,
   Columns2,
   ImagePlus,
   LockKeyhole,
+  MoreVertical,
   Pencil,
   Plus,
   RefreshCw,
   Trash2,
   UsersRound,
   UserRound,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import ConfirmModal from "../components/library/ConfirmModal";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Modal from "../components/shared/Modal";
+import PhotoViewSelector from "../components/shared/PhotoViewSelector";
 import Button from "../components/ui/button";
 import Skeleton from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
@@ -41,19 +43,35 @@ import { computePhotoAlignment } from "../utils/photoAlignment";
 const PAGE_SIZE = 12;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PHOTO_CAPTURE_INTENT_KEY = "rirfit_photo_capture_intent";
+
+const consumePhotoCaptureIntent = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    const requested =
+      window.sessionStorage.getItem(PHOTO_CAPTURE_INTENT_KEY) === "1";
+    window.sessionStorage.removeItem(PHOTO_CAPTURE_INTENT_KEY);
+    return requested;
+  } catch {
+    return false;
+  }
+};
 
 const TYPE_OPTIONS = [
-  { value: "", label: "Todos los contextos" },
+  { value: "", label: "Todos" },
   { value: "gym", label: "Entrenamiento" },
-  { value: "home", label: "Fuera del gimnasio" },
+  { value: "home", label: "Progreso personal" },
   { value: "profile", label: "Perfil" },
 ];
+const PROGRESS_TYPE_OPTIONS = TYPE_OPTIONS.filter(
+  (option) => option.value !== "profile",
+);
 const CONTEXT_OPTIONS = TYPE_OPTIONS.filter(
   (option) => option.value === "gym" || option.value === "home",
 );
 
 const VISIBILITY_OPTIONS = [
-  { value: "private", label: "Solo yo" },
+  { value: "private", label: "Solo tú" },
   { value: "coach", label: "También mi coach" },
 ];
 
@@ -175,14 +193,22 @@ function AuthenticatedPhotoImage({
   );
 }
 
-function SelectField({ label, value, onChange, options, hideLabel = false }) {
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  hideLabel = false,
+  labelClassName = "",
+}) {
   return (
     <label className={`block ${hideLabel ? "" : "space-y-1.5"}`}>
       <span
         className={
           hideLabel
             ? "sr-only"
-            : "text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]"
+            : labelClassName ||
+              "text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]"
         }
       >
         {label}
@@ -190,7 +216,7 @@ function SelectField({ label, value, onChange, options, hideLabel = false }) {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-semibold text-[color:var(--text)] outline-none dark:rounded-[3px] sm:text-sm"
+        className="theme-accent-focus h-11 w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-medium text-[color:var(--text)] outline-none sm:text-sm"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -202,10 +228,35 @@ function SelectField({ label, value, onChange, options, hideLabel = false }) {
   );
 }
 
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] ${
+        checked
+          ? "border-[color:var(--accent)] bg-[color:var(--accent)]"
+          : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]"
+      }`}
+    >
+      <span
+        className={`absolute top-[3px] h-5 w-5 rounded-full shadow-sm transition-all ${
+          checked
+            ? "left-[23px] bg-[color:var(--accent-contrast)]"
+            : "left-[3px] bg-[color:var(--text-subtle)]"
+        }`}
+      />
+    </button>
+  );
+}
+
 function ErrorState({ onRetry }) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center dark:border-red-500/20 dark:bg-red-500/10">
-      <p className="font-black text-[color:var(--text)]">
+    <div className="rounded-[1.15rem] border border-red-200 bg-red-50 p-6 text-center dark:border-red-500/20 dark:bg-red-500/10">
+      <p className="font-semibold text-[color:var(--text)]">
         No pudimos cargar tus fotos
       </p>
       <Button variant="outline" className="mt-4 gap-2" onClick={onRetry}>
@@ -216,8 +267,24 @@ function ErrorState({ onRetry }) {
   );
 }
 
-function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
+function PhotoCard({
+  photo,
+  label,
+  selected,
+  selectionMode,
+  ownerView = true,
+  onClick,
+}) {
   const missing = photo.contentStatus === "missing";
+  const viewLabel =
+    VIEW_OPTIONS.find((option) => option.value === photo.view)?.label ||
+    "Otra vista";
+  const sharedWithCoach = photo.visibility === "coach";
+  const accessLabel = sharedWithCoach
+    ? ownerView
+      ? "Compartida con tu coach"
+      : "Compartida contigo"
+    : "Solo para ti";
   return (
     <button
       type="button"
@@ -225,13 +292,13 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
       aria-label={`${selectionMode ? "Seleccionar" : "Abrir"} foto: ${label}, ${formatDate(photo.date, { day: "2-digit", month: "long", year: "numeric" })}`}
       aria-pressed={selectionMode ? selected : undefined}
       disabled={selectionMode && missing}
-      className={`group relative w-full overflow-hidden rounded-lg border bg-[color:var(--card)] text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#181918] dark:rounded-[4px] dark:shadow-none dark:focus-visible:ring-[#e2ff00] ${
+      className={`group relative w-full overflow-hidden rounded-[1.15rem] border bg-[color:var(--card)] text-left shadow-[var(--shadow-xs)] transition-[transform,border-color,box-shadow] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] ${
         selected
-          ? "border-[#181918] ring-2 ring-[#181918]/20 dark:border-[#e2ff00] dark:ring-[#e2ff00]/20"
-          : "border-[color:var(--border)] hover:border-[#181918] dark:hover:border-[#e2ff00]"
+          ? "border-[color:var(--accent)] ring-2 ring-[color:var(--focus-ring)]"
+          : "border-[color:var(--border)] hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-sm)]"
       }`}
     >
-      <div className="aspect-[4/5] overflow-hidden bg-black/5 dark:bg-black/20">
+      <div className="relative aspect-[4/5] overflow-hidden bg-[color:var(--surface-subtle)]">
         <AuthenticatedPhotoImage
           photo={photo}
           width={520}
@@ -239,22 +306,43 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
           alt={label}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
         />
+        <span className="absolute right-2 top-2 rounded-full border border-white/55 bg-white/85 px-2.5 py-1 text-[10px] font-semibold text-[#302d29] shadow-sm backdrop-blur-md">
+          {viewLabel}
+        </span>
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-black/72 p-3 text-white backdrop-blur-sm">
-        <p className="text-[10px] font-black uppercase tracking-wide text-white/70">
-          {formatDate(photo.date, {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-        </p>
-        <p className="mt-1 truncate text-sm font-black">{label}</p>
+      <div className="grid min-h-[4.4rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+        <span className="min-w-0">
+          <strong className="block truncate text-[13px] font-semibold leading-tight text-[color:var(--text)]">
+            {label}
+          </strong>
+          <small className="mt-1 block text-[11px] font-medium text-[color:var(--text-muted)]">
+            {formatDate(photo.date, {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </small>
+        </span>
+        <span
+          className="inline-flex h-7 items-center gap-1 rounded-full bg-[color:var(--surface-subtle)] px-2 text-[color:var(--text-muted)]"
+          title={accessLabel}
+          aria-label={accessLabel}
+        >
+          {sharedWithCoach ? (
+            <UsersRound className="h-3 w-3" />
+          ) : (
+            <LockKeyhole className="h-3 w-3" />
+          )}
+          <span className="text-[9px] font-semibold">
+            {sharedWithCoach ? "Coach" : "Solo tú"}
+          </span>
+        </span>
       </div>
       {selectionMode ? (
         <span
           className={`absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-full border ${
             selected
-              ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black"
+              ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
               : "border-white/70 bg-black/40 text-transparent"
           }`}
         >
@@ -267,6 +355,118 @@ function PhotoCard({ photo, label, selected, selectionMode, onClick }) {
         </span>
       ) : null}
     </button>
+  );
+}
+
+function RecoveryRow({ photo, label, ownerView, onClick }) {
+  const viewLabel =
+    VIEW_OPTIONS.find((option) => option.value === photo.view)?.label ||
+    "Otra vista";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group grid min-h-[4.25rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--focus-ring)]"
+      aria-label={`${ownerView ? "Recuperar" : "Revisar"} foto ${label}`}
+    >
+      <span className="grid h-10 w-10 place-items-center rounded-[0.8rem] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+        <RefreshCw className="h-4 w-4" strokeWidth={1.8} />
+      </span>
+      <span className="min-w-0">
+        <strong className="block truncate text-[13px] font-semibold text-[color:var(--text)]">
+          {label}
+        </strong>
+        <small className="mt-0.5 block truncate text-[11px] font-medium text-[color:var(--text-muted)]">
+          {formatDate(photo.date, { day: "2-digit", month: "short" })} ·{" "}
+          {viewLabel}
+        </small>
+      </span>
+      <span className="text-[11px] font-semibold text-[color:var(--text)]">
+        {ownerView ? "Recuperar" : "No disponible"}
+      </span>
+    </button>
+  );
+}
+
+function PhotoActionsMenu({ onEdit, onSetAsAvatar, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <Button
+        variant="outline"
+        size="icon"
+        title="Más opciones"
+        aria-label="Más opciones de la foto"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Opciones de la foto"
+          className="overflow-menu-panel absolute bottom-[calc(100%+0.5rem)] right-0 z-50 w-56"
+        >
+          {onEdit ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+              className="flex w-full items-center gap-2 px-3 text-sm"
+            >
+              <Pencil className="h-4 w-4" /> Editar información
+            </button>
+          ) : null}
+          {onSetAsAvatar ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSetAsAvatar();
+              }}
+              className="flex w-full items-center gap-2 px-3 text-sm"
+            >
+              <UserRound className="h-4 w-4" /> Usar como foto de perfil
+            </button>
+          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+            className="flex w-full items-center gap-2 px-3 text-sm text-[color:var(--danger)]"
+          >
+            <Trash2 className="h-4 w-4" /> Eliminar foto
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -402,11 +602,17 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
     trainings = [],
     dataOwnerId = "",
   } = useTrainingData();
+  const hasAssignedCoach = Boolean(
+    user?.assignedTrainerId || user?.coachIntake?.coachId,
+  );
   const [mode, setMode] = useState("history");
   const [typeFilter, setTypeFilter] = useState("");
   const [viewFilter, setViewFilter] = useState("");
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(consumePhotoCaptureIntent);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [fileError, setFileError] = useState("");
   const [activePhoto, setActivePhoto] = useState(null);
@@ -415,7 +621,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [meta, setMeta] = useState({
     date: localDateString(),
-    type: "gym",
+    type: "home",
     view: "front",
     sessionId: "",
     label: "",
@@ -454,11 +660,20 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
   const photos = (photosQuery.data?.pages || [])
     .flatMap((page) => page.items || [])
     .map(normalizePhoto);
+  const availablePhotos = photos.filter(
+    (photo) => photo.contentStatus !== "missing",
+  );
+  const missingPhotos = photos.filter(
+    (photo) => photo.contentStatus === "missing",
+  );
   const knownMissingCount = photos.filter(
     (photo) => photo.contentStatus === "missing",
   ).length;
   const photoSummaryTotal = Number(summaryQuery.data?.total || 0);
   const photoSummaryMissing = summaryQuery.data?.missing ?? knownMissingCount;
+  const photoSummaryAvailable =
+    summaryQuery.data?.available ??
+    Math.max(photoSummaryTotal - photoSummaryMissing, 0);
   const trainingOptions = useMemo(
     () =>
       trainings
@@ -494,6 +709,13 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
     setSelectedIds([]);
   }, [typeFilter, viewFilter]);
 
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
+
   const toggleComparison = (photo) => {
     const id = photo.id;
     if (photo.contentStatus === "missing") {
@@ -514,12 +736,25 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
   const resetMeta = () =>
     setMeta({
       date: localDateString(),
-      type: "gym",
+      type: "home",
       view: "front",
       sessionId: "",
       label: "",
       visibility: "private",
     });
+
+  const clearPendingPhoto = () => {
+    setPendingFile(null);
+    setPreviewUrl("");
+  };
+
+  const closeUpload = () => {
+    setUploadOpen(false);
+    setFileError("");
+    setDetailsOpen(false);
+    clearPendingPhoto();
+    resetMeta();
+  };
 
   const invalidatePhotoQueries = async () => {
     await Promise.all([
@@ -559,7 +794,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
     }
   };
 
-  const handleUpload = async (event) => {
+  const selectPendingPhoto = (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -571,6 +806,13 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
       setFileError("La imagen no puede superar 5 MB.");
       return;
     }
+    setFileError("");
+    setPendingFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const savePendingPhoto = async () => {
+    if (!pendingFile || uploading) return;
     setUploading(true);
     setFileError("");
     const routineName = meta.sessionId
@@ -578,14 +820,14 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
       : "";
     try {
       await addPhoto({
-        file,
+        file: pendingFile,
         ...meta,
+        type: meta.sessionId ? "gym" : "home",
         routineName,
         label: meta.label.trim() || routineName,
       });
       toast.success("Foto guardada");
-      resetMeta();
-      setUploadOpen(false);
+      closeUpload();
     } catch (error) {
       const message = error.message || "No se pudo subir la foto";
       setFileError(message);
@@ -648,6 +890,18 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
           variant="detail"
           onBack={handleReturn}
           className="-mx-[var(--mobile-page-gutter)] border-b border-[color:var(--detail-row-divider)] px-1"
+          actions={
+            canManage ? (
+              <button
+                type="button"
+                onClick={() => setUploadOpen(true)}
+                className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-[var(--shadow-xs)] transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                aria-label="Añadir foto de progreso"
+              >
+                <Camera className="h-5 w-5" strokeWidth={1.8} />
+              </button>
+            ) : null
+          }
         />
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -666,21 +920,19 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
               <p className="text-sm font-medium text-[color:var(--text-muted)] md:mt-1">
                 {summaryQuery.isLoading
                   ? "Cargando..."
-                  : `${photoSummaryTotal} fotos${photoSummaryMissing ? ` · ${photoSummaryMissing} por recuperar` : ""}`}
+                  : photoSummaryMissing
+                    ? `${photoSummaryAvailable} disponibles · ${photoSummaryMissing} por recuperar`
+                    : `${photoSummaryAvailable} ${photoSummaryAvailable === 1 ? "foto guardada" : "fotos guardadas"}`}
               </p>
             </div>
           </div>
           {canManage ? (
             <Button
-              className="h-10 gap-2 px-4 text-sm font-semibold"
-              onClick={() => setUploadOpen((open) => !open)}
+              className="hidden h-10 gap-2 px-4 text-sm font-semibold md:inline-flex"
+              onClick={() => setUploadOpen(true)}
             >
-              {uploadOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              {uploadOpen ? "Cancelar" : "Nueva foto"}
+              <Plus className="h-4 w-4" />
+              Nueva foto
             </Button>
           ) : (
             <span className="inline-flex items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
@@ -690,155 +942,242 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
           )}
         </header>
 
-        {uploadOpen ? (
-          <section className="space-y-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm dark:rounded-[4px] dark:shadow-none sm:p-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="block space-y-1.5">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Fecha
-                </span>
-                <input
-                  type="date"
-                  value={meta.date}
-                  max={localDateString()}
-                  onChange={(event) =>
-                    setMeta((current) => ({
-                      ...current,
-                      date: event.target.value,
-                    }))
-                  }
-                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none dark:rounded-[3px] sm:text-sm"
-                />
-              </label>
-              <SelectField
-                label="Vista corporal"
+        {canManage && uploadOpen ? (
+          <Modal
+            title="Añadir foto"
+            subtitle="Crea un registro fácil de comparar."
+            size="small"
+            mobilePage
+            portal
+            onClose={closeUpload}
+            contentClassName="sm:bg-[color:var(--surface-raised)]"
+            footerClassName="max-sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            footer={
+              pendingFile ? (
+                <Button
+                  disabled={uploading}
+                  className="h-[3.25rem] w-full rounded-[1rem]"
+                  onClick={savePendingPhoto}
+                >
+                  {uploading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {uploading ? "Guardando..." : "Guardar foto"}
+                </Button>
+              ) : (
+                <div className="grid w-full grid-cols-2 gap-3">
+                  <Button
+                    className="h-[3.25rem] min-w-0 gap-2 whitespace-nowrap rounded-[1rem]"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    <Camera className="h-4 w-4" />
+                    Tomar foto
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-[3.25rem] min-w-0 gap-2 whitespace-nowrap rounded-[1rem]"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    Galería
+                  </Button>
+                </div>
+              )
+            }
+          >
+            <section className="space-y-5 sm:p-1">
+              <PhotoViewSelector
                 value={meta.view}
                 onChange={(view) =>
                   setMeta((current) => ({ ...current, view }))
                 }
-                options={VIEW_OPTIONS.slice(1)}
+                hint="Repite esta vista en futuras fotos para comparar mejor."
               />
-              <SelectField
-                label="Contexto"
-                value={meta.type}
-                onChange={(type) =>
-                  setMeta((current) => ({
-                    ...current,
-                    type,
-                    sessionId: type === "gym" ? current.sessionId : "",
-                  }))
-                }
-                options={CONTEXT_OPTIONS}
-              />
-              {meta.type === "gym" ? (
-                <SelectField
-                  label="Sesión opcional"
-                  value={meta.sessionId}
-                  onChange={(sessionId) =>
-                    setMeta((current) => ({ ...current, sessionId }))
-                  }
-                  options={[
-                    { value: "", label: "Sin vincular" },
-                    ...trainingOptions.map((item) => ({
-                      value: item.id,
-                      label: item.label,
-                    })),
-                  ]}
-                />
+
+              {pendingFile ? (
+                <>
+                  <figure className="space-y-2">
+                    <div className="relative mx-auto aspect-[4/5] max-h-[48dvh] overflow-hidden rounded-[1.15rem] bg-[#1a1917]">
+                      <img
+                        src={previewUrl}
+                        alt="Vista previa de la foto seleccionada"
+                        className="h-full w-full object-contain"
+                      />
+                      <span className="absolute right-2.5 top-2.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-[#302d29] shadow-sm backdrop-blur">
+                        {VIEW_OPTIONS.find(
+                          (option) => option.value === meta.view,
+                        )?.label || "Otra vista"}
+                      </span>
+                    </div>
+                    <figcaption className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        Tomar otra
+                      </button>
+                      <span className="h-4 w-px bg-[color:var(--border)]" />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        Cambiar
+                      </button>
+                    </figcaption>
+                  </figure>
+
+                  {hasAssignedCoach ? (
+                    <div className="flex items-center gap-3 border-y border-[color:var(--border)] py-3.5">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                        <UsersRound className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <strong className="block text-sm font-semibold">
+                          Compartir con mi coach
+                        </strong>
+                        <small className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                          Podrá verla desde tu seguimiento.
+                        </small>
+                      </span>
+                      <Toggle
+                        checked={meta.visibility === "coach"}
+                        onChange={(shared) =>
+                          setMeta((current) => ({
+                            ...current,
+                            visibility: shared ? "coach" : "private",
+                          }))
+                        }
+                        label="Compartir foto con mi coach"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setDetailsOpen((open) => !open)}
+                      aria-expanded={detailsOpen}
+                      className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-semibold"
+                    >
+                      <span>
+                        Añadir detalles
+                        <small className="ml-2 font-normal text-[color:var(--text-muted)]">
+                          Opcional
+                        </small>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 text-[color:var(--text-muted)] transition-transform ${detailsOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {detailsOpen ? (
+                      <div className="space-y-3 border-t border-[color:var(--border)] pt-3">
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                            Fecha
+                          </span>
+                          <input
+                            type="date"
+                            value={meta.date}
+                            max={localDateString()}
+                            onChange={(event) =>
+                              setMeta((current) => ({
+                                ...current,
+                                date: event.target.value,
+                              }))
+                            }
+                            className="theme-accent-focus h-11 w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-medium outline-none sm:text-sm"
+                          />
+                        </label>
+                        <SelectField
+                          label="Vincular a una sesión"
+                          labelClassName="text-xs font-semibold text-[color:var(--text-muted)]"
+                          value={meta.sessionId}
+                          onChange={(sessionId) =>
+                            setMeta((current) => ({
+                              ...current,
+                              sessionId,
+                              type: sessionId ? "gym" : "home",
+                            }))
+                          }
+                          options={[
+                            { value: "", label: "Sin vincular" },
+                            ...trainingOptions.map((item) => ({
+                              value: item.id,
+                              label: item.label,
+                            })),
+                          ]}
+                        />
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                            Nota
+                          </span>
+                          <input
+                            value={meta.label}
+                            maxLength={240}
+                            onChange={(event) =>
+                              setMeta((current) => ({
+                                ...current,
+                                label: event.target.value,
+                              }))
+                            }
+                            placeholder="Ej. Inicio de definición"
+                            className="theme-accent-focus h-11 w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base font-medium outline-none placeholder:text-[color:var(--text-muted)] sm:text-sm"
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
               ) : (
-                <div />
+                <div className="flex min-h-[15rem] flex-col items-center justify-center px-6 text-center">
+                  <span className="grid h-16 w-16 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
+                    <Camera className="h-7 w-7" strokeWidth={1.6} />
+                  </span>
+                  <h4 className="mt-4 text-base font-semibold">
+                    Prepara tu foto de progreso
+                  </h4>
+                  <p className="mt-1 max-w-xs text-sm leading-5 text-[color:var(--text-muted)]">
+                    Busca buena luz, encuadra el cuerpo y mantén la misma
+                    postura en cada registro.
+                  </p>
+                </div>
               )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.38fr)]">
-              <label className="block space-y-1.5">
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  Nota opcional
-                </span>
-                <input
-                  value={meta.label}
-                  maxLength={240}
-                  onChange={(event) =>
-                    setMeta((current) => ({
-                      ...current,
-                      label: event.target.value,
-                    }))
-                  }
-                  placeholder="Ej. Inicio de definición"
-                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-semibold outline-none placeholder:text-[color:var(--text-muted)] dark:rounded-[3px] sm:text-sm"
-                />
-              </label>
-              <SelectField
-                label="Acceso"
-                value={meta.visibility}
-                onChange={(visibility) =>
-                  setMeta((current) => ({ ...current, visibility }))
-                }
-                options={VISIBILITY_OPTIONS}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                capture="environment"
+                hidden
+                onChange={selectPendingPhoto}
               />
-            </div>
-            <p className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
-              {meta.visibility === "private" ? (
-                <LockKeyhole className="h-4 w-4" />
-              ) : (
-                <UsersRound className="h-4 w-4" />
-              )}
-              {meta.visibility === "private"
-                ? "Esta foto será visible solo para ti."
-                : "Tu coach asignado también podrá verla."}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                disabled={uploading}
-                className="h-11 gap-2"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera className="h-4 w-4" />
-                Cámara
-              </Button>
-              <Button
-                disabled={uploading}
-                variant="outline"
-                className="h-11 gap-2"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImagePlus className="h-4 w-4" />
-                Archivos
-              </Button>
-            </div>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              className="sr-only"
-              onChange={handleUpload}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="sr-only"
-              onChange={handleUpload}
-            />
-            {uploading ? (
-              <p
-                role="status"
-                className="text-sm font-bold text-[#181918] dark:text-[#e2ff00]"
-              >
-                Subiendo foto...
-              </p>
-            ) : null}
-            {fileError ? (
-              <p role="alert" className="text-sm font-bold text-red-500">
-                {fileError}
-              </p>
-            ) : null}
-          </section>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={selectPendingPhoto}
+              />
+              {fileError ? (
+                <p
+                  role="alert"
+                  className="text-center text-sm font-semibold text-red-500"
+                >
+                  {fileError}
+                </p>
+              ) : null}
+            </section>
+          </Modal>
         ) : null}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
+        <div className="space-y-2.5 border-b border-[color:var(--border)] pb-3 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
           <div
-            className="flex rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-1 dark:rounded-[4px]"
+            className="flex w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] p-1 sm:w-auto"
             role="tablist"
             aria-label="Vista de fotos"
           >
@@ -852,7 +1191,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                 role="tab"
                 aria-selected={mode === value}
                 onClick={() => setMode(value)}
-                className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-xs font-black dark:rounded-[3px] ${mode === value ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
+                className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-[0.7rem] px-3 text-xs font-semibold transition-colors sm:flex-none ${mode === value ? "bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"}`}
               >
                 <Icon className="h-4 w-4" />
                 {label}
@@ -864,7 +1203,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
               label="Contexto"
               value={typeFilter}
               onChange={setTypeFilter}
-              options={TYPE_OPTIONS}
+              options={PROGRESS_TYPE_OPTIONS}
               hideLabel
             />
             <SelectField
@@ -880,16 +1219,16 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
         {mode === "compare" ? (
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-[color:var(--text-muted)]">
+              <p className="text-sm font-medium text-[color:var(--text-muted)]">
                 {selectedIds.length
                   ? `${selectedIds.length}/2${selectedView ? ` · ${VIEW_OPTIONS.find((option) => option.value === selectedView)?.label}` : ""}`
-                  : "Selecciona 2 fotos"}
+                  : "Selecciona 2 fotos de la misma vista"}
               </p>
               {selectedIds.length ? (
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="text-xs font-black text-[#181918] dark:text-[#e2ff00]"
+                  className="text-xs font-semibold text-[color:var(--text)] underline-offset-4 hover:underline"
                 >
                   Limpiar
                 </button>
@@ -907,18 +1246,62 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
           </section>
         ) : null}
 
+        {mode === "history" && missingPhotos.length ? (
+          <section
+            aria-labelledby="photos-recovery-title"
+            className="overflow-hidden rounded-[1rem] border border-[color:var(--border)] bg-[color:var(--card)]"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-3 py-2.5">
+              <div className="min-w-0">
+                <h2
+                  id="photos-recovery-title"
+                  className="text-[13px] font-semibold text-[color:var(--text)]"
+                >
+                  Fotos por recuperar
+                </h2>
+                <p className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">
+                  Conservan su fecha y sus datos.
+                </p>
+              </div>
+              <span className="rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[11px] font-semibold">
+                {missingPhotos.length}
+              </span>
+            </div>
+            <div className="divide-y divide-[color:var(--border)]">
+              {missingPhotos.map((photo) => (
+                <RecoveryRow
+                  key={photo.id}
+                  photo={photo}
+                  label={labelFor(photo)}
+                  ownerView={canManage}
+                  onClick={() => openPhoto(photo)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {photosQuery.isError ? (
           <ErrorState onRetry={() => photosQuery.refetch()} />
         ) : photosQuery.isLoading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
-              <Skeleton key={index} className="aspect-[4/5] rounded-lg" />
+              <Skeleton
+                key={index}
+                className="aspect-[4/5] rounded-[1.15rem]"
+              />
             ))}
           </div>
         ) : photos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--card)] p-8 text-center dark:rounded-[4px]">
-            <ImagePlus className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
-            <p className="mt-3 font-black">Aún no hay fotos en esta vista</p>
+          <div className="rounded-[1.15rem] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--card)] p-8 text-center shadow-[var(--shadow-xs)]">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+              <ImagePlus className="h-5 w-5" />
+            </span>
+            <p className="mt-3 font-semibold">Aún no hay fotos en esta vista</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm leading-5 text-[color:var(--text-muted)]">
+              Registra una vista frontal, lateral o posterior para comenzar tu
+              historial visual.
+            </p>
             {canManage ? (
               <Button
                 className="mt-4 gap-2"
@@ -929,14 +1312,27 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
               </Button>
             ) : null}
           </div>
+        ) : availablePhotos.length === 0 ? (
+          <div className="py-8 text-center">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+              <ImagePlus className="h-5 w-5" />
+            </span>
+            <p className="mt-3 font-semibold">No hay fotos disponibles</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm leading-5 text-[color:var(--text-muted)]">
+              {missingPhotos.length
+                ? "Recupera una imagen pendiente para volver a verla o compararla."
+                : "Prueba otra combinación de contexto y vista."}
+            </p>
+          </div>
         ) : mode === "history" ? (
           <section aria-label="Historial cronológico de fotos">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {photos.map((photo) => (
+              {availablePhotos.map((photo) => (
                 <PhotoCard
                   key={photo.id}
                   photo={photo}
                   label={labelFor(photo)}
+                  ownerView={canManage}
                   onClick={() => openPhoto(photo)}
                 />
               ))}
@@ -944,11 +1340,12 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
           </section>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {photos.map((photo) => (
+            {availablePhotos.map((photo) => (
               <PhotoCard
                 key={photo.id}
                 photo={photo}
                 label={labelFor(photo)}
+                ownerView={canManage}
                 selectionMode
                 selected={selectedIds.includes(photo.id)}
                 onClick={() => toggleComparison(photo)}
@@ -978,6 +1375,8 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
             month: "long",
             year: "numeric",
           })}
+          size="small"
+          mobilePage
           onClose={() => setActivePhoto(null)}
           footer={
             !canManage ? null : editing ? (
@@ -995,6 +1394,20 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
               </>
             ) : (
               <>
+                <PhotoActionsMenu
+                  onEdit={
+                    activePhoto.contentStatus === "missing"
+                      ? () => setEditing(true)
+                      : null
+                  }
+                  onSetAsAvatar={
+                    activePhoto.contentStatus !== "missing" ? setAsAvatar : null
+                  }
+                  onDelete={() => {
+                    setDeleteTarget(activePhoto);
+                    setActivePhoto(null);
+                  }}
+                />
                 {activePhoto.contentStatus === "missing" ? (
                   <Button
                     size="sm"
@@ -1007,38 +1420,16 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                     />
                     {replacing ? "Recuperando..." : "Recuperar imagen"}
                   </Button>
-                ) : null}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Eliminar"
-                  aria-label="Eliminar"
-                  onClick={() => {
-                    setDeleteTarget(activePhoto);
-                    setActivePhoto(null);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
-                {activePhoto.contentStatus !== "missing" ? (
+                ) : (
                   <Button
-                    variant="outline"
-                    size="icon"
-                    title="Usar como foto de perfil"
-                    aria-label="Usar como foto de perfil"
-                    onClick={setAsAvatar}
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setEditing(true)}
                   >
-                    <UserRound className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
+                    Editar
                   </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setEditing(true)}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </Button>
+                )}
               </>
             )
           }
@@ -1059,7 +1450,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                       date: event.target.value,
                     }))
                   }
-                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base outline-none dark:rounded-[3px] sm:text-sm"
+                  className="theme-accent-focus h-11 w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base outline-none sm:text-sm"
                 />
               </label>
               <SelectField
@@ -1109,9 +1500,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                     })),
                   ]}
                 />
-              ) : (
-                <div />
-              )}
+              ) : null}
               <label className="block space-y-1.5 sm:col-span-2">
                 <span className="text-xs font-bold text-[color:var(--text-muted)]">
                   Nota
@@ -1125,13 +1514,13 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                       label: event.target.value,
                     }))
                   }
-                  className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base outline-none dark:rounded-[3px] sm:text-sm"
+                  className="theme-accent-focus h-11 w-full rounded-[0.9rem] border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base outline-none sm:text-sm"
                 />
               </label>
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="h-[min(58dvh,560px)] overflow-hidden rounded-lg bg-black/5 dark:rounded-[4px] dark:bg-black/20">
+              <div className="h-[min(62dvh,560px)] overflow-hidden rounded-[1.15rem] bg-[color:var(--surface-subtle)]">
                 <AuthenticatedPhotoImage
                   photo={activePhoto}
                   width={1600}
@@ -1141,8 +1530,8 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                 />
               </div>
               {activePhoto.contentStatus === "missing" ? (
-                <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] p-4 text-center dark:rounded-[4px]">
-                  <p className="text-sm font-black">
+                <div className="rounded-[1rem] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4 text-center">
+                  <p className="text-sm font-semibold">
                     La imagen original ya no está disponible
                   </p>
                   <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
@@ -1151,26 +1540,28 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
                   </p>
                 </div>
               ) : null}
-              <div className="flex flex-wrap gap-2 text-xs font-bold text-[color:var(--text-muted)]">
-                <span className="rounded-md bg-[color:var(--bg)] px-2 py-1">
+              <div className="flex flex-wrap gap-2 text-xs font-medium text-[color:var(--text-muted)]">
+                <span className="rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1">
                   {VIEW_OPTIONS.find(
                     (option) => option.value === activePhoto.view,
                   )?.label || "Otra"}
                 </span>
-                <span className="rounded-md bg-[color:var(--bg)] px-2 py-1">
+                <span className="rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1">
                   {TYPE_OPTIONS.find(
                     (option) => option.value === activePhoto.type,
                   )?.label || "Entrenamiento"}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-[color:var(--bg)] px-2 py-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1">
                   {activePhoto.visibility === "coach" ? (
                     <UsersRound className="h-3.5 w-3.5" />
                   ) : (
                     <LockKeyhole className="h-3.5 w-3.5" />
                   )}
                   {activePhoto.visibility === "coach"
-                    ? "Compartida con coach"
-                    : "Privada"}
+                    ? canManage
+                      ? "Compartida con coach"
+                      : "Compartida contigo"
+                    : "Solo tú"}
                 </span>
               </div>
               {activePhoto.label &&
@@ -1185,7 +1576,7 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
             ref={replaceInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
+            hidden
             onChange={handleReplace}
           />
         </Modal>

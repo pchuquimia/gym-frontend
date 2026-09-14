@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CalendarDays,
   Check,
+  ChevronDown,
   Circle,
   CircleDot,
   ClipboardList,
@@ -67,15 +68,30 @@ import {
 } from "../utils/historyCompatibility";
 import {
   buildExerciseTrackingRows,
+  collectExerciseTrackingPlanTrainings,
+  collectExerciseTrackingRoutineTrainings,
+  getExerciseTrackingBestEntryKeysByRoutine,
+  getExerciseTrackingBestEntryKeysBySet,
+  getExerciseTrackingEntryKey,
+  getExerciseTrackingRoutineKey,
   getExerciseTrackingRoutineLabel,
+  getInitialExerciseTrackingScope,
 } from "../utils/exerciseTracking";
 import {
   getTrainingSaveErrorMessage,
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
-import { resolveRoutinePlanContext } from "../utils/trainingPlanContext";
+import {
+  getTrainingPlanLineageIds,
+  resolveRoutinePlanContext,
+} from "../utils/trainingPlanContext";
 import { requestTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
+import {
+  getTrainingDraftSyncLabel,
+  parseTrainingSnapshot,
+  selectLatestTrainingSnapshot,
+} from "../utils/trainingDraft";
 import {
   buildFallbackTimeEvents,
   calculateTimingSummary,
@@ -106,6 +122,7 @@ const getCurrentPlanWeek = (plan, dateValue = getLocalISODate()) => {
   );
 };
 const SNAPSHOT_KEY = "active_training_snapshot";
+const CANCELLED_REMOTE_DRAFT_KEY = "cancelled_active_training_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
@@ -1376,6 +1393,23 @@ export default function RegisterTraining({
     setBranch,
     dataOwnerId,
   } = useTrainingData();
+  const draftOwnerId = String(dataOwnerId || getUserId(authUser) || "");
+  const exerciseHistoryCountsQuery = useQuery({
+    queryKey: ["register-training-exercise-history-counts", draftOwnerId],
+    queryFn: () =>
+      api.getExerciseHistoryCounts({ athleteId: dataOwnerId || undefined }),
+    enabled: Boolean(draftOwnerId),
+    staleTime: 60_000,
+  });
+  const storedExerciseHistoryById = useMemo(
+    () =>
+      new Map(
+        (exerciseHistoryCountsQuery.data?.exercises || [])
+          .filter((item) => Number(item.trainingCount) > 0)
+          .map((item) => [String(item.exerciseId), item]),
+      ),
+    [exerciseHistoryCountsQuery.data?.exercises],
+  );
 
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -1453,6 +1487,10 @@ export default function RegisterTraining({
   const [pendingPlanRoutineId, setPendingPlanRoutineId] = useState("");
   const [selectedPlanContext, setSelectedPlanContext] = useState(null);
   const [pendingSameDayTraining, setPendingSameDayTraining] = useState(null);
+  const [remoteDraftSnapshot, setRemoteDraftSnapshot] = useState(null);
+  const [remoteDraftLookupComplete, setRemoteDraftLookupComplete] =
+    useState(false);
+  const [draftSyncStatus, setDraftSyncStatus] = useState("idle");
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [desktopSessionMenuOpen, setDesktopSessionMenuOpen] = useState(false);
   const initializedTrainingScreen = useRef(false);
@@ -1507,6 +1545,10 @@ export default function RegisterTraining({
   const desktopSessionMenuRef = useRef(null);
   const finalizingRef = useRef(false);
   const trainingRequestIdRef = useRef("");
+  const remoteDraftSyncingRef = useRef(false);
+  const remoteDraftEpochRef = useRef(0);
+  const lastRemoteDraftSyncRef = useRef(0);
+  const persistTrainingSnapshotRef = useRef(null);
 
   useEffect(() => {
     if (!desktopSessionMenuOpen) return undefined;
@@ -1745,6 +1787,74 @@ export default function RegisterTraining({
     selectedRoutine,
     selectedPlanContext,
   );
+  const selectedHistoryPlan = useMemo(() => {
+    const plan = (trainingPlans || []).find(
+      (candidate) =>
+        String(candidate?._id || candidate?.id || "") === selectedHistoryPlanId,
+    );
+    if (plan) return plan;
+    return String(activeTrainingPlan?._id || activeTrainingPlan?.id || "") ===
+      selectedHistoryPlanId
+      ? activeTrainingPlan
+      : null;
+  }, [activeTrainingPlan, selectedHistoryPlanId, trainingPlans]);
+  const historyPlanCandidates = useMemo(() => {
+    const unique = new Map();
+    [...(trainingPlans || []), activeTrainingPlan]
+      .filter(Boolean)
+      .forEach((plan) => {
+        const id = String(plan?._id || plan?.id || "").trim();
+        if (id) unique.set(id, plan);
+      });
+    return Array.from(unique.values());
+  }, [activeTrainingPlan, trainingPlans]);
+  const selectedHistoryPlanIds = useMemo(
+    () =>
+      getTrainingPlanLineageIds(selectedHistoryPlanId, historyPlanCandidates),
+    [historyPlanCandidates, selectedHistoryPlanId],
+  );
+  const selectedHistoryPlanSlotId = useMemo(() => {
+    const explicitSlotId = String(selectedPlanContext?.slotId || "").trim();
+    if (explicitSlotId) return explicitSlotId;
+    const assignedSlotId = String(
+      selectedRoutine?.raw?.trainingPlanSlotId || "",
+    ).trim();
+    if (assignedSlotId) return assignedSlotId;
+    const routineId = String(
+      selectedRoutineId ||
+        selectedRoutine?.id ||
+        selectedRoutine?.raw?._id ||
+        "",
+    ).trim();
+    if (!routineId) return "";
+    const matchingSlots = (selectedHistoryPlan?.weeklySchedule || []).filter(
+      (day) =>
+        day?.type === "training" &&
+        String(day?.routineId || "").trim() === routineId,
+    );
+    return matchingSlots.length === 1
+      ? String(matchingSlots[0]?.slotId || "").trim()
+      : "";
+  }, [
+    selectedHistoryPlan,
+    selectedPlanContext?.slotId,
+    selectedRoutine,
+    selectedRoutineId,
+  ]);
+  const selectedHistoryPlanRoutineIds = useMemo(() => {
+    const selectedPlanIdSet = new Set(selectedHistoryPlanIds);
+    return Array.from(
+      new Set(
+        historyPlanCandidates
+          .filter((plan) =>
+            selectedPlanIdSet.has(String(plan?._id || plan?.id || "").trim()),
+          )
+          .flatMap((plan) => plan?.weeklySchedule || [])
+          .map((day) => String(day?.routineId || "").trim())
+          .filter(Boolean),
+      ),
+    );
+  }, [historyPlanCandidates, selectedHistoryPlanIds]);
   const libraryExerciseOptions = useMemo(() => {
     const seen = new Set();
     return (libraryExercises || [])
@@ -1806,23 +1916,12 @@ export default function RegisterTraining({
       filterHistoryByMuscleSequences(historyTrainings, activeOrderExercises),
     [historyTrainings, activeOrderExercises],
   );
-  const referenceHistoryTrainings = useMemo(() => {
-    const unique = new Map();
-    [...historyTrainings, ...planHistoryTrainings].forEach((training) => {
-      const key = String(
-        training?._id ||
-          `${training?.date || ""}:${training?.routineId || ""}:${training?.trainingPlanSlotId || ""}`,
-      );
-      unique.set(key, training);
-    });
-    return Array.from(unique.values());
-  }, [historyTrainings, planHistoryTrainings]);
   const historyCompatibleRecentBySet = useMemo(
     () =>
-      computeCompatibleRecentBySet(referenceHistoryTrainings, {
+      computeCompatibleRecentBySet(historyTrainings, {
         branch: historyBranchFilter || "",
       }),
-    [referenceHistoryTrainings, historyBranchFilter],
+    [historyTrainings, historyBranchFilter],
   );
   const historyBest = useMemo(
     () =>
@@ -3449,16 +3548,94 @@ export default function RegisterTraining({
     }
   }, [allRoutineOptions, dataOwnerId, isEditing, selectedRoutineId]);
 
-  // Restaurar entrenamiento activo desde snapshot local
+  useEffect(() => {
+    let active = true;
+    const fallbackTimer = window.setTimeout(() => {
+      if (active) setRemoteDraftLookupComplete(true);
+    }, 500);
+
+    setRemoteDraftSnapshot(null);
+    setRemoteDraftLookupComplete(false);
+    if (!draftOwnerId || isEditing || authUser?.isDemo) {
+      window.clearTimeout(fallbackTimer);
+      setRemoteDraftLookupComplete(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    api
+      .getActiveTrainingDraft(draftOwnerId)
+      .then((response) => {
+        if (!active) return;
+        const remoteSnapshot = parseTrainingSnapshot(response?.draft?.snapshot);
+        const cancelledDraft = parseTrainingSnapshot(
+          localStorage.getItem(CANCELLED_REMOTE_DRAFT_KEY),
+        );
+        const shouldDiscardRemote = Boolean(
+          remoteSnapshot &&
+          cancelledDraft &&
+          String(cancelledDraft.ownerId || "") === draftOwnerId &&
+          String(cancelledDraft.trainingRequestId || "") ===
+            String(remoteSnapshot.trainingRequestId || ""),
+        );
+        if (
+          !remoteSnapshot &&
+          cancelledDraft &&
+          String(cancelledDraft.ownerId || "") === draftOwnerId
+        ) {
+          localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY);
+        } else if (shouldDiscardRemote) {
+          setRemoteDraftSnapshot(null);
+          api
+            .deleteActiveTrainingDraft(draftOwnerId)
+            .then(() => localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY))
+            .catch(() => {});
+        } else {
+          setRemoteDraftSnapshot(remoteSnapshot);
+        }
+        setRemoteDraftLookupComplete(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRemoteDraftLookupComplete(true);
+      })
+      .finally(() => window.clearTimeout(fallbackTimer));
+
+    return () => {
+      active = false;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [authUser?.isDemo, draftOwnerId, isEditing]);
+
+  // Restaura primero el snapshot mas reciente disponible. El almacenamiento
+  // local permite abrir la sesion sin red y el remoto permite cambiar de equipo.
   useEffect(() => {
     if (!allRoutineOptions.length) return;
     if (isEditing) return;
     if (selectedRoutineId) return;
+    if (!remoteDraftLookupComplete) return;
     if (typeof localStorage === "undefined") return;
     const raw = localStorage.getItem(SNAPSHOT_KEY);
-    if (!raw) return;
     try {
-      const snap = JSON.parse(raw);
+      const localSnapshot = parseTrainingSnapshot(raw);
+      const snap = selectLatestTrainingSnapshot(
+        localSnapshot,
+        remoteDraftSnapshot,
+      );
+      if (!snap) {
+        if (raw && !localSnapshot) localStorage.removeItem(SNAPSHOT_KEY);
+        return;
+      }
+      if (
+        remoteDraftSnapshot &&
+        snap === remoteDraftSnapshot &&
+        snap !== localSnapshot
+      ) {
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
+        setDraftSyncStatus("saved");
+        toast.success("Entrenamiento recuperado desde tu cuenta.");
+      }
       if (!snap?.selectedRoutineId) return;
       if (!canAccessActiveTraining(snap, authUser, coachAthlete)) {
         toast.error("Este entrenamiento fue iniciado por otro usuario.");
@@ -3696,6 +3873,8 @@ export default function RegisterTraining({
     authUser,
     coachAthlete,
     dataOwnerId,
+    remoteDraftLookupComplete,
+    remoteDraftSnapshot,
     isAdmin,
     isEditing,
     selectedRoutineId,
@@ -3776,8 +3955,10 @@ export default function RegisterTraining({
       lastUpdateRef.current = now;
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
       window.dispatchEvent(new Event("active-training-updated"));
+      return snapshot;
     } catch (e) {
       console.warn("No se pudo guardar el estado del entrenamiento", e);
+      return null;
     }
   }, [
     selectedRoutineId,
@@ -3803,12 +3984,144 @@ export default function RegisterTraining({
     coachAthlete?.name,
     authUser,
   ]);
+  persistTrainingSnapshotRef.current = persistTrainingSnapshot;
 
   // Guardar snapshot local del entrenamiento en curso
   useEffect(() => {
     const timeoutId = window.setTimeout(persistTrainingSnapshot, 250);
     return () => window.clearTimeout(timeoutId);
   }, [persistTrainingSnapshot]);
+
+  const syncRemoteTrainingDraft = useCallback(
+    async ({ force = false } = {}) => {
+      if (!draftOwnerId || authUser?.isDemo) return;
+      const snapshot = persistTrainingSnapshotRef.current?.();
+      if (!snapshot?.selectedRoutineId || !snapshot?.trainingRequestId) return;
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setDraftSyncStatus("offline");
+        return;
+      }
+      if (remoteDraftSyncingRef.current) return;
+      if (!force && Date.now() - lastRemoteDraftSyncRef.current < 4_000) return;
+
+      const syncEpoch = remoteDraftEpochRef.current;
+      remoteDraftSyncingRef.current = true;
+      setDraftSyncStatus("saving");
+      try {
+        await api.saveActiveTrainingDraft({
+          ownerId: draftOwnerId,
+          snapshot,
+        });
+        if (syncEpoch !== remoteDraftEpochRef.current) {
+          await api.deleteActiveTrainingDraft(draftOwnerId).catch(() => {});
+          return;
+        }
+        lastRemoteDraftSyncRef.current = Date.now();
+        setRemoteDraftSnapshot(snapshot);
+        setDraftSyncStatus("saved");
+      } catch {
+        if (syncEpoch !== remoteDraftEpochRef.current) return;
+        setDraftSyncStatus(
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "offline"
+            : "error",
+        );
+      } finally {
+        remoteDraftSyncingRef.current = false;
+      }
+    },
+    [authUser?.isDemo, draftOwnerId],
+  );
+
+  const deleteRemoteTrainingDraft = useCallback(() => {
+    remoteDraftEpochRef.current += 1;
+    setRemoteDraftSnapshot(null);
+    lastRemoteDraftSyncRef.current = 0;
+    const localSnapshot =
+      typeof localStorage !== "undefined"
+        ? parseTrainingSnapshot(localStorage.getItem(SNAPSHOT_KEY))
+        : null;
+    if (
+      localSnapshot?.trainingRequestId &&
+      typeof localStorage !== "undefined"
+    ) {
+      localStorage.setItem(
+        CANCELLED_REMOTE_DRAFT_KEY,
+        JSON.stringify({
+          selectedRoutineId: localSnapshot.selectedRoutineId,
+          trainingRequestId: localSnapshot.trainingRequestId,
+          ownerId: draftOwnerId,
+          lastUpdate: Date.now(),
+        }),
+      );
+    }
+    if (!draftOwnerId || authUser?.isDemo) {
+      setDraftSyncStatus("idle");
+      return;
+    }
+    api
+      .deleteActiveTrainingDraft(draftOwnerId)
+      .then(() => {
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY);
+        }
+        setDraftSyncStatus("idle");
+      })
+      .catch(() => {
+        setDraftSyncStatus(
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "offline"
+            : "error",
+        );
+      });
+  }, [authUser?.isDemo, draftOwnerId]);
+
+  useEffect(() => {
+    if (!setupStarted || !selectedRoutineId || isEditing || isHistoryReadOnly)
+      return undefined;
+    const timeoutId = window.setTimeout(() => syncRemoteTrainingDraft(), 1_500);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    exercises,
+    isEditing,
+    isHistoryReadOnly,
+    isRunning,
+    selectedRoutineId,
+    setupStarted,
+    syncRemoteTrainingDraft,
+    timeEvents,
+  ]);
+
+  useEffect(() => {
+    if (!setupStarted || !selectedRoutineId || isEditing || isHistoryReadOnly)
+      return undefined;
+    const intervalId = window.setInterval(
+      () => syncRemoteTrainingDraft({ force: true }),
+      15_000,
+    );
+    return () => window.clearInterval(intervalId);
+  }, [
+    isEditing,
+    isHistoryReadOnly,
+    selectedRoutineId,
+    setupStarted,
+    syncRemoteTrainingDraft,
+  ]);
+
+  useEffect(() => {
+    const handleOffline = () => {
+      if (setupStarted) setDraftSyncStatus("offline");
+    };
+    const handleOnline = () => {
+      if (setupStarted) syncRemoteTrainingDraft({ force: true });
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [setupStarted, syncRemoteTrainingDraft]);
 
   useEffect(() => {
     const persistNow = () => persistTrainingSnapshot();
@@ -4322,6 +4635,8 @@ export default function RegisterTraining({
   };
 
   const resetState = () => {
+    deleteRemoteTrainingDraft();
+    setRemoteDraftLookupComplete(true);
     routineLoadRequestRef.current += 1;
     loadedHistoryRoutineRef.current = "";
     removedExerciseIdsRef.current = new Set();
@@ -5937,19 +6252,81 @@ export default function RegisterTraining({
     historySeriesTypeMap,
   ]);
 
-  const trackingRows = useMemo(
-    () => buildExerciseTrackingRows(trackingExercise, historyTrainings),
-    [trackingExercise, historyTrainings],
-  );
-
-  const planTrackingRows = useMemo(
-    () => buildExerciseTrackingRows(trackingExercise, planHistoryTrainings),
-    [trackingExercise, planHistoryTrainings],
+  const routineHistoryForTracking = useMemo(
+    () =>
+      collectExerciseTrackingRoutineTrainings({
+        routineId: selectedRoutineId,
+        routineName: selectedRoutine?.name || "",
+        progressScopeId: selectedProgressScopeId,
+        planId: selectedHistoryPlanId,
+        slotId: selectedHistoryPlanSlotId,
+        sources: [historyTrainings, generalHistoryTrainings],
+      }),
+    [
+      generalHistoryTrainings,
+      historyTrainings,
+      selectedRoutine?.name,
+      selectedRoutineId,
+      selectedProgressScopeId,
+      selectedHistoryPlanId,
+      selectedHistoryPlanSlotId,
+    ],
   );
 
   const generalTrackingRows = useMemo(
-    () => buildExerciseTrackingRows(trackingExercise, generalHistoryTrainings),
+    () =>
+      buildExerciseTrackingRows(trackingExercise, generalHistoryTrainings, {
+        compatibleOnly: false,
+      }),
     [trackingExercise, generalHistoryTrainings],
+  );
+
+  const planHistoryForTracking = useMemo(
+    () =>
+      collectExerciseTrackingPlanTrainings({
+        planId: selectedHistoryPlanId,
+        planIds: selectedHistoryPlanIds,
+        routineIds: selectedHistoryPlanRoutineIds,
+        sources: [planHistoryTrainings, generalHistoryTrainings],
+      }),
+    [
+      generalHistoryTrainings,
+      planHistoryTrainings,
+      selectedHistoryPlanId,
+      selectedHistoryPlanIds,
+      selectedHistoryPlanRoutineIds,
+    ],
+  );
+
+  const trackingRows = useMemo(
+    () =>
+      buildExerciseTrackingRows(trackingExercise, routineHistoryForTracking, {
+        compatibleOnly: false,
+      }),
+    [routineHistoryForTracking, trackingExercise],
+  );
+
+  const planTrackingRows = useMemo(
+    () =>
+      buildExerciseTrackingRows(trackingExercise, planHistoryForTracking, {
+        compatibleOnly: false,
+      }),
+    [planHistoryForTracking, trackingExercise],
+  );
+
+  const handleViewExerciseTracking = useCallback(
+    (exercise) => {
+      setTrackingExerciseId(exercise.id);
+      setHistoryViewScope(
+        getInitialExerciseTrackingScope(
+          exercise,
+          routineHistoryForTracking,
+          planHistoryForTracking,
+        ),
+      );
+      setShowTracking(true);
+    },
+    [planHistoryForTracking, routineHistoryForTracking],
   );
 
   const visibleTrackingRows =
@@ -5966,6 +6343,14 @@ export default function RegisterTraining({
       0,
     );
   }, [visibleTrackingRows]);
+  const bestTrackingEntryKeysBySet = useMemo(
+    () => getExerciseTrackingBestEntryKeysBySet(visibleTrackingRows),
+    [visibleTrackingRows],
+  );
+  const bestTrackingEntryKeysByRoutine = useMemo(
+    () => getExerciseTrackingBestEntryKeysByRoutine(generalTrackingRows),
+    [generalTrackingRows],
+  );
   const restProgressPct = restDurationSeconds
     ? Math.max(
         0,
@@ -5981,6 +6366,11 @@ export default function RegisterTraining({
     : 0;
   const restTimerDone = restTimerStarted && restRemainingSeconds <= 0;
   const restTimerLabel = formatMinuteDuration(restRemainingSeconds);
+  const draftSyncLabel = getTrainingDraftSyncLabel(draftSyncStatus);
+  const draftSyncTone =
+    draftSyncStatus === "error"
+      ? "text-[color:var(--danger)]"
+      : "text-[color:var(--text-muted)]";
   const showAutoRestCountdown = Boolean(
     isAdmin &&
     autoFlowEnabled &&
@@ -6072,7 +6462,17 @@ export default function RegisterTraining({
                   </button>
                 </>
               )}
-              <div className="min-w-0 flex-1" />
+              <div className="min-w-0 flex-1 text-right">
+                {!isHistoryReadOnly && !isEditing ? (
+                  <span
+                    className={`hidden truncate text-[10px] font-semibold min-[430px]:block ${draftSyncTone}`}
+                    aria-live="polite"
+                    title={draftSyncLabel}
+                  >
+                    {draftSyncLabel}
+                  </span>
+                ) : null}
+              </div>
               {isEditing && !isHistoryReadOnly ? (
                 <label
                   className="relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
@@ -6348,11 +6748,9 @@ export default function RegisterTraining({
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      window.dispatchEvent(new Event("open-main-menu"))
-                    }
+                    onClick={() => onNavigate("perfil")}
                     className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
-                    aria-label="Abrir menú principal"
+                    aria-label="Abrir perfil"
                   >
                     <ProfileAvatar
                       photoId={
@@ -6829,6 +7227,14 @@ export default function RegisterTraining({
                     aria-label="Seleccionar fecha"
                   />
                 </button>
+                {!isHistoryReadOnly && !isEditing ? (
+                  <span
+                    className={`shrink-0 text-[11px] font-semibold ${draftSyncTone}`}
+                    aria-live="polite"
+                  >
+                    {draftSyncLabel}
+                  </span>
+                ) : null}
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
                   <strong className="shrink-0 text-sm text-[color:var(--text)]">
                     {doneSets}/{totalSets} series
@@ -6894,13 +7300,23 @@ export default function RegisterTraining({
                 className="flex min-h-[164px] flex-col justify-between p-4 text-white"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
-                    {isHistoryReadOnly
-                      ? "Sesión registrada"
-                      : sessionComplete
-                        ? "Rutina completada"
-                        : "Rutina activa"}
-                  </span>
+                  <div className="min-w-0">
+                    <span className="inline-flex rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
+                      {isHistoryReadOnly
+                        ? "Sesión registrada"
+                        : sessionComplete
+                          ? "Rutina completada"
+                          : "Rutina activa"}
+                    </span>
+                    {!isHistoryReadOnly && !isEditing ? (
+                      <p
+                        className="mt-1.5 truncate text-[11px] font-medium text-white/75"
+                        aria-live="polite"
+                      >
+                        {draftSyncLabel}
+                      </p>
+                    ) : null}
+                  </div>
                   <strong className="font-condensed text-2xl font-black tabular-nums drop-shadow-sm">
                     {progressPct}%
                   </strong>
@@ -7010,11 +7426,7 @@ export default function RegisterTraining({
                   {!isHistoryReadOnly ? (
                     <ExerciseOrderPanel
                       exercises={exercises}
-                      historyCount={orderMatchedHistoryTrainings.length}
                       active={isOrderingExercises}
-                      onToggle={() =>
-                        setIsOrderingExercises((current) => !current)
-                      }
                       onReorder={(nextOrder) =>
                         setExercises(applyExerciseOrder(nextOrder))
                       }
@@ -7044,6 +7456,9 @@ export default function RegisterTraining({
                             selectedRoutine?.raw?.exercises || [],
                             ex,
                           );
+                          const storedHistory = storedExerciseHistoryById.get(
+                            String(ex.exerciseId || ex.id || ""),
+                          );
                           return (
                             <ExerciseCard
                               key={ex.id}
@@ -7061,6 +7476,9 @@ export default function RegisterTraining({
                                 movementMode:
                                   ex.movementMode ||
                                   movementConfig.movementMode,
+                                hasStoredHistory: Boolean(storedHistory),
+                                storedHistoryLastDate:
+                                  storedHistory?.lastDate || "",
                               }}
                               onAddSet={() => handleAddSet(ex.id)}
                               onUpdateEntry={(setId, entryId, field, value) =>
@@ -7094,11 +7512,9 @@ export default function RegisterTraining({
                                 handleSwapVariant(ex.id, direction)
                               }
                               onStartNow={() => handleStartExerciseNow(ex.id)}
-                              onViewTracking={() => {
-                                setTrackingExerciseId(ex.id);
-                                setHistoryViewScope("routine");
-                                setShowTracking(true);
-                              }}
+                              onViewTracking={() =>
+                                handleViewExerciseTracking(ex)
+                              }
                             />
                           );
                         })}
@@ -7128,6 +7544,9 @@ export default function RegisterTraining({
                             selectedRoutine?.raw?.exercises || [],
                             ex,
                           );
+                          const storedHistory = storedExerciseHistoryById.get(
+                            String(ex.exerciseId || ex.id || ""),
+                          );
                           return (
                             <ExerciseCard
                               key={ex.id}
@@ -7145,6 +7564,9 @@ export default function RegisterTraining({
                                 movementMode:
                                   ex.movementMode ||
                                   movementConfig.movementMode,
+                                hasStoredHistory: Boolean(storedHistory),
+                                storedHistoryLastDate:
+                                  storedHistory?.lastDate || "",
                               }}
                               onAddSet={() => handleAddSet(ex.id)}
                               onUpdateEntry={(setId, entryId, field, value) =>
@@ -7178,11 +7600,9 @@ export default function RegisterTraining({
                                 handleSwapVariant(ex.id, direction)
                               }
                               onStartNow={() => handleStartExerciseNow(ex.id)}
-                              onViewTracking={() => {
-                                setTrackingExerciseId(ex.id);
-                                setHistoryViewScope("routine");
-                                setShowTracking(true);
-                              }}
+                              onViewTracking={() =>
+                                handleViewExerciseTracking(ex)
+                              }
                             />
                           );
                         })}
@@ -7191,21 +7611,29 @@ export default function RegisterTraining({
                   </div>
 
                   {!isHistoryReadOnly && extraExerciseOptions.length > 0 && (
-                    <Card className="training-extra-options max-w-full space-y-3 border border-[color:var(--border)] bg-[color:var(--card)]/80 p-4 shadow-sm backdrop-blur">
-                      <div className="training-extra-options__header flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)] font-semibold">
-                            Ejercicios extra (opcional)
-                          </p>
-                          <p className="text-xs text-[color:var(--text-muted)]">
-                            Agrega solo si te queda tiempo.
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {extraExerciseOptions.length}
-                        </Badge>
-                      </div>
-                      <div className="training-extra-options__grid grid min-w-0 gap-2 sm:grid-cols-2">
+                    <details className="training-extra-options group max-w-full overflow-hidden rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--card)] shadow-[var(--shadow-xs)]">
+                      <summary className="training-extra-options__header grid min-h-[5rem] cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left [&::-webkit-details-marker]:hidden">
+                        <span className="min-w-0">
+                          <small className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                            Opcional
+                          </small>
+                          <strong className="mt-1 block text-[15px] font-semibold tracking-[-0.015em] text-[color:var(--text)]">
+                            Ejercicios opcionales
+                          </strong>
+                          <small className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">
+                            {extraExerciseOptions.length}{" "}
+                            {extraExerciseOptions.length === 1
+                              ? "disponible"
+                              : "disponibles"}
+                            {" · Añade solo si te queda tiempo"}
+                          </small>
+                        </span>
+                        <ChevronDown
+                          className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-180"
+                          aria-hidden="true"
+                        />
+                      </summary>
+                      <div className="training-extra-options__grid min-w-0 divide-y divide-[color:var(--detail-row-divider)] border-t border-[color:var(--detail-row-divider)]">
                         {extraExerciseOptions.map((ex) => {
                           const alreadyAdded = exercises.some(
                             (item) => item.id === ex.id,
@@ -7217,9 +7645,9 @@ export default function RegisterTraining({
                           return (
                             <div
                               key={`extra-${ex.id}`}
-                              className="training-extra-option min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3"
+                              className="training-extra-option grid min-h-[4.75rem] min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 px-3.5 py-2.5"
                             >
-                              <div className="training-extra-option__thumbnail h-20 w-[76px] shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)]">
+                              <div className="training-extra-option__thumbnail h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
                                 <ExerciseThumbnail
                                   src={extraThumb}
                                   alt=""
@@ -7240,18 +7668,19 @@ export default function RegisterTraining({
                               </div>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="training-extra-option__action"
+                                variant={alreadyAdded ? "ghost" : "outline"}
+                                className="training-extra-option__action h-9 rounded-full px-3 text-xs"
                                 disabled={alreadyAdded}
                                 onClick={() => handleAddExtraExercise(ex)}
+                                aria-label={`${alreadyAdded ? "Añadido" : "Añadir"} ${ex.name}`}
                               >
-                                {alreadyAdded ? "Agregado" : "Agregar"}
+                                {alreadyAdded ? "Añadido" : "Añadir"}
                               </Button>
                             </div>
                           );
                         })}
                       </div>
-                    </Card>
+                    </details>
                   )}
 
                   {!isHistoryReadOnly ? (
@@ -7261,7 +7690,7 @@ export default function RegisterTraining({
                         className="w-full rounded-2xl border-dashed border-[color:var(--border)] text-[color:var(--text)] py-3"
                         onClick={handleAddExercise}
                       >
-                        + Agregar Ejercicio
+                        + Añadir otro ejercicio
                       </Button>
                     </motion.div>
                   ) : null}
@@ -7553,136 +7982,144 @@ export default function RegisterTraining({
                 </Button>
               </div>
             ) : visibleTrackingRows.length ? (
-              <div className="overflow-x-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
-                <table
-                  className={`w-full border-separate border-spacing-0 text-sm ${
-                    trackingSetCount <= 4 ? "table-fixed" : "min-w-max"
-                  }`}
-                  style={
-                    trackingSetCount > 4
-                      ? { minWidth: `${96 + trackingSetCount * 96}px` }
-                      : undefined
-                  }
-                >
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
-                      <th className="sticky left-0 z-20 w-[24%] border-b border-r border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-2.5 sm:w-auto sm:min-w-28 sm:px-3">
-                        Fecha
-                      </th>
-                      {Array.from({ length: trackingSetCount || 0 }).map(
-                        (_, idx) => (
-                          <th
-                            key={`set-head-${idx}`}
-                            className="border-b border-[color:var(--border)] bg-[color:var(--bg)] px-1 py-2.5 text-center sm:min-w-28 sm:px-3 sm:text-left"
-                          >
-                            <span className="sm:hidden">{idx + 1}</span>
-                            <span className="hidden sm:inline">
-                              Serie {idx + 1}
-                            </span>
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleTrackingRows.map((row, rowIdx) => (
-                      <motion.tr
-                        key={row.id || `${row.date}-${rowIdx}`}
-                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          duration: reduceMotion ? 0 : 0.2,
-                          delay: reduceMotion
-                            ? 0
-                            : Math.min(rowIdx * 0.025, 0.14),
-                        }}
-                        className="group"
-                      >
-                        <td
-                          className={`sticky left-0 z-10 border-r border-b border-[color:var(--border)] px-2 py-3 transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 ${
-                            rowIdx === 0
-                              ? "bg-[color:var(--surface-subtle)]"
-                              : "bg-[color:var(--card)]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-[color:var(--text)] sm:text-sm">
-                            {row.date ? formatShort(row.date) : "--"}
-                            {rowIdx === 0 ? (
-                              <span
-                                className="h-1.5 w-1.5 rounded-full bg-[#181918] dark:bg-[#e2ff00]"
-                                title="Sesión más reciente"
-                                aria-label="Sesión más reciente"
-                              />
-                            ) : null}
-                          </div>
-                          {getExerciseTrackingRoutineLabel(
-                            row,
-                            historyViewScope,
-                          ) ? (
-                            <div
-                              className="mt-0.5 truncate text-[9px] text-[color:var(--text-muted)] sm:max-w-36 sm:text-[11px]"
-                              title={getExerciseTrackingRoutineLabel(
-                                row,
-                                historyViewScope,
-                              )}
+              <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
+                <div className="overflow-x-auto">
+                  <table
+                    className={`w-full border-separate border-spacing-0 text-sm ${
+                      trackingSetCount <= 4 ? "table-fixed" : "min-w-max"
+                    }`}
+                    style={
+                      trackingSetCount > 4
+                        ? { minWidth: `${96 + trackingSetCount * 96}px` }
+                        : undefined
+                    }
+                  >
+                    <thead>
+                      <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                        <th className="sticky left-0 z-20 w-[24%] border-b border-r border-[color:var(--border)] bg-[color:var(--bg)] px-2 py-2.5 sm:w-auto sm:min-w-28 sm:px-3">
+                          Fecha
+                        </th>
+                        {Array.from({ length: trackingSetCount || 0 }).map(
+                          (_, idx) => (
+                            <th
+                              key={`set-head-${idx}`}
+                              className="border-b border-[color:var(--border)] bg-[color:var(--bg)] px-1 py-2.5 text-center sm:min-w-28 sm:px-3 sm:text-left"
                             >
+                              <span className="sm:hidden">{idx + 1}</span>
+                              <span className="hidden sm:inline">
+                                Serie {idx + 1}
+                              </span>
+                            </th>
+                          ),
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleTrackingRows.map((row, rowIdx) => {
+                        const rowBestEntryKeys =
+                          historyViewScope === "general"
+                            ? bestTrackingEntryKeysByRoutine.byRoutine.get(
+                                getExerciseTrackingRoutineKey(row),
+                              ) || bestTrackingEntryKeysByRoutine.global
+                            : bestTrackingEntryKeysBySet;
+                        return (
+                          <motion.tr
+                            key={row.id || `${row.date}-${rowIdx}`}
+                            initial={
+                              reduceMotion ? false : { opacity: 0, y: 6 }
+                            }
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: reduceMotion ? 0 : 0.2,
+                              delay: reduceMotion
+                                ? 0
+                                : Math.min(rowIdx * 0.025, 0.14),
+                            }}
+                            className="group"
+                          >
+                            <td className="sticky left-0 z-10 border-r border-b border-[color:var(--border)] bg-[color:var(--card)] px-2 py-3 transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3">
+                              <div className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-[color:var(--text)] sm:text-sm">
+                                {row.date ? formatShort(row.date) : "--"}
+                              </div>
                               {getExerciseTrackingRoutineLabel(
                                 row,
                                 historyViewScope,
-                              )}
-                            </div>
-                          ) : null}
-                          {!locationDisabled ? (
-                            <div className="mt-0.5 hidden text-[11px] text-[color:var(--text-muted)] sm:block">
-                              {row.branch
-                                ? formatBranchLabel(row.branch)
-                                : "Sin sucursal"}
-                            </div>
-                          ) : null}
-                        </td>
-                        {Array.from({ length: trackingSetCount || 0 }).map(
-                          (_, idx) => {
-                            const entries = row.sets[idx] || [];
-                            if (!entries.length) {
-                              return (
-                                <td
-                                  key={`set-cell-${rowIdx}-${idx}`}
-                                  className="border-b border-[color:var(--border)] px-1 py-3 text-center text-[color:var(--text-muted)] transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
+                              ) ? (
+                                <div
+                                  className="mt-0.5 truncate text-[9px] text-[color:var(--text-muted)] sm:max-w-36 sm:text-[11px]"
+                                  title={getExerciseTrackingRoutineLabel(
+                                    row,
+                                    historyViewScope,
+                                  )}
                                 >
-                                  --
-                                </td>
-                              );
-                            }
-                            return (
-                              <td
-                                key={`set-cell-${rowIdx}-${idx}`}
-                                className="border-b border-[color:var(--border)] px-1 py-3 text-center transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
-                              >
-                                <div className="flex flex-col gap-1">
-                                  {entries.length > 1 ? (
-                                    entries.map((entry, entryIdx) => (
-                                      <span
-                                        key={`entry-${rowIdx}-${idx}-${entryIdx}`}
-                                        className="whitespace-nowrap text-[10px] font-semibold tracking-[-0.03em] tabular-nums text-[color:var(--text)] sm:text-xs sm:tracking-normal"
-                                      >
-                                        E{entryIdx + 1}:{" "}
-                                        {formatEntryValue(entry)}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="whitespace-nowrap text-[10px] font-semibold tracking-[-0.03em] tabular-nums text-[color:var(--text)] sm:text-xs sm:tracking-normal">
-                                      {formatEntryValue(entries[0])}
-                                    </span>
+                                  {getExerciseTrackingRoutineLabel(
+                                    row,
+                                    historyViewScope,
                                   )}
                                 </div>
-                              </td>
-                            );
-                          },
-                        )}
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
+                              ) : null}
+                              {!locationDisabled ? (
+                                <div className="mt-0.5 hidden text-[11px] text-[color:var(--text-muted)] sm:block">
+                                  {row.branch
+                                    ? formatBranchLabel(row.branch)
+                                    : "Sin sucursal"}
+                                </div>
+                              ) : null}
+                            </td>
+                            {Array.from({ length: trackingSetCount || 0 }).map(
+                              (_, idx) => {
+                                const entries = row.sets[idx] || [];
+                                if (!entries.length) {
+                                  return (
+                                    <td
+                                      key={`set-cell-${rowIdx}-${idx}`}
+                                      className="border-b border-[color:var(--border)] px-1 py-3 text-center text-[color:var(--text-muted)] transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
+                                    >
+                                      --
+                                    </td>
+                                  );
+                                }
+                                return (
+                                  <td
+                                    key={`set-cell-${rowIdx}-${idx}`}
+                                    className="border-b border-[color:var(--border)] px-1 py-3 text-center transition-colors group-hover:bg-[color:var(--surface-subtle)] sm:px-3 sm:text-left"
+                                  >
+                                    <div className="flex flex-col items-center gap-1 sm:items-start">
+                                      {entries.map((entry, entryIdx) => {
+                                        const isBestWeight =
+                                          rowBestEntryKeys[idx] ===
+                                          getExerciseTrackingEntryKey(
+                                            row,
+                                            idx,
+                                            entryIdx,
+                                          );
+                                        return (
+                                          <span
+                                            key={`entry-${rowIdx}-${idx}-${entryIdx}`}
+                                            className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap px-1 py-0.5 text-[10px] font-semibold tracking-[-0.03em] tabular-nums sm:text-xs sm:tracking-normal ${
+                                              isBestWeight
+                                                ? "rounded-md border border-[#181918] bg-[#181918]/5 font-bold text-[color:var(--text)] shadow-sm dark:border-[#f5f1e8] dark:bg-white/5"
+                                                : "text-[color:var(--text)]"
+                                            }`}
+                                          >
+                                            {entries.length > 1
+                                              ? `E${entryIdx + 1}: `
+                                              : ""}
+                                            {formatEntryValue(entry)}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                );
+                              },
+                            )}
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]">

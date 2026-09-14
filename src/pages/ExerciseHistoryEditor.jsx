@@ -1,40 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  CalendarDays,
-  Check,
   ChevronDown,
-  Database,
-  Dumbbell,
   LoaderCircle,
   Save,
   Search,
-  SlidersHorizontal,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
-import Badge from "../components/ui/badge";
+import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import Button from "../components/ui/button";
 import Skeleton from "../components/ui/skeleton";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
+import { getExerciseImageUrl } from "../utils/cloudinary";
 
 const STORAGE_KEY = "history_editor_exercise_id";
 
-const WEIGHT_BASIS_OPTIONS = [
-  ["legacy", "Sin interpretar (histórico)"],
-  ["total", "Peso total"],
-  ["per_side", "Peso por lado"],
-  ["per_implement", "Peso por implemento"],
-  ["machine", "Peso de máquina"],
-  ["additional", "Carga adicional"],
-  ["assistance", "Asistencia"],
-];
-
-const readStoredExerciseId = () => {
-  if (typeof localStorage === "undefined") return "";
-  return localStorage.getItem(STORAGE_KEY) || "";
+const WEIGHT_BASIS_LABELS = {
+  legacy: "Registro histórico",
+  total: "Peso total",
+  per_side: "Peso por lado",
+  per_implement: "Peso por implemento",
+  machine: "Peso de máquina",
+  additional: "Carga adicional",
+  assistance: "Asistencia",
 };
 
 const normalizeSearchText = (value = "") =>
@@ -46,6 +36,7 @@ const normalizeSearchText = (value = "") =>
     .trim();
 
 const getExerciseId = (exercise) => String(exercise?.id || exercise?._id || "");
+
 const getExerciseGroup = (exercise) =>
   String(
     exercise?.primaryMuscleGroup ||
@@ -53,59 +44,30 @@ const getExerciseGroup = (exercise) =>
       exercise?.muscleGroup ||
       "Sin grupo",
   );
-const toSearchValues = (value) =>
-  (Array.isArray(value) ? value : value ? [value] : []).filter(Boolean);
 
-const getExerciseSearchData = (exercise) => {
-  const name = normalizeSearchText(exercise?.name);
-  const aliases = [
-    ...toSearchValues(exercise?.aliases),
-    exercise?.localizedNames?.es,
-    exercise?.localizedNames?.en,
-    exercise?.nameSpanish,
-    exercise?.nameEnglish,
-  ]
-    .filter(Boolean)
-    .map(normalizeSearchText);
-  const metadata = [
-    getExerciseGroup(exercise),
-    ...toSearchValues(exercise?.equipment),
-    ...toSearchValues(exercise?.movementPatterns),
-  ].map(normalizeSearchText);
-  return {
-    name,
-    aliases,
-    haystack: [name, ...aliases, ...metadata].join(" "),
-  };
-};
-
-const getExerciseSearchRank = (exercise, query) => {
-  if (!query) return 4;
-  const { name, aliases, haystack } = getExerciseSearchData(exercise);
-  const tokens = query.split(" ").filter(Boolean);
-  if (!tokens.every((token) => haystack.includes(token))) return Infinity;
-  if (name === query || aliases.includes(query)) return 0;
-  if (
-    name.startsWith(query) ||
-    aliases.some((alias) => alias.startsWith(query))
-  ) {
-    return 1;
-  }
-  if (name.includes(query) || aliases.some((alias) => alias.includes(query))) {
-    return 2;
-  }
-  return 3;
-};
+const getExerciseSearchText = (exercise) =>
+  normalizeSearchText(
+    [
+      exercise?.name,
+      ...(exercise?.aliases || []),
+      exercise?.localizedNames?.es,
+      exercise?.localizedNames?.en,
+      getExerciseGroup(exercise),
+      ...(exercise?.equipment || []),
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
 
 const formatDate = (value) =>
   value
     ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString(
         "es-BO",
-        { day: "2-digit", month: "long", year: "numeric" },
+        { day: "2-digit", month: "short", year: "numeric" },
       )
     : "Sin fecha";
 
-const getConfig = (record) => ({
+const getRecordConfig = (record) => ({
   movementMode:
     record?.movementMode === "unilateral" ? "unilateral" : "bilateral",
   weightBasis: record?.weightBasis || "legacy",
@@ -113,245 +75,158 @@ const getConfig = (record) => ({
   implementCount: Number(record?.implementCount) || 1,
 });
 
-const sameConfig = (left, right) =>
-  left.movementMode === right.movementMode &&
-  left.weightBasis === right.weightBasis &&
-  Number(left.barWeightKg) === Number(right.barWeightKg) &&
-  Number(left.implementCount) === Number(right.implementCount);
-
-const toEntries = (sets = [], source) =>
+const toEditableEntries = (sets = [], source) =>
   (sets || []).flatMap((set, setIndex) => {
     if (source === "session") {
       return [
         {
-          key: `${setIndex}-0`,
-          series: setIndex + 1,
-          entry: "",
-          reps: set?.reps,
-          weight: set?.weight,
-          done: true,
+          key: `${setIndex}:0`,
+          setIndex,
+          entryIndex: 0,
+          label: String(setIndex + 1),
+          weight: set?.weight ?? "",
+          reps: set?.reps ?? "",
         },
       ];
     }
     const entries =
       Array.isArray(set?.entries) && set.entries.length ? set.entries : [set];
     return entries.map((entry, entryIndex) => ({
-      key: `${setIndex}-${entryIndex}`,
-      series: setIndex + 1,
-      entry: entries.length > 1 ? String.fromCharCode(65 + entryIndex) : "",
-      reps: entry?.reps,
-      weight: entry?.weightKg ?? entry?.weight,
-      done: entry?.done === true,
+      key: `${setIndex}:${entryIndex}`,
+      setIndex,
+      entryIndex,
+      label: `${setIndex + 1}${
+        entries.length > 1 ? String.fromCharCode(65 + entryIndex) : ""
+      }`,
+      weight: entry?.weightKg ?? entry?.weight ?? "",
+      reps: entry?.reps ?? "",
     }));
   });
 
-function Metric({ label, value, detail }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-black tabular-nums">{value}</p>
-      <p className="mt-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-        {detail}
-      </p>
-    </div>
-  );
-}
+const serializeEditableState = (mode, entries) =>
+  JSON.stringify({
+    mode,
+    entries: entries.map(({ setIndex, entryIndex, weight, reps }) => ({
+      setIndex,
+      entryIndex,
+      weight: weight === "" ? null : Number(weight),
+      reps: reps === "" ? null : Number(reps),
+    })),
+  });
 
-function RecordCard({ record, saving, onSave }) {
-  const original = useMemo(() => getConfig(record), [record]);
-  const [config, setConfig] = useState(original);
-
-  const entries = useMemo(
-    () => toEntries(record.sets, record.source),
+function EditableHistoryRow({ record, columnCount, saving, onSave }) {
+  const config = useMemo(() => getRecordConfig(record), [record]);
+  const initialEntries = useMemo(
+    () => toEditableEntries(record.sets, record.source),
     [record.sets, record.source],
   );
-  const dirty = !sameConfig(config, original);
+  const [movementMode, setMovementMode] = useState(config.movementMode);
+  const [entries, setEntries] = useState(initialEntries);
+  const initialState = serializeEditableState(
+    config.movementMode,
+    initialEntries,
+  );
+  const dirty = serializeEditableState(movementMode, entries) !== initialState;
 
-  const updateConfig = (field, value) =>
-    setConfig((current) => ({ ...current, [field]: value }));
+  const updateEntry = (index, field, value) => {
+    const valid =
+      field === "reps" ? /^\d*$/.test(value) : /^\d*(\.\d{0,2})?$/.test(value);
+    if (value !== "" && !valid) return;
+    setEntries((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [field]: value } : entry,
+      ),
+    );
+  };
 
   return (
-    <article
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
-      data-history-record={record.key}
-    >
-      <div className="flex flex-col gap-3 border-b border-[color:var(--border)] p-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-black uppercase">
-              {formatDate(record.date)}
-            </h2>
-            <Badge
-              variant={record.source === "training" ? "active" : "pending"}
-            >
-              {record.source === "training"
-                ? "Entrenamiento"
-                : "Sesión heredada"}
-            </Badge>
-            <Badge
-              variant={
-                config.movementMode === "unilateral" ? "enabled" : "default"
-              }
-            >
-              {config.movementMode}
-            </Badge>
-          </div>
-          <p className="mt-1 truncate text-sm font-bold text-[color:var(--text-muted)]">
-            {record.routineName || "Sin rutina"} · {entries.length}{" "}
-            series/entradas
-          </p>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[520px] lg:grid-cols-[150px_190px_auto]">
-          <label>
-            <span className="mb-1 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-              Modalidad
-            </span>
-            <select
-              aria-label={`Modalidad de ${formatDate(record.date)}`}
-              value={config.movementMode}
-              onChange={(event) =>
-                updateConfig("movementMode", event.target.value)
-              }
-              className="theme-accent-focus h-10 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-black outline-none"
-            >
-              <option value="bilateral">Bilateral</option>
-              <option value="unilateral">Unilateral</option>
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-              Interpretación del peso
-            </span>
-            <select
-              aria-label={`Interpretación del peso de ${formatDate(record.date)}`}
-              value={config.weightBasis}
-              onChange={(event) =>
-                updateConfig("weightBasis", event.target.value)
-              }
-              className="theme-accent-focus h-10 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-black outline-none"
-            >
-              {WEIGHT_BASIS_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            size="sm"
-            className="self-end"
-            disabled={!dirty || saving}
-            onClick={() => onSave(record, config)}
-          >
-            {saving ? (
-              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+    <tr className="align-top">
+      <td className="sticky left-0 z-10 min-w-36 border-r border-[color:var(--border)] bg-[color:var(--card)] px-3 py-3">
+        <span className="block text-sm font-black capitalize">
+          {formatDate(record.date)}
+        </span>
+        <span className="mt-1 block max-w-40 truncate text-[10px] font-semibold text-[color:var(--text-muted)]">
+          {record.routineName || "Sin rutina"}
+        </span>
+        <span className="mt-0.5 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+          {record.source === "training" ? "Entrenamiento" : "Sesión heredada"}
+        </span>
+      </td>
+      <td className="min-w-36 px-2 py-3">
+        <select
+          aria-label={`Modalidad de ${formatDate(record.date)}`}
+          value={movementMode}
+          onChange={(event) => setMovementMode(event.target.value)}
+          className="theme-accent-focus h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 text-xs font-black outline-none"
+        >
+          <option value="bilateral">Bilateral</option>
+          <option value="unilateral">Unilateral</option>
+        </select>
+      </td>
+      {Array.from({ length: columnCount }, (_, index) => {
+        const entry = entries[index];
+        return (
+          <td key={index} className="min-w-36 px-2 py-3">
+            {entry ? (
+              <div>
+                <span className="mb-1 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                  Serie {entry.label}
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <label className="relative">
+                    <input
+                      inputMode="decimal"
+                      aria-label={`Peso, serie ${entry.label}, ${formatDate(record.date)}`}
+                      value={entry.weight}
+                      onChange={(event) =>
+                        updateEntry(index, "weight", event.target.value)
+                      }
+                      className="theme-accent-focus h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 pb-3 pt-1 text-sm font-black tabular-nums outline-none"
+                    />
+                    <span className="pointer-events-none absolute bottom-1 left-2 text-[8px] font-black uppercase text-[color:var(--text-muted)]">
+                      kg
+                    </span>
+                  </label>
+                  <label className="relative">
+                    <input
+                      inputMode="numeric"
+                      aria-label={`Repeticiones, serie ${entry.label}, ${formatDate(record.date)}`}
+                      value={entry.reps}
+                      onChange={(event) =>
+                        updateEntry(index, "reps", event.target.value)
+                      }
+                      className="theme-accent-focus h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-2 pb-3 pt-1 text-sm font-black tabular-nums outline-none"
+                    />
+                    <span className="pointer-events-none absolute bottom-1 left-2 text-[8px] font-black uppercase text-[color:var(--text-muted)]">
+                      rep
+                    </span>
+                  </label>
+                </div>
+              </div>
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <span className="block pt-5 text-center text-sm text-[color:var(--text-muted)]">
+                —
+              </span>
             )}
-            Guardar
-          </Button>
-        </div>
-      </div>
-
-      {config.weightBasis === "per_side" ||
-      config.weightBasis === "per_implement" ? (
-        <div className="flex flex-wrap gap-3 border-b border-[color:var(--border)] bg-[color:var(--bg)] px-4 py-3">
-          {config.weightBasis === "per_side" ? (
-            <label className="w-44">
-              <span className="mb-1 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-                Peso de barra (kg)
-              </span>
-              <input
-                type="number"
-                min="0"
-                max="500"
-                step="0.5"
-                value={config.barWeightKg}
-                onChange={(event) =>
-                  updateConfig("barWeightKg", Number(event.target.value))
-                }
-                className="theme-accent-focus h-10 w-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-black outline-none"
-              />
-            </label>
+          </td>
+        );
+      })}
+      <td className="min-w-28 px-3 py-3 text-right">
+        <Button
+          size="sm"
+          disabled={!dirty || saving}
+          onClick={() => onSave(record, movementMode, entries)}
+          aria-label={`Guardar cambios de ${formatDate(record.date)}`}
+        >
+          {saving ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
           ) : (
-            <label className="w-44">
-              <span className="mb-1 block text-[9px] font-black uppercase text-[color:var(--text-muted)]">
-                N.º de implementos
-              </span>
-              <input
-                type="number"
-                min="1"
-                max="4"
-                step="1"
-                value={config.implementCount}
-                onChange={(event) =>
-                  updateConfig("implementCount", Number(event.target.value))
-                }
-                className="theme-accent-focus h-10 w-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm font-black outline-none"
-              />
-            </label>
+            <Save className="h-4 w-4" />
           )}
-          <p className="self-end pb-2 text-xs font-semibold text-[color:var(--text-muted)]">
-            Esta configuración cambia el cálculo, no los valores registrados.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[460px] text-left">
-          <thead className="bg-[color:var(--bg)] text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
-            <tr>
-              <th className="px-4 py-2">Serie</th>
-              <th className="px-4 py-2 text-right">Peso registrado</th>
-              <th className="px-4 py-2 text-right">Repeticiones</th>
-              <th className="px-4 py-2 text-right">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[color:var(--border)] text-sm font-bold tabular-nums">
-            {entries.map((entry) => (
-              <tr key={entry.key}>
-                <td className="px-4 py-2.5">
-                  {entry.series}
-                  {entry.entry}
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  {entry.weight === null ||
-                  entry.weight === undefined ||
-                  entry.weight === ""
-                    ? "--"
-                    : `${Number(entry.weight).toLocaleString("es-BO")} kg`}
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  {entry.reps === null ||
-                  entry.reps === undefined ||
-                  entry.reps === ""
-                    ? "--"
-                    : Number(entry.reps).toLocaleString("es-BO")}
-                </td>
-                <td className="px-4 py-2.5 text-right text-[10px] uppercase text-[color:var(--text-muted)]">
-                  {record.source === "session" || entry.done
-                    ? "Completada"
-                    : "No completada"}
-                </td>
-              </tr>
-            ))}
-            {!entries.length ? (
-              <tr>
-                <td
-                  colSpan="4"
-                  className="px-4 py-6 text-center text-sm text-[color:var(--text-muted)]"
-                >
-                  Este registro no contiene series.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </article>
+          <span className="ml-2">Guardar</span>
+        </Button>
+      </td>
+    </tr>
   );
 }
 
@@ -361,29 +236,107 @@ export default function ExerciseHistoryEditor({
   coachAthlete = null,
 }) {
   const queryClient = useQueryClient();
-  const { exercises = [], loading: trainingDataLoading } = useTrainingData();
-  const [selectedExerciseId, setSelectedExerciseId] =
-    useState(readStoredExerciseId);
-  const [search, setSearch] = useState("");
-  const [exercisePickerOpen, setExercisePickerOpen] = useState(false);
-  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
-  const [muscleFilter, setMuscleFilter] = useState("all");
-  const [onlyWithHistory, setOnlyWithHistory] = useState(true);
-  const [modeFilter, setModeFilter] = useState("all");
-  const [savingKey, setSavingKey] = useState("");
+  const { exercises = [], loading: exercisesLoading } = useTrainingData();
   const athleteId = coachAthlete?.id || "";
+  const [search, setSearch] = useState("");
+  const [activeGroup, setActiveGroup] = useState("");
+  const [selectedExerciseId, setSelectedExerciseId] = useState(() =>
+    typeof localStorage === "undefined"
+      ? ""
+      : localStorage.getItem(STORAGE_KEY) || "",
+  );
+  const [savingKey, setSavingKey] = useState("");
+  const historySectionRef = useRef(null);
+
+  const countsQuery = useQuery({
+    queryKey: ["exercise-history-counts", athleteId || "self"],
+    queryFn: () => api.getExerciseHistoryCounts({ athleteId }),
+    staleTime: 0,
+  });
+
+  const countByExerciseId = useMemo(
+    () =>
+      new Map(
+        (countsQuery.data?.exercises || []).map((item) => [
+          String(item.exerciseId),
+          Number(item.count) || 0,
+        ]),
+      ),
+    [countsQuery.data],
+  );
+
+  const exerciseCatalogWithHistory = useMemo(() => {
+    const catalog = new Map(
+      exercises.map((exercise) => [getExerciseId(exercise), exercise]),
+    );
+    (countsQuery.data?.exercises || []).forEach((item) => {
+      const exerciseId = String(item.exerciseId || "");
+      if (!exerciseId || catalog.has(exerciseId)) return;
+      catalog.set(exerciseId, {
+        id: exerciseId,
+        name: item.name || exerciseId,
+        primaryMuscleGroup: item.group || "Sin grupo",
+      });
+    });
+    return [...catalog.values()];
+  }, [countsQuery.data, exercises]);
+
+  const groupedExercises = useMemo(() => {
+    const normalizedSearch = normalizeSearchText(search);
+    const groups = new Map();
+    exerciseCatalogWithHistory
+      .filter((exercise) => countByExerciseId.get(getExerciseId(exercise)) > 0)
+      .filter(
+        (exercise) =>
+          !normalizedSearch ||
+          getExerciseSearchText(exercise).includes(normalizedSearch),
+      )
+      .forEach((exercise) => {
+        const group = getExerciseGroup(exercise);
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push(exercise);
+      });
+    return [...groups.entries()]
+      .map(([group, items]) => [
+        group,
+        items.sort((left, right) =>
+          String(left.name).localeCompare(String(right.name), "es"),
+        ),
+      ])
+      .sort(([left], [right]) => left.localeCompare(right, "es"));
+  }, [countByExerciseId, exerciseCatalogWithHistory, search]);
+
+  const exercisesWithHistory = useMemo(
+    () => groupedExercises.flatMap(([, items]) => items),
+    [groupedExercises],
+  );
+  const selectedExercise = exerciseCatalogWithHistory.find(
+    (exercise) => getExerciseId(exercise) === selectedExerciseId,
+  );
 
   useEffect(() => {
-    if (!selectedExerciseId && exercises.length) {
-      setSelectedExerciseId(String(exercises[0].id || exercises[0]._id));
+    if (!countsQuery.data || !exerciseCatalogWithHistory.length) return;
+    const selectedHasHistory =
+      selectedExerciseId && countByExerciseId.get(selectedExerciseId) > 0;
+    if (!selectedHasHistory) {
+      const first = exerciseCatalogWithHistory.find(
+        (exercise) => countByExerciseId.get(getExerciseId(exercise)) > 0,
+      );
+      if (first) setSelectedExerciseId(getExerciseId(first));
     }
-  }, [exercises, selectedExerciseId]);
+  }, [
+    countByExerciseId,
+    countsQuery.data,
+    exerciseCatalogWithHistory,
+    selectedExerciseId,
+  ]);
 
   useEffect(() => {
-    if (selectedExerciseId && typeof localStorage !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, selectedExerciseId);
-    }
-  }, [selectedExerciseId]);
+    if (!selectedExercise) return;
+    const group = getExerciseGroup(selectedExercise);
+    setActiveGroup(group);
+    localStorage.setItem(STORAGE_KEY, selectedExerciseId);
+  }, [selectedExercise, selectedExerciseId]);
 
   const historyQuery = useQuery({
     queryKey: [
@@ -396,111 +349,13 @@ export default function ExerciseHistoryEditor({
     enabled: Boolean(selectedExerciseId),
     staleTime: 0,
   });
+
   const sessionsQuery = useQuery({
     queryKey: ["exercise-history-editor-sessions", athleteId || "self"],
     queryFn: () => api.getSessions({ athleteId }),
     enabled: Boolean(selectedExerciseId),
     staleTime: 0,
   });
-  const countsQuery = useQuery({
-    queryKey: ["exercise-history-counts", athleteId || "self"],
-    queryFn: () => api.getExerciseHistoryCounts({ athleteId }),
-    staleTime: 0,
-  });
-
-  const selectedExercise = exercises.find(
-    (exercise) => getExerciseId(exercise) === selectedExerciseId,
-  );
-  const muscleOptions = useMemo(
-    () =>
-      Array.from(new Set(exercises.map(getExerciseGroup))).sort((left, right) =>
-        left.localeCompare(right, "es"),
-      ),
-    [exercises],
-  );
-  const exerciseCountById = useMemo(
-    () =>
-      new Map(
-        (countsQuery.data?.exercises || []).map((item) => [
-          String(item.exerciseId),
-          Number(item.count) || 0,
-        ]),
-      ),
-    [countsQuery.data],
-  );
-  const groupCountByName = useMemo(
-    () =>
-      new Map(
-        (countsQuery.data?.groups || []).map((item) => [
-          String(item.group),
-          Number(item.count) || 0,
-        ]),
-      ),
-    [countsQuery.data],
-  );
-  const exerciseMatches = useMemo(() => {
-    const normalized = normalizeSearchText(search);
-    return exercises
-      .map((exercise) => ({
-        exercise,
-        rank: getExerciseSearchRank(exercise, normalized),
-      }))
-      .filter(
-        ({ exercise, rank }) =>
-          Number.isFinite(rank) &&
-          (!onlyWithHistory ||
-            !countsQuery.data ||
-            exerciseCountById.get(getExerciseId(exercise)) > 0) &&
-          (muscleFilter === "all" ||
-            getExerciseGroup(exercise) === muscleFilter),
-      )
-      .sort(
-        (left, right) =>
-          left.rank - right.rank ||
-          (exerciseCountById.get(getExerciseId(right.exercise)) || 0) -
-            (exerciseCountById.get(getExerciseId(left.exercise)) || 0) ||
-          String(left.exercise.name).localeCompare(
-            String(right.exercise.name),
-            "es",
-          ),
-      )
-      .map(({ exercise }) => exercise);
-  }, [
-    countsQuery.data,
-    exerciseCountById,
-    exercises,
-    muscleFilter,
-    onlyWithHistory,
-    search,
-  ]);
-  const visibleExerciseMatches = exerciseMatches.slice(0, 60);
-
-  const selectExercise = (exercise) => {
-    setSelectedExerciseId(getExerciseId(exercise));
-    setSearch("");
-    setExercisePickerOpen(false);
-    setActiveExerciseIndex(0);
-    setModeFilter("all");
-  };
-
-  const handleExerciseSearchKeyDown = (event) => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setExercisePickerOpen(true);
-      setActiveExerciseIndex((current) =>
-        Math.min(current + 1, Math.max(visibleExerciseMatches.length - 1, 0)),
-      );
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveExerciseIndex((current) => Math.max(current - 1, 0));
-    } else if (event.key === "Enter" && exercisePickerOpen) {
-      event.preventDefault();
-      const match = visibleExerciseMatches[activeExerciseIndex];
-      if (match) selectExercise(match);
-    } else if (event.key === "Escape") {
-      setExercisePickerOpen(false);
-    }
-  };
 
   const records = useMemo(() => {
     const trainingRecords = (historyQuery.data?.items || []).flatMap(
@@ -510,6 +365,7 @@ export default function ExerciseHistoryEditor({
           key: `training:${training._id || training.id}:${exerciseIndex}`,
           source: "training",
           sourceId: training._id || training.id,
+          exerciseIndex,
           exerciseId: exercise.exerciseId,
           date: training.date || training.createdAt,
           routineName: training.routineName,
@@ -532,52 +388,65 @@ export default function ExerciseHistoryEditor({
     );
   }, [historyQuery.data, selectedExerciseId, sessionsQuery.data]);
 
-  const filteredRecords = useMemo(
-    () =>
-      records.filter(
-        (record) =>
-          modeFilter === "all" || getConfig(record).movementMode === modeFilter,
-      ),
-    [modeFilter, records],
-  );
-  const totals = useMemo(
-    () => ({
-      records: records.length,
-      trainings: records.filter((record) => record.source === "training")
-        .length,
-      sessions: records.filter((record) => record.source === "session").length,
-      entries: records.reduce(
-        (sum, record) => sum + toEntries(record.sets, record.source).length,
-        0,
-      ),
-      bilateral: records.filter(
-        (record) => getConfig(record).movementMode === "bilateral",
-      ).length,
-      unilateral: records.filter(
-        (record) => getConfig(record).movementMode === "unilateral",
-      ).length,
-    }),
-    [records],
+  const columnCount = Math.max(
+    1,
+    ...records.map(
+      (record) => toEditableEntries(record.sets, record.source).length,
+    ),
   );
 
-  const handleSave = async (record, config) => {
+  const selectExercise = (exercise) => {
+    setSelectedExerciseId(getExerciseId(exercise));
+    setActiveGroup(getExerciseGroup(exercise));
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      requestAnimationFrame(() =>
+        historySectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      );
+    }
+  };
+
+  const handleSave = async (record, movementMode, entries) => {
     setSavingKey(record.key);
+    const payload = {
+      ...getRecordConfig(record),
+      movementMode,
+      ...(record.source === "training"
+        ? { exerciseIndex: record.exerciseIndex }
+        : {}),
+      values: entries.map(({ setIndex, entryIndex, weight, reps }) => ({
+        setIndex,
+        entryIndex,
+        weightKg: weight === "" ? null : Number(weight),
+        reps: reps === "" ? null : Number(reps),
+      })),
+    };
     try {
+      let response;
       if (record.source === "training") {
-        await api.updateTrainingExerciseConfig(
+        response = await api.updateTrainingExerciseConfig(
           record.sourceId,
           record.exerciseId,
-          config,
+          payload,
         );
       } else {
-        await api.updateSessionExerciseConfig(record.sourceId, config);
+        response = await api.updateSessionExerciseConfig(record.sourceId, payload);
+      }
+      if (Number(response?.historyValuesUpdated) !== payload.values.length) {
+        throw new Error(
+          "El servidor no confirmó los cambios de peso y repeticiones. Actualiza el backend antes de volver a intentarlo.",
+        );
       }
       await Promise.all([historyQuery.refetch(), sessionsQuery.refetch()]);
-      queryClient.invalidateQueries({ queryKey: ["trainings"] });
-      queryClient.invalidateQueries({ queryKey: ["sessions"] });
-      toast.success("Registro histórico actualizado");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["trainings"] }),
+        queryClient.invalidateQueries({ queryKey: ["sessions"] }),
+      ]);
+      toast.success("Historial actualizado");
     } catch (error) {
-      toast.error(error.message || "No se pudo actualizar el registro");
+      toast.error(error.message || "No se pudo guardar el registro");
     } finally {
       setSavingKey("");
     }
@@ -585,23 +454,27 @@ export default function ExerciseHistoryEditor({
 
   const loading = historyQuery.isPending || sessionsQuery.isPending;
   const error = historyQuery.error || sessionsQuery.error;
+  const currentWeightBasis =
+    selectedExercise?.weightConfig?.basis ||
+    records[0]?.weightBasis ||
+    "legacy";
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-4 pb-24 text-[color:var(--text)]">
+    <main className="mx-auto w-full max-w-[1500px] space-y-4 pb-24 text-[color:var(--text)]">
       <header className="flex flex-col gap-3 border-b border-[color:var(--border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#181918] dark:text-[#e2ff00]">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
             Administración de datos
           </p>
           <h1 className="mt-1 text-3xl font-black uppercase leading-none">
-            Editor de historial
+            Editor de ejercicios
           </h1>
           <p className="mt-2 max-w-2xl text-sm font-semibold text-[color:var(--text-muted)]">
-            Revisa todas las series, repeticiones y pesos. Corrige la modalidad
-            de cada registro sin modificar sus valores originales.
+            Selecciona un ejercicio con datos y sobrescribe sus pesos,
+            repeticiones o modalidad directamente desde el historial.
           </p>
           {coachAthlete?.name ? (
-            <p className="mt-2 text-xs font-black uppercase text-[#181918] dark:text-[#e2ff00]">
+            <p className="mt-2 text-xs font-black uppercase">
               Atleta: {coachAthlete.name}
             </p>
           ) : null}
@@ -609,7 +482,6 @@ export default function ExerciseHistoryEditor({
         <Button
           variant="outline"
           size="sm"
-          aria-label="Volver a la página anterior"
           onClick={() =>
             onBack
               ? onBack("ejercicio_analitica")
@@ -620,323 +492,234 @@ export default function ExerciseHistoryEditor({
         </Button>
       </header>
 
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-        <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <label>
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              Grupo muscular
-            </span>
-            <select
-              aria-label="Filtrar por grupo muscular"
-              value={muscleFilter}
-              onChange={(event) => {
-                setMuscleFilter(event.target.value);
-                setExercisePickerOpen(true);
-                setActiveExerciseIndex(0);
-              }}
-              disabled={trainingDataLoading}
-              className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-black outline-none"
-            >
-              <option value="all">
-                Todos los grupos ({countsQuery.data?.totalSessions || 0}{" "}
-                sesiones)
-              </option>
-              {muscleOptions.map((muscle) => (
-                <option key={muscle} value={muscle}>
-                  {muscle} ({groupCountByName.get(muscle) || 0} sesiones)
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div
-            className="relative"
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                setExercisePickerOpen(false);
-              }
-            }}
-          >
-            <span className="mb-1 block text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              Buscar y seleccionar ejercicio
-            </span>
-            <div className="relative">
+      <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] lg:sticky lg:top-4">
+          <div className="border-b border-[color:var(--border)] p-3">
+            <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
               <input
-                role="combobox"
-                aria-label="Buscar ejercicio"
-                aria-autocomplete="list"
-                aria-expanded={exercisePickerOpen}
-                aria-controls="history-exercise-results"
-                aria-activedescendant={
-                  exercisePickerOpen &&
-                  visibleExerciseMatches[activeExerciseIndex]
-                    ? `history-exercise-${getExerciseId(visibleExerciseMatches[activeExerciseIndex])}`
-                    : undefined
-                }
                 value={search}
-                onFocus={() => setExercisePickerOpen(true)}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setExercisePickerOpen(true);
-                  setActiveExerciseIndex(0);
-                }}
-                onKeyDown={handleExerciseSearchKeyDown}
-                placeholder="Escribe nombre, alias, músculo o equipo..."
-                autoComplete="off"
-                disabled={trainingDataLoading}
-                className="theme-accent-focus h-11 w-full border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-20 text-sm font-bold outline-none"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar ejercicio..."
+                className="theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm font-bold outline-none"
               />
-              {search ? (
-                <button
-                  type="button"
-                  aria-label="Limpiar búsqueda"
-                  onClick={() => {
-                    setSearch("");
-                    setActiveExerciseIndex(0);
-                  }}
-                  className="absolute right-10 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-              <button
-                type="button"
-                aria-label={
-                  exercisePickerOpen ? "Cerrar resultados" : "Abrir resultados"
-                }
-                onClick={() => setExercisePickerOpen((current) => !current)}
-                className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center text-[color:var(--text-muted)]"
-              >
-                <ChevronDown
-                  className={`h-4 w-4 transition ${exercisePickerOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            </div>
+            </label>
+            <p className="mt-2 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+              {exercisesWithHistory.length} ejercicios con datos
+            </p>
+          </div>
 
-            {exercisePickerOpen ? (
-              <div
-                id="history-exercise-results"
-                role="listbox"
-                aria-label="Resultados de ejercicios"
-                className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 overflow-hidden border border-[color:var(--border)] bg-[color:var(--card)] shadow-2xl"
-              >
-                <div className="flex items-center justify-between border-b border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-                  <span>
-                    {countsQuery.isPending
-                      ? "Contando sesiones..."
-                      : `${exerciseMatches.length} ejercicios encontrados`}
-                  </span>
-                  {exerciseMatches.length > visibleExerciseMatches.length ? (
-                    <span>
-                      Mostrando las primeras {visibleExerciseMatches.length}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="max-h-80 overflow-y-auto py-1">
-                  {visibleExerciseMatches.map((exercise, index) => {
-                    const exerciseId = getExerciseId(exercise);
-                    const equipment = toSearchValues(exercise.equipment).join(
-                      ", ",
-                    );
-                    const selected = exerciseId === selectedExerciseId;
-                    const sessionCount = exerciseCountById.get(exerciseId) || 0;
-                    return (
-                      <button
-                        id={`history-exercise-${exerciseId}`}
-                        key={exerciseId}
-                        type="button"
-                        role="option"
-                        aria-selected={selected}
-                        onMouseEnter={() => setActiveExerciseIndex(index)}
-                        onClick={() => selectExercise(exercise)}
-                        className={`flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[color:var(--bg)] ${index === activeExerciseIndex ? "bg-[color:var(--bg)]" : ""}`}
-                      >
-                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)]">
-                          {selected ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Dumbbell className="h-4 w-4" />
-                          )}
+          <div className="max-h-[70vh] overflow-y-auto">
+            {exercisesLoading || countsQuery.isPending ? (
+              <div className="space-y-2 p-3">
+                {[1, 2, 3, 4].map((item) => (
+                  <Skeleton key={item} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : (
+              groupedExercises.map(([group, items]) => {
+                const expanded = Boolean(search) || activeGroup === group;
+                const groupSessions = items.reduce(
+                  (sum, exercise) =>
+                    sum + (countByExerciseId.get(getExerciseId(exercise)) || 0),
+                  0,
+                );
+                return (
+                  <div
+                    key={group}
+                    className="border-b border-[color:var(--border)] last:border-0"
+                  >
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() =>
+                        setActiveGroup((current) =>
+                          current === group ? "" : group,
+                        )
+                      }
+                      className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left hover:bg-[color:var(--bg)]"
+                    >
+                      <span>
+                        <span className="block text-sm font-black">
+                          {group}
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-black">
-                            {exercise.name}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            {getExerciseGroup(exercise)}
-                            {equipment ? ` · ${equipment}` : ""}
-                          </span>
+                        <span className="block text-[10px] font-semibold text-[color:var(--text-muted)]">
+                          {items.length} ejercicios · {groupSessions} registros
                         </span>
-                        <span className="shrink-0 text-right">
-                          <span
-                            className={`block text-xs font-black tabular-nums ${sessionCount ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text-muted)]"}`}
-                          >
-                            {sessionCount}{" "}
-                            {sessionCount === 1 ? "sesión" : "sesiones"}
-                          </span>
-                          {selected ? (
-                            <span className="mt-0.5 block text-[8px] font-black uppercase text-[color:var(--text-muted)]">
-                              Seleccionado
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    );
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {expanded ? (
+                      <div className="border-t border-[color:var(--border)] bg-[color:var(--bg)] p-1.5">
+                        {items.map((exercise) => {
+                          const exerciseId = getExerciseId(exercise);
+                          const selected = exerciseId === selectedExerciseId;
+                          return (
+                            <button
+                              key={exerciseId}
+                              type="button"
+                              onClick={() => selectExercise(exercise)}
+                              className={`grid min-h-14 w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg p-1.5 text-left text-xs transition ${
+                                selected
+                                  ? "bg-[#181918] font-black text-white dark:bg-white dark:text-black"
+                                  : "font-bold hover:bg-[color:var(--card)]"
+                              }`}
+                            >
+                              <ExerciseThumbnail
+                                src={getExerciseImageUrl(exercise, {
+                                  width: 96,
+                                  height: 96,
+                                })}
+                                alt=""
+                                fallback={(exercise.name || "?")
+                                  .charAt(0)
+                                  .toUpperCase()}
+                                className={`h-10 w-10 rounded-lg text-[10px] font-black ${
+                                  selected
+                                    ? "bg-white/10 text-white dark:bg-black/10 dark:text-black"
+                                    : ""
+                                }`}
+                              />
+                              <span className="min-w-0 truncate">
+                                {exercise.name}
+                              </span>
+                              <span
+                                className={`shrink-0 tabular-nums ${
+                                  selected
+                                    ? "text-white/70 dark:text-black/60"
+                                    : "text-[color:var(--text-muted)]"
+                                }`}
+                              >
+                                {countByExerciseId.get(exerciseId) || 0}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+            {!exercisesLoading &&
+            !countsQuery.isPending &&
+            !groupedExercises.length ? (
+              <p className="p-6 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+                No hay ejercicios con datos para esta búsqueda.
+              </p>
+            ) : null}
+          </div>
+        </aside>
+
+        <section
+          ref={historySectionRef}
+          className="min-w-0 scroll-mt-4 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm"
+        >
+          <div className="flex flex-col gap-3 border-b border-[color:var(--border)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {selectedExercise ? (
+                <ExerciseThumbnail
+                  src={getExerciseImageUrl(selectedExercise, {
+                    width: 144,
+                    height: 144,
                   })}
-                  {!visibleExerciseMatches.length ? (
-                    <div className="px-4 py-8 text-center">
-                      <Search className="mx-auto h-6 w-6 text-[color:var(--text-muted)]" />
-                      <p className="mt-2 text-sm font-black">
-                        Sin coincidencias
-                      </p>
-                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                        Prueba con menos palabras o selecciona otro grupo
-                        muscular.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
+                  alt={selectedExercise.name}
+                  fallback={(selectedExercise.name || "?")
+                    .charAt(0)
+                    .toUpperCase()}
+                  className="h-14 w-14 rounded-xl text-sm font-black"
+                />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
+                  Historial editable
+                </p>
+                <h2 className="mt-1 truncate text-xl font-black">
+                  {selectedExercise?.name || "Selecciona un ejercicio"}
+                </h2>
+                {selectedExercise ? (
+                  <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    {getExerciseGroup(selectedExercise)} · {records.length}{" "}
+                    registros
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            {selectedExercise ? (
+              <div className="text-left sm:text-right">
+                <p className="text-[9px] font-black uppercase text-[color:var(--text-muted)]">
+                  Los valores representan
+                </p>
+                <p className="mt-1 text-xs font-black">
+                  {WEIGHT_BASIS_LABELS[currentWeightBasis] ||
+                    currentWeightBasis}
+                </p>
               </div>
             ) : null}
           </div>
-        </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] pt-3">
-          <button
-            type="button"
-            aria-pressed={onlyWithHistory}
-            onClick={() => {
-              setOnlyWithHistory((current) => !current);
-              setExercisePickerOpen(true);
-              setActiveExerciseIndex(0);
-            }}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-black transition ${onlyWithHistory ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "border-[color:var(--border)] text-[color:var(--text-muted)]"}`}
-          >
-            <span
-              className={`grid h-4 w-4 place-items-center rounded border ${onlyWithHistory ? "border-[#181918] bg-[#181918] text-white dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black" : "border-[color:var(--border)]"}`}
-            >
-              {onlyWithHistory ? <Check className="h-3 w-3" /> : null}
-            </span>
-            Solo ejercicios con historial
-          </button>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black uppercase text-[color:var(--text-muted)]">
-              Seleccionado
-            </span>
-            <span className="inline-flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 text-xs font-black text-[color:var(--accent-contrast)]">
-              <Dumbbell className="h-3.5 w-3.5" />
-              {selectedExercise?.name || "Selecciona un ejercicio"}
-            </span>
-            {selectedExercise ? (
-              <span className="text-xs font-semibold text-[color:var(--text-muted)]">
-                {getExerciseGroup(selectedExercise)} ·{" "}
-                {exerciseCountById.get(selectedExerciseId) || 0} sesiones
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section
-        className="grid grid-cols-2 gap-2 lg:grid-cols-4"
-        aria-label="Resumen del historial"
-      >
-        <Metric
-          label="Registros"
-          value={totals.records}
-          detail={`${totals.trainings} actuales + ${totals.sessions} heredados`}
-        />
-        <Metric
-          label="Series / entradas"
-          value={totals.entries}
-          detail="con peso y repeticiones visibles"
-        />
-        <Metric
-          label="Bilaterales"
-          value={totals.bilateral}
-          detail="registros configurados"
-        />
-        <Metric
-          label="Unilaterales"
-          value={totals.unilateral}
-          detail="registros configurados"
-        />
-      </section>
-
-      <section
-        className="flex flex-wrap items-center gap-2"
-        aria-label="Filtros de modalidad"
-      >
-        <SlidersHorizontal className="mr-1 h-4 w-4 text-[color:var(--text-muted)]" />
-        {[
-          ["all", `Todos (${totals.records})`],
-          ["bilateral", `Bilaterales (${totals.bilateral})`],
-          ["unilateral", `Unilaterales (${totals.unilateral})`],
-        ].map(([value, label]) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={modeFilter === value ? "accentSolid" : "outline"}
-            onClick={() => setModeFilter(value)}
-          >
-            {label}
-          </Button>
-        ))}
-      </section>
-
-      {loading ? (
-        <div className="space-y-3" aria-label="Cargando historial">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-52 w-full" />
-          ))}
-        </div>
-      ) : error ? (
-        <section className="rounded-lg border border-red-300 bg-red-50 p-6 text-center dark:border-red-400/30 dark:bg-red-950/20">
-          <Database className="mx-auto h-7 w-7 text-red-500" />
-          <p className="mt-2 font-black">No se pudo cargar el historial</p>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            {error.message}
-          </p>
-          <Button
-            className="mt-4"
-            size="sm"
-            onClick={() => {
-              historyQuery.refetch();
-              sessionsQuery.refetch();
-            }}
-          >
-            Reintentar
-          </Button>
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {[1, 2, 3, 4].map((item) => (
+                <Skeleton key={item} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center">
+              <p className="font-black">No se pudo cargar el historial</p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                {error.message}
+              </p>
+              <Button
+                className="mt-4"
+                size="sm"
+                onClick={() => {
+                  historyQuery.refetch();
+                  sessionsQuery.refetch();
+                }}
+              >
+                Reintentar
+              </Button>
+            </div>
+          ) : records.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead className="bg-[color:var(--bg)] text-[9px] font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                  <tr>
+                    <th className="sticky left-0 z-20 min-w-36 border-r border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2.5">
+                      Fecha
+                    </th>
+                    <th className="min-w-36 px-2 py-2.5">Modalidad</th>
+                    {Array.from({ length: columnCount }, (_, index) => (
+                      <th key={index} className="min-w-36 px-2 py-2.5">
+                        Serie {index + 1}
+                      </th>
+                    ))}
+                    <th className="min-w-28 px-3 py-2.5 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[color:var(--border)]">
+                  {records.map((record) => (
+                    <EditableHistoryRow
+                      key={`${record.key}:${JSON.stringify(record.sets)}:${record.movementMode}`}
+                      record={record}
+                      columnCount={columnCount}
+                      saving={savingKey === record.key}
+                      onSave={handleSave}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="p-10 text-center text-sm font-semibold text-[color:var(--text-muted)]">
+              Selecciona un ejercicio de la lista para editar su historial.
+            </p>
+          )}
         </section>
-      ) : filteredRecords.length ? (
-        <section className="space-y-3" aria-label="Registros históricos">
-          {filteredRecords.map((record) => (
-            <RecordCard
-              key={`${record.key}:${record.movementMode || "bilateral"}:${record.weightBasis || "legacy"}:${record.barWeightKg || 0}:${record.implementCount || 1}`}
-              record={record}
-              saving={savingKey === record.key}
-              onSave={handleSave}
-            />
-          ))}
-        </section>
-      ) : (
-        <section className="rounded-lg border border-dashed border-[color:var(--border)] p-10 text-center">
-          <Dumbbell className="mx-auto h-8 w-8 text-[color:var(--text-muted)]" />
-          <p className="mt-3 font-black">No hay registros para este filtro</p>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Selecciona otro ejercicio o cambia el filtro de modalidad.
-          </p>
-        </section>
-      )}
-
-      {records.length ? (
-        <p className="flex items-center justify-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
-          <CalendarDays className="h-4 w-4" /> Ordenado del registro más
-          reciente al más antiguo.
-        </p>
-      ) : null}
+      </div>
     </main>
   );
 }

@@ -5,9 +5,7 @@ import Button from "../ui/button";
 
 export default function ExerciseOrderPanel({
   exercises,
-  historyCount,
   active,
-  onToggle,
   onReorder,
   onMove,
 }) {
@@ -77,9 +75,7 @@ ExerciseOrderPanel.propTypes = {
       sets: PropTypes.array,
     }),
   ).isRequired,
-  historyCount: PropTypes.number.isRequired,
   active: PropTypes.bool.isRequired,
-  onToggle: PropTypes.func.isRequired,
   onReorder: PropTypes.func.isRequired,
   onMove: PropTypes.func.isRequired,
 };

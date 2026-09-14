@@ -18,17 +18,28 @@ describe("MobileNav", () => {
 
   it("ofrece acceso directo a rutinas al atleta independiente", async () => {
     const onNavigate = vi.fn();
+    const onOpenMenu = vi.fn();
     mockUseAuth.mockReturnValue({
       user: { role: "Cliente", trainingMode: "independent" },
     });
 
-    render(<MobileNav activePage="dashboard" onNavigate={onNavigate} />);
+    render(
+      <MobileNav
+        activePage="dashboard"
+        onNavigate={onNavigate}
+        onOpenMenu={onOpenMenu}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Rutinas" }));
     expect(onNavigate).toHaveBeenCalledWith("rutinas");
     expect(
       screen.queryByRole("button", { name: "Metricas" }),
     ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Más" }));
+    expect(onOpenMenu).toHaveBeenCalledTimes(1);
+    expect(onNavigate).not.toHaveBeenCalledWith("more");
   });
 
   it("mantiene rutinas disponible para administradores en movil", () => {
@@ -80,10 +91,38 @@ describe("MobileNav", () => {
     expect(screen.getByRole("button", { name: "Alumnos" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Planes" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Mensajes" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Perfil" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Más" })).toBeVisible();
     expect(screen.getAllByRole("button")).toHaveLength(5);
 
     await userEvent.click(screen.getByRole("button", { name: "Alumnos" }));
     expect(onNavigate).toHaveBeenCalledWith("coach_athletes");
+  });
+
+  it("prioriza plan y progreso para el alumno vinculado a un coach", () => {
+    mockUseAuth.mockReturnValue({
+      user: { role: "Cliente", trainingMode: "coach_managed" },
+    });
+
+    render(<MobileNav activePage="dashboard" onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Inicio" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Entrenar" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Plan" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Progreso" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Más" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Perfil" })).toBeNull();
+  });
+
+  it("marca Mas como contexto activo en una pantalla secundaria", () => {
+    mockUseAuth.mockReturnValue({
+      user: { role: "Cliente", trainingMode: "coach_managed" },
+    });
+
+    render(<MobileNav activePage="pesajes" onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Más" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

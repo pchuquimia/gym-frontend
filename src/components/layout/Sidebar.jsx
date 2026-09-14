@@ -75,9 +75,9 @@ const mobileGroups = [
     ids: ["admin_sesiones", "fotos"],
   },
   {
-    title: "Cuenta",
-    detail: "Perfil y suscripcion",
-    ids: ["perfil", "planes"],
+    title: "Suscripcion",
+    detail: "Plan y beneficios",
+    ids: ["planes"],
   },
   {
     title: "Coach",
@@ -111,9 +111,9 @@ const coachMobileGroups = [
     ],
   },
   {
-    title: "Cuenta",
-    detail: "Configuración",
-    ids: ["perfil"],
+    title: "Suscripcion",
+    detail: "Plan y beneficios",
+    ids: ["planes"],
   },
 ];
 
@@ -134,9 +134,9 @@ const managedClientMobileGroups = [
     ids: ["admin_sesiones", "fotos"],
   },
   {
-    title: "Cuenta",
-    detail: "Configuración",
-    ids: ["perfil"],
+    title: "Suscripcion",
+    detail: "Plan y beneficios",
+    ids: ["planes"],
   },
 ];
 
@@ -154,6 +154,13 @@ function Sidebar({
   const isCoach = user?.role === "Entrenador";
   const isManagedClient =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
+  const mobileRoleLabel = isCoach
+    ? "Coach"
+    : user?.role === "Admin"
+      ? "Admin"
+      : isManagedClient
+        ? "Alumno"
+        : "Atleta";
   const visibleSections = isCoach
     ? coachSections
     : isManagedClient
@@ -223,7 +230,7 @@ function Sidebar({
                 {user?.name || "Usuario"}
               </p>
               <p className="mt-1 truncate font-sans text-[10px] font-medium uppercase tracking-[0.06em] text-[color:var(--drawer-subtle)]">
-                RIRFIT · {user?.role || "Cliente"}
+                Ver perfil · {mobileRoleLabel}
               </p>
             </div>
           </button>

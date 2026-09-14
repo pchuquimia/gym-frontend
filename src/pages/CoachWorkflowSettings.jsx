@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Modal from "../components/shared/Modal";
+import PhotoViewSelector from "../components/shared/PhotoViewSelector";
 import CoachIntakeQuestionnaire from "../components/coach/CoachIntakeQuestionnaire";
 import OperationLoader from "../components/system/OperationLoader";
 import { api } from "../services/api";
@@ -75,13 +76,6 @@ const METRIC_OPTIONS = [
   ["thigh", "Muslo"],
   ["calf", "Pantorrilla"],
 ];
-const PHOTO_VIEW_OPTIONS = [
-  ["front", "Frontal"],
-  ["side", "Lateral"],
-  ["back", "Posterior"],
-  ["other", "Otra"],
-];
-
 const fieldClass =
   "mt-2 h-12 w-full rounded-xl border border-[color:var(--detail-module-border)] bg-[color:var(--bg)] px-3.5 text-sm text-[color:var(--text)] outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--focus-ring)]";
 
@@ -1027,7 +1021,7 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
                   icon={Camera}
                   title="Fotos de progreso"
                   description="Vistas corporales con consentimiento del alumno."
-                  summary={`${frequencySummary(settings.followUp.photos)} · ${settings.followUp.photos.views.length} vistas`}
+                  summary={`${frequencySummary(settings.followUp.photos)} · ${settings.followUp.photos.views.length} ${settings.followUp.photos.views.length === 1 ? "vista" : "vistas"}`}
                   enabled={settings.followUp.photos.enabled}
                   onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
                 >
@@ -1035,19 +1029,15 @@ export default function CoachWorkflowSettings({ onBack, onNavigate }) {
                     value={settings.followUp.photos}
                     onChange={(changes) => updateFollowUp("photos", changes)}
                   />
-                  <ChoiceGroup
-                    label="Fotos solicitadas"
-                    options={PHOTO_VIEW_OPTIONS}
-                    selected={settings.followUp.photos.views}
-                    onToggle={(value) =>
-                      updateFollowUp("photos", {
-                        views: toggleListValue(
-                          settings.followUp.photos.views,
-                          value,
-                        ),
-                      })
-                    }
-                  />
+                  <div className="mt-4">
+                    <PhotoViewSelector
+                      multiple
+                      label="Vistas solicitadas"
+                      hint="El alumno verá exactamente estas opciones al registrar su progreso."
+                      value={settings.followUp.photos.views}
+                      onChange={(views) => updateFollowUp("photos", { views })}
+                    />
+                  </div>
                   <RequiredControl
                     checked={settings.followUp.photos.required}
                     onChange={(required) =>

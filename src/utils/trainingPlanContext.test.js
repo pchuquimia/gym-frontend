@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveRoutinePlanContext } from "./trainingPlanContext";
+import {
+  getTrainingPlanLineageIds,
+  resolveRoutinePlanContext,
+} from "./trainingPlanContext";
 
 const plan = {
   _id: "plan_1",
@@ -64,5 +67,27 @@ describe("resolveRoutinePlanContext", () => {
         },
       ]),
     ).toBeNull();
+  });
+});
+
+describe("getTrainingPlanLineageIds", () => {
+  it("reúne el plan original y todas sus continuaciones", () => {
+    const plans = [
+      { _id: "plan-1" },
+      { _id: "plan-2", sourcePlanId: "plan-1" },
+      { _id: "plan-3", sourcePlanId: "plan-2" },
+      { _id: "unrelated" },
+    ];
+
+    expect(getTrainingPlanLineageIds("plan-3", plans)).toEqual([
+      "plan-3",
+      "plan-2",
+      "plan-1",
+    ]);
+    expect(getTrainingPlanLineageIds("plan-1", plans)).toEqual([
+      "plan-1",
+      "plan-2",
+      "plan-3",
+    ]);
   });
 });

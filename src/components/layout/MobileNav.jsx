@@ -8,7 +8,9 @@ import {
   House,
   LayoutDashboard,
   Library,
+  Menu,
   MessageCircle,
+  TrendingUp,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -23,6 +25,39 @@ const mobileIcons = {
   coach_athletes: UsersRound,
   coach_messages: MessageCircle,
   admin_sesiones: History,
+  ejercicio_analitica: TrendingUp,
+};
+
+const MORE_ITEM = {
+  id: "more",
+  label: "Más",
+  icon: Menu,
+};
+
+const getMobileLabel = (item, user) => {
+  switch (item.id) {
+    case "dashboard":
+    case "trainer":
+      return "Inicio";
+    case "registrar":
+      return "Entrenar";
+    case "rutinas":
+      if (user?.role === "Entrenador") return "Planes";
+      if (user?.trainingMode === "coach_managed") return "Plan";
+      return "Rutinas";
+    case "library":
+      return "Biblioteca";
+    case "coach_athletes":
+      return "Alumnos";
+    case "coach_messages":
+      return "Mensajes";
+    case "ejercicio_analitica":
+      return "Progreso";
+    case "coach_admin":
+      return "Gestion";
+    default:
+      return item.label;
+  }
 };
 
 function SolidNavIcon({ name, className = "" }) {
@@ -113,6 +148,20 @@ function SolidNavIcon({ name, className = "" }) {
           <circle cx="16" cy="10.5" r="1" fill="var(--mobile-nav-bg)" />
         </svg>
       );
+    case "ejercicio_analitica":
+      return (
+        <svg {...commonProps}>
+          <path d="M4 20h16a2 2 0 0 0 2-2v-1.5H7.5a1.5 1.5 0 0 1-1.5-1.5V2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z" />
+          <path
+            d="m8.5 12 3-3 2.5 2.5L19 6.5"
+            fill="none"
+            stroke="var(--mobile-nav-bg)"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
     case "perfil":
     default:
       return (
@@ -124,21 +173,26 @@ function SolidNavIcon({ name, className = "" }) {
   }
 }
 
-function MobileNav({ activePage, onNavigate }) {
+function MobileNav({ activePage, onNavigate, onOpenMenu, menuOpen = false }) {
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
   const isCoach = user?.role === "Entrenador";
-  const itemIds =
+  const primaryItemIds =
     user?.role === "Admin"
-      ? ["dashboard", "registrar", "rutinas", "library", "perfil"]
+      ? ["dashboard", "registrar", "rutinas", "library"]
       : user?.role === "Entrenador"
-        ? ["trainer", "coach_athletes", "rutinas", "coach_messages", "perfil"]
+        ? ["trainer", "coach_athletes", "rutinas", "coach_messages"]
         : user?.trainingMode === "coach_managed"
-          ? ["dashboard", "registrar", "rutinas", "perfil"]
-          : ["dashboard", "registrar", "rutinas", "perfil"];
-  const items = itemIds
-    .map((id) => navLinks.find((link) => link.id === id))
-    .filter((item) => item && (!item.roles || item.roles.includes(user?.role)));
+          ? ["dashboard", "registrar", "rutinas", "ejercicio_analitica"]
+          : ["dashboard", "registrar", "rutinas", "library"];
+  const items = [
+    ...primaryItemIds
+      .map((id) => navLinks.find((link) => link.id === id))
+      .filter(
+        (item) => item && (!item.roles || item.roles.includes(user?.role)),
+      ),
+    MORE_ITEM,
+  ];
 
   return (
     <nav className="mobile-bottom-nav mx-[18px] mb-[max(0.125rem,calc(env(safe-area-inset-bottom)-0.375rem))] rounded-[2rem] border border-[color:var(--mobile-nav-border)] bg-[color:var(--mobile-nav-bg)] p-1.5 shadow-[var(--mobile-nav-shadow)] backdrop-blur-[var(--mobile-nav-blur)] backdrop-saturate-[1.12] lg:hidden">
@@ -150,16 +204,21 @@ function MobileNav({ activePage, onNavigate }) {
       >
         {items.map((item) => {
           const Icon = mobileIcons[item.id] ?? item.icon;
-          const isActive = activePage === item.id;
+          const opensMenu = item.id === MORE_ITEM.id;
+          const isActive = opensMenu
+            ? menuOpen || !primaryItemIds.includes(activePage)
+            : activePage === item.id;
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onNavigate?.(item.id)}
+              onClick={() =>
+                opensMenu ? onOpenMenu?.() : onNavigate?.(item.id)
+              }
               aria-current={isActive ? "page" : undefined}
-              className={`relative mx-0.5 flex min-w-0 flex-col items-center justify-center gap-1 rounded-[1.6rem] border border-transparent px-1 py-1.5 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.97] ${
-                isCoach ? "min-h-[68px]" : "min-h-[58px]"
-              } ${
+              aria-haspopup={opensMenu ? "dialog" : undefined}
+              aria-expanded={opensMenu ? menuOpen : undefined}
+              className={`relative mx-0.5 flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-[1.6rem] border border-transparent px-1 py-1.5 transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.97] ${
                 isActive
                   ? isCoach
                     ? "bg-[color:var(--mobile-nav-active)] text-[color:var(--mobile-nav-text)] shadow-[var(--mobile-nav-active-shadow)]"
@@ -167,7 +226,7 @@ function MobileNav({ activePage, onNavigate }) {
                   : "text-[color:var(--mobile-nav-muted)] hover:bg-[color:var(--mobile-nav-hover)] hover:text-[color:var(--mobile-nav-text)]"
               }`}
             >
-              {isActive ? (
+              {isActive && !opensMenu ? (
                 <motion.span
                   key={`active-${item.id}`}
                   initial={
@@ -201,25 +260,7 @@ function MobileNav({ activePage, onNavigate }) {
                   isActive ? "font-semibold" : ""
                 }`}
               >
-                {item.id === "registrar"
-                  ? "Entrenar"
-                  : item.id === "rutinas" &&
-                      (user?.role === "Entrenador" ||
-                        user?.trainingMode === "coach_managed")
-                    ? user?.role === "Entrenador"
-                      ? "Planes"
-                      : "Plan"
-                    : item.id === "trainer"
-                      ? "Inicio"
-                      : item.id === "coach_athletes"
-                        ? "Alumnos"
-                        : item.id === "coach_messages"
-                          ? "Mensajes"
-                          : item.id === "ejercicio_analitica"
-                            ? "Metricas"
-                            : item.id === "coach_admin"
-                              ? "Gestion"
-                              : item.label.split(" ")[0]}
+                {getMobileLabel(item, user)}
               </span>
             </button>
           );

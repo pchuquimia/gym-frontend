@@ -3,7 +3,7 @@ import ProfileAvatar from "../components/profile/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 import { useUserProfile } from "../context/UserContext";
 
-export default function CoachMessages() {
+export default function CoachMessages({ onNavigate }) {
   const { user } = useAuth();
   const { profile } = useUserProfile();
 
@@ -13,11 +13,18 @@ export default function CoachMessages() {
         <h1 className="text-[30px] font-semibold leading-none tracking-[-0.05em] sm:text-[36px]">
           Mensajes
         </h1>
-        <ProfileAvatar
-          photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
-          name={user?.name}
-          className="h-12 w-12 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-semibold"
-        />
+        <button
+          type="button"
+          onClick={() => onNavigate?.("perfil")}
+          className="rounded-full ring-offset-2 ring-offset-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--text)]"
+          aria-label="Abrir perfil"
+        >
+          <ProfileAvatar
+            photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+            name={user?.name}
+            className="h-12 w-12 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-semibold"
+          />
+        </button>
       </header>
 
       <label className="relative mt-7 block">

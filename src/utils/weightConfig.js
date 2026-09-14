@@ -45,11 +45,9 @@ export function inferWeightConfig(exercise = {}) {
   }
   const loadType = normalizeText(exercise.loadType);
   const text = normalizeText(
-    [
-      exercise.name,
-      exercise.exerciseName,
-      ...asArray(exercise.equipment),
-    ].join(" "),
+    [exercise.name, exercise.exerciseName, ...asArray(exercise.equipment)].join(
+      " ",
+    ),
   );
   const isMachineMovement =
     /maquina|machine|polea|cable|selector|smith|push ?down|face ?pull|lat pulldown|jalon|pec deck|contractor/.test(
@@ -102,7 +100,10 @@ export function getEffectiveWeightKg(weight, config = {}) {
 export function getWeightBasisLabel(config = {}) {
   const basis = normalizeWeightBasis(config.weightBasis);
   if (basis === "per_side") {
-    return `Por lado + barra de ${Number(config.barWeightKg || 0)} kg`;
+    const baseWeight = Number(config.barWeightKg || 0);
+    return baseWeight > 0
+      ? `Por lado + barra de ${baseWeight} kg`
+      : "Discos por lado";
   }
   if (basis === "per_implement") {
     const count = Math.max(1, Number(config.implementCount || 1));

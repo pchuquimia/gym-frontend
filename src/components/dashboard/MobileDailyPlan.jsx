@@ -1,5 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Bell, Check, ChevronRight, Clock3 } from "lucide-react";
+import {
+  Bell,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+} from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
 
 const WEEKDAY_LABELS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
@@ -90,7 +97,7 @@ function DashboardHeader({
   profile,
   user,
   adminControl,
-  onOpenMenu,
+  onOpenProfile,
   notificationUnread = 0,
   onOpenNotifications,
 }) {
@@ -113,9 +120,9 @@ function DashboardHeader({
         </button>
         <button
           type="button"
-          onClick={onOpenMenu}
+          onClick={onOpenProfile}
           className="mobile-daily-plan__avatar"
-          aria-label="Abrir menú principal"
+          aria-label="Abrir perfil"
         >
           <ProfileAvatar
             photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
@@ -129,7 +136,7 @@ function DashboardHeader({
   );
 }
 
-function CoachContext({ coach, activePlan, onOpen }) {
+function CoachContext({ coach, onOpen }) {
   const coachName = coach?.name || "Tu coach";
   return (
     <button
@@ -149,10 +156,8 @@ function CoachContext({ coach, activePlan, onOpen }) {
         )}
       </span>
       <span className="mobile-daily-plan__coach-copy">
-        <strong>{activePlan ? `Plan de ${coachName}` : coachName}</strong>
-        <small className={activePlan ? "" : "is-connected"}>
-          {activePlan ? activePlan.name : "Vinculado"}
-        </small>
+        <strong>{coachName}</strong>
+        <small className="is-connected">Vinculado como tu coach</small>
       </span>
       <ChevronRight aria-hidden="true" />
     </button>
@@ -244,6 +249,11 @@ function CheckInMission({ task, onOpen, readOnly }) {
 
 function WorkoutMission({ task, onOpen, readOnly }) {
   if (!task) return null;
+  const actionLabel =
+    task.actionLabel ||
+    (task.completed ? "Ver resumen" : "Comenzar entrenamiento");
+  const compactActionLabel = actionLabel.replace(/\s+entrenamiento$/i, "");
+
   return (
     <div
       className={`mobile-daily-plan__workout-card ${task.completed ? "is-complete" : ""}`}
@@ -263,45 +273,46 @@ function WorkoutMission({ task, onOpen, readOnly }) {
           }
         />
       </span>
-      <span className="mobile-daily-plan__mission-copy">
-        <strong>{task.title}</strong>
-        <small>{task.subtitle}</small>
-      </span>
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={readOnly}
-        className="mobile-daily-plan__workout-action"
-      >
-        {task.actionLabel ||
-          (task.completed ? "Ver resumen" : "Comenzar entrenamiento")}
-      </button>
+      <div className="mobile-daily-plan__workout-content">
+        <span className="mobile-daily-plan__mission-copy">
+          <strong>{task.title}</strong>
+          <small>{task.subtitle}</small>
+        </span>
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={readOnly}
+          className="mobile-daily-plan__workout-action"
+          aria-label={actionLabel}
+        >
+          <span>{compactActionLabel}</span>
+          <ChevronRight aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
 
-function HydrationMission({ task, onOpen, readOnly }) {
-  if (!task) return null;
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={readOnly}
-      className="mobile-daily-plan__mission is-optional"
-    >
-      <MissionStatus completed={task.completed} />
-      <span className="mobile-daily-plan__visual mobile-daily-plan__visual--hydration">
-        <CardThumbnail src={DAILY_CARD_IMAGES.hydration} />
-      </span>
-      <span className="mobile-daily-plan__mission-copy">
-        <strong>{task.title}</strong>
-        <small>{task.subtitle}</small>
-        <em>Opcional</em>
-      </span>
-      <ChevronRight className="mobile-daily-plan__chevron" />
-    </button>
-  );
-}
+const QUICK_REGISTRATION_DEFAULTS = Object.freeze([
+  {
+    id: "quick-weight",
+    type: "weight",
+    title: "Peso",
+    subtitle: "Registrar peso",
+  },
+  {
+    id: "quick-photos",
+    type: "photos",
+    title: "Fotos",
+    subtitle: "Añadir progreso",
+  },
+  {
+    id: "quick-measurements",
+    type: "measurements",
+    title: "Medidas",
+    subtitle: "Actualizar medidas",
+  },
+]);
 
 const TRACKING_IMAGES = Object.freeze({
   final_evaluation: DAILY_CARD_IMAGES.finalAssessment,
@@ -309,6 +320,31 @@ const TRACKING_IMAGES = Object.freeze({
   photos: DAILY_CARD_IMAGES.photos,
   weight: DAILY_CARD_IMAGES.weight,
 });
+
+function QuickRegistration({ task, onOpen, readOnly }) {
+  const thumbnail =
+    task.type === "hydration"
+      ? DAILY_CARD_IMAGES.hydration
+      : TRACKING_IMAGES[task.type] || DAILY_CARD_IMAGES.checkIn;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={readOnly}
+      className="mobile-daily-plan__quick-action"
+    >
+      <span className="mobile-daily-plan__quick-visual">
+        <CardThumbnail src={thumbnail} />
+      </span>
+      <span>
+        <strong>{task.title}</strong>
+        <small>{task.subtitle}</small>
+      </span>
+      <ChevronRight className="mobile-daily-plan__chevron" />
+    </button>
+  );
+}
 
 function TrackingMission({ task, onOpen, readOnly }) {
   const thumbnail = TRACKING_IMAGES[task.type] || DAILY_CARD_IMAGES.checkIn;
@@ -378,20 +414,38 @@ export default function MobileDailyPlan({
   hydrationTask = null,
   trackingMissions = [],
   readOnly = false,
-  onOpenMenu,
+  onOpenProfile,
   onStartEvaluation,
   onOpenCoach,
   onOpenPlan,
   onOpenCheckIn,
   onOpenWorkout,
   onOpenHydration,
+  onOpenWeighIn,
   onOpenTrackingMission,
   notifications = [],
   notificationUnread = 0,
   onReadNotifications,
 }) {
   const requiredTracking = trackingMissions.filter((task) => task.required);
-  const optionalTracking = trackingMissions.filter((task) => !task.required);
+  const requiredTrackingTypes = new Set(
+    requiredTracking.map((task) => task.type),
+  );
+  const trackingByType = new Map(
+    trackingMissions.map((task) => [task.type, task]),
+  );
+  const quickRegistrations = [
+    ...QUICK_REGISTRATION_DEFAULTS.map((fallback) => ({
+      ...fallback,
+      ...trackingByType.get(fallback.type),
+      required: false,
+    })),
+    hydrationTask
+      ? { ...hydrationTask, id: "quick-hydration", type: "hydration" }
+      : null,
+  ].filter(
+    (task) => task && !task.completed && !requiredTrackingTypes.has(task.type),
+  );
   const taskCount =
     (workoutTask ? 1 : 0) + (checkInTask ? 1 : 0) + requiredTracking.length;
   const completedCount =
@@ -399,6 +453,19 @@ export default function MobileDailyPlan({
     Number(Boolean(checkInTask?.completed)) +
     requiredTracking.filter((task) => task.completed).length;
   const progress = taskCount ? (completedCount / taskCount) * 100 : 0;
+  const quickRegistrationSummary = new Intl.ListFormat("es", {
+    style: "long",
+    type: "conjunction",
+  }).format(
+    quickRegistrations.map((task) => task.title.toLocaleLowerCase("es")),
+  );
+  const openTracking = (type) => {
+    if (type === "weight") {
+      onOpenWeighIn?.();
+      return;
+    }
+    onOpenTrackingMission?.(type);
+  };
 
   return (
     <section
@@ -410,7 +477,7 @@ export default function MobileDailyPlan({
         profile={profile}
         user={user}
         adminControl={adminControl}
-        onOpenMenu={onOpenMenu}
+        onOpenProfile={onOpenProfile}
         notificationUnread={notificationUnread}
         onOpenNotifications={() => {
           const panel = document.getElementById("athlete-notification-panel");
@@ -432,19 +499,19 @@ export default function MobileDailyPlan({
           ))}
         </details>
       ) : null}
-      {coach ? (
-        <CoachContext
-          coach={coach}
-          activePlan={activePlanContext}
-          onOpen={onOpenCoach}
-        />
-      ) : null}
+      {coach ? <CoachContext coach={coach} onOpen={onOpenCoach} /> : null}
       {!journeyStage || journeyStage === "plan_assigned" ? (
-        <div className="mobile-daily-plan__week" aria-label="Actividad semanal">
-          {weekDays.map((day) => (
-            <WeekDay key={day.key} day={day} />
-          ))}
-        </div>
+        <>
+          <div
+            className="mobile-daily-plan__week"
+            aria-label="Actividad semanal"
+          >
+            {weekDays.map((day) => (
+              <WeekDay key={day.key} day={day} />
+            ))}
+          </div>
+          <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+        </>
       ) : null}
 
       {journeyStage && journeyStage !== "plan_assigned" ? (
@@ -491,33 +558,42 @@ export default function MobileDailyPlan({
               />
               {requiredTracking.map((task) => (
                 <TrackingMission
-                  key={task.id}
+                  key={task.id || task.type}
                   task={task}
-                  onOpen={onOpenTrackingMission}
+                  onOpen={openTracking}
                   readOnly={readOnly}
                 />
               ))}
-              {optionalTracking.length || hydrationTask ? (
-                <details className="mobile-daily-plan__optional-tasks">
-                  <summary>Otros registros</summary>
-                  {optionalTracking.map((task) => (
-                    <TrackingMission
-                      key={task.id}
-                      task={task}
-                      onOpen={onOpenTrackingMission}
-                      readOnly={readOnly}
-                    />
-                  ))}
-                  <HydrationMission
-                    task={hydrationTask}
-                    onOpen={onOpenHydration}
-                    readOnly={readOnly}
-                  />
-                </details>
-              ) : null}
             </div>
           </section>
-          <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+          {quickRegistrations.length ? (
+            <details className="mobile-daily-plan__quick-registrations">
+              <summary>
+                <span className="mobile-daily-plan__quick-heading-icon">
+                  <ChartNoAxesColumnIncreasing aria-hidden="true" />
+                </span>
+                <span className="mobile-daily-plan__quick-heading-copy">
+                  <strong>Registrar progreso</strong>
+                  <small>Opcional · {quickRegistrationSummary}</small>
+                </span>
+                <ChevronDown aria-hidden="true" />
+              </summary>
+              <div className="mobile-daily-plan__quick-grid">
+                {quickRegistrations.map((task) => (
+                  <QuickRegistration
+                    key={task.id || task.type}
+                    task={task}
+                    readOnly={readOnly}
+                    onOpen={() =>
+                      task.type === "hydration"
+                        ? onOpenHydration?.()
+                        : openTracking(task.type)
+                    }
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
         </>
       )}
     </section>

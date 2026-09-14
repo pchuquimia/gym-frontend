@@ -1,5 +1,37 @@
 const getId = (value) => String(value?._id || value?.id || "");
 
+export const getTrainingPlanLineageIds = (planId, plans = []) => {
+  const normalizedPlanId = String(planId || "").trim();
+  if (!normalizedPlanId) return [];
+
+  const planById = new Map(
+    (plans || [])
+      .map((plan) => [getId(plan), plan])
+      .filter(([id]) => Boolean(id)),
+  );
+  const lineageIds = new Set([normalizedPlanId]);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    planById.forEach((plan, id) => {
+      const sourcePlanId = String(plan?.sourcePlanId || "").trim();
+      if (!sourcePlanId || !planById.has(sourcePlanId)) return;
+      if (!lineageIds.has(id) && !lineageIds.has(sourcePlanId)) return;
+      if (!lineageIds.has(id)) {
+        lineageIds.add(id);
+        changed = true;
+      }
+      if (!lineageIds.has(sourcePlanId)) {
+        lineageIds.add(sourcePlanId);
+        changed = true;
+      }
+    });
+  }
+
+  return Array.from(lineageIds);
+};
+
 export const resolveRoutinePlanContext = (
   routine,
   requestedContext = null,

@@ -6491,13 +6491,20 @@ function Routines({
                       <Bell className="h-6 w-6" strokeWidth={1.8} />
                       <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[#ee5962]" />
                     </button>
-                    <ProfileAvatar
-                      photoId={
-                        profile?.avatarPhotoId || user?.profile?.avatarPhotoId
-                      }
-                      name={user?.name}
-                      className="h-11 w-11 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-xs font-semibold"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.("perfil")}
+                      className="rounded-full ring-offset-2 ring-offset-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--text)]"
+                      aria-label="Abrir perfil"
+                    >
+                      <ProfileAvatar
+                        photoId={
+                          profile?.avatarPhotoId || user?.profile?.avatarPhotoId
+                        }
+                        name={user?.name}
+                        className="h-11 w-11 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-xs font-semibold"
+                      />
+                    </button>
                   </div>
                 ) : !isManagedClient ? (
                   <button

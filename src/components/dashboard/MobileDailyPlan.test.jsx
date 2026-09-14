@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import MobileDailyPlan from "./MobileDailyPlan";
 
@@ -21,13 +22,15 @@ const baseProps = {
     subtitle: "6 ejercicios · 55 min",
     actionLabel: "Comenzar entrenamiento",
   },
-  onOpenMenu: vi.fn(),
+  onOpenProfile: vi.fn(),
   onStartEvaluation: vi.fn(),
   onOpenCoach: vi.fn(),
   onOpenPlan: vi.fn(),
   onOpenCheckIn: vi.fn(),
   onOpenWorkout: vi.fn(),
   onOpenHydration: vi.fn(),
+  onOpenWeighIn: vi.fn(),
+  onOpenTrackingMission: vi.fn(),
 };
 
 const renderPlan = (props = {}) => {
@@ -42,6 +45,15 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it("abre el perfil al tocar la foto del usuario", async () => {
+    const onOpenProfile = vi.fn();
+    renderPlan({ onOpenProfile });
+
+    await userEvent.click(screen.getByRole("button", { name: "Abrir perfil" }));
+
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
+  });
+
   it("prioriza la evaluacion al aceptar la invitacion", () => {
     const { container } = renderPlan({ journeyStage: "evaluation_pending" });
     expect(
@@ -106,15 +118,35 @@ describe("MobileDailyPlan", () => {
     });
     expect(screen.getByText("Misión de hoy")).toBeVisible();
     expect(screen.getByText("1 de 3")).toBeVisible();
-    expect(screen.getByText("Otros registros")).toBeVisible();
+    const planContext = screen.getByText("Mes 1 · Adaptación");
+    const missionHeading = screen.getByText("Misión de hoy");
+    expect(
+      planContext.compareDocumentPosition(missionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getAllByText("Mes 1 · Adaptación")).toHaveLength(1);
+    expect(screen.getByText("Vinculado como tu coach")).toBeVisible();
+    expect(screen.queryByText("Próximo paso")).toBeNull();
+    expect(screen.queryByText("Solicitado por tu coach")).toBeNull();
+    expect(screen.getByText("Registrar progreso")).toBeVisible();
+    expect(
+      screen.getByText("Opcional · fotos, medidas e hidratación"),
+    ).toBeVisible();
+    expect(screen.queryByText("3 accesos")).toBeNull();
+    expect(screen.queryByText("Otros registros")).toBeNull();
     const workoutAction = screen.getByRole("button", {
       name: "Comenzar entrenamiento",
     });
     expect(workoutAction).toBeVisible();
     expect(workoutAction).toHaveClass("mobile-daily-plan__workout-action");
+    expect(workoutAction).toHaveTextContent("Comenzar");
+    expect(workoutAction).not.toHaveTextContent("Comenzar entrenamiento");
     expect(
       screen.getByRole("button", { name: /Peso de seguimiento/ }),
     ).toHaveClass("is-tracking");
+    expect(
+      screen.getByRole("button", { name: /Peso de seguimiento/ }).parentElement,
+    ).toHaveClass("mobile-daily-plan__mission-list");
     expect(
       container.querySelector('img[src="/images/daily-checkin-card.webp"]'),
     ).toBeInTheDocument();
@@ -124,6 +156,55 @@ describe("MobileDailyPlan", () => {
     expect(
       container.querySelector('img[src="/images/daily-planning-card.webp"]'),
     ).toBeInTheDocument();
+  });
+
+  it("mantiene los registros manuales plegados y los abre como accesos compactos", async () => {
+    const onOpenTrackingMission = vi.fn();
+    const onOpenHydration = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      hydrationTask: {
+        title: "Hidratación",
+        subtitle: "Registrar agua",
+        completed: false,
+      },
+      onOpenTrackingMission,
+      onOpenHydration,
+    });
+
+    await userEvent.click(screen.getByText("Registrar progreso"));
+    await userEvent.click(screen.getByRole("button", { name: /Fotos/ }));
+    expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
+
+    await userEvent.click(screen.getByRole("button", { name: /Hidratación/ }));
+    expect(onOpenHydration).toHaveBeenCalledTimes(1);
+  });
+
+  it("abre el ingreso rapido de peso sin navegar al historial", async () => {
+    const onOpenWeighIn = vi.fn();
+    const onOpenTrackingMission = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      trackingMissions: [
+        {
+          id: "weight-today",
+          type: "weight",
+          title: "Peso de seguimiento",
+          subtitle: "Registrar peso actual",
+          required: true,
+          completed: false,
+        },
+      ],
+      onOpenWeighIn,
+      onOpenTrackingMission,
+    });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Peso de seguimiento/ }),
+    );
+
+    expect(onOpenWeighIn).toHaveBeenCalledTimes(1);
+    expect(onOpenTrackingMission).not.toHaveBeenCalledWith("weight");
   });
 
   it("distingue un borrador de un plan programado", () => {

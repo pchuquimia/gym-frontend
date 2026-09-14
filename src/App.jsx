@@ -89,7 +89,7 @@ const PAGES = {
     component: ExerciseAnalyticsPage,
   },
   editor_historial: {
-    label: "Editor de historial",
+    label: "Editor de ejercicios",
     component: ExerciseHistoryEditor,
   },
   imagenes_ejercicios: {

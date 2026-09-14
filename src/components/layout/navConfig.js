@@ -84,7 +84,7 @@ export const sections = [
       },
       {
         id: "editor_historial",
-        label: "Editor de historial",
+        label: "Editor de ejercicios",
         icon: ListChecks,
         roles: ["Admin"],
       },

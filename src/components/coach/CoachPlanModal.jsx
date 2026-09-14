@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import Button from "../ui/button";
 import ProfileAvatar from "../profile/ProfileAvatar";
+import PhotoViewSelector from "../shared/PhotoViewSelector";
 import "./CoachPlanModal.css";
 
 const DAY_NAMES = [
@@ -61,9 +62,10 @@ const UNIT_OPTIONS = [
 ];
 const WEEKDAY_OPTIONS = DAY_NAMES.map((label, index) => [index + 1, label]);
 const PHOTO_VIEWS = [
-  ["front", "Frontal"],
-  ["side", "Lateral"],
-  ["back", "Posterior"],
+  { value: "front", label: "Frontal", marker: "F" },
+  { value: "side", label: "Lateral", marker: "L" },
+  { value: "back", label: "Posterior", marker: "P" },
+  { value: "other", label: "Otra", marker: "+" },
 ];
 const MEASUREMENT_FIELDS = [
   ["waist", "Cintura"],
@@ -2027,7 +2029,7 @@ export default function CoachPlanModal({
         <FollowUpCard
           icon={Camera}
           title="Fotos de progreso"
-          subtitle={cadenceText(followUp.photos)}
+          subtitle={`${cadenceText(followUp.photos)} · ${followUp.photos.views.length} ${followUp.photos.views.length === 1 ? "vista" : "vistas"}`}
           enabled={followUp.photos.enabled}
           readOnly={followUp.useCoachDefaults}
           onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
@@ -2038,26 +2040,15 @@ export default function CoachPlanModal({
             value={followUp.photos}
             onChange={(changes) => updateFollowUp("photos", changes)}
           />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {PHOTO_VIEWS.map(([value, label]) => {
-              const selected = followUp.photos.views.includes(value);
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    updateFollowUp("photos", {
-                      views: selected
-                        ? followUp.photos.views.filter((item) => item !== value)
-                        : [...followUp.photos.views, value],
-                    })
-                  }
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+          <div className="mt-4">
+            <PhotoViewSelector
+              multiple
+              label="Vistas solicitadas"
+              hint="El alumno verá estas opciones al registrar su progreso."
+              options={PHOTO_VIEWS}
+              value={followUp.photos.views}
+              onChange={(views) => updateFollowUp("photos", { views })}
+            />
           </div>
         </FollowUpCard>
         <FollowUpCard
@@ -2374,7 +2365,11 @@ export default function CoachPlanModal({
                   className={`grid min-w-0 flex-1 gap-2 ${["draft", "paused"].includes(initialData?.status) ? "grid-cols-2" : "grid-cols-1"}`}
                 >
                   <Button
-                    variant={["draft", "paused"].includes(initialData?.status) ? "outline" : "default"}
+                    variant={
+                      ["draft", "paused"].includes(initialData?.status)
+                        ? "outline"
+                        : "default"
+                    }
                     disabled={saving}
                     className="h-12 rounded-[14px]"
                     onClick={() => submit()}

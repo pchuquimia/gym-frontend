@@ -80,6 +80,47 @@ describe("ExerciseCard", () => {
     expect(onToggleOpen).not.toHaveBeenCalled();
   });
 
+  it("no muestra el acceso al historial cuando no hay registros previos", () => {
+    render(
+      <ExerciseCard
+        exercise={createExercise()}
+        {...defaultProps}
+        onViewTracking={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Última vez:/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Ver historial de/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Sin historial previo")).not.toBeInTheDocument();
+  });
+
+  it("permite abrir el historial guardado en otra rutina", () => {
+    const onViewTracking = vi.fn();
+
+    render(
+      <ExerciseCard
+        exercise={{
+          ...createExercise(),
+          hasStoredHistory: true,
+          storedHistoryLastDate: "2026-08-12",
+        }}
+        {...defaultProps}
+        onViewTracking={onViewTracking}
+      />,
+    );
+
+    const historyButton = screen.getByRole("button", {
+      name: "Ver historial de Press en máquina",
+    });
+    expect(historyButton).toHaveTextContent("Última vez: 12 ago");
+    expect(historyButton).toHaveTextContent("Otra rutina");
+
+    fireEvent.click(historyButton);
+    expect(onViewTracking).toHaveBeenCalledOnce();
+  });
+
   it("identifica visual y semánticamente el ejercicio en curso", () => {
     const exercise = { ...createExercise(), isActive: true };
     const { container } = render(

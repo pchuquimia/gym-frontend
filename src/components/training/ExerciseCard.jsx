@@ -184,6 +184,13 @@ export default function ExerciseCard({
       1
     : 0;
   const referenceDateLabel = getReferenceDateLabel(exercise);
+  const storedHistoryDateLabel = formatShortDate(
+    exercise.storedHistoryLastDate,
+  );
+  const historyDateLabel = referenceDateLabel || storedHistoryDateLabel;
+  const hasStoredHistory = Boolean(
+    referenceDateLabel || exercise.hasStoredHistory,
+  );
   const setupNote = String(exercise.setupNote || "").trim();
   const isComplete =
     Array.isArray(exercise.sets) &&
@@ -364,9 +371,7 @@ export default function ExerciseCard({
               className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
             />
             {exercise.isExtra ? (
-              <span className="training-exercise-card__extra-label">
-                Extra
-              </span>
+              <span className="training-exercise-card__extra-label">Extra</span>
             ) : null}
           </button>
           <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -415,31 +420,31 @@ export default function ExerciseCard({
                     </span>
                   </>
                 ) : null}
-                {referenceDateLabel && onViewTracking ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onViewTracking();
-                    }}
-                    className="training-exercise-card__meta group flex min-w-0 items-center gap-1 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
-                    aria-label={`Ver historial de ${exercise.name}`}
-                  >
-                    <History className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {`Última vez: ${referenceDateLabel}${
-                        exercise.referenceSourceText
-                          ? ` · ${exercise.referenceSourceText}`
-                          : ""
-                      }`}
-                    </span>
-                  </button>
-                ) : (
-                  <p className="training-exercise-card__meta min-w-0 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                    {referenceDateLabel
-                      ? `Última vez: ${referenceDateLabel}`
-                      : "Sin historial previo"}
-                  </p>
-                )}
+                {hasStoredHistory ? (
+                  onViewTracking ? (
+                    <button
+                      type="button"
+                      onClick={onViewTracking}
+                      className="training-exercise-card__meta group flex min-w-0 items-center gap-1 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                      aria-label={`Ver historial de ${exercise.name}`}
+                    >
+                      <History className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${
+                          referenceDateLabel && exercise.referenceSourceText
+                            ? ` · ${exercise.referenceSourceText}`
+                            : !referenceDateLabel
+                              ? " · Otra rutina"
+                              : ""
+                        }`}
+                      </span>
+                    </button>
+                  ) : historyDateLabel ? (
+                    <p className="training-exercise-card__meta min-w-0 truncate text-xs font-medium text-[color:var(--text-muted)]">
+                      Última vez: {historyDateLabel}
+                    </p>
+                  ) : null
+                ) : null}
               </div>
               {setupNote ? (
                 <div
@@ -708,6 +713,11 @@ ExerciseCard.propTypes = {
     orderContextLabel: PropTypes.string,
     globalPrText: PropTypes.string,
     referenceSourceText: PropTypes.string,
+    hasStoredHistory: PropTypes.bool,
+    storedHistoryLastDate: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.instanceOf(Date),
+    ]),
     durationSeconds: PropTypes.number,
     isActive: PropTypes.bool,
     variantIndex: PropTypes.number,

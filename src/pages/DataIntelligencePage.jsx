@@ -291,9 +291,9 @@ export default function DataIntelligencePage({
         actions={
           <button
             type="button"
-            onClick={() => window.dispatchEvent(new Event("open-main-menu"))}
+            onClick={() => onNavigate?.("perfil")}
             className="dashboard-mobile-avatar h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--card)]"
-            aria-label="Abrir menú principal"
+            aria-label="Abrir perfil"
           >
             <ProfileAvatar
               photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
