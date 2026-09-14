@@ -70,14 +70,13 @@ import {
   buildExerciseTrackingRows,
   collectExerciseTrackingPlanTrainings,
   collectExerciseTrackingRoutineTrainings,
-  getExerciseTrackingBestEntryKeysByRoutine,
   getExerciseTrackingBestEntryKeysBySet,
   getExerciseTrackingEntryKey,
-  getExerciseTrackingRoutineKey,
   getExerciseTrackingRoutineLabel,
   getInitialExerciseTrackingScope,
 } from "../utils/exerciseTracking";
 import {
+  getBodyweightCompletionIssue,
   getTrainingSaveErrorMessage,
   hasRecordedTrainingData,
 } from "../utils/trainingSubmission";
@@ -1440,6 +1439,7 @@ export default function RegisterTraining({
   const [pendingPhotoTrainingId, setPendingPhotoTrainingId] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
+  const [bodyweightConfirmation, setBodyweightConfirmation] = useState(null);
   const [completionPageOpen, setCompletionPageOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -4678,6 +4678,7 @@ export default function RegisterTraining({
     setPendingPhotoTrainingId("");
     setFinishWarningOpen(false);
     setFinishWarningExercises([]);
+    setBodyweightConfirmation(null);
     setCompletionPageOpen(false);
     resumedAfterCompletionRef.current = false;
     finalizingRef.current = false;
@@ -5328,12 +5329,46 @@ export default function RegisterTraining({
     );
   };
 
-  const handleToggleEntry = (exerciseId, setId, entryId) => {
+  const handleToggleEntry = (
+    exerciseId,
+    setId,
+    entryId,
+    { bodyweightConfirmed = false } = {},
+  ) => {
     const targetExercise = exercises.find((ex) => ex.id === exerciseId);
     const targetSet = targetExercise?.sets?.find((set) => set.id === setId);
     const targetEntry = targetSet?.entries?.find(
       (entry) => entry.id === entryId,
     );
+    if (targetEntry && !targetEntry.done && !bodyweightConfirmed) {
+      const completionIssue = getBodyweightCompletionIssue(
+        targetExercise,
+        targetEntry,
+      );
+      if (completionIssue === "missing_weight") {
+        toast.error(
+          "Ingresa 0 si trabajaste con tu peso corporal o escribe la carga adicional.",
+        );
+        return;
+      }
+      if (completionIssue === "invalid_weight") {
+        toast.error("Ingresa un peso válido antes de completar la serie.");
+        return;
+      }
+      if (completionIssue === "missing_reps") {
+        toast.error("Ingresa las repeticiones antes de completar la serie.");
+        return;
+      }
+      if (completionIssue === "confirm_bodyweight") {
+        setBodyweightConfirmation({
+          exerciseId,
+          setId,
+          entryId,
+          exerciseName: targetExercise?.name || "Ejercicio",
+        });
+        return;
+      }
+    }
     const completesSet =
       targetEntry &&
       !targetEntry.done &&
@@ -6016,6 +6051,7 @@ export default function RegisterTraining({
   const handleConfirmEarlyFinish = () => {
     setFinishWarningOpen(false);
     setFinishWarningExercises([]);
+    setBodyweightConfirmation(null);
     pauseForRoutineCompletion();
   };
 
@@ -6346,10 +6382,6 @@ export default function RegisterTraining({
   const bestTrackingEntryKeysBySet = useMemo(
     () => getExerciseTrackingBestEntryKeysBySet(visibleTrackingRows),
     [visibleTrackingRows],
-  );
-  const bestTrackingEntryKeysByRoutine = useMemo(
-    () => getExerciseTrackingBestEntryKeysByRoutine(generalTrackingRows),
-    [generalTrackingRows],
   );
   const restProgressPct = restDurationSeconds
     ? Math.max(
@@ -8016,12 +8048,7 @@ export default function RegisterTraining({
                     </thead>
                     <tbody>
                       {visibleTrackingRows.map((row, rowIdx) => {
-                        const rowBestEntryKeys =
-                          historyViewScope === "general"
-                            ? bestTrackingEntryKeysByRoutine.byRoutine.get(
-                                getExerciseTrackingRoutineKey(row),
-                              ) || bestTrackingEntryKeysByRoutine.global
-                            : bestTrackingEntryKeysBySet;
+                        const rowBestEntryKeys = bestTrackingEntryKeysBySet;
                         return (
                           <motion.tr
                             key={row.id || `${row.date}-${rowIdx}`}
@@ -8129,6 +8156,67 @@ export default function RegisterTraining({
           </div>
         </Modal>
       )}
+
+      {bodyweightConfirmation ? (
+        <Modal
+          title="¿Entrenaste con tu peso corporal?"
+          subtitle={bodyweightConfirmation.exerciseName}
+          size="small"
+          portal
+          onClose={() => setBodyweightConfirmation(null)}
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 rounded-xl font-semibold"
+                onClick={() => setBodyweightConfirmation(null)}
+              >
+                Corregir peso
+              </Button>
+              <Button
+                type="button"
+                className="h-12 rounded-xl !bg-[#181918] font-semibold text-white hover:!bg-[#2b2d2a] dark:!bg-white dark:text-black dark:hover:!bg-white/90"
+                onClick={() => {
+                  const pending = bodyweightConfirmation;
+                  setBodyweightConfirmation(null);
+                  handleToggleEntry(
+                    pending.exerciseId,
+                    pending.setId,
+                    pending.entryId,
+                    { bodyweightConfirmed: true },
+                  );
+                }}
+              >
+                Sí, peso corporal
+              </Button>
+            </div>
+          }
+        >
+          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
+            <p className="text-sm font-semibold leading-6 text-[color:var(--text)]">
+              El valor 0 se guardará como una serie realizada sin carga
+              adicional, no como un peso olvidado.
+            </p>
+            {Number(profile?.weight) > 0 ? (
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Tu peso actual registrado es de{" "}
+                <strong className="text-[color:var(--text)]">
+                  {Number(profile.weight).toLocaleString("es-BO", {
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  kg
+                </strong>
+                .
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Si agregaste lastre, vuelve y escribe únicamente esa carga.
+              </p>
+            )}
+          </div>
+        </Modal>
+      ) : null}
 
       {pendingSameDayTraining ? (
         <Modal

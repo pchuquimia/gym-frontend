@@ -1,6 +1,44 @@
 const hasValue = (value) =>
   value !== null && value !== undefined && String(value).trim() !== "";
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+export const usesBodyweightLoad = (exercise = {}) => {
+  const weightBasis = String(
+    exercise?.weightBasis || exercise?.weightConfig?.basis || "",
+  );
+  const loadType = String(exercise?.loadType || "").toLowerCase();
+  const name = normalizeText(exercise?.name || exercise?.exerciseName);
+  return (
+    weightBasis === "additional" ||
+    weightBasis === "assistance" ||
+    loadType === "bodyweight" ||
+    loadType === "assisted" ||
+    /\b(dominada|dominadas|pull[ -]?up|chin[ -]?up|fondos|dips?)\b/.test(name)
+  );
+};
+
+export const getBodyweightCompletionIssue = (exercise = {}, entry = {}) => {
+  if (!usesBodyweightLoad(exercise)) return null;
+
+  const rawWeight = entry?.kg ?? entry?.weightKg ?? entry?.weight;
+  if (!hasValue(rawWeight)) return "missing_weight";
+  const weight = Number(String(rawWeight).replace(",", "."));
+  if (!Number.isFinite(weight) || weight < 0) return "invalid_weight";
+
+  const rawReps = entry?.reps ?? entry?.repetitions;
+  const reps = Number(String(rawReps ?? "").replace(",", "."));
+  if (!hasValue(rawReps) || !Number.isFinite(reps) || reps <= 0) {
+    return "missing_reps";
+  }
+
+  return weight === 0 ? "confirm_bodyweight" : null;
+};
+
 export const hasRecordedTrainingData = (exercises = []) =>
   (Array.isArray(exercises) ? exercises : []).some((exercise) =>
     (Array.isArray(exercise?.sets) ? exercise.sets : []).some((set) => {

@@ -20,6 +20,7 @@ import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
 import { api } from "../../services/api";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 import { parseLocalCalendarDate } from "../../utils/localCalendarDate";
+import { getWeightUnitLabel } from "../../utils/weightConfig";
 
 const LONG_PRESS_MS = 650;
 const MOVE_TOLERANCE_PX = 10;
@@ -192,6 +193,7 @@ export default function ExerciseCard({
     referenceDateLabel || exercise.hasStoredHistory,
   );
   const setupNote = String(exercise.setupNote || "").trim();
+  const weightUnitLabel = getWeightUnitLabel(exercise);
   const isComplete =
     Array.isArray(exercise.sets) &&
     exercise.sets.length > 0 &&
@@ -619,6 +621,7 @@ export default function ExerciseCard({
                         entries={set.entries}
                         prSummary={set.prSummary}
                         prBranchLabel={set.prBranchLabel}
+                        weightUnitLabel={weightUnitLabel}
                         onChangeEntry={(entryId, field, value) =>
                           onUpdateEntry(set.id, entryId, field, value)
                         }
