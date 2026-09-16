@@ -51,6 +51,7 @@ function MainLayout({
     activePage === "fotos" ||
     activePage === "admin_sesiones" ||
     activePage === "ejercicio_analitica" ||
+    activePage === "progreso" ||
     activePage === "resumen_sesion" ||
     activePage === "data_intelligence" ||
     activePage === "pesajes" ||
@@ -65,7 +66,9 @@ function MainLayout({
   const useRoutinesChrome = activePage === "rutinas";
   const usePhotosChrome = activePage === "fotos";
   const useAnalyticsChrome =
-    activePage === "ejercicio_analitica" || activePage === "data_intelligence";
+    activePage === "progreso" ||
+    activePage === "ejercicio_analitica" ||
+    activePage === "data_intelligence";
 
   useLayoutEffect(() => {
     const syncPageSystemChrome = () => {

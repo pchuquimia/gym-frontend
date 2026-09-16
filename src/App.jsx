@@ -51,6 +51,7 @@ import {
 
 const ExerciseLibrary = lazy(() => import("./pages/ExerciseLibrary"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ProgressDashboard = lazy(() => import("./pages/ProgressDashboard"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
 const RegisterTraining = lazy(() => import("./pages/RegisterTraining"));
 const ExerciseAnalyticsPage = lazy(
@@ -82,6 +83,7 @@ const CoachInvitation = lazy(() => import("./pages/CoachInvitation"));
 
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
+  progreso: { label: "Progreso", component: ProgressDashboard },
   library: { label: "Biblioteca de Ejercicios", component: ExerciseLibrary },
   registrar: { label: "Registrar Entrenamiento", component: RegisterTraining },
   ejercicio_analitica: {
@@ -140,6 +142,7 @@ const COACH_ATHLETE_KEY = "coach_athlete_context";
 const COACH_ROUTINE_OWNER_KEY = "rirfit_coach_routine_owner";
 const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
 const COACH_ALLOWED_PAGES = new Set([
+  "progreso",
   "trainer",
   "coach_athletes",
   "coach_messages",
@@ -161,12 +164,14 @@ const COACH_ALLOWED_PAGES = new Set([
   "onboarding",
 ]);
 const COACH_ATHLETE_CONTEXT_PAGES = new Set([
+  "progreso",
   "ejercicio_analitica",
   "editor_historial",
   "resumen_sesion",
   "data_intelligence",
 ]);
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
+  "progreso",
   "dashboard",
   "onboarding",
   "registrar",
@@ -639,6 +644,7 @@ function App() {
     (routineEditorOwnerId ||
       [
         "registrar",
+        "progreso",
         "ejercicio_analitica",
         "editor_historial",
         "resumen_sesion",

@@ -13,6 +13,7 @@ import {
   User,
   HeartPulse,
   Crown,
+  TrendingUp,
 } from "lucide-react";
 
 export const sections = [
@@ -32,6 +33,7 @@ export const sections = [
   {
     heading: "Progreso",
     items: [
+      { id: "progreso", label: "Progreso y planes", icon: TrendingUp },
       { id: "ejercicio_analitica", label: "Por ejercicio", icon: Layers },
       { id: "resumen_sesion", label: "Resumen de sesion", icon: Layers },
       {
@@ -110,6 +112,7 @@ export const coachSections = [
   {
     heading: "Herramientas",
     items: [
+      { id: "progreso", label: "Progreso y planes", icon: TrendingUp },
       {
         id: "rutinas",
         label: "Rutinas y planificación",
@@ -156,6 +159,7 @@ export const managedClientSections = [
   {
     heading: "Progreso",
     items: [
+      { id: "progreso", label: "Progreso y planes", icon: TrendingUp },
       {
         id: "ejercicio_analitica",
         label: "Analítica por ejercicio",
