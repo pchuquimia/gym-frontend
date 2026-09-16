@@ -51,13 +51,22 @@ describe("SessionHistory", () => {
           routineName: "Rutina A",
           durationSeconds: 3600,
           totalVolume: 1200,
-          volumeBreakdown: { recordedSets: 7 },
+          volumeBreakdown: {
+            recordedSets: 7,
+            completedSets: 7,
+            externalKg: 800,
+            machineKg: 400,
+            machineSets: 2,
+          },
         },
       ]);
     });
 
     expect(await screen.findByText("Rutina A")).toBeVisible();
     expect(screen.getByText("7")).toBeVisible();
+    expect(screen.getByText("Carga registrada")).toBeVisible();
+    expect(screen.getByText(/Externa 800 kg/)).toBeVisible();
+    expect(screen.getByText(/Máquina 400 kg/)).toBeVisible();
     expect(apiMocks.getTrainings).toHaveBeenCalledWith(
       expect.objectContaining({
         fields: SESSION_HISTORY_FIELDS,
@@ -65,5 +74,6 @@ describe("SessionHistory", () => {
       }),
     );
     expect(SESSION_HISTORY_FIELDS).not.toContain("exercises");
+    expect(SESSION_HISTORY_FIELDS).toContain("volumeBreakdown.externalKg");
   });
 });

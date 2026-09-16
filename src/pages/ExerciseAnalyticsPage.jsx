@@ -10,6 +10,7 @@ import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { summarizeExerciseSets } from "../utils/exerciseAnalyticsData";
+import { classifyExerciseLoad } from "../utils/trainingLoad";
 import { getEffectiveWeightKg } from "../utils/weightConfig";
 
 const ANALYTICS_VIEW_KEY = "exercise_analytics_view";
@@ -64,8 +65,15 @@ const flattenSets = (sets = [], weightConfig = {}) =>
           weightConfig,
         ),
         reps: Number(entry?.reps ?? 0) || 0,
+        done: entry?.done ?? set?.done,
       }))
-      .filter((entry) => entry.weight > 0 && entry.reps > 0);
+      .filter(
+        (entry) =>
+          entry.done !== false &&
+          Number.isFinite(entry.weight) &&
+          entry.weight >= 0 &&
+          entry.reps > 0,
+      );
   });
 
 function MetricCard({ label, value, detail, accent = false }) {
@@ -255,6 +263,10 @@ export default function ExerciseAnalyticsPage({
   const selectedExercise =
     exerciseOptions.find((exercise) => exercise.id === effectiveExerciseId) ||
     null;
+  const selectedLoadType = classifyExerciseLoad(selectedExercise || {});
+  const usesRepetitions = ["bodyweight", "assisted", "cardio"].includes(
+    selectedLoadType,
+  );
 
   const exerciseHistoryQuery = useQuery({
     queryKey: [
@@ -332,11 +344,12 @@ export default function ExerciseAnalyticsPage({
           topSet: summary.topSet,
           oneRM: summary.strength,
           volume: summary.volume,
+          reps: summary.reps,
           sets: summary.setsCount,
           setDetails: sets,
         };
       })
-      .filter((item) => item.timestamp && (item.volume > 0 || item.oneRM > 0))
+      .filter((item) => item.timestamp && item.sets > 0)
       .sort((left, right) => left.timestamp - right.timestamp);
     const oneRMValues = summaries.filter((item) => item.oneRM > 0);
     const latest = oneRMValues[oneRMValues.length - 1]?.oneRM || 0;
@@ -345,14 +358,26 @@ export default function ExerciseAnalyticsPage({
       (record, item) => (item.oneRM > (record?.oneRM || 0) ? item : record),
       null,
     );
+    const latestReps = summaries.at(-1)?.reps || 0;
+    const previousReps = summaries.at(-2)?.reps || 0;
+    const bestReps = summaries.reduce(
+      (record, item) => (item.reps > (record?.reps || 0) ? item : record),
+      null,
+    );
     return {
       summaries,
       sessions: summaries.length,
       latestDate: summaries[summaries.length - 1]?.date || null,
       latestOneRM: latest,
       best,
+      latestReps,
+      bestReps,
       vsPrevious:
         previous && latest ? ((latest - previous) / previous) * 100 : null,
+      vsPreviousReps:
+        previousReps && latestReps
+          ? ((latestReps - previousReps) / previousReps) * 100
+          : null,
     };
   }, [selectedWorkouts]);
 
@@ -569,15 +594,31 @@ export default function ExerciseAnalyticsPage({
         <>
           <section className="analytics-summary-grid dashboard-weekly-grid">
             <MetricCard
-              label="Fuerza actual"
+              label={usesRepetitions ? "Último trabajo" : "Última fuerza"}
               value={
-                stats.latestOneRM ? `${Math.round(stats.latestOneRM)} kg` : "--"
+                usesRepetitions
+                  ? stats.latestReps
+                    ? `${Math.round(stats.latestReps)} reps`
+                    : "--"
+                  : stats.latestOneRM
+                    ? `${Math.round(stats.latestOneRM)} kg`
+                    : "--"
               }
-              detail={stats.best ? "Valor estimado" : "Sin datos"}
+              detail={
+                usesRepetitions
+                  ? stats.latestReps
+                    ? "Última sesión registrada"
+                    : "Sin datos"
+                  : stats.best
+                    ? "Última estimación registrada"
+                    : "Sin datos"
+              }
             />
             <MetricCard
               label="Último cambio"
-              value={percent(stats.vsPrevious)}
+              value={percent(
+                usesRepetitions ? stats.vsPreviousReps : stats.vsPrevious,
+              )}
               detail={
                 stats.sessions > 1
                   ? "Vs. sesión anterior"
@@ -597,9 +638,25 @@ export default function ExerciseAnalyticsPage({
               }
             />
             <MetricCard
-              label="Mejor marca"
-              value={stats.best ? `${Math.round(stats.best.oneRM)} kg` : "--"}
-              detail={stats.best ? formatDate(stats.best.date) : "Sin datos"}
+              label={usesRepetitions ? "Mayor trabajo" : "Mejor marca"}
+              value={
+                usesRepetitions
+                  ? stats.bestReps
+                    ? `${Math.round(stats.bestReps.reps)} reps`
+                    : "--"
+                  : stats.best
+                    ? `${Math.round(stats.best.oneRM)} kg`
+                    : "--"
+              }
+              detail={
+                usesRepetitions
+                  ? stats.bestReps
+                    ? formatDate(stats.bestReps.date)
+                    : "Sin datos"
+                  : stats.best
+                    ? formatDate(stats.best.date)
+                    : "Sin datos"
+              }
             />
           </section>
 
@@ -607,6 +664,7 @@ export default function ExerciseAnalyticsPage({
             exerciseId={effectiveExerciseId}
             workouts={analyticsWorkouts}
             mode={isDark ? "dark" : "light"}
+            loadType={selectedLoadType}
           />
 
           <div className="grid grid-cols-2 border-b border-[color:var(--border)]">
@@ -641,8 +699,10 @@ export default function ExerciseAnalyticsPage({
               </div>
               <div className="analytics-history__head grid grid-cols-[78px_minmax(0,1fr)_auto] gap-2 px-3 pb-1.5 text-[11px] text-[color:var(--text-muted)]">
                 <span>Fecha</span>
-                <span>Mejor serie</span>
-                <span className="text-right">Fuerza estimada</span>
+                <span>{usesRepetitions ? "Serie con más reps" : "Mejor serie"}</span>
+                <span className="text-right">
+                  {usesRepetitions ? "Trabajo" : "Fuerza estimada"}
+                </span>
               </div>
               <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
                 {stats.summaries.length ? (
@@ -659,11 +719,17 @@ export default function ExerciseAnalyticsPage({
                         </p>
                         <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
                           {item.topSet
-                            ? `${item.topSet.weight} kg × ${item.topSet.reps}`
+                            ? usesRepetitions
+                              ? `${item.topSet.reps} repeticiones`
+                              : `${item.topSet.weight} kg × ${item.topSet.reps}`
                             : "Sin top set"}
                         </p>
                         <p className="text-right text-sm font-semibold text-[#181918] dark:text-[#e2ff00]">
-                          {item.oneRM ? `${item.oneRM.toFixed(1)} kg` : "--"}
+                          {usesRepetitions
+                            ? `${item.reps} reps`
+                            : item.oneRM
+                              ? `${item.oneRM.toFixed(1)} kg`
+                              : "--"}
                         </p>
                       </div>
                     ))
@@ -742,7 +808,11 @@ export default function ExerciseAnalyticsPage({
                                   key={`${item.sessionKey}:set:${seriesIndex}`}
                                   className="h-full content-center border-l border-[color:var(--detail-row-divider)] px-2 text-xs font-semibold"
                                 >
-                                  {set ? `${set.weight} × ${set.reps}` : "--"}
+                                  {set
+                                    ? usesRepetitions
+                                      ? `${set.reps} reps`
+                                      : `${set.weight} × ${set.reps}`
+                                    : "--"}
                                 </p>
                               );
                             })}

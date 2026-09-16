@@ -94,4 +94,60 @@ describe("summarizeSession", () => {
       direction: "up",
     });
   });
+
+  it("mide peso corporal por repeticiones aunque registre cero kg", () => {
+    const session = (date, reps) =>
+      summarizeSession({
+        date,
+        exercises: [
+          {
+            exerciseId: "pull-ups",
+            exerciseName: "Dominadas",
+            muscleGroup: "espalda",
+            loadType: "bodyweight",
+            sets: [{ weightKg: 0, reps, done: true }],
+          },
+        ],
+      });
+    const previous = session("2026-08-21", 8);
+    const current = session("2026-08-28", 10);
+    const comparison = compareExercise(current, [previous], "pull-ups");
+
+    expect(current.exercises[0]).toMatchObject({
+      metricType: "repetitions",
+      metric: 10,
+      setsCount: 1,
+      oneRMTop: 0,
+    });
+    expect(comparison.delta).toBe(25);
+  });
+
+  it("solo compara ejercicios asistidos con la misma asistencia", () => {
+    const session = (date, assistanceKg, reps) =>
+      summarizeSession({
+        date,
+        exercises: [
+          {
+            exerciseId: "assisted-pull-up",
+            exerciseName: "Dominada asistida",
+            muscleGroup: "espalda",
+            loadType: "assisted",
+            sets: [{ weightKg: assistanceKg, reps, done: true }],
+          },
+        ],
+      });
+    const current = session("2026-08-28", 20, 10);
+    const comparison = compareExercise(
+      current,
+      [
+        session("2026-08-21", 30, 12),
+        session("2026-08-14", 20, 8),
+      ],
+      "assisted-pull-up",
+    );
+
+    expect(comparison.ref.date).toBe("2026-08-14");
+    expect(comparison.ref.assistanceKg).toBe(20);
+    expect(comparison.delta).toBe(25);
+  });
 });

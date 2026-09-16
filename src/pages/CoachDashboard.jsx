@@ -1638,6 +1638,43 @@ const historyDateLabel = (value) => {
     .replace(".", "");
 };
 
+const countPlanSessionsDue = (plan, periodStart, periodEnd) => {
+  if (!plan) return null;
+  const planStart = plan.startDate
+    ? new Date(`${String(plan.startDate).slice(0, 10)}T12:00:00`)
+    : periodStart;
+  const planEnd = plan.endDate
+    ? new Date(`${String(plan.endDate).slice(0, 10)}T12:00:00`)
+    : periodEnd;
+  const effectiveStart = planStart > periodStart ? planStart : periodStart;
+  const effectiveEnd = planEnd < periodEnd ? planEnd : periodEnd;
+  if (effectiveStart > effectiveEnd) return 0;
+  const trainingDays = (plan.weeklySchedule || []).filter(
+    (day) => day.type === "training",
+  );
+  if (plan.scheduleMode === "fixed" && trainingDays.length) {
+    const dayIndexes = new Set(
+      trainingDays.map((day) => Number(day.dayIndex)),
+    );
+    let count = 0;
+    for (
+      const date = new Date(effectiveStart);
+      date <= effectiveEnd;
+      date.setDate(date.getDate() + 1)
+    ) {
+      const dayIndex = ((date.getDay() + 6) % 7) + 1;
+      if (dayIndexes.has(dayIndex)) count += 1;
+    }
+    return count;
+  }
+  const frequency = Number(plan.frequencyTarget) || trainingDays.length;
+  if (!frequency) return null;
+  const elapsedDays =
+    Math.floor((effectiveEnd.getTime() - effectiveStart.getTime()) / 86400000) +
+    1;
+  return Math.max(1, Math.ceil((frequency * elapsedDays) / 7));
+};
+
 function MobileAthleteHistoryView({
   trainings,
   checkIns,
@@ -1661,32 +1698,39 @@ function MobileAthleteHistoryView({
       Number(training.durationOverrideSeconds ?? training.durationSeconds ?? 0),
     0,
   );
-  const weeklyTarget = (activePlan?.weeklySchedule || []).filter(
-    (day) => day.type === "training",
-  ).length;
   const planStart = activePlan?.startDate
     ? new Date(`${String(activePlan.startDate).slice(0, 10)}T12:00:00`)
     : null;
   const today = new Date(`${localDateKey()}T12:00:00`);
   const periodStart = new Date(today);
-  periodStart.setDate(today.getDate() - 29);
+  periodStart.setDate(today.getDate() - 27);
   const effectiveStart =
     planStart && planStart > periodStart && planStart <= today
       ? planStart
       : periodStart;
-  const elapsedPlanDays = Math.max(
-    1,
-    Math.floor((today.getTime() - effectiveStart.getTime()) / 86400000) + 1,
+  const expectedTrainings = countPlanSessionsDue(
+    activePlan,
+    periodStart,
+    today,
   );
-  const expectedTrainings = weeklyTarget
-    ? Math.max(1, Math.round((weeklyTarget * elapsedPlanDays) / 7))
-    : sortedTrainings.length;
+  const completedPlanDays = new Set(
+    sortedTrainings
+      .filter((training) => {
+        const date = new Date(
+          `${String(training.date || training.createdAt || "").slice(0, 10)}T12:00:00`,
+        );
+        return !Number.isNaN(date.getTime()) && date >= effectiveStart;
+      })
+      .map((training) =>
+        String(training.date || training.createdAt || "").slice(0, 10),
+      ),
+  ).size;
   const adherence = expectedTrainings
     ? Math.min(
         100,
-        Math.round((sortedTrainings.length / expectedTrainings) * 100),
+        Math.round((completedPlanDays / expectedTrainings) * 100),
       )
-    : 0;
+    : null;
   const weeklyCounts = [0, 0, 0, 0];
   sortedTrainings.forEach((training) => {
     const date = new Date(
@@ -1696,8 +1740,8 @@ function MobileAthleteHistoryView({
     const elapsedDays = Math.floor(
       (date.getTime() - periodStart.getTime()) / 86400000,
     );
-    if (elapsedDays >= 0 && elapsedDays < 30) {
-      weeklyCounts[Math.min(3, Math.floor(elapsedDays / 7))] += 1;
+    if (elapsedDays >= 0 && elapsedDays < 28) {
+      weeklyCounts[Math.floor(elapsedDays / 7)] += 1;
     }
   });
   const chartMax = Math.max(6, Math.ceil(Math.max(...weeklyCounts, 0) / 2) * 2);
@@ -1707,6 +1751,14 @@ function MobileAthleteHistoryView({
     Math.round(chartMax / 3),
     0,
   ];
+  const weekLabels = weeklyCounts.map((_, index) => {
+    const start = new Date(periodStart);
+    start.setDate(periodStart.getDate() + index * 7);
+    return start.toLocaleDateString("es-BO", {
+      day: "numeric",
+      month: "short",
+    });
+  });
   const visibleSessions = showAllSessions
     ? sortedTrainings
     : sortedTrainings.slice(0, 3);
@@ -1716,7 +1768,7 @@ function MobileAthleteHistoryView({
       <section>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[25px] font-bold tracking-[-0.05em]">
-            Últimos 30 días
+            Últimos 28 días
           </h2>
           <span className="grid h-11 w-11 place-items-center rounded-[12px] border border-[color:var(--border-strong)]">
             <CalendarDays className="h-6 w-6" strokeWidth={1.8} />
@@ -1744,7 +1796,7 @@ function MobileAthleteHistoryView({
             </div>
             <div className="px-2">
               <strong className="block text-[23px] font-bold tracking-[-0.04em]">
-                {adherence}%
+                {adherence === null ? "--" : `${adherence}%`}
               </strong>
               <span className="mt-1 block text-[13px] text-[color:var(--text-muted)]">
                 Adherencia
@@ -1791,7 +1843,7 @@ function MobileAthleteHistoryView({
                 <div
                   key={index}
                   className="relative flex h-full w-12 items-end justify-center"
-                  title={`Semana ${index + 1}: ${count} entrenamientos`}
+                  title={`${weekLabels[index]}: ${count} entrenamientos`}
                 >
                   <span
                     className="w-9 rounded-t-[4px] bg-[#181918] dark:bg-[#eeeae2]"
@@ -1800,7 +1852,7 @@ function MobileAthleteHistoryView({
                     }}
                   />
                   <span className="absolute -bottom-5 text-[12px] text-[color:var(--text-muted)]">
-                    S{index + 1}
+                    {weekLabels[index]}
                   </span>
                 </div>
               ))}
@@ -2378,6 +2430,18 @@ function CoachHome({
   );
 }
 
+const resolveWeeklyReportWorkload = (report = {}) =>
+  report.workload || {
+    basis: {
+      metric: "external_volume",
+      label: "Carga externa",
+      unit: "kg",
+    },
+    current: Number(report.current?.volume || 0),
+    previous: Number(report.previous?.volume || 0),
+    changePercent: report.comparison?.volumePercent ?? 0,
+  };
+
 function WeeklyReportPanel({
   report,
   loading,
@@ -2406,16 +2470,22 @@ function WeeklyReportPanel({
         </Button>
       </section>
     );
+  const workload = resolveWeeklyReportWorkload(report);
+  const workloadChange = Number(workload.changePercent || 0);
   const metrics = [
     [
       "Adherencia",
-      `${report.adherence.percentage}%`,
-      `${report.adherence.completed}/${report.adherence.target} sesiones`,
+      report.adherence.available === false
+        ? "--"
+        : `${report.adherence.percentage}%`,
+      report.adherence.available === false
+        ? "Sin sesiones programadas todavía"
+        : `${report.adherence.completed}/${report.adherence.target} sesiones`,
     ],
     [
-      "Volumen",
-      `${Math.round(report.current.volume).toLocaleString("es-BO")} kg`,
-      `${report.comparison.volumePercent >= 0 ? "+" : ""}${report.comparison.volumePercent}% vs anterior`,
+      workload.basis.label,
+      `${Math.round(workload.current).toLocaleString("es-BO")} ${workload.basis.unit}`,
+      `${workloadChange >= 0 ? "+" : ""}${workloadChange}% vs anterior`,
     ],
     [
       "Series",
@@ -2894,7 +2964,7 @@ export default function CoachDashboard({
     let active = true;
     const to = localDateKey();
     const fromDate = new Date(`${to}T12:00:00`);
-    fromDate.setDate(fromDate.getDate() - 29);
+    fromDate.setDate(fromDate.getDate() - 27);
     setHistoryLoading(true);
     Promise.all([
       api.getTrainings({
@@ -3264,11 +3334,15 @@ export default function CoachDashboard({
 
   const copyWeeklyReport = async () => {
     if (!weeklyReport) return;
+    const workload = resolveWeeklyReportWorkload(weeklyReport);
+    const workloadChange = Number(workload.changePercent || 0);
     const text = [
       `Informe semanal - ${weeklyReport.athlete.name}`,
       `${weeklyReport.period.from} al ${weeklyReport.period.to}`,
-      `Adherencia: ${weeklyReport.adherence.percentage}% (${weeklyReport.adherence.completed}/${weeklyReport.adherence.target})`,
-      `Volumen: ${Math.round(weeklyReport.current.volume).toLocaleString("es-BO")} kg (${weeklyReport.comparison.volumePercent >= 0 ? "+" : ""}${weeklyReport.comparison.volumePercent}%)`,
+      weeklyReport.adherence.available === false
+        ? "Adherencia: sin sesiones programadas todavía"
+        : `Adherencia: ${weeklyReport.adherence.percentage}% (${weeklyReport.adherence.completed}/${weeklyReport.adherence.target})`,
+      `${workload.basis.label}: ${Math.round(workload.current).toLocaleString("es-BO")} ${workload.basis.unit} (${workloadChange >= 0 ? "+" : ""}${workloadChange}%)`,
       `Series: ${weeklyReport.current.sets}`,
       `Recomendacion: ${weeklyReport.recommendation}`,
     ].join("\n");

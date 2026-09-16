@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import PropTypes from "prop-types";
 import { ResponsiveLine } from "@nivo/line";
-import { buildExerciseAnalyticsPoints } from "../../utils/exerciseAnalyticsData";
+import {
+  buildExerciseAnalyticsPoints,
+  selectExerciseAnalyticsRange,
+} from "../../utils/exerciseAnalyticsData";
 import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
 import { nivoTheme } from "../../utils/nivoTheme";
 import ChartSampleState from "./ChartSampleState";
@@ -32,21 +35,26 @@ const ExerciseIntensityChart = ({
   rangeWeeks = 12,
   mode = "dark",
   groupBy = "week",
+  endWeek = "",
 }) => {
   const points = useMemo(
     () =>
-      buildExerciseAnalyticsPoints({ workouts, exerciseId, groupBy }).slice(
-        -rangeWeeks,
+      selectExerciseAnalyticsRange(
+        buildExerciseAnalyticsPoints({ workouts, exerciseId, groupBy }),
+        groupBy,
+        rangeWeeks,
+        endWeek,
       ),
-    [exerciseId, groupBy, rangeWeeks, workouts],
+    [endWeek, exerciseId, groupBy, rangeWeeks, workouts],
   );
   const labelByKey = new Map(points.map((point) => [point.key, point.label]));
+  const observedPoints = points.filter((point) => !point.isGap);
   const series = [
     {
       id: "Intensidad media",
       data: points.map((point) => ({
         x: point.key,
-        y: Number(point.intensityAverage.toFixed(1)),
+        y: point.isGap ? null : Number(point.intensityAverage.toFixed(1)),
         label: point.label,
       })),
     },
@@ -54,7 +62,7 @@ const ExerciseIntensityChart = ({
       id: "Intensidad máxima",
       data: points.map((point) => ({
         x: point.key,
-        y: Number(point.intensityPeak.toFixed(1)),
+        y: point.isGap ? null : Number(point.intensityPeak.toFixed(1)),
         label: point.label,
       })),
     },
@@ -62,12 +70,12 @@ const ExerciseIntensityChart = ({
 
   return (
     <div className="h-64 sm:h-72">
-      {points.length === 1 ? (
+      {observedPoints.length === 1 ? (
         <ChartSampleState
-          value={`${Math.round(points[0].intensityAverage)}%`}
-          detail={`Máximo del periodo: ${Math.round(points[0].intensityPeak)}%`}
+          value={`${Math.round(observedPoints[0].intensityAverage)}%`}
+          detail={`Máximo del periodo: ${Math.round(observedPoints[0].intensityPeak)}%`}
         />
-      ) : points.length ? (
+      ) : observedPoints.length ? (
         <ResponsiveLine
           data={series}
           theme={nivoTheme(mode)}
@@ -85,7 +93,7 @@ const ExerciseIntensityChart = ({
             },
           }}
           axisLeft={{
-            legend: "Intensidad",
+            legend: "% del e1RM",
             legendOffset: -38,
             legendPosition: "middle",
             tickPadding: 6,
@@ -123,6 +131,7 @@ ExerciseIntensityChart.propTypes = {
   rangeWeeks: PropTypes.number,
   mode: PropTypes.oneOf(["light", "dark"]),
   groupBy: PropTypes.oneOf(["week", "session"]),
+  endWeek: PropTypes.string,
 };
 
 export default ExerciseIntensityChart;

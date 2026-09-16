@@ -2,6 +2,7 @@ import PropTypes from "prop-types";
 import { ResponsiveLine } from "@nivo/line";
 import {
   buildExerciseAnalyticsPoints,
+  selectExerciseAnalyticsRange,
   withMovingAverage,
 } from "../../utils/exerciseAnalyticsData";
 import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
@@ -20,20 +21,31 @@ const buildData = ({
   exerciseId,
   rangeWeeks = 12,
   groupBy = "week",
+  endWeek = "",
 }) => {
   const full = buildExerciseAnalyticsPoints({
     workouts,
     exerciseId,
     groupBy,
   });
-  const trimmed = withMovingAverage(full, "strength", rangeWeeks);
+  const pointsWithTrend = withMovingAverage(
+    full,
+    "strength",
+    Math.max(full.length, rangeWeeks),
+  );
+  const trimmed = selectExerciseAnalyticsRange(
+    pointsWithTrend,
+    groupBy,
+    rangeWeeks,
+    endWeek,
+  );
 
   const series = [
     {
       id: "Fuerza estimada",
       data: trimmed.map((point) => ({
         x: point.key,
-        y: Number(point.strength.toFixed(1)),
+        y: point.isGap ? null : Number(point.strength.toFixed(1)),
         label: point.label,
         topSet: point.topSet,
       })),
@@ -65,26 +77,29 @@ const ExerciseOneRMChart = ({
   rangeWeeks = 12,
   mode = "dark",
   groupBy = "week",
+  endWeek = "",
 }) => {
   const { series, points } = buildData({
     workouts,
     exerciseId,
     rangeWeeks,
     groupBy,
+    endWeek,
   });
 
-  const hasData = points.length >= 1;
+  const observedPoints = points.filter((point) => !point.isGap);
+  const hasData = observedPoints.length >= 1;
   const labelByKey = new Map(points.map((point) => [point.key, point.label]));
 
   return (
     <div className="space-y-3">
       <div className="h-64 sm:h-72">
-        {points.length === 1 ? (
+        {observedPoints.length === 1 ? (
           <ChartSampleState
-            value={`${points[0].strength.toFixed(1)} kg`}
+            value={`${observedPoints[0].strength.toFixed(1)} kg`}
             detail={
-              points[0].topSet
-                ? `${points[0].topSet.weight} kg x ${points[0].topSet.reps}`
+              observedPoints[0].topSet
+                ? `${observedPoints[0].topSet.weight} kg x ${observedPoints[0].topSet.reps}`
                 : ""
             }
           />
@@ -161,6 +176,7 @@ ExerciseOneRMChart.propTypes = {
   rangeWeeks: PropTypes.number,
   mode: PropTypes.oneOf(["light", "dark"]),
   groupBy: PropTypes.oneOf(["week", "session"]),
+  endWeek: PropTypes.string,
 };
 
 export default ExerciseOneRMChart;

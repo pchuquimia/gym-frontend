@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import PropTypes from "prop-types";
 import { ResponsiveBar } from "@nivo/bar";
-import { buildExerciseAnalyticsPoints } from "../../utils/exerciseAnalyticsData";
+import {
+  buildExerciseAnalyticsPoints,
+  selectExerciseAnalyticsRange,
+} from "../../utils/exerciseAnalyticsData";
 import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
 import { nivoTheme } from "../../utils/nivoTheme";
 
@@ -31,30 +34,48 @@ const ExerciseVolumeChart = ({
   rangeWeeks = 12,
   mode = "dark",
   groupBy = "week",
+  endWeek = "",
+  loadType = "unknown",
+  valueMode = "total",
 }) => {
   const points = useMemo(
     () =>
-      buildExerciseAnalyticsPoints({ workouts, exerciseId, groupBy }).slice(
-        -rangeWeeks,
+      selectExerciseAnalyticsRange(
+        buildExerciseAnalyticsPoints({ workouts, exerciseId, groupBy }),
+        groupBy,
+        rangeWeeks,
+        endWeek,
       ),
-    [exerciseId, groupBy, rangeWeeks, workouts],
+    [endWeek, exerciseId, groupBy, rangeWeeks, workouts],
   );
-  const bars = points.map((point) => ({
-    period: point.key,
-    label: point.label,
-    volume: Math.round(point.volume),
-    sets: point.setsCount,
-    reps: point.reps,
-  }));
+  const usesRepetitions = ["bodyweight", "assisted", "cardio"].includes(
+    loadType,
+  );
+  const isAverage = valueMode === "perSession" && groupBy === "week";
+  const bars = points.map((point) => {
+    const total = usesRepetitions ? point.reps : point.volume;
+    const average = usesRepetitions
+      ? point.repsPerSession
+      : point.volumePerSession;
+    return {
+      period: point.key,
+      label: point.label,
+      work: Number((isAverage ? average : total).toFixed(1)),
+      sessions: point.sessionCount,
+      sets: point.setsCount,
+      reps: point.reps,
+    };
+  });
+  const observedPoints = points.filter((point) => !point.isGap);
   const labelByKey = new Map(points.map((point) => [point.key, point.label]));
 
   return (
     <div className="h-64 sm:h-72">
-      {points.length ? (
+      {observedPoints.length ? (
         <ResponsiveBar
           data={bars}
           theme={nivoTheme(mode)}
-          keys={["volume"]}
+          keys={["work"]}
           indexBy="period"
           margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
           padding={0.35}
@@ -70,7 +91,13 @@ const ExerciseVolumeChart = ({
             },
           }}
           axisLeft={{
-            legend: "Carga total (kg)",
+            legend: usesRepetitions
+              ? isAverage
+                ? "Reps / sesión"
+                : "Repeticiones"
+              : isAverage
+                ? "kg / sesión"
+                : "Volumen (kg)",
             legendPosition: "middle",
             legendOffset: -48,
             tickPadding: 6,
@@ -84,8 +111,17 @@ const ExerciseVolumeChart = ({
                   ? formatCompactWeekLabel(data.label)
                   : formatSessionLabel(data.label)}
               </p>
-              <p>{Number(data.volume).toLocaleString("es-BO")} kg totales</p>
+              <p>
+                {Number(data.work).toLocaleString("es-BO", {
+                  maximumFractionDigits: 1,
+                })}{" "}
+                {usesRepetitions ? "repeticiones" : "kg"}
+                {isAverage ? " por sesión" : " en total"}
+              </p>
               <p className="text-[color:var(--text-muted)]">
+                {groupBy === "week"
+                  ? `${data.sessions} ${data.sessions === 1 ? "sesión" : "sesiones"} · `
+                  : ""}
                 {data.sets} series · {data.reps} repeticiones
               </p>
             </div>
@@ -104,6 +140,16 @@ ExerciseVolumeChart.propTypes = {
   rangeWeeks: PropTypes.number,
   mode: PropTypes.oneOf(["light", "dark"]),
   groupBy: PropTypes.oneOf(["week", "session"]),
+  endWeek: PropTypes.string,
+  loadType: PropTypes.oneOf([
+    "external",
+    "machine",
+    "bodyweight",
+    "assisted",
+    "cardio",
+    "unknown",
+  ]),
+  valueMode: PropTypes.oneOf(["total", "perSession"]),
 };
 
 export default ExerciseVolumeChart;

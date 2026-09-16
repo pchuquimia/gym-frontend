@@ -47,22 +47,6 @@ const duration = (seconds) => {
   return hours ? `${hours}h ${rest}m` : `${minutes} min`;
 };
 
-const flattenSets = (sets = []) =>
-  (Array.isArray(sets) ? sets : []).flatMap((set) => {
-    const source =
-      Array.isArray(set?.entries) && set.entries.length ? set.entries : [set];
-    return source
-      .map((entry) => ({
-        weightKg:
-          Number(entry?.weightKg ?? entry?.weight ?? entry?.kg ?? 0) || 0,
-        reps: Number(entry?.reps ?? 0) || 0,
-        done: entry?.done ?? set?.done,
-      }))
-      .filter(
-        (entry) => entry.done !== false && entry.weightKg > 0 && entry.reps > 0,
-      );
-  });
-
 const safeArray = (value) => (Array.isArray(value) ? value : []);
 
 const countLabel = (count, singular, plural) =>
@@ -252,22 +236,31 @@ export default function SessionSummaryPage({
             ? training.timeEvents
             : [],
           exercises: Array.isArray(training.exercises)
-            ? training.exercises.map((exercise) => ({
-                exerciseId: exercise.exerciseId,
-                exerciseName: exercise.exerciseName || "Ejercicio",
-                muscleGroup:
-                  exercise.muscleGroup ||
-                  exerciseMeta.find((item) => item.id === exercise.exerciseId)
-                    ?.muscle ||
-                  "Sin grupo",
-                movementMode: exercise.movementMode,
-                weightBasis: exercise.weightBasis,
-                barWeightKg: exercise.barWeightKg,
-                implementCount: exercise.implementCount,
-                loadType: exercise.loadType,
-                equipment: exercise.equipment,
-                sets: flattenSets(exercise.sets),
-              }))
+            ? training.exercises.map((exercise) => {
+                const catalogExercise = exerciseMeta.find(
+                  (item) => item.id === exercise.exerciseId,
+                );
+                return {
+                  exerciseId: exercise.exerciseId,
+                  exerciseName: exercise.exerciseName || "Ejercicio",
+                  muscleGroup:
+                    exercise.muscleGroup ||
+                    catalogExercise?.muscle ||
+                    "Sin grupo",
+                  movementMode: exercise.movementMode,
+                  weightBasis:
+                    exercise.weightBasis || catalogExercise?.weightBasis,
+                  barWeightKg:
+                    exercise.barWeightKg ?? catalogExercise?.barWeightKg,
+                  implementCount:
+                    exercise.implementCount ??
+                    catalogExercise?.implementCount,
+                  loadType: exercise.loadType || catalogExercise?.loadType,
+                  equipment:
+                    exercise.equipment || catalogExercise?.equipment,
+                  sets: Array.isArray(exercise.sets) ? exercise.sets : [],
+                };
+              })
             : undefined,
         }))
         .sort((left, right) =>

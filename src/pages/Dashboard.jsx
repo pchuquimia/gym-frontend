@@ -70,6 +70,10 @@ import {
   formatSessionDuration,
 } from "../utils/sessionDurationEstimate";
 import { getManagedAthleteJourneyStage } from "../utils/userFlow";
+import {
+  formatExercisePerformanceValue,
+  summarizeExercisePerformance,
+} from "../utils/exercisePerformance";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -543,27 +547,10 @@ function getExerciseKey(exercise = {}) {
     .toLowerCase();
 }
 
-function parsePerformance(set = {}) {
-  const weight = Number(set.weightKg ?? set.weight ?? set.kg ?? set.peso ?? 0);
-  const reps = Number(set.reps || set.repetitions || 0);
-  if (!Number.isFinite(weight) || weight <= 0) return null;
-  return {
-    weight,
-    reps: Number.isFinite(reps) && reps > 0 ? reps : 1,
-    volume: weight * (Number.isFinite(reps) && reps > 0 ? reps : 1),
-    score: weight * (1 + (Number.isFinite(reps) && reps > 0 ? reps : 1) / 30),
-  };
-}
-
-function getSetPerformances(set = {}) {
-  const entries =
-    Array.isArray(set.entries) && set.entries.length ? set.entries : [set];
-  return entries.map(parsePerformance).filter(Boolean);
-}
-
 function isBetter(current, previous) {
   if (!previous) return true;
-  if (current.score !== previous.score) return current.score > previous.score;
+  if (current.metric !== previous.metric)
+    return current.metric > previous.metric;
   if (current.weight !== previous.weight)
     return current.weight > previous.weight;
   return current.reps > previous.reps;
@@ -644,26 +631,21 @@ function extractBestExercisePerformances(training) {
       exercise.muscle ||
       exercise.primaryMuscle ||
       "Sin grupo";
-    const performances = (exercise.sets || []).flatMap((set, setIndex) =>
-      getSetPerformances(set).map((performance) => ({
-        ...performance,
-        setIndex,
-      })),
-    );
-    const best = performances.reduce(
-      (currentBest, performance) =>
-        !currentBest || isBetter(performance, currentBest)
-          ? performance
-          : currentBest,
-      null,
-    );
-    if (!best) return;
+    const performance = summarizeExercisePerformance(exercise);
+    if (!performance) return;
+    const best = {
+      ...performance,
+      weight: performance.topSet?.weightKg || 0,
+      reps: performance.topSet?.reps || 0,
+      setIndex: 0,
+    };
+    const comparisonKey = `${key}::${performance.comparisonKey}`;
 
-    const current = bestByExercise.get(key);
+    const current = bestByExercise.get(comparisonKey);
     if (!current || isBetter(best, current)) {
-      bestByExercise.set(key, {
+      bestByExercise.set(comparisonKey, {
         ...best,
-        key,
+        key: comparisonKey,
         exerciseKey,
         exerciseName,
         muscleGroup,
@@ -676,17 +658,21 @@ function extractBestExercisePerformances(training) {
 }
 
 function getPerformanceChange(current, previous) {
-  if (!current || !previous || previous.score <= 0) return null;
-  const tolerance = Math.max(0.05, previous.score * 0.005);
-  const difference = current.score - previous.score;
+  if (!current || !previous || previous.metric <= 0) return null;
+  const tolerance = Math.max(0.05, previous.metric * 0.005);
+  const difference = current.metric - previous.metric;
   if (Math.abs(difference) <= tolerance) return null;
 
   const type =
-    current.weight === previous.weight
+    current.metricType === "repetitions"
       ? "Repeticiones"
-      : current.reps === previous.reps
-        ? "Peso"
-        : "Rendimiento estimado";
+      : current.metricType === "assistedRepetitions"
+        ? `Repeticiones con ${current.assistanceKg} kg de asistencia`
+        : current.weight === previous.weight
+          ? "Repeticiones"
+          : current.reps === previous.reps
+            ? "Peso"
+            : "Rendimiento estimado";
   return {
     direction: difference > 0 ? "improvement" : "decline",
     type,
@@ -696,8 +682,10 @@ function getPerformanceChange(current, previous) {
     previousReps: previous.reps,
     currentWeight: current.weight,
     currentReps: current.reps,
-    previousValue: `${previous.weight} kg × ${previous.reps}`,
-    currentValue: `${current.weight} kg × ${current.reps}`,
+    metricType: current.metricType,
+    assistanceKg: current.assistanceKg,
+    previousValue: formatExercisePerformanceValue(previous),
+    currentValue: formatExercisePerformanceValue(current),
   };
 }
 
@@ -709,6 +697,13 @@ function formatPerformanceNumber(value) {
 }
 
 function getImprovementGain(item = {}) {
+  if (["repetitions", "assistedRepetitions"].includes(item.metricType)) {
+    const repsGain =
+      Number(item.currentReps || 0) - Number(item.previousReps || 0);
+    return repsGain > 0
+      ? `+${formatPerformanceNumber(repsGain)} ${repsGain === 1 ? "rep" : "reps"}`
+      : "Mejor rendimiento";
+  }
   const weightGain =
     Number(item.currentWeight || 0) - Number(item.previousWeight || 0);
   const repsGain =
@@ -721,6 +716,13 @@ function getImprovementGain(item = {}) {
 }
 
 function getDeclineLoss(item = {}) {
+  if (["repetitions", "assistedRepetitions"].includes(item.metricType)) {
+    const repsLoss =
+      Number(item.previousReps || 0) - Number(item.currentReps || 0);
+    return repsLoss > 0
+      ? `-${formatPerformanceNumber(repsLoss)} ${repsLoss === 1 ? "rep" : "reps"}`
+      : "Por recuperar";
+  }
   const weightLoss =
     Number(item.previousWeight || 0) - Number(item.currentWeight || 0);
   const repsLoss =
@@ -876,8 +878,8 @@ function PeriodComparisonPanel({
               Comparativa inteligente
             </h2>
             <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Sesiones, volumen, fuerza, adherencia y recuperación frente a los
-              mismos días de la semana anterior.
+              Sesiones, trabajo, rendimiento, adherencia y recuperación frente
+              a los mismos días de la semana anterior.
             </p>
           </div>
           <button
@@ -913,6 +915,10 @@ function PeriodComparisonPanel({
   }
 
   const metrics = comparison.metrics;
+  const workload = metrics.workload || metrics.volume;
+  const workloadUnit = workload?.basis?.unit === "kg" ? "kg" : "series";
+  const performance = metrics.strength;
+  const performanceUsesIndex = performance?.displayMode === "index";
   const cards = [
     {
       key: "sessions",
@@ -924,22 +930,29 @@ function PeriodComparisonPanel({
     },
     {
       key: "volume",
-      label: "Volumen",
+      label:
+        workload?.basis?.metric === "external_volume"
+          ? "Carga externa"
+          : "Trabajo",
       icon: TrendingUp,
-      metric: metrics.volume,
-      value: `${formatCompact(metrics.volume.current)} kg`,
-      previous: `${formatCompact(metrics.volume.previous)} kg anterior`,
+      metric: workload,
+      value: `${formatCompact(workload?.current)} ${workloadUnit}`,
+      previous: `${formatCompact(workload?.previous)} ${workloadUnit} anterior`,
     },
     {
       key: "strength",
-      label: "Fuerza estimada",
+      label: performanceUsesIndex ? "Rendimiento" : "Fuerza estimada",
       icon: Dumbbell,
-      metric: metrics.strength,
-      value: metrics.strength.available
-        ? `${Math.round(metrics.strength.current)} kg`
+      metric: performance,
+      value: performance.available
+        ? performanceUsesIndex
+          ? `Índice ${Math.round(performance.current)}`
+          : `${Math.round(performance.current)} kg`
         : "--",
-      previous: metrics.strength.available
-        ? `${Math.round(metrics.strength.previous)} kg e1RM · ${metrics.strength.comparableExercises} ejercicios`
+      previous: performance.available
+        ? performanceUsesIndex
+          ? `Base 100 · ${performance.comparableExercises} ejercicios comparables`
+          : `${Math.round(performance.previous)} kg e1RM · ${performance.comparableExercises} ejercicios`
         : "Repite ejercicios en ambos periodos",
     },
     {
@@ -3544,8 +3557,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           else if (type === "photos") {
             sessionStorage.setItem("rirfit_photo_capture_intent", "1");
             onNavigate("fotos");
-          }
-          else if (type === "measurements") {
+          } else if (type === "measurements") {
             const mission = mobileTrackingMissions.find(
               (item) => item.type === "measurements",
             );
@@ -3762,9 +3774,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         title={
           selectedMonthDetail
             ? selectedMonthDetail.fullMonthName
-            : "Últimos 3 meses"
+            : "Carga externa · últimos 3 meses"
         }
-        subtitle={selectedMonthDetail ? "Mes seleccionado" : "Tendencia"}
+        subtitle={selectedMonthDetail ? "Mes seleccionado" : "Total acumulado"}
         meta={`${formatCompact(
           selectedMonthDetail
             ? selectedMonthDetail.volume

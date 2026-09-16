@@ -71,6 +71,69 @@ const formatVolume = (value) => {
   return num.toLocaleString("es-BO", { maximumFractionDigits: 1 });
 };
 
+const sessionLoadDisplay = (training = {}) => {
+  const load = training.volumeBreakdown || {};
+  const externalKg = Number(load.externalKg) || 0;
+  const machineKg = Number(load.machineKg) || 0;
+  const unknownKg = Number(load.unknownKg) || 0;
+  const completedSets = Number(
+    load.completedSets ?? load.recordedSets ?? 0,
+  );
+  const bodyweightSets = Number(load.bodyweightSets) || 0;
+  const assistedSets = Number(load.assistedSets) || 0;
+  const cardioSets = Number(load.cardioSets) || 0;
+  const unknownSets = Number(load.unknownSets) || 0;
+  const totalKg = externalKg + machineKg + unknownKg;
+  const categories = [
+    externalKg > 0 && `Externa ${formatVolume(externalKg)} kg`,
+    machineKg > 0 && `Máquina ${formatVolume(machineKg)} kg`,
+    bodyweightSets > 0 && `Corporal ${bodyweightSets} series`,
+    assistedSets > 0 && `Asistidas ${assistedSets} series`,
+    cardioSets > 0 && `Cardio ${cardioSets} series`,
+    (unknownKg > 0 || unknownSets > 0) &&
+      `Sin clasificar ${unknownSets || formatVolume(unknownKg)}`,
+  ].filter(Boolean);
+
+  if (categories.length === 1 && externalKg > 0) {
+    return {
+      label: "Carga externa",
+      value: formatVolume(externalKg),
+      suffix: "kg",
+      detail: "",
+    };
+  }
+  if (categories.length === 1 && machineKg > 0) {
+    return {
+      label: "Carga máquina",
+      value: formatVolume(machineKg),
+      suffix: "kg",
+      detail: "",
+    };
+  }
+  if (!totalKg && categories.length) {
+    return {
+      label: "Trabajo",
+      value: completedSets,
+      suffix: completedSets === 1 ? "serie" : "series",
+      detail: categories.join(" · "),
+    };
+  }
+  if (categories.length) {
+    return {
+      label: "Carga registrada",
+      value: formatVolume(totalKg),
+      suffix: "kg",
+      detail: categories.join(" · "),
+    };
+  }
+  return {
+    label: "Carga registrada",
+    value: formatVolume(training.totalVolume || 0),
+    suffix: "kg",
+    detail: "Histórico sin desglose por tipo de carga",
+  };
+};
+
 const getDurationParts = (seconds = 0) => {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
   return {
@@ -643,7 +706,7 @@ export function SessionHistory({
                           training.branch ||
                           training.routineBranch ||
                           "general";
-                        const totalVolume = training.totalVolume ?? 0;
+                        const loadDisplay = sessionLoadDisplay(training);
 
                         return (
                           <article
@@ -743,7 +806,7 @@ export function SessionHistory({
                             </div>
 
                             <div className="grid grid-cols-3 gap-3 border-y border-[color:var(--border)] py-2.5 md:contents">
-                              <MetricBox label="Sets" value={totalSets} />
+                              <MetricBox label="Series" value={totalSets} />
                               <MetricBox
                                 label="Duración"
                                 value={formatDuration(
@@ -751,12 +814,17 @@ export function SessionHistory({
                                 )}
                               />
                               <MetricBox
-                                label="Volumen"
-                                value={formatVolume(totalVolume)}
-                                suffix="kg"
+                                label={loadDisplay.label}
+                                value={loadDisplay.value}
+                                suffix={loadDisplay.suffix}
                                 accent
                               />
                             </div>
+                            {loadDisplay.detail ? (
+                              <p className="text-[10px] font-semibold text-[color:var(--text-muted)] md:col-span-full">
+                                {loadDisplay.detail}
+                              </p>
+                            ) : null}
                           </article>
                         );
                       })}

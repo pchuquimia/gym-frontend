@@ -2,12 +2,34 @@ import { useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { ResponsiveLine } from "@nivo/line";
 import { buildMuscleAnalytics } from "../../utils/exerciseAnalyticsData";
-import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
+import {
+  formatCompactWeekLabel,
+  toIsoWeek,
+} from "../../utils/trainingMetrics";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 import { nivoTheme } from "../../utils/nivoTheme";
+import { classifyExerciseLoad } from "../../utils/trainingLoad";
 import ExerciseThumbnail from "./ExerciseThumbnail";
 
 const ranges = [8, 12, 24];
+const currentWeek = toIsoWeek(new Date().toISOString().slice(0, 10));
+
+const conclusionStyles = {
+  improving:
+    "border-[#287554]/30 bg-[#287554]/[0.07] dark:border-[#9de2bd]/25 dark:bg-[#9de2bd]/[0.06]",
+  declining:
+    "border-[#a04742]/30 bg-[#a04742]/[0.07] dark:border-[#f0aaa4]/25 dark:bg-[#f0aaa4]/[0.06]",
+  stable: "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
+  insufficient:
+    "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
+};
+
+const confidenceStyles = {
+  high: "text-[#287554] dark:text-[#9de2bd]",
+  medium: "text-[color:var(--text)]",
+  low: "text-[#9a681c] dark:text-[#e7bc75]",
+  insufficient: "text-[color:var(--text-muted)]",
+};
 
 const formatDelta = (value, digits = 0) => {
   if (!Number.isFinite(value)) return "--";
@@ -58,33 +80,58 @@ const MuscleGroupAnalytics = ({
     () => new Map(muscleExercises.map((exercise) => [exercise.id, exercise])),
     [muscleExercises],
   );
+  const exerciseProfiles = useMemo(
+    () =>
+      new Map(
+        muscleExercises.map((exercise) => [
+          exercise.id,
+          {
+            loadType: classifyExerciseLoad(exercise),
+            weightBasis: exercise.weightBasis || "",
+          },
+        ]),
+      ),
+    [muscleExercises],
+  );
   const analytics = useMemo(
     () =>
       buildMuscleAnalytics({
         workouts,
         exerciseIds: muscleExercises.map((exercise) => exercise.id),
         rangeWeeks: range,
+        exerciseProfiles,
+        endWeek: currentWeek,
       }),
-    [muscleExercises, range, workouts],
+    [exerciseProfiles, muscleExercises, range, workouts],
   );
   const status = getStatus(analytics.delta);
-  const chartMin = analytics.points.length
-    ? Math.floor(
-        Math.min(96, ...analytics.points.map((point) => point.index)) - 2,
-      )
+  const chartValues = analytics.points
+    .map((point) => point.index)
+    .filter(Number.isFinite);
+  const chartMin = chartValues.length
+    ? Math.floor(Math.min(96, ...chartValues) - 2)
     : 94;
-  const chartMax = analytics.points.length
-    ? Math.ceil(
-        Math.max(104, ...analytics.points.map((point) => point.index)) + 2,
-      )
+  const chartMax = chartValues.length
+    ? Math.ceil(Math.max(104, ...chartValues) + 2)
     : 106;
   const maxContribution = Math.max(
     2,
     ...analytics.contributions.map((item) => Math.abs(item.change)),
   );
   const comparisonText = analytics.comparableExercises
-    ? `${analytics.improved} mejorando · ${analytics.stable} estables · ${analytics.declined} bajando`
-    : "Registra el mismo ejercicio en dos semanas diferentes.";
+    ? `${analytics.improved} mejorando · ${analytics.stable} estables · ${analytics.declined} bajando · cambio mediano desde el primer registro al último`
+    : "Registra el mismo ejercicio en dos semanas comparables.";
+  const methodParts = [
+    analytics.metricCounts.strength
+      ? `${analytics.metricCounts.strength} por fuerza`
+      : "",
+    analytics.metricCounts.repetitions
+      ? `${analytics.metricCounts.repetitions} por repeticiones`
+      : "",
+    analytics.metricCounts.assistedRepetitions
+      ? `${analytics.metricCounts.assistedRepetitions} asistidos comparables`
+      : "",
+  ].filter(Boolean);
 
   return (
     <section className="exercise-analytics-chart muscle-progress-card overflow-hidden rounded-3xl bg-[color:var(--card)]">
@@ -125,15 +172,49 @@ const MuscleGroupAnalytics = ({
         </div>
       </div>
 
+      <article
+        aria-label="Conclusión del progreso"
+        className={`mx-4 mt-2 rounded-2xl border px-4 py-3 sm:mx-5 ${
+          conclusionStyles[analytics.conclusion.trend]
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              Conclusión
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-[color:var(--text)]">
+              {analytics.conclusion.title}
+            </h3>
+          </div>
+          <span
+            className={`shrink-0 text-xs font-semibold ${
+              confidenceStyles[analytics.conclusion.confidence]
+            }`}
+          >
+            {analytics.conclusion.confidenceLabel}
+          </span>
+        </div>
+        <p className="mt-2 text-sm leading-snug text-[color:var(--text)]">
+          {analytics.conclusion.summary}
+        </p>
+        <p className="mt-1.5 text-xs text-[color:var(--text-muted)]">
+          Evidencia: {analytics.conclusion.evidence}.
+        </p>
+        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+          {analytics.conclusion.limitation}
+        </p>
+      </article>
+
       <div className="h-[270px] px-1 sm:h-[310px] sm:px-3">
-        {analytics.points.length >= 2 ? (
+        {analytics.observedPoints >= 2 ? (
           <ResponsiveLine
             data={[
               {
                 id: "Progreso del grupo",
                 data: analytics.points.map((point) => ({
                   x: point.week,
-                  y: Number(point.index.toFixed(1)),
+                  y: point.isGap ? null : Number(point.index.toFixed(1)),
                   exercises: point.exerciseCount,
                 })),
               },
@@ -198,6 +279,12 @@ const MuscleGroupAnalytics = ({
                 <p className="text-[color:var(--text-muted)]">
                   {formatDelta(Number(point.data.y) - 100, 1)} desde el inicio
                 </p>
+                <p className="text-[color:var(--text-muted)]">
+                  {point.data.exercises}{" "}
+                  {point.data.exercises === 1
+                    ? "ejercicio medido esta semana"
+                    : "ejercicios medidos esta semana"}
+                </p>
               </div>
             )}
           />
@@ -208,8 +295,8 @@ const MuscleGroupAnalytics = ({
                 Aún no hay una tendencia
               </p>
               <p className="mt-2 text-sm leading-snug text-[color:var(--text-muted)]">
-                Necesitamos dos semanas del mismo ejercicio para saber si el
-                grupo está mejorando.
+                Necesitamos dos semanas comparables del mismo ejercicio. En
+                ejercicios asistidos debe coincidir el nivel de asistencia.
               </p>
             </div>
           </div>
@@ -223,12 +310,31 @@ const MuscleGroupAnalytics = ({
               Qué está moviendo el resultado
             </p>
             <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-              100 representa el nivel inicial del periodo.
+              100 representa el primer registro comparable de cada ejercicio.
+              Cada punto usa solo mediciones de esa semana; no arrastra valores
+              anteriores. Los espacios son semanas sin registros.
             </p>
+            {methodParts.length ? (
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                {methodParts.join(" · ")}. La fuerza usa e1RM; el peso corporal,
+                la mejor serie por repeticiones.
+              </p>
+            ) : null}
+            {analytics.assistedPending ? (
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                {analytics.assistedPending}{" "}
+                {analytics.assistedPending === 1
+                  ? "ejercicio asistido necesita"
+                  : "ejercicios asistidos necesitan"}{" "}
+                dos semanas con el mismo nivel de asistencia.
+              </p>
+            ) : null}
           </div>
           <span className="text-xs text-[color:var(--text-muted)]">
             {analytics.comparableExercises}{" "}
-            {analytics.comparableExercises === 1 ? "ejercicio" : "ejercicios"}
+            {analytics.comparableExercises === 1
+              ? "ejercicio comparable"
+              : "ejercicios comparables"}
           </span>
         </div>
 
@@ -259,9 +365,14 @@ const MuscleGroupAnalytics = ({
                   alt=""
                   className="exercise-analytics-thumb row-span-2 h-11 w-11 rounded-lg"
                 />
-                <p className="truncate text-sm font-medium text-[color:var(--text)]">
-                  {exercise?.name || "Ejercicio"}
-                </p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[color:var(--text)]">
+                    {exercise?.name || "Ejercicio"}
+                  </p>
+                  <p className="truncate text-[11px] text-[color:var(--text-muted)]">
+                    {item.metricLabel}
+                  </p>
+                </div>
                 <p
                   className={`text-sm font-semibold tabular-nums ${contributionStatus.className}`}
                 >

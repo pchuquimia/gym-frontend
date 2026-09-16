@@ -120,6 +120,9 @@ function DecisionSupport({ decision }) {
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-[color:var(--detail-row-divider)] px-5 py-3 text-xs text-[color:var(--text-muted)] sm:px-6">
           <span>Confianza {decision.confidence}</span>
+          {decision.load?.basis?.label ? (
+            <span>Trabajo comparado por {decision.load.basis.label}</span>
+          ) : null}
           {!latestCheckIn ? <span>Falta tu estado diario</span> : null}
         </div>
       </section>
@@ -195,7 +198,9 @@ function ExerciseProgression({ progression }) {
   if (!progression?.items?.length) {
     return (
       <div className="dashboard-pilot__card rounded-lg bg-[color:var(--card)] px-6 py-10 text-center">
-        <p className="text-base font-semibold">Aún no podemos comparar ejercicios</p>
+        <p className="text-base font-semibold">
+          Aún no podemos comparar ejercicios
+        </p>
         <p className="mt-1 text-sm text-[color:var(--text-muted)]">
           Registra cargas y repeticiones en varias sesiones.
         </p>
@@ -209,6 +214,11 @@ function ExerciseProgression({ progression }) {
         title="Progreso por ejercicio"
         meta={`${progression.exercisesAnalyzed} analizados`}
       />
+      <p className="mb-3 text-xs leading-5 text-[color:var(--text-muted)]">
+        La variación compara el promedio de las 3 sesiones más recientes con las
+        3 anteriores. La carga externa usa fuerza estimada; el peso corporal usa
+        repeticiones y los asistidos solo comparan el mismo nivel de asistencia.
+      </p>
       <div className="dashboard-pilot__card divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-lg bg-[color:var(--card)]">
         {progression.items.map((exercise) => {
           const status =
@@ -217,6 +227,12 @@ function ExerciseProgression({ progression }) {
             exercise.changePercent === null
               ? "Aún sin tendencia"
               : `${exercise.changePercent > 0 ? "+" : ""}${exercise.changePercent}%`;
+          const currentPerformance =
+            exercise.metricType === "repetitions"
+              ? `${exercise.current.reps} repeticiones`
+              : exercise.metricType === "assistedRepetitions"
+                ? `${exercise.current.reps} repeticiones con ${exercise.current.assistanceKg} kg de asistencia`
+                : `${exercise.current.weight} kg × ${exercise.current.reps}`;
 
           return (
             <article key={exercise.exerciseId} className="px-4 py-4 sm:px-5">
@@ -226,20 +242,34 @@ function ExerciseProgression({ progression }) {
                     {exercise.name}
                   </h3>
                   <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
-                    {exercise.muscleGroup} · {formatSessions(exercise.sessionCount)}
+                    {exercise.muscleGroup} ·{" "}
+                    {formatSessions(exercise.sessionCount)}
                   </p>
                 </div>
-                <span className={`shrink-0 text-xs font-semibold ${status.tone}`}>
+                <span
+                  className={`shrink-0 text-xs font-semibold ${status.tone}`}
+                >
                   {status.label}
+                  {exercise.isStale ? " · histórico" : ""}
                 </span>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
                 <span>
-                  Última serie: {exercise.current.weight} kg × {exercise.current.reps}
+                  Última serie: {currentPerformance}
                 </span>
                 <span className={status.tone}>{trend}</span>
+                <span className="text-[color:var(--text-muted)]">
+                  Confianza {exercise.confidence} ·{" "}
+                  {exercise.comparableSessionCount} comparables
+                </span>
               </div>
+              <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
+                Último registro: {formatDate(exercise.lastDate)}
+                {exercise.daysSinceLast
+                  ? ` · hace ${exercise.daysSinceLast} días`
+                  : " · hoy"}
+              </p>
               <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]">
                 {exercise.suggestion}
               </p>
