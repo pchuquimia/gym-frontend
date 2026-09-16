@@ -36,6 +36,7 @@ export default function TrainingCompletePage({
   calorieEstimate,
   photoPreview,
   photoError,
+  photoProcessing = false,
   onPhotoChange,
   onClearPhoto,
   progressPercent,
@@ -46,6 +47,11 @@ export default function TrainingCompletePage({
   onDismiss,
 }) {
   const reduceMotion = useReducedMotion();
+  const finishButtonLabel = isFinalizing
+    ? "Finalizando"
+    : photoProcessing
+      ? "Preparando foto"
+      : finishLabel;
   const metrics = getSummaryItems({
     completedExercises,
     totalExercises,
@@ -221,12 +227,28 @@ export default function TrainingCompletePage({
                 <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-2 bg-black/65 p-2 text-white backdrop-blur-sm">
                   <label className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-white/35 bg-black/30">
                     <Camera className="h-4 w-4" />
-                    <span className="sr-only">Cambiar foto final</span>
+                    <span className="sr-only">Cambiar foto con la cámara</span>
                     <input
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept="image/*"
                       capture="environment"
-                      className="hidden"
+                      className="sr-only"
+                      aria-label="Cambiar foto con la cámara"
+                      disabled={photoProcessing || isFinalizing}
+                      onChange={onPhotoChange}
+                    />
+                  </label>
+                  <label className="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-white/35 bg-black/30">
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="sr-only">
+                      Cambiar foto desde la galería
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      aria-label="Cambiar foto desde la galería"
+                      disabled={photoProcessing || isFinalizing}
                       onChange={onPhotoChange}
                     />
                   </label>
@@ -241,28 +263,40 @@ export default function TrainingCompletePage({
                 </div>
               </div>
             ) : (
-              <label className="flex min-h-20 cursor-pointer items-center gap-3 rounded-[1.25rem] bg-[color:var(--surface-subtle)] px-4 py-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--card)] text-[#181918] dark:text-[#e2ff00]">
-                  <ImagePlus className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">
-                    Tomar o elegir una foto
-                  </span>
-                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                    Se guardará junto al entrenamiento
-                  </span>
-                </span>
-                <Camera className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
-                  className="hidden"
-                  onChange={onPhotoChange}
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[1.25rem] bg-[color:var(--surface-subtle)] px-3 py-3 text-center">
+                  <Camera className="h-5 w-5 text-[#181918] dark:text-[#e2ff00]" />
+                  <span className="text-sm font-semibold">Cámara</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    aria-label="Tomar foto con la cámara"
+                    disabled={photoProcessing || isFinalizing}
+                    onChange={onPhotoChange}
+                  />
+                </label>
+                <label className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[1.25rem] bg-[color:var(--surface-subtle)] px-3 py-3 text-center">
+                  <ImagePlus className="h-5 w-5 text-[#181918] dark:text-[#e2ff00]" />
+                  <span className="text-sm font-semibold">Galería</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    aria-label="Elegir foto desde la galería"
+                    disabled={photoProcessing || isFinalizing}
+                    onChange={onPhotoChange}
+                  />
+                </label>
+              </div>
             )}
+
+            {photoProcessing ? (
+              <p className="mt-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                Preparando la foto para subirla…
+              </p>
+            ) : null}
 
             {photoError ? (
               <p className="mt-2 px-1 text-xs font-semibold text-red-600 dark:text-red-300">
@@ -274,17 +308,17 @@ export default function TrainingCompletePage({
           <motion.button
             type="button"
             onClick={onFinish}
-            disabled={isFinalizing}
-            aria-label={isFinalizing ? "Finalizando" : finishLabel}
+            disabled={isFinalizing || photoProcessing}
+            aria-label={finishButtonLabel}
             className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[1rem] bg-[#181918] px-4 text-base font-semibold uppercase text-white shadow-[0_10px_28px_rgba(24,25,24,0.2)] disabled:cursor-wait disabled:opacity-80 dark:bg-[#e2ff00] dark:text-black"
             initial={false}
             animate={reduceMotion ? { scale: 1 } : { scale: [1, 1.018, 1] }}
             transition={{ duration: reduceMotion ? 0 : 0.72, delay: 0.48 }}
           >
-            {isFinalizing ? (
+            {isFinalizing || photoProcessing ? (
               <LoaderCircle className="h-5 w-5 animate-spin" />
             ) : null}
-            {isFinalizing ? "Guardando" : finishLabel}
+            {finishButtonLabel}
           </motion.button>
 
           <button
@@ -319,6 +353,7 @@ TrainingCompletePage.propTypes = {
   }),
   photoPreview: PropTypes.string,
   photoError: PropTypes.string,
+  photoProcessing: PropTypes.bool,
   onPhotoChange: PropTypes.func.isRequired,
   onClearPhoto: PropTypes.func.isRequired,
   progressPercent: PropTypes.number.isRequired,

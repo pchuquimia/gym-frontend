@@ -53,8 +53,27 @@ describe("TrainingCompletePage", () => {
   it("ofrece adjuntar una foto antes de finalizar", () => {
     renderModal();
 
-    expect(screen.getByText("Tomar o elegir una foto")).toBeInTheDocument();
+    expect(screen.getByText("Cámara")).toBeInTheDocument();
+    expect(screen.getByText("Galería")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tomar foto con la cámara")).toHaveAttribute(
+      "capture",
+      "environment",
+    );
+    expect(
+      screen.getByLabelText("Elegir foto desde la galería"),
+    ).not.toHaveAttribute("capture");
     expect(screen.getByText("Opcional")).toBeInTheDocument();
+  });
+
+  it("bloquea el cierre mientras prepara una foto móvil", () => {
+    renderModal({ photoProcessing: true });
+
+    expect(
+      screen.getByText("Preparando la foto para subirla…"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Preparando foto" }),
+    ).toBeDisabled();
   });
 
   it("muestra la foto elegida y permite quitarla", () => {

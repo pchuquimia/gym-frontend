@@ -101,6 +101,7 @@ import {
   removeLatestSetCompletion,
   resolveSetWorkEstimate,
 } from "../utils/trainingTiming";
+import { prepareTrainingPhoto } from "../utils/trainingPhoto";
 
 const getLocalISODate = (value) => {
   if (value) return value.slice(0, 10);
@@ -126,8 +127,6 @@ const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const ROUTINE_UPDATED_DURING_TRAINING_KEY = "routine_updated_during_training";
 const TRAINING_PLAN_ROUTINE_INTENT_KEY = "training_plan_routine_intent";
-const MAX_TRAINING_PHOTO_BYTES = 5 * 1024 * 1024;
-const TRAINING_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
 const DEFAULT_BRANCH = "sopocachi";
 const formatExerciseCount = (count) => {
@@ -1436,6 +1435,7 @@ export default function RegisterTraining({
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
+  const [trainingPhotoProcessing, setTrainingPhotoProcessing] = useState(false);
   const [pendingPhotoTrainingId, setPendingPhotoTrainingId] = useState("");
   const [finishWarningOpen, setFinishWarningOpen] = useState(false);
   const [finishWarningExercises, setFinishWarningExercises] = useState([]);
@@ -4678,6 +4678,7 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    setTrainingPhotoProcessing(false);
     setPendingPhotoTrainingId("");
     setFinishWarningOpen(false);
     setFinishWarningExercises([]);
@@ -4971,6 +4972,7 @@ export default function RegisterTraining({
     setTrainingPhotoFile(null);
     setTrainingPhotoPreview("");
     setTrainingPhotoError("");
+    setTrainingPhotoProcessing(false);
     setHistoryTrainings([]);
     setPlanHistoryTrainings([]);
     setDurationSeconds(0);
@@ -5140,10 +5142,40 @@ export default function RegisterTraining({
   };
 
   const handleSwapVariant = (exerciseId, direction = 1) => {
+    const currentTarget = exercisesRef.current.find(
+      (exercise) => exercise.id === exerciseId,
+    );
+    const currentVariants = Array.isArray(currentTarget?.variants)
+      ? currentTarget.variants
+      : [];
+    if (!currentTarget || currentVariants.length < 2) return;
+    const requestedIndex = wrapIndex(
+      (typeof currentTarget.variantIndex === "number"
+        ? currentTarget.variantIndex
+        : 0) + direction,
+      currentVariants.length,
+    );
+    const requestedExerciseId = currentVariants[requestedIndex]?.exerciseId;
+    if (!requestedExerciseId) return;
+
+    setExpandedExerciseId((current) =>
+      current === currentTarget.id ? requestedExerciseId : current,
+    );
+    setTrackingExerciseId((current) =>
+      current === currentTarget.id ? requestedExerciseId : current,
+    );
+    setTimeEvents((current) =>
+      current.map((event) =>
+        String(event.exerciseId || "") === String(currentTarget.id)
+          ? { ...event, exerciseId: requestedExerciseId }
+          : event,
+      ),
+    );
+
     setExercises((prev) => {
-      const startIndex = prev.findIndex((ex) => ex.id === exerciseId);
-      if (startIndex < 0) return prev;
-      const target = prev[startIndex];
+      const targetIndex = prev.findIndex((ex) => ex.id === exerciseId);
+      if (targetIndex < 0) return prev;
+      const target = prev[targetIndex];
       const targetVariants = Array.isArray(target.variants)
         ? target.variants
         : [];
@@ -5153,89 +5185,71 @@ export default function RegisterTraining({
           direction,
         targetVariants.length,
       );
-      const muscleKey = target.muscle;
-      let nextTrackingId = trackingExerciseId;
-      const nextList = prev.map((ex, idx) => {
-        if (idx < startIndex) return ex;
-        if ((ex.muscle || "") !== muscleKey) return ex;
-        const variants =
-          Array.isArray(ex.variants) && ex.variants.length
-            ? ex.variants
-            : [
-                {
-                  exerciseId: ex.id,
-                  name: ex.name,
-                  muscle: ex.muscle,
-                  image: ex.image || "",
-                  imagePublicId: ex.imagePublicId || "",
-                  supportsUnilateral: Boolean(ex.supportsUnilateral),
-                },
-              ];
-        if (variants.length < 2) return ex;
-        const appliedIndex = wrapIndex(nextIndex, variants.length);
-        const variant = variants[appliedIndex] || variants[0];
-        const shouldReset = !exerciseHasInput(ex);
-        let updated = {
-          ...ex,
-          id: variant.exerciseId,
-          name: variant.name,
-          muscle: variant.muscle || ex.muscle,
-          image: variant.image || ex.image || "",
-          imagePublicId: variant.imagePublicId || ex.imagePublicId || "",
-          variantIndex: appliedIndex,
-          variants,
-        };
-        if (shouldReset) {
-          const template = buildExercisesForRoutine(
+      const variant = targetVariants[nextIndex] || targetVariants[0];
+      const nextExerciseId = variant.exerciseId;
+      const template = buildExercisesForRoutine(
+        {
+          exercises: [
             {
-              exercises: [
-                {
-                  exerciseId: variant.exerciseId,
-                  name: variant.name,
-                  muscle: variant.muscle || ex.muscle,
-                  sets: ex.sets?.length || 3,
-                  image: variant.image || ex.image || "",
-                  imagePublicId:
-                    variant.imagePublicId || ex.imagePublicId || "",
-                  isExtra: ex.isExtra,
-                  supportsUnilateral: Boolean(
-                    ex.supportsUnilateral || variant.supportsUnilateral,
-                  ),
-                  movementMode: normalizeMovementMode(ex.movementMode),
-                  seriesType: ex.seriesType,
-                },
-              ],
+              exerciseId: nextExerciseId,
+              name: variant.name,
+              muscle: variant.muscle || target.muscle,
+              sets: target.sets?.length || 3,
+              image: variant.image || "",
+              imagePublicId: variant.imagePublicId || "",
+              isExtra: target.isExtra,
+              supportsUnilateral: Boolean(variant.supportsUnilateral),
+              movementMode: normalizeMovementMode(variant.movementMode),
+              seriesType: target.seriesType,
             },
-            null,
-            historyBest,
-            historyBestBySet,
-            historyRecentBySet,
-            historySeriesTypeMap,
-            true,
-          );
-          if (template?.[0]) {
-            updated = {
-              ...updated,
-              ...template[0],
-              variants,
-              variantIndex: appliedIndex,
-            };
-          }
-        }
-        if (nextTrackingId && nextTrackingId === ex.id) {
-          nextTrackingId = updated.id;
-        }
-        return updated;
-      });
-      if (nextTrackingId !== trackingExerciseId) {
-        setTrackingExerciseId(nextTrackingId);
-      }
-      return applyHistoryToExercises(
-        nextList,
+          ],
+        },
+        null,
         historyBest,
         historyBestBySet,
         historyRecentBySet,
         historySeriesTypeMap,
+        true,
+      );
+      const selectedExercise = template?.[0] || {};
+      const updated = {
+        ...target,
+        ...selectedExercise,
+        id: nextExerciseId,
+        name: variant.name,
+        muscle: variant.muscle || target.muscle,
+        image: variant.image || selectedExercise.image || "",
+        imagePublicId:
+          variant.imagePublicId || selectedExercise.imagePublicId || "",
+        variants: targetVariants,
+        variantIndex: nextIndex,
+        isExtra: target.isExtra,
+        order: target.order,
+        plannedOrder: target.plannedOrder,
+        actualOrder: target.actualOrder,
+        orderContext: target.orderContext,
+        startedOrder: target.startedOrder,
+        reloadMovementHistory: true,
+      };
+      const nextList = prev.map((exercise, index) =>
+        index === targetIndex ? updated : exercise,
+      );
+
+      const matchingHistory = filterHistoryByMuscleSequences(
+        historyTrainings,
+        nextList,
+      );
+      return applyHistoryToExercises(
+        nextList,
+        computeBestFromHistory(matchingHistory, historyBranchFilter),
+        computeBestBySetFromHistory(matchingHistory, historyBranchFilter),
+        computeRecentBySetFromHistory(matchingHistory, historyBranchFilter),
+        computeLatestSeriesTypeFromHistory(
+          matchingHistory,
+          selectedRoutineId,
+          historyBranchFilter,
+        ),
+        matchingHistory,
       );
     });
   };
@@ -5712,22 +5726,22 @@ export default function RegisterTraining({
     setShowExercisePicker(true);
   };
 
-  const handleTrainingPhotoChange = (event) => {
+  const handleTrainingPhotoChange = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    if (!TRAINING_PHOTO_TYPES.has(file.type)) {
-      setTrainingPhotoError("Usa una imagen JPG, PNG o WebP");
-      event.target.value = "";
-      return;
-    }
-    if (file.size > MAX_TRAINING_PHOTO_BYTES) {
-      setTrainingPhotoError("La imagen no puede superar 5 MB");
-      event.target.value = "";
-      return;
-    }
-    setTrainingPhotoError("");
-    setTrainingPhotoFile(file);
     event.target.value = "";
+    if (!file) return;
+    setTrainingPhotoProcessing(true);
+    setTrainingPhotoError("");
+    try {
+      const preparedPhoto = await prepareTrainingPhoto(file);
+      setTrainingPhotoFile(preparedPhoto);
+    } catch (error) {
+      setTrainingPhotoError(
+        error?.message || "No se pudo preparar la foto seleccionada.",
+      );
+    } finally {
+      setTrainingPhotoProcessing(false);
+    }
   };
 
   const clearTrainingPhoto = () => {
@@ -6440,6 +6454,7 @@ export default function RegisterTraining({
         calorieEstimate={calorieEstimate}
         photoPreview={trainingPhotoPreview}
         photoError={trainingPhotoError}
+        photoProcessing={trainingPhotoProcessing}
         onPhotoChange={handleTrainingPhotoChange}
         onClearPhoto={clearTrainingPhoto}
         isFinalizing={isFinalizing}
