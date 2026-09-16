@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getAuthToken } from "./tokenStorage";
+import { isExpiredSessionResponse, notifyExpiredSession } from "./authSession";
 
 const FALLBACK_API_URL = "https://api.rirfit.com";
 
@@ -70,7 +71,7 @@ axiosClient.interceptors.request.use((config) => {
     startedAt:
       typeof performance !== "undefined" ? performance.now() : Date.now(),
   };
-  const token = getAuthToken();
+  const token = config.skipAuth ? "" : getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -103,6 +104,15 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response) reportRequestTiming(error.response, error);
     const responseData = error.response?.data;
+    if (
+      isExpiredSessionResponse({
+        status: error.response?.status,
+        url: error.config?.url,
+        data: responseData,
+      })
+    ) {
+      notifyExpiredSession();
+    }
     const message =
       responseData?.error ||
       responseData?.message ||

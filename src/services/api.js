@@ -319,13 +319,17 @@ export const api = {
     }).toString();
     return request(`/api/exercises?${query}`, options);
   },
-  getExerciseCatalogVersion: () => request("/api/exercises/catalog/version"),
+  getExerciseCatalogVersion: () =>
+    request("/api/exercises/catalog/version", { skipAuth: true }),
   getSystemExerciseCatalog: (params = {}) => {
     const query = new URLSearchParams({
       fields: params.fields ?? EXERCISE_FIELDS,
       language: params.language ?? "es",
+      version: params.version ?? "",
     });
-    return request(`/api/exercises/catalog/system?${query}`);
+    return request(`/api/exercises/catalog/system?${query}`, {
+      skipAuth: true,
+    });
   },
   getCustomExerciseCatalog: (params = {}) => {
     const query = new URLSearchParams({
@@ -337,17 +341,23 @@ export const api = {
   getVersionedExerciseCatalog: async (params = {}) => {
     const language = params.language === "en" ? "en" : "es";
     const fields = params.fields ?? EXERCISE_FIELDS;
-    const catalogVersion = await request("/api/exercises/catalog/version");
+    const [catalogVersion, customCatalog] = await Promise.all([
+      api.getExerciseCatalogVersion(),
+      api.getCustomExerciseCatalog({
+        fields,
+        ownerId: params.ownerId,
+      }),
+    ]);
     const cacheKey = `v1:${catalogVersion.version}:${language}:${fields}`;
     let systemCatalog = await readCachedSystemCatalog(cacheKey);
     if (!systemCatalog?.items) {
-      systemCatalog = await api.getSystemExerciseCatalog({ fields, language });
+      systemCatalog = await api.getSystemExerciseCatalog({
+        fields,
+        language,
+        version: catalogVersion.version,
+      });
       await writeCachedSystemCatalog(cacheKey, systemCatalog);
     }
-    const customCatalog = await api.getCustomExerciseCatalog({
-      fields,
-      ownerId: params.ownerId,
-    });
     const merged = new Map(
       (systemCatalog.items || []).map((exercise) => [
         String(exercise._id || exercise.id),
@@ -651,6 +661,21 @@ export const api = {
       today: params.today ?? localTodayKey(),
     });
     return request(`/api/dashboard/bootstrap?${query}`, {
+      timeout: 12_000,
+      ...options,
+    });
+  },
+  getDashboardBootstrapSection: (section, params = {}, options = {}) => {
+    const normalizedSection = ["activity", "history", "analytics"].includes(
+      section,
+    )
+      ? section
+      : "core";
+    const query = new URLSearchParams({
+      athleteId: params.athleteId ?? "",
+      today: params.today ?? localTodayKey(),
+    });
+    return request(`/api/dashboard/bootstrap/${normalizedSection}?${query}`, {
       timeout: 12_000,
       ...options,
     });

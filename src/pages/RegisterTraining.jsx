@@ -1612,6 +1612,7 @@ export default function RegisterTraining({
         setActiveTrainingPlan(active);
         setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
       } catch (error) {
+        if (error?.status === 401) return;
         setTrainingPlanError(
           error.message || "No se pudo cargar la planificación",
         );
@@ -3157,6 +3158,7 @@ export default function RegisterTraining({
       );
     } catch (e) {
       if (!isCurrentRequest()) return;
+      if (e?.status === 401) return;
       console.warn("No se pudo cargar entrenamiento previo", e);
       setPendingSameDayTraining(null);
       setDurationSeconds(0);
@@ -3254,6 +3256,7 @@ export default function RegisterTraining({
       );
     } catch (e) {
       if (requestId !== routineLoadRequestRef.current) return;
+      if (e?.status === 401) return;
       console.warn("No se pudo cargar el entrenamiento a editar", e);
       if (typeof localStorage !== "undefined")
         localStorage.removeItem("edit_training_id");
@@ -4812,6 +4815,7 @@ export default function RegisterTraining({
     })()
       .catch((error) => {
         if (routineLoadRequestRef.current !== requestId) return;
+        if (error?.status === 401) return;
         console.error("No se pudo preparar la rutina", error);
         setPendingPlanRoutineId("");
         toast.error("No se pudo cargar la rutina seleccionada.");
@@ -6246,6 +6250,7 @@ export default function RegisterTraining({
       })
       .catch((error) => {
         if (cancelled) return;
+        if (error?.status === 401) return;
         console.warn("No se pudo cargar el seguimiento general", error);
         setGeneralHistoryTrainings([]);
         setGeneralHistoryError(

@@ -613,7 +613,7 @@ export function TrainingProvider({
     (loadSessions && sessionsQuery.isLoading) ||
     (loadPhotos && photosQuery.isLoading) ||
     (useBootstrap
-      ? dashboardBootstrap.isLoading
+      ? dashboardBootstrap.activityLoading
       : trainingSummariesQuery.isLoading || prefsQuery.isLoading);
   const error =
     exercisesQuery.error?.message ||
@@ -630,7 +630,7 @@ export function TrainingProvider({
     photos,
     trainings,
     trainingsLoading: useBootstrap
-      ? dashboardBootstrap.isLoading
+      ? dashboardBootstrap.activityLoading
       : trainingSummariesQuery.isLoading,
     trainingsFetching:
       (useBootstrap && dashboardBootstrap.isFetching) ||
@@ -638,7 +638,8 @@ export function TrainingProvider({
         (trainingSummariesQuery.isFetching || trainingsQuery.isFetching)),
     trainingsError:
       (useBootstrap
-        ? dashboardBootstrap.error?.message
+        ? dashboardBootstrap.error?.message ||
+          dashboardBootstrap.historyError?.message
         : trainingSummariesQuery.error?.message ||
           trainingsQuery.error?.message) || null,
     reloadTrainings: () =>
@@ -655,7 +656,7 @@ export function TrainingProvider({
     allowedBranches,
     dataOwnerId: ownerId,
     preferencesLoading: useBootstrap
-      ? dashboardBootstrap.isLoading
+      ? dashboardBootstrap.activityLoading
       : prefsQuery.isLoading,
     dashboardBootstrap: dashboardBootstrap.data,
     goals,

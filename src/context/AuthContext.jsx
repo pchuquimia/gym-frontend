@@ -9,7 +9,16 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
-import { clearAuthToken, setAuthToken } from "../services/tokenStorage";
+import {
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from "../services/tokenStorage";
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  storeExpiredSessionNotice,
+} from "../services/authSession";
+import { DASHBOARD_SNAPSHOT_PREFIX } from "../utils/dashboardBootstrapCache";
 
 const AuthContext = createContext(null);
 const ACTIVE_TRAINING_KEY = "active_training_snapshot";
@@ -69,6 +78,13 @@ const clearUserScopedStorage = () => {
       .forEach((key) => window.localStorage.removeItem(key));
   } catch {
     // Some mobile browsers restrict storage in private mode.
+  }
+  try {
+    Object.keys(window.sessionStorage)
+      .filter((key) => key.startsWith(DASHBOARD_SNAPSHOT_PREFIX))
+      .forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // Session cleanup remains best-effort in restricted browsers.
   }
 };
 
@@ -222,6 +238,33 @@ export function AuthProvider({ children }) {
     cacheUser(nextUser);
   }, []);
 
+  const expireSession = useCallback(
+    ({ showNotice = true } = {}) => {
+      const currentUser = userRef.current;
+      const hadSession = Boolean(currentUser || getAuthToken());
+      if (currentUser) {
+        preserveActiveTraining(currentUser.id || currentUser._id);
+      }
+      clearAuthToken();
+      clearUserScopedStorage();
+      queryClient.clear();
+      commitUser(null);
+      setLoading(false);
+      if (showNotice && hadSession) storeExpiredSessionNotice();
+    },
+    [commitUser, queryClient],
+  );
+
+  useEffect(() => {
+    const handleExpiredSession = () => expireSession({ showNotice: true });
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+    return () =>
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleExpiredSession,
+      );
+  }, [expireSession]);
+
   const refreshUser = useCallback(
     ({ silent = false, force = false } = {}) => {
       const facebookOAuthReturn = isFacebookOAuthReturn();
@@ -291,12 +334,7 @@ export function AuthProvider({ children }) {
           if (facebookOAuthReturn) markFacebookOAuthSessionFailure();
           if (googleOAuthReturn) markGoogleOAuthSessionFailure();
 
-          const currentUser = userRef.current;
-          preserveActiveTraining(currentUser?.id || currentUser?._id);
-          clearAuthToken();
-          clearUserScopedStorage();
-          queryClient.clear();
-          commitUser(null);
+          expireSession({ showNotice: !socialOAuthReturn });
           return null;
         } finally {
           if (!silent) setLoading(false);
@@ -312,7 +350,7 @@ export function AuthProvider({ children }) {
       operation.then(clearInFlight, clearInFlight);
       return operation;
     },
-    [commitUser, queryClient],
+    [commitUser, expireSession],
   );
 
   useEffect(() => {

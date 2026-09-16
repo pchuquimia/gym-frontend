@@ -2917,7 +2917,7 @@ button,
   }
 
   .mobile-daily-plan__day.is-today i {
-    color: var(--mission-accent);
+    color: #ffffff;
   }
 
   .dark .mobile-daily-plan__day.is-today {
@@ -2926,6 +2926,10 @@ button,
   }
 
   .dark .mobile-daily-plan__day.is-today strong {
+    color: #181918;
+  }
+
+  .dark .mobile-daily-plan__day.is-today i {
     color: #181918;
   }
 
@@ -3017,6 +3021,11 @@ button,
   .mobile-daily-plan__status.is-complete {
     border-color: var(--mission-accent);
     background: var(--mission-accent);
+    color: #ffffff;
+  }
+
+  .dark .mobile-daily-plan__status.is-complete {
+    color: #181918;
   }
 
   .mobile-daily-plan__status.is-rest {

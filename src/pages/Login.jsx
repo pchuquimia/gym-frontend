@@ -20,6 +20,7 @@ import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
 import { useAuth } from "../context/AuthContext";
+import { consumeExpiredSessionNotice } from "../services/authSession";
 import { api } from "../services/api";
 import {
   passwordStatus,
@@ -105,7 +106,9 @@ function PasswordToggle({ visible, onToggle }) {
 function LoginForm({ onNavigate }) {
   const { login, loginWithGoogle } = useAuth();
   const [form, setForm] = useState({ identifier: "", password: "" });
-  const [error, setError] = useState(googleRedirectErrorMessage);
+  const [error, setError] = useState(
+    () => googleRedirectErrorMessage() || consumeExpiredSessionNotice(),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);

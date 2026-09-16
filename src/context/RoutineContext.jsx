@@ -219,7 +219,7 @@ export function RoutineProvider({ children, ownerId = "", enabled = true }) {
   );
   const value = {
     routines: useBootstrap ? bootstrapRoutines : routines,
-    loading: useBootstrap ? dashboardBootstrap.isLoading : loading,
+    loading: useBootstrap ? dashboardBootstrap.activityLoading : loading,
     error: useBootstrap ? dashboardBootstrap.error?.message || null : error,
     reloadRoutines: loadRoutines,
     addRoutine,
