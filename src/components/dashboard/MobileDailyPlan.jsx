@@ -3,7 +3,6 @@ import {
   Bell,
   ChartNoAxesColumnIncreasing,
   Check,
-  ChevronDown,
   ChevronRight,
   Clock3,
 } from "lucide-react";
@@ -399,6 +398,55 @@ function ActivePlanContext({ plan, onOpen }) {
   );
 }
 
+function WeeklyMuscleChart({ summary, onOpenDetails }) {
+  const muscles = summary?.byPrimaryMuscle || [];
+  const visibleMuscles = muscles.slice(0, 5);
+  const maxSets = visibleMuscles[0]?.sets || 1;
+  const sessions = summary?.sessions || 0;
+
+  return (
+    <section
+      className="mobile-daily-plan__muscle-chart"
+      aria-labelledby="mobile-daily-plan-muscle-title"
+    >
+      <div className="mobile-daily-plan__muscle-heading">
+        <div>
+          <h2 id="mobile-daily-plan-muscle-title">
+            Series por grupo muscular
+          </h2>
+          <p>
+            Esta semana · {sessions} {sessions === 1 ? "sesión" : "sesiones"}
+          </p>
+        </div>
+        {muscles.length > visibleMuscles.length && onOpenDetails ? (
+          <button type="button" onClick={onOpenDetails}>
+            Ver todos
+          </button>
+        ) : null}
+      </div>
+      {visibleMuscles.length ? (
+        <ul className="mobile-daily-plan__muscle-list">
+          {visibleMuscles.map(({ name, sets }) => (
+            <li key={name} className="mobile-daily-plan__muscle-row">
+              <span>{name}</span>
+              <strong>
+                {sets} {sets === 1 ? "serie" : "series"}
+              </strong>
+              <div className="mobile-daily-plan__muscle-track" aria-hidden="true">
+                <span style={{ width: `${(sets / maxSets) * 100}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mobile-daily-plan__muscle-empty">
+          Completa una serie para ver qué grupos musculares trabajaste.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function MobileDailyPlan({
   date,
   profile,
@@ -413,6 +461,7 @@ export default function MobileDailyPlan({
   workoutTask,
   hydrationTask = null,
   trackingMissions = [],
+  weeklyMuscleSummary = null,
   readOnly = false,
   onOpenProfile,
   onStartEvaluation,
@@ -423,6 +472,7 @@ export default function MobileDailyPlan({
   onOpenHydration,
   onOpenWeighIn,
   onOpenTrackingMission,
+  onOpenMuscleDetails,
   notifications = [],
   notificationUnread = 0,
   onReadNotifications,
@@ -566,18 +616,26 @@ export default function MobileDailyPlan({
               ))}
             </div>
           </section>
+          <WeeklyMuscleChart
+            summary={weeklyMuscleSummary}
+            onOpenDetails={onOpenMuscleDetails}
+          />
           {quickRegistrations.length ? (
-            <details className="mobile-daily-plan__quick-registrations">
-              <summary>
+            <section
+              className="mobile-daily-plan__quick-registrations"
+              aria-labelledby="mobile-daily-plan-progress-title"
+            >
+              <div className="mobile-daily-plan__quick-heading">
                 <span className="mobile-daily-plan__quick-heading-icon">
                   <ChartNoAxesColumnIncreasing aria-hidden="true" />
                 </span>
-                <span className="mobile-daily-plan__quick-heading-copy">
-                  <strong>Registrar progreso</strong>
-                  <small>Opcional · {quickRegistrationSummary}</small>
-                </span>
-                <ChevronDown aria-hidden="true" />
-              </summary>
+                <div className="mobile-daily-plan__quick-heading-copy">
+                  <h2 id="mobile-daily-plan-progress-title">
+                    Registrar progreso
+                  </h2>
+                  <p>Opcional · {quickRegistrationSummary}</p>
+                </div>
+              </div>
               <div className="mobile-daily-plan__quick-grid">
                 {quickRegistrations.map((task) => (
                   <QuickRegistration
@@ -592,7 +650,7 @@ export default function MobileDailyPlan({
                   />
                 ))}
               </div>
-            </details>
+            </section>
           ) : null}
         </>
       )}

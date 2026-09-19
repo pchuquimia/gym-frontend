@@ -158,11 +158,19 @@ describe("MobileDailyPlan", () => {
     ).toBeInTheDocument();
   });
 
-  it("mantiene los registros manuales plegados y los abre como accesos compactos", async () => {
+  it("muestra el trabajo muscular debajo de las misiones y los registros al final", async () => {
     const onOpenTrackingMission = vi.fn();
     const onOpenHydration = vi.fn();
     renderPlan({
       journeyStage: "plan_assigned",
+      weeklyMuscleSummary: {
+        sessions: 3,
+        byPrimaryMuscle: [
+          { name: "Cuádriceps", sets: 10 },
+          { name: "Isquiotibiales", sets: 7 },
+          { name: "Espalda", sets: 6 },
+        ],
+      },
       hydrationTask: {
         title: "Hidratación",
         subtitle: "Registrar agua",
@@ -172,12 +180,64 @@ describe("MobileDailyPlan", () => {
       onOpenHydration,
     });
 
-    await userEvent.click(screen.getByText("Registrar progreso"));
+    const missionHeading = screen.getByRole("heading", { name: "Misión de hoy" });
+    const muscleHeading = screen.getByRole("heading", {
+      name: "Series por grupo muscular",
+    });
+    const progressHeading = screen.getByRole("heading", {
+      name: "Registrar progreso",
+    });
+    expect(
+      missionHeading.compareDocumentPosition(muscleHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      muscleHeading.compareDocumentPosition(progressHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText("Esta semana · 3 sesiones")).toBeVisible();
+    expect(screen.getByText("Cuádriceps")).toBeVisible();
+    expect(screen.getByText("10 series")).toBeVisible();
+    expect(screen.getByRole("button", { name: /Fotos/ })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /Fotos/ }));
     expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
 
     await userEvent.click(screen.getByRole("button", { name: /Hidratación/ }));
     expect(onOpenHydration).toHaveBeenCalledTimes(1);
+  });
+
+  it("no inventa barras cuando no hay series completadas", () => {
+    renderPlan({ journeyStage: "plan_assigned" });
+
+    expect(
+      screen.getByText(
+        "Completa una serie para ver qué grupos musculares trabajaste.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("permite abrir el detalle si existen más de cinco grupos", async () => {
+    const onOpenMuscleDetails = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      weeklyMuscleSummary: {
+        sessions: 2,
+        byPrimaryMuscle: [
+          { name: "Espalda", sets: 8 },
+          { name: "Bíceps", sets: 7 },
+          { name: "Pecho", sets: 6 },
+          { name: "Tríceps", sets: 5 },
+          { name: "Hombros", sets: 4 },
+          { name: "Core", sets: 3 },
+        ],
+      },
+      onOpenMuscleDetails,
+    });
+
+    expect(screen.queryByText("Core")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ver todos" }));
+    expect(onOpenMuscleDetails).toHaveBeenCalledTimes(1);
   });
 
   it("abre el ingreso rapido de peso sin navegar al historial", async () => {

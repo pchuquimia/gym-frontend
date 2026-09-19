@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { API_URL } from "../services/axiosConfig";
@@ -624,6 +631,25 @@ export function TrainingProvider({
       : trainingSummariesQuery.error?.message || prefsQuery.error?.message) ||
     null;
 
+  const refetchBootstrap = dashboardBootstrap.refetch;
+  const refetchTrainingSummaries = trainingSummariesQuery.refetch;
+  const refetchTrainingDetails = trainingsQuery.refetch;
+  const reloadTrainings = useCallback(
+    () =>
+      useBootstrap
+        ? refetchBootstrap()
+        : Promise.all([
+            refetchTrainingSummaries({ cancelRefetch: false }),
+            refetchTrainingDetails({ cancelRefetch: false }),
+          ]),
+    [
+      refetchBootstrap,
+      refetchTrainingSummaries,
+      refetchTrainingDetails,
+      useBootstrap,
+    ],
+  );
+
   const value = {
     sessions,
     exercises,
@@ -642,13 +668,7 @@ export function TrainingProvider({
           dashboardBootstrap.historyError?.message
         : trainingSummariesQuery.error?.message ||
           trainingsQuery.error?.message) || null,
-    reloadTrainings: () =>
-      useBootstrap
-        ? dashboardBootstrap.refetch()
-        : Promise.all([
-            trainingSummariesQuery.refetch(),
-            trainingsQuery.refetch(),
-          ]),
+    reloadTrainings,
     loading,
     error,
     branch,

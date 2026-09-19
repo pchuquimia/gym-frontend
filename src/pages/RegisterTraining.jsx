@@ -85,6 +85,7 @@ import {
   resolveRoutinePlanContext,
 } from "../utils/trainingPlanContext";
 import { requestTrainingPlanExtension } from "../utils/trainingPlanNavigation";
+import { getCurrentPlanWeek } from "../utils/trainingPlanDates";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
 import {
   getTrainingDraftSyncLabel,
@@ -109,17 +110,6 @@ const getLocalISODate = (value) => {
   const offsetMs = d.getTimezoneOffset() * 60000;
   const local = new Date(d.getTime() - offsetMs);
   return local.toISOString().slice(0, 10);
-};
-const todayISO = getLocalISODate();
-const getCurrentPlanWeek = (plan, dateValue = getLocalISODate()) => {
-  if (!plan?.startDate) return 0;
-  const start = new Date(plan.startDate);
-  start.setUTCHours(0, 0, 0, 0);
-  const selectedDate = new Date(`${dateValue.slice(0, 10)}T00:00:00.000Z`);
-  return Math.min(
-    Math.max(0, Number(plan.durationWeeks || 1) - 1),
-    Math.max(0, Math.floor((selectedDate - start) / (7 * 86400000))),
-  );
 };
 const SNAPSHOT_KEY = "active_training_snapshot";
 const CANCELLED_REMOTE_DRAFT_KEY = "cancelled_active_training_draft";
@@ -314,7 +304,7 @@ const getBranchTitle = (branch) =>
 const formatRelativeSessionDate = (value) => {
   const date = toValidDate(value);
   if (!date) return "Sin registros anteriores";
-  const today = toValidDate(todayISO);
+  const today = toValidDate(getLocalISODate());
   const days = Math.max(
     0,
     Math.round((today.getTime() - date.getTime()) / 86400000),
@@ -1277,7 +1267,7 @@ function DevTrainingDateControl({ value, onChange }) {
   return (
     <label
       className={`relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full border bg-[color:var(--card)] transition-colors hover:border-[#181918] dark:hover:border-[#d8ff00] ${
-        value !== todayISO
+        value !== getLocalISODate()
           ? "border-[#181918] text-[#181918] dark:border-[#d8ff00] dark:text-[#d8ff00]"
           : "border-[color:var(--border)] text-[color:var(--text)]"
       }`}
@@ -1288,7 +1278,7 @@ function DevTrainingDateControl({ value, onChange }) {
       <input
         type="date"
         value={value}
-        onChange={(event) => onChange(event.target.value || todayISO)}
+        onChange={(event) => onChange(event.target.value || getLocalISODate())}
         className="absolute inset-0 cursor-pointer opacity-0"
         aria-label="Seleccionar fecha de prueba"
       />
@@ -1385,6 +1375,8 @@ export default function RegisterTraining({
     updateTraining,
     addPhoto,
     trainings,
+    trainingsError,
+    reloadTrainings,
     branch: userBranch,
     locationMode,
     allowedBranches,
@@ -1431,7 +1423,7 @@ export default function RegisterTraining({
   const [trackingExerciseId, setTrackingExerciseId] = useState("");
   const [showTracking, setShowTracking] = useState(false);
   const [historyViewScope, setHistoryViewScope] = useState("routine");
-  const [sessionDate, setSessionDate] = useState(todayISO);
+  const [sessionDate, setSessionDate] = useState(getLocalISODate);
   const [trainingPhotoFile, setTrainingPhotoFile] = useState(null);
   const [trainingPhotoPreview, setTrainingPhotoPreview] = useState("");
   const [trainingPhotoError, setTrainingPhotoError] = useState("");
@@ -1478,11 +1470,10 @@ export default function RegisterTraining({
         ? cachedTrainingPlans.find((plan) => plan.status === "active")
         : null) || bootstrapActivePlan,
   );
-  const [trainingPlanLoading, setTrainingPlanLoading] = useState(
-    () => !cachedTrainingPlans && !bootstrapActivePlan,
-  );
+  const [trainingPlanLoading, setTrainingPlanLoading] = useState(true);
   const [trainingPlanError, setTrainingPlanError] = useState("");
-  const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
+  const [trainingsSynced, setTrainingsSynced] = useState(false);
+  const selectedPlanWeek = getCurrentPlanWeek(activeTrainingPlan, sessionDate);
   const [advancingPlanCycle, setAdvancingPlanCycle] = useState(false);
   const [pendingPlanRoutineId, setPendingPlanRoutineId] = useState("");
   const [selectedPlanContext, setSelectedPlanContext] = useState(null);
@@ -1587,18 +1578,13 @@ export default function RegisterTraining({
   const handleDevTrainingDateChange = (nextDate) => {
     const normalizedDate = nextDate.slice(0, 10);
     setSessionDate(normalizedDate);
-    setSelectedPlanWeek(getCurrentPlanWeek(activeTrainingPlan, normalizedDate));
     setPendingSameDayTraining(null);
     toast.success(`Fecha de prueba: ${formatLongDate(normalizedDate)}`);
   };
 
   const loadActiveTrainingPlan = useCallback(
     async ({ force = false } = {}) => {
-      const hasImmediatePlanData = Boolean(
-        queryClient.getQueryData(getTrainingPlansQueryKey(planCacheScope)) ||
-        dashboardBootstrap.data?.activePlan,
-      );
-      if (!hasImmediatePlanData) setTrainingPlanLoading(true);
+      setTrainingPlanLoading(true);
       setTrainingPlanError("");
       try {
         const plans = await fetchCachedTrainingPlans(queryClient, {
@@ -1610,7 +1596,6 @@ export default function RegisterTraining({
         const active =
           (plans || []).find((plan) => plan.status === "active") || null;
         setActiveTrainingPlan(active);
-        setSelectedPlanWeek(getCurrentPlanWeek(active, sessionDate));
       } catch (error) {
         if (error?.status === 401) return;
         setTrainingPlanError(
@@ -1621,17 +1606,26 @@ export default function RegisterTraining({
       }
     },
     [
-      dashboardBootstrap.data?.activePlan,
       dataOwnerId,
       planCacheScope,
       queryClient,
-      sessionDate,
     ],
   );
 
   useEffect(() => {
-    loadActiveTrainingPlan();
+    loadActiveTrainingPlan({ force: true });
   }, [loadActiveTrainingPlan]);
+
+  useEffect(() => {
+    let active = true;
+    setTrainingsSynced(false);
+    reloadTrainings().finally(() => {
+      if (active) setTrainingsSynced(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [reloadTrainings]);
 
   const latestCompletedTrainingPlan = useMemo(
     () =>
@@ -3727,7 +3721,7 @@ export default function RegisterTraining({
           : [],
       );
       setRemovedExerciseIds(Array.from(removedExerciseIdsRef.current));
-      setSessionDate(snap.sessionDate || todayISO);
+      setSessionDate(snap.sessionDate || getLocalISODate());
       lastUpdateRef.current = now;
       setNowMs(now);
       setDurationSeconds(totalSeconds);
@@ -4688,7 +4682,7 @@ export default function RegisterTraining({
     finalizingRef.current = false;
     trainingRequestIdRef.current = "";
     setIsFinalizing(false);
-    setSessionDate(todayISO);
+    setSessionDate(getLocalISODate());
     setEditingId("");
     setIsEditing(false);
     setIsHistoryReadOnly(false);
@@ -6535,7 +6529,7 @@ export default function RegisterTraining({
                   <input
                     type="date"
                     value={sessionDate}
-                    max={todayISO}
+                    max={getLocalISODate()}
                     onChange={(event) =>
                       handleHistoryDateChange(event.target.value)
                     }
@@ -6860,12 +6854,15 @@ export default function RegisterTraining({
                     scheduledPlan={scheduledTrainingPlan}
                     routines={allRoutineOptions}
                     trainings={trainings}
-                    loading={trainingPlanLoading || routinesLoading}
-                    error={trainingPlanError || routinesError}
+                    loading={
+                      trainingPlanLoading || routinesLoading || !trainingsSynced
+                    }
+                    error={trainingPlanError || routinesError || trainingsError}
                     selectedWeek={selectedPlanWeek}
                     currentDate={sessionDate}
                     onRetry={() => {
                       loadActiveTrainingPlan({ force: true });
+                      reloadTrainings();
                       reloadRoutines?.();
                     }}
                     onOpenPlans={() => onNavigate?.("rutinas")}
@@ -7265,7 +7262,7 @@ export default function RegisterTraining({
                     type="date"
                     value={sessionDate}
                     disabled={sessionLocked || isHistoryReadOnly}
-                    max={isEditing ? todayISO : undefined}
+                    max={isEditing ? getLocalISODate() : undefined}
                     onChange={(e) =>
                       isEditing
                         ? handleHistoryDateChange(e.target.value)

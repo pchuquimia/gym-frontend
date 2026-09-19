@@ -3544,6 +3544,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}
+        weeklyMuscleSummary={weeklySets}
         readOnly={isAdminDatePreview}
         onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
@@ -3552,6 +3553,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}
+        onOpenMuscleDetails={() => setWeeklySetsModalOpen(true)}
         onOpenTrackingMission={(type) => {
           if (type === "weight") setQuickWeightOpen(true);
           else if (type === "photos") {
