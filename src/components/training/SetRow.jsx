@@ -7,7 +7,6 @@ import {
   ArrowRightLeft,
   ArrowUpRight,
   Check,
-  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -32,8 +31,6 @@ export default function SetRow({
   onChangeEntry,
   onToggleEntry,
   onRemove,
-  onOpenOptions = null,
-  optionsOpen = false,
 }) {
   const reduceMotion = useReducedMotion();
   const safeEntries = Array.isArray(entries) ? entries : [];
@@ -168,7 +165,7 @@ export default function SetRow({
               {index}
             </span>
             {prSummary ? (
-              <div className="flex min-w-0 items-center gap-1.5">
+              <div className="training-set-row__pr flex min-w-0 items-center gap-1.5">
                 <span className="min-w-0 truncate text-[13px] text-[color:var(--text-muted)]">
                   Mejor marca: {prSummary}
                 </span>
@@ -183,35 +180,17 @@ export default function SetRow({
               </div>
             ) : null}
           </div>
-          {onOpenOptions || (!isMobile && onRemove) ? (
+          {!isMobile && onRemove ? (
             <div className="flex shrink-0 items-center gap-1">
-              {onOpenOptions ? (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  type="button"
-                  onClick={onOpenOptions}
-                  className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
-                    optionsOpen
-                      ? "bg-[color:var(--text)] text-[color:var(--card)]"
-                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                  }`}
-                  aria-label={`Opciones de ${exerciseName}`}
-                  aria-expanded={optionsOpen}
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                </motion.button>
-              ) : null}
-              {!isMobile && onRemove ? (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  type="button"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="px-1 text-lg leading-none text-[color:var(--text-muted)] hover:text-red-600"
-                  aria-label="Eliminar set"
-                >
-                  <X className="h-4 w-4" />
-                </motion.button>
-              ) : null}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                type="button"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="px-1 text-lg leading-none text-[color:var(--text-muted)] hover:text-red-600"
+                aria-label="Eliminar set"
+              >
+                <X className="h-4 w-4" />
+              </motion.button>
             </div>
           ) : null}
         </div>
@@ -252,11 +231,13 @@ export default function SetRow({
                     : "bg-[color:var(--card)]"
                 }`}
               >
-                {entryLabel ? (
-                  <div className="text-xs font-semibold text-[color:var(--text-muted)]">
-                    {entryLabel}
-                  </div>
-                ) : null}
+                <div
+                  className={`training-set-entry__series text-xs font-semibold text-[color:var(--text-muted)] ${
+                    isSingleSeries ? "training-set-entry__series--single" : ""
+                  }`}
+                >
+                  {entryLabel || index}
+                </div>
                 <div
                   className={`training-set-entry__previous flex min-w-0 items-center gap-1 text-[13px] ${trendClass}`}
                   title={
@@ -269,7 +250,7 @@ export default function SetRow({
                 >
                   <span className="flex min-w-0 flex-col leading-tight">
                     {entry.previousText ? (
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
+                      <span className="training-set-entry__previous-label text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
                         Última sesión
                       </span>
                     ) : null}

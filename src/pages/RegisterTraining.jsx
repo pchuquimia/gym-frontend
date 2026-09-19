@@ -1605,11 +1605,7 @@ export default function RegisterTraining({
         setTrainingPlanLoading(false);
       }
     },
-    [
-      dataOwnerId,
-      planCacheScope,
-      queryClient,
-    ],
+    [dataOwnerId, planCacheScope, queryClient],
   );
 
   useEffect(() => {
@@ -6472,7 +6468,7 @@ export default function RegisterTraining({
           showMobileTrainingBar
             ? sessionComplete
               ? "pt-[7.75rem] md:pt-4"
-              : "pt-14 md:pt-4"
+              : "pt-[3.75rem] md:pt-4"
             : !setupStarted && !isEditing
               ? "pt-0 md:pt-4"
               : "pt-4"
@@ -6481,7 +6477,7 @@ export default function RegisterTraining({
         {showMobileTrainingBar && (
           <div
             data-training-header
-            className="fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden"
+            className="training-session-toolbar fixed left-0 right-0 top-0 z-40 border-b border-[color:var(--border)] bg-[color:var(--bg)]/96 px-3 py-2 backdrop-blur md:hidden"
           >
             <div className="mx-auto flex max-w-md items-center gap-1.5">
               {isHistoryReadOnly ? (
@@ -6499,7 +6495,7 @@ export default function RegisterTraining({
                   <button
                     type="button"
                     onClick={() => setSessionMenuOpen(true)}
-                    className="overflow-menu-trigger !h-10 !w-10"
+                    className="overflow-menu-trigger !h-11 !w-11"
                     aria-label="Opciones del entrenamiento"
                     aria-expanded={sessionMenuOpen}
                     aria-haspopup="menu"
@@ -6508,20 +6504,10 @@ export default function RegisterTraining({
                   </button>
                 </>
               )}
-              <div className="min-w-0 flex-1 text-right">
-                {!isHistoryReadOnly && !isEditing ? (
-                  <span
-                    className={`hidden truncate text-[10px] font-semibold min-[430px]:block ${draftSyncTone}`}
-                    aria-live="polite"
-                    title={draftSyncLabel}
-                  >
-                    {draftSyncLabel}
-                  </span>
-                ) : null}
-              </div>
+              <div className="min-w-0 flex-1" aria-hidden="true" />
               {isEditing && !isHistoryReadOnly ? (
                 <label
-                  className="relative grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+                  className="relative grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
                   title={`Cambiar fecha: ${formatLongDate(sessionDate)}`}
                   aria-label={`Cambiar fecha de la sesión. Fecha actual: ${formatLongDate(sessionDate)}`}
                 >
@@ -6539,7 +6525,7 @@ export default function RegisterTraining({
                 </label>
               ) : null}
               {isHistoryReadOnly ? (
-                <div className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)] dark:rounded-[3px]">
+                <div className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--card)] px-2.5 font-mono text-sm font-black text-[color:var(--text)] dark:rounded-[3px]">
                   <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
                   {formatDuration(durationSeconds)}
                 </div>
@@ -6547,18 +6533,33 @@ export default function RegisterTraining({
                 <button
                   type="button"
                   onClick={isRunning ? handlePause : handleStart}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[color:var(--card)] px-2 font-mono text-sm font-black text-[color:var(--text)]"
+                  className="training-session-toolbar__timer inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 font-mono text-sm font-black text-[color:var(--text)]"
                   aria-label={`${isRunning ? "Pausar" : "Reanudar"} entrenamiento, ${formatDuration(durationSeconds)}`}
+                  title={draftSyncLabel}
                 >
-                  <Timer className="h-4 w-4 text-[color:var(--text-muted)]" />
+                  <span
+                    className={`training-session-toolbar__sync-dot ${
+                      draftSyncStatus === "error"
+                        ? "is-error"
+                        : draftSyncStatus === "offline"
+                          ? "is-offline"
+                          : draftSyncStatus === "saving"
+                            ? "is-saving"
+                            : "is-saved"
+                    }`}
+                    aria-hidden="true"
+                  />
                   {formatDuration(durationSeconds)}
+                  <span className="sr-only" aria-live="polite">
+                    {draftSyncLabel}
+                  </span>
                 </button>
               )}
               {!isHistoryReadOnly && !sessionComplete ? (
                 <button
                   type="button"
                   onClick={handleOpenRestTimer}
-                  className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
+                  className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] ${
                     restTimerRunning
                       ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
                       : "bg-[color:var(--card)] text-[color:var(--text)]"
@@ -6567,7 +6568,7 @@ export default function RegisterTraining({
                 >
                   <Hourglass className="h-4 w-4" />
                   {restTimerStarted ? (
-                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#181918] px-1 text-[8px] font-black text-white dark:bg-[#e2ff00] dark:text-black">
+                    <span className="absolute -right-1.5 -top-1.5 rounded-full bg-[#181918] px-1.5 py-0.5 text-[11px] font-black leading-none text-white dark:bg-[#e2ff00] dark:text-black">
                       {restTimerLabel}
                     </span>
                   ) : null}
@@ -6577,7 +6578,7 @@ export default function RegisterTraining({
                 <button
                   type="button"
                   onClick={handleEnableHistoryEdit}
-                  className="theme-accent-solid inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black uppercase dark:rounded-[3px]"
+                  className="theme-accent-solid inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-black uppercase dark:rounded-[3px]"
                 >
                   <Pencil className="h-4 w-4" />
                   Editar rutina
@@ -6587,7 +6588,7 @@ export default function RegisterTraining({
                   type="button"
                   onClick={handleFinish}
                   disabled={!exercises.length || isFinalizing}
-                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#181918] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[360px]:flex min-[360px]:w-auto min-[360px]:gap-1.5 min-[360px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
+                  className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#181918] px-0 text-xs font-black uppercase text-white disabled:opacity-60 min-[400px]:flex min-[400px]:w-auto min-[400px]:gap-1.5 min-[400px]:px-3 dark:bg-[#e2ff00] dark:text-black ${
                     sessionComplete
                       ? "shadow-[0_0_0_4px_rgba(24,25,24,0.14)] dark:shadow-[0_0_0_4px_rgba(226,255,0,0.12)]"
                       : ""
@@ -6610,7 +6611,7 @@ export default function RegisterTraining({
                   ) : (
                     <Flag className="h-4 w-4" />
                   )}
-                  <span className="hidden min-[360px]:inline">
+                  <span className="hidden min-[400px]:inline">
                     {isFinalizing ? "Finalizando" : "Finalizar"}
                   </span>
                 </motion.button>
@@ -7317,7 +7318,7 @@ export default function RegisterTraining({
           <section className="training-active-overview space-y-3 md:hidden">
             <article
               data-training-overview
-              className={`relative isolate min-h-[164px] overflow-hidden rounded-[1.5rem] border shadow-[0_16px_36px_rgba(18,18,18,0.18)] ${
+              className={`relative isolate min-h-[152px] overflow-hidden rounded-[1.5rem] border shadow-[0_16px_36px_rgba(18,18,18,0.18)] ${
                 sessionComplete
                   ? "border-[#181918]/70 dark:border-[#e2ff00]/60"
                   : "border-white/15"
@@ -7346,25 +7347,17 @@ export default function RegisterTraining({
                   delay: reduceMotion ? 0 : 0.12,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="flex min-h-[164px] flex-col justify-between p-4 text-white"
+                className="flex min-h-[152px] flex-col justify-between p-4 text-white"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <span className="inline-flex rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[10px] font-black uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
+                    <span className="inline-flex rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[11px] font-black uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
                       {isHistoryReadOnly
                         ? "Sesión registrada"
                         : sessionComplete
                           ? "Rutina completada"
                           : "Rutina activa"}
                     </span>
-                    {!isHistoryReadOnly && !isEditing ? (
-                      <p
-                        className="mt-1.5 truncate text-[11px] font-medium text-white/75"
-                        aria-live="polite"
-                      >
-                        {draftSyncLabel}
-                      </p>
-                    ) : null}
                   </div>
                   <strong className="font-condensed text-2xl font-black tabular-nums drop-shadow-sm">
                     {progressPct}%
@@ -7372,7 +7365,7 @@ export default function RegisterTraining({
                 </div>
 
                 <div>
-                  <h2 className="truncate font-condensed text-[2rem] font-black uppercase leading-none tracking-[-0.02em] drop-shadow-sm">
+                  <h2 className="truncate font-condensed text-[1.875rem] font-semibold uppercase leading-none tracking-[-0.025em] drop-shadow-sm">
                     {selectorRoutine?.name || "Rutina seleccionada"}
                   </h2>
                   <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-white/80">
@@ -7484,15 +7477,18 @@ export default function RegisterTraining({
                   ) : null}
 
                   <div
-                    className={`min-w-0 max-w-full space-y-3 ${
+                    className={`training-exercise-groups min-w-0 max-w-full space-y-3 ${
                       isOrderingExercises ? "hidden" : "md:hidden"
                     }`}
                   >
                     {groupedExercises.map(({ key, muscle, items }) => (
-                      <div key={key} className="min-w-0 max-w-full space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <div
+                        key={key}
+                        className="training-exercise-group min-w-0 max-w-full space-y-3"
+                      >
+                        <div className="training-exercise-group__header flex flex-wrap items-center justify-between gap-2 px-1">
                           <div>
-                            <p className="text-xl font-semibold text-[color:var(--text)]">
+                            <p className="training-exercise-group-title text-xl font-semibold text-[color:var(--text)]">
                               {muscle}
                             </p>
                           </div>
@@ -7580,7 +7576,7 @@ export default function RegisterTraining({
                       <div key={key} className="space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                           <div>
-                            <p className="text-xl font-semibold text-[color:var(--text)]">
+                            <p className="training-exercise-group-title text-xl font-semibold text-[color:var(--text)]">
                               {muscle}
                             </p>
                           </div>

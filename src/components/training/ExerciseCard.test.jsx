@@ -146,4 +146,46 @@ describe("ExerciseCard", () => {
     expect(optionsButton).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Ajuste del equipo")).toBeInTheDocument();
   });
+
+  it("muestra Iniciar solo dentro de un ejercicio inactivo desplegado", () => {
+    const onStartNow = vi.fn();
+    const { rerender } = render(
+      <ExerciseCard
+        exercise={createExercise()}
+        {...defaultProps}
+        onStartNow={onStartNow}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Iniciar Press en máquina" }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <ExerciseCard
+        exercise={createExercise()}
+        {...defaultProps}
+        onStartNow={onStartNow}
+        open
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Iniciar Press en máquina" }),
+    );
+    expect(onStartNow).toHaveBeenCalledOnce();
+
+    rerender(
+      <ExerciseCard
+        exercise={{ ...createExercise(), isActive: true }}
+        {...defaultProps}
+        onStartNow={onStartNow}
+        open
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Iniciar Press en máquina" }),
+    ).not.toBeInTheDocument();
+  });
 });

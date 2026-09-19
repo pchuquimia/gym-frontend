@@ -6042,6 +6042,14 @@ button,
 /* exercise-detail-editorial:end */
 
 /* mobile-reference-type-scale:start */
+.training-set-entry__series--single {
+  display: none;
+}
+
+.training-exercise-card__set-table-header {
+  display: none;
+}
+
 @media (max-width: 767px) {
   :root {
     --radius-control: var(--mobile-control-radius);
@@ -6347,16 +6355,124 @@ button,
     letter-spacing: 0.015em !important;
   }
 
+  .training-session-toolbar {
+    min-height: 3.75rem;
+    box-shadow: 0 1px 0 rgba(24, 25, 24, 0.035);
+  }
+
+  .dark .training-session-toolbar {
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025);
+  }
+
+  .training-session-toolbar__timer {
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 2px rgba(24, 25, 24, 0.04);
+  }
+
+  .training-session-toolbar__sync-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: 0 0 0.5rem;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 12%, transparent);
+  }
+
+  .training-session-toolbar__sync-dot.is-saving {
+    background: #e49a32;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #e49a32 14%, transparent);
+    animation: training-sync-pulse 1.2s ease-in-out infinite;
+  }
+
+  .training-session-toolbar__sync-dot.is-offline {
+    background: #f59e0b;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #f59e0b 14%, transparent);
+  }
+
+  .training-session-toolbar__sync-dot.is-error {
+    background: var(--danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
+  }
+
+  @keyframes training-sync-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .training-exercise-groups
+    > .training-exercise-group
+    + .training-exercise-group {
+    margin-top: 1.5rem !important;
+  }
+
+  .training-exercise-group > * + * {
+    margin-top: 0.625rem !important;
+  }
+
+  .training-exercise-group
+    > .training-exercise-group__header
+    + .training-exercise-card {
+    margin-top: 0.875rem !important;
+  }
+
+  .training-exercise-group-title {
+    font-size: 1.375rem !important;
+    font-weight: 600 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.03em;
+  }
+
+  .training-exercise-group-count {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.025em !important;
+  }
+
   .training-exercise-card {
     border-radius: 1rem;
   }
 
   .training-exercise-card__surface {
+    position: relative;
     border: 0 !important;
     border-radius: 1rem !important;
     background: var(--card) !important;
     box-shadow: none !important;
     backdrop-filter: none;
+  }
+
+  .training-exercise-card__surface.is-open {
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent) !important;
+    box-shadow: 0 8px 22px rgba(24, 25, 24, 0.065) !important;
+  }
+
+  .training-exercise-card__surface.is-open.is-active {
+    border-color: color-mix(
+      in srgb,
+      var(--accent) 62%,
+      var(--border)
+    ) !important;
+  }
+
+  .training-exercise-card__surface.is-open.is-active::before {
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0.1875rem;
+    background: var(--accent);
+    content: "";
+    pointer-events: none;
+  }
+
+  .dark .training-exercise-card__surface.is-open {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2) !important;
   }
 
   .training-exercise-card__summary {
@@ -6372,6 +6488,18 @@ button,
     height: 5rem !important;
     border: 0 !important;
     border-radius: 0.75rem !important;
+  }
+
+  .training-exercise-card__surface:not(.is-open)
+    .training-exercise-card__summary {
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    min-height: 5.25rem;
+  }
+
+  .training-exercise-card__surface:not(.is-open)
+    .training-exercise-card__thumbnail {
+    width: 4.5rem !important;
+    height: 4.5rem !important;
   }
 
   .training-exercise-card__extra-label {
@@ -6391,17 +6519,58 @@ button,
   }
 
   .training-exercise-card__title {
-    font-size: 1rem !important;
-    font-weight: 500 !important;
-    line-height: 1.2 !important;
-    letter-spacing: -0.02em;
+    font-size: 1.0625rem !important;
+    font-weight: 600 !important;
+    line-height: 1.22 !important;
+    letter-spacing: -0.025em;
   }
 
   .training-exercise-card__meta {
     margin-top: 0.25rem !important;
-    font-size: 0.875rem !important;
+    font-size: 0.8125rem !important;
     font-weight: 400 !important;
-    line-height: 1.2 !important;
+    line-height: 1.25 !important;
+  }
+
+  .training-exercise-card__start-inline {
+    letter-spacing: -0.01em;
+  }
+
+  .training-exercise-card__start-inline svg {
+    fill: currentColor;
+  }
+
+  .training-exercise-card__options {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    border: 0;
+    border-radius: 0.75rem !important;
+    background: transparent;
+    opacity: 0.72;
+  }
+
+  .training-exercise-card__options[aria-expanded="true"] {
+    background: var(--text);
+    color: var(--card);
+    opacity: 1;
+  }
+
+  .training-exercise-card__surface.is-open .training-exercise-card__disclosure {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+
+  .training-exercise-card [data-status="active"] {
+    min-height: 1.75rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.02em;
+  }
+
+  .training-exercise-card [data-status="active"] [data-status-indicator] {
+    display: none;
   }
 
   .training-exercise-card__expanded {
@@ -6414,6 +6583,25 @@ button,
     padding: 0 !important;
   }
 
+  .training-exercise-card__set-table-header {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem 4.25rem 2.75rem;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.75rem 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--detail-row-divider);
+    color: var(--text-muted);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+
+  .training-exercise-card__set-table-header span:nth-child(n + 3) {
+    text-align: center;
+  }
+
   .training-exercise-card__set-list {
     gap: 0 !important;
   }
@@ -6423,12 +6611,16 @@ button,
   }
 
   .training-set-row__content {
-    gap: 0.625rem !important;
+    gap: 0 !important;
     border: 0 !important;
     border-bottom: 1px solid var(--detail-row-divider) !important;
     border-radius: 0 !important;
     background: transparent !important;
-    padding: 0.75rem 0.75rem 0.875rem !important;
+    padding: 0 0.75rem !important;
+  }
+
+  .training-set-row__content > * + * {
+    margin-top: 0 !important;
   }
 
   .training-exercise-card__set-list
@@ -6441,46 +6633,99 @@ button,
     padding-inline: 0 !important;
   }
 
+  .training-set-row__header:not(:has(.training-set-row__pr)) {
+    display: none !important;
+  }
+
+  .training-set-row__header:has(.training-set-row__pr) {
+    padding-block: 0.625rem 0 !important;
+  }
+
   .training-set-row__index {
-    width: 1.5rem !important;
-    height: 1.5rem !important;
-    font-size: 0.6875rem !important;
-    font-weight: 600 !important;
+    display: none !important;
   }
 
   .training-set-entry {
-    grid-template-columns: 1.5rem minmax(0, 1fr) 4.25rem 4rem 2.75rem !important;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem 4.25rem 2.75rem !important;
     gap: 0.5rem !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
-    padding: 0.25rem 0 0 !important;
+    min-height: 5rem;
+    padding: 0.625rem 0 !important;
   }
 
   .training-set-entry--single {
-    grid-template-columns: minmax(0, 1fr) 4.25rem 4rem 2.75rem !important;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem 4.25rem 2.75rem !important;
+  }
+
+  .training-set-entry__series,
+  .training-set-entry__series--single {
+    display: flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    border-radius: 999px;
+    background: #181918;
+    color: #fff;
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dark .training-set-entry__series,
+  .dark .training-set-entry__series--single {
+    background: #e2ff00;
+    color: #090909;
   }
 
   .training-set-entry__previous {
     font-size: 0.8125rem !important;
     font-weight: 400 !important;
+    line-height: 1.25 !important;
+  }
+
+  .training-set-entry__previous-label {
+    display: none;
   }
 
   .training-set-entry__field {
-    height: 2.75rem !important;
+    height: 3rem !important;
     border: 0 !important;
     border-radius: 0.75rem !important;
     background: var(--surface-subtle) !important;
   }
 
   .training-set-entry__field input {
-    font-size: 0.9375rem !important;
-    font-weight: 500 !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
   }
 
   .training-set-entry__check {
     width: 2.75rem !important;
     height: 2.75rem !important;
+  }
+
+  .training-set-entry__check > span {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    border-width: 1.5px !important;
+    border-color: color-mix(
+      in srgb,
+      var(--text-muted) 35%,
+      var(--border)
+    ) !important;
+  }
+
+  .training-set-entry__check > span:has(svg) {
+    border-color: #181918 !important;
+  }
+
+  .dark .training-set-entry__check > span:has(svg) {
+    border-color: #e2ff00 !important;
   }
 
   .training-exercise-card__add-set {
@@ -6490,7 +6735,7 @@ button,
     border-radius: 0 !important;
     background: transparent !important;
     font-size: 0.875rem !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
   }
 
   .training-schedule__days-wrap {
@@ -7761,7 +8006,7 @@ button,
     border-right: 0;
     border-left: 0;
     border-radius: 0;
-    box-shadow: 0 14px 32px rgba(18, 18, 18, 0.16);
+    box-shadow: 0 8px 24px rgba(18, 18, 18, 0.12);
   }
 
   .training-active-overview [data-training-overview] > div:last-child {

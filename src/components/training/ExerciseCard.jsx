@@ -9,6 +9,7 @@ import {
   Play,
   Repeat2,
   Settings2,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import Card from "../ui/card";
@@ -351,7 +352,7 @@ export default function ExerciseCard({
         ) : null}
       </AnimatePresence>
       <Card
-        className={`training-exercise-card__surface overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
+        className={`training-exercise-card__surface ${open ? "is-open" : ""} ${exercise.isActive && !isComplete ? "is-active" : ""} ${isComplete ? "is-complete" : ""} overflow-hidden rounded-lg border bg-[color:var(--card)]/90 backdrop-blur transition-[border-color,box-shadow] dark:rounded-[4px] ${
           exercise.isActive && !isComplete
             ? "border-[#181918]/65 shadow-[0_8px_24px_rgba(24,25,24,0.12)] dark:border-[#e2ff00]/55 dark:shadow-[0_8px_26px_rgba(226,255,0,0.08)]"
             : "border-[color:var(--border)] shadow-lg"
@@ -468,10 +469,40 @@ export default function ExerciseCard({
                 <Check className="h-3.5 w-3.5 stroke-[3]" />
               </span>
             ) : null}
+            {!readOnly &&
+            onStartNow &&
+            !isComplete &&
+            !exercise.isActive &&
+            open ? (
+              <button
+                type="button"
+                onClick={onStartNow}
+                className="training-exercise-card__start-inline inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--text)] px-3 text-xs font-semibold text-[color:var(--card)] shadow-sm transition-[opacity,transform] hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2"
+                aria-label={`Iniciar ${exercise.name}`}
+              >
+                <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Iniciar</span>
+              </button>
+            ) : null}
+            {open && !readOnly ? (
+              <button
+                type="button"
+                onClick={() => setShowOptions((value) => !value)}
+                className={`training-exercise-card__options grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors ${
+                  showOptions
+                    ? "bg-[color:var(--text)] text-[color:var(--card)]"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                }`}
+                aria-label={`Opciones de ${exercise.name}`}
+                aria-expanded={showOptions}
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleToggleOpen}
-              className="grid h-10 w-8 shrink-0 place-items-center text-[color:var(--text-muted)]"
+              className="training-exercise-card__disclosure grid h-10 w-8 shrink-0 place-items-center text-[color:var(--text-muted)]"
               aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
               aria-expanded={open}
             >
@@ -480,37 +511,6 @@ export default function ExerciseCard({
               />
             </button>
           </div>
-          {!readOnly &&
-            onStartNow &&
-            !isComplete &&
-            !exercise.isActive &&
-            !open && (
-              <Button
-                size="sm"
-                variant="accentOutline"
-                className="hidden shrink-0 rounded-md px-3 sm:inline-flex dark:rounded-[3px]"
-                onClick={onStartNow}
-                aria-label={`Empezar ${exercise.name}`}
-              >
-                <Play className="h-4 w-4" />
-                <span>Empezar</span>
-              </Button>
-            )}
-          {!readOnly &&
-            onStartNow &&
-            !isComplete &&
-            !exercise.isActive &&
-            !open && (
-              <Button
-                size="touchIcon"
-                variant="accentOutline"
-                className="shrink-0 rounded-md sm:hidden dark:rounded-[3px]"
-                onClick={onStartNow}
-                aria-label={`Empezar ${exercise.name}`}
-              >
-                <Play className="h-4 w-4" />
-              </Button>
-            )}
         </div>
 
         <AnimatePresence initial={false}>
@@ -608,6 +608,17 @@ export default function ExerciseCard({
                   )}
                 </AnimatePresence>
 
+                <div
+                  className="training-exercise-card__set-table-header"
+                  aria-hidden="true"
+                >
+                  <span>Serie</span>
+                  <span>Anterior</span>
+                  <span>Kg</span>
+                  <span>Reps</span>
+                  <span>Listo</span>
+                </div>
+
                 <div className="training-exercise-card__set-list space-y-2">
                   <AnimatePresence initial={false}>
                     {exercise.sets.map((set, idx) => (
@@ -631,12 +642,6 @@ export default function ExerciseCard({
                         onRemove={
                           readOnly ? undefined : () => onRemoveSet(set.id)
                         }
-                        onOpenOptions={
-                          !readOnly && idx === 0
-                            ? () => setShowOptions((value) => !value)
-                            : undefined
-                        }
-                        optionsOpen={idx === 0 && showOptions}
                       />
                     ))}
                   </AnimatePresence>
