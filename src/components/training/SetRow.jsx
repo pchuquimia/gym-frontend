@@ -254,13 +254,13 @@ export default function SetRow({
                         Última sesión
                       </span>
                     ) : null}
-                    <span className="min-w-0 truncate">
+                    <span className="training-set-entry__previous-value min-w-0 truncate">
                       {entry.previousText || "Sin sesión anterior"}
                     </span>
                   </span>
                   {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
-                <label className="training-set-entry__field grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
+                <label className="training-set-entry__field training-set-entry__field--weight grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
                   <input
                     className="min-w-0 bg-transparent text-center text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
@@ -284,7 +284,7 @@ export default function SetRow({
                     {weightUnitLabel}
                   </span>
                 </label>
-                <label className="training-set-entry__field grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.5rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
+                <label className="training-set-entry__field training-set-entry__field--reps grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.5rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
                   <input
                     className="min-w-0 bg-transparent text-center text-sm font-semibold tabular-nums outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                     type="text"
