@@ -138,6 +138,24 @@ describe("ActivePlanWorkoutPlanner", () => {
     expect(
       screen.getByRole("button", { name: "Entrenar esta rutina" }),
     ).toBeVisible();
+
+    await user.click(
+      screen.getByRole("button", { name: "Entrenar esta rutina" }),
+    );
+
+    const overrideDialog = screen.getByRole("dialog", {
+      name: "Entrenar otro día del plan",
+    });
+    expect(overrideDialog).toHaveClass("training-plan-override-modal");
+    expect(screen.getByText("Cambio de agenda")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Esta sesión se registrará como una excepción del plan.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Confirmar cambio" }),
+    ).toBeVisible();
   });
 
   it("presenta una rutina completada como estado final y no permite iniciarla otra vez", () => {

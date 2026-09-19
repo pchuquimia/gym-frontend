@@ -6042,6 +6042,105 @@ button,
 /* exercise-detail-editorial:end */
 
 /* mobile-reference-type-scale:start */
+.training-plan-override-modal {
+  font-family: var(--mobile-ui-font);
+}
+
+.training-plan-override-modal .modal-page-header {
+  align-items: center;
+  border-bottom: 0;
+  padding: 1.25rem 1.25rem 0.875rem;
+}
+
+.training-plan-override-modal .modal-page-header h3 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.training-plan-override-modal .modal-page-header p {
+  margin-top: 0.35rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.training-plan-override-modal__content {
+  padding: 0 1.25rem 1.25rem !important;
+}
+
+.training-plan-override-modal__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 1.125rem;
+  background: var(--surface-subtle);
+  padding: 1rem;
+}
+
+.training-plan-override-modal__icon {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 2.75rem;
+  place-items: center;
+  border-radius: 0.875rem;
+  background: var(--text);
+  color: var(--card);
+}
+
+.training-plan-override-modal__eyebrow {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.training-plan-override-modal__message {
+  margin-top: 0.4rem;
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.012em;
+}
+
+.training-plan-override-modal__description {
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.training-plan-override-modal__reassurance {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  padding-inline: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.training-plan-override-modal__reassurance svg {
+  margin-top: 0.05rem;
+  color: var(--text);
+  stroke-width: 2.5;
+}
+
+.training-plan-override-modal__footer {
+  border-top: 0 !important;
+  background: var(--card) !important;
+  padding: 0 1.25rem max(1.25rem, env(safe-area-inset-bottom)) !important;
+}
+
 .training-set-entry__series--single {
   display: none;
 }

@@ -765,13 +765,18 @@ export default function ActivePlanWorkoutPlanner({
         <Modal
           title="Entrenar otro día del plan"
           subtitle={overrideCandidate.title}
+          size="small"
+          portal
+          dialogClassName="training-plan-override-modal sm:max-w-md"
+          contentClassName="training-plan-override-modal__content"
+          footerClassName="training-plan-override-modal__footer"
           onClose={() => setOverrideCandidate(null)}
           footer={
-            <>
+            <div className="grid w-full grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setOverrideCandidate(null)}
-                className="h-11 border border-[color:var(--border)] px-4 text-xs font-bold uppercase"
+                className="h-12 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-sm font-semibold text-[color:var(--text)] transition-colors hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]"
               >
                 Cancelar
               </button>
@@ -792,21 +797,40 @@ export default function ActivePlanWorkoutPlanner({
                     },
                   );
                 }}
-                className="h-11 bg-[#181918] px-4 text-xs font-bold uppercase text-white dark:bg-[#d8ff00] dark:text-black"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#181918] px-4 text-sm font-semibold text-white shadow-sm transition-[opacity,transform] hover:opacity-90 active:scale-[0.98] dark:bg-[#e2ff00] dark:text-black"
               >
+                <Play className="h-4 w-4 fill-current" aria-hidden="true" />
                 Confirmar cambio
               </button>
-            </>
+            </div>
           }
         >
-          <div className="border-l-4 border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
-            <p className="text-sm font-bold text-current">
-              Esta sesión quedará registrada como una excepción del plan.
-            </p>
-            <p className="mt-2 text-sm leading-6 text-current/80">
-              {sequential
-                ? "El ciclo continuará desde el bloque posterior al que elegiste."
-                : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}
+          <div className="training-plan-override-modal__notice">
+            <span
+              className="training-plan-override-modal__icon"
+              aria-hidden="true"
+            >
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="training-plan-override-modal__eyebrow">
+                Cambio de agenda
+              </p>
+              <p className="training-plan-override-modal__message">
+                Esta sesión se registrará como una excepción del plan.
+              </p>
+              <p className="training-plan-override-modal__description">
+                {sequential
+                  ? "El ciclo continuará desde el bloque posterior al que elegiste."
+                  : "La rutina contará para esta semana, aunque se realice en una fecha distinta a la programada."}
+              </p>
+            </div>
+          </div>
+          <div className="training-plan-override-modal__reassurance">
+            <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>
+              Tu plan original no se modificará; solo registraremos este
+              entrenamiento en la fecha de hoy.
             </p>
           </div>
         </Modal>
