@@ -69,8 +69,20 @@ export const sections = [
     items: [
       {
         id: "trainer",
-        label: "Mis atletas",
+        label: "Inicio coach",
+        icon: LayoutDashboard,
+        roles: ["Admin", "Entrenador"],
+      },
+      {
+        id: "coach_athletes",
+        label: "Alumnos",
         icon: Users,
+        roles: ["Admin", "Entrenador"],
+      },
+      {
+        id: "coach_messages",
+        label: "Mensajes",
+        icon: MessageCircle,
         roles: ["Admin", "Entrenador"],
       },
     ],

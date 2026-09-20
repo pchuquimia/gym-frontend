@@ -23,7 +23,11 @@ describe("configuracion del menu lateral", () => {
       "Coach",
       "Administracion",
     ]);
-    expect(adminSections.at(-2).ids).toEqual(["trainer"]);
+    expect(adminSections.at(-2).ids).toEqual([
+      "trainer",
+      "coach_athletes",
+      "coach_messages",
+    ]);
     expect(adminSections.at(-1).ids).toEqual([
       "coach_admin",
       "editor_historial",

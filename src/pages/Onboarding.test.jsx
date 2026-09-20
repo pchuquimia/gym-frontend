@@ -223,4 +223,40 @@ describe("Onboarding account type", () => {
       screen.getByLabelText(/nombre público del entrenador/i),
     ).toBeVisible();
   });
+
+  it("envía el perfil base sin una versión vacía de evaluación de coach", async () => {
+    auth.user = {
+      ...auth.user,
+      onboarding: { accountType: "athlete", status: "pending" },
+    };
+    window.localStorage.setItem(
+      "rirfit_onboarding_draft",
+      JSON.stringify({
+        step: 2,
+        username: "liz",
+        name: "Liz",
+        goal: "volumen",
+        experienceLevel: "beginner",
+        weeklyFrequency: 5,
+        weight: "59",
+        height: "164",
+      }),
+    );
+
+    render(<Onboarding />);
+    fireEvent.click(screen.getByRole("button", { name: /enviar evaluación/i }));
+
+    await waitFor(() => expect(auth.completeOnboarding).toHaveBeenCalled());
+    const payload = auth.completeOnboarding.mock.calls[0][0];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        username: "liz",
+        weight: 59,
+        height: 164,
+        weeklyFrequency: 5,
+      }),
+    );
+    expect(payload).not.toHaveProperty("intakeSettingsVersion");
+    expect(payload).not.toHaveProperty("intakeAnswers");
+  });
 });

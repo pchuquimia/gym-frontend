@@ -85,7 +85,7 @@ const mobileGroups = [
   {
     title: "Coach",
     detail: "Atletas asignados",
-    ids: ["trainer"],
+    ids: ["trainer", "coach_athletes", "coach_messages"],
   },
   {
     title: "Administracion",

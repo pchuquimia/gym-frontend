@@ -463,14 +463,18 @@ export default function Onboarding({ onNavigate = () => {} }) {
         weight: Number(form.weight),
         height: Number(form.height),
         healthNotes: form.healthNotes.trim(),
-        intakeAnswers: intakeQuestions.map((question) => ({
-          key: question.key,
-          value: serializeIntakeAnswer(
-            question,
-            submittedAnswers?.[question.key],
-          ),
-        })),
-        intakeSettingsVersion,
+        ...(isManagedAthlete
+          ? {
+              intakeAnswers: intakeQuestions.map((question) => ({
+                key: question.key,
+                value: serializeIntakeAnswer(
+                  question,
+                  submittedAnswers?.[question.key],
+                ),
+              })),
+              ...(intakeSettingsVersion ? { intakeSettingsVersion } : {}),
+            }
+          : {}),
       });
       window.localStorage.removeItem(DRAFT_KEY);
       window.localStorage.removeItem(LEGACY_DRAFT_KEY);

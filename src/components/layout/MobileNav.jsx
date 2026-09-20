@@ -176,12 +176,15 @@ function SolidNavIcon({ name, className = "" }) {
 function MobileNav({ activePage, onNavigate, onOpenMenu, menuOpen = false }) {
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
-  const isCoach = user?.role === "Entrenador";
+  const isAdminCoachPage =
+    user?.role === "Admin" &&
+    ["trainer", "coach_athletes", "coach_messages"].includes(activePage);
+  const isCoach = user?.role === "Entrenador" || isAdminCoachPage;
   const primaryItemIds =
-    user?.role === "Admin"
-      ? ["dashboard", "registrar", "rutinas", "library"]
-      : user?.role === "Entrenador"
-        ? ["trainer", "coach_athletes", "rutinas", "coach_messages"]
+    isCoach
+      ? ["trainer", "coach_athletes", "rutinas", "coach_messages"]
+      : user?.role === "Admin"
+        ? ["dashboard", "registrar", "rutinas", "library"]
         : user?.trainingMode === "coach_managed"
           ? ["dashboard", "registrar", "rutinas", "ejercicio_analitica"]
           : ["dashboard", "registrar", "rutinas", "library"];

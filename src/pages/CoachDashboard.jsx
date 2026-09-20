@@ -1950,6 +1950,100 @@ const getBasicCoachAlert = (athlete) => {
   return "";
 };
 
+function CoachInvitationPanel({
+  invitation,
+  invitationLoading,
+  onClose,
+  onCopy,
+  onWhatsApp,
+  onRevoke,
+  onRetry,
+}) {
+  return (
+    <section className="mt-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_14px_35px_rgba(20,20,20,0.05)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold tracking-[-0.03em]">
+            Invitar alumno
+          </h3>
+          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+            Envíale este enlace para unirse a tu equipo.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)]"
+          aria-label="Cerrar invitación"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {invitationLoading ? (
+        <div className="mt-4 space-y-2.5">
+          <div className="h-11 animate-pulse rounded-xl bg-[color:var(--bg)]" />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
+            <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
+          </div>
+        </div>
+      ) : invitation?.invitationUrl ? (
+        <div className="mt-4">
+          <div className="flex h-11 items-center gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
+            <Link2 className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+            <input
+              type="text"
+              readOnly
+              value={invitation.invitationUrl}
+              onFocus={(event) => event.currentTarget.select()}
+              aria-label="Enlace de invitación"
+              className="min-w-0 flex-1 truncate bg-transparent text-xs font-medium outline-none"
+            />
+          </div>
+          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={onWhatsApp}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25d366] px-3 text-xs font-bold text-[#071a0e] transition-transform active:scale-[0.98]"
+            >
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={onCopy}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[color:var(--text)] px-3 text-xs font-semibold text-[color:var(--bg)] transition-transform active:scale-[0.98]"
+            >
+              <Copy className="h-4 w-4" /> Copiar enlace
+            </button>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 px-1 text-[11px] text-[color:var(--text-muted)]">
+            <span>Vence en 7 días · Un solo uso</span>
+            <button
+              type="button"
+              onClick={onRevoke}
+              className="font-semibold underline decoration-current/30 underline-offset-2"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-600">
+          <span>No pudimos generar el enlace.</span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="shrink-0 font-bold underline underline-offset-2"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CoachHome({
   athletes,
   portfolio,
@@ -2180,87 +2274,15 @@ function CoachHome({
       </section>
 
       {inviteOpen ? (
-        <section className="mt-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-[0_14px_35px_rgba(20,20,20,0.05)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold tracking-[-0.03em]">
-                Invitar alumno
-              </h3>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                Envíale este enlace para unirse a tu equipo.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setInviteOpen(false)}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--bg)]"
-              aria-label="Cerrar invitación"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {invitationLoading ? (
-            <div className="mt-4 space-y-2.5">
-              <div className="h-11 animate-pulse rounded-xl bg-[color:var(--bg)]" />
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
-                <div className="h-11 animate-pulse rounded-full bg-[color:var(--bg)]" />
-              </div>
-            </div>
-          ) : invitation?.invitationUrl ? (
-            <div className="mt-4">
-              <div className="flex h-11 items-center gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3">
-                <Link2 className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-                <input
-                  type="text"
-                  readOnly
-                  value={invitation.invitationUrl}
-                  onFocus={(event) => event.currentTarget.select()}
-                  aria-label="Enlace de invitación"
-                  className="min-w-0 flex-1 truncate bg-transparent text-xs font-medium outline-none"
-                />
-              </div>
-              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={onWhatsAppInvitation}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25d366] px-3 text-xs font-bold text-[#071a0e] transition-transform active:scale-[0.98]"
-                >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
-                </button>
-                <button
-                  type="button"
-                  onClick={onCopyInvitation}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[color:var(--text)] px-3 text-xs font-semibold text-[color:var(--bg)] transition-transform active:scale-[0.98]"
-                >
-                  <Copy className="h-4 w-4" /> Copiar enlace
-                </button>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3 px-1 text-[11px] text-[color:var(--text-muted)]">
-                <span>Vence en 7 días · Un solo uso</span>
-                <button
-                  type="button"
-                  onClick={onRevokeInvitation}
-                  className="font-semibold underline decoration-current/30 underline-offset-2"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-600">
-              <span>No pudimos generar el enlace.</span>
-              <button
-                type="button"
-                onClick={onRetryInvitation}
-                className="shrink-0 font-bold underline underline-offset-2"
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
-        </section>
+        <CoachInvitationPanel
+          invitation={invitation}
+          invitationLoading={invitationLoading}
+          onClose={() => setInviteOpen(false)}
+          onCopy={onCopyInvitation}
+          onWhatsApp={onWhatsAppInvitation}
+          onRevoke={onRevokeInvitation}
+          onRetry={onRetryInvitation}
+        />
       ) : null}
 
       <section className="mt-4 overflow-hidden rounded-[28px] bg-[#191a19] px-5 py-6 text-white shadow-[0_22px_55px_rgba(15,15,15,0.12)] dark:bg-[#f2f1ec] dark:text-[#121312] sm:px-7 sm:py-7">
@@ -2657,8 +2679,6 @@ export default function CoachDashboard({
       ? window.sessionStorage.getItem("rirfit_coach_welcome") === "1"
       : false,
   );
-  const [linkInfo, setLinkInfo] = useState({ coachCode: "", athleteCount: 0 });
-  const [linkCodeLoading, setLinkCodeLoading] = useState(true);
   const [invitation, setInvitation] = useState(null);
   const [invitationLoading, setInvitationLoading] = useState(false);
   const [invitationRetry, setInvitationRetry] = useState(0);
@@ -2707,13 +2727,6 @@ export default function CoachDashboard({
 
   useEffect(() => {
     loadAthletes();
-    api
-      .getCoachLinkCode()
-      .then(setLinkInfo)
-      .catch((err) =>
-        toast.error(err.message || "No se pudo cargar tu código de coach"),
-      )
-      .finally(() => setLinkCodeLoading(false));
     if (user?.role === "Admin") {
       api
         .getCoachPlanCatalog()
@@ -2756,34 +2769,20 @@ export default function CoachDashboard({
       .then((created) => {
         if (!active) return;
         setInvitation(created);
+        setInvitationLoading(false);
       })
       .catch((error) => {
         if (active) {
+          setInvitationLoading(false);
           toast.error("No pudimos crear la invitación", {
             description: error.message || "Inténtalo nuevamente.",
           });
         }
-      })
-      .finally(() => {
-        if (active) setInvitationLoading(false);
       });
     return () => {
       active = false;
     };
   }, [invitation, invitationRetry, inviteOpen]);
-
-  const copyCoachCode = async () => {
-    if (!linkInfo.coachCode) return;
-    try {
-      await navigator.clipboard.writeText(linkInfo.coachCode);
-      toast.success("Código copiado", {
-        description:
-          "Compártelo con el atleta para que se vincule desde Perfil.",
-      });
-    } catch {
-      toast.error("No se pudo copiar el código");
-    }
-  };
 
   const copyInvitation = async () => {
     if (!invitation?.invitationUrl) return;
@@ -2823,26 +2822,6 @@ export default function CoachDashboard({
     }
   };
 
-  const regenerateCoachCode = async () => {
-    if (
-      !window.confirm(
-        "El código anterior dejará de funcionar. Los atletas ya vinculados no se verán afectados.",
-      )
-    ) {
-      return;
-    }
-    try {
-      setLinkCodeLoading(true);
-      const data = await api.regenerateCoachLinkCode();
-      setLinkInfo((current) => ({ ...current, coachCode: data.coachCode }));
-      toast.success("Código renovado");
-    } catch (err) {
-      toast.error(err.message || "No se pudo renovar el código");
-    } finally {
-      setLinkCodeLoading(false);
-    }
-  };
-
   const releaseAthlete = async () => {
     if (!selectedAthlete || activeSession) return;
     if (
@@ -2858,10 +2837,6 @@ export default function CoachDashboard({
       setOverview(null);
       onSelectCoachAthlete(null);
       await loadAthletes({ silent: true });
-      setLinkInfo((current) => ({
-        ...current,
-        athleteCount: Math.max(0, Number(current.athleteCount || 0) - 1),
-      }));
       toast.success("Atleta desvinculado");
     } catch (err) {
       toast.error(err.message || "No se pudo desvincular al atleta");
@@ -2926,7 +2901,7 @@ export default function CoachDashboard({
     if (
       !selectedId ||
       !overview ||
-      user?.role !== "Entrenador" ||
+      !["Admin", "Entrenador"].includes(user?.role) ||
       typeof window === "undefined"
     )
       return;
@@ -3376,7 +3351,7 @@ export default function CoachDashboard({
     }
   };
 
-  if (pageId === "trainer" && user?.role === "Entrenador") {
+  if (pageId === "trainer" && ["Admin", "Entrenador"].includes(user?.role)) {
     return (
       <CoachHome
         athletes={athletes}
@@ -3552,14 +3527,11 @@ export default function CoachDashboard({
                 Empieza con tu primer alumno.
               </h2>
               <p className="mt-2 text-sm font-normal leading-6 text-current/70">
-                Comparte tu código privado. El alumno conservará el control y
-                deberá aceptar la vinculación desde su perfil.
+                Comparte un enlace de invitación para que el alumno se registre
+                y se una a tu equipo.
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:min-w-48">
-              <div className="rounded-full border border-current/20 px-4 py-2 text-center font-mono text-xs font-bold tracking-[0.08em]">
-                {linkCodeLoading ? "PREPARANDO CÓDIGO" : linkInfo.coachCode}
-              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -3583,42 +3555,18 @@ export default function CoachDashboard({
       ) : null}
 
       {inviteOpen ? (
-        <section className="mt-4 border border-[color:var(--accent)] bg-[color:var(--accent)] p-4 text-[color:var(--accent-contrast)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase text-current">
-                Código de vinculación
-              </p>
-              <p className="mt-1 text-[13px] font-semibold text-current/80">
-                El atleta crea su cuenta básica y luego introduce este código
-                desde Perfil.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="min-w-36 border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-center text-sm font-black tracking-[0.08em]">
-                {linkCodeLoading ? "CARGANDO" : linkInfo.coachCode}
-              </code>
-              <button
-                type="button"
-                onClick={copyCoachCode}
-                disabled={linkCodeLoading || !linkInfo.coachCode}
-                className="grid h-10 w-10 place-items-center border border-[color:var(--border)] bg-[color:var(--card)] disabled:opacity-50"
-                aria-label="Copiar código"
-                title="Copiar código"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={regenerateCoachCode}
-                disabled={linkCodeLoading}
-                className="h-10 border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-xs font-black uppercase disabled:opacity-50"
-              >
-                Renovar
-              </button>
-            </div>
-          </div>
-        </section>
+        <CoachInvitationPanel
+          invitation={invitation}
+          invitationLoading={invitationLoading}
+          onClose={() => setInviteOpen(false)}
+          onCopy={copyInvitation}
+          onWhatsApp={openWhatsAppInvitation}
+          onRevoke={revokeInvitation}
+          onRetry={() => {
+            setInvitation(null);
+            setInvitationRetry((current) => current + 1);
+          }}
+        />
       ) : null}
 
       {loading ? (
@@ -3637,11 +3585,11 @@ export default function CoachDashboard({
             <Users className="theme-accent-text mx-auto h-10 w-10" />
             <h2 className="mt-4 text-xl font-black">Aún no tienes atletas</h2>
             <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-              Comparte tu código. El atleta decide vincularse desde su perfil y
-              aparecerá aquí automáticamente.
+              Comparte un enlace de invitación. El alumno podrá registrarse y
+              aparecerá aquí cuando acepte unirse a tu equipo.
             </p>
             <Button className="mt-5 gap-2" onClick={() => setInviteOpen(true)}>
-              <Link2 className="h-4 w-4" /> Ver código
+              <Link2 className="h-4 w-4" /> Invitar alumno
             </Button>
           </div>
         </section>

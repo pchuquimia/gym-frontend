@@ -59,6 +59,19 @@ describe("MobileNav", () => {
     expect(screen.getAllByRole("button")).toHaveLength(5);
   });
 
+  it("muestra la navegación coach al administrador dentro de ese espacio", () => {
+    mockUseAuth.mockReturnValue({ user: { role: "Admin" } });
+
+    render(<MobileNav activePage="trainer" onNavigate={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Alumnos" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mensajes" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Inicio" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
   it("usa un icono sólido solo en la página activa", () => {
     mockUseAuth.mockReturnValue({
       user: { role: "Cliente", trainingMode: "independent" },
