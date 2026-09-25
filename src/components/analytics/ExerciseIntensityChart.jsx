@@ -69,7 +69,7 @@ const ExerciseIntensityChart = ({
   ];
 
   return (
-    <div className="h-64 sm:h-72">
+    <div className="h-56 sm:h-60">
       {observedPoints.length === 1 ? (
         <ChartSampleState
           value={`${Math.round(observedPoints[0].intensityAverage)}%`}

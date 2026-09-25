@@ -112,18 +112,18 @@ const MuscleGroupAnalytics = ({
     : "Registra el mismo ejercicio en dos semanas para ver su tendencia.";
 
   return (
-    <section className="exercise-analytics-chart muscle-progress-card overflow-hidden rounded-[28px] bg-[color:var(--card)]">
-      <div className="px-4 pb-2 pt-5 sm:px-6 sm:pt-6">
+    <section className="exercise-analytics-chart muscle-progress-card overflow-hidden rounded-[22px] bg-[color:var(--card)]">
+      <div className="px-4 pb-1 pt-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
               Tendencia del grupo
             </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+            <h2 className="mt-0.5 text-xl font-semibold tracking-[-0.03em] text-[color:var(--text)]">
               {muscle}
             </h2>
-            <div className="mt-2 flex items-end gap-2">
-              <strong className="text-[40px] font-semibold leading-none tracking-[-0.05em] text-[color:var(--text)]">
+            <div className="mt-1.5 flex items-end gap-2">
+              <strong className="text-[34px] font-semibold leading-none tracking-[-0.05em] text-[color:var(--text)]">
                 {formatDelta(analytics.delta)}
               </strong>
               <span
@@ -155,7 +155,7 @@ const MuscleGroupAnalytics = ({
 
       <article
         aria-label="Conclusión del progreso"
-        className={`mx-4 mt-4 rounded-2xl border px-4 py-4 sm:mx-6 ${
+        className={`mx-4 mt-2 rounded-xl border px-3 py-3 ${
           conclusionStyles[analytics.conclusion.trend]
         }`}
       >
@@ -174,7 +174,7 @@ const MuscleGroupAnalytics = ({
         </p>
       </article>
 
-      <div className="h-[270px] px-1 sm:h-[310px] sm:px-3">
+      <div className="h-[230px] px-1 sm:h-[250px] sm:px-3">
         {analytics.observedPoints >= 2 ? (
           <ResponsiveLine
             data={[
@@ -271,10 +271,10 @@ const MuscleGroupAnalytics = ({
         )}
       </div>
 
-      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-5 sm:px-6">
+      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text)]">
+            <p className="text-base font-semibold tracking-[-0.02em] text-[color:var(--text)]">
               Qué está moviendo el resultado
             </p>
             <p className="mt-1 text-xs text-[color:var(--text-muted)]">
@@ -289,7 +289,7 @@ const MuscleGroupAnalytics = ({
           </span>
         </div>
 
-        <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)]">
+        <div className="mt-2 divide-y divide-[color:var(--detail-row-divider)]">
           {analytics.contributions.slice(0, 6).map((item) => {
             const exercise = exerciseById.get(item.exerciseId);
             const contributionStatus = getStatus(item.change);
@@ -302,7 +302,7 @@ const MuscleGroupAnalytics = ({
             return (
               <div
                 key={item.exerciseId}
-                className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3 py-3"
+                className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-3 py-2"
               >
                 <ExerciseThumbnail
                   src={
@@ -314,7 +314,7 @@ const MuscleGroupAnalytics = ({
                       : ""
                   }
                   alt=""
-                  className="exercise-analytics-thumb row-span-2 h-11 w-11 rounded-lg"
+                  className="exercise-analytics-thumb row-span-2 h-10 w-10 rounded-lg"
                 />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[color:var(--text)]">

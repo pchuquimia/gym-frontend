@@ -150,13 +150,13 @@ const ExerciseAnalytics = ({
   ]);
 
   return (
-    <section className="exercise-analytics-chart overflow-hidden rounded-[28px] bg-[color:var(--card)]">
-      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-6">
+    <section className="exercise-analytics-chart overflow-hidden rounded-[22px] bg-[color:var(--card)]">
+      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
             Evolución
           </p>
-          <h2 className="mt-1 text-2xl font-semibold leading-none tracking-[-0.035em]">
+          <h2 className="mt-1 text-xl font-semibold leading-none tracking-[-0.03em]">
             {activeTab === "fuerza"
               ? "Fuerza estimada"
               : activeTab === "volumen"
@@ -277,16 +277,16 @@ const ExerciseAnalytics = ({
         ) : null}
       </div>
 
-      <section className="analytics-chart-reading border-t border-[color:var(--border)] px-4 py-5 sm:px-6">
-        <article className="rounded-2xl bg-[color:var(--surface-subtle)] px-4 py-4 sm:flex sm:items-center sm:justify-between sm:gap-6">
+      <section className="analytics-chart-reading border-t border-[color:var(--border)] px-4 py-4">
+        <article className="rounded-xl bg-[color:var(--surface-subtle)] px-3 py-3 sm:flex sm:items-center sm:justify-between sm:gap-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
               Lectura rápida
             </p>
-            <p className="mt-1 text-base font-semibold text-[color:var(--text)]">
+            <p className="mt-0.5 text-sm font-semibold text-[color:var(--text)]">
               {chartReading.conclusion.title}
             </p>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[color:var(--text-muted)]">
+            <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-[color:var(--text-muted)]">
               {chartReading.conclusion.summary}
             </p>
           </div>
@@ -294,7 +294,7 @@ const ExerciseAnalytics = ({
             {chartReading.currentDetail}
           </p>
         </article>
-        <dl className="mt-5 grid grid-cols-3 gap-3">
+        <dl className="mt-3 grid grid-cols-3 gap-3">
           <div>
             <dt>Ahora</dt>
             <dd>{chartReading.current}</dd>

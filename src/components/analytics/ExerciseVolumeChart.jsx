@@ -70,7 +70,7 @@ const ExerciseVolumeChart = ({
   const labelByKey = new Map(points.map((point) => [point.key, point.label]));
 
   return (
-    <div className="h-64 sm:h-72">
+    <div className="h-56 sm:h-60">
       {observedPoints.length ? (
         <ResponsiveBar
           data={bars}

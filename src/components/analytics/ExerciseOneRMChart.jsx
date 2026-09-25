@@ -93,7 +93,7 @@ const ExerciseOneRMChart = ({
 
   return (
     <div className="space-y-3">
-      <div className="h-64 sm:h-72">
+      <div className="h-56 sm:h-60">
         {observedPoints.length === 1 ? (
           <ChartSampleState
             value={`${observedPoints[0].strength.toFixed(1)} kg`}

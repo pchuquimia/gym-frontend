@@ -31,8 +31,6 @@ const readAnalyticsView = () => {
   }
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const slugify = (text = "") =>
   text
     .normalize("NFD")
@@ -85,23 +83,23 @@ const flattenSets = (sets = [], weightConfig = {}) =>
 
 function MetricCard({ icon: Icon, label, value, detail, accent = false }) {
   return (
-    <article className="exercise-insight-card rounded-[22px] bg-[color:var(--card)] p-4 sm:p-5">
+    <article className="exercise-insight-card rounded-2xl bg-[color:var(--card)] p-3 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
           {label}
         </p>
         {Icon ? (
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-            <Icon className="h-4 w-4" strokeWidth={2} />
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+            <Icon className="h-3.5 w-3.5" strokeWidth={2} />
           </span>
         ) : null}
       </div>
       <p
-        className={`mt-5 text-[30px] font-semibold leading-none tracking-[-0.045em] tabular-nums sm:text-[34px] ${accent ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
+        className={`mt-3 text-[24px] font-semibold leading-none tracking-[-0.04em] tabular-nums sm:text-[28px] ${accent ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
       >
         {value}
       </p>
-      <div className="mt-3 border-t border-[color:var(--detail-row-divider)] pt-3 text-xs text-[color:var(--text-muted)]">
+      <div className="mt-2 border-t border-[color:var(--detail-row-divider)] pt-2 text-[11px] leading-tight text-[color:var(--text-muted)] sm:text-xs">
         {detail}
       </div>
     </article>
@@ -113,7 +111,6 @@ export default function ExerciseAnalyticsPage({
   onNavigate = null,
   onMobileNavVisibilityChange = () => {},
 }) {
-  const [pageOpenedAt] = useState(() => Date.now());
   const [initialView] = useState(readAnalyticsView);
   const {
     sessions = [],
@@ -420,12 +417,6 @@ export default function ExerciseAnalyticsPage({
   const selectedImage = selectedExercise
     ? getExerciseImageUrl(selectedExercise, { width: 240, height: 240 })
     : "";
-  const daysSinceLast = stats.latestDate
-    ? Math.max(
-        0,
-        Math.floor((pageOpenedAt - toTimestamp(stats.latestDate)) / DAY_MS),
-      )
-    : null;
   const handleReturn = () => {
     if (onBack) {
       onBack("dashboard");
@@ -434,36 +425,27 @@ export default function ExerciseAnalyticsPage({
     onNavigate?.("dashboard");
   };
   return (
-    <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-5 pb-8 text-[color:var(--text)] md:max-w-5xl md:space-y-7 md:pb-24 xl:max-w-6xl 2xl:max-w-[1280px]">
+    <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-4 pb-8 text-[color:var(--text)] md:max-w-5xl md:pb-20 xl:max-w-6xl 2xl:max-w-[1280px]">
       <MobilePageHeader
         title="Analítica"
         variant="detail"
         onBack={handleReturn}
       />
-      <header className="exercise-analytics-page__header hidden items-end justify-between gap-8 md:flex">
-        <div className="flex items-start gap-4">
+      <header className="exercise-analytics-page__header hidden items-center justify-between gap-6 md:flex">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleReturn}
             aria-label="Volver a la página anterior"
-            className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={2.1} />
           </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-              Progreso por movimiento
-            </p>
-            <h1 className="mt-2 max-w-2xl text-[42px] font-semibold leading-[0.98] tracking-[-0.045em]">
-              Mira lo que está cambiando
-            </h1>
-            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[color:var(--text-muted)]">
-              Elige un ejercicio o grupo muscular y revisa su evolución de un
-              vistazo.
-            </p>
-          </div>
+          <h1 className="text-[30px] font-semibold leading-none tracking-[-0.04em]">
+            Analítica por ejercicio
+          </h1>
         </div>
-        <div className="hidden w-[320px] grid-cols-2 rounded-full bg-[color:var(--segmented-surface)] p-1 lg:grid">
+        <div className="hidden w-[300px] grid-cols-2 rounded-full bg-[color:var(--segmented-surface)] p-1 lg:grid">
           <button
             type="button"
             onClick={() => setAnalyticsScope("exercise")}
@@ -524,17 +506,12 @@ export default function ExerciseAnalyticsPage({
         </button>
       </div>
 
-      <section className="exercise-analytics-controls rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+      <section className="exercise-analytics-controls rounded-[22px] bg-[color:var(--card)] p-3 sm:p-4">
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold tracking-[-0.025em]">
             {analyticsScope === "exercise"
-              ? "Elige un movimiento"
-              : "Elige una zona"}
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-            {analyticsScope === "exercise"
-              ? "¿Qué quieres revisar?"
-              : `Progreso de ${effectiveMuscle || "tu grupo muscular"}`}
+              ? "Selecciona un ejercicio"
+              : `Selecciona el grupo muscular`}
           </h2>
         </div>
 
@@ -559,13 +536,13 @@ export default function ExerciseAnalyticsPage({
                   setShowAllSessions(false);
                   setVisibleHistorySessions(10);
                 }}
-                className="theme-accent-focus h-[58px] w-full appearance-none rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 pr-11 text-[15px] font-semibold outline-none"
+                className="theme-accent-focus h-12 w-full appearance-none rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 pr-10 text-sm font-semibold outline-none"
               >
                 {muscleOptions.map((muscle) => (
                   <option key={muscle}>{muscle}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
             </span>
           </label>
 
@@ -578,18 +555,18 @@ export default function ExerciseAnalyticsPage({
                 type="button"
                 onClick={() => setPickerOpen((value) => !value)}
                 aria-expanded={pickerOpen}
-                className="flex min-h-[58px] w-full items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-2.5 text-left transition-colors hover:border-[color:var(--border-strong)]"
+                className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-2.5 text-left transition-colors hover:border-[color:var(--border-strong)]"
               >
                 <ExerciseThumbnail
                   src={selectedImage}
                   alt={exerciseName}
-                  className="exercise-analytics-thumb h-11 w-11 rounded-xl"
+                  className="exercise-analytics-thumb h-9 w-9 rounded-lg"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-1 block text-[15px] font-semibold leading-tight tracking-[-0.015em]">
                     {exerciseName}
                   </span>
-                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                  <span className="mt-0.5 block text-[11px] text-[color:var(--text-muted)]">
                     {stats.sessions}{" "}
                     {stats.sessions === 1 ? "sesión" : "sesiones"}
                   </span>
@@ -610,7 +587,7 @@ export default function ExerciseAnalyticsPage({
                       className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm outline-none transition-colors focus:border-[color:var(--border-strong)]"
                     />
                   </label>
-                  <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
+                  <div className="mt-2 max-h-60 space-y-1 overflow-y-auto">
                     {filteredPickerExercises.map((exercise) => {
                       const completeExerciseSessions =
                         exerciseSessionCountById.get(String(exercise.id)) || 0;
@@ -668,7 +645,7 @@ export default function ExerciseAnalyticsPage({
 
       {analyticsScope === "exercise" ? (
         <>
-          <section className="analytics-summary-grid grid grid-cols-2 gap-3 md:grid-cols-3">
+          <section className="analytics-summary-grid grid grid-cols-3 gap-2">
             <MetricCard
               icon={Sparkles}
               label={usesRepetitions ? "Trabajo actual" : "Nivel actual"}
@@ -728,14 +705,6 @@ export default function ExerciseAnalyticsPage({
             />
           </section>
 
-          <p className="-mt-2 text-center text-xs text-[color:var(--text-muted)] md:text-left">
-            {daysSinceLast === null
-              ? "Todavía no hay actividad registrada."
-              : daysSinceLast
-                ? `Última sesión hace ${daysSinceLast} días.`
-                : "Entrenado hoy."}
-          </p>
-
           <ExerciseAnalytics
             exerciseId={effectiveExerciseId}
             workouts={analyticsWorkouts}
@@ -764,9 +733,9 @@ export default function ExerciseAnalyticsPage({
           </div>
 
           {exerciseView === "progress" ? (
-            <section className="rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
+            <section className="rounded-[22px] bg-[color:var(--card)] p-3 sm:p-4">
               <div className="mb-2 flex items-end justify-between gap-3">
-                <h2 className="text-xl font-medium tracking-[-0.025em]">
+                <h2 className="text-lg font-semibold tracking-[-0.025em]">
                   Sesiones
                 </h2>
                 <p className="text-xs text-[color:var(--text-muted)]">
@@ -790,7 +759,7 @@ export default function ExerciseAnalyticsPage({
                     .map((item) => (
                       <div
                         key={item.sessionKey}
-                        className="grid min-h-[64px] grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-3"
+                        className="grid min-h-[52px] grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
                       >
                         <p className="text-xs font-black">
                           {formatDate(item.date)}
@@ -828,9 +797,9 @@ export default function ExerciseAnalyticsPage({
               ) : null}
             </section>
           ) : (
-            <section className="rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
+            <section className="rounded-[22px] bg-[color:var(--card)] p-3 sm:p-4">
               <div className="mb-3 flex items-end justify-between gap-3">
-                <h2 className="text-xl font-medium tracking-[-0.025em]">
+                <h2 className="text-lg font-semibold tracking-[-0.025em]">
                   Series por sesión
                 </h2>
                 <p className="text-xs text-[color:var(--text-muted)]">
