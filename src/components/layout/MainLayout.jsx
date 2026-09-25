@@ -238,16 +238,16 @@ function MainLayout({
         className={
           useOnboardingChrome
             ? "flex flex-1"
-            : "grid flex-1 grid-cols-[280px_1fr] max-lg:grid-cols-1"
+            : "desktop-app-grid grid flex-1 grid-cols-[272px_minmax(0,1fr)] max-lg:grid-cols-1"
         }
       >
         {!useOnboardingChrome ? (
-          <div className="hidden lg:block">
+          <div className="desktop-sidebar-slot hidden min-w-0 lg:block">
             <Sidebar activePage={activePage} onNavigate={handleNavigate} />
           </div>
         ) : null}
         <div
-          className={`mobile-app-content w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-8 lg:py-8 ${mobileContentSpacing}`}
+          className={`mobile-app-content desktop-page-content min-w-0 w-full px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-4 lg:px-8 lg:py-8 ${mobileContentSpacing}`}
         >
           <div
             className={`items-center justify-between mb-4 gap-3 ${
@@ -302,7 +302,7 @@ function MainLayout({
               </button>
             </div>
           ) : null}
-          <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+          <main className="desktop-page-stage mx-auto flex w-full max-w-[1440px] flex-col gap-6">
             {children}
           </main>
         </div>

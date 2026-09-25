@@ -327,101 +327,104 @@ function Sidebar({
     );
   }
 
+  const desktopHome = isCoach ? "trainer" : "dashboard";
+
   return (
-    <aside className="hidden h-dvh w-[280px] flex-col gap-4 border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 lg:flex">
-      <div className="flex items-center gap-2">
+    <aside className="desktop-sidebar hidden h-dvh w-[272px] flex-col lg:flex">
+      <button
+        type="button"
+        className="desktop-sidebar__brand"
+        onClick={() => onNavigate?.(desktopHome)}
+        aria-label="Ir al inicio"
+      >
+        <span className="desktop-sidebar__mark" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="min-w-0 text-left">
+          <strong>RIRFIT</strong>
+          <small>Training workspace</small>
+        </span>
+      </button>
+
+      <nav className="desktop-sidebar__nav premium-drawer-nav">
+        {visibleSections.map((section) => {
+          const items = section.items.filter((item) =>
+            canSeeItem(item, user?.role),
+          );
+          if (!items.length) return null;
+          return (
+            <section key={section.heading} className="desktop-sidebar__section">
+              <p className="desktop-sidebar__section-title">
+                {section.heading}
+              </p>
+              <div className="desktop-sidebar__items">
+                {items.map((item) => {
+                  const isActive = activePage === item.id;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onNavigate?.(item.id)}
+                      aria-current={isActive ? "page" : undefined}
+                      data-active={isActive ? "true" : undefined}
+                      className="desktop-sidebar__item"
+                    >
+                      <span className="desktop-sidebar__item-icon">
+                        <Icon
+                          className="h-[18px] w-[18px]"
+                          strokeWidth={isActive ? 2.1 : 1.8}
+                          aria-hidden="true"
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </nav>
+
+      <div className="desktop-sidebar__footer">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control px-2.5 py-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
+          className="desktop-sidebar__profile"
           onClick={() => onNavigate?.("perfil")}
         >
           <ProfileAvatar
             photoId={avatarPhotoId}
             name={user?.name}
-            className="h-9 w-9 shrink-0 rounded-full"
+            className="h-10 w-10 shrink-0 rounded-full"
             fallbackClassName="bg-[color:var(--accent)] font-bold text-[color:var(--accent-contrast)]"
           />
-          <div className="min-w-0 flex flex-col">
-            <p className="truncate text-[13px] font-semibold text-[color:var(--text)]">
+          <span className="min-w-0 flex-1 text-left">
+            <strong className="block truncate">
               {user?.name || "Usuario"}
-            </p>
-            <span className="text-[11px] text-[color:var(--text-muted)]">
-              {user?.role || "Cliente"}
-            </span>
-          </div>
+            </strong>
+            <small className="block truncate">{mobileRoleLabel}</small>
+          </span>
         </button>
-        <ThemeToggle />
+        <div className="desktop-sidebar__actions">
+          <ThemeToggle />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="desktop-sidebar__logout"
+            onClick={handleLogout}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+          >
+            <LogOut className="h-[18px] w-[18px]" />
+          </Button>
+        </div>
       </div>
-
-      <div className="h-[calc(100dvh-170px-env(safe-area-inset-bottom))] overflow-y-auto pr-1 overscroll-contain">
-        <nav className="flex flex-col gap-3">
-          {visibleSections.map((section, idx) => {
-            const items = section.items.filter((item) =>
-              canSeeItem(item, user?.role),
-            );
-            if (!items.length) return null;
-            return (
-              <div key={section.heading} className="flex flex-col gap-1.5">
-                <p className="mt-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
-                  {section.heading}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {items.map((item) => {
-                    const isActive = activePage === item.id;
-                    const Icon = item.icon;
-                    return (
-                      <Button
-                        key={item.id}
-                        type="button"
-                        variant="ghost"
-                        onClick={() => onNavigate?.(item.id)}
-                        aria-current={isActive ? "page" : undefined}
-                        className={`relative flex min-h-9 items-center gap-2.5 rounded-control border px-2.5 py-1.5 font-sans text-[13px] transition-colors duration-150 ${
-                          isActive
-                            ? "border-[color:var(--accent)] bg-[color:var(--accent)] font-semibold !text-[color:var(--accent-contrast)] shadow-soft"
-                            : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                        }`}
-                      >
-                        {isActive && (
-                          <span
-                            className="absolute left-1 h-4 w-1 rounded-full bg-[color:var(--accent-contrast)]"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <Icon
-                          className={`h-[18px] w-[18px] shrink-0 ${
-                            isActive
-                              ? "!text-[color:var(--accent-contrast)]"
-                              : "text-[color:var(--text-muted)]"
-                          }`}
-                          strokeWidth={2}
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 truncate text-[13px]">
-                          {item.label}
-                        </span>
-                      </Button>
-                    );
-                  })}
-                </div>
-                {idx < visibleSections.length - 1 && (
-                  <div className="my-1.5 h-px bg-[color:var(--border)]/60" />
-                )}
-              </div>
-            );
-          })}
-        </nav>
-      </div>
-
-      <Button
-        type="button"
-        variant="destructiveOutline"
-        className="mt-auto justify-start gap-2"
-        onClick={handleLogout}
-      >
-        <LogOut className="h-4 w-4" />
-        <span>Cerrar sesion</span>
-      </Button>
     </aside>
   );
 }

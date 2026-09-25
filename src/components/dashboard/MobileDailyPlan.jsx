@@ -518,10 +518,7 @@ export default function MobileDailyPlan({
   };
 
   return (
-    <section
-      className="mobile-daily-plan md:hidden"
-      aria-label="Tu plan del día"
-    >
+    <section className="mobile-daily-plan" aria-label="Tu plan del día">
       <DashboardHeader
         date={date}
         profile={profile}
@@ -574,84 +571,86 @@ export default function MobileDailyPlan({
         />
       ) : (
         <>
-          <section className="mobile-daily-plan__missions">
-            <div className="mobile-daily-plan__section-heading">
-              <h2>Misión de hoy</h2>
-              <span>
-                {completedCount} de {taskCount}
-              </span>
-            </div>
-            <div
-              className="mobile-daily-plan__progress"
-              role="progressbar"
-              aria-label="Progreso de la misión de hoy"
-              aria-valuemin="0"
-              aria-valuemax={taskCount}
-              aria-valuenow={completedCount}
-            >
-              <motion.span
-                initial={false}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.32 }}
-              />
-            </div>
-            <div className="mobile-daily-plan__mission-list">
-              <WorkoutMission
-                task={workoutTask}
-                onOpen={onOpenWorkout}
-                readOnly={readOnly}
-              />
-              <CheckInMission
-                task={checkInTask}
-                onOpen={onOpenCheckIn}
-                readOnly={readOnly}
-              />
-              {requiredTracking.map((task) => (
-                <TrackingMission
-                  key={task.id || task.type}
-                  task={task}
-                  onOpen={openTracking}
+          <div className="mobile-daily-plan__workspace">
+            <section className="mobile-daily-plan__missions">
+              <div className="mobile-daily-plan__section-heading">
+                <h2>Misión de hoy</h2>
+                <span>
+                  {completedCount} de {taskCount}
+                </span>
+              </div>
+              <div
+                className="mobile-daily-plan__progress"
+                role="progressbar"
+                aria-label="Progreso de la misión de hoy"
+                aria-valuemin="0"
+                aria-valuemax={taskCount}
+                aria-valuenow={completedCount}
+              >
+                <motion.span
+                  initial={false}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.32 }}
+                />
+              </div>
+              <div className="mobile-daily-plan__mission-list">
+                <WorkoutMission
+                  task={workoutTask}
+                  onOpen={onOpenWorkout}
                   readOnly={readOnly}
                 />
-              ))}
-            </div>
-          </section>
-          <WeeklyMuscleChart
-            summary={weeklyMuscleSummary}
-            onOpenDetails={onOpenMuscleDetails}
-          />
-          {quickRegistrations.length ? (
-            <section
-              className="mobile-daily-plan__quick-registrations"
-              aria-labelledby="mobile-daily-plan-progress-title"
-            >
-              <div className="mobile-daily-plan__quick-heading">
-                <span className="mobile-daily-plan__quick-heading-icon">
-                  <ChartNoAxesColumnIncreasing aria-hidden="true" />
-                </span>
-                <div className="mobile-daily-plan__quick-heading-copy">
-                  <h2 id="mobile-daily-plan-progress-title">
-                    Registrar progreso
-                  </h2>
-                  <p>Opcional · {quickRegistrationSummary}</p>
-                </div>
-              </div>
-              <div className="mobile-daily-plan__quick-grid">
-                {quickRegistrations.map((task) => (
-                  <QuickRegistration
+                <CheckInMission
+                  task={checkInTask}
+                  onOpen={onOpenCheckIn}
+                  readOnly={readOnly}
+                />
+                {requiredTracking.map((task) => (
+                  <TrackingMission
                     key={task.id || task.type}
                     task={task}
+                    onOpen={openTracking}
                     readOnly={readOnly}
-                    onOpen={() =>
-                      task.type === "hydration"
-                        ? onOpenHydration?.()
-                        : openTracking(task.type)
-                    }
                   />
                 ))}
               </div>
             </section>
-          ) : null}
+            <WeeklyMuscleChart
+              summary={weeklyMuscleSummary}
+              onOpenDetails={onOpenMuscleDetails}
+            />
+            {quickRegistrations.length ? (
+              <section
+                className="mobile-daily-plan__quick-registrations"
+                aria-labelledby="mobile-daily-plan-progress-title"
+              >
+                <div className="mobile-daily-plan__quick-heading">
+                  <span className="mobile-daily-plan__quick-heading-icon">
+                    <ChartNoAxesColumnIncreasing aria-hidden="true" />
+                  </span>
+                  <div className="mobile-daily-plan__quick-heading-copy">
+                    <h2 id="mobile-daily-plan-progress-title">
+                      Registrar progreso
+                    </h2>
+                    <p>Opcional · {quickRegistrationSummary}</p>
+                  </div>
+                </div>
+                <div className="mobile-daily-plan__quick-grid">
+                  {quickRegistrations.map((task) => (
+                    <QuickRegistration
+                      key={task.id || task.type}
+                      task={task}
+                      readOnly={readOnly}
+                      onOpen={() =>
+                        task.type === "hydration"
+                          ? onOpenHydration?.()
+                          : openTracking(task.type)
+                      }
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
         </>
       )}
     </section>

@@ -59,7 +59,7 @@ export default function ProgressFilters({
             aria-pressed={p === period}
             onClick={() => onPeriod(p)}
           >
-            {p}
+            {p === "ALL" ? "Todo" : p}
           </button>
         ))}
       </div>
@@ -98,7 +98,7 @@ export default function ProgressFilters({
       >
         <div className="progress-dialog-body">
           <header>
-            <h2 id="progress-filter-title">Ajusta tu análisis</h2>
+            <h2 id="progress-filter-title">Elige qué quieres ver</h2>
             <button
               aria-label="Cerrar filtros"
               onClick={() => dialog.current?.close()}
@@ -106,10 +106,6 @@ export default function ProgressFilters({
               <X size={20} />
             </button>
           </header>
-          <p className="progress-note">
-            Los filtros se aplican a las sesiones y a sus ejercicios. El tiempo
-            corresponde a la sesión completa.
-          </p>
           <label>
             Desde
             <input

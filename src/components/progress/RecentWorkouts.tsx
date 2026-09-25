@@ -14,48 +14,53 @@ export default function RecentWorkouts({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<SessionRow | null>(null);
+  const recent = sessions
+    .slice(-6)
+    .reverse()
+    .map((session) => ({
+      session,
+      summary: totals([session], session.date, session.date),
+    }));
+  const maximumSets = Math.max(1, ...recent.map(({ summary }) => summary.sets));
   return (
     <section
       className="progress-section"
       aria-labelledby="recent-workouts-title"
     >
-      <p className="progress-kicker">DEL ANÁLISIS AL REGISTRO</p>
-      <h2 id="recent-workouts-title">Últimos entrenamientos</h2>
+      <p className="progress-kicker">SESIONES RECIENTES</p>
+      <h2 id="recent-workouts-title">Tus últimos entrenamientos</h2>
       {!sessions.length && (
         <p className="progress-empty">
           No hay sesiones que coincidan con los filtros.
         </p>
       )}
       <div className="progress-workout-list">
-        {sessions
-          .slice(-6)
-          .reverse()
-          .map((s) => {
-            const t = totals([s], s.date, s.date);
-            return (
-              <button
-                key={s._id}
-                onClick={() => {
-                  setSelected(s);
-                  dialog.current?.showModal();
-                }}
-              >
-                <span>
-                  <strong>{s.routineName || "Entrenamiento"}</strong>
-                  <small>{dateLabel(s.date)}</small>
+        {recent.map(({ session: s, summary: t }) => {
+          return (
+            <button
+              key={s._id}
+              onClick={() => {
+                setSelected(s);
+                dialog.current?.showModal();
+              }}
+            >
+              <span>
+                <strong>{s.routineName || "Entrenamiento"}</strong>
+                <small>{dateLabel(s.date)}</small>
+              </span>
+              <span>
+                <span className="progress-workout-bar" aria-hidden="true">
+                  <i style={{ width: `${(t.sets / maximumSets) * 100}%` }} />
                 </span>
-                <span>
-                  {t.sets} series · {number(t.volume)} kg externos
-                  <small>
-                    {t.timed
-                      ? `${number(t.minutes)} min · sesión completa`
-                      : "Tiempo sin registrar"}
-                  </small>
-                </span>
-                <ArrowUpRight size={18} aria-hidden="true" />
-              </button>
-            );
-          })}
+                <small>
+                  {t.sets} series
+                  {t.timed ? ` · ${number(t.minutes)} min` : ""}
+                </small>
+              </span>
+              <ArrowUpRight size={18} aria-hidden="true" />
+            </button>
+          );
+        })}
       </div>
       <dialog
         ref={dialog}

@@ -59,12 +59,12 @@ export default function ExerciseProgress({
   const label =
     metric === "performance"
       ? strength
-        ? "1RM estimado"
-        : "Mejor serie (reps)"
+        ? "Fuerza estimada"
+        : "Mejor serie"
       : {
-          weight: "Carga de la mejor serie",
-          volume: "Volumen externo",
-          sets: "Series completadas",
+          weight: "Peso de la mejor serie",
+          volume: "Trabajo acumulado",
+          sets: "Series",
           reps: "Repeticiones",
         }[metric];
   const values = rows.map(({ exercise: e }) =>
@@ -85,8 +85,8 @@ export default function ExerciseProgress({
     >
       <div className="progress-section-heading">
         <div>
-          <p className="progress-kicker">DE SESIÓN EN SESIÓN</p>
-          <h2 id="exercise-progress-title">Progreso por ejercicio</h2>
+          <p className="progress-kicker">FUERZA</p>
+          <h2 id="exercise-progress-title">Tu fuerza por ejercicio</h2>
         </div>
       </div>
       <div className="progress-exercise-controls">
@@ -110,21 +110,21 @@ export default function ExerciseProgress({
           </select>
         </label>
         <label>
-          Métrica
+          Mostrar
           <select
             value={metric}
             onChange={(e) => setMetric(e.target.value as typeof metric)}
           >
-            <option value="performance">Rendimiento comparable</option>
-            <option value="weight">Carga de la mejor serie</option>
-            <option value="volume">Volumen externo</option>
+            <option value="performance">Fuerza estimada</option>
+            <option value="weight">Peso de la mejor serie</option>
+            <option value="volume">Trabajo acumulado</option>
             <option value="sets">Series</option>
             <option value="reps">Repeticiones</option>
           </select>
         </label>
         {groups.size > 1 && (
           <label>
-            Historial compatible
+            Variante
             <select value={scopeKey} onChange={(e) => setScope(e.target.value)}>
               {[...groups].map(([key, values], i) => (
                 <option key={key} value={key}>
@@ -140,8 +140,8 @@ export default function ExerciseProgress({
         title={label}
         description={
           strength && metric === "performance"
-            ? "Estimación Epley de la mejor serie, no un máximo probado. Sólo se conectan registros del mismo historial y configuración."
-            : "Mismo ejercicio, historial y configuración. La asistencia sólo se compara al mismo nivel; más kg de asistencia no significan más fuerza."
+            ? "Evolución estimada a partir de tu mejor serie."
+            : "Cómo cambió tu mejor resultado en este ejercicio."
         }
         labels={rows.map((r) => dateLabel(r.date))}
         series={[{ name: label, values, token: "--success" }]}
@@ -160,14 +160,15 @@ export default function ExerciseProgress({
         )}
       />
       <p className="progress-note">
-        {rows.length} sesiones comparables
+        {rows.length}{" "}
+        {rows.length === 1 ? "sesión registrada" : "sesiones registradas"}
         {first?.metricType === "assistedRepetitions"
           ? ` · ${number(first.assistanceKg ?? 0)} kg de asistencia`
           : ""}
         .{" "}
         {rows.length < 2
-          ? "Necesitas dos registros compatibles para observar una evolución."
-          : "Más trabajo no equivale por sí solo a más fuerza o masa muscular."}
+          ? "Registra otra sesión para ver el cambio."
+          : "La gráfica muestra tu evolución sesión a sesión."}
       </p>
     </section>
   );

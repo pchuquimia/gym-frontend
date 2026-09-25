@@ -84,7 +84,7 @@ export default function AppChart({
             axisLabel: {
               color: muted,
               fontFamily,
-              fontSize: 11,
+              fontSize: 12,
               hideOverlap: true,
               width: horizontal ? 110 : 80,
               overflow: "truncate" as const,
@@ -97,7 +97,7 @@ export default function AppChart({
             axisLabel: {
               color: muted,
               fontFamily,
-              fontSize: 11,
+              fontSize: 12,
               formatter: (v: number) => number(v, 0),
             },
             splitLine: {
@@ -129,7 +129,7 @@ export default function AppChart({
                 series.map((s) => [s.name, !hiddenSeries.includes(s.name)]),
               ),
               top: 0,
-              textStyle: { color: text, fontFamily, fontSize: 12 },
+              textStyle: { color: text, fontFamily, fontSize: 13 },
               icon: "roundRect",
             },
             tooltip: {
@@ -139,7 +139,7 @@ export default function AppChart({
               backgroundColor: token("--surface-raised"),
               borderColor: border,
               borderWidth: 1,
-              textStyle: { color: text, fontFamily, fontSize: 12 },
+              textStyle: { color: text, fontFamily, fontSize: 13 },
               formatter: (params) => {
                 const points = Array.isArray(params) ? params : [params];
                 return [
@@ -306,51 +306,6 @@ export default function AppChart({
               aria-label={title}
             />
           </div>
-          <details className="progress-data">
-            <summary>Ver datos de {title.toLowerCase()}</summary>
-            <div className="progress-table-scroll">
-              <table>
-                <caption className="sr-only">{title}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Período / categoría</th>
-                    {series.map((s) => (
-                      <th scope="col" key={s.name}>
-                        {s.name} ({unit})
-                      </th>
-                    ))}
-                    {context && <th scope="col">Contexto</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {labels.map((label, i) => (
-                    <tr key={`${label}-${i}`}>
-                      <th scope="row">
-                        {onSelect ? (
-                          <button
-                            onClick={() => onSelect(i)}
-                            aria-label={`Filtrar por ${label}`}
-                          >
-                            {label}
-                          </button>
-                        ) : (
-                          label
-                        )}
-                      </th>
-                      {series.map((s) => (
-                        <td key={s.name}>
-                          {s.values[i] == null
-                            ? "Sin registro"
-                            : number(s.values[i]!)}
-                        </td>
-                      ))}
-                      {context && <td>{context[i]}</td>}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
         </>
       )}
     </figure>

@@ -53,8 +53,8 @@ export default function ActivityHeatmap({
     >
       <div className="progress-section-heading">
         <div>
-          <p className="progress-kicker">CONSTANCIA VISIBLE</p>
-          <h2 id="progress-calendar-title">Tu ritmo de entrenamiento</h2>
+          <p className="progress-kicker">CALENDARIO</p>
+          <h2 id="progress-calendar-title">Tus días de entrenamiento</h2>
         </div>
         <div className="progress-calendar-nav">
           <button
@@ -81,8 +81,7 @@ export default function ActivityHeatmap({
         </div>
       </div>
       <p className="progress-note">
-        La intensidad representa series completadas. Un día sin registro no
-        confirma descanso. Selecciona un día para analizarlo.
+        Cuanto más intenso el color, más series realizaste ese día.
       </p>
       <div className="progress-calendar-grid">
         {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
@@ -124,7 +123,7 @@ export default function ActivityHeatmap({
             sessions.filter((s) => s.date.startsWith(month)).map((s) => s.date),
           ).size
         }{" "}
-        días activos este mes dentro de los filtros.
+        días con entrenamiento este mes.
       </p>
     </section>
   );

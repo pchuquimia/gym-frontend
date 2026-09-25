@@ -1,7 +1,7 @@
 export function Card({ className = "", children, ...props }) {
   return (
     <div
-      className={`rounded-card border border-[color:var(--border)] bg-[color:var(--surface)] shadow-soft ${className}`}
+      className={`ui-card rounded-card border border-[color:var(--border)] bg-[color:var(--surface)] shadow-soft ${className}`}
       {...props}
     >
       {children}
@@ -11,7 +11,10 @@ export function Card({ className = "", children, ...props }) {
 
 export function CardHeader({ className = "", children, ...props }) {
   return (
-    <div className={`flex items-start justify-between gap-4 p-5 ${className}`} {...props}>
+    <div
+      className={`ui-card__header flex items-start justify-between gap-4 p-5 ${className}`}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -19,7 +22,7 @@ export function CardHeader({ className = "", children, ...props }) {
 
 export function CardContent({ className = "", children, ...props }) {
   return (
-    <div className={`p-5 pt-0 ${className}`} {...props}>
+    <div className={`ui-card__content p-5 pt-0 ${className}`} {...props}>
       {children}
     </div>
   );
@@ -27,7 +30,10 @@ export function CardContent({ className = "", children, ...props }) {
 
 export function CardFooter({ className = "", children, ...props }) {
   return (
-    <div className={`flex items-center gap-3 border-t border-[color:var(--border)] p-5 ${className}`} {...props}>
+    <div
+      className={`ui-card__footer flex items-center gap-3 border-t border-[color:var(--border)] p-5 ${className}`}
+      {...props}
+    >
       {children}
     </div>
   );

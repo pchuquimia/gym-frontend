@@ -5,13 +5,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: [
-          '"Inter Tight"',
-          "Inter",
-          '"Helvetica Neue"',
-          "system-ui",
-          "sans-serif",
-        ],
+        sans: ["Inter", '"Helvetica Neue"', "system-ui", "sans-serif"],
+        display: ['"Space Grotesk"', "Inter", "system-ui", "sans-serif"],
         condensed: [
           '"Barlow Condensed"',
           '"Arial Narrow"',

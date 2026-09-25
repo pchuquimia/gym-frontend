@@ -10,130 +10,40 @@ function TopBar({
   rightSlot,
   variant = "default",
 }) {
-  if (variant === "dashboard") {
-    return (
-      <header className="space-y-4">
-        {/* Row superior */}
-
-        {/* Hero card */}
-        <div
-          className="
-            rounded-3xl
-            border border-[color:var(--border)]
-            bg-[color:var(--card)]
-            shadow-sm
-            px-5 py-5
-          "
-        >
-          {subtitle ? (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
-              {subtitle}
-            </p>
-          ) : null}
-
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-[color:var(--text)]">
-            {title}
-          </h1>
-
-          {meta ? (
-            <div className="mt-2">
-              <span
-                className="
-                  inline-flex items-center rounded-full
-                  border border-[color:var(--border)]
-                  bg-[color:var(--bg)]
-                  px-3 py-1 text-xs font-medium
-                  text-[color:var(--text-muted)]
-                "
-              >
-                {meta}
-              </span>
-            </div>
-          ) : null}
-
-          {ctaLabel ? (
-            <motion.button
-              type="button"
-              onClick={onCta}
-              whileTap={{ scale: 0.99 }}
-              className="
-                mt-4 inline-flex w-full items-center justify-center gap-2
-                rounded-2xl
-                bg-[#181918] px-4 py-3
-                text-sm font-semibold text-white
-                shadow-sm
-                hover:bg-[#2b2d2a]
-                focus:outline-none focus:ring-2 focus:ring-[#181918]/25
-                dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
-              "
-            >
-              <Plus className="h-4 w-4" />
-              {ctaLabel}
-            </motion.button>
-          ) : null}
-        </div>
-      </header>
-    );
-  }
-
-  // ---- tu versión actual default (sin cambios) ----
   return (
-    <header className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">{/* leftSlot si lo necesitas */}</div>
-        {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
-      </div>
-
-      <div
-        className="
-          rounded-2xl border border-slate-200/70
-          bg-white/80 backdrop-blur
-          shadow-sm
-          px-4 py-4
-          dark:bg-slate-900/50 dark:border-slate-700/60
-        "
-      >
-        <div className="flex items-start justify-between gap-3">
+    <header className={`topbar-shell topbar-shell--${variant}`}>
+      <div className="topbar-surface rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-4 shadow-sm">
+        <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
           <div className="min-w-0">
             {subtitle ? (
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="topbar-eyebrow text-[11px] font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
                 {subtitle}
               </p>
             ) : null}
-
-            <h1 className="mt-1 text-[30px] font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h1 className="topbar-title mt-1 text-3xl font-bold tracking-tight text-[color:var(--text)]">
               {title}
             </h1>
-
             {meta ? (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  {meta}
-                </span>
-              </div>
+              <span className="topbar-meta mt-2 inline-flex rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[color:var(--text-muted)]">
+                {meta}
+              </span>
             ) : null}
           </div>
 
-          {ctaLabel ? (
-            <motion.button
-              type="button"
-              onClick={onCta}
-              whileTap={{ scale: 0.98 }}
-              className="
-                hidden sm:inline-flex
-                items-center gap-2
-                rounded-xl
-                bg-[#181918] px-8 py-3
-                text-sm font-semibold text-white
-                shadow-sm
-                hover:bg-[#2b2d2a]
-                dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
-              "
-            >
-              <Plus className="h-4 w-4" />
-              {ctaLabel}
-            </motion.button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-3">
+            {rightSlot}
+            {ctaLabel ? (
+              <motion.button
+                type="button"
+                onClick={onCta}
+                whileTap={{ scale: 0.98 }}
+                className="topbar-action hidden items-center justify-center gap-2 rounded-xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-[color:var(--accent-contrast)] shadow-sm transition-colors hover:bg-[color:var(--accent-hover)] sm:inline-flex"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                {ctaLabel}
+              </motion.button>
+            ) : null}
+          </div>
         </div>
 
         {ctaLabel ? (
@@ -141,22 +51,9 @@ function TopBar({
             type="button"
             onClick={onCta}
             whileTap={{ scale: 0.99 }}
-            className="
-              mt-4 inline-flex w-full items-center justify-center gap-2
-              rounded-xl
-              bg-[#181918]
-              px-4 py-3
-              text-sm font-semibold text-slate-900
-              shadow-sm
-              hover:bg-[#2b2d2a]
-              dark:border-[#e2ff00] dark:bg-[#e2ff00] dark:text-black dark:hover:bg-[#cbe600]
-              sm:hidden
-              active:bg-[#101110]
-              transition
-              focus:outline-none focus:ring-2 focus:ring-[#181918]/40
-            "
+            className="topbar-action mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-[color:var(--accent-contrast)] shadow-sm transition-colors hover:bg-[color:var(--accent-hover)] sm:hidden"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             {ctaLabel}
           </motion.button>
         ) : null}

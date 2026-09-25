@@ -186,16 +186,6 @@ function formatLongDate(value) {
   });
 }
 
-function formatAdminPreviewDate(dateKey) {
-  if (!dateKey) return "Fecha no disponible";
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("es-BO", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function formatRecoveryDate(value) {
   const date = toValidDate(value) || new Date();
   const formatted = new Intl.DateTimeFormat("es-BO", {
@@ -1674,128 +1664,6 @@ function TodayActionCard({ action, onPrimary, onSecondary, readOnly = false }) {
   );
 }
 
-function AdminDateControl({ value, actualDateKey, onChange }) {
-  const containerRef = useRef(null);
-  const inputRef = useRef(null);
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const isPreview = value !== actualDateKey;
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (event) => {
-      if (!containerRef.current?.contains(event.target)) setOpen(false);
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  const applyDate = () => {
-    const selectedDate = inputRef.current?.value || draft;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) return;
-    onChange(selectedDate);
-    setOpen(false);
-  };
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => {
-          if (!open) setDraft(value);
-          setOpen((current) => !current);
-        }}
-        aria-label="Cambiar fecha del dashboard"
-        aria-expanded={open}
-        className={`relative grid h-10 w-10 place-items-center rounded-full border shadow-sm transition ${
-          isPreview
-            ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]"
-        }`}
-        title="Cambiar fecha del dashboard (solo Admin)"
-      >
-        <CalendarDays className="h-[18px] w-[18px]" />
-        {isPreview ? (
-          <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--bg)] bg-[color:var(--accent)]" />
-        ) : null}
-      </button>
-
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-end bg-black/35 p-4 backdrop-blur-[2px] sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Cambiar fecha de análisis"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setOpen(false);
-          }}
-        >
-          <div className="w-full max-w-xs rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[color:var(--accent-strong)]">
-                  Herramienta administrativa
-                </p>
-                <h2 className="mt-1 text-base font-black text-[color:var(--text)]">
-                  Cambiar fecha de análisis
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Cerrar selector de fecha"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="mt-1 text-[11px] font-semibold leading-relaxed text-[color:var(--text-muted)]">
-              Simula el dashboard sin modificar entrenamientos ni registros.
-            </p>
-            <label className="mt-4 block text-[10px] font-black uppercase tracking-wide text-[color:var(--text-muted)]">
-              Fecha
-              <input
-                ref={inputRef}
-                type="date"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-sm font-bold text-[color:var(--text)] outline-none focus:border-[color:var(--accent)]"
-              />
-            </label>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(actualDateKey);
-                  onChange(actualDateKey);
-                  setOpen(false);
-                }}
-                className="h-10 rounded-md border border-[color:var(--border)] bg-[color:var(--bg)] text-[10px] font-black uppercase text-[color:var(--text)]"
-              >
-                Volver a hoy
-              </button>
-              <button
-                type="button"
-                onClick={applyDate}
-                className="h-10 rounded-md bg-[color:var(--accent)] text-[10px] font-black uppercase text-[color:var(--accent-contrast)]"
-              >
-                Aplicar fecha
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function RecoveryMuscleSection({ muscles }) {
   const visibleMuscles = [...muscles]
     .sort((left, right) => left.value - right.value)
@@ -1915,9 +1783,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   } = useTrainingData();
   const { routines = [] } = useRoutines();
   const { theme } = useThemeMode();
-  const isAdmin = authUser?.role === "Admin";
   const systemTodayKey = useMemo(() => getISODateKey(new Date()), []);
-  const [dashboardDateKey, setDashboardDateKey] = useState(systemTodayKey);
   const [loadedActivePlan, setLoadedActivePlan] = useState(null);
   const activePlan = dashboardBootstrap.enabled
     ? dashboardBootstrap.data?.activePlan || null
@@ -2053,11 +1919,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   );
 
   const now = useMemo(
-    () => new Date(`${dashboardDateKey}T12:00:00`),
-    [dashboardDateKey],
+    () => new Date(`${systemTodayKey}T12:00:00`),
+    [systemTodayKey],
   );
-  const todayKey = dashboardDateKey;
-  const isAdminDatePreview = isAdmin && todayKey !== systemTodayKey;
+  const todayKey = systemTodayKey;
   const todayWeighInKey = ["weigh-ins", "today", "self", systemTodayKey];
   const todayWeighInQuery = useQuery({
     queryKey: todayWeighInKey,
@@ -2095,9 +1960,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     ? dashboardBootstrap.data?.todayHydration
     : todayHydrationQuery.data?.summary;
   const needsDailyWeighIn =
-    !isAdminDatePreview &&
-    todayWeighInData &&
-    !todayWeighInData.summary?.completedToday;
+    todayWeighInData && !todayWeighInData.summary?.completedToday;
 
   const saveQuickWeight = async (weightKg) => {
     const saved = await api.saveWeighIn({
@@ -3076,7 +2939,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   }, [isPostWorkout, postWorkoutNextRoutine, recovery.routineReadiness]);
 
   const todayAction = useMemo(() => {
-    if (activeTrainingSnapshot && !isAdminDatePreview) {
+    if (activeTrainingSnapshot) {
       const snapshotExercises = activeTrainingSnapshot.exercises || [];
       const plannedSets = snapshotExercises.reduce(
         (sum, exercise) => sum + (exercise.sets || []).length,
@@ -3217,7 +3080,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     activeTrainingSnapshot,
     catalogIndex,
     completedTodayTrainings.length,
-    isAdminDatePreview,
     latestCompletedToday,
     plannedRestNextRoutine,
     recovery,
@@ -3516,15 +3378,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         date={now}
         profile={profile}
         user={authUser}
-        adminControl={
-          isAdmin ? (
-            <AdminDateControl
-              value={todayKey}
-              actualDateKey={systemTodayKey}
-              onChange={setDashboardDateKey}
-            />
-          ) : null
-        }
         weekDays={weekData.days}
         journeyStage={managedAthleteStage}
         planningContext={dashboardBootstrap.data?.planning || null}
@@ -3545,7 +3398,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}
         weeklyMuscleSummary={weeklySets}
-        readOnly={isAdminDatePreview}
         onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
@@ -3587,7 +3439,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }}
         onOpenWeighIn={() => setQuickWeightOpen(true)}
       />
-      <header className="dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
+      <header className="dashboard-legacy-overview dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />
           <div className="min-w-0">
@@ -3602,13 +3454,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin ? (
-            <AdminDateControl
-              value={todayKey}
-              actualDateKey={systemTodayKey}
-              onChange={setDashboardDateKey}
-            />
-          ) : null}
           {needsDailyWeighIn ? (
             <button
               type="button"
@@ -3628,38 +3473,19 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       </header>
 
-      {isAdminDatePreview ? (
-        <div className="hidden flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--accent)] bg-[color:var(--accent)] px-3 py-2 text-[color:var(--accent-contrast)] md:flex">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <CalendarDays className="h-4 w-4 shrink-0 text-current" />
-            <p className="truncate text-[11px] font-bold">
-              Vista administrativa · {formatAdminPreviewDate(todayKey)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDashboardDateKey(systemTodayKey)}
-            className="shrink-0 text-[10px] font-black uppercase text-current"
-          >
-            Volver a hoy
-          </button>
-        </div>
-      ) : null}
-
-      <div className="dashboard-today-module hidden gap-4 md:grid">
+      <div className="dashboard-legacy-overview dashboard-today-module hidden gap-4 md:grid">
         <TodayActionCard
           action={todayAction}
           onPrimary={handleTodayPrimary}
           onSecondary={handleTodaySecondary}
-          readOnly={isAdminDatePreview}
         />
         <WeekStrip days={weekData.days} />
       </div>
-      <p className="dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d3ca] md:block">
+      <p className="dashboard-legacy-overview dashboard-pilot__section-label hidden text-xs font-black uppercase text-[color:var(--text-muted)] dark:text-[#d8d3ca] md:block">
         Recuperación actual
       </p>
 
-      <div className="hidden md:block">
+      <div className="dashboard-legacy-overview hidden md:block">
         <button
           type="button"
           onClick={() =>
@@ -3762,6 +3588,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
             </div>
           )}
         </button>
+      </div>
+
+      <div className="dashboard-analytics-heading hidden md:block">
+        <p>Tu progreso</p>
+        <h2>Actividad y tendencias</h2>
       </div>
 
       <MonthActivityChart
