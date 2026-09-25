@@ -2,10 +2,7 @@ import { useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { ResponsiveLine } from "@nivo/line";
 import { buildMuscleAnalytics } from "../../utils/exerciseAnalyticsData";
-import {
-  formatCompactWeekLabel,
-  toIsoWeek,
-} from "../../utils/trainingMetrics";
+import { formatCompactWeekLabel, toIsoWeek } from "../../utils/trainingMetrics";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
 import { nivoTheme } from "../../utils/nivoTheme";
 import { classifyExerciseLoad } from "../../utils/trainingLoad";
@@ -20,15 +17,7 @@ const conclusionStyles = {
   declining:
     "border-[#a04742]/30 bg-[#a04742]/[0.07] dark:border-[#f0aaa4]/25 dark:bg-[#f0aaa4]/[0.06]",
   stable: "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
-  insufficient:
-    "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
-};
-
-const confidenceStyles = {
-  high: "text-[#287554] dark:text-[#9de2bd]",
-  medium: "text-[color:var(--text)]",
-  low: "text-[#9a681c] dark:text-[#e7bc75]",
-  insufficient: "text-[color:var(--text-muted)]",
+  insufficient: "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
 };
 
 const formatDelta = (value, digits = 0) => {
@@ -119,30 +108,22 @@ const MuscleGroupAnalytics = ({
     ...analytics.contributions.map((item) => Math.abs(item.change)),
   );
   const comparisonText = analytics.comparableExercises
-    ? `${analytics.improved} mejorando · ${analytics.stable} estables · ${analytics.declined} bajando · cambio mediano desde el primer registro al último`
-    : "Registra el mismo ejercicio en dos semanas comparables.";
-  const methodParts = [
-    analytics.metricCounts.strength
-      ? `${analytics.metricCounts.strength} por fuerza`
-      : "",
-    analytics.metricCounts.repetitions
-      ? `${analytics.metricCounts.repetitions} por repeticiones`
-      : "",
-    analytics.metricCounts.assistedRepetitions
-      ? `${analytics.metricCounts.assistedRepetitions} asistidos comparables`
-      : "",
-  ].filter(Boolean);
+    ? `${analytics.improved} mejorando · ${analytics.stable} estables · ${analytics.declined} bajando`
+    : "Registra el mismo ejercicio en dos semanas para ver su tendencia.";
 
   return (
-    <section className="exercise-analytics-chart muscle-progress-card overflow-hidden rounded-3xl bg-[color:var(--card)]">
-      <div className="px-4 pb-2 pt-5 sm:px-5">
+    <section className="exercise-analytics-chart muscle-progress-card overflow-hidden rounded-[28px] bg-[color:var(--card)]">
+      <div className="px-4 pb-2 pt-5 sm:px-6 sm:pt-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Progreso de {muscle}
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+              Tendencia del grupo
             </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em] text-[color:var(--text)]">
+              {muscle}
+            </h2>
             <div className="mt-2 flex items-end gap-2">
-              <strong className="text-[38px] font-medium leading-none tracking-[-0.045em] text-[color:var(--text)]">
+              <strong className="text-[40px] font-semibold leading-none tracking-[-0.05em] text-[color:var(--text)]">
                 {formatDelta(analytics.delta)}
               </strong>
               <span
@@ -160,7 +141,7 @@ const MuscleGroupAnalytics = ({
             <select
               value={range}
               onChange={(event) => setRange(Number(event.target.value))}
-              className="h-10 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-medium outline-none"
+              className="h-10 rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-xs font-medium outline-none"
             >
               {ranges.map((item) => (
                 <option key={item} value={item}>
@@ -174,7 +155,7 @@ const MuscleGroupAnalytics = ({
 
       <article
         aria-label="Conclusión del progreso"
-        className={`mx-4 mt-2 rounded-2xl border px-4 py-3 sm:mx-5 ${
+        className={`mx-4 mt-4 rounded-2xl border px-4 py-4 sm:mx-6 ${
           conclusionStyles[analytics.conclusion.trend]
         }`}
       >
@@ -187,22 +168,9 @@ const MuscleGroupAnalytics = ({
               {analytics.conclusion.title}
             </h3>
           </div>
-          <span
-            className={`shrink-0 text-xs font-semibold ${
-              confidenceStyles[analytics.conclusion.confidence]
-            }`}
-          >
-            {analytics.conclusion.confidenceLabel}
-          </span>
         </div>
         <p className="mt-2 text-sm leading-snug text-[color:var(--text)]">
           {analytics.conclusion.summary}
-        </p>
-        <p className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-          Evidencia: {analytics.conclusion.evidence}.
-        </p>
-        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-          {analytics.conclusion.limitation}
         </p>
       </article>
 
@@ -303,32 +271,15 @@ const MuscleGroupAnalytics = ({
         )}
       </div>
 
-      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-4 sm:px-5">
+      <div className="border-t border-[color:var(--detail-row-divider)] px-4 py-5 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-[color:var(--text)]">
+            <p className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text)]">
               Qué está moviendo el resultado
             </p>
-            <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-              100 representa el primer registro comparable de cada ejercicio.
-              Cada punto usa solo mediciones de esa semana; no arrastra valores
-              anteriores. Los espacios son semanas sin registros.
+            <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+              Cada barra muestra cuánto cambió un ejercicio del grupo.
             </p>
-            {methodParts.length ? (
-              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {methodParts.join(" · ")}. La fuerza usa e1RM; el peso corporal,
-                la mejor serie por repeticiones.
-              </p>
-            ) : null}
-            {analytics.assistedPending ? (
-              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {analytics.assistedPending}{" "}
-                {analytics.assistedPending === 1
-                  ? "ejercicio asistido necesita"
-                  : "ejercicios asistidos necesitan"}{" "}
-                dos semanas con el mismo nivel de asistencia.
-              </p>
-            ) : null}
           </div>
           <span className="text-xs text-[color:var(--text-muted)]">
             {analytics.comparableExercises}{" "}

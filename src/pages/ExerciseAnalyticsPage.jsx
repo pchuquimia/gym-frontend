@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronDown,
+  Search,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
 import ExerciseAnalytics from "../components/analytics/ExerciseAnalytics";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import MuscleGroupAnalytics from "../components/analytics/MuscleGroupAnalytics";
@@ -76,21 +83,26 @@ const flattenSets = (sets = [], weightConfig = {}) =>
       );
   });
 
-function MetricCard({ label, value, detail, accent = false }) {
+function MetricCard({ icon: Icon, label, value, detail, accent = false }) {
   return (
-    <article className="dashboard-pilot__metric dashboard-weekly-metric w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-sm dark:rounded-[4px] dark:shadow-none">
-      <p className="dashboard-weekly-metric__label text-[color:var(--text-muted)]">
-        {label}
-      </p>
-      <div className="dashboard-weekly-metric__value-row flex items-end gap-1.5">
-        <span
-          className={`dashboard-weekly-metric__value ${accent ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
-        >
-          {value}
-        </span>
+    <article className="exercise-insight-card rounded-[22px] bg-[color:var(--card)] p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          {label}
+        </p>
+        {Icon ? (
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+            <Icon className="h-4 w-4" strokeWidth={2} />
+          </span>
+        ) : null}
       </div>
-      <div className="dashboard-weekly-metric__footer">
-        <span>{detail}</span>
+      <p
+        className={`mt-5 text-[30px] font-semibold leading-none tracking-[-0.045em] tabular-nums sm:text-[34px] ${accent ? "text-[#181918] dark:text-[#e2ff00]" : "text-[color:var(--text)]"}`}
+      >
+        {value}
+      </p>
+      <div className="mt-3 border-t border-[color:var(--detail-row-divider)] pt-3 text-xs text-[color:var(--text-muted)]">
+        {detail}
       </div>
     </article>
   );
@@ -422,38 +434,78 @@ export default function ExerciseAnalyticsPage({
     onNavigate?.("dashboard");
   };
   return (
-    <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-5 pb-8 text-[color:var(--text)] md:max-w-5xl md:pb-24 xl:max-w-6xl 2xl:max-w-[1280px]">
+    <main className="exercise-analytics-page analytics-shell mx-auto w-full max-w-md space-y-5 pb-8 text-[color:var(--text)] md:max-w-5xl md:space-y-7 md:pb-24 xl:max-w-6xl 2xl:max-w-[1280px]">
       <MobilePageHeader
         title="Analítica"
         variant="detail"
         onBack={handleReturn}
       />
-      <header className="exercise-analytics-page__header hidden items-center gap-3 md:flex">
-        <button
-          type="button"
-          onClick={handleReturn}
-          aria-label="Volver a la página anterior"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
-        >
-          <ArrowLeft className="h-6 w-6" strokeWidth={2.1} />
-        </button>
-        <h1 className="text-[36px] font-medium leading-none tracking-[-0.035em]">
-          Analítica
-        </h1>
+      <header className="exercise-analytics-page__header hidden items-end justify-between gap-8 md:flex">
+        <div className="flex items-start gap-4">
+          <button
+            type="button"
+            onClick={handleReturn}
+            aria-label="Volver a la página anterior"
+            className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+          >
+            <ArrowLeft className="h-5 w-5" strokeWidth={2.1} />
+          </button>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+              Progreso por movimiento
+            </p>
+            <h1 className="mt-2 max-w-2xl text-[42px] font-semibold leading-[0.98] tracking-[-0.045em]">
+              Mira lo que está cambiando
+            </h1>
+            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[color:var(--text-muted)]">
+              Elige un ejercicio o grupo muscular y revisa su evolución de un
+              vistazo.
+            </p>
+          </div>
+        </div>
+        <div className="hidden w-[320px] grid-cols-2 rounded-full bg-[color:var(--segmented-surface)] p-1 lg:grid">
+          <button
+            type="button"
+            onClick={() => setAnalyticsScope("exercise")}
+            aria-pressed={analyticsScope === "exercise"}
+            className={`h-10 rounded-full text-sm font-medium transition-all ${
+              analyticsScope === "exercise"
+                ? "theme-accent-solid shadow-sm"
+                : "text-[color:var(--text-muted)]"
+            }`}
+          >
+            Por ejercicio
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAnalyticsScope("muscle");
+              setPickerOpen(false);
+            }}
+            aria-pressed={analyticsScope === "muscle"}
+            className={`h-10 rounded-full text-sm font-medium transition-all ${
+              analyticsScope === "muscle"
+                ? "theme-accent-solid shadow-sm"
+                : "text-[color:var(--text-muted)]"
+            }`}
+          >
+            Por músculo
+          </button>
+        </div>
       </header>
 
-      <div className="grid grid-cols-2 rounded-xl bg-[color:var(--segmented-surface)] p-1">
+      <div className="grid grid-cols-2 rounded-full bg-[color:var(--segmented-surface)] p-1 lg:hidden">
         <button
           type="button"
           onClick={() => setAnalyticsScope("exercise")}
           aria-pressed={analyticsScope === "exercise"}
-          className={`h-10 rounded-lg text-sm font-medium transition-all ${
+          className={`h-10 rounded-full text-sm font-medium transition-all ${
             analyticsScope === "exercise"
               ? "theme-accent-solid shadow-sm"
               : "text-[color:var(--text-muted)]"
           }`}
         >
-          Ejercicio
+          Por ejercicio
         </button>
         <button
           type="button"
@@ -462,139 +514,164 @@ export default function ExerciseAnalyticsPage({
             setPickerOpen(false);
           }}
           aria-pressed={analyticsScope === "muscle"}
-          className={`h-10 rounded-lg text-sm font-medium transition-all ${
+          className={`h-10 rounded-full text-sm font-medium transition-all ${
             analyticsScope === "muscle"
               ? "theme-accent-solid shadow-sm"
               : "text-[color:var(--text-muted)]"
           }`}
         >
-          Grupo muscular
+          Por músculo
         </button>
       </div>
 
-      <section className="exercise-analytics-controls space-y-4">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-normal text-[color:var(--text-muted)]">
-            Grupo muscular
-          </span>
-          <select
-            value={effectiveMuscle}
-            onChange={(event) => {
-              setSelectedMuscle(event.target.value);
-              setSelectedExerciseId("");
-              setPickerOpen(false);
-              setShowAllSessions(false);
-              setVisibleHistorySessions(10);
-            }}
-            className="theme-accent-focus h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-sm font-medium outline-none"
-          >
-            {muscleOptions.map((muscle) => (
-              <option key={muscle}>{muscle}</option>
-            ))}
-          </select>
-        </label>
+      <section className="exercise-analytics-controls rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+            {analyticsScope === "exercise"
+              ? "Elige un movimiento"
+              : "Elige una zona"}
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+            {analyticsScope === "exercise"
+              ? "¿Qué quieres revisar?"
+              : `Progreso de ${effectiveMuscle || "tu grupo muscular"}`}
+          </h2>
+        </div>
 
-        {analyticsScope === "exercise" ? (
-          <div className="relative">
-            <p className="mb-1.5 text-xs font-normal text-[color:var(--text-muted)]">
-              Ejercicio
-            </p>
-            <button
-              type="button"
-              onClick={() => setPickerOpen((value) => !value)}
-              aria-expanded={pickerOpen}
-              className="flex min-h-[88px] w-full items-center gap-3 rounded-2xl bg-[color:var(--card)] p-3 text-left transition-colors hover:bg-[color:var(--surface-subtle)]"
-            >
-              <ExerciseThumbnail
-                src={selectedImage}
-                alt={exerciseName}
-                className="exercise-analytics-thumb h-16 w-16 rounded-xl"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 block text-[17px] font-medium leading-[1.2] tracking-[-0.02em] sm:text-xl">
-                  {exerciseName}
-                </span>
-                <span className="mt-1.5 block text-xs font-normal text-[color:var(--text-muted)]">
-                  {effectiveMuscle} · {stats.sessions}{" "}
-                  {stats.sessions === 1 ? "sesión" : "sesiones"}
-                </span>
-              </span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 transition ${pickerOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {pickerOpen ? (
-              <div className="mt-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-sm">
-                <label className="relative block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
-                  <input
-                    autoFocus
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Buscar ejercicio"
-                    className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm outline-none transition-colors focus:border-[color:var(--border-strong)]"
-                  />
-                </label>
-                <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
-                  {filteredPickerExercises.map((exercise) => {
-                    const completeExerciseSessions =
-                      exerciseSessionCountById.get(String(exercise.id)) || 0;
-                    const isSelected = exercise.id === effectiveExerciseId;
+        <div
+          className={`grid gap-4 ${
+            analyticsScope === "exercise"
+              ? "md:grid-cols-[minmax(220px,0.72fr)_minmax(0,1.5fr)]"
+              : ""
+          }`}
+        >
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium text-[color:var(--text-muted)]">
+              Grupo muscular
+            </span>
+            <span className="relative block">
+              <select
+                value={effectiveMuscle}
+                onChange={(event) => {
+                  setSelectedMuscle(event.target.value);
+                  setSelectedExerciseId("");
+                  setPickerOpen(false);
+                  setShowAllSessions(false);
+                  setVisibleHistorySessions(10);
+                }}
+                className="theme-accent-focus h-[58px] w-full appearance-none rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] px-4 pr-11 text-[15px] font-semibold outline-none"
+              >
+                {muscleOptions.map((muscle) => (
+                  <option key={muscle}>{muscle}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+            </span>
+          </label>
 
-                    return (
-                      <button
-                        key={exercise.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedExerciseId(exercise.id);
-                          setPickerOpen(false);
-                          setQuery("");
-                          setShowAllSessions(false);
-                          setVisibleHistorySessions(10);
-                        }}
-                        className={`flex min-h-[68px] w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)] ${
-                          isSelected ? "bg-[color:var(--surface-subtle)]" : ""
-                        }`}
-                      >
-                        <ExerciseThumbnail
-                          src={getExerciseImageUrl(exercise, {
-                            width: 120,
-                            height: 120,
-                          })}
-                          alt=""
-                          className="exercise-analytics-thumb h-12 w-12 shrink-0 rounded-lg"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="line-clamp-2 block text-sm font-medium leading-tight text-[color:var(--text)]">
-                            {exercise.name}
+          {analyticsScope === "exercise" ? (
+            <div className="relative">
+              <p className="mb-2 text-xs font-medium text-[color:var(--text-muted)]">
+                Ejercicio
+              </p>
+              <button
+                type="button"
+                onClick={() => setPickerOpen((value) => !value)}
+                aria-expanded={pickerOpen}
+                className="flex min-h-[58px] w-full items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)] p-2.5 text-left transition-colors hover:border-[color:var(--border-strong)]"
+              >
+                <ExerciseThumbnail
+                  src={selectedImage}
+                  alt={exerciseName}
+                  className="exercise-analytics-thumb h-11 w-11 rounded-xl"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-1 block text-[15px] font-semibold leading-tight tracking-[-0.015em]">
+                    {exerciseName}
+                  </span>
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    {stats.sessions}{" "}
+                    {stats.sessions === 1 ? "sesión" : "sesiones"}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition ${pickerOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {pickerOpen ? (
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-2 shadow-xl">
+                  <label className="relative block">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
+                    <input
+                      autoFocus
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Buscar ejercicio"
+                      className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm outline-none transition-colors focus:border-[color:var(--border-strong)]"
+                    />
+                  </label>
+                  <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
+                    {filteredPickerExercises.map((exercise) => {
+                      const completeExerciseSessions =
+                        exerciseSessionCountById.get(String(exercise.id)) || 0;
+                      const isSelected = exercise.id === effectiveExerciseId;
+
+                      return (
+                        <button
+                          key={exercise.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedExerciseId(exercise.id);
+                            setPickerOpen(false);
+                            setQuery("");
+                            setShowAllSessions(false);
+                            setVisibleHistorySessions(10);
+                          }}
+                          className={`flex min-h-[68px] w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[color:var(--surface-subtle)] ${
+                            isSelected ? "bg-[color:var(--surface-subtle)]" : ""
+                          }`}
+                        >
+                          <ExerciseThumbnail
+                            src={getExerciseImageUrl(exercise, {
+                              width: 120,
+                              height: 120,
+                            })}
+                            alt=""
+                            className="exercise-analytics-thumb h-12 w-12 shrink-0 rounded-lg"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-sm font-medium leading-tight text-[color:var(--text)]">
+                              {exercise.name}
+                            </span>
+                            <span className="mt-1 block text-xs font-normal text-[color:var(--text-muted)]">
+                              {completeExerciseSessions}{" "}
+                              {completeExerciseSessions === 1
+                                ? "sesión"
+                                : "sesiones"}
+                            </span>
                           </span>
-                          <span className="mt-1 block text-xs font-normal text-[color:var(--text-muted)]">
-                            {completeExerciseSessions}{" "}
-                            {completeExerciseSessions === 1
-                              ? "sesión"
-                              : "sesiones"}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {!filteredPickerExercises.length ? (
-                    <p className="px-3 py-6 text-center text-sm text-[color:var(--text-muted)]">
-                      Sin coincidencias.
-                    </p>
-                  ) : null}
+                        </button>
+                      );
+                    })}
+                    {!filteredPickerExercises.length ? (
+                      <p className="px-3 py-6 text-center text-sm text-[color:var(--text-muted)]">
+                        Sin coincidencias.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {analyticsScope === "exercise" ? (
         <>
-          <section className="analytics-summary-grid dashboard-weekly-grid">
+          <section className="analytics-summary-grid grid grid-cols-2 gap-3 md:grid-cols-3">
             <MetricCard
-              label={usesRepetitions ? "Último trabajo" : "Última fuerza"}
+              icon={Sparkles}
+              label={usesRepetitions ? "Trabajo actual" : "Nivel actual"}
               value={
                 usesRepetitions
                   ? stats.latestReps
@@ -615,7 +692,8 @@ export default function ExerciseAnalyticsPage({
               }
             />
             <MetricCard
-              label="Último cambio"
+              icon={CalendarDays}
+              label="Cambio reciente"
               value={percent(
                 usesRepetitions ? stats.vsPreviousReps : stats.vsPrevious,
               )}
@@ -627,17 +705,7 @@ export default function ExerciseAnalyticsPage({
               accent
             />
             <MetricCard
-              label="Sesiones"
-              value={stats.sessions || "--"}
-              detail={
-                daysSinceLast === null
-                  ? "Sin historial"
-                  : daysSinceLast
-                    ? `Última: hace ${daysSinceLast} días`
-                    : "Entrenado hoy"
-              }
-            />
-            <MetricCard
+              icon={Trophy}
               label={usesRepetitions ? "Mayor trabajo" : "Mejor marca"}
               value={
                 usesRepetitions
@@ -660,6 +728,14 @@ export default function ExerciseAnalyticsPage({
             />
           </section>
 
+          <p className="-mt-2 text-center text-xs text-[color:var(--text-muted)] md:text-left">
+            {daysSinceLast === null
+              ? "Todavía no hay actividad registrada."
+              : daysSinceLast
+                ? `Última sesión hace ${daysSinceLast} días.`
+                : "Entrenado hoy."}
+          </p>
+
           <ExerciseAnalytics
             exerciseId={effectiveExerciseId}
             workouts={analyticsWorkouts}
@@ -667,19 +743,19 @@ export default function ExerciseAnalyticsPage({
             loadType={selectedLoadType}
           />
 
-          <div className="grid grid-cols-2 border-b border-[color:var(--border)]">
+          <div className="grid grid-cols-2 rounded-full bg-[color:var(--segmented-surface)] p-1">
             {[
               ["progress", "Sesiones"],
-              ["history", "Historial"],
+              ["history", "Series"],
             ].map(([view, label]) => (
               <button
                 key={view}
                 type="button"
                 onClick={() => setExerciseView(view)}
-                className={`h-11 border-b-2 text-sm font-medium transition-colors ${
+                className={`h-10 rounded-full text-sm font-medium transition-colors ${
                   exerciseView === view
-                    ? "border-[#181918] text-[color:var(--text)] dark:border-[#e2ff00]"
-                    : "border-transparent text-[color:var(--text-muted)]"
+                    ? "theme-accent-solid shadow-sm"
+                    : "text-[color:var(--text-muted)]"
                 }`}
               >
                 {label}
@@ -688,7 +764,7 @@ export default function ExerciseAnalyticsPage({
           </div>
 
           {exerciseView === "progress" ? (
-            <section>
+            <section className="rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
               <div className="mb-2 flex items-end justify-between gap-3">
                 <h2 className="text-xl font-medium tracking-[-0.025em]">
                   Sesiones
@@ -699,12 +775,14 @@ export default function ExerciseAnalyticsPage({
               </div>
               <div className="analytics-history__head grid grid-cols-[78px_minmax(0,1fr)_auto] gap-2 px-3 pb-1.5 text-[11px] text-[color:var(--text-muted)]">
                 <span>Fecha</span>
-                <span>{usesRepetitions ? "Serie con más reps" : "Mejor serie"}</span>
+                <span>
+                  {usesRepetitions ? "Serie con más reps" : "Mejor serie"}
+                </span>
                 <span className="text-right">
                   {usesRepetitions ? "Trabajo" : "Fuerza estimada"}
                 </span>
               </div>
-              <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
+              <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg)]">
                 {stats.summaries.length ? (
                   [...stats.summaries]
                     .reverse()
@@ -712,7 +790,7 @@ export default function ExerciseAnalyticsPage({
                     .map((item) => (
                       <div
                         key={item.sessionKey}
-                        className="grid min-h-11 grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
+                        className="grid min-h-[64px] grid-cols-[78px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-3"
                       >
                         <p className="text-xs font-black">
                           {formatDate(item.date)}
@@ -750,10 +828,10 @@ export default function ExerciseAnalyticsPage({
               ) : null}
             </section>
           ) : (
-            <section>
+            <section className="rounded-[28px] bg-[color:var(--card)] p-4 sm:p-5 md:p-6">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <h2 className="text-xl font-medium tracking-[-0.025em]">
-                  Historial completo
+                  Series por sesión
                 </h2>
                 <p className="text-xs text-[color:var(--text-muted)]">
                   {stats.sessions}{" "}
@@ -783,7 +861,7 @@ export default function ExerciseAnalyticsPage({
                       ))}
                     </div>
 
-                    <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-xl bg-[color:var(--card)]">
+                    <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)]">
                       {[...stats.summaries]
                         .reverse()
                         .slice(0, visibleHistorySessions)

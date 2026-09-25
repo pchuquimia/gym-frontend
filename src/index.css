@@ -1555,6 +1555,27 @@ button,
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
 }
 
+.exercise-analytics-controls,
+.exercise-insight-card,
+.muscle-progress-card {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.exercise-insight-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.exercise-analytics-page select {
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .exercise-insight-card:last-child {
+    grid-column: auto;
+  }
+}
+
 .exercise-analytics-thumb {
   border: 1px solid var(--border);
   background: color-mix(

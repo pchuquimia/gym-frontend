@@ -27,26 +27,6 @@ const formatWeight = (value) =>
     maximumFractionDigits: 2,
   });
 
-const loadTypeDescriptions = {
-  external: "Peso externo: el volumen usa los kg efectivos por repetición.",
-  machine:
-    "Máquina: los kg corresponden al valor indicado y no son comparables directamente con peso libre u otra máquina.",
-  bodyweight:
-    "Peso corporal: se muestran repeticiones; el peso del atleta no se convierte automáticamente en kg.",
-  assisted:
-    "Ejercicio asistido: se muestran repeticiones porque una asistencia mayor no representa más fuerza.",
-  cardio: "Trabajo cardiovascular: no se interpreta como tonelaje externo.",
-  unknown:
-    "Carga sin clasificar: revisa la ficha del ejercicio antes de comparar sus kg con otro movimiento.",
-};
-
-const confidenceStyles = {
-  high: "text-[#287554] dark:text-[#9de2bd]",
-  medium: "text-[color:var(--text)]",
-  low: "text-[#9a681c] dark:text-[#e7bc75]",
-  insufficient: "text-[color:var(--text-muted)]",
-};
-
 const ExerciseAnalytics = ({
   exerciseId = "",
   workouts = [],
@@ -170,10 +150,13 @@ const ExerciseAnalytics = ({
   ]);
 
   return (
-    <section className="exercise-analytics-chart overflow-hidden rounded-2xl bg-[color:var(--card)]">
-      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+    <section className="exercise-analytics-chart overflow-hidden rounded-[28px] bg-[color:var(--card)]">
+      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-6">
         <div>
-          <h2 className="text-xl font-medium leading-none tracking-[-0.025em]">
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+            Evolución
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold leading-none tracking-[-0.035em]">
             {activeTab === "fuerza"
               ? "Fuerza estimada"
               : activeTab === "volumen"
@@ -191,7 +174,7 @@ const ExerciseAnalytics = ({
             <select
               value={groupBy}
               onChange={(event) => setGroupBy(event.target.value)}
-              className="theme-accent-focus h-10 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-medium outline-none"
+              className="theme-accent-focus h-10 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-xs font-medium outline-none"
             >
               <option value="week">Por semana</option>
               <option value="session">Por sesión</option>
@@ -202,7 +185,7 @@ const ExerciseAnalytics = ({
             <select
               value={range}
               onChange={(event) => setRange(Number(event.target.value))}
-              className="theme-accent-focus h-10 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-xs font-medium outline-none"
+              className="theme-accent-focus h-10 w-full rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] px-4 text-xs font-medium outline-none"
             >
               {ranges.map((item) => (
                 <option key={item} value={item}>
@@ -215,7 +198,7 @@ const ExerciseAnalytics = ({
       </div>
 
       <div
-        className={`mx-4 grid rounded-xl bg-[color:var(--segmented-surface)] p-1 ${
+        className={`mx-4 grid rounded-full bg-[color:var(--segmented-surface)] p-1 sm:mx-6 ${
           tabs.length === 1 ? "grid-cols-1" : "grid-cols-3"
         }`}
       >
@@ -225,7 +208,7 @@ const ExerciseAnalytics = ({
             type="button"
             onClick={() => setTab(item.key)}
             aria-pressed={activeTab === item.key}
-            className={`h-9 rounded-lg text-xs font-medium ${
+            className={`h-9 rounded-full text-xs font-medium ${
               activeTab === item.key
                 ? "theme-accent-solid"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
@@ -237,7 +220,7 @@ const ExerciseAnalytics = ({
       </div>
 
       {activeTab === "volumen" && groupBy === "week" ? (
-        <div className="mx-4 mt-3 grid grid-cols-2 rounded-xl border border-[color:var(--border)] p-1">
+        <div className="mx-4 mt-3 grid grid-cols-2 rounded-full border border-[color:var(--border)] p-1 sm:mx-6">
           {[
             ["total", "Total semanal"],
             ["perSession", "Promedio/sesión"],
@@ -247,7 +230,7 @@ const ExerciseAnalytics = ({
               type="button"
               onClick={() => setVolumeMode(value)}
               aria-pressed={volumeMode === value}
-              className={`h-8 rounded-lg text-xs font-medium ${
+              className={`h-8 rounded-full text-xs font-medium ${
                 volumeMode === value
                   ? "bg-[color:var(--surface-subtle)] text-[color:var(--text)]"
                   : "text-[color:var(--text-muted)]"
@@ -259,7 +242,7 @@ const ExerciseAnalytics = ({
         </div>
       ) : null}
 
-      <div className="px-1 pb-2 pt-3 sm:px-3">
+      <div className="px-1 pb-2 pt-3 sm:px-4">
         {activeTab === "fuerza" ? (
           <ExerciseOneRMChart
             workouts={workouts}
@@ -294,62 +277,34 @@ const ExerciseAnalytics = ({
         ) : null}
       </div>
 
-      <section className="analytics-chart-reading border-t border-[color:var(--border)] px-4 py-4">
-        <p className="text-xs font-medium leading-snug text-[color:var(--text)]">
-          {loadTypeDescriptions[loadType]}
-        </p>
-        {groupBy === "week" ? (
-          <p className="mt-1.5 text-xs font-normal leading-snug text-[color:var(--text-muted)]">
-            Los espacios representan semanas calendario sin registros.
-          </p>
-        ) : null}
-        {chartReading.description ? (
-          <p className="mt-1.5 text-sm font-normal leading-snug text-[color:var(--text-muted)]">
-            {chartReading.description}
-          </p>
-        ) : null}
-        <article className="mt-3 rounded-xl bg-[color:var(--surface-subtle)] px-3 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                Conclusión
-              </p>
-              <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">
-                {chartReading.conclusion.title}
-              </p>
-            </div>
-            <span
-              className={`shrink-0 text-xs font-semibold ${
-                confidenceStyles[chartReading.conclusion.confidence]
-              }`}
-            >
-              {chartReading.conclusion.confidenceLabel}
-            </span>
+      <section className="analytics-chart-reading border-t border-[color:var(--border)] px-4 py-5 sm:px-6">
+        <article className="rounded-2xl bg-[color:var(--surface-subtle)] px-4 py-4 sm:flex sm:items-center sm:justify-between sm:gap-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+              Lectura rápida
+            </p>
+            <p className="mt-1 text-base font-semibold text-[color:var(--text)]">
+              {chartReading.conclusion.title}
+            </p>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[color:var(--text-muted)]">
+              {chartReading.conclusion.summary}
+            </p>
           </div>
-          <p className="mt-1.5 text-xs leading-snug text-[color:var(--text)]">
-            {chartReading.conclusion.summary}
-          </p>
-          <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-            Evidencia: {chartReading.conclusion.evidence}.
-          </p>
-          <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-            {chartReading.conclusion.limitation}
+          <p className="mt-3 shrink-0 text-xs font-medium text-[color:var(--text-muted)] sm:mt-0 sm:max-w-[220px] sm:text-right">
+            {chartReading.currentDetail}
           </p>
         </article>
-        <p className="mt-1.5 text-xs font-medium text-[color:var(--text)]">
-          {chartReading.currentDetail}
-        </p>
-        <dl className="mt-4 grid grid-cols-3 gap-3">
+        <dl className="mt-5 grid grid-cols-3 gap-3">
           <div>
-            <dt>Último registro</dt>
+            <dt>Ahora</dt>
             <dd>{chartReading.current}</dd>
           </div>
           <div>
-            <dt>Mejor del rango</dt>
+            <dt>Mejor</dt>
             <dd>{chartReading.best}</dd>
           </div>
           <div>
-            <dt>{chartReading.comparisonLabel}</dt>
+            <dt>Cambio</dt>
             <dd>{chartReading.change}</dd>
           </div>
         </dl>
