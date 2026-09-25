@@ -13,7 +13,6 @@ import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import MuscleGroupAnalytics from "../components/analytics/MuscleGroupAnalytics";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import { useTrainingData } from "../context/TrainingContext";
-import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { summarizeExerciseSets } from "../utils/exerciseAnalyticsData";
@@ -118,7 +117,6 @@ export default function ExerciseAnalyticsPage({
     exercises = [],
     dataOwnerId = "",
   } = useTrainingData();
-  const { isDark } = useThemeMode();
   const [selectedExerciseId, setSelectedExerciseId] = useState(() =>
     typeof localStorage === "undefined"
       ? ""
@@ -708,7 +706,6 @@ export default function ExerciseAnalyticsPage({
           <ExerciseAnalytics
             exerciseId={effectiveExerciseId}
             workouts={analyticsWorkouts}
-            mode={isDark ? "dark" : "light"}
             loadType={selectedLoadType}
           />
 
@@ -893,7 +890,6 @@ export default function ExerciseAnalyticsPage({
           muscle={effectiveMuscle}
           exercises={exerciseOptions}
           workouts={workouts}
-          mode={isDark ? "dark" : "light"}
         />
       )}
     </main>

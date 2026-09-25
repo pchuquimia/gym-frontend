@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 import PropTypes from "prop-types";
-import { ResponsiveBar } from "@nivo/bar";
 import {
   buildExerciseAnalyticsPoints,
   selectExerciseAnalyticsRange,
 } from "../../utils/exerciseAnalyticsData";
 import { formatCompactWeekLabel } from "../../utils/trainingMetrics";
-import { nivoTheme } from "../../utils/nivoTheme";
+import AnalyticsEChart from "./AnalyticsEChart";
 
 const EmptyState = () => (
-  <div className="grid h-full place-items-center border border-dashed border-[color:var(--border)] p-4 text-center">
+  <div className="grid h-full place-items-center rounded-xl border border-dashed border-[color:var(--border)] p-4 text-center">
     <div>
       <p className="mb-1 text-sm font-semibold text-[color:var(--text)]">
         Sin datos
@@ -32,7 +31,6 @@ const ExerciseVolumeChart = ({
   workouts = [],
   exerciseId,
   rangeWeeks = 12,
-  mode = "dark",
   groupBy = "week",
   endWeek = "",
   loadType = "unknown",
@@ -52,79 +50,44 @@ const ExerciseVolumeChart = ({
     loadType,
   );
   const isAverage = valueMode === "perSession" && groupBy === "week";
-  const bars = points.map((point) => {
+  const rows = points.map((point) => {
     const total = usesRepetitions ? point.reps : point.volume;
     const average = usesRepetitions
       ? point.repsPerSession
       : point.volumePerSession;
     return {
-      period: point.key,
-      label: point.label,
-      work: Number((isAverage ? average : total).toFixed(1)),
+      label:
+        groupBy === "week"
+          ? formatCompactWeekLabel(point.label)
+          : formatSessionLabel(point.label),
+      work: point.isGap
+        ? null
+        : Number((isAverage ? average : total).toFixed(1)),
       sessions: point.sessionCount,
       sets: point.setsCount,
       reps: point.reps,
     };
   });
-  const observedPoints = points.filter((point) => !point.isGap);
-  const labelByKey = new Map(points.map((point) => [point.key, point.label]));
 
   return (
-    <div className="h-56 sm:h-60">
-      {observedPoints.length ? (
-        <ResponsiveBar
-          data={bars}
-          theme={nivoTheme(mode)}
-          keys={["work"]}
-          indexBy="period"
-          margin={{ top: 16, right: 12, bottom: 38, left: 52 }}
-          padding={0.35}
-          colors={mode === "dark" ? ["#e2ff00"] : ["#181918"]}
-          axisBottom={{
-            tickRotation: -25,
-            tickPadding: 8,
-            format: (value) => {
-              const label = labelByKey.get(value) || value;
-              return groupBy === "week"
-                ? formatCompactWeekLabel(label)
-                : formatSessionLabel(label);
+    <div className="h-56">
+      {points.some((point) => !point.isGap) ? (
+        <AnalyticsEChart
+          title={usesRepetitions ? "Trabajo completado" : "Volumen"}
+          description="Trabajo completado en cada periodo."
+          labels={rows.map((item) => item.label)}
+          series={[
+            {
+              name: isAverage ? "Promedio" : "Trabajo",
+              values: rows.map((item) => item.work),
+              type: "bar",
             },
-          }}
-          axisLeft={{
-            legend: usesRepetitions
-              ? isAverage
-                ? "Reps / sesión"
-                : "Repeticiones"
-              : isAverage
-                ? "kg / sesión"
-                : "Volumen (kg)",
-            legendPosition: "middle",
-            legendOffset: -48,
-            tickPadding: 6,
-          }}
-          enableGridY
-          enableLabel={false}
-          tooltip={({ data }) => (
-            <div className="rounded border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-lg">
-              <p className="font-semibold">
-                {groupBy === "week"
-                  ? formatCompactWeekLabel(data.label)
-                  : formatSessionLabel(data.label)}
-              </p>
-              <p>
-                {Number(data.work).toLocaleString("es-BO", {
-                  maximumFractionDigits: 1,
-                })}{" "}
-                {usesRepetitions ? "repeticiones" : "kg"}
-                {isAverage ? " por sesión" : " en total"}
-              </p>
-              <p className="text-[color:var(--text-muted)]">
-                {groupBy === "week"
-                  ? `${data.sessions} ${data.sessions === 1 ? "sesión" : "sesiones"} · `
-                  : ""}
-                {data.sets} series · {data.reps} repeticiones
-              </p>
-            </div>
+          ]}
+          unit={usesRepetitions ? "reps" : "kg"}
+          height={224}
+          context={rows.map(
+            (item) =>
+              `${item.sessions || 1} ${item.sessions === 1 ? "sesión" : "sesiones"} · ${item.sets} series · ${item.reps} reps`,
           )}
         />
       ) : (
@@ -138,7 +101,6 @@ ExerciseVolumeChart.propTypes = {
   workouts: PropTypes.arrayOf(PropTypes.object),
   exerciseId: PropTypes.string.isRequired,
   rangeWeeks: PropTypes.number,
-  mode: PropTypes.oneOf(["light", "dark"]),
   groupBy: PropTypes.oneOf(["week", "session"]),
   endWeek: PropTypes.string,
   loadType: PropTypes.oneOf([

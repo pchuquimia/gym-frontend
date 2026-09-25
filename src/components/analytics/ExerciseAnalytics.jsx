@@ -30,7 +30,6 @@ const formatWeight = (value) =>
 const ExerciseAnalytics = ({
   exerciseId = "",
   workouts = [],
-  mode = "dark",
   loadType = "unknown",
 }) => {
   const [tab, setTab] = useState("fuerza");
@@ -248,7 +247,6 @@ const ExerciseAnalytics = ({
             workouts={workouts}
             exerciseId={exerciseId}
             rangeWeeks={range}
-            mode={mode}
             groupBy={groupBy}
             endWeek={currentWeek}
           />
@@ -258,7 +256,6 @@ const ExerciseAnalytics = ({
             workouts={workouts}
             exerciseId={exerciseId}
             rangeWeeks={range}
-            mode={mode}
             groupBy={groupBy}
             endWeek={currentWeek}
             loadType={loadType}
@@ -270,7 +267,6 @@ const ExerciseAnalytics = ({
             workouts={workouts}
             exerciseId={exerciseId}
             rangeWeeks={range}
-            mode={mode}
             groupBy={groupBy}
             endWeek={currentWeek}
           />
@@ -316,7 +312,6 @@ const ExerciseAnalytics = ({
 ExerciseAnalytics.propTypes = {
   exerciseId: PropTypes.string,
   workouts: PropTypes.arrayOf(PropTypes.object),
-  mode: PropTypes.oneOf(["light", "dark"]),
   loadType: PropTypes.oneOf([
     "external",
     "machine",

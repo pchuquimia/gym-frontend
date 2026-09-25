@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
 import PropTypes from "prop-types";
-import { ResponsiveLine } from "@nivo/line";
 import { buildMuscleAnalytics } from "../../utils/exerciseAnalyticsData";
 import { formatCompactWeekLabel, toIsoWeek } from "../../utils/trainingMetrics";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
-import { nivoTheme } from "../../utils/nivoTheme";
 import { classifyExerciseLoad } from "../../utils/trainingLoad";
+import AnalyticsEChart from "./AnalyticsEChart";
 import ExerciseThumbnail from "./ExerciseThumbnail";
 
 const ranges = [8, 12, 24];
@@ -50,12 +49,7 @@ const getStatus = (delta) => {
   };
 };
 
-const MuscleGroupAnalytics = ({
-  muscle,
-  exercises = [],
-  workouts = [],
-  mode = "dark",
-}) => {
+const MuscleGroupAnalytics = ({ muscle, exercises = [], workouts = [] }) => {
   const [range, setRange] = useState(12);
   const muscleExercises = useMemo(
     () =>
@@ -174,86 +168,30 @@ const MuscleGroupAnalytics = ({
         </p>
       </article>
 
-      <div className="h-[230px] px-1 sm:h-[250px] sm:px-3">
+      <div className="h-[230px] px-1 sm:px-3">
         {analytics.observedPoints >= 2 ? (
-          <ResponsiveLine
-            data={[
+          <AnalyticsEChart
+            title={`Progreso de ${muscle}`}
+            description="Evolución conjunta de los ejercicios comparables del grupo."
+            labels={analytics.points.map((point) =>
+              formatCompactWeekLabel(point.week),
+            )}
+            series={[
               {
-                id: "Progreso del grupo",
-                data: analytics.points.map((point) => ({
-                  x: point.week,
-                  y: point.isGap ? null : Number(point.index.toFixed(1)),
-                  exercises: point.exerciseCount,
-                })),
+                name: "Progreso",
+                values: analytics.points.map((point) =>
+                  point.isGap ? null : Number(point.index.toFixed(1)),
+                ),
+                area: true,
               },
             ]}
-            theme={nivoTheme(mode)}
-            margin={{ top: 22, right: 18, bottom: 42, left: 42 }}
-            xScale={{ type: "point" }}
-            yScale={{
-              type: "linear",
-              min: chartMin,
-              max: chartMax,
-              stacked: false,
-            }}
-            axisBottom={{
-              tickPadding: 10,
-              tickRotation: -25,
-              format: formatCompactWeekLabel,
-            }}
-            axisLeft={{
-              tickPadding: 7,
-              tickValues: 5,
-              format: (value) => Math.round(value),
-            }}
-            markers={[
-              {
-                axis: "y",
-                value: 100,
-                lineStyle: {
-                  stroke: mode === "dark" ? "#73736a" : "#aaa69d",
-                  strokeWidth: 1,
-                  strokeDasharray: "5 5",
-                },
-                legend: "Inicio",
-                legendPosition: "top-left",
-                textStyle: {
-                  fill: mode === "dark" ? "#b8b8a6" : "#77736b",
-                  fontSize: 11,
-                },
-              },
-            ]}
-            colors={mode === "dark" ? ["#e2ff00"] : ["#181918"]}
-            curve="monotoneX"
-            lineWidth={3}
-            enableArea
-            areaOpacity={0.12}
-            enableGridX={false}
-            pointSize={8}
-            pointBorderWidth={2}
-            pointBorderColor={{ from: "serieColor" }}
-            pointColor={mode === "dark" ? "#151515" : "#fffdf7"}
-            useMesh
-            animate
-            motionConfig="gentle"
-            tooltip={({ point }) => (
-              <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs shadow-xl">
-                <p className="font-medium">
-                  {formatCompactWeekLabel(point.data.x)}
-                </p>
-                <p className="mt-1 text-base font-semibold">
-                  Índice {Number(point.data.y).toFixed(1)}
-                </p>
-                <p className="text-[color:var(--text-muted)]">
-                  {formatDelta(Number(point.data.y) - 100, 1)} desde el inicio
-                </p>
-                <p className="text-[color:var(--text-muted)]">
-                  {point.data.exercises}{" "}
-                  {point.data.exercises === 1
-                    ? "ejercicio medido esta semana"
-                    : "ejercicios medidos esta semana"}
-                </p>
-              </div>
+            min={chartMin}
+            max={chartMax}
+            baseline={100}
+            height={230}
+            context={analytics.points.map(
+              (point) =>
+                `${point.exerciseCount} ${point.exerciseCount === 1 ? "ejercicio medido" : "ejercicios medidos"}`,
             )}
           />
         ) : (
@@ -364,7 +302,6 @@ MuscleGroupAnalytics.propTypes = {
   muscle: PropTypes.string.isRequired,
   exercises: PropTypes.arrayOf(PropTypes.object),
   workouts: PropTypes.arrayOf(PropTypes.object),
-  mode: PropTypes.oneOf(["light", "dark"]),
 };
 
 export default MuscleGroupAnalytics;
