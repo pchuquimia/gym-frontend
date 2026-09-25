@@ -147,13 +147,15 @@ describe("ExerciseCard", () => {
     expect(screen.getByText("Ajuste del equipo")).toBeInTheDocument();
   });
 
-  it("muestra Iniciar solo dentro de un ejercicio inactivo desplegado", () => {
-    const onStartNow = vi.fn();
-    const { rerender } = render(
+  it("activa el ejercicio al desplegarlo sin mostrar un boton Iniciar", () => {
+    const onActivate = vi.fn();
+    const onToggleOpen = vi.fn();
+    render(
       <ExerciseCard
         exercise={createExercise()}
         {...defaultProps}
-        onStartNow={onStartNow}
+        onActivate={onActivate}
+        onToggleOpen={onToggleOpen}
       />,
     );
 
@@ -161,31 +163,27 @@ describe("ExerciseCard", () => {
       screen.queryByRole("button", { name: "Iniciar Press en máquina" }),
     ).not.toBeInTheDocument();
 
-    rerender(
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Expandir Press en máquina" })[0],
+    );
+    expect(onActivate).toHaveBeenCalledOnce();
+    expect(onToggleOpen).toHaveBeenCalledOnce();
+  });
+
+  it("no activa el cronometro en una sesion de solo lectura", () => {
+    const onActivate = vi.fn();
+    render(
       <ExerciseCard
         exercise={createExercise()}
         {...defaultProps}
-        onStartNow={onStartNow}
-        open
+        readOnly
+        onActivate={onActivate}
       />,
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Iniciar Press en máquina" }),
+      screen.getAllByRole("button", { name: "Expandir Press en máquina" })[0],
     );
-    expect(onStartNow).toHaveBeenCalledOnce();
-
-    rerender(
-      <ExerciseCard
-        exercise={{ ...createExercise(), isActive: true }}
-        {...defaultProps}
-        onStartNow={onStartNow}
-        open
-      />,
-    );
-
-    expect(
-      screen.queryByRole("button", { name: "Iniciar Press en máquina" }),
-    ).not.toBeInTheDocument();
+    expect(onActivate).not.toHaveBeenCalled();
   });
 });

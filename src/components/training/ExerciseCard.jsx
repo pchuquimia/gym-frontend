@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   History,
-  Play,
   Repeat2,
   Settings2,
   SlidersHorizontal,
@@ -148,7 +147,7 @@ export default function ExerciseCard({
   onSetupNoteChange = () => {},
   onViewTracking = null,
   onSwapVariant = null,
-  onStartNow = null,
+  onActivate = null,
 }) {
   const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
@@ -254,6 +253,8 @@ export default function ExerciseCard({
     }
     if (open) {
       setShowOptions(false);
+    } else if (!readOnly && !isComplete) {
+      onActivate?.();
     }
     onToggleOpen?.();
   };
@@ -468,21 +469,6 @@ export default function ExerciseCard({
               >
                 <Check className="h-3.5 w-3.5 stroke-[3]" />
               </span>
-            ) : null}
-            {!readOnly &&
-            onStartNow &&
-            !isComplete &&
-            !exercise.isActive &&
-            open ? (
-              <button
-                type="button"
-                onClick={onStartNow}
-                className="training-exercise-card__start-inline inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--text)] px-3 text-xs font-semibold text-[color:var(--card)] shadow-sm transition-[opacity,transform] hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2"
-                aria-label={`Iniciar ${exercise.name}`}
-              >
-                <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Iniciar</span>
-              </button>
             ) : null}
             {open && !readOnly ? (
               <button
@@ -768,5 +754,5 @@ ExerciseCard.propTypes = {
   onSetupNoteChange: PropTypes.func,
   onViewTracking: PropTypes.func,
   onSwapVariant: PropTypes.func,
-  onStartNow: PropTypes.func,
+  onActivate: PropTypes.func,
 };

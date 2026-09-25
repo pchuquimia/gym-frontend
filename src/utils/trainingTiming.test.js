@@ -79,6 +79,24 @@ describe("trainingTiming", () => {
     });
   });
 
+  it("deja de atribuir tiempo cuando el ejercicio se completa", () => {
+    const events = [
+      createTimeEvent("session_start", null, BASE),
+      createTimeEvent("exercise_selected", "press", BASE),
+      createTimeEvent("set_complete", "press", BASE + 60_000, {
+        setId: "set-1",
+        workSeconds: 40,
+      }),
+      createTimeEvent("exercise_selected", null, BASE + 60_000),
+      createTimeEvent("session_end", null, BASE + 180_000),
+    ];
+
+    const summary = calculateTimingSummary(events);
+    expect(summary.durationSeconds).toBe(180);
+    expect(summary.exerciseDurations.get("press")).toBe(60);
+    expect(summary.activeExerciseId).toBe("");
+  });
+
   it("elimina la última medición al reabrir una serie", () => {
     const events = [
       createTimeEvent("set_complete", "press", BASE, {

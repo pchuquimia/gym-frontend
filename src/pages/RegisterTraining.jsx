@@ -34,6 +34,7 @@ import RoutineSelector from "../components/training/RoutineSelector";
 import ExerciseCard from "../components/training/ExerciseCard";
 import ExerciseOrderPanel from "../components/training/ExerciseOrderPanel";
 import ActivePlanWorkoutPlanner from "../components/training/ActivePlanWorkoutPlanner";
+import RestTimingControl from "../components/training/RestTimingControl";
 import AutoRestCountdownModal from "../components/training/AutoRestCountdownModal";
 import AutoRestCompleteModal from "../components/training/AutoRestCompleteModal";
 import TrainingCompletePage from "../components/training/TrainingCompletePage";
@@ -55,7 +56,12 @@ import {
   replaceTrainingPlan,
 } from "../queries/trainingPlanQueries";
 import { getExerciseImageUrl } from "../utils/cloudinary";
-import { canAccessActiveTraining, getUserId } from "../utils/activeTraining";
+import {
+  canAccessActiveTraining,
+  clearActiveTrainingSnapshot,
+  getUserId,
+  readActiveTrainingSnapshot,
+} from "../utils/activeTraining";
 import {
   findAutoFlowDestination,
   markExerciseStartedInPlace,
@@ -89,6 +95,7 @@ import { getCurrentPlanWeek } from "../utils/trainingPlanDates";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
 import {
   getTrainingDraftSyncLabel,
+  isCancelledTrainingSnapshot,
   parseTrainingSnapshot,
   selectLatestTrainingSnapshot,
 } from "../utils/trainingDraft";
@@ -112,6 +119,7 @@ const getLocalISODate = (value) => {
   return local.toISOString().slice(0, 10);
 };
 const SNAPSHOT_KEY = "active_training_snapshot";
+const REST_TIMING_PREFERENCE_KEY = "rest_timing_enabled";
 const CANCELLED_REMOTE_DRAFT_KEY = "cancelled_active_training_draft";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
@@ -1286,72 +1294,6 @@ function DevTrainingDateControl({ value, onChange }) {
   );
 }
 
-function AdminAutoFlowControl({
-  enabled,
-  durationSeconds,
-  onToggle,
-  onDurationChange,
-}) {
-  const durationOptions = [
-    { seconds: 120, label: "2 min" },
-    { seconds: 180, label: "3 min" },
-    { seconds: 240, label: "4 min" },
-    { seconds: 300, label: "5 min" },
-  ];
-
-  return (
-    <div className="rounded-xl px-3 py-2">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Timer className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-          <span className="text-sm font-semibold text-[color:var(--text)]">
-            Flujo automático
-          </span>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          aria-label="Activar flujo automatico beta"
-          onClick={() => onToggle(!enabled)}
-          className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--focus-ring)] ${
-            enabled
-              ? "border-[#181918] bg-[#181918] dark:border-[#e2ff00] dark:bg-[#e2ff00]"
-              : "border-[color:var(--border)] bg-[color:var(--card)] shadow-inner"
-          }`}
-        >
-          <span
-            className={`absolute left-1 top-1 h-[1.125rem] w-[1.125rem] rounded-full bg-white shadow-sm transition-transform dark:bg-[#111] ${
-              enabled ? "translate-x-5" : "translate-x-0"
-            }`}
-          />
-        </button>
-      </div>
-      {enabled ? (
-        <div
-          className="mt-2 grid grid-cols-4 gap-1.5 pl-6"
-          aria-label="Duracion del descanso"
-        >
-          {durationOptions.map(({ seconds, label }) => (
-            <button
-              key={seconds}
-              type="button"
-              onClick={() => onDurationChange(seconds)}
-              className={`h-8 rounded-lg px-1 text-xs font-semibold tabular-nums transition-colors ${
-                durationSeconds === seconds
-                  ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export default function RegisterTraining({
   onNavigate = () => {},
   onBack = null,
@@ -1504,15 +1446,18 @@ export default function RegisterTraining({
   const [restTimerRunning, setRestTimerRunning] = useState(false);
   const [restTimerStarted, setRestTimerStarted] = useState(false);
   const [restDeadlineMs, setRestDeadlineMs] = useState(null);
-  const [autoFlowEnabled, setAutoFlowEnabled] = useState(false);
+  const [autoFlowEnabled, setAutoFlowEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(REST_TIMING_PREFERENCE_KEY) !== "false";
+  });
   const [autoFlowTarget, setAutoFlowTarget] = useState(null);
   const [autoFlowPrompt, setAutoFlowPrompt] = useState(null);
   const restVibratedRef = useRef(false);
-  const autoFlowEnabledRef = useRef(false);
+  const autoFlowEnabledRef = useRef(autoFlowEnabled);
   const autoFlowTargetRef = useRef(null);
   const autoFlowPromptRef = useRef(null);
   const completeAutoFlowRef = useRef(null);
-  autoFlowEnabledRef.current = isAdmin && autoFlowEnabled;
+  autoFlowEnabledRef.current = autoFlowEnabled;
   autoFlowTargetRef.current = autoFlowTarget;
   autoFlowPromptRef.current = autoFlowPrompt;
 
@@ -1540,6 +1485,7 @@ export default function RegisterTraining({
   const remoteDraftEpochRef = useRef(0);
   const lastRemoteDraftSyncRef = useRef(0);
   const persistTrainingSnapshotRef = useRef(null);
+  const discardedTrainingRef = useRef(false);
 
   useEffect(() => {
     if (!desktopSessionMenuOpen) return undefined;
@@ -2952,7 +2898,7 @@ export default function RegisterTraining({
   const completeAutoFlow = () => {
     const pendingTarget = autoFlowTargetRef.current;
     if (!pendingTarget || autoFlowPromptRef.current) return;
-    if (!isAdmin || !autoFlowEnabledRef.current) return;
+    if (!autoFlowEnabledRef.current) return;
 
     const destination = findAutoFlowDestination(
       exercisesRef.current,
@@ -3527,6 +3473,7 @@ export default function RegisterTraining({
         (item) => String(item.id) === String(intent.routineId),
       );
       if (!routine) return;
+      discardedTrainingRef.current = false;
       setSelectedRoutineId(routine.id);
       setSelectedRoutine(routine);
       setSelectedBranch(normalizeBranch(routine.location));
@@ -3543,8 +3490,11 @@ export default function RegisterTraining({
 
   useEffect(() => {
     let active = true;
+    const lookupEpoch = remoteDraftEpochRef.current;
     const fallbackTimer = window.setTimeout(() => {
-      if (active) setRemoteDraftLookupComplete(true);
+      if (active && lookupEpoch === remoteDraftEpochRef.current) {
+        setRemoteDraftLookupComplete(true);
+      }
     }, 500);
 
     setRemoteDraftSnapshot(null);
@@ -3560,37 +3510,26 @@ export default function RegisterTraining({
     api
       .getActiveTrainingDraft(draftOwnerId)
       .then((response) => {
-        if (!active) return;
+        if (!active || lookupEpoch !== remoteDraftEpochRef.current) return;
         const remoteSnapshot = parseTrainingSnapshot(response?.draft?.snapshot);
         const cancelledDraft = parseTrainingSnapshot(
           localStorage.getItem(CANCELLED_REMOTE_DRAFT_KEY),
         );
-        const shouldDiscardRemote = Boolean(
-          remoteSnapshot &&
-          cancelledDraft &&
-          String(cancelledDraft.ownerId || "") === draftOwnerId &&
-          String(cancelledDraft.trainingRequestId || "") ===
-            String(remoteSnapshot.trainingRequestId || ""),
+        const shouldDiscardRemote = isCancelledTrainingSnapshot(
+          remoteSnapshot,
+          cancelledDraft,
+          draftOwnerId,
         );
-        if (
-          !remoteSnapshot &&
-          cancelledDraft &&
-          String(cancelledDraft.ownerId || "") === draftOwnerId
-        ) {
-          localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY);
-        } else if (shouldDiscardRemote) {
+        if (shouldDiscardRemote) {
           setRemoteDraftSnapshot(null);
-          api
-            .deleteActiveTrainingDraft(draftOwnerId)
-            .then(() => localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY))
-            .catch(() => {});
+          api.deleteActiveTrainingDraft(draftOwnerId).catch(() => {});
         } else {
           setRemoteDraftSnapshot(remoteSnapshot);
         }
         setRemoteDraftLookupComplete(true);
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || lookupEpoch !== remoteDraftEpochRef.current) return;
         setRemoteDraftLookupComplete(true);
       })
       .finally(() => window.clearTimeout(fallbackTimer));
@@ -3604,6 +3543,7 @@ export default function RegisterTraining({
   // Restaura primero el snapshot mas reciente disponible. El almacenamiento
   // local permite abrir la sesion sin red y el remoto permite cambiar de equipo.
   useEffect(() => {
+    if (discardedTrainingRef.current) return;
     if (!allRoutineOptions.length) return;
     if (isEditing) return;
     if (selectedRoutineId) return;
@@ -3678,7 +3618,7 @@ export default function RegisterTraining({
         Number(snap.restDurationSeconds) || 120,
       );
       const restoredRestDeadline = Number(snap.restDeadlineMs) || null;
-      const restoredAutoFlowEnabled = isAdmin && Boolean(snap.autoFlowEnabled);
+      const restoredAutoFlowEnabled = autoFlowEnabledRef.current;
       const restoredAutoFlowTarget =
         restoredAutoFlowEnabled && snap.autoFlowTarget
           ? snap.autoFlowTarget
@@ -3904,6 +3844,7 @@ export default function RegisterTraining({
   }, [selectedBranch, branchConfirmed, requiresBranchSelection]);
 
   const persistTrainingSnapshot = useCallback(() => {
+    if (discardedTrainingRef.current) return;
     if (typeof localStorage === "undefined") return;
     if (!selectedRoutineId) return;
     if (!setupStarted) {
@@ -3940,8 +3881,8 @@ export default function RegisterTraining({
         restDurationSeconds,
         restRemainingSeconds,
         restDeadlineMs,
-        autoFlowEnabled: isAdmin && autoFlowEnabled,
-        autoFlowTarget: isAdmin && autoFlowEnabled ? autoFlowTarget : null,
+        autoFlowEnabled,
+        autoFlowTarget: autoFlowEnabled ? autoFlowTarget : null,
         exercises,
         removedExerciseIds: Array.from(removedExerciseIdsRef.current),
       };
@@ -3972,7 +3913,6 @@ export default function RegisterTraining({
     autoFlowEnabled,
     autoFlowTarget,
     exercises,
-    isAdmin,
     dataOwnerId,
     coachAthlete?.name,
     authUser,
@@ -4032,17 +3972,25 @@ export default function RegisterTraining({
     lastRemoteDraftSyncRef.current = 0;
     const localSnapshot =
       typeof localStorage !== "undefined"
-        ? parseTrainingSnapshot(localStorage.getItem(SNAPSHOT_KEY))
+        ? parseTrainingSnapshot(readActiveTrainingSnapshot())
         : null;
+    const cancelledSnapshot = localSnapshot || remoteDraftSnapshot;
+    const cancelledRequestId =
+      trainingRequestIdRef.current || cancelledSnapshot?.trainingRequestId;
+    const cancelledRoutineId =
+      selectedRoutineId || cancelledSnapshot?.selectedRoutineId;
     if (
-      localSnapshot?.trainingRequestId &&
+      cancelledRequestId &&
+      cancelledRoutineId &&
       typeof localStorage !== "undefined"
     ) {
+      // A pending save can finish after DELETE; keep this marker so a later
+      // lookup never restores the cancelled request.
       localStorage.setItem(
         CANCELLED_REMOTE_DRAFT_KEY,
         JSON.stringify({
-          selectedRoutineId: localSnapshot.selectedRoutineId,
-          trainingRequestId: localSnapshot.trainingRequestId,
+          selectedRoutineId: cancelledRoutineId,
+          trainingRequestId: cancelledRequestId,
           ownerId: draftOwnerId,
           lastUpdate: Date.now(),
         }),
@@ -4055,9 +4003,6 @@ export default function RegisterTraining({
     api
       .deleteActiveTrainingDraft(draftOwnerId)
       .then(() => {
-        if (typeof localStorage !== "undefined") {
-          localStorage.removeItem(CANCELLED_REMOTE_DRAFT_KEY);
-        }
         setDraftSyncStatus("idle");
       })
       .catch(() => {
@@ -4067,7 +4012,7 @@ export default function RegisterTraining({
             : "error",
         );
       });
-  }, [authUser?.isDemo, draftOwnerId]);
+  }, [authUser?.isDemo, draftOwnerId, remoteDraftSnapshot, selectedRoutineId]);
 
   useEffect(() => {
     if (!setupStarted || !selectedRoutineId || isEditing || isHistoryReadOnly)
@@ -4342,9 +4287,9 @@ export default function RegisterTraining({
   };
 
   const handleAutoFlowToggle = (enabled) => {
-    if (!isAdmin) return;
     setAutoFlowEnabled(enabled);
     autoFlowEnabledRef.current = enabled;
+    localStorage.setItem(REST_TIMING_PREFERENCE_KEY, String(enabled));
     if (!enabled) {
       const now = Date.now();
       if (restEventOpenRef.current) {
@@ -4366,13 +4311,12 @@ export default function RegisterTraining({
     }
     toast.success(
       enabled
-        ? "Flujo automatico beta activado."
-        : "Flujo automatico desactivado.",
+        ? "Tiempos de descanso activados."
+        : "Tiempos de descanso desactivados.",
     );
   };
 
   const handleAutoFlowDurationChange = (seconds) => {
-    if (!isAdmin) return;
     const safeSeconds = [120, 180, 240, 300].includes(Number(seconds))
       ? Number(seconds)
       : 120;
@@ -4552,6 +4496,7 @@ export default function RegisterTraining({
     if (!trainingRequestIdRef.current) {
       trainingRequestIdRef.current = createTrainingRequestId();
     }
+    discardedTrainingRef.current = false;
     setSetupStarted(true);
     if (!isRunning) handleStart();
   };
@@ -4628,6 +4573,7 @@ export default function RegisterTraining({
   };
 
   const resetState = () => {
+    discardedTrainingRef.current = true;
     deleteRemoteTrainingDraft();
     setRemoteDraftLookupComplete(true);
     routineLoadRequestRef.current += 1;
@@ -4643,8 +4589,6 @@ export default function RegisterTraining({
     setRestDeadlineMs(null);
     updateAutoFlowTarget(null);
     updateAutoFlowPrompt(null);
-    setAutoFlowEnabled(false);
-    autoFlowEnabledRef.current = false;
     setActiveExerciseId("");
     setExpandedExerciseId("");
     setNowMs(Date.now());
@@ -4685,7 +4629,7 @@ export default function RegisterTraining({
     setHasStarted(false);
     setSessionMenuOpen(false);
     if (typeof localStorage !== "undefined") {
-      localStorage.removeItem(SNAPSHOT_KEY);
+      clearActiveTrainingSnapshot(getUserId(authUser));
       localStorage.removeItem(TRAINING_ROUTINES_RETURN_KEY);
       localStorage.removeItem("edit_training_id");
       localStorage.removeItem("edit_training_date");
@@ -4723,6 +4667,7 @@ export default function RegisterTraining({
       toast.error("La rutina seleccionada ya no está disponible.");
       return;
     }
+    discardedTrainingRef.current = false;
     const resolvedPlanContext = resolveRoutinePlanContext(
       found,
       planContext,
@@ -5452,6 +5397,9 @@ export default function RegisterTraining({
           setId,
           ...workEstimate,
         }),
+        ...(completesExercise
+          ? [createTimeEvent("exercise_selected", null, completedAtMs)]
+          : []),
       ]);
     } else if (reopensCompletedSet && !isEditing && !isHistoryReadOnly) {
       setTimeEvents((prev) =>
@@ -5471,7 +5419,6 @@ export default function RegisterTraining({
       !completesRoutine &&
       !isEditing &&
       !isHistoryReadOnly &&
-      isAdmin &&
       autoFlowEnabledRef.current
     ) {
       handleStartRestTimer(restDurationSeconds / 60, {
@@ -6695,14 +6642,14 @@ export default function RegisterTraining({
                   <span>Apariencia</span>
                   <ThemeToggle compact />
                 </div>
+                <RestTimingControl
+                  compact
+                  enabled={autoFlowEnabled}
+                  durationSeconds={restDurationSeconds}
+                  onToggle={handleAutoFlowToggle}
+                  onDurationChange={handleAutoFlowDurationChange}
+                />
                 {isAdmin ? (
-                  <div>
-                    <AdminAutoFlowControl
-                      enabled={autoFlowEnabled}
-                      durationSeconds={restDurationSeconds}
-                      onToggle={handleAutoFlowToggle}
-                      onDurationChange={handleAutoFlowDurationChange}
-                    />
                     <button
                       type="button"
                       className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
@@ -6714,7 +6661,6 @@ export default function RegisterTraining({
                       <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
                       <span>Editar rutina activa</span>
                     </button>
-                  </div>
                 ) : null}
                 <div className="mx-3 mt-3 border-t border-[color:var(--border)]" />
                 <button
@@ -6873,6 +6819,10 @@ export default function RegisterTraining({
                     advancing={advancingPlanCycle}
                     preparingRoutineId={pendingPlanRoutineId}
                     weightKg={profile?.weight}
+                    restTimingEnabled={autoFlowEnabled}
+                    restDurationSeconds={restDurationSeconds}
+                    onRestTimingToggle={handleAutoFlowToggle}
+                    onRestDurationChange={handleAutoFlowDurationChange}
                   />
                 </div>
               ) : null}
@@ -7017,6 +6967,13 @@ export default function RegisterTraining({
                       : "Iniciar entrenamiento"}
                   <ArrowRight className="h-4 w-4 stroke-[3]" />
                 </Button>
+                <RestTimingControl
+                  className="mt-3"
+                  enabled={autoFlowEnabled}
+                  durationSeconds={restDurationSeconds}
+                  onToggle={handleAutoFlowToggle}
+                  onDurationChange={handleAutoFlowDurationChange}
+                />
               </div>
             </div>
           </section>
@@ -7186,14 +7143,14 @@ export default function RegisterTraining({
                             <span>Apariencia</span>
                             <ThemeToggle compact />
                           </div>
+                          <RestTimingControl
+                            compact
+                            enabled={autoFlowEnabled}
+                            durationSeconds={restDurationSeconds}
+                            onToggle={handleAutoFlowToggle}
+                            onDurationChange={handleAutoFlowDurationChange}
+                          />
                           {isAdmin ? (
-                            <div>
-                              <AdminAutoFlowControl
-                                enabled={autoFlowEnabled}
-                                durationSeconds={restDurationSeconds}
-                                onToggle={handleAutoFlowToggle}
-                                onDurationChange={handleAutoFlowDurationChange}
-                              />
                               <button
                                 type="button"
                                 role="menuitem"
@@ -7206,7 +7163,6 @@ export default function RegisterTraining({
                                 <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
                                 Editar rutina
                               </button>
-                            </div>
                           ) : null}
                           {showResetButton ? (
                             <button
@@ -7556,7 +7512,9 @@ export default function RegisterTraining({
                               onSwapVariant={(direction) =>
                                 handleSwapVariant(ex.id, direction)
                               }
-                              onStartNow={() => handleStartExerciseNow(ex.id)}
+                              onActivate={() =>
+                                handleStartExerciseNow(ex.id, { silent: true })
+                              }
                               onViewTracking={() =>
                                 handleViewExerciseTracking(ex)
                               }
@@ -7644,7 +7602,9 @@ export default function RegisterTraining({
                               onSwapVariant={(direction) =>
                                 handleSwapVariant(ex.id, direction)
                               }
-                              onStartNow={() => handleStartExerciseNow(ex.id)}
+                              onActivate={() =>
+                                handleStartExerciseNow(ex.id, { silent: true })
+                              }
                               onViewTracking={() =>
                                 handleViewExerciseTracking(ex)
                               }

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Modal from "../shared/Modal";
 import OperationLoader from "../system/OperationLoader";
+import RestTimingControl from "./RestTimingControl";
 import {
   estimateRoutineCaloriesFromHistory,
   estimateTrainingCalories,
@@ -127,6 +128,10 @@ export default function ActivePlanWorkoutPlanner({
   advancing,
   preparingRoutineId,
   weightKg,
+  restTimingEnabled = true,
+  restDurationSeconds = 120,
+  onRestTimingToggle = () => {},
+  onRestDurationChange = () => {},
 }) {
   const [overrideCandidate, setOverrideCandidate] = useState(null);
   const [selectedScheduleDay, setSelectedScheduleDay] = useState(null);
@@ -695,30 +700,38 @@ export default function ActivePlanWorkoutPlanner({
                   <span>Rutina completada</span>
                 </div>
               ) : selectedDay.current && selectedDay.routine ? (
-                <div className="training-schedule__action-row mt-5 flex">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onStart(
-                        selectedDay.routine.id || selectedDay.routine._id,
-                        selectedDay.day.slotId,
-                        {
-                          isScheduleOverride: false,
-                          scheduledDate: selectedDay.dateValue,
-                          dayIndex: selectedDay.index,
-                        },
-                      )
-                    }
-                    disabled={selectedDay.preparing}
-                    className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#181918] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
-                  >
-                    {selectedDay.preparing ? (
-                      <RotateCcw className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    {selectedDay.preparing
-                      ? "PREPARANDO ENTRENAMIENTO"
-                      : "INICIAR ENTRENAMIENTO"}
-                  </button>
+                <div className="mt-5 space-y-3">
+                  <div className="training-schedule__action-row flex">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onStart(
+                          selectedDay.routine.id || selectedDay.routine._id,
+                          selectedDay.day.slotId,
+                          {
+                            isScheduleOverride: false,
+                            scheduledDate: selectedDay.dateValue,
+                            dayIndex: selectedDay.index,
+                          },
+                        )
+                      }
+                      disabled={selectedDay.preparing}
+                      className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#181918] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
+                    >
+                      {selectedDay.preparing ? (
+                        <RotateCcw className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      {selectedDay.preparing
+                        ? "PREPARANDO ENTRENAMIENTO"
+                        : "INICIAR ENTRENAMIENTO"}
+                    </button>
+                  </div>
+                  <RestTimingControl
+                    enabled={restTimingEnabled}
+                    durationSeconds={restDurationSeconds}
+                    onToggle={onRestTimingToggle}
+                    onDurationChange={onRestDurationChange}
+                  />
                 </div>
               ) : null}
 

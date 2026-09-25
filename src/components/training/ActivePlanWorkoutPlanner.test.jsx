@@ -46,7 +46,10 @@ describe("ActivePlanWorkoutPlanner", () => {
     expect(onExtendPlan).toHaveBeenCalledOnce();
   });
 
-  it("muestra el nombre actual de la rutina antes que el foco antiguo del plan", () => {
+  it("muestra la rutina y permite elegir si se usarán tiempos de descanso", async () => {
+    const user = userEvent.setup();
+    const onRestTimingToggle = vi.fn();
+
     render(
       <ActivePlanWorkoutPlanner
         plan={{
@@ -84,11 +87,22 @@ describe("ActivePlanWorkoutPlanner", () => {
         onAdvance={vi.fn()}
         advancing={false}
         preparingRoutineId=""
+        restTimingEnabled
+        restDurationSeconds={120}
+        onRestTimingToggle={onRestTimingToggle}
+        onRestDurationChange={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "Upper" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Jale" })).toBeNull();
+    expect(screen.getByText("Tiempos de descanso")).toBeVisible();
+    expect(screen.queryByText(/beta/i)).toBeNull();
+
+    await user.click(
+      screen.getByRole("switch", { name: "Usar tiempos de descanso" }),
+    );
+    expect(onRestTimingToggle).toHaveBeenCalledWith(false);
   });
 
   it("prioriza hoy y permite revisar otra sesión sin desplegar toda la semana", async () => {

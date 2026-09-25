@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getTrainingDraftSyncLabel,
+  isCancelledTrainingSnapshot,
   parseTrainingSnapshot,
   selectLatestTrainingSnapshot,
 } from "./trainingDraft";
@@ -26,6 +27,26 @@ describe("trainingDraft", () => {
     expect(selectLatestTrainingSnapshot(null, snapshot(100))).toMatchObject({
       selectedRoutineId: "routine-1",
     });
+  });
+
+  it("bloquea solo el borrador cancelado del mismo usuario y solicitud", () => {
+    const cancelled = {
+      ...snapshot(100),
+      ownerId: "athlete-1",
+    };
+    expect(
+      isCancelledTrainingSnapshot(snapshot(200), cancelled, "athlete-1"),
+    ).toBe(true);
+    expect(
+      isCancelledTrainingSnapshot(snapshot(200), cancelled, "athlete-2"),
+    ).toBe(false);
+    expect(
+      isCancelledTrainingSnapshot(
+        { ...snapshot(200), trainingRequestId: "new-training" },
+        cancelled,
+        "athlete-1",
+      ),
+    ).toBe(false);
   });
 
   it("presenta estados breves y comprensibles", () => {

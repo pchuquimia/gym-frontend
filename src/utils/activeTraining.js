@@ -16,10 +16,13 @@ export const readActiveTrainingSnapshot = () => {
   }
 };
 
-export const clearActiveTrainingSnapshot = () => {
+export const clearActiveTrainingSnapshot = (userId = "") => {
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(ACTIVE_TRAINING_SNAPSHOT_KEY);
   localStorage.removeItem(LEGACY_ACTIVE_TRAINING_KEY);
+  if (userId) {
+    localStorage.removeItem(`${ACTIVE_TRAINING_SNAPSHOT_KEY}:${userId}`);
+  }
 };
 
 export const isActiveTrainingSnapshot = (snapshot) => {

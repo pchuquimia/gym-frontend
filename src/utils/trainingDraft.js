@@ -34,5 +34,21 @@ export const selectLatestTrainingSnapshot = (localSnapshot, remoteSnapshot) => {
   return snapshotUpdatedAt(remote) > snapshotUpdatedAt(local) ? remote : local;
 };
 
+export const isCancelledTrainingSnapshot = (
+  remoteSnapshot,
+  cancelledSnapshot,
+  ownerId,
+) => {
+  const remote = parseTrainingSnapshot(remoteSnapshot);
+  const cancelled = parseTrainingSnapshot(cancelledSnapshot);
+  return Boolean(
+    remote &&
+      cancelled &&
+      String(cancelled.ownerId || "") === String(ownerId || "") &&
+      cancelled.trainingRequestId &&
+      String(cancelled.trainingRequestId) === String(remote.trainingRequestId || ""),
+  );
+};
+
 export const getTrainingDraftSyncLabel = (status) =>
   TRAINING_DRAFT_SYNC_LABELS[status] || TRAINING_DRAFT_SYNC_LABELS.idle;
