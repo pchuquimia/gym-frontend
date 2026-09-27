@@ -17,7 +17,7 @@ export default function MobilePageHeader({
       >
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => onBack?.()}
           aria-label="Volver"
           className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)]"
         >

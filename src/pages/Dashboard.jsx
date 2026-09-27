@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ResponsiveBar } from "@nivo/bar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -37,6 +36,8 @@ import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
+import DashboardProgressEvolution from "../components/dashboard/DashboardProgressEvolution";
+import AppChart from "../components/progress/AppChart";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import { useUserProfile } from "../context/UserContext";
@@ -2195,6 +2196,14 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
     return Array.from(map.values());
   }, [catalogIndex, now, trainings]);
+  const threeMonthChart = useMemo(() => ({
+    labels: threeMonthSummary.map((month) => month.month),
+    series: [{
+      name: "Carga externa",
+      values: threeMonthSummary.map((month) => month.volume),
+    }],
+    context: threeMonthSummary.map((month) => formatSessionCount(month.sessions)),
+  }), [threeMonthSummary]);
 
   const selectedMonthDetail = useMemo(() => {
     const selected = threeMonthSummary.find(
@@ -3393,6 +3402,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           }
         }}
         activePlanContext={mobileActivePlanContext}
+        progressChart={
+          <DashboardProgressEvolution
+            key={coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id}
+            ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
+          />
+        }
         checkInTask={mobileCheckInTask}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
@@ -3630,59 +3645,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           />
         ) : (
           <div className="space-y-3">
-            <div className="h-52 rounded-2xl bg-[color:var(--surface-subtle)] p-2 sm:h-56 sm:p-3">
-              <ResponsiveBar
-                data={threeMonthSummary}
-                keys={["volume"]}
-                indexBy="month"
-                margin={{ top: 12, right: 8, bottom: 28, left: 46 }}
-                padding={0.35}
-                colors={isDark ? "#f5f1e8" : "#181918"}
-                borderRadius={6}
-                enableLabel={false}
-                axisTop={null}
-                axisRight={null}
-                axisLeft={{
-                  tickSize: 0,
-                  tickPadding: 8,
-                  tickValues: 4,
-                  format: (value) => `${formatCompact(value)}`,
-                }}
-                axisBottom={{ tickSize: 0, tickPadding: 8 }}
-                theme={{
-                  text: {
-                    fill: isDark ? "#b8b8a6" : "#6f6f6f",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    fontFamily:
-                      '"Barlow Condensed", "Arial Narrow", sans-serif',
-                  },
-                  grid: {
-                    line: {
-                      stroke: isDark ? "#292929" : "#dedede",
-                      strokeDasharray: "3 3",
-                    },
-                  },
-                  axis: {
-                    ticks: {
-                      line: { stroke: "transparent" },
-                      text: { fill: isDark ? "#b8b8a6" : "#6f6f6f" },
-                    },
-                    domain: { line: { stroke: "transparent" } },
-                  },
-                }}
-                gridYValues={4}
-                onClick={(bar) => setSelectedMonthKey(bar.data.key)}
-                tooltip={({ data }) => (
-                  <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-2 text-xs text-[color:var(--text)] shadow-xl">
-                    <strong>{data.month}</strong>
-                    <p>{formatSessionCount(data.sessions)}</p>
-                    <p>{formatCompact(data.volume)} kg</p>
-                    <p className="mt-1 text-[10px] font-bold text-[color:var(--text-muted)]">
-                      Toca para ver detalle
-                    </p>
-                  </div>
-                )}
+            <div className="rounded-2xl bg-[color:var(--surface-subtle)] p-2 sm:p-3">
+              <AppChart
+                title="Carga externa de los últimos tres meses"
+                description="Carga externa acumulada por mes. Selecciona una barra para ver el detalle."
+                kind="bar"
+                height={210}
+                labels={threeMonthChart.labels}
+                series={threeMonthChart.series}
+                unit="kg"
+                context={threeMonthChart.context}
+                onSelect={(index) => setSelectedMonthKey(threeMonthSummary[index]?.key || null)}
               />
             </div>
 

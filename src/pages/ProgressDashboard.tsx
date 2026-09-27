@@ -13,7 +13,6 @@ import {
   dateLabel,
   daysBetween,
   filterSessions,
-  METRICS,
   number,
   personalRecords,
   planning,
@@ -25,7 +24,6 @@ import {
   todayKey,
   totals,
   type Filters,
-  type Metric,
   type Period,
   type Plan,
   type Routine,
@@ -84,7 +82,6 @@ function ProgressContent({
     muscle: "",
     load: "",
   });
-  const [metric, setMetric] = useState<Metric>("sets");
 
   const filters = useMemo<Filters>(
     () => ({
@@ -138,13 +135,6 @@ function ProgressContent({
         ? planning(selectedPlan, current, routines, filters.from, filters.to)
         : null,
     [selectedPlan, current, routines, filters, partial, validRange],
-  );
-  const bucket =
-    summary.days <= 7 ? "day" : summary.days <= 365 ? "week" : "month";
-  const evolution = useMemo(
-    () =>
-      validRange ? timeline(current, filters.from, filters.to, bucket) : [],
-    [current, filters, bucket, validRange],
   );
   const frequency = useMemo(
     () =>
@@ -281,48 +271,6 @@ function ProgressContent({
               </button>
             </div>
           ) : null}
-
-          <section
-            className="progress-section progress-evolution"
-            aria-labelledby="progress-evolution-title"
-          >
-            <div className="progress-section-heading">
-              <div>
-                <p className="progress-kicker">EVOLUCIÓN</p>
-                <h2 id="progress-evolution-title">Tu progreso en el tiempo</h2>
-              </div>
-              <label>
-                Mostrar
-                <select
-                  value={metric}
-                  onChange={(event) => setMetric(event.target.value as Metric)}
-                >
-                  {Object.entries(METRICS).map(([id, value]) => (
-                    <option key={id} value={id}>
-                      {value.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <AppChart
-              loading={isLoading}
-              title="Evolución del entrenamiento"
-              description={`${METRICS[metric].label} por ${bucket === "day" ? "día" : bucket === "week" ? "semana" : "mes"}.`}
-              labels={evolution.map((point) => dateLabel(point.date))}
-              series={[
-                {
-                  name: METRICS[metric].label,
-                  values: evolution.map((point) =>
-                    metric === "minutes" && point.sessions > point.timed
-                      ? null
-                      : point[metric],
-                  ),
-                },
-              ]}
-              unit={METRICS[metric].unit}
-            />
-          </section>
 
           {!queries.trainings.isError && current.length ? (
             <>

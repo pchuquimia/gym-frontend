@@ -8,6 +8,7 @@ import {
   type DataZoomComponentOption,
 } from "echarts/components";
 import { number } from "../../utils/progressDashboard";
+import "./app-chart.css";
 
 type Option = ComposeOption<
   | BarSeriesOption
@@ -21,6 +22,7 @@ export interface ChartSeries {
   name: string;
   values: (number | null)[];
   token?: string;
+  color?: string;
 }
 interface Props {
   title: string;
@@ -34,6 +36,13 @@ interface Props {
   loading?: boolean;
   onSelect?: (index: number) => void;
   context?: string[];
+  scale?: boolean;
+  showLegend?: boolean;
+  showDescription?: boolean;
+  compactTooltip?: boolean;
+  minimal?: boolean;
+  valueAxisName?: string;
+  sparkline?: boolean;
 }
 
 export default function AppChart({
@@ -48,6 +57,13 @@ export default function AppChart({
   loading = false,
   onSelect,
   context,
+  scale = false,
+  showLegend = true,
+  showDescription = true,
+  compactTooltip = false,
+  minimal = false,
+  valueAxisName,
+  sparkline = false,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -78,6 +94,7 @@ export default function AppChart({
             border = token("--border");
           const category = {
             type: "category" as const,
+            show: !sparkline,
             data: labels,
             axisTick: { show: false },
             axisLine: { show: false },
@@ -85,6 +102,7 @@ export default function AppChart({
               color: muted,
               fontFamily,
               fontSize: 12,
+              show: !minimal || !horizontal,
               hideOverlap: true,
               width: horizontal ? 110 : 80,
               overflow: "truncate" as const,
@@ -92,19 +110,46 @@ export default function AppChart({
           };
           const value = {
             type: "value" as const,
-            min: 0,
-            splitNumber: 4,
+            show: !sparkline,
+            name: valueAxisName,
+            nameLocation: "end" as const,
+            nameGap: 6,
+            nameTextStyle: { color: muted, fontFamily, fontSize: 10 },
+            min: scale
+              ? (extent: { min: number; max: number }) =>
+                  Math.max(
+                    0,
+                    Math.floor(
+                      extent.min - Math.max(3, (extent.max - extent.min) * 0.2),
+                    ),
+                  )
+              : 0,
+            ...(scale
+              ? {
+                  max: (extent: { min: number; max: number }) =>
+                    Math.ceil(
+                      extent.max + Math.max(3, (extent.max - extent.min) * 0.2),
+                    ),
+                }
+              : {}),
+            splitNumber: minimal ? 3 : 4,
             axisLabel: {
-              color: muted,
+              color: minimal && valueAxisName ? text : muted,
               fontFamily,
-              fontSize: 12,
+              fontSize: minimal ? 11 : 12,
+              show: !minimal || Boolean(valueAxisName),
               formatter: (v: number) => number(v, 0),
             },
             splitLine: {
-              lineStyle: { color: border, type: "dashed" as const },
+              lineStyle: {
+                color: border,
+                type: "dashed" as const,
+                opacity: minimal ? 0.5 : 1,
+              },
             },
           };
-          const zoom = !horizontal && labels.length > 40;
+          const zoom =
+            !sparkline && !minimal && !horizontal && labels.length > 40;
           const option: Option = {
             animation: !motion.matches,
             animationDuration: 200,
@@ -117,12 +162,20 @@ export default function AppChart({
                 description: `${title}. ${description}. Tabla de datos disponible debajo.`,
               },
             },
-            grid: {
-              left: horizontal ? 116 : 52,
-              right: 16,
-              top: 20,
-              bottom: zoom ? 68 : 36,
-            },
+            grid: sparkline
+              ? { left: 6, right: 6, top: 6, bottom: 6 }
+              : {
+                  left: horizontal
+                    ? 116
+                    : minimal
+                      ? valueAxisName
+                        ? 44
+                        : 12
+                      : 52,
+                  right: minimal ? 8 : 16,
+                  top: minimal ? (valueAxisName ? 22 : 12) : 20,
+                  bottom: zoom ? 68 : minimal ? 27 : 36,
+                },
             legend: {
               show: false,
               selected: Object.fromEntries(
@@ -133,6 +186,7 @@ export default function AppChart({
               icon: "roundRect",
             },
             tooltip: {
+              show: !sparkline,
               trigger: "axis",
               confine: true,
               renderMode: "richText",
@@ -142,12 +196,22 @@ export default function AppChart({
               textStyle: { color: text, fontFamily, fontSize: 13 },
               formatter: (params) => {
                 const points = Array.isArray(params) ? params : [params];
+                const visible = points.filter(
+                  (point) =>
+                    point.value != null && Number.isFinite(Number(point.value)),
+                );
                 return [
                   String(points[0]?.name || title),
-                  ...points.map(
-                    (p) =>
-                      `${p.seriesName}: ${p.value == null ? "Sin registro" : `${number(Number(p.value))} ${unit}`}`,
-                  ),
+                  ...(compactTooltip
+                    ? [
+                        visible.length
+                          ? `${number(Number(visible[0].value))} ${unit}`
+                          : "Sin registro",
+                      ]
+                    : points.map(
+                        (p) =>
+                          `${p.seriesName}: ${p.value == null ? "Sin registro" : `${number(Number(p.value))} ${unit}`}`,
+                      )),
                   context?.[points[0]?.dataIndex] || "",
                 ]
                   .filter(Boolean)
@@ -175,13 +239,15 @@ export default function AppChart({
               name: s.name,
               type: kind,
               data: s.values,
-              color: token(s.token || (index ? "--success" : "--accent")),
+              color:
+                s.color || token(s.token || (index ? "--success" : "--accent")),
               ...(kind === "line"
                 ? {
-                    showSymbol: labels.length < 18,
-                    symbolSize: 7,
+                    showSymbol: sparkline || labels.length < 18,
+                    symbolSize: sparkline ? 4 : 7,
                     connectNulls: false,
-                    lineStyle: { width: 2.5 },
+                    smooth: !sparkline && minimal ? 0.25 : false,
+                    lineStyle: { width: sparkline ? 2 : minimal ? 3.5 : 2.5 },
                     emphasis: { focus: "series" as const },
                   }
                 : {
@@ -235,14 +301,24 @@ export default function AppChart({
     loading,
     attempt,
     context,
+    scale,
+    showLegend,
+    showDescription,
+    compactTooltip,
+    minimal,
+    valueAxisName,
+    sparkline,
     hiddenSeries,
   ]);
   return (
     <figure className="progress-chart" aria-labelledby={descriptionId}>
-      <figcaption id={descriptionId} className="progress-note">
+      <figcaption
+        id={descriptionId}
+        className={`progress-note${showDescription ? "" : " progress-chart-caption--visually-hidden"}`}
+      >
         {description}
       </figcaption>
-      {series.length > 1 && (
+      {showLegend && series.length > 1 && (
         <div
           className="progress-chart-legend"
           role="group"

@@ -5,5 +5,5 @@
     "strict": true, "noEmit": true, "allowJs": true, "checkJs": false,
     "skipLibCheck": true, "allowSyntheticDefaultImports": true
   },
-  "include": ["src/pages/ProgressDashboard.tsx", "src/components/progress/**/*.tsx", "src/components/progress/**/*.ts", "src/hooks/useProgressData.ts", "src/utils/progressDashboard.ts"]
+  "include": ["src/pages/ProgressDashboard.tsx", "src/components/dashboard/DashboardProgressEvolution.tsx", "src/components/progress/**/*.tsx", "src/components/progress/**/*.ts", "src/hooks/useProgressData.ts", "src/utils/progressDashboard.ts"]
 }

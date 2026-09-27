@@ -457,6 +457,7 @@ export default function MobileDailyPlan({
   planningContext = null,
   coach = null,
   activePlanContext = null,
+  progressChart = null,
   checkInTask = null,
   workoutTask,
   hydrationTask = null,
@@ -562,13 +563,16 @@ export default function MobileDailyPlan({
       ) : null}
 
       {journeyStage && journeyStage !== "plan_assigned" ? (
-        <ManagedOnboarding
-          stage={journeyStage}
-          coach={coach}
-          submittedAt={user?.coachIntake?.submittedAt}
-          planning={planningContext}
-          onStartEvaluation={onStartEvaluation}
-        />
+        <>
+          <ManagedOnboarding
+            stage={journeyStage}
+            coach={coach}
+            submittedAt={user?.coachIntake?.submittedAt}
+            planning={planningContext}
+            onStartEvaluation={onStartEvaluation}
+          />
+          {progressChart}
+        </>
       ) : (
         <>
           <div className="mobile-daily-plan__workspace">
@@ -613,6 +617,7 @@ export default function MobileDailyPlan({
                   />
                 ))}
               </div>
+              {progressChart}
             </section>
             <WeeklyMuscleChart
               summary={weeklyMuscleSummary}

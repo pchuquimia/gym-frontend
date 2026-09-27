@@ -1,0 +1,10 @@
+.progress-chart { min-width: 0; margin: 16px 0 0; }
+.progress-chart figcaption { margin-bottom: 6px; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.progress-chart-caption--visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.progress-chart-stage { position: relative; }
+.progress-chart-placeholder { position: absolute; inset: 0; }
+.progress-chart-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.progress-chart-legend button[aria-pressed="false"] { text-decoration: line-through; }
+.progress-chart .progress-empty { padding: 26px 0; color: var(--text-muted); font-size: 13px; }
+.progress-chart .progress-skeleton { display: block; border-radius: 6px; background: var(--surface-subtle); animation: progress-chart-pulse 1.6s ease-in-out infinite; }
+@keyframes progress-chart-pulse { 50% { opacity: 0.45; } }
