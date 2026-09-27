@@ -253,6 +253,28 @@ function WorkoutMission({ task, onOpen, readOnly }) {
     (task.completed ? "Ver resumen" : "Comenzar entrenamiento");
   const compactActionLabel = actionLabel.replace(/\s+entrenamiento$/i, "");
 
+  if (task.type === "rest") {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={readOnly}
+        className="mobile-daily-plan__mission is-tracking"
+        aria-label={actionLabel}
+      >
+        <MissionStatus completed={task.completed} tone="rest" />
+        <span className="mobile-daily-plan__visual mobile-daily-plan__visual--workout">
+          <CardThumbnail src={DAILY_CARD_IMAGES.recovery} />
+        </span>
+        <span className="mobile-daily-plan__mission-copy">
+          <strong>{task.title}</strong>
+          <small>{task.subtitle}</small>
+        </span>
+        <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
+      </button>
+    );
+  }
+
   return (
     <div
       className={`mobile-daily-plan__workout-card ${task.completed ? "is-complete" : ""}`}

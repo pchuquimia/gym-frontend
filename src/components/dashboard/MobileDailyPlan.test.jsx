@@ -45,6 +45,29 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it("presenta el descanso como una fila igual al check-in y abre la recuperación", async () => {
+    const onOpenWorkout = vi.fn();
+    renderPlan({
+      workoutTask: {
+        type: "rest",
+        title: "Hoy toca descansar",
+        subtitle: "Descanso para tu próxima sesión.",
+        actionLabel: "Ver recuperación",
+        completed: true,
+      },
+      checkInTask: { title: "Check-in diario", subtitle: "Sueño, energía y molestias · 20 s" },
+      onOpenWorkout,
+    });
+
+    const rest = screen.getByRole("button", { name: "Ver recuperación" });
+    const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
+    expect(rest.className).toBe(checkIn.className);
+    expect(rest).toHaveTextContent("Hoy toca descansar");
+    expect(rest.querySelector(".mobile-daily-plan__workout-action")).toBeNull();
+    await userEvent.click(rest);
+    expect(onOpenWorkout).toHaveBeenCalledTimes(1);
+  });
+
   it("abre el perfil al tocar la foto del usuario", async () => {
     const onOpenProfile = vi.fn();
     renderPlan({ onOpenProfile });

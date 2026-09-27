@@ -3023,8 +3023,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           ? "Tu planificación reservó el día para recuperar y llegar mejor a la próxima sesión."
           : "El descanso también forma parte del progreso. Evita sumar carga sin necesidad.",
         mobileDescription: activeRecovery
-          ? "Movilidad suave y recuperación para llegar mejor a tu próxima sesión."
-          : "Recupera hoy para llegar mejor a tu próxima sesión.",
+          ? "Movilidad suave y recuperación."
+          : "Descanso para tu próxima sesión.",
         meta: [
           plannedRestNextRoutine
             ? `Próxima: ${plannedRestNextRoutine.name}`
