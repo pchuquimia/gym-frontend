@@ -108,7 +108,12 @@ export default function DetailModal({
     };
   }, []);
 
-  const imageUrl = getExerciseImageUrl(exercise, { preset: "detail" });
+  const imageUrl = getExerciseImageUrl(exercise, {
+    width: 1280,
+    height: 960,
+    crop: "fit",
+    gravity: null,
+  });
   const animationUrl = getExerciseAnimationUrl(exercise);
   const instructions = normalizeInstructionSteps(exercise.instructions);
   const muscleGroup = getPrimaryMuscleGroup(exercise);
@@ -176,7 +181,7 @@ export default function DetailModal({
               <img
                 src={imageUrl}
                 alt={exercise.name}
-                className="aspect-video w-full object-cover"
+                className="aspect-[4/3] w-full object-contain sm:aspect-video"
               />
             ) : (
               <div className="grid aspect-video place-items-center text-sm font-semibold text-[color:var(--text-muted)]">

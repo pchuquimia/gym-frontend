@@ -26,7 +26,12 @@ export default function ExerciseCard({
   onShowVariants,
   onView,
 }) {
-  const imageSrc = getExerciseImageUrl(exercise, { preset: "card" });
+  const imageSrc = getExerciseImageUrl(exercise, {
+    width: 480,
+    height: 480,
+    crop: "fit",
+    gravity: null,
+  });
   const [failedImageSrc, setFailedImageSrc] = useState("");
   const isPersonal = exercise.type === "custom" && Boolean(exercise.ownerId);
   const muscle = getPrimaryMuscleGroup(exercise) || "Sin grupo";
@@ -63,21 +68,21 @@ export default function ExerciseCard({
       <button
         type="button"
         onClick={openMobileExercise}
-        className="grid min-h-[108px] w-full grid-cols-[80px_minmax(0,1fr)_24px] items-center gap-4 border-b border-[color:var(--detail-row-divider)] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#181918]/25 md:hidden dark:focus-visible:ring-[#e2ff00]/25"
+        className="grid min-h-[136px] w-full grid-cols-[112px_minmax(0,1fr)_24px] items-center gap-4 border-b border-[color:var(--detail-row-divider)] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#181918]/25 md:hidden dark:focus-visible:ring-[#e2ff00]/25"
         aria-label={
           variantCount > 1 && onShowVariants
             ? `Ver ${variantCount} variantes de ${title}`
             : `Ver ficha de ${title}`
         }
       >
-        <div className="h-20 w-20 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
+        <div className="h-28 w-28 overflow-hidden rounded-[18px] bg-[color:var(--surface-subtle)]">
           {imageSrc && failedImageSrc !== imageSrc ? (
             <img
               src={imageSrc}
               alt=""
               loading="lazy"
               onError={() => setFailedImageSrc(imageSrc)}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           ) : (
             <div className="grid h-full w-full place-items-center text-[color:var(--text-subtle)]">
@@ -113,13 +118,13 @@ export default function ExerciseCard({
         className={`grid w-full items-stretch text-left focus-visible:outline-none ${
           featured
             ? "min-h-[176px] grid-cols-[minmax(128px,42%)_minmax(0,1fr)_20px] gap-4 pr-4"
-            : "min-h-[98px] grid-cols-[92px_minmax(0,1fr)_20px] gap-3 pr-3"
+            : "min-h-[124px] grid-cols-[120px_minmax(0,1fr)_20px] gap-3 pr-3"
         }`}
         aria-label={`Ver ficha de ${title}`}
       >
         <div
           className={`h-full overflow-hidden border-r border-[color:var(--border)] bg-[color:var(--bg)] ${
-            featured ? "min-h-[174px] w-full" : "min-h-[96px] w-[92px]"
+            featured ? "min-h-[174px] w-full" : "min-h-[124px] w-[120px]"
           }`}
         >
           {imageSrc && failedImageSrc !== imageSrc ? (
@@ -128,7 +133,7 @@ export default function ExerciseCard({
               alt=""
               loading="lazy"
               onError={() => setFailedImageSrc(imageSrc)}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.04]"
             />
           ) : (
             <div className="grid h-full w-full place-items-center text-[color:var(--text-muted)]">

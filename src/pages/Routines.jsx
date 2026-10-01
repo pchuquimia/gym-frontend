@@ -998,7 +998,7 @@ function ExercisePickerOption({
   selected,
   onToggle,
 }) {
-  const thumb = getExerciseImageUrl(option, { width: 192, height: 192 });
+  const thumb = getExerciseImageUrl(option, { width: 320, height: 320 });
 
   return (
     <button
@@ -1006,14 +1006,14 @@ function ExercisePickerOption({
       onClick={() => onToggle(option.id)}
       aria-label={`${option.name}, ${option.muscle}, ${getExerciseEquipmentLabel(option)}`}
       aria-pressed={selected}
-      className={`grid min-h-[92px] w-full grid-cols-[64px_minmax(0,1fr)_24px] items-center gap-3 px-3 py-3 text-left transition ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
+      className={`grid min-h-[120px] w-full grid-cols-[96px_minmax(0,1fr)_24px] items-center gap-3 px-3 py-3 text-left transition sm:grid-cols-[112px_minmax(0,1fr)_24px] ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
     >
-      <div className="h-16 w-16 overflow-hidden rounded-2xl bg-[color:var(--surface-subtle)]">
+      <div className="h-24 w-24 overflow-hidden rounded-2xl bg-[color:var(--surface-subtle)] sm:h-28 sm:w-28">
         <ExerciseThumbnail
           src={thumb}
           alt=""
           fallback={(option.name || "?").charAt(0).toUpperCase()}
-          className="h-full w-full text-xs font-semibold"
+          className="h-full w-full text-xs font-semibold [&_img]:object-contain"
         />
       </div>
       <div className="min-w-0">
@@ -3357,8 +3357,8 @@ export function RoutineModal({
                   <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
                     <ExerciseThumbnail
                       src={getExerciseImageUrl(alternativePickerExercise, {
-                        width: 160,
-                        height: 160,
+                        width: 256,
+                        height: 256,
                       })}
                       alt=""
                       fallback={(alternativePickerExercise.name || "?")
@@ -3454,25 +3454,25 @@ export function RoutineModal({
                   <div className="space-y-2">
                     {alternativePickerOptions.map((option) => {
                       const thumb = getExerciseImageUrl(option, {
-                        width: 160,
-                        height: 160,
+                        width: 256,
+                        height: 256,
                       });
                       return (
                         <button
                           key={option.id}
                           type="button"
                           onClick={() => selectAlternative(option.id)}
-                          className="grid min-h-[84px] w-full grid-cols-[60px_minmax(0,1fr)_36px] items-center gap-3 rounded-2xl bg-[color:var(--card)] p-3 text-left transition hover:bg-[color:var(--surface-subtle)] active:scale-[0.99]"
+                          className="grid min-h-[112px] w-full grid-cols-[88px_minmax(0,1fr)_36px] items-center gap-3 rounded-2xl bg-[color:var(--card)] p-3 text-left transition hover:bg-[color:var(--surface-subtle)] active:scale-[0.99] sm:grid-cols-[104px_minmax(0,1fr)_36px]"
                           aria-label={`Usar ${option.name} como alternativa`}
                         >
-                          <div className="h-[60px] w-[60px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)]">
+                          <div className="h-[88px] w-[88px] overflow-hidden rounded-xl bg-[color:var(--surface-subtle)] sm:h-[104px] sm:w-[104px]">
                             <ExerciseThumbnail
                               src={thumb}
                               alt=""
                               fallback={(option.name || "?")
                                 .charAt(0)
                                 .toUpperCase()}
-                              className="h-full w-full text-xs font-semibold"
+                              className="h-full w-full text-xs font-semibold [&_img]:object-contain"
                             />
                           </div>
                           <div className="min-w-0">

@@ -27,6 +27,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { scoreExerciseSearch } from "../utils/exerciseSearch";
+import {
+  collapseRepeatedTrainingRows,
+  getMissingRoutineSlots,
+} from "../utils/trainingExerciseRows";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
@@ -1940,9 +1944,10 @@ export default function RegisterTraining({
     includeExtras = false,
     compatibleRecentBySetMap = historyCompatibleRecentBySet,
   ) => {
+    const recordedExercises = collapseRepeatedTrainingRows(training?.exercises || []);
     const trainingList =
-      training?.exercises?.length &&
-      training.exercises.map((ex) => ({
+      recordedExercises.length &&
+      recordedExercises.map((ex) => ({
         exerciseId: ex.exerciseId,
         name: ex.exerciseName,
         muscle: ex.muscleGroup,
@@ -1955,7 +1960,7 @@ export default function RegisterTraining({
       }));
     const routineList = (routine?.exercises || []).length
       ? routine.exercises
-      : (training?.exercises || []).map((ex) => ({
+      : recordedExercises.map((ex) => ({
           exerciseId: ex.exerciseId,
           name: ex.exerciseName,
           muscle: ex.muscleGroup,
@@ -1973,7 +1978,7 @@ export default function RegisterTraining({
         : routineList.filter((ex) => !ex.isExtra);
     const trainingById = new Map();
     const trainingByPosition = new Map();
-    (training?.exercises || []).forEach((ex, exIdx) => {
+    recordedExercises.forEach((ex, exIdx) => {
       getPositionHistoryKeys(ex, exIdx).forEach((key) => {
         trainingByPosition.set(key, ex);
       });
@@ -2625,9 +2630,10 @@ export default function RegisterTraining({
     let reordered = 0;
     const merged = routineTemplate.map((template, idx) => {
       const match =
-        getExerciseKeys(template)
+        [template, ...(template.variants || [])]
+          .flatMap((candidate) => getExerciseKeys(candidate))
           .map((key) => currentByKey.get(key))
-          .find(Boolean) || null;
+          .find((candidate) => candidate && !used.has(candidate.id)) || null;
       if (!match) {
         added += 1;
         return template;
@@ -2644,15 +2650,21 @@ export default function RegisterTraining({
       if ((match.sets || []).length !== mergedSets.length) resized += 1;
       const nextPlannedOrder = template.plannedOrder || idx + 1;
       if (getPlannedExerciseOrder(match) !== nextPlannedOrder) reordered += 1;
+      const variantIndex = (template.variants || []).findIndex(
+        (variant) => variant.exerciseId === match.id,
+      );
+      const activeVariant = variantIndex >= 0
+        ? template.variants[variantIndex]
+        : null;
       return {
         ...template,
         ...match,
-        name: template.name,
-        muscle: template.muscle,
-        image: template.image,
-        imagePublicId: template.imagePublicId,
+        name: activeVariant?.name || template.name,
+        muscle: activeVariant?.muscle || template.muscle,
+        image: activeVariant?.image || template.image,
+        imagePublicId: activeVariant?.imagePublicId || template.imagePublicId,
         variants: template.variants,
-        variantIndex: template.variantIndex,
+        variantIndex: variantIndex >= 0 ? variantIndex : template.variantIndex,
         supportsUnilateral: movementConfig.supportsUnilateral,
         movementMode: movementConfig.supportsUnilateral
           ? normalizeMovementMode(match.movementMode || template.movementMode)
@@ -5499,13 +5511,14 @@ export default function RegisterTraining({
 
   const handleAddExtraExercise = (exercise) => {
     if (!exercise) return;
-    if (exercises.some((ex) => ex.id === exercise.id)) {
+    if (exercisesRef.current.some((ex) => ex.id === exercise.id)) {
       toast.message("Este ejercicio ya esta en la sesion.");
       return;
     }
     restoreRemovedExercise(exercise.id);
     const clone = JSON.parse(JSON.stringify(exercise));
     setExercises((prev) => {
+      if (prev.some((ex) => ex.id === clone.id)) return prev;
       const appendedOrder = prev.length + 1;
       return applyExerciseOrder([
         ...prev,
@@ -5519,6 +5532,21 @@ export default function RegisterTraining({
       ]);
     });
     toast.success("Ejercicio extra agregado.");
+  };
+
+  const handleRestoreRoutineExercise = (exercise) => {
+    if (!exercise || exercisesRef.current.some((item) => item.id === exercise.id)) return;
+    restoreRemovedExercise(exercise.id);
+    const clone = JSON.parse(JSON.stringify(exercise));
+    setExercises((prev) => {
+      if (prev.some((item) => item.id === clone.id)) return prev;
+      return applyExerciseOrder([...prev, {
+        ...clone,
+        isExtra: false,
+        actualOrder: prev.length + 1,
+      }]);
+    });
+    toast.success(`${exercise.name} agregado a la sesión.`);
   };
 
   const addCustomExercise = () => {
@@ -5562,7 +5590,7 @@ export default function RegisterTraining({
     if (!exercise) return;
     const exerciseId = exercise.id || slugify(exercise.name || "");
     if (!exerciseId) return;
-    if (exercises.some((ex) => ex.id === exerciseId)) {
+    if (exercisesRef.current.some((ex) => ex.id === exerciseId)) {
       toast.message("Este ejercicio ya esta en la sesion.");
       return;
     }
@@ -5620,7 +5648,7 @@ export default function RegisterTraining({
     const newSetId = `${exerciseId}-set-${Date.now()}`;
 
     setExercises((prev) =>
-      applyExerciseOrder([
+      prev.some((ex) => ex.id === exerciseId) ? prev : applyExerciseOrder([
         ...prev,
         {
           id: exerciseId,
@@ -6262,6 +6290,21 @@ export default function RegisterTraining({
     historyRecentBySet,
     historySeriesTypeMap,
   ]);
+
+  const missingRoutineExercises = useMemo(() => {
+    const routineExercises = selectedRoutine?.raw?.exercises || [];
+    const missingSlots = getMissingRoutineSlots(routineExercises, exercises);
+    if (!missingSlots.length) return [];
+    const missingIds = new Set(missingSlots.map((slot) => slot.exerciseId));
+    return buildExercisesForRoutineRef.current(
+      selectedRoutine.raw,
+      null,
+      historyBest,
+      historyBestBySet,
+      historyRecentBySet,
+      historySeriesTypeMap,
+    ).filter((exercise) => missingIds.has(exercise.id));
+  }, [selectedRoutine, exercises, historyBest, historyBestBySet, historyRecentBySet, historySeriesTypeMap]);
 
   const routineHistoryForTracking = useMemo(
     () =>
@@ -7641,6 +7684,24 @@ export default function RegisterTraining({
                       </div>
                     ))}
                   </div>
+
+                  {!isHistoryReadOnly && missingRoutineExercises.length > 0 && (
+                    <section className="rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-4">
+                      <h3 className="text-sm font-semibold text-[color:var(--text)]">Ejercicios pendientes de tu rutina</h3>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">Están planificados, pero faltan en esta sesión.</p>
+                      <div className="mt-3 divide-y divide-[color:var(--detail-row-divider)]">
+                        {missingRoutineExercises.map((exercise) => (
+                          <div key={`missing-${exercise.id}`} className="flex min-h-14 items-center justify-between gap-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-[color:var(--text)]">{exercise.name}</p>
+                              <p className="text-xs text-[color:var(--text-muted)]">{exercise.muscle || "Sin grupo"}</p>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={() => handleRestoreRoutineExercise(exercise)} aria-label={`Reponer ${exercise.name}`}>Reponer</Button>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
                   {!isHistoryReadOnly && extraExerciseOptions.length > 0 && (
                     <details className="training-extra-options group max-w-full overflow-hidden rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--card)] shadow-[var(--shadow-xs)]">

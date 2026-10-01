@@ -9,6 +9,7 @@ import {
   Images,
   Layers3,
   Library,
+  ListChecks,
   Plus,
   RefreshCw,
   Search,
@@ -23,6 +24,7 @@ import ExerciseModal from "../components/library/ExerciseModal";
 import ExerciseMigrationPanel from "../components/library/ExerciseMigrationPanel";
 import ExerciseMergePanel from "../components/library/ExerciseMergePanel";
 import ExerciseImageManager from "../components/library/ExerciseImageManager";
+import InactiveExerciseReviewPanel from "../components/library/InactiveExerciseReviewPanel";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Skeleton from "../components/ui/skeleton";
 import Button from "../components/ui/button";
@@ -527,7 +529,8 @@ export default function ExerciseLibrary({ onNavigate }) {
   const showMigration = sourceFilter === "migration" && user?.role === "Admin";
   const showMerge = sourceFilter === "merge" && user?.role === "Admin";
   const showImageManager = sourceFilter === "images" && user?.role === "Admin";
-  const showAdminPanel = showMigration || showMerge || showImageManager;
+  const showInactiveReview = sourceFilter === "inactive" && user?.role === "Admin";
+  const showAdminPanel = showMigration || showMerge || showImageManager || showInactiveReview;
   const showResults = !showAdminPanel && !showGroups;
   const fullBodyExcludesCardio =
     selectedBodyRegion === "Cuerpo completo" &&
@@ -722,6 +725,7 @@ export default function ExerciseLibrary({ onNavigate }) {
     (selectedFamily ? selectedFamily.name : "") ||
     (showMerge ? "Fusionar ejercicios" : "") ||
     (showMigration ? "Migración de catálogo" : "") ||
+    (showInactiveReview ? "Revisar desactivados" : "") ||
     (showImageManager ? "Imágenes de ejercicios" : "") ||
     selectedMuscleGroup ||
     selectedBodyLabel ||
@@ -745,6 +749,8 @@ export default function ExerciseLibrary({ onNavigate }) {
           ? "Une ejercicios duplicados sin perder rutinas ni historial."
           : showMigration
             ? "Reasigna historial y rutinas al catálogo importado."
+            : showInactiveReview
+              ? "Decide qué ejercicios conservar o eliminar definitivamente."
             : showImageManager
               ? "Reemplaza la imagen maestra y revisa cada formato antes de publicarlo."
               : sourceFilter === "custom"
@@ -768,8 +774,10 @@ export default function ExerciseLibrary({ onNavigate }) {
     ? selectedFamily.name
     : showMerge
       ? "Fusionar ejercicios"
-      : showMigration
-        ? "Migración de catálogo"
+    : showMigration
+      ? "Migración de catálogo"
+      : showInactiveReview
+        ? "Revisar desactivados"
         : showImageManager
           ? "Imágenes de ejercicios"
           : selectedMuscleGroup
@@ -1123,6 +1131,12 @@ export default function ExerciseLibrary({ onNavigate }) {
     },
   ];
   const adminTools = [
+    {
+      value: "inactive",
+      label: "Revisar desactivados",
+      description: "Conservar o eliminar fichas ocultas",
+      icon: ListChecks,
+    },
     {
       value: "merge",
       label: "Fusionar ejercicios",
@@ -1580,6 +1594,8 @@ export default function ExerciseLibrary({ onNavigate }) {
           <ExerciseMergePanel />
         ) : showMigration ? (
           <ExerciseMigrationPanel />
+        ) : showInactiveReview ? (
+          <InactiveExerciseReviewPanel onOpenMigration={() => selectSource("migration")} />
         ) : facetsQuery.isError && !showResults ? (
           <ErrorState onRetry={() => facetsQuery.refetch()} />
         ) : showGroups ? (

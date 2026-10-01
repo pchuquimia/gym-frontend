@@ -383,6 +383,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   deleteExercise: (id) => request(`/api/exercises/${id}`, { method: "DELETE" }),
+  getInactiveExercises: () => request("/api/exercises/admin/inactive"),
+  restoreInactiveExercise: (id) =>
+    request(`/api/exercises/admin/inactive/${encodeURIComponent(id)}/restore`, {
+      method: "POST",
+    }),
+  permanentlyDeleteInactiveExercise: (id) =>
+    request(`/api/exercises/admin/inactive/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
   getExerciseMigrationCandidates: () =>
     request("/api/exercises/admin/migrations"),
   migrateExerciseCatalogData: (payload) =>
