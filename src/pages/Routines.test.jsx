@@ -305,6 +305,43 @@ describe("getAssignableRoutines", () => {
 });
 
 describe("RoutineModal drafts", () => {
+  it("muestra todos los grupos y distingue variantes con el mismo nombre", () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RoutineModal
+          mode="create"
+          availableExercises={[
+            { id: "press-bar", name: "Press", muscle: "Pecho", equipment: ["Barra"], branches: ["general"] },
+            { id: "press-dumbbell", name: "Press", muscle: "Pecho", equipment: ["Mancuernas"], branches: ["general"] },
+            { id: "squat", name: "Sentadilla", muscle: "Cuadriceps", equipment: ["Barra"], branches: ["general"] },
+          ]}
+          existingRoutines={[]}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
+    expect(screen.getByRole("button", { name: "Todos los grupos" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button", { name: /Press, Pecho/ })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /Sentadilla/ })).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Press, Pecho, Barra" }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir 1 ejercicio" }));
+    expect(screen.queryByRole("heading", { name: "Elegir ejercicios" })).toBeNull();
+    expect(screen.getAllByText("Press").length).toBeGreaterThan(0);
+  });
+
   it("permite añadir complementos de grupos fuera del enfoque", () => {
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
@@ -491,6 +528,17 @@ describe("RoutineModal drafts", () => {
     expect(screen.queryByPlaceholderText("Buscar reemplazo")).toBeNull();
     expect(screen.getByText("Ajustar ejercicio")).toBeVisible();
     expect(screen.getAllByText("Aperturas").length).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Quitar Aperturas" }).at(-1),
+    );
+    expect(screen.queryAllByRole("button", { name: "Quitar Aperturas" })).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: /Elegir reemplazo/ }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Usar Aperturas como alternativa",
+      }),
+    );
+    expect(screen.getAllByRole("button", { name: "Quitar Aperturas" })).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     expect(screen.getByText("1 alternativa")).toBeVisible();
   });
@@ -602,11 +650,9 @@ describe("RoutineModal drafts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Press/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 y seguir/ }));
     fireEvent.click(screen.getByRole("button", { name: /Elevación lateral/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 y seguir/ }));
     fireEvent.click(screen.getByRole("button", { name: /Extensión/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Añadir 1 ejercicio/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Añadir 3 ejercicios" }));
 
     expect(screen.queryByText("Cambiar enfoque")).not.toBeInTheDocument();
     expect(screen.getByText("Empuje").closest("p")).toHaveTextContent(

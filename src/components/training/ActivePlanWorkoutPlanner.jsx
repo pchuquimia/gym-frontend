@@ -1,9 +1,12 @@
 import { useState } from "react";
 import {
+  ArrowRight,
   BedDouble,
   CalendarDays,
   Check,
+  Clock3,
   Dumbbell,
+  ListChecks,
   Play,
   RotateCcw,
 } from "lucide-react";
@@ -20,6 +23,7 @@ import {
 } from "../../utils/sessionDurationEstimate";
 import restDayRecoveryImage from "../../assets/rest-day-recovery.webp";
 import completedPlanImage from "../../assets/plan-completed-v2.webp";
+import "./free-training.css";
 
 const DAY_SHORT_NAMES = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const WORKOUT_HERO_IMAGE = "/images/workout-hero-model.webp";
@@ -111,6 +115,7 @@ function ProgressRing({ value }) {
 
 export default function ActivePlanWorkoutPlanner({
   plan,
+  allowStandalone = false,
   completedPlan,
   continuationPlan,
   scheduledPlan,
@@ -122,6 +127,7 @@ export default function ActivePlanWorkoutPlanner({
   currentDate,
   onRetry,
   onOpenPlans,
+  onCreateQuickPlan = onOpenPlans,
   onExtendPlan,
   onStart,
   onAdvance,
@@ -262,6 +268,129 @@ export default function ActivePlanWorkoutPlanner({
                 Ver todas
               </button>
             </div>
+          </div>
+        </section>
+      );
+    }
+
+    const standaloneRoutines = allowStandalone
+      ? (routines || []).filter(
+          (routine) => getRoutineExerciseCount(routine) > 0,
+        )
+      : [];
+    if (standaloneRoutines.length) {
+      return (
+        <section
+          className="training-schedule-state free-training"
+          aria-labelledby="free-training-title"
+        >
+          <div className="free-training__hero">
+            <div className="free-training__hero-top">
+              <span className="free-training__eyebrow">
+                <Dumbbell aria-hidden="true" />
+                Entrenamiento libre
+              </span>
+              <span className="free-training__hero-index" aria-hidden="true">
+                RIRFIT / ENTRENAR
+              </span>
+            </div>
+            <div className="free-training__hero-copy">
+              <h2 id="free-training-title">
+                Hoy entrenas
+                <br />a tu ritmo<span>.</span>
+              </h2>
+              <p>
+                Tu rutina está lista. Elige con cuál empezar y registra cada
+                serie a tu manera.
+              </p>
+            </div>
+            <span className="free-training__hero-foot">
+              Sin horarios. Con progreso.
+            </span>
+          </div>
+
+          <div className="free-training__content">
+            <div className="free-training__list-heading">
+              <div>
+                <span className="free-training__section-label">
+                  Elige tu sesión
+                </span>
+                <h3>Tus rutinas</h3>
+              </div>
+              <span className="free-training__count">
+                {String(standaloneRoutines.length).padStart(2, "0")}
+              </span>
+            </div>
+            <div className="free-training__list">
+              {standaloneRoutines.map((routine, index) => {
+                const routineId = routine.id || routine._id;
+                const exerciseCount = getRoutineExerciseCount(routine);
+                const preparing =
+                  String(preparingRoutineId) === String(routineId);
+                return (
+                  <button
+                    key={routineId}
+                    type="button"
+                    onClick={() =>
+                      onStart?.(routineId, "", { standalone: true })
+                    }
+                    disabled={Boolean(preparingRoutineId)}
+                    className="free-training__routine"
+                  >
+                    <span
+                      className="free-training__routine-index"
+                      aria-hidden="true"
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="free-training__routine-copy">
+                      <strong>{routine.name}</strong>
+                      <small>
+                        <span>
+                          <Dumbbell aria-hidden="true" />
+                          {exerciseCount}{" "}
+                          {exerciseCount === 1 ? "ejercicio" : "ejercicios"}
+                        </span>
+                        {routine.estimatedDuration ? (
+                          <span>
+                            <Clock3 aria-hidden="true" />≈{" "}
+                            {routine.estimatedDuration} min
+                          </span>
+                        ) : null}
+                      </small>
+                    </span>
+                    <span className="free-training__routine-action">
+                      {preparing ? "Preparando..." : "Empezar"}
+                      <Play aria-hidden="true" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="free-training__save-note">
+              Tus series, pesos y marcas se guardarán al terminar la sesión.
+            </p>
+
+            <button
+              type="button"
+              onClick={onCreateQuickPlan}
+              className="free-training__plan-link"
+            >
+              <span className="free-training__plan-top">
+                <span className="free-training__plan-icon">
+                  <ListChecks aria-hidden="true" />
+                </span>
+                <span className="free-training__plan-tag">Opcional</span>
+              </span>
+              <span className="free-training__plan-copy">
+                <strong>Organiza tus entrenamientos</strong>
+                <small>Elige los días en que entrenarás con tu rutina.</small>
+              </span>
+              <span className="free-training__plan-action">
+                Crear planificación
+                <ArrowRight aria-hidden="true" />
+              </span>
+            </button>
           </div>
         </section>
       );

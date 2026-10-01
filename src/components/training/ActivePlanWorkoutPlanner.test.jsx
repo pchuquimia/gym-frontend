@@ -4,6 +4,56 @@ import { describe, expect, it, vi } from "vitest";
 import ActivePlanWorkoutPlanner from "./ActivePlanWorkoutPlanner";
 
 describe("ActivePlanWorkoutPlanner", () => {
+  it("permite iniciar una rutina independiente sin plan activo", async () => {
+    const onStart = vi.fn();
+    const onOpenPlans = vi.fn();
+    const onCreateQuickPlan = vi.fn();
+    render(
+      <ActivePlanWorkoutPlanner
+        plan={null}
+        allowStandalone
+        routines={[
+          { id: "first-routine", name: "Mi rutina", exerciseCount: 3 },
+        ]}
+        trainings={[]}
+        loading={false}
+        error=""
+        onStart={onStart}
+        onOpenPlans={onOpenPlans}
+        onCreateQuickPlan={onCreateQuickPlan}
+      />,
+    );
+
+    expect(screen.getByText("Entrenamiento libre")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /Mi rutina/ }));
+    expect(onStart).toHaveBeenCalledWith("first-routine", "", {
+      standalone: true,
+    });
+    expect(screen.getByText("Opcional")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Organiza tus entrenamientos/ }),
+    );
+    expect(onCreateQuickPlan).toHaveBeenCalledOnce();
+    expect(onOpenPlans).not.toHaveBeenCalled();
+  });
+
+  it("mantiene la invitación a crear un plan cuando el modo libre está desactivado", () => {
+    render(
+      <ActivePlanWorkoutPlanner
+        plan={null}
+        routines={[
+          { id: "first-routine", name: "Mi rutina", exerciseCount: 3 },
+        ]}
+        trainings={[]}
+        loading={false}
+        error=""
+        onOpenPlans={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("No hay una planificación vigente")).toBeVisible();
+    expect(screen.queryByText("Entrenamiento libre")).toBeNull();
+  });
+
   it("presenta el cierre del plan y permite extenderlo", async () => {
     const user = userEvent.setup();
     const onExtendPlan = vi.fn();

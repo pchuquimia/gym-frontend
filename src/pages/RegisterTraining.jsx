@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
@@ -91,6 +92,7 @@ import {
   resolveRoutinePlanContext,
 } from "../utils/trainingPlanContext";
 import { requestTrainingPlanExtension } from "../utils/trainingPlanNavigation";
+import { QUICK_PLAN_INTENT_KEY } from "../utils/quickPlan";
 import { getCurrentPlanWeek } from "../utils/trainingPlanDates";
 import { estimateTrainingCalories } from "../utils/calorieEstimate";
 import {
@@ -821,7 +823,7 @@ const buildVariantList = (baseExercise, library = []) => {
     seen.add(exerciseId);
     variants.push({
       exerciseId,
-      name: entry.name || entry.exerciseName || meta.name || "Ejercicio",
+      name: meta.name || entry.name || entry.exerciseName || "Ejercicio",
       muscle: entry.muscle || meta.muscle || "Sin grupo",
       image: entry.image || meta.image || "",
       imagePublicId: entry.imagePublicId || meta.imagePublicId || "",
@@ -1706,6 +1708,7 @@ export default function RegisterTraining({
     "";
   const resolveHistoryPlanId = useCallback(
     (routine, planContext = null) => {
+      if (planContext?.standalone) return "";
       const explicitPlanId = String(planContext?.planId || "");
       if (explicitPlanId) return explicitPlanId;
       const assignedPlanId = String(routine?.raw?.trainingPlanId || "");
@@ -1751,6 +1754,7 @@ export default function RegisterTraining({
     [historyPlanCandidates, selectedHistoryPlanId],
   );
   const selectedHistoryPlanSlotId = useMemo(() => {
+    if (selectedPlanContext?.standalone) return "";
     const explicitSlotId = String(selectedPlanContext?.slotId || "").trim();
     if (explicitSlotId) return explicitSlotId;
     const assignedSlotId = String(
@@ -1774,6 +1778,7 @@ export default function RegisterTraining({
       : "";
   }, [
     selectedHistoryPlan,
+    selectedPlanContext?.standalone,
     selectedPlanContext?.slotId,
     selectedRoutine,
     selectedRoutineId,
@@ -1808,7 +1813,9 @@ export default function RegisterTraining({
       .map((ex) => ({
         id: ex.id,
         name: ex.name,
+        aliases: Array.isArray(ex.aliases) ? ex.aliases : [],
         muscle: ex.muscle || ex.muscleGroup || "Sin grupo",
+        equipment: ex.equipment || [],
         image: ex.image || "",
         imagePublicId: ex.imagePublicId || "",
         supportsUnilateral: Boolean(ex.supportsUnilateral),
@@ -1823,12 +1830,12 @@ export default function RegisterTraining({
     return Array.from(set);
   }, [libraryExerciseOptions]);
   const filteredLibraryExercises = useMemo(() => {
-    const search = exerciseSearch.trim().toLowerCase();
-    return libraryExerciseOptions.filter(
-      (ex) =>
-        (!selectedMuscleGroup || ex.muscle === selectedMuscleGroup) &&
-        (!search || ex.name.toLowerCase().includes(search)),
-    );
+    const search = exerciseSearch.trim();
+    return libraryExerciseOptions
+      .filter((ex) => search || !selectedMuscleGroup || ex.muscle === selectedMuscleGroup)
+      .map((ex) => ({ ...ex, searchScore: search ? scoreExerciseSearch(ex, search) : 0 }))
+      .filter((ex) => !search || ex.searchScore > 0)
+      .sort((a, b) => search ? b.searchScore - a.searchScore || a.name.localeCompare(b.name) : 0);
   }, [libraryExerciseOptions, exerciseSearch, selectedMuscleGroup]);
   const sessionLocked =
     setupStarted &&
@@ -1914,21 +1921,6 @@ export default function RegisterTraining({
   }, [timingSummary]);
 
   useEffect(() => {
-    if (!showExercisePicker) return;
-    setExerciseSearch("");
-    if (!muscleGroupOptions.length) {
-      if (selectedMuscleGroup) setSelectedMuscleGroup("");
-      return;
-    }
-    if (
-      !selectedMuscleGroup ||
-      !muscleGroupOptions.includes(selectedMuscleGroup)
-    ) {
-      setSelectedMuscleGroup(muscleGroupOptions[0]);
-    }
-  }, [showExercisePicker, muscleGroupOptions, selectedMuscleGroup]);
-
-  useEffect(() => {
     if (!trainingPhotoFile) {
       setTrainingPhotoPreview("");
       return;
@@ -2000,7 +1992,7 @@ export default function RegisterTraining({
       const currentCandidate = {
         exerciseId:
           ex.exerciseId || ex.id || meta.id || slugify(ex.name || `ex-${idx}`),
-        name: ex.name || meta.name || ex.exerciseName || "Ejercicio",
+        name: meta.name || ex.name || ex.exerciseName || "Ejercicio",
         muscle: ex.muscle || ex.muscleGroup || meta.muscle || "Sin grupo",
         image: ex.image || meta.image || "",
         imagePublicId: ex.imagePublicId || meta.imagePublicId || "",
@@ -4777,11 +4769,15 @@ export default function RegisterTraining({
           acknowledgedAt: new Date().toISOString(),
         }
       : null;
-    const planContext = {
-      planId: String(activeTrainingPlan?._id || activeTrainingPlan?.id || ""),
-      slotId: String(slotId || ""),
-      scheduleOverride,
-    };
+    const planContext = selection.standalone
+      ? { standalone: true }
+      : {
+          planId: String(
+            activeTrainingPlan?._id || activeTrainingPlan?.id || "",
+          ),
+          slotId: String(slotId || ""),
+          scheduleOverride,
+        };
     setSelectedPlanContext(planContext);
     setPendingPlanRoutineId(String(routineId));
     if (String(selectedRoutineId) !== String(routineId) || !exercises.length) {
@@ -5092,6 +5088,17 @@ export default function RegisterTraining({
     );
     const requestedExerciseId = currentVariants[requestedIndex]?.exerciseId;
     if (!requestedExerciseId) return;
+    if (
+      exercisesRef.current.some(
+        (exercise) =>
+          exercise.id !== exerciseId &&
+          String(exercise.id) === String(requestedExerciseId),
+      )
+    ) {
+      toast.message("Este ejercicio ya está en la sesión.");
+      return;
+    }
+    restoreRemovedExercise(requestedExerciseId);
 
     setExpandedExerciseId((current) =>
       current === currentTarget.id ? requestedExerciseId : current,
@@ -5482,12 +5489,21 @@ export default function RegisterTraining({
     }
   };
 
+  const restoreRemovedExercise = (exerciseId) => {
+    const normalizedExerciseId = String(exerciseId);
+    if (!removedExerciseIdsRef.current.delete(normalizedExerciseId)) return;
+    setRemovedExerciseIds((current) =>
+      current.filter((id) => id !== normalizedExerciseId),
+    );
+  };
+
   const handleAddExtraExercise = (exercise) => {
     if (!exercise) return;
     if (exercises.some((ex) => ex.id === exercise.id)) {
       toast.message("Este ejercicio ya esta en la sesion.");
       return;
     }
+    restoreRemovedExercise(exercise.id);
     const clone = JSON.parse(JSON.stringify(exercise));
     setExercises((prev) => {
       const appendedOrder = prev.length + 1;
@@ -5550,6 +5566,7 @@ export default function RegisterTraining({
       toast.message("Este ejercicio ya esta en la sesion.");
       return;
     }
+    restoreRemovedExercise(exerciseId);
     const nameKey = slugify(exercise.name || "");
     const supportsUnilateral = Boolean(exercise.supportsUnilateral);
     const movementMode = "bilateral";
@@ -5660,6 +5677,8 @@ export default function RegisterTraining({
   };
 
   const handleAddExercise = () => {
+    setExerciseSearch("");
+    setSelectedMuscleGroup("");
     setShowExercisePicker(true);
   };
 
@@ -6650,17 +6669,17 @@ export default function RegisterTraining({
                   onDurationChange={handleAutoFlowDurationChange}
                 />
                 {isAdmin ? (
-                    <button
-                      type="button"
-                      className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
-                      onClick={() => {
-                        setSessionMenuOpen(false);
-                        handleEditRoutineFromTraining();
-                      }}
-                    >
-                      <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
-                      <span>Editar rutina activa</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
+                    onClick={() => {
+                      setSessionMenuOpen(false);
+                      handleEditRoutineFromTraining();
+                    }}
+                  >
+                    <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
+                    <span>Editar rutina activa</span>
+                  </button>
                 ) : null}
                 <div className="mx-3 mt-3 border-t border-[color:var(--border)]" />
                 <button
@@ -6796,6 +6815,10 @@ export default function RegisterTraining({
                 <div className="training-setup-page__planner-fullbleed">
                   <ActivePlanWorkoutPlanner
                     plan={activeTrainingPlan}
+                    allowStandalone={
+                      authUser?.role === "Cliente" &&
+                      authUser?.trainingMode !== "coach_managed"
+                    }
                     completedPlan={latestCompletedTrainingPlan}
                     continuationPlan={continuationPlan}
                     scheduledPlan={scheduledTrainingPlan}
@@ -6813,6 +6836,10 @@ export default function RegisterTraining({
                       reloadRoutines?.();
                     }}
                     onOpenPlans={() => onNavigate?.("rutinas")}
+                    onCreateQuickPlan={() => {
+                      window.sessionStorage.setItem(QUICK_PLAN_INTENT_KEY, "1");
+                      onNavigate?.("rutinas");
+                    }}
                     onExtendPlan={handleExtendCompletedPlan}
                     onStart={handleStartPlanRoutine}
                     onAdvance={handleAdvancePlanCycle}
@@ -7151,18 +7178,18 @@ export default function RegisterTraining({
                             onDurationChange={handleAutoFlowDurationChange}
                           />
                           {isAdmin ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
-                                onClick={() => {
-                                  setDesktopSessionMenuOpen(false);
-                                  handleEditRoutineFromTraining();
-                                }}
-                              >
-                                <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
-                                Editar rutina
-                              </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                              onClick={() => {
+                                setDesktopSessionMenuOpen(false);
+                                handleEditRoutineFromTraining();
+                              }}
+                            >
+                              <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
+                              Editar rutina
+                            </button>
                           ) : null}
                           {showResetButton ? (
                             <button
@@ -7715,7 +7742,7 @@ export default function RegisterTraining({
       {showExercisePicker && (
         <Modal
           title="Agregar ejercicio"
-          subtitle="Selecciona el grupo muscular y agrega ejercicios disponibles."
+          subtitle="Busca por nombre o explora los grupos musculares."
           onClose={() => setShowExercisePicker(false)}
           footer={
             <Button
@@ -7741,23 +7768,36 @@ export default function RegisterTraining({
                 </Badge>
               </div>
               <p className="text-xs text-[color:var(--text-muted)]">
-                Elige un grupo muscular para ver los ejercicios disponibles en
-                esta sede.
+                Busca el ejercicio que conoces o explora los disponibles en esta sede.
               </p>
             </div>
 
             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 shadow-sm space-y-3">
               <p className="text-sm font-semibold text-[color:var(--text)]">
-                Elige grupo muscular
+                Grupos musculares
               </p>
               <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMuscleGroup("");
+                    setExerciseSearch("");
+                  }}
+                  aria-pressed={!selectedMuscleGroup && !exerciseSearch.trim()}
+                  className={`px-3 py-2 rounded-full border text-sm transition ${!selectedMuscleGroup && !exerciseSearch.trim() ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold" : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)]"}`}
+                >
+                  Todos los grupos
+                </button>
                 {muscleGroupOptions.map((muscle) => (
                   <button
                     key={muscle}
                     type="button"
-                    onClick={() => setSelectedMuscleGroup(muscle)}
+                    onClick={() => {
+                      setSelectedMuscleGroup(muscle);
+                      setExerciseSearch("");
+                    }}
                     className={`px-3 py-2 rounded-full border text-sm transition ${
-                      selectedMuscleGroup === muscle
+                      !exerciseSearch.trim() && selectedMuscleGroup === muscle
                         ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold"
                         : "border-[color:var(--border)] bg-[color:var(--bg)] text-[color:var(--text-muted)] hover:border-[#181918]/40 dark:hover:border-[#e2ff00]/40"
                     }`}
@@ -7779,10 +7819,16 @@ export default function RegisterTraining({
               </p>
               <input
                 className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] px-3 py-2 text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[#181918]/25 dark:focus:ring-[#e2ff00]/25"
-                placeholder="Buscar por nombre..."
+                placeholder="Buscar por nombre o músculo"
+                aria-label="Buscar ejercicios"
                 value={exerciseSearch}
                 onChange={(e) => setExerciseSearch(e.target.value)}
               />
+              {exerciseSearch.trim() ? (
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Buscando en todos los grupos musculares.
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -7825,7 +7871,7 @@ export default function RegisterTraining({
                             {ex.name}
                           </p>
                           <p className="text-xs text-[color:var(--text-muted)]">
-                            {ex.muscle}
+                            {ex.muscle} · {Array.isArray(ex.equipment) && ex.equipment.length ? ex.equipment.slice(0, 2).join(" · ") : "Sin equipo"}
                           </p>
                         </div>
                         <Button
@@ -7841,7 +7887,17 @@ export default function RegisterTraining({
                 })}
                 {filteredLibraryExercises.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-[color:var(--border)] p-4 text-sm text-[color:var(--text-muted)]">
-                    No hay ejercicios para este grupo muscular.
+                    <p>No encontramos ejercicios con esta búsqueda.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExerciseSearch("");
+                        setSelectedMuscleGroup("");
+                      }}
+                      className="theme-accent-text mt-2 font-semibold"
+                    >
+                      Ver todos los ejercicios
+                    </button>
                   </div>
                 )}
               </div>

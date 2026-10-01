@@ -203,6 +203,8 @@ describe("Onboarding account type", () => {
     expect(
       screen.getByRole("radio", { name: /soy entrenador\/a/i }),
     ).toBeVisible();
+    expect(screen.getByRole("button", { name: /continuar/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /decidir despu.s/i })).toBeNull();
   });
 
   it("abre la configuracion profesional despues de elegir entrenador", async () => {

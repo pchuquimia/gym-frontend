@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getManagedAthleteJourneyStage,
+  getNewAthleteDashboardStage,
   getUserHome,
   needsCoachIntake,
   needsOnboarding,
@@ -101,5 +102,42 @@ describe("userFlow", () => {
   it("envia al atleta configurado a inicio", () => {
     const user = { role: "Cliente", onboarding: { status: "complete" } };
     expect(getUserHome(user)).toBe("dashboard");
+  });
+
+  it("muestra los pasos iniciales hasta la primera sesion", () => {
+    const user = { role: "Cliente", trainingMode: "independent" };
+    expect(getNewAthleteDashboardStage({ user })).toBe("no_routine");
+    expect(
+      getNewAthleteDashboardStage({
+        user,
+        routines: [{ id: "routine-1", exercises: [{ id: "exercise-1" }] }],
+      }),
+    ).toBe("ready_to_train");
+    expect(
+      getNewAthleteDashboardStage({
+        user,
+        routines: [{ id: "routine-1", exercises: [{ id: "exercise-1" }] }],
+        trainings: [{ id: "session-1" }],
+      }),
+    ).toBeNull();
+  });
+
+  it("no invita a iniciar una rutina sin ejercicios", () => {
+    const user = { role: "Cliente", trainingMode: "independent" };
+    expect(getNewAthleteDashboardStage({ user, routines: [{ id: "empty", exercises: [] }] })).toBe("no_routine");
+  });
+
+  it("conserva el flujo existente durante cargas, entrenamientos y cuentas gestionadas", () => {
+    const user = { role: "Cliente", trainingMode: "independent" };
+    expect(getNewAthleteDashboardStage({ user, routinesLoading: true })).toBeNull();
+    expect(getNewAthleteDashboardStage({ user, routinesError: "Sin conexión" })).toBeNull();
+    expect(getNewAthleteDashboardStage({ user, activeTraining: { id: "active" } })).toBeNull();
+    expect(getNewAthleteDashboardStage({ user, activePlan: { id: "plan" } })).toBeNull();
+    expect(
+      getNewAthleteDashboardStage({
+        user: { role: "Cliente", trainingMode: "coach_managed" },
+      }),
+    ).toBeNull();
+    expect(getNewAthleteDashboardStage({ user, coachAthlete: { id: "athlete" } })).toBeNull();
   });
 });

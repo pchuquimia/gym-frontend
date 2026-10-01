@@ -37,6 +37,7 @@ export const resolveRoutinePlanContext = (
   requestedContext = null,
   plans = [],
 ) => {
+  if (requestedContext?.standalone) return requestedContext;
   const rawRoutine = routine?.raw || routine || {};
   const routineId = getId(routine) || getId(rawRoutine);
   let planId = String(

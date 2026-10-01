@@ -1,12 +1,15 @@
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  ArrowRight,
   Bell,
   ChartNoAxesColumnIncreasing,
   Check,
   ChevronRight,
   Clock3,
+  Dumbbell,
 } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
+import "./starter-experience.css";
 
 const WEEKDAY_LABELS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
 const DAILY_CARD_IMAGES = Object.freeze({
@@ -270,7 +273,10 @@ function WorkoutMission({ task, onOpen, readOnly }) {
           <strong>{task.title}</strong>
           <small>{task.subtitle}</small>
         </span>
-        <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
+        <ChevronRight
+          className="mobile-daily-plan__chevron"
+          aria-hidden="true"
+        />
       </button>
     );
   }
@@ -420,6 +426,142 @@ function ActivePlanContext({ plan, onOpen }) {
   );
 }
 
+function StarterExperience({
+  stage,
+  readOnly,
+  onCreateRoutine,
+  onStartWorkout,
+  onOpenLibrary,
+}) {
+  const hasRoutine = stage === "ready_to_train";
+  const primaryAction = hasRoutine ? onStartWorkout : onCreateRoutine;
+  const steps = [
+    {
+      title: hasRoutine ? "Rutina creada" : "Crea tu rutina",
+      detail: "Organiza lo que vas a entrenar",
+      complete: hasRoutine,
+      current: !hasRoutine,
+    },
+    {
+      title: "Completa una sesión",
+      detail: "Registra tus series y pesos",
+      complete: false,
+      current: hasRoutine,
+    },
+    {
+      title: "Descubre tu progreso",
+      detail: "Tus métricas aparecerán aquí",
+      complete: false,
+      current: false,
+    },
+  ];
+
+  return (
+    <div className="mobile-daily-plan__starter">
+      <div className="mobile-daily-plan__starter-intro">
+        <p>BIENVENIDO A RIRFIT</p>
+        <h2>
+          {hasRoutine
+            ? "Tu primer entrenamiento te espera."
+            : "Tu progreso empieza hoy."}
+        </h2>
+        <span>
+          {hasRoutine
+            ? "Ya tienes una rutina. Empieza una sesión para registrar tus avances."
+            : "Prepara tu entrenamiento y empieza a registrar tus avances."}
+        </span>
+      </div>
+
+      <section
+        className={`mobile-daily-plan__starter-hero ${hasRoutine ? "mobile-daily-plan__starter-hero--ready" : ""}`}
+      >
+        {hasRoutine ? (
+          <img
+            className="mobile-daily-plan__starter-hero-image"
+            src="/images/routine-upper.webp"
+            alt=""
+            aria-hidden="true"
+          />
+        ) : (
+          <span className="mobile-daily-plan__starter-icon" aria-hidden="true">
+            <Dumbbell />
+          </span>
+        )}
+        <h3>
+          {hasRoutine ? "Empieza tu primera sesión" : "Crea tu primera rutina"}
+        </h3>
+        <p>
+          {hasRoutine
+            ? "Elige tu rutina, registra cada serie y guarda tu entrenamiento."
+            : "Elige tus ejercicios y prepara tu primera sesión. Podrás cambiarla cuando quieras."}
+        </p>
+        <button type="button" onClick={primaryAction} disabled={readOnly}>
+          {hasRoutine ? "Iniciar entrenamiento" : "Crear rutina"}
+          <ArrowRight aria-hidden="true" />
+        </button>
+      </section>
+
+      <section
+        className="mobile-daily-plan__starter-journey"
+        aria-labelledby="starter-journey-title"
+      >
+        <div className="mobile-daily-plan__starter-heading">
+          <h3 id="starter-journey-title">Tu camino</h3>
+          <span>3 pasos sencillos</span>
+        </div>
+        <ol>
+          {steps.map((step, index) => {
+            const content = (
+              <>
+                <span
+                  className={`mobile-daily-plan__starter-number ${step.complete ? "is-complete" : ""} ${step.current ? "is-current" : ""}`}
+                >
+                  {step.complete ? <Check aria-hidden="true" /> : index + 1}
+                </span>
+                <span className="mobile-daily-plan__starter-step-copy">
+                  <strong>{step.title}</strong>
+                  <small>{step.detail}</small>
+                </span>
+                {step.current ? <ChevronRight aria-hidden="true" /> : null}
+              </>
+            );
+            return (
+              <li key={step.title}>
+                {step.current ? (
+                  <button
+                    type="button"
+                    onClick={primaryAction}
+                    disabled={readOnly}
+                    aria-current="step"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div>{content}</div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <button
+        type="button"
+        className="mobile-daily-plan__starter-explore"
+        onClick={onOpenLibrary}
+        disabled={readOnly}
+      >
+        <img src="/images/workout-hero-model.webp" alt="" loading="lazy" />
+        <span>
+          <strong>¿Quieres explorar primero?</strong>
+          <small>Conoce la biblioteca de ejercicios</small>
+        </span>
+        <ChevronRight aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 function WeeklyMuscleChart({ summary, onOpenDetails }) {
   const muscles = summary?.byPrimaryMuscle || [];
   const visibleMuscles = muscles.slice(0, 5);
@@ -433,9 +575,7 @@ function WeeklyMuscleChart({ summary, onOpenDetails }) {
     >
       <div className="mobile-daily-plan__muscle-heading">
         <div>
-          <h2 id="mobile-daily-plan-muscle-title">
-            Series por grupo muscular
-          </h2>
+          <h2 id="mobile-daily-plan-muscle-title">Series por grupo muscular</h2>
           <p>
             Esta semana · {sessions} {sessions === 1 ? "sesión" : "sesiones"}
           </p>
@@ -454,7 +594,10 @@ function WeeklyMuscleChart({ summary, onOpenDetails }) {
               <strong>
                 {sets} {sets === 1 ? "serie" : "series"}
               </strong>
-              <div className="mobile-daily-plan__muscle-track" aria-hidden="true">
+              <div
+                className="mobile-daily-plan__muscle-track"
+                aria-hidden="true"
+              >
                 <span style={{ width: `${(sets / maxSets) * 100}%` }} />
               </div>
             </li>
@@ -475,6 +618,7 @@ export default function MobileDailyPlan({
   user,
   adminControl = null,
   weekDays = [],
+  starterStage = null,
   journeyStage = null,
   planningContext = null,
   coach = null,
@@ -490,6 +634,8 @@ export default function MobileDailyPlan({
   onStartEvaluation,
   onOpenCoach,
   onOpenPlan,
+  onCreateRoutine,
+  onOpenLibrary,
   onOpenCheckIn,
   onOpenWorkout,
   onOpenHydration,
@@ -570,7 +716,7 @@ export default function MobileDailyPlan({
         </details>
       ) : null}
       {coach ? <CoachContext coach={coach} onOpen={onOpenCoach} /> : null}
-      {!journeyStage || journeyStage === "plan_assigned" ? (
+      {!starterStage && (!journeyStage || journeyStage === "plan_assigned") ? (
         <>
           <div
             className="mobile-daily-plan__week"
@@ -584,7 +730,15 @@ export default function MobileDailyPlan({
         </>
       ) : null}
 
-      {journeyStage && journeyStage !== "plan_assigned" ? (
+      {starterStage ? (
+        <StarterExperience
+          stage={starterStage}
+          readOnly={readOnly}
+          onCreateRoutine={onCreateRoutine}
+          onStartWorkout={onOpenWorkout}
+          onOpenLibrary={onOpenLibrary}
+        />
+      ) : journeyStage && journeyStage !== "plan_assigned" ? (
         <>
           <ManagedOnboarding
             stage={journeyStage}

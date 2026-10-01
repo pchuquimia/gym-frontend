@@ -41,3 +41,38 @@ export const getUserHome = (user) => {
   if (user?.role === "Entrenador") return "trainer";
   return "dashboard";
 };
+
+export const getNewAthleteDashboardStage = ({
+  user,
+  coachAthlete,
+  managedAthleteStage,
+  activePlan,
+  activeTraining,
+  routines = [],
+  routinesLoading,
+  routinesError,
+  trainings = [],
+}) => {
+  if (
+    user?.role !== "Cliente" ||
+    isCoachManagedClient(user) ||
+    coachAthlete ||
+    managedAthleteStage ||
+    activePlan ||
+    activeTraining ||
+    routinesLoading ||
+    routinesError ||
+    trainings.length
+  ) {
+    return null;
+  }
+
+  const hasTrainableRoutine = routines.some(
+    (routine) =>
+      routine.isAvailableForTraining !== false &&
+      (Array.isArray(routine.exercises)
+        ? routine.exercises.some((exercise) => !exercise.isExtra)
+        : Number(routine.exerciseCount) > 0),
+  );
+  return hasTrainableRoutine ? "ready_to_train" : "no_routine";
+};

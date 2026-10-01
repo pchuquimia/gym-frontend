@@ -70,7 +70,10 @@ import {
   estimateFullSessionDuration,
   formatSessionDuration,
 } from "../utils/sessionDurationEstimate";
-import { getManagedAthleteJourneyStage } from "../utils/userFlow";
+import {
+  getManagedAthleteJourneyStage,
+  getNewAthleteDashboardStage,
+} from "../utils/userFlow";
 import {
   formatExercisePerformanceValue,
   summarizeExercisePerformance,
@@ -1782,7 +1785,11 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     trainingsError,
     reloadTrainings,
   } = useTrainingData();
-  const { routines = [] } = useRoutines();
+  const {
+    routines = [],
+    loading: routinesLoading,
+    error: routinesError,
+  } = useRoutines();
   const { theme } = useThemeMode();
   const systemTodayKey = useMemo(() => getISODateKey(new Date()), []);
   const [loadedActivePlan, setLoadedActivePlan] = useState(null);
@@ -1841,7 +1848,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
   const [caloriesModalOpen, setCaloriesModalOpen] = useState(false);
   const [quickWeightOpen, setQuickWeightOpen] = useState(false);
-  const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(null);
+  const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(() => {
+    const snapshot = readActiveTrainingSnapshot();
+    return isActiveTrainingSnapshot(snapshot) &&
+      canAccessActiveTraining(snapshot, authUser, coachAthlete)
+      ? snapshot
+      : null;
+  });
   const hasOpenModal = Boolean(
     durationModalOpen ||
     performanceDetailType ||
@@ -3103,6 +3116,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     onNavigate("registrar");
   };
 
+  const openFirstRoutineEditor = () => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("rirfit_create_routine_intent", "1");
+    }
+    onNavigate("rutinas");
+  };
+
   const handleTodayPrimary = () => {
     if (todayAction.type === "active") {
       onNavigate("registrar");
@@ -3327,6 +3347,17 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
   const isDark = theme === "dark";
   const hasTrainingHistory = orderedTrainings.length > 0;
+  const starterStage = getNewAthleteDashboardStage({
+    user: authUser,
+    coachAthlete,
+    managedAthleteStage,
+    activePlan,
+    activeTraining: activeTrainingSnapshot,
+    routines,
+    routinesLoading,
+    routinesError,
+    trainings: orderedTrainings,
+  });
   const performanceDetailIsDecline = performanceDetailType === "declines";
   const performanceDetailItems = performanceDetailIsDecline
     ? weekData.declines || []
@@ -3388,6 +3419,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         profile={profile}
         user={authUser}
         weekDays={weekData.days}
+        starterStage={starterStage}
         journeyStage={managedAthleteStage}
         planningContext={dashboardBootstrap.data?.planning || null}
         coach={managedCoach}
@@ -3417,6 +3449,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
         onOpenPlan={() => onNavigate("rutinas")}
+        onCreateRoutine={openFirstRoutineEditor}
+        onOpenLibrary={() => onNavigate("library")}
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}

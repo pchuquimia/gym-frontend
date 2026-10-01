@@ -17,6 +17,19 @@ const plan = {
 };
 
 describe("resolveRoutinePlanContext", () => {
+  it("respeta la selección de entrenamiento libre aunque la rutina tuvo un plan", () => {
+    expect(
+      resolveRoutinePlanContext(
+        {
+          id: "routine_1",
+          raw: { trainingPlanId: "plan_1", trainingPlanSlotId: "slot_1" },
+        },
+        { standalone: true },
+        [plan],
+      ),
+    ).toEqual({ standalone: true });
+  });
+
   it("conserva el contexto elegido explícitamente", () => {
     expect(
       resolveRoutinePlanContext(

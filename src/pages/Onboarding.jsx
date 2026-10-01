@@ -55,12 +55,14 @@ const accountTypes = [
     id: "athlete",
     title: "Entreno para mí",
     detail: "Organiza tus rutinas y registra tu progreso.",
+    meta: "Objetivos · rutinas · progreso",
     icon: UserRound,
   },
   {
     id: "coach",
     title: "Soy entrenador/a",
-    detail: "Planifica, acompana y revisa el progreso de tus alumnos.",
+    detail: "Planifica, acompaña y revisa el progreso de tus alumnos.",
+    meta: "Alumnos · planes · seguimiento",
     icon: BriefcaseBusiness,
   },
 ];
@@ -170,14 +172,14 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
   );
 }
 
-function AccountTypeChoice({ selected, icon: Icon, title, detail, onClick }) {
+function AccountTypeChoice({ selected, icon: Icon, title, detail, meta, onClick }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       onClick={onClick}
-      className={`group flex min-h-[104px] w-full items-center gap-4 rounded-[20px] border px-4 py-4 text-left transition duration-300 ${
+      className={`group flex min-h-[124px] w-full items-center gap-4 rounded-[20px] border px-4 py-4 text-left transition duration-300 ${
         selected
           ? "border-[#181918] bg-[#181918] text-white shadow-[0_14px_36px_rgba(0,0,0,0.14)] dark:border-[#eeeae2] dark:bg-[#eeeae2] dark:text-black"
           : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[color:var(--text)]"
@@ -202,6 +204,13 @@ function AccountTypeChoice({ selected, icon: Icon, title, detail, onClick }) {
           }`}
         >
           {detail}
+        </span>
+        <span
+          className={`mt-2 block text-[11px] font-semibold tracking-[0.02em] ${
+            selected ? "text-current/65" : "text-[color:var(--text-muted)]"
+          }`}
+        >
+          {meta}
         </span>
       </span>
       <span
@@ -603,7 +612,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             RIRFIT
           </p>
           <h1 className="truncate text-center text-lg font-semibold tracking-[-0.03em]">
-            Configuración inicial
+            {showAccountType ? "Bienvenido a RIRFIT" : "Configuración inicial"}
           </h1>
           <button
             type="button"
@@ -663,20 +672,25 @@ export default function Onboarding({ onNavigate = () => {} }) {
         ) : null}
       </header>
 
-      <section className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-5 py-6">
-          <p className="text-xs font-medium text-[color:var(--text-muted)]">
-            Hola, {user?.name?.split(" ")[0] || "atleta"}
-          </p>
+      <section className={`min-h-0 flex-1 overflow-y-auto ${showAccountType ? "md:flex md:items-center" : ""}`}>
+        <div className="mx-auto w-full max-w-lg px-5 py-6 md:py-10">
+          {!showAccountType ? (
+            <p className="text-xs font-medium text-[color:var(--text-muted)]">
+              Hola, {user?.name?.split(" ")[0] || "atleta"}
+            </p>
+          ) : null}
 
           {showAccountType ? (
-            <div className="mt-3">
+            <div>
+              <p className="mb-4 inline-flex rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em] text-[color:var(--text-muted)]">
+                TU CUENTA YA ESTÁ LISTA
+              </p>
               <h1 className="text-[32px] font-semibold leading-[1.02] tracking-[-0.05em]">
                 ¿Cómo quieres usar RIRFIT?
               </h1>
               <p className="mt-3 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
-                Empezaremos con las herramientas adecuadas para ti. Podrás
-                activar un espacio profesional más adelante.
+                Elige tu espacio para preparar los siguientes pasos. Si entrenas
+                por tu cuenta, podrás activar un espacio profesional más adelante.
               </p>
               <div
                 className="mt-6 grid gap-3"
@@ -692,6 +706,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
                   />
                 ))}
               </div>
+              <p className="mt-5 text-center text-xs leading-5 text-[color:var(--text-muted)]">
+                Tu elección define la configuración inicial de tu cuenta.
+              </p>
             </div>
           ) : null}
 
@@ -1016,14 +1033,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
         <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-2">
           {showAccountType ? (
             <>
-              <button
-                type="button"
-                onClick={() => persistAccountType("athlete")}
-                disabled={saving}
-                className="h-12 px-2 text-sm font-medium text-[color:var(--text-muted)] disabled:opacity-50"
-              >
-                Decidir después
-              </button>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Selecciona una opción
+              </p>
               <button
                 type="button"
                 onClick={() => persistAccountType(accountType)}

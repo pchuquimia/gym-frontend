@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import Modal from "../components/shared/Modal";
 import { getExerciseImageUrl } from "../utils/cloudinary";
+import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import { buildRoutineExerciseOptionMap } from "../utils/routineExerciseOptions";
 import { planStartsInFuture } from "../utils/trainingPlanDates";
 import { consumeTrainingPlanExtension } from "../utils/trainingPlanNavigation";
@@ -59,7 +60,9 @@ import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import Button from "../components/ui/button";
 import Badge from "../components/ui/badge";
 import { api } from "../services/api";
+import { createQuickTrainingPlan } from "../services/quickPlanCreation";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
+import QuickPlanSetup from "../components/training/QuickPlanSetup";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import DetailModal from "../components/library/DetailModal";
@@ -68,6 +71,7 @@ import MobilePageHeader from "../components/layout/MobilePageHeader";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import planningOverviewImage from "../assets/planning-overview.webp";
 import { optionMatches, toArray } from "../constants/exerciseTaxonomy";
+import { QUICK_PLAN_INTENT_KEY } from "../utils/quickPlan";
 import {
   fetchCachedPlanTemplates,
   fetchCachedTrainingPlans,
@@ -105,6 +109,10 @@ const exerciseMatchesRoutineFilter = (exercise, filter) => {
     );
   }
   return equipment.some((item) => optionMatches(item, filter.value));
+};
+const getExerciseEquipmentLabel = (exercise) => {
+  const equipment = toArray(exercise.equipment).filter(Boolean);
+  return equipment.length ? equipment.slice(0, 2).join(" · ") : "Sin equipo";
 };
 const ROUTINE_DETAIL_HERO_IMAGES = Object.freeze({
   "lower a": "/images/routine-lower-a.webp",
@@ -633,6 +641,7 @@ const ROUTINE_TYPES = [
   },
 ];
 const ROUTINE_LIBRARY_DRAFT_KEY = "routine_edit_library_draft";
+const CREATE_ROUTINE_INTENT_KEY = "rirfit_create_routine_intent";
 const TRAINING_ROUTINES_RETURN_KEY = "training_routines_return";
 const TRAINING_ROUTINE_EDIT_TARGET_KEY = "training_routine_edit_target";
 const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
@@ -689,35 +698,7 @@ const toSearchArray = (value) =>
   Array.isArray(value) ? value : value ? [value] : [];
 
 const getExerciseSearchRank = (exercise, query) => {
-  if (!query) return 0;
-  const name = normalizeSearchText(exercise.name);
-  const localizedNames = [
-    exercise.localizedNames?.es,
-    exercise.localizedNames?.en,
-    exercise.nameSpanish,
-    exercise.nameEnglish,
-  ]
-    .map(normalizeSearchText)
-    .filter(Boolean);
-  const aliases = toSearchArray(exercise.aliases)
-    .map(normalizeSearchText)
-    .filter(Boolean);
-  if (name === query || localizedNames.includes(query)) return 0;
-  if (
-    name.startsWith(query) ||
-    localizedNames.some((value) => value.startsWith(query))
-  ) {
-    return 1;
-  }
-  if (aliases.includes(query)) return 2;
-  if (
-    name.includes(query) ||
-    localizedNames.some((value) => value.includes(query)) ||
-    aliases.some((value) => value.includes(query))
-  ) {
-    return 3;
-  }
-  return 4;
+  return query ? scoreExerciseSearch(exercise, query) : 0;
 };
 
 const useDebouncedValue = (value, delay = 300) => {
@@ -1015,18 +996,15 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
 function ExercisePickerOption({
   option,
   selected,
-  branch,
   onToggle,
-  showUsage,
 }) {
   const thumb = getExerciseImageUrl(option, { width: 192, height: 192 });
-  const usageCount =
-    option.usageByBranch?.[branch]?.count || option.usageCount || 0;
 
   return (
     <button
       type="button"
       onClick={() => onToggle(option.id)}
+      aria-label={`${option.name}, ${option.muscle}, ${getExerciseEquipmentLabel(option)}`}
       aria-pressed={selected}
       className={`grid min-h-[92px] w-full grid-cols-[64px_minmax(0,1fr)_24px] items-center gap-3 px-3 py-3 text-left transition ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
     >
@@ -1047,9 +1025,7 @@ function ExercisePickerOption({
         <p
           className={`mt-1.5 truncate text-xs leading-4 ${selected ? "text-[color:var(--accent-contrast)] opacity-75" : "text-[color:var(--text-muted)]"}`}
         >
-          {showUsage && usageCount
-            ? `${usageCount} ${usageCount === 1 ? "sesión" : "sesiones"}`
-            : option.muscle}
+          {option.muscle} · {getExerciseEquipmentLabel(option)}
         </p>
       </div>
       <span
@@ -1132,6 +1108,7 @@ export function RoutineModal({
         page: 1,
         meta: true,
         q: debouncedExerciseSearch,
+        sort: "discovery",
       }),
     enabled: Boolean(debouncedExerciseSearch),
     staleTime: 30 * 1000,
@@ -1164,6 +1141,7 @@ export function RoutineModal({
   const [exercisePickerMode, setExercisePickerMode] = useState("primary");
   const [selectedExerciseIds, setSelectedExerciseIds] = useState([]);
   const [exercisePickerFilter, setExercisePickerFilter] = useState(null);
+  const [pickerAllMuscles, setPickerAllMuscles] = useState(true);
   const [showAllPickerMuscles, setShowAllPickerMuscles] = useState(false);
   const exercisePickerFilterStripRef = useRef(null);
   const [exerciseDetail, setExerciseDetail] = useState(null);
@@ -1349,34 +1327,27 @@ export function RoutineModal({
     );
     const sortedOptions = sourceExercises
       .filter((ex) => exerciseMatchesBranch(ex, exerciseFilterBranch))
-      .filter((ex) => query || !selectedMuscle || ex.muscle === selectedMuscle)
+      .filter((ex) => query || pickerAllMuscles || ex.muscle === selectedMuscle)
       .filter((ex) => exerciseMatchesRoutineFilter(ex, exercisePickerFilter))
       .filter((ex) => !currentIds.has(ex.id))
       .sort(
         (a, b) =>
-          getExerciseSearchRank(a, query) - getExerciseSearchRank(b, query) ||
+          (query ? 0 :
           (b.usageByBranch?.[exerciseFilterBranch]?.count || 0) -
             (a.usageByBranch?.[exerciseFilterBranch]?.count || 0) ||
           (b.usageCount || 0) - (a.usageCount || 0) ||
           (b.lastUsedAt || 0) - (a.lastUsedAt || 0) ||
-          a.name.localeCompare(b.name),
+          a.name.localeCompare(b.name)),
       );
     if (query) return sortedOptions.slice(0, 200);
-    const seenNames = new Set();
-    return sortedOptions
-      .filter((exercise) => {
-        const key = normalizeTextKey(exercise.name);
-        if (seenNames.has(key)) return false;
-        seenNames.add(key);
-        return true;
-      })
-      .slice(0, 80);
+    return sortedOptions.slice(0, 100);
   }, [
     availableExercises,
     debouncedExerciseSearch,
     exerciseFilterBranch,
     exercises,
     exercisePickerFilter,
+    pickerAllMuscles,
     remoteExerciseOptions,
     selectedMuscle,
     search,
@@ -1416,11 +1387,6 @@ export function RoutineModal({
     frequentExerciseOptions.every((exercise) =>
       selectedExerciseIds.includes(exercise.id),
     );
-  const nextPendingMuscle = pickerMuscleOptions.find(
-    (muscle) =>
-      muscle !== selectedMuscle &&
-      !exercises.some((exercise) => exercise.muscle === muscle),
-  );
 
   const toggleFrequentSelection = () => {
     const frequentIds = frequentExerciseOptions.map((exercise) => exercise.id);
@@ -1580,6 +1546,7 @@ export function RoutineModal({
     setSelectedExerciseIds([]);
     setExercisePickerFilter(null);
     setSearch("");
+    setPickerAllMuscles(true);
     if (!pickerMuscleOptions.includes(selectedMuscle)) {
       setSelectedMuscle(pickerMuscleOptions[0] || muscleOptions[0] || "Pecho");
     }
@@ -1632,6 +1599,7 @@ export function RoutineModal({
     setSelectedExerciseIds([]);
     setExercisePickerFilter(null);
     setSearch("");
+    setPickerAllMuscles(true);
     if (!pickerMuscleOptions.includes(selectedMuscle)) {
       setSelectedMuscle(pickerMuscleOptions[0] || muscleOptions[0] || "Pecho");
     }
@@ -1665,17 +1633,6 @@ export function RoutineModal({
         : combined;
     setExercises(nextExercises);
     setSelectedExerciseIds([]);
-    const nextMuscle = pickerMuscleOptions.find(
-      (muscle) =>
-        muscle !== selectedMuscle &&
-        !nextExercises.some((exercise) => exercise.muscle === muscle),
-    );
-    if (exercisePickerMode !== "optional" && mode === "create" && nextMuscle) {
-      setSelectedMuscle(nextMuscle);
-      setExercisePickerFilter(null);
-      setSearch("");
-      return;
-    }
     setExercisePickerOpen(false);
     setExercisePickerMode("primary");
   };
@@ -1698,11 +1655,11 @@ export function RoutineModal({
           option.id !== alternativePickerExercise.exerciseId &&
           !existing.has(option.id) &&
           exerciseMatchesRoutineFilter(option, alternativePickerFilter) &&
-          (!query || getExerciseSearchRank(option, query) < 4),
+          (!query || getExerciseSearchRank(option, query) > 0),
       )
       .sort(
         (a, b) =>
-          getExerciseSearchRank(a, query) - getExerciseSearchRank(b, query) ||
+          getExerciseSearchRank(b, query) - getExerciseSearchRank(a, query) ||
           a.name.localeCompare(b.name),
       );
   }, [
@@ -1893,6 +1850,7 @@ export function RoutineModal({
     setNameEdited(true);
     const firstMuscle = Array.from(effectiveSetupMuscles)[0];
     if (firstMuscle) setSelectedMuscle(firstMuscle);
+    setPickerAllMuscles(true);
     setSetupComplete(true);
     setSelectedExerciseIds([]);
     setExercisePickerOpen(!exercises.length);
@@ -3093,12 +3051,27 @@ export function RoutineModal({
                     type="search"
                     autoComplete="off"
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Buscar ejercicio"
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setExercisePickerFilter(null);
+                    }}
+                    placeholder="Buscar por nombre o músculo"
+                    aria-label="Buscar ejercicios"
                     className="theme-accent-focus h-12 w-full rounded-2xl border-0 bg-[color:var(--card)] pl-11 pr-4 text-sm text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)]"
                   />
                 </div>
                 <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerAllMuscles(true);
+                      setSearch("");
+                    }}
+                    aria-pressed={pickerAllMuscles && !isExerciseSearchActive}
+                    className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${pickerAllMuscles && !isExerciseSearchActive ? "theme-accent-solid border-transparent" : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"}`}
+                  >
+                    Todos los grupos
+                  </button>
                   {visiblePickerMuscleOptions.map((muscle) => {
                     const selectedCount =
                       exercises.filter(
@@ -3113,13 +3086,14 @@ export function RoutineModal({
                             ?.muscle === muscle,
                       ).length;
                     const isActive =
-                      !isExerciseSearchActive && selectedMuscle === muscle;
+                      !isExerciseSearchActive && !pickerAllMuscles && selectedMuscle === muscle;
                     return (
                       <button
                         key={muscle}
                         type="button"
                         onClick={() => {
                           setSelectedMuscle(muscle);
+                          setPickerAllMuscles(false);
                           setExercisePickerFilter(null);
                           setSearch("");
                         }}
@@ -3165,7 +3139,7 @@ export function RoutineModal({
                     </button>
                   ) : null}
                 </div>
-                {showAllPickerMuscles &&
+                {!pickerAllMuscles && showAllPickerMuscles &&
                 !effectiveSetupMuscles.has(selectedMuscle) ? (
                   <p className="mt-2 px-1 text-xs text-[color:var(--text-muted)]">
                     Se añadirá como complemento de la rutina.
@@ -3267,7 +3241,7 @@ export function RoutineModal({
                         <div className="mb-2 flex items-end justify-between gap-3 px-1">
                           <div>
                             <p className="text-sm font-medium text-[color:var(--text)]">
-                              Usados recientemente
+                              Tus más usados
                             </p>
                           </div>
                           <button
@@ -3286,9 +3260,7 @@ export function RoutineModal({
                               key={option.id}
                               option={option}
                               selected={selectedExerciseIds.includes(option.id)}
-                              branch={exerciseFilterBranch}
                               onToggle={toggleExerciseSelection}
-                              showUsage
                             />
                           ))}
                         </div>
@@ -3305,19 +3277,36 @@ export function RoutineModal({
                           key={option.id}
                           option={option}
                           selected={selectedExerciseIds.includes(option.id)}
-                          branch={exerciseFilterBranch}
                           onToggle={toggleExerciseSelection}
                         />
                       ))}
                     </div>
+                    {exercisePickerOptions.length >= (isExerciseSearchActive ? 200 : 100) ? (
+                      <p className="px-1 py-3 text-center text-xs text-[color:var(--text-muted)]">
+                        Hay más ejercicios. Usa la búsqueda para encontrarlos.
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <div className="rounded-2xl bg-[color:var(--card)] p-5 text-center text-sm text-[color:var(--text-muted)]">
-                    {isExerciseSearchActive
-                      ? `No encontramos “${search.trim()}”. Prueba con otro nombre, alias o grupo muscular.`
-                      : exercisePickerFilter
-                        ? "No hay ejercicios disponibles. Restablece el filtro para ver todas las opciones."
-                        : "No hay ejercicios disponibles con este filtro."}
+                    <p>
+                      {isExerciseSearchActive
+                        ? `No encontramos “${search.trim()}”. Prueba con otro nombre o grupo muscular.`
+                        : "No hay ejercicios con estos filtros."}
+                    </p>
+                    {(isExerciseSearchActive || exercisePickerFilter || !pickerAllMuscles) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearch("");
+                          setExercisePickerFilter(null);
+                          setPickerAllMuscles(true);
+                        }}
+                        className="theme-accent-text mt-3 text-sm font-semibold"
+                      >
+                        Ver todos los ejercicios
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -3331,9 +3320,7 @@ export function RoutineModal({
                   {selectedExerciseIds.length
                     ? exercisePickerMode === "optional"
                       ? `Añadir ${selectedExerciseIds.length} opcional${selectedExerciseIds.length === 1 ? "" : "es"}`
-                      : nextPendingMuscle
-                        ? `Añadir ${selectedExerciseIds.length} y seguir con ${nextPendingMuscle}`
-                        : `Añadir ${selectedExerciseIds.length} ejercicio${selectedExerciseIds.length === 1 ? "" : "s"}`
+                      : `Añadir ${selectedExerciseIds.length} ejercicio${selectedExerciseIds.length === 1 ? "" : "s"}`
                     : "Selecciona ejercicios"}
                 </Button>
               </div>
@@ -5280,6 +5267,19 @@ function Routines({
   const planRequestInFlightRef = useRef(null);
   const hadRoutinesOnEntryRef = useRef(Boolean(routines.length));
   const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [quickPlanOpen, setQuickPlanOpen] = useState(false);
+  const [quickPlanIntent] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem(QUICK_PLAN_INTENT_KEY) === "1",
+  );
+  const [quickIntentPlansChecked, setQuickIntentPlansChecked] = useState(false);
+  const quickPlanIntentHandledRef = useRef(false);
+  useEffect(() => {
+    if (quickPlanIntent) {
+      window.sessionStorage.removeItem(QUICK_PLAN_INTENT_KEY);
+    }
+  }, [quickPlanIntent]);
   const [editingPlan, setEditingPlan] = useState(null);
   const [viewingPlanTemplate, setViewingPlanTemplate] = useState(null);
   const [viewingRoutine, setViewingRoutine] = useState(null);
@@ -5302,6 +5302,7 @@ function Routines({
     viewingRoutine ||
     planDayChoice ||
     planModalOpen ||
+    quickPlanOpen ||
     planToExtend ||
     routineToDuplicate ||
     routineToDelete,
@@ -5355,6 +5356,56 @@ function Routines({
     () => trainingPlans.filter((plan) => plan.status !== "cancelled"),
     [trainingPlans],
   );
+  const quickPlanRoutines = useMemo(
+    () =>
+      routines.filter(
+        (routine) =>
+          routine.isArchived !== true &&
+          routine.isAvailableForTraining !== false &&
+          (routine.exercises || []).some((exercise) => !exercise.isExtra),
+      ),
+    [routines],
+  );
+  useEffect(() => {
+    if (
+      !quickPlanIntent ||
+      quickPlanIntentHandledRef.current ||
+      isCoach ||
+      isManagedClient ||
+      !quickIntentPlansChecked ||
+      plansLoading ||
+      plansError ||
+      routinesLoading
+    ) {
+      return;
+    }
+    quickPlanIntentHandledRef.current = true;
+    setWorkspaceView("plans");
+    if (visibleTrainingPlans.length) {
+      const draft = visibleTrainingPlans.find(
+        (plan) => plan.status === "draft",
+      );
+      if (draft) {
+        setActivePlan(draft);
+        setSelectedPlanWeek(getPlanWeekIndex(draft));
+      }
+    } else if (quickPlanRoutines.length) {
+      setQuickPlanOpen(true);
+    } else {
+      setWorkspaceView("routines");
+      setModalMode("create");
+    }
+  }, [
+    isCoach,
+    isManagedClient,
+    quickIntentPlansChecked,
+    plansLoading,
+    plansError,
+    quickPlanIntent,
+    quickPlanRoutines.length,
+    routinesLoading,
+    visibleTrainingPlans,
+  ]);
   const currentActivePlan = useMemo(
     () => visibleTrainingPlans.find((plan) => plan.status === "active") || null,
     [visibleTrainingPlans],
@@ -5555,7 +5606,10 @@ function Routines({
 
   useEffect(() => {
     if (!user?.id && !user?._id) return;
-    const loadPlan = () => refreshPlans({ force: false }).catch(() => {});
+    const loadPlan = () =>
+      refreshPlans({ force: quickPlanIntent })
+        .catch(() => {})
+        .finally(() => setQuickIntentPlansChecked(true));
     const revalidatePlan = () => refreshPlans({ silent: true }).catch(() => {});
     const handleVisibility = () => {
       if (document.visibilityState === "visible") revalidatePlan();
@@ -5575,7 +5629,7 @@ function Routines({
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(intervalId);
     };
-  }, [refreshPlans, user?.id, user?._id]);
+  }, [quickPlanIntent, refreshPlans, user?.id, user?._id]);
 
   useEffect(() => {
     if (isCoach || plansLoading || planToExtend) return;
@@ -5895,6 +5949,17 @@ function Routines({
     setModalMode("create");
   };
 
+  useEffect(() => {
+    if (window.sessionStorage.getItem(CREATE_ROUTINE_INTENT_KEY) !== "1")
+      return;
+    window.sessionStorage.removeItem(CREATE_ROUTINE_INTENT_KEY);
+    if (isManagedClient || modalMode) return;
+    setWorkspaceView("routines");
+    openCreate();
+    // The navigation intent is consumed once when this page mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openEdit = (routine) => {
     if (isManagedClient) return;
     setViewingRoutine(null);
@@ -6066,6 +6131,47 @@ function Routines({
       );
     } catch (error) {
       toast.error(error.message || "No se pudo guardar la planificacion");
+      throw error;
+    }
+  };
+
+  const createQuickPlan = async ({
+    routineId,
+    selectedDays,
+    durationWeeks,
+    startDate,
+  }) => {
+    const routine = quickPlanRoutines.find(
+      (item) => String(item.id || item._id) === String(routineId),
+    );
+    try {
+      const active = await createQuickTrainingPlan({
+        client: api,
+        routine,
+        selectedDays,
+        durationWeeks,
+        startDate,
+      });
+      setTrainingPlans((current) => [
+        active,
+        ...current.filter((plan) => getEntityId(plan) !== getEntityId(active)),
+      ]);
+      await Promise.allSettled([
+        refreshPlans(),
+        reloadRoutines({ silent: true }),
+      ]);
+      return active;
+    } catch (error) {
+      if (error.draftPlan) {
+        const draftPlan = error.draftPlan;
+        setTrainingPlans((current) => [
+          draftPlan,
+          ...current.filter(
+            (plan) => getEntityId(plan) !== getEntityId(draftPlan),
+          ),
+        ]);
+        await refreshPlans().catch(() => {});
+      }
       throw error;
     }
   };
@@ -6419,6 +6525,19 @@ function Routines({
   };
 
   const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
+  const openNewPlan = () => {
+    if (!visibleTrainingPlans.length && quickPlanRoutines.length) {
+      setQuickPlanOpen(true);
+      return;
+    }
+    if (!visibleTrainingPlans.length && !quickPlanRoutines.length) {
+      setWorkspaceView("routines");
+      openCreate();
+      return;
+    }
+    setEditingPlan(null);
+    setPlanModalOpen(true);
+  };
   const visiblePlans = isCoach ? planTemplates : visibleTrainingPlans;
   const isPlanWorkspace = ["plans", "templates"].includes(workspaceView);
   const workspaceLoading =
@@ -6510,9 +6629,7 @@ function Routines({
                   <button
                     type="button"
                     onClick={() =>
-                      workspaceView === "plans"
-                        ? setPlanModalOpen(true)
-                        : openCreate()
+                      workspaceView === "plans" ? openNewPlan() : openCreate()
                     }
                     className="grid h-11 w-11 place-items-center rounded-full bg-[#171817] text-[#fffdf8] dark:bg-[#e2ff00] dark:text-black"
                     aria-label={
@@ -6579,9 +6696,7 @@ function Routines({
               <button
                 type="button"
                 onClick={() =>
-                  workspaceView === "plans"
-                    ? setPlanModalOpen(true)
-                    : openCreate()
+                  workspaceView === "plans" ? openNewPlan() : openCreate()
                 }
                 className="theme-accent-solid routines-surface inline-flex h-10 items-center justify-center gap-1.5 border px-3 text-xs font-black shadow-sm transition active:scale-[0.98] sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
                 aria-label={
@@ -6726,20 +6841,27 @@ function Routines({
             <h2 className="mt-4 text-lg font-black text-[color:var(--text)]">
               {isManagedClient
                 ? "Aún no tienes una rutina asignada"
-                : "Crea tu planificacion"}
+                : quickPlanRoutines.length
+                  ? "Organiza tus rutinas por días"
+                  : "Crea primero una rutina"}
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
               {isManagedClient
                 ? "Tu coach preparará y asignará tu planificación desde su panel."
-                : "Empieza definiendo qué quieres entrenar."}
+                : quickPlanRoutines.length
+                  ? "Marca los días en que entrenarás y empieza hoy. Puedes ajustar el plan después."
+                  : "Elige tus ejercicios; después podrás organizar cuándo entrenar."}
             </p>
             {!isManagedClient ? (
-              <Button
-                className="mt-5 h-11 gap-2"
-                onClick={() => setPlanModalOpen(true)}
-              >
-                <CalendarDays className="h-4 w-4" />
-                Crear planificacion
+              <Button className="mt-5 h-11 gap-2" onClick={openNewPlan}>
+                {quickPlanRoutines.length ? (
+                  <CalendarDays className="h-4 w-4" />
+                ) : (
+                  <Dumbbell className="h-4 w-4" />
+                )}
+                {quickPlanRoutines.length
+                  ? "Crear primera planificación"
+                  : "Crear rutina"}
               </Button>
             ) : null}
           </div>
@@ -7665,6 +7787,21 @@ function Routines({
           onClose={() => {
             setPlanModalOpen(false);
             setEditingPlan(null);
+          }}
+        />
+      ) : null}
+      {quickPlanOpen && !isCoach && !isManagedClient ? (
+        <QuickPlanSetup
+          routines={quickPlanRoutines}
+          onCreate={createQuickPlan}
+          onClose={() => setQuickPlanOpen(false)}
+          onStart={() => {
+            setQuickPlanOpen(false);
+            onNavigate?.("registrar");
+          }}
+          onView={(plan) => {
+            setQuickPlanOpen(false);
+            openTrainingPlan(plan);
           }}
         />
       ) : null}

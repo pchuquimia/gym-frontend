@@ -45,6 +45,56 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it("guía al usuario sin rutina hacia su primer entrenamiento", async () => {
+    const onCreateRoutine = vi.fn();
+    const onOpenLibrary = vi.fn();
+    renderPlan({
+      coach: null,
+      starterStage: "no_routine",
+      onCreateRoutine,
+      onOpenLibrary,
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Tu progreso empieza hoy." }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Crear rutina" })).toBeVisible();
+    expect(screen.queryByLabelText("Actividad semanal")).toBeNull();
+    expect(screen.queryByText("Misión de hoy")).toBeNull();
+    expect(screen.queryByText("Series por grupo muscular")).toBeNull();
+    expect(screen.queryByText("Registrar progreso")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Crear rutina" }));
+    expect(onCreateRoutine).toHaveBeenCalledTimes(1);
+    await userEvent.click(
+      screen.getByRole("button", { name: /Quieres explorar primero/i }),
+    );
+    expect(onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+
+  it("invita a iniciar la primera sesión cuando ya hay rutina", async () => {
+    const onOpenWorkout = vi.fn();
+    renderPlan({
+      coach: null,
+      starterStage: "ready_to_train",
+      onOpenWorkout,
+    });
+
+    const hero = screen
+      .getByRole("heading", { name: "Empieza tu primera sesión" })
+      .closest("section");
+    expect(
+      hero.querySelector(".mobile-daily-plan__starter-hero-image"),
+    ).toHaveAttribute("src", "/images/routine-upper.webp");
+    expect(hero.querySelector(".mobile-daily-plan__starter-icon")).toBeNull();
+    expect(screen.getByText("Rutina creada")).toBeVisible();
+    expect(screen.queryByText("Misión de hoy")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Iniciar entrenamiento" }),
+    );
+    expect(onOpenWorkout).toHaveBeenCalledTimes(1);
+  });
+
   it("presenta el descanso como una fila igual al check-in y abre la recuperación", async () => {
     const onOpenWorkout = vi.fn();
     renderPlan({
@@ -55,7 +105,10 @@ describe("MobileDailyPlan", () => {
         actionLabel: "Ver recuperación",
         completed: true,
       },
-      checkInTask: { title: "Check-in diario", subtitle: "Sueño, energía y molestias · 20 s" },
+      checkInTask: {
+        title: "Check-in diario",
+        subtitle: "Sueño, energía y molestias · 20 s",
+      },
       onOpenWorkout,
     });
 
@@ -203,7 +256,9 @@ describe("MobileDailyPlan", () => {
       onOpenHydration,
     });
 
-    const missionHeading = screen.getByRole("heading", { name: "Misión de hoy" });
+    const missionHeading = screen.getByRole("heading", {
+      name: "Misión de hoy",
+    });
     const muscleHeading = screen.getByRole("heading", {
       name: "Series por grupo muscular",
     });
