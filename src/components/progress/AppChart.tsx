@@ -24,6 +24,7 @@ export interface ChartSeries {
   token?: string;
   color?: string;
   dashed?: boolean;
+  hollowSymbols?: boolean;
 }
 interface Props {
   title: string;
@@ -242,31 +243,44 @@ export default function AppChart({
                   },
                 ]
               : [],
-            series: series.map((s, index) => ({
-              name: s.name,
-              type: kind,
-              data: s.values,
-              color:
-                s.color || token(s.token || (index ? "--success" : "--accent")),
-              ...(kind === "line"
-                ? {
-                    showSymbol: sparkline || labels.length < 18,
-                    symbolSize: sparkline ? 4 : 7,
-                    connectNulls,
-                    smooth: !sparkline && minimal ? 0.25 : false,
-                    lineStyle: {
-                      width: sparkline ? 2 : minimal ? 3.5 : 2.5,
-                      type: s.dashed ? "dashed" as const : "solid" as const,
-                    },
-                    emphasis: { focus: "series" as const },
-                  }
-                : {
-                    barMaxWidth: 28,
-                    itemStyle: {
-                      borderRadius: horizontal ? [0, 3, 3, 0] : [3, 3, 0, 0],
-                    },
-                  }),
-            })) as (LineSeriesOption | BarSeriesOption)[],
+            series: series.map((s, index) => {
+              const seriesColor = s.color || token(
+                s.token || (index ? "--success" : "--accent"),
+              );
+              return {
+                name: s.name,
+                type: kind,
+                data: s.values,
+                color: seriesColor,
+                ...(kind === "line"
+                  ? {
+                      showSymbol: s.hollowSymbols || sparkline || labels.length < 18,
+                      ...(s.hollowSymbols ? { symbol: "circle" as const } : {}),
+                      symbolSize: s.hollowSymbols ? 9 : sparkline ? 4 : 7,
+                      connectNulls,
+                      smooth: !sparkline && minimal ? 0.25 : false,
+                      lineStyle: {
+                        color: seriesColor,
+                        width: sparkline ? 2 : minimal ? 3.5 : 2.5,
+                        type: s.dashed ? "dashed" as const : "solid" as const,
+                      },
+                      ...(s.hollowSymbols ? {
+                        itemStyle: {
+                          color: token("--surface"),
+                          borderColor: seriesColor,
+                          borderWidth: 2.5,
+                        },
+                      } : {}),
+                      emphasis: { focus: "series" as const },
+                    }
+                  : {
+                      barMaxWidth: 28,
+                      itemStyle: {
+                        borderRadius: horizontal ? [0, 3, 3, 0] : [3, 3, 0, 0],
+                      },
+                    }),
+              };
+            }) as (LineSeriesOption | BarSeriesOption)[],
           };
           try {
             chart.setOption(option, { notMerge: true });

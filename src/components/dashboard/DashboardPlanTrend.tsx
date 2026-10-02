@@ -91,6 +91,7 @@ export default function DashboardPlanTrend({ ownerId, plan, recentTrainings = []
             name: "Rendimiento",
             values: points.map((point) => point.value),
             token: "--success",
+            hollowSymbols: true,
           }]}
           unit="puntos"
           height={160}
