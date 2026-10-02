@@ -277,12 +277,17 @@ describe("MobileDailyPlan", () => {
         durationWeeks: 4,
         progress: 50,
       },
-      planTrend: <div data-testid="compact-plan-trend">Gráfica del plan</div>,
+      planTrend: (renderPlanCard) => <>
+        {renderPlanCard({ points: "110", change: "+10%", changeValue: 10 })}
+        <div data-testid="compact-plan-trend">Gráfica del plan</div>
+      </>,
       onOpenPlan,
     });
     const planCard = screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ });
     const preview = screen.getByTestId("compact-plan-trend");
     const missions = screen.getByRole("heading", { name: "Misión de hoy" });
+    expect(planCard).toHaveTextContent("Rendimiento 110 pts");
+    expect(planCard).toHaveTextContent("+10% desde 1.ª sesión");
     expect(planCard.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(preview.compareDocumentPosition(missions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ }));

@@ -396,7 +396,7 @@ function TrackingMission({ task, onOpen, readOnly }) {
   );
 }
 
-function ActivePlanContext({ plan, onOpen }) {
+function ActivePlanContext({ plan, onOpen, summary }) {
   if (!plan) return null;
   return (
     <button
@@ -407,7 +407,7 @@ function ActivePlanContext({ plan, onOpen }) {
       <span>
         <CardThumbnail src={DAILY_CARD_IMAGES.plan} />
       </span>
-      <div>
+      <div className="mobile-daily-plan__plan-copy">
         <strong>{plan.name}</strong>
         <small>
           Semana {plan.currentWeek} de {plan.durationWeeks}
@@ -418,6 +418,16 @@ function ActivePlanContext({ plan, onOpen }) {
       </div>
       <em>Ver progreso</em>
       <ChevronRight />
+      {summary ? (
+        <div className="mobile-daily-plan__plan-summary" aria-label="Índice de rendimiento y cambio desde la primera sesión">
+          <span>Rendimiento <strong>{summary.points} pts</strong></span>
+          {summary.change !== null ? (
+            <span className={summary.changeValue > 0 ? "is-positive" : summary.changeValue < 0 ? "is-negative" : ""}>
+              <strong>{summary.change}</strong> desde 1.ª sesión
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </button>
   );
 }
@@ -724,8 +734,14 @@ export default function MobileDailyPlan({
           </div>
           {activePlanContext ? (
             <div className="mobile-daily-plan__plan-stack">
-              <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
-              {planTrend}
+              {typeof planTrend === "function"
+                ? planTrend((summary) => (
+                    <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} summary={summary} />
+                  ))
+                : <>
+                    <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+                    {planTrend}
+                  </>}
             </div>
           ) : null}
         </>

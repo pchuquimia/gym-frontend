@@ -43,6 +43,8 @@ interface Props {
   compactTooltip?: boolean;
   minimal?: boolean;
   valueAxisName?: string;
+  hideValueAxisName?: boolean;
+  axisLabelFontSize?: number;
   sparkline?: boolean;
   connectNulls?: boolean;
 }
@@ -65,6 +67,8 @@ export default function AppChart({
   compactTooltip = false,
   minimal = false,
   valueAxisName,
+  hideValueAxisName = false,
+  axisLabelFontSize,
   sparkline = false,
   connectNulls = false,
 }: Props) {
@@ -104,7 +108,7 @@ export default function AppChart({
             axisLabel: {
               color: muted,
               fontFamily,
-              fontSize: 12,
+              fontSize: axisLabelFontSize ?? 12,
               show: !minimal || !horizontal,
               hideOverlap: true,
               width: horizontal ? 110 : 80,
@@ -114,7 +118,7 @@ export default function AppChart({
           const value = {
             type: "value" as const,
             show: !sparkline,
-            name: valueAxisName,
+            name: hideValueAxisName ? undefined : valueAxisName,
             nameLocation: "end" as const,
             nameGap: 6,
             nameTextStyle: { color: muted, fontFamily, fontSize: 10 },
@@ -137,9 +141,9 @@ export default function AppChart({
               : {}),
             splitNumber: minimal ? 3 : 4,
             axisLabel: {
-              color: minimal && valueAxisName ? text : muted,
+              color: minimal && valueAxisName && !hideValueAxisName ? text : muted,
               fontFamily,
-              fontSize: minimal ? 11 : 12,
+              fontSize: axisLabelFontSize ?? (minimal ? 11 : 12),
               show: !minimal || Boolean(valueAxisName),
               formatter: (v: number) => number(v, 0),
             },
@@ -176,7 +180,7 @@ export default function AppChart({
                         : 12
                       : 52,
                   right: minimal ? 8 : 16,
-                  top: minimal ? (valueAxisName ? 22 : 12) : 20,
+                  top: minimal ? (valueAxisName && !hideValueAxisName ? 22 : 12) : 20,
                   bottom: zoom ? 68 : minimal ? 27 : 36,
                 },
             legend: {
@@ -276,13 +280,21 @@ export default function AppChart({
           if (typeof params.dataIndex === "number")
             select.current?.(params.dataIndex);
         });
-        const resize = new ResizeObserver(() => {
-          chart.resize();
-        });
+        const resizeChart = () => chart.resize();
+        const resize = new ResizeObserver(resizeChart);
         resize.observe(node);
+        const firstFrame = window.requestAnimationFrame(resizeChart);
+        const visibility = typeof IntersectionObserver === "undefined"
+          ? null
+          : new IntersectionObserver((entries) => {
+              if (entries.some((entry) => entry.isIntersecting)) resizeChart();
+            });
+        visibility?.observe(node);
         window.addEventListener("gym-theme-change", render);
         motion.addEventListener("change", render);
         cleanup = () => {
+          window.cancelAnimationFrame(firstFrame);
+          visibility?.disconnect();
           resize.disconnect();
           window.removeEventListener("gym-theme-change", render);
           motion.removeEventListener("change", render);
@@ -313,6 +325,8 @@ export default function AppChart({
     compactTooltip,
     minimal,
     valueAxisName,
+    hideValueAxisName,
+    axisLabelFontSize,
     sparkline,
     connectNulls,
     hiddenSeries,

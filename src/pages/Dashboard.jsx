@@ -3435,10 +3435,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           }
         }}
         activePlanContext={mobileActivePlanContext}
-        planTrend={mobileActivePlanContext?.id ? (
+        planTrend={mobileActivePlanContext?.id ? (renderPlanCard) => (
           <DashboardPlanTrend
             ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
             plan={{ ...activePlan, _id: mobileActivePlanContext.id }}
+            recentTrainings={orderedTrainings}
+            renderPlanCard={renderPlanCard}
           />
         ) : null}
         checkInTask={mobileCheckInTask}

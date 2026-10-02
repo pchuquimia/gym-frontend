@@ -19,68 +19,60 @@
   background: var(--surface-subtle);
 }
 
-.dashboard-plan-trend {
-  border-top: 1px solid var(--detail-row-divider);
-  padding: 0.8rem 0.9rem 0.65rem;
-  font-family: var(--mobile-ui-font);
-}
-
-.dashboard-plan-trend__summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-}
-
-.dashboard-plan-trend__stat {
-  display: grid;
-  grid-template-rows: 2rem auto;
-  min-width: 0;
-  align-content: start;
-}
-
-.dashboard-plan-trend__stat--change {
-  border-left: 1px solid var(--detail-row-divider);
-  padding-left: 0.85rem;
-}
-
-.dashboard-plan-trend__stat > span {
-  display: block;
+.mobile-daily-plan__plan-card .mobile-daily-plan__plan-summary {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.75rem;
+  padding-top: 0.2rem;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1.25;
 }
 
-.dashboard-plan-trend__stat > strong {
-  display: block;
+.mobile-daily-plan__plan-summary > span {
+  white-space: nowrap;
+}
+
+.mobile-daily-plan__plan-card .mobile-daily-plan__plan-summary strong {
+  display: inline;
   color: var(--text);
-  font-size: 1.4rem;
-  font-weight: 650;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
+  font-weight: 650;
 }
 
-.dashboard-plan-trend__stat > strong small {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.dashboard-plan-trend__stat > strong.is-positive {
+.mobile-daily-plan__plan-card .mobile-daily-plan__plan-summary .is-positive strong {
   color: var(--success);
 }
 
-.dashboard-plan-trend__stat > strong.is-negative {
+.mobile-daily-plan__plan-card .mobile-daily-plan__plan-summary .is-negative strong {
   color: var(--danger);
 }
 
+.dashboard-plan-trend {
+  border-top: 1px solid var(--detail-row-divider);
+  padding: 0.35rem 0.9rem 0.5rem;
+  font-family: var(--mobile-ui-font);
+}
+
+.dashboard-plan-trend__axis-label {
+  display: block;
+  width: 44px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1.2;
+  text-align: right;
+}
+
 .dashboard-plan-trend .progress-chart {
-  margin: 0.25rem 0 0;
+  margin: 0;
 }
 
 @media (min-width: 768px) {
   .dashboard-plan-trend {
-    padding: 1rem 1.1rem 0.75rem;
+    padding: 0.45rem 1.1rem 0.6rem;
   }
 }
