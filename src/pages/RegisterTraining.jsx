@@ -8105,6 +8105,9 @@ export default function RegisterTraining({
               </div>
             ) : visibleTrackingRows.length ? (
               <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] shadow-sm">
+                <p className="border-b border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
+                  Resaltado: mejor serie por peso y repeticiones. En caso de empate, se muestra la primera fecha.
+                </p>
                 <div className="overflow-x-auto">
                   <table
                     className={`w-full border-separate border-spacing-0 text-sm ${

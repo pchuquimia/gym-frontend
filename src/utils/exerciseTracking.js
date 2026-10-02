@@ -46,9 +46,10 @@ export const buildExerciseTrackingRows = (
     });
     if (!exerciseMatch) return;
     const sets = (exerciseMatch.sets || []).map((set) =>
-      Array.isArray(set.entries) && set.entries.length ? set.entries : [set],
+      (Array.isArray(set.entries) && set.entries.length ? set.entries : [set])
+        .filter((entry) => entry.done !== false),
     );
-    if (!sets.length) return;
+    if (!sets.some((entries) => entries.length)) return;
 
     rows.push({
       id: String(
@@ -77,11 +78,14 @@ export const getExerciseTrackingEntryWeight = (entry = {}) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
+const isCompletedEntry = (entry = {}) => entry.done !== false;
+
 export const getExerciseTrackingBestWeightsBySet = (rows = []) => {
   const bestBySet = [];
   (rows || []).forEach((row) => {
     (row.sets || []).forEach((entries, setIndex) => {
       (entries || []).forEach((entry) => {
+        if (!isCompletedEntry(entry)) return;
         const weight = getExerciseTrackingEntryWeight(entry);
         if (weight === null) return;
         if (bestBySet[setIndex] == null || weight > bestBySet[setIndex]) {
@@ -121,19 +125,27 @@ export const getExerciseTrackingBestEntryKeysBySet = (rows = []) => {
   (rows || []).forEach((row) => {
     (row.sets || []).forEach((entries, setIndex) => {
       (entries || []).forEach((entry, entryIndex) => {
+        if (!isCompletedEntry(entry)) return;
         const weight = getExerciseTrackingEntryWeight(entry);
         if (weight === null) return;
         const candidate = {
           key: getExerciseTrackingEntryKey(row, setIndex, entryIndex),
           weight,
-          timestamp: Number(row.ts) || getDateTimestamp(row.date),
+          reps: Number(entry.reps) || 0,
+          timestamp:
+            Number(row.ts) ||
+            getDateTimestamp(row.date) ||
+            Number.POSITIVE_INFINITY,
         };
         const current = bestBySet[setIndex];
         if (
           !current ||
           candidate.weight > current.weight ||
           (candidate.weight === current.weight &&
-            candidate.timestamp > current.timestamp)
+            candidate.reps > current.reps) ||
+          (candidate.weight === current.weight &&
+            candidate.reps === current.reps &&
+            candidate.timestamp < current.timestamp)
         ) {
           bestBySet[setIndex] = candidate;
         }

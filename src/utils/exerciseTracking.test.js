@@ -68,6 +68,37 @@ describe("exerciseTracking", () => {
     expect(rows[0].sets[0][0]).toMatchObject({ weightKg: 50, reps: 8 });
   });
 
+  it("no muestra en el historial series que quedaron sin completar", () => {
+    const rows = buildExerciseTrackingRows(
+      { id: "cable-curl", name: "Curl en polea" },
+      [
+        {
+          _id: "recorded",
+          date: "2026-05-29",
+          exercises: [{
+            exerciseId: "cable-curl",
+            sets: [
+              { entries: [{ weightKg: 20, reps: 15, done: true }] },
+              { entries: [{ weightKg: 60, reps: 15, done: false }] },
+            ],
+          }],
+        },
+        {
+          _id: "unfinished",
+          date: "2026-05-25",
+          exercises: [{
+            exerciseId: "cable-curl",
+            sets: [{ entries: [{ weightKg: 62, reps: 13, done: false }] }],
+          }],
+        },
+      ],
+      { compatibleOnly: false },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].sets).toEqual([[{ weightKg: 20, reps: 15, done: true }], []]);
+  });
+
   it("no mezcla configuraciones incompatibles de la misma máquina", () => {
     const rows = buildExerciseTrackingRows(targetExercise, [
       {
@@ -213,7 +244,7 @@ describe("exerciseTracking", () => {
     expect(best.global).toEqual([60, 40]);
   });
 
-  it("marca solo la fecha más reciente cuando el mejor peso se repite", () => {
+  it("conserva la fecha original cuando peso y repeticiones son iguales", () => {
     const rows = [
       {
         id: "newest",
@@ -233,11 +264,46 @@ describe("exerciseTracking", () => {
 
     const best = getExerciseTrackingBestEntryKeysByPlan(rows);
     expect(best.byPlan.get("plan-a")).toEqual([
-      getExerciseTrackingEntryKey(rows[0], 0, 0),
+      getExerciseTrackingEntryKey(rows[1], 0, 0),
     ]);
     expect(getExerciseTrackingBestEntryKeysBySet(rows)).toEqual([
-      getExerciseTrackingEntryKey(rows[0], 0, 0),
+      getExerciseTrackingEntryKey(rows[1], 0, 0),
     ]);
+  });
+
+  it("compara repeticiones al empatar el peso e ignora series sin completar", () => {
+    const rows = [
+      {
+        id: "october",
+        date: "2026-10-01",
+        sets: [
+          [{ weightKg: 25, reps: 9, done: true }],
+          [{ weightKg: 25, reps: 11, done: true }],
+          [{ weightKg: 26.25, reps: 7, done: true }],
+        ],
+      },
+      {
+        id: "september",
+        date: "2026-09-16",
+        sets: [
+          [{ weightKg: 25, reps: 10, done: true }],
+          [{ weightKg: 25, reps: 10, done: true }],
+          [{ weightKg: 26.25, reps: 7, done: true }],
+        ],
+      },
+      {
+        id: "unfinished",
+        date: "2026-09-24",
+        sets: [[{ weightKg: 50, reps: 12, done: false }]],
+      },
+    ];
+
+    expect(getExerciseTrackingBestEntryKeysBySet(rows)).toEqual([
+      getExerciseTrackingEntryKey(rows[1], 0, 0),
+      getExerciseTrackingEntryKey(rows[0], 1, 0),
+      getExerciseTrackingEntryKey(rows[1], 2, 0),
+    ]);
+    expect(getExerciseTrackingBestWeightsBySet(rows)).toEqual([25, 25, 26.25]);
   });
 
   it("calcula un único mejor registro por serie para cada rutina", () => {
@@ -267,7 +333,7 @@ describe("exerciseTracking", () => {
 
     const best = getExerciseTrackingBestEntryKeysByRoutine(rows);
     expect(best.byRoutine.get(getExerciseTrackingRoutineKey(rows[0]))).toEqual([
-      getExerciseTrackingEntryKey(rows[0], 0, 0),
+      getExerciseTrackingEntryKey(rows[1], 0, 0),
     ]);
     expect(best.byRoutine.get(getExerciseTrackingRoutineKey(rows[2]))).toEqual([
       getExerciseTrackingEntryKey(rows[2], 0, 0),
