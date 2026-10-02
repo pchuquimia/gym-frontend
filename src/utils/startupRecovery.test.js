@@ -14,6 +14,7 @@ describe("startupRecovery", () => {
     Object.assign(new Error("Unable to preload CSS"), {
       name: "ChunkLoadError",
     }),
+    new Error("Unable to preload CSS for /assets/Dashboard-BVBRph4_.css"),
   ])("detects a recoverable asset error", (error) => {
     expect(isRecoverableAssetError(error)).toBe(true);
   });

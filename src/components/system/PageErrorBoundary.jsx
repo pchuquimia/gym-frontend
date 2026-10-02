@@ -1,7 +1,11 @@
 import { Component } from "react";
 import PropTypes from "prop-types";
 import { AlertTriangle, House, RotateCcw } from "lucide-react";
-import { reloadForAssetError } from "../../utils/startupRecovery";
+import {
+  isRecoverableAssetError,
+  refreshAfterAssetError,
+  reloadForAssetError,
+} from "../../utils/startupRecovery";
 
 const getErrorCode = (error) => {
   const source = `${error?.name || "Error"}:${error?.message || "unknown"}`;
@@ -48,7 +52,10 @@ export default class PageErrorBoundary extends Component {
   }
 
   handleRetry = () => {
-    if (reloadForAssetError(this.state.error)) return;
+    if (isRecoverableAssetError(this.state.error)) {
+      refreshAfterAssetError();
+      return;
+    }
     this.setState({ error: null });
     window.dispatchEvent(new Event("app-page-retry"));
   };
@@ -56,6 +63,7 @@ export default class PageErrorBoundary extends Component {
   render() {
     if (!this.state.error) return this.props.children;
     const errorCode = getErrorCode(this.state.error);
+    const assetError = isRecoverableAssetError(this.state.error);
 
     return (
       <section
@@ -70,7 +78,9 @@ export default class PageErrorBoundary extends Component {
             No pudimos mostrar esta pagina
           </h1>
           <p className="mt-2 text-sm font-semibold text-[color:var(--text-muted)]">
-            Tus datos siguen guardados. Reintenta la carga o vuelve a Inicio.
+            {assetError
+              ? "No pudimos cargar un archivo de la aplicación. Actualiza para obtener la versión disponible."
+              : "Tus datos siguen guardados. Reintenta la carga o vuelve a Inicio."}
           </p>
           <details className="mt-4 border border-[color:var(--border)] px-3 py-2 text-left">
             <summary className="cursor-pointer text-xs font-black uppercase text-[color:var(--text-muted)]">
@@ -95,7 +105,7 @@ export default class PageErrorBoundary extends Component {
               className="inline-flex h-11 items-center justify-center gap-2 bg-[#181918] px-3 text-xs font-black uppercase text-white dark:bg-[#e2ff00] dark:text-black"
             >
               <RotateCcw className="h-4 w-4" />
-              Reintentar
+              {assetError ? "Actualizar app" : "Reintentar"}
             </button>
           </div>
         </div>

@@ -44,6 +44,11 @@ const reloadWithCacheBust = () => {
   window.location.replace(url.toString());
 };
 
+export const refreshAfterAssetError = () => {
+  if (typeof window === "undefined") return;
+  reloadWithCacheBust();
+};
+
 export const reloadForAssetError = (error) => {
   if (typeof window === "undefined" || !isRecoverableAssetError(error)) {
     return false;
