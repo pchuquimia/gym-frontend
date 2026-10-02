@@ -52,6 +52,7 @@ import {
 const ExerciseLibrary = lazy(() => import("./pages/ExerciseLibrary"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ProgressDashboard = lazy(() => import("./pages/ProgressDashboard"));
+const PlanProgressPage = lazy(() => import("./pages/PlanProgressPage"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
 const RegisterTraining = lazy(() => import("./pages/RegisterTraining"));
 const ExerciseAnalyticsPage = lazy(
@@ -84,6 +85,7 @@ const CoachInvitation = lazy(() => import("./pages/CoachInvitation"));
 const PAGES = {
   dashboard: { label: "Dashboard", component: Dashboard },
   progreso: { label: "Progreso", component: ProgressDashboard },
+  plan_progreso: { label: "Progreso del plan", component: PlanProgressPage },
   library: { label: "Biblioteca de Ejercicios", component: ExerciseLibrary },
   registrar: { label: "Registrar Entrenamiento", component: RegisterTraining },
   ejercicio_analitica: {
@@ -143,6 +145,7 @@ const COACH_ROUTINE_OWNER_KEY = "rirfit_coach_routine_owner";
 const COACH_ROUTINE_OWNER_NAME_KEY = "rirfit_coach_routine_owner_name";
 const COACH_ALLOWED_PAGES = new Set([
   "progreso",
+  "plan_progreso",
   "trainer",
   "coach_athletes",
   "coach_messages",
@@ -165,6 +168,7 @@ const COACH_ALLOWED_PAGES = new Set([
 ]);
 const COACH_ATHLETE_CONTEXT_PAGES = new Set([
   "progreso",
+  "plan_progreso",
   "ejercicio_analitica",
   "editor_historial",
   "resumen_sesion",
@@ -172,6 +176,7 @@ const COACH_ATHLETE_CONTEXT_PAGES = new Set([
 ]);
 const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "progreso",
+  "plan_progreso",
   "dashboard",
   "onboarding",
   "registrar",
@@ -423,6 +428,9 @@ function App() {
         index: nextIndex,
         scrollY: 0,
       });
+      if (page === "plan_progreso") {
+        nextState.progressPlanId = String(options.progressPlanId || "");
+      }
       window.history[replace ? "replaceState" : "pushState"](
         nextState,
         "",

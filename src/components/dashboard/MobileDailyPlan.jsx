@@ -79,6 +79,17 @@ function MissionStatus({ completed, tone = "default" }) {
   );
 }
 
+function MissionArtwork({ src, completed, tone, visualClassName = "" }) {
+  return (
+    <>
+      <MissionStatus completed={completed} tone={tone} />
+      <span className={`mobile-daily-plan__visual ${visualClassName}`}>
+        <CardThumbnail src={src} />
+      </span>
+    </>
+  );
+}
+
 function WeekDay({ day }) {
   const date = new Date(`${day.key}T12:00:00`);
   const isValid = !Number.isNaN(date.getTime());
@@ -231,20 +242,18 @@ function CheckInMission({ task, onOpen, readOnly }) {
       onClick={onOpen}
       disabled={readOnly}
       className="mobile-daily-plan__mission is-tracking"
+      aria-label={task.completed ? `Completado: ${task.title}${task.subtitle ? `. ${task.subtitle}` : ""}` : undefined}
     >
-      <MissionStatus completed={task.completed} />
-      <span className="mobile-daily-plan__visual mobile-daily-plan__visual--wellness">
-        <CardThumbnail src={DAILY_CARD_IMAGES.checkIn} />
-      </span>
+      <MissionArtwork
+        src={DAILY_CARD_IMAGES.checkIn}
+        completed={task.completed}
+        visualClassName="mobile-daily-plan__visual--wellness"
+      />
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
       </span>
-      {task.completed ? (
-        <span className="mobile-daily-plan__ready">Completado</span>
-      ) : (
-        <ChevronRight className="mobile-daily-plan__chevron" />
-      )}
+      <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
     </button>
   );
 }
@@ -265,10 +274,12 @@ function WorkoutMission({ task, onOpen, readOnly }) {
         className="mobile-daily-plan__mission is-tracking"
         aria-label={actionLabel}
       >
-        <MissionStatus completed={task.completed} tone="rest" />
-        <span className="mobile-daily-plan__visual mobile-daily-plan__visual--workout">
-          <CardThumbnail src={DAILY_CARD_IMAGES.recovery} />
-        </span>
+        <MissionArtwork
+          src={DAILY_CARD_IMAGES.recovery}
+          completed={task.completed}
+          tone="rest"
+          visualClassName="mobile-daily-plan__visual--workout"
+        />
         <span className="mobile-daily-plan__mission-copy">
           <strong>{task.title}</strong>
           <small>{task.subtitle}</small>
@@ -282,41 +293,32 @@ function WorkoutMission({ task, onOpen, readOnly }) {
   }
 
   return (
-    <div
-      className={`mobile-daily-plan__workout-card ${task.completed ? "is-complete" : ""}`}
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={readOnly}
+      aria-label={actionLabel}
+      className={`mobile-daily-plan__mission mobile-daily-plan__workout-card ${task.completed ? "is-complete" : ""}`}
     >
-      <MissionStatus
+      <MissionArtwork
+        src={
+          task.type === "completed"
+            ? DAILY_CARD_IMAGES.completed
+            : task.image || "/images/workout-hero-model.webp"
+        }
         completed={task.completed}
         tone={task.type === "rest" ? "rest" : "default"}
+        visualClassName="mobile-daily-plan__visual--workout"
       />
-      <span className="mobile-daily-plan__visual mobile-daily-plan__visual--workout">
-        <CardThumbnail
-          src={
-            task.type === "rest"
-              ? DAILY_CARD_IMAGES.recovery
-              : task.type === "completed"
-                ? DAILY_CARD_IMAGES.completed
-                : task.image || "/images/workout-hero-model.webp"
-          }
-        />
+      <span className="mobile-daily-plan__mission-copy">
+        <strong>{task.title}</strong>
+        <small>{task.subtitle}</small>
       </span>
-      <div className="mobile-daily-plan__workout-content">
-        <span className="mobile-daily-plan__mission-copy">
-          <strong>{task.title}</strong>
-          <small>{task.subtitle}</small>
-        </span>
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={readOnly}
-          className="mobile-daily-plan__workout-action"
-          aria-label={actionLabel}
-        >
-          <span>{compactActionLabel}</span>
-          <ChevronRight aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+      <span className="mobile-daily-plan__workout-action">
+        <span>{compactActionLabel}</span>
+        <ChevronRight aria-hidden="true" />
+      </span>
+    </button>
   );
 }
 
@@ -381,21 +383,15 @@ function TrackingMission({ task, onOpen, readOnly }) {
       onClick={() => onOpen?.(task.type)}
       disabled={readOnly}
       className={`mobile-daily-plan__mission ${task.required ? "is-tracking" : "is-optional"}`}
+      aria-label={task.completed ? `Completado: ${task.title}${task.subtitle ? `. ${task.subtitle}` : ""}` : undefined}
     >
-      <MissionStatus completed={task.completed} />
-      <span className="mobile-daily-plan__visual">
-        <CardThumbnail src={thumbnail} />
-      </span>
+      <MissionArtwork src={thumbnail} completed={task.completed} />
       <span className="mobile-daily-plan__mission-copy">
         <strong>{task.title}</strong>
         <small>{task.subtitle}</small>
         {!task.required ? <em>Opcional</em> : null}
       </span>
-      {task.completed ? (
-        <span className="mobile-daily-plan__ready">Completado</span>
-      ) : (
-        <ChevronRight className="mobile-daily-plan__chevron" />
-      )}
+      <ChevronRight className="mobile-daily-plan__chevron" aria-hidden="true" />
     </button>
   );
 }
@@ -420,7 +416,7 @@ function ActivePlanContext({ plan, onOpen }) {
           <b style={{ width: `${plan.progress}%` }} />
         </i>
       </div>
-      <em>Ver plan</em>
+      <em>Ver progreso</em>
       <ChevronRight />
     </button>
   );
@@ -623,7 +619,7 @@ export default function MobileDailyPlan({
   planningContext = null,
   coach = null,
   activePlanContext = null,
-  progressChart = null,
+  planTrend = null,
   checkInTask = null,
   workoutTask,
   hydrationTask = null,
@@ -726,7 +722,12 @@ export default function MobileDailyPlan({
               <WeekDay key={day.key} day={day} />
             ))}
           </div>
-          <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+          {activePlanContext ? (
+            <div className="mobile-daily-plan__plan-stack">
+              <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+              {planTrend}
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -747,7 +748,6 @@ export default function MobileDailyPlan({
             planning={planningContext}
             onStartEvaluation={onStartEvaluation}
           />
-          {progressChart}
         </>
       ) : (
         <>
@@ -793,7 +793,6 @@ export default function MobileDailyPlan({
                   />
                 ))}
               </div>
-              {progressChart}
             </section>
             <WeeklyMuscleChart
               summary={weeklyMuscleSummary}

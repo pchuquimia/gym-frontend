@@ -116,6 +116,14 @@ export function rangeFor(period: Period, today: string, earliest?: string) {
     to: today,
   };
 }
+export function rangeForPlan(plan: Plan, today: string) {
+  const from = dayKey(plan.startDate || "");
+  const end = dayKey(plan.endDate || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || end < from) {
+    return null;
+  }
+  return { from, to: end < today ? end : today };
+}
 export function exerciseStats(exercise: Exercise) {
   const load = getExerciseLoadMetrics(exercise);
   const sets = exercise.sets.filter(isCompletedSet);

@@ -119,7 +119,7 @@ export default function QuickWeightModal({
             animate={{ x: 0, opacity: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { x: 20, opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.12 : 0.28, ease: "easeOut" }}
-            className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col"
+            className="mx-auto flex h-[100dvh] w-full max-w-xl flex-col overflow-hidden"
           >
             <header className="relative grid h-[72px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-[color:var(--detail-row-divider)] px-5 sm:px-7">
               <button
@@ -170,58 +170,62 @@ export default function QuickWeightModal({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onSubmit={handleSubmit}
-                  className="flex flex-1 flex-col"
+                  className="flex min-h-0 flex-1 flex-col"
                 >
-                  <div className="px-5 pb-8 pt-8 sm:px-7 sm:pt-10">
-                    <h2 className="max-w-md text-[30px] font-semibold leading-[1.08] tracking-[-0.045em] sm:text-[34px]">
-                      ¿Cuál es tu peso?
-                    </h2>
-                    <div className="mt-8 flex min-h-16 items-center justify-between gap-4 rounded-[22px] bg-[color:var(--card)] px-5">
-                      <span className="text-base font-medium">Fecha</span>
-                      <time className="text-sm font-medium text-[color:var(--text-muted)]">
-                        {formatLogDate()}
-                      </time>
+                  <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+                    <div className="px-5 pb-8 pt-8 sm:px-7 sm:pt-10">
+                      <h2 className="max-w-md text-[30px] font-semibold leading-[1.08] tracking-[-0.045em] sm:text-[34px]">
+                        ¿Cuál es tu peso?
+                      </h2>
+                      <div className="mt-8 flex min-h-16 items-center justify-between gap-4 rounded-[22px] bg-[color:var(--card)] px-5">
+                        <span className="text-base font-medium">Fecha</span>
+                        <time className="text-sm font-medium text-[color:var(--text-muted)]">
+                          {formatLogDate()}
+                        </time>
+                      </div>
+                    </div>
+
+                    <div className="flex min-h-[180px] flex-1 flex-col items-center justify-center px-6 py-8">
+                      <label className="block w-full max-w-[280px] text-center">
+                        <span className="sr-only">Peso actual en kilogramos</span>
+                        <span className="flex items-end justify-center border-b border-[color:var(--detail-row-divider)] pb-3">
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            inputMode="decimal"
+                            enterKeyHint="done"
+                            autoComplete="off"
+                            value={weight}
+                            onChange={(event) =>
+                              setWeight(sanitizeWeight(event.target.value))
+                            }
+                            placeholder="0"
+                            className="min-w-0 max-w-[205px] bg-transparent text-right text-[62px] font-semibold leading-none tracking-[-0.065em] tabular-nums outline-none placeholder:text-[color:var(--border-strong)] focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:text-[70px]"
+                          />
+                          <span className="mb-1.5 ml-3 text-2xl font-semibold">kg</span>
+                        </span>
+                      </label>
+                      <p
+                        className={`mt-3 min-h-5 text-center text-xs font-medium ${error ? "text-red-500" : "text-[color:var(--text-muted)]"}`}
+                        role={error ? "alert" : undefined}
+                      >
+                        {error ||
+                          (weight && !validWeight
+                            ? "Ingresa un peso entre 25 y 400 kg."
+                            : "")}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-1 flex-col items-center justify-center px-6 pb-20">
-                    <label className="block w-full max-w-[280px] text-center">
-                      <span className="sr-only">Peso actual en kilogramos</span>
-                      <span className="flex items-end justify-center border-b border-[color:var(--detail-row-divider)] pb-3">
-                        <input
-                          ref={inputRef}
-                          type="text"
-                          inputMode="decimal"
-                          enterKeyHint="done"
-                          autoComplete="off"
-                          value={weight}
-                          onChange={(event) =>
-                            setWeight(sanitizeWeight(event.target.value))
-                          }
-                          placeholder="0"
-                          className="min-w-0 max-w-[205px] bg-transparent text-right text-[62px] font-semibold leading-none tracking-[-0.065em] tabular-nums outline-none placeholder:text-[color:var(--border-strong)] focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:text-[70px]"
-                        />
-                        <span className="mb-1.5 ml-3 text-2xl font-semibold">kg</span>
-                      </span>
-                    </label>
-                    <p
-                      className={`mt-3 min-h-5 text-center text-xs font-medium ${error ? "text-red-500" : "text-[color:var(--text-muted)]"}`}
-                      role={error ? "alert" : undefined}
+                  <footer className="shrink-0 border-t border-[color:var(--detail-row-divider)] bg-[color:var(--bg)] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-7">
+                    <button
+                      type="submit"
+                      disabled={!validWeight}
+                      className="min-h-14 w-full rounded-xl bg-[#181918] px-6 text-sm font-semibold uppercase tracking-[0.02em] text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
                     >
-                      {error ||
-                        (weight && !validWeight
-                          ? "Ingresa un peso entre 25 y 400 kg."
-                          : "")}
-                    </p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!validWeight}
-                    className="min-h-16 w-full shrink-0 bg-[#181918] px-6 text-sm font-semibold uppercase tracking-[0.02em] text-white transition disabled:cursor-not-allowed disabled:bg-[color:var(--border)] disabled:text-[color:var(--text-muted)] dark:bg-[#e2ff00] dark:text-black"
-                  >
-                    Agregar
-                  </button>
+                      Agregar
+                    </button>
+                  </footer>
                 </motion.form>
               )}
             </AnimatePresence>

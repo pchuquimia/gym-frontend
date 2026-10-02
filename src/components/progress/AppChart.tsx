@@ -23,6 +23,7 @@ export interface ChartSeries {
   values: (number | null)[];
   token?: string;
   color?: string;
+  dashed?: boolean;
 }
 interface Props {
   title: string;
@@ -43,6 +44,7 @@ interface Props {
   minimal?: boolean;
   valueAxisName?: string;
   sparkline?: boolean;
+  connectNulls?: boolean;
 }
 
 export default function AppChart({
@@ -64,6 +66,7 @@ export default function AppChart({
   minimal = false,
   valueAxisName,
   sparkline = false,
+  connectNulls = false,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -245,9 +248,12 @@ export default function AppChart({
                 ? {
                     showSymbol: sparkline || labels.length < 18,
                     symbolSize: sparkline ? 4 : 7,
-                    connectNulls: false,
+                    connectNulls,
                     smooth: !sparkline && minimal ? 0.25 : false,
-                    lineStyle: { width: sparkline ? 2 : minimal ? 3.5 : 2.5 },
+                    lineStyle: {
+                      width: sparkline ? 2 : minimal ? 3.5 : 2.5,
+                      type: s.dashed ? "dashed" as const : "solid" as const,
+                    },
                     emphasis: { focus: "series" as const },
                   }
                 : {
@@ -308,6 +314,7 @@ export default function AppChart({
     minimal,
     valueAxisName,
     sparkline,
+    connectNulls,
     hiddenSeries,
   ]);
   return (

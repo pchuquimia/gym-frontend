@@ -36,7 +36,7 @@ import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
-import DashboardProgressEvolution from "../components/dashboard/DashboardProgressEvolution";
+import DashboardPlanTrend from "../components/dashboard/DashboardPlanTrend";
 import AppChart from "../components/progress/AppChart";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
@@ -3338,6 +3338,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       : 1;
     const currentWeek = Math.min(durationWeeks, Math.max(1, elapsedWeeks));
     return {
+      id: String(activePlan._id || activePlan.id || ""),
       name: activePlan.name || "Plan actual",
       durationWeeks,
       currentWeek,
@@ -3434,12 +3435,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           }
         }}
         activePlanContext={mobileActivePlanContext}
-        progressChart={
-          <DashboardProgressEvolution
-            key={coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id}
+        planTrend={mobileActivePlanContext?.id ? (
+          <DashboardPlanTrend
             ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
+            plan={{ ...activePlan, _id: mobileActivePlanContext.id }}
           />
-        }
+        ) : null}
         checkInTask={mobileCheckInTask}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
@@ -3448,7 +3449,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
-        onOpenPlan={() => onNavigate("rutinas")}
+        onOpenPlan={() =>
+          onNavigate("plan_progreso", { progressPlanId: mobileActivePlanContext?.id })
+        }
         onCreateRoutine={openFirstRoutineEditor}
         onOpenLibrary={() => onNavigate("library")}
         onOpenCheckIn={() => onNavigate("check_in")}

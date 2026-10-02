@@ -8,6 +8,7 @@ import {
   planning,
   prepareTrainings,
   rangeFor,
+  rangeForPlan,
   recordsInSelection,
   timeline,
   totals,
@@ -56,6 +57,27 @@ const filters = {
 };
 
 describe("progress dashboard: trustworthy metrics", () => {
+  it("abre el seguimiento en las fechas reales del plan y solo con sus sesiones", () => {
+    expect(rangeForPlan(plan, "2026-09-16")).toEqual({
+      from: "2026-08-31",
+      to: "2026-09-16",
+    });
+    expect(rangeForPlan(plan, "2026-10-01")).toEqual({
+      from: "2026-08-31",
+      to: "2026-09-27",
+    });
+    const rows = prepareTrainings([
+      training("first", "2026-09-07"),
+      training("other", "2026-09-08", { trainingPlanId: "b" }),
+    ]);
+    const selected = filterSessions(rows, {
+      ...filters,
+      ...rangeForPlan(plan, "2026-09-16"),
+      plan: plan._id,
+      muscle: "Pecho",
+    });
+    expect(selected.map((row) => row._id)).toEqual(["first"]);
+  });
   it("does not mix external, machine, assistance or uncompleted sets", () => {
     const rows = prepareTrainings([
       training("1", "2026-09-07", {

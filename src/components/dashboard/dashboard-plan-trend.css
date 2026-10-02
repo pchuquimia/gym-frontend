@@ -1,0 +1,86 @@
+.mobile-daily-plan__plan-stack {
+  max-width: 42rem;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--detail-row-divider);
+  border-radius: 1.2rem;
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+}
+
+.mobile-daily-plan__plan-stack .mobile-daily-plan__plan-card {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mobile-daily-plan__plan-stack .mobile-daily-plan__plan-card:hover {
+  background: var(--surface-subtle);
+}
+
+.dashboard-plan-trend {
+  border-top: 1px solid var(--detail-row-divider);
+  padding: 0.8rem 0.9rem 0.65rem;
+  font-family: var(--mobile-ui-font);
+}
+
+.dashboard-plan-trend__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.dashboard-plan-trend__stat {
+  display: grid;
+  grid-template-rows: 2rem auto;
+  min-width: 0;
+  align-content: start;
+}
+
+.dashboard-plan-trend__stat--change {
+  border-left: 1px solid var(--detail-row-divider);
+  padding-left: 0.85rem;
+}
+
+.dashboard-plan-trend__stat > span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.dashboard-plan-trend__stat > strong {
+  display: block;
+  color: var(--text);
+  font-size: 1.4rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.dashboard-plan-trend__stat > strong small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.dashboard-plan-trend__stat > strong.is-positive {
+  color: var(--success);
+}
+
+.dashboard-plan-trend__stat > strong.is-negative {
+  color: var(--danger);
+}
+
+.dashboard-plan-trend .progress-chart {
+  margin: 0.25rem 0 0;
+}
+
+@media (min-width: 768px) {
+  .dashboard-plan-trend {
+    padding: 1rem 1.1rem 0.75rem;
+  }
+}

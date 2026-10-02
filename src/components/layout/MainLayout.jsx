@@ -52,6 +52,7 @@ function MainLayout({
     activePage === "admin_sesiones" ||
     activePage === "ejercicio_analitica" ||
     activePage === "progreso" ||
+    activePage === "plan_progreso" ||
     activePage === "resumen_sesion" ||
     activePage === "data_intelligence" ||
     activePage === "pesajes" ||
@@ -67,6 +68,7 @@ function MainLayout({
   const usePhotosChrome = activePage === "fotos";
   const useAnalyticsChrome =
     activePage === "progreso" ||
+    activePage === "plan_progreso" ||
     activePage === "ejercicio_analitica" ||
     activePage === "data_intelligence";
 
@@ -189,6 +191,7 @@ function MainLayout({
     ? "max-lg:pb-4 max-lg:pt-0"
     : useDashboardChrome ||
         useDailyCheckInChrome ||
+        activePage === "plan_progreso" ||
         useLibraryChrome ||
         useRoutinesChrome ||
         usePhotosChrome ||

@@ -121,6 +121,38 @@ describe("MobileDailyPlan", () => {
     expect(onOpenWorkout).toHaveBeenCalledTimes(1);
   });
 
+  it("alinea la rutina completada y el check-in con la acción de resumen a la derecha", async () => {
+    const onOpenWorkout = vi.fn();
+    renderPlan({
+      workoutTask: {
+        type: "completed",
+        title: "UPPER",
+        subtitle: "Entrenamiento completado",
+        actionLabel: "Ver resumen",
+        completed: true,
+      },
+      checkInTask: {
+        title: "Check-in diario",
+        subtitle: "Pendiente",
+        completed: false,
+      },
+      onOpenWorkout,
+    });
+
+    const workout = screen.getByRole("button", { name: "Ver resumen" });
+    const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
+    expect(workout.children[0]).toHaveClass("mobile-daily-plan__status");
+    expect(checkIn.children[0]).toHaveClass("mobile-daily-plan__status");
+    expect(workout.children[1]).toHaveClass("mobile-daily-plan__visual");
+    expect(checkIn.children[1]).toHaveClass("mobile-daily-plan__visual");
+    expect(workout.children[2]).toHaveClass("mobile-daily-plan__mission-copy");
+    expect(checkIn.children[2]).toHaveClass("mobile-daily-plan__mission-copy");
+    expect(workout.children[3]).toHaveClass("mobile-daily-plan__workout-action");
+    expect(workout.querySelectorAll("button")).toHaveLength(0);
+    await userEvent.click(workout);
+    expect(onOpenWorkout).toHaveBeenCalledOnce();
+  });
+
   it("abre el perfil al tocar la foto del usuario", async () => {
     const onOpenProfile = vi.fn();
     renderPlan({ onOpenProfile });
@@ -214,8 +246,8 @@ describe("MobileDailyPlan", () => {
       name: "Comenzar entrenamiento",
     });
     expect(workoutAction).toBeVisible();
-    expect(workoutAction).toHaveClass("mobile-daily-plan__workout-action");
-    expect(workoutAction).toHaveTextContent("Comenzar");
+    expect(workoutAction).toHaveClass("mobile-daily-plan__mission", "mobile-daily-plan__workout-card");
+    expect(workoutAction.querySelector(".mobile-daily-plan__workout-action")).toHaveTextContent("Comenzar");
     expect(workoutAction).not.toHaveTextContent("Comenzar entrenamiento");
     expect(
       screen.getByRole("button", { name: /Peso de seguimiento/ }),
@@ -232,6 +264,29 @@ describe("MobileDailyPlan", () => {
     expect(
       container.querySelector('img[src="/images/daily-planning-card.webp"]'),
     ).toBeInTheDocument();
+  });
+
+  it("abre el progreso de la planificación desde su tarjeta", async () => {
+    const onOpenPlan = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      activePlanContext: {
+        id: "plan-1",
+        name: "Mes 1 · Continuación",
+        currentWeek: 2,
+        durationWeeks: 4,
+        progress: 50,
+      },
+      planTrend: <div data-testid="compact-plan-trend">Gráfica del plan</div>,
+      onOpenPlan,
+    });
+    const planCard = screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ });
+    const preview = screen.getByTestId("compact-plan-trend");
+    const missions = screen.getByRole("heading", { name: "Misión de hoy" });
+    expect(planCard.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preview.compareDocumentPosition(missions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ }));
+    expect(onOpenPlan).toHaveBeenCalledTimes(1);
   });
 
   it("muestra el trabajo muscular debajo de las misiones y los registros al final", async () => {
