@@ -95,11 +95,12 @@ const normalizedAngleDifference = (afterAngle, beforeAngle) => {
   return difference;
 };
 
-const solveTorsoAlignment = (
+export const solveTorsoAlignment = (
   beforeLandmarks,
   afterLandmarks,
   beforeBitmap,
   afterBitmap,
+  { view = "front" } = {},
 ) => {
   const mapped = (landmarks, index, bitmap) => {
     const landmark = landmarks[index];
@@ -159,9 +160,10 @@ const solveTorsoAlignment = (
   const ratios = beforeLengths.map(
     (beforeLength, index) => afterLengths[index] / beforeLength,
   );
-  const rawScale = Math.exp(
+  const torsoScale = Math.exp(
     (Math.log(ratios[0]) * 2 + Math.log(ratios[1]) + Math.log(ratios[2])) / 4,
   );
+  const rawScale = view === "side" ? torsoScale : ratios[0];
   if (rawScale < 0.36 || rawScale > 1.82) return null;
 
   const beforeTorsoAngle = Math.atan2(
@@ -180,14 +182,40 @@ const solveTorsoAlignment = (
       ? Math.max(-3, Math.min(3, rawRotationDeg))
       : 0;
   const scale = Math.max(0.38, Math.min(1.72, rawScale));
+  const shoulderWidths = [
+    distanceBetween(...beforeShoulders),
+    distanceBetween(...afterShoulders),
+  ];
+  const hipWidths = [
+    distanceBetween(...beforeHips),
+    distanceBetween(...afterHips),
+  ];
+  const canCorrectLensWidth =
+    view !== "side" &&
+    shoulderWidths.every((width) => width >= 70) &&
+    hipWidths.every((width) => width >= 55) &&
+    Math.abs(Math.log(
+      (shoulderWidths[1] / shoulderWidths[0]) /
+      (hipWidths[1] / hipWidths[0]),
+    )) < 0.18;
+  const widthRatio = canCorrectLensWidth
+    ? Math.exp((
+      Math.log(shoulderWidths[1] / shoulderWidths[0]) * 2 +
+      Math.log(hipWidths[1] / hipWidths[0])
+    ) / 3)
+    : scale;
+  // Limit width correction so real changes in body size remain visible.
+  const lensWidthCorrection = Math.max(0.9, Math.min(1.1, widthRatio / scale));
+  const scaleX = scale * lensWidthCorrection;
+  const scaleY = scale;
   const beforeCenter = midpoint(beforeShoulderCenter, beforeHipCenter);
   const afterCenter = midpoint(afterShoulderCenter, afterHipCenter);
   const rotation = (rotationDeg * Math.PI) / 180;
   const cosine = Math.cos(rotation);
   const sine = Math.sin(rotation);
   const transformPoint = (point) => ({
-    x: scale * (cosine * point.x - sine * point.y),
-    y: scale * (sine * point.x + cosine * point.y),
+    x: cosine * scaleX * point.x - sine * scaleY * point.y,
+    y: sine * scaleX * point.x + cosine * scaleY * point.y,
   });
   const transformedBeforeCenter = transformPoint(beforeCenter);
   const translation = {
@@ -203,6 +231,20 @@ const solveTorsoAlignment = (
     x: translation.x + transformedViewportCenter.x - viewportCenter.x,
     y: translation.y + transformedViewportCenter.y - viewportCenter.y,
   };
+  const torsoError = Math.sqrt(
+    [
+      [beforeShoulders[0], afterShoulders[0]],
+      [beforeShoulders[1], afterShoulders[1]],
+      [beforeHips[0], afterHips[0]],
+      [beforeHips[1], afterHips[1]],
+    ].reduce((sum, [beforePoint, afterPoint]) => {
+      const transformed = transformPoint(beforePoint);
+      return sum +
+        (transformed.x + translation.x - afterPoint.x) ** 2 +
+        (transformed.y + translation.y - afterPoint.y) ** 2;
+    }, 0) / 4,
+  );
+  if (torsoError > 65) return null;
   const offsetXPercent = (cssTranslation.x / POSE_CANVAS_WIDTH) * 100;
   const offsetYPercent = (cssTranslation.y / POSE_CANVAS_HEIGHT) * 100;
   if (Math.abs(offsetXPercent) > 34 || Math.abs(offsetYPercent) > 34) {
@@ -211,6 +253,9 @@ const solveTorsoAlignment = (
 
   return {
     scale: Number(scale.toFixed(4)),
+    ...(canCorrectLensWidth && Math.abs(lensWidthCorrection - 1) > 0.025
+      ? { scaleX: Number(scaleX.toFixed(4)), scaleY: Number(scaleY.toFixed(4)) }
+      : {}),
     offsetXPercent: Number(offsetXPercent.toFixed(3)),
     offsetYPercent: Number(offsetYPercent.toFixed(3)),
     rotationDeg: Number(rotationDeg.toFixed(3)),
@@ -223,12 +268,14 @@ const solvePoseAlignment = (
   afterLandmarks,
   beforeBitmap,
   afterBitmap,
+  options = {},
 ) => {
   const torsoAlignment = solveTorsoAlignment(
     beforeLandmarks,
     afterLandmarks,
     beforeBitmap,
     afterBitmap,
+    options,
   );
   if (torsoAlignment) return torsoAlignment;
 
@@ -330,7 +377,7 @@ const solvePoseAlignment = (
   };
 };
 
-const findPoseAlignment = async (beforeBitmap, afterBitmap) => {
+const findPoseAlignment = async (beforeBitmap, afterBitmap, options = {}) => {
   const poseLandmarker = await getPoseLandmarker();
   const beforeResult = poseLandmarker.detect(beforeBitmap);
   const afterResult = poseLandmarker.detect(afterBitmap);
@@ -342,6 +389,7 @@ const findPoseAlignment = async (beforeBitmap, afterBitmap) => {
     afterLandmarks,
     beforeBitmap,
     afterBitmap,
+    options,
   );
 };
 
@@ -501,7 +549,7 @@ const findEdgeAlignment = (beforeBitmap, afterBitmap) => {
   );
   inspect(refinedScales, best.offsetX, best.offsetY, 2, 1);
 
-  if (best.score < baselineCorrelation + 0.008) {
+  if (best.correlation < 0.35 || best.score < baselineCorrelation + 0.035) {
     return EMPTY_ALIGNMENT;
   }
   return {
@@ -514,6 +562,19 @@ const findEdgeAlignment = (beforeBitmap, afterBitmap) => {
 };
 
 const keepImagesCovered = (alignment) => {
+  if (alignment?.scaleX && alignment?.scaleY) {
+    const zoom = Math.max(1, 1 / Math.min(alignment.scaleX, alignment.scaleY));
+    return {
+      ...EMPTY_ALIGNMENT,
+      ...alignment,
+      scale: 1,
+      scaleX: Number((alignment.scaleX * zoom).toFixed(4)),
+      scaleY: Number((alignment.scaleY * zoom).toFixed(4)),
+      offsetXPercent: Number((alignment.offsetXPercent * zoom).toFixed(3)),
+      offsetYPercent: Number((alignment.offsetYPercent * zoom).toFixed(3)),
+      afterScale: Number(zoom.toFixed(4)),
+    };
+  }
   if (!alignment || alignment.scale >= 1) {
     return {
       ...EMPTY_ALIGNMENT,
@@ -553,7 +614,7 @@ const keepImagesCovered = (alignment) => {
   };
 };
 
-export const computePhotoAlignment = async (beforeBlob, afterBlob) => {
+export const computePhotoAlignment = async (beforeBlob, afterBlob, options = {}) => {
   if (!beforeBlob || !afterBlob || typeof createImageBitmap !== "function") {
     return EMPTY_ALIGNMENT;
   }
@@ -563,12 +624,15 @@ export const computePhotoAlignment = async (beforeBlob, afterBlob) => {
   ]);
   try {
     try {
-      const poseAlignment = await findPoseAlignment(beforeBitmap, afterBitmap);
+      const poseAlignment = await findPoseAlignment(beforeBitmap, afterBitmap, options);
       if (poseAlignment) return keepImagesCovered(poseAlignment);
     } catch {
-      // Keep the local edge matcher as an offline and low-confidence fallback.
+      // A failed pose model leaves manual adjustment available in the comparison.
     }
-    return keepImagesCovered(findEdgeAlignment(beforeBitmap, afterBitmap));
+    // Edge matching can favor the background when camera lenses differ.
+    return options.allowEdgeFallback
+      ? keepImagesCovered(findEdgeAlignment(beforeBitmap, afterBitmap))
+      : EMPTY_ALIGNMENT;
   } finally {
     beforeBitmap.close?.();
     afterBitmap.close?.();

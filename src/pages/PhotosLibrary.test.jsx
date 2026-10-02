@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   addPhoto: vi.fn(),
   getPhotoSummary: vi.fn(),
   getPhotos: vi.fn(),
+  getPhotoContent: vi.fn(),
+  computePhotoAlignment: vi.fn(),
 }));
 
 vi.mock("../context/AuthContext", () => ({
@@ -40,7 +42,12 @@ vi.mock("../services/api", () => ({
   api: {
     getPhotoSummary: mocks.getPhotoSummary,
     getPhotos: mocks.getPhotos,
+    getPhotoContent: mocks.getPhotoContent,
   },
+}));
+
+vi.mock("../utils/photoAlignment", () => ({
+  computePhotoAlignment: mocks.computePhotoAlignment,
 }));
 
 import PhotosLibrary from "./PhotosLibrary";
@@ -65,6 +72,14 @@ describe("PhotosLibrary", () => {
       page: 1,
       limit: 12,
       total: 0,
+    });
+    mocks.getPhotoContent.mockReset().mockImplementation(async () =>
+      new Blob(["photo"], { type: "image/png" }));
+    mocks.computePhotoAlignment.mockReset().mockResolvedValue({
+      scale: 1,
+      offsetXPercent: 0,
+      offsetYPercent: 0,
+      method: "none",
     });
     Object.defineProperty(URL, "createObjectURL", {
       configurable: true,
@@ -152,5 +167,46 @@ describe("PhotosLibrary", () => {
       screen.queryByRole("button", { name: /Abrir foto: Frontal inicial/ }),
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Contexto")).not.toContainHTML(">Perfil<");
+  });
+
+  it("mantiene la carga hasta recibir ambas imágenes y terminar su alineación", async () => {
+    let finishAlignment;
+    mocks.computePhotoAlignment.mockImplementation(() =>
+      new Promise((resolve) => { finishAlignment = resolve; }));
+    mocks.getPhotos.mockResolvedValue({
+      items: [
+        { _id: "before", date: "2026-01-01", type: "home", view: "front", contentUrl: "/before" },
+        { _id: "after", date: "2026-02-01", type: "home", view: "front", contentUrl: "/after" },
+      ],
+      page: 1,
+      limit: 12,
+      total: 2,
+    });
+
+    const user = userEvent.setup();
+    renderLibrary();
+    await user.click(screen.getByRole("tab", { name: "Comparar" }));
+    await user.click(await screen.findByRole("button", { name: /Seleccionar foto: Progreso personal, 01 de enero/ }));
+    await user.click(screen.getByRole("button", { name: /Seleccionar foto: Progreso personal, 01 de febrero/ }));
+
+    expect(screen.getByRole("status", { name: /Emparejando fotos/ })).toBeVisible();
+    await waitFor(() => expect(mocks.computePhotoAlignment).toHaveBeenCalledTimes(1));
+    const beforeImage = await screen.findByAltText(/Antes: Progreso personal/);
+    const afterImage = await screen.findByAltText(/Después: Progreso personal/);
+    fireEvent.load(beforeImage);
+    fireEvent.load(afterImage);
+    expect(screen.getByText("Emparejando fotos...")).toBeVisible();
+    expect(screen.getByRole("slider", { name: /Deslizar comparación/ })).toBeDisabled();
+
+    await act(async () => finishAlignment({ scale: 1, offsetXPercent: 0, offsetYPercent: 0, method: "pose" }));
+    await waitFor(() => expect(screen.queryByText("Emparejando fotos...")).not.toBeInTheDocument());
+    expect(screen.getByRole("slider", { name: /Deslizar comparación/ })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Ajustar encuadre" }));
+    fireEvent.change(screen.getByRole("slider", { name: "Ajustar ancho de la foto anterior" }), {
+      target: { value: "110" },
+    });
+    expect(beforeImage.style.transform).toContain("scale(1.1, 1)");
+    await user.click(screen.getByRole("button", { name: "Restablecer ajuste" }));
+    expect(beforeImage.style.transform).toContain("scale(1, 1)");
   });
 });
