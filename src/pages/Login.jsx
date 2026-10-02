@@ -192,63 +192,86 @@ function LoginForm({ onNavigate }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6"
+      className="space-y-5"
       aria-busy={submitting || googleSubmitting}
     >
-      <AuthField id="login-identifier" label="Email o username">
-        <input
-          id="login-identifier"
-          name="identifier"
-          type="text"
-          autoComplete="username"
-          required
-          value={form.identifier}
-          onFocus={keepFieldVisible}
-          onChange={(event) => {
-            setForm((previous) => ({
-              ...previous,
-              identifier: event.target.value,
-            }));
-            setNeedsVerification(false);
-            setVerificationSent(false);
-          }}
-          placeholder="Email o username"
-          className={inputClass}
-        />
-      </AuthField>
-      <AuthField id="login-password" icon={Lock} label="Contraseña">
-        <input
-          id="login-password"
-          name="password"
-          type={showPassword ? "text" : "password"}
-          autoComplete="current-password"
-          required
-          value={form.password}
-          onFocus={keepFieldVisible}
-          onChange={(event) =>
-            setForm((previous) => ({
-              ...previous,
-              password: event.target.value,
-            }))
-          }
-          placeholder="Ingresa tu contraseña"
-          className={`${inputClass} pr-12`}
-        />
-        <PasswordToggle
-          visible={showPassword}
-          onToggle={() => setShowPassword((value) => !value)}
-        />
-      </AuthField>
-      <label className="flex w-fit cursor-pointer items-center gap-2.5 font-sans text-sm font-normal text-[#50524d]">
-        <input
-          type="checkbox"
-          name="keepLoggedIn"
-          checked={keepLoggedIn}
-          onChange={(event) => setKeepLoggedIn(event.target.checked)}
-          className="h-5 w-5 shrink-0 cursor-pointer rounded-[3px] border border-[#c9cbc5] bg-white accent-[#202120] focus:ring-2 focus:ring-[#202120]/20 focus:ring-offset-2"
-        />
-        Mantener mi sesión iniciada
-      </label>
+      {isGoogleSignInConfigured ? (
+        <div className="space-y-5 pb-1">
+          <GoogleSignInButton
+            text="continue_with"
+            disabled={submitting || googleSubmitting}
+            remember={keepLoggedIn}
+            onCredential={handleGoogleCredential}
+            onError={() => setError("No pudimos cargar el acceso con Google.")}
+          />
+          <AuthDivider />
+        </div>
+      ) : null}
+      <div className="space-y-4">
+        <AuthField id="login-identifier" label="Correo o usuario">
+          <input
+            id="login-identifier"
+            name="identifier"
+            type="text"
+            autoComplete="username"
+            required
+            value={form.identifier}
+            onFocus={keepFieldVisible}
+            onChange={(event) => {
+              setForm((previous) => ({
+                ...previous,
+                identifier: event.target.value,
+              }));
+              setNeedsVerification(false);
+              setVerificationSent(false);
+            }}
+            placeholder="Tu correo o usuario"
+            className={inputClass}
+          />
+        </AuthField>
+        <AuthField id="login-password" icon={Lock} label="Contraseña">
+          <input
+            id="login-password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            value={form.password}
+            onFocus={keepFieldVisible}
+            onChange={(event) =>
+              setForm((previous) => ({
+                ...previous,
+                password: event.target.value,
+              }))
+            }
+            placeholder="Ingresa tu contraseña"
+            className={`${inputClass} pr-12`}
+          />
+          <PasswordToggle
+            visible={showPassword}
+            onToggle={() => setShowPassword((value) => !value)}
+          />
+        </AuthField>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <label className="flex w-fit cursor-pointer items-center gap-2.5 font-sans text-sm font-normal text-[#50524d]">
+          <input
+            type="checkbox"
+            name="keepLoggedIn"
+            checked={keepLoggedIn}
+            onChange={(event) => setKeepLoggedIn(event.target.checked)}
+            className="h-5 w-5 shrink-0 cursor-pointer rounded-[3px] border border-[#c9cbc5] bg-white accent-[#202120] focus:ring-2 focus:ring-[#202120]/20 focus:ring-offset-2"
+          />
+          Mantener mi sesión iniciada
+        </label>
+        <button
+          type="button"
+          onClick={() => onNavigate("recover")}
+          className="ml-auto border-b border-[color:var(--auth-muted)] pb-0.5 font-sans text-xs font-semibold text-[color:var(--auth-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
+        >
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
       {error ? (
         <p
           role="alert"
@@ -282,31 +305,6 @@ function LoginForm({ onNavigate }) {
         {submitting ? "Ingresando..." : "Ingresar"}
         {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
       </Button>
-      <div className="-mt-1 flex justify-end">
-        <button
-          type="button"
-          onClick={() => onNavigate("recover")}
-          className="border-b border-[color:var(--auth-muted)] pb-0.5 font-sans text-xs font-semibold text-[color:var(--auth-text)] transition hover:border-transparent focus-visible:ring-[color:var(--auth-accent)]"
-        >
-          ¿Olvidaste tu contraseña?
-        </button>
-      </div>
-      {isGoogleSignInConfigured ? (
-        <div className="space-y-4 pt-4">
-          <AuthDivider />
-          <div className="w-full">
-            <GoogleSignInButton
-              text="continue_with"
-              disabled={submitting || googleSubmitting}
-              remember={keepLoggedIn}
-              onCredential={handleGoogleCredential}
-              onError={() =>
-                setError("No pudimos cargar el acceso con Google.")
-              }
-            />
-          </div>
-        </div>
-      ) : null}
       <OperationLoader
         active={submitting || googleSubmitting}
         delayMs={500}

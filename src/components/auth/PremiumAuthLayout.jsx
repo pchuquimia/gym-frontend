@@ -42,7 +42,7 @@ function PremiumAuthLayout({
     >
       <section className="mx-auto flex min-h-[var(--auth-height)] w-full flex-col lg:grid lg:grid-cols-[44%_56%]">
         <aside
-          className={`auth-hero auth-hero-${variant} relative flex min-h-[21rem] shrink-0 flex-col overflow-hidden px-7 pb-8 pt-[calc(2rem+env(safe-area-inset-top))] sm:px-12 lg:sticky lg:top-0 lg:h-[var(--auth-height)] lg:min-h-0 lg:px-14 lg:py-14 2xl:px-20 2xl:py-16`}
+          className={`auth-hero auth-hero-${variant} relative flex shrink-0 flex-col overflow-hidden px-7 pb-8 pt-[calc(2rem+env(safe-area-inset-top))] sm:min-h-[21rem] sm:px-12 lg:sticky lg:top-0 lg:h-[var(--auth-height)] lg:min-h-0 lg:px-14 lg:py-14 2xl:px-20 2xl:py-16 ${variant === "login" ? "min-h-[17rem]" : "min-h-[21rem]"}`}
         >
           <img
             src={heroImage}
@@ -70,7 +70,10 @@ function PremiumAuthLayout({
             </span>
           </div>
 
-          <div className="min-h-24 flex-1" aria-hidden="true" />
+          <div
+            className={`${variant === "login" ? "min-h-12" : "min-h-24"} flex-1`}
+            aria-hidden="true"
+          />
 
           <div className="relative">
             {heroSubtitle ? (
@@ -82,7 +85,9 @@ function PremiumAuthLayout({
           </div>
         </aside>
 
-        <section className="auth-content-panel flex min-h-[calc(var(--auth-height)-21rem)] flex-1 flex-col px-7 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-11 sm:px-12 lg:h-[var(--auth-height)] lg:min-h-0 lg:overflow-y-auto lg:px-16 lg:py-14 2xl:px-24">
+        <section
+          className={`auth-content-panel flex flex-1 flex-col px-7 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-12 lg:h-[var(--auth-height)] lg:min-h-0 lg:overflow-y-auto lg:px-16 lg:py-14 2xl:px-24 ${variant === "login" ? "min-h-[calc(var(--auth-height)-17rem)] pt-9 sm:min-h-[calc(var(--auth-height)-21rem)]" : "min-h-[calc(var(--auth-height)-21rem)] pt-11"}`}
+        >
           <div className="mx-auto flex w-full max-w-[25rem] flex-1 flex-col lg:my-auto lg:flex-none lg:justify-center lg:py-8">
             {onBack ? (
               <button
