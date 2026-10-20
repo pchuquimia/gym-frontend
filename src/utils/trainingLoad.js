@@ -360,3 +360,33 @@ export function getExerciseMuscleExposure(
     equivalentSets: completedSets * muscle.weight,
   }));
 }
+
+export function getTrainingMuscleSetSummary(
+  training = {},
+  catalogIndex = new Map(),
+) {
+  const byMuscle = new Map();
+  let completedSets = 0;
+  (training.exercises || []).forEach((exercise) => {
+    const sets = getExerciseLoadMetrics(exercise, catalogIndex).completedSets;
+    completedSets += sets;
+    if (!sets) return;
+    const primaryMuscles = getExerciseMuscleWeights(
+      exercise,
+      catalogIndex,
+    ).filter((muscle) => muscle.weight >= 1);
+    const groups = primaryMuscles.length
+      ? [primaryMuscles[0].group]
+      : ["Sin grupo muscular"];
+    groups.forEach((name) =>
+      byMuscle.set(name, (byMuscle.get(name) || 0) + sets),
+    );
+  });
+  return {
+    completedSets,
+    byPrimaryMuscle: Array.from(byMuscle, ([name, sets]) => ({
+      name,
+      sets,
+    })).sort((a, b) => b.sets - a.sets || a.name.localeCompare(b.name, "es")),
+  };
+}

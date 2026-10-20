@@ -35,6 +35,8 @@ import MobileMenuButton from "../components/layout/MobileMenuButton";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
+import WorkoutSeriesDetail from "../components/dashboard/WorkoutSeriesDetail";
+import { buildWorkoutMuscleSeries } from "../utils/workoutMuscleSeries";
 import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
 import DashboardPlanTrend from "../components/dashboard/DashboardPlanTrend";
 import AppChart from "../components/progress/AppChart";
@@ -1845,7 +1847,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const [performanceDetailType, setPerformanceDetailType] = useState(null);
   const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
   const [weeklyLoadModalOpen, setWeeklyLoadModalOpen] = useState(false);
-  const [weeklySetsModalOpen, setWeeklySetsModalOpen] = useState(false);
+  const [workoutSeriesOpen, setWorkoutSeriesOpen] = useState(false);
   const [caloriesModalOpen, setCaloriesModalOpen] = useState(false);
   const [quickWeightOpen, setQuickWeightOpen] = useState(false);
   const [activeTrainingSnapshot, setActiveTrainingSnapshot] = useState(() => {
@@ -1860,7 +1862,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     performanceDetailType ||
     recoveryModalOpen ||
     weeklyLoadModalOpen ||
-    weeklySetsModalOpen ||
+    workoutSeriesOpen ||
     caloriesModalOpen,
   );
 
@@ -1913,7 +1915,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       setPerformanceDetailType(null);
       setRecoveryModalOpen(false);
       setWeeklyLoadModalOpen(false);
-      setWeeklySetsModalOpen(false);
+      setWorkoutSeriesOpen(false);
       setCaloriesModalOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -2347,107 +2349,10 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     };
   }, [durationRows]);
 
-  const weeklySets = useMemo(() => {
-    const byPrimaryMuscle = new Map();
-    const byRoutine = new Map();
-    const comparableScopes = new Set(
-      weekData.setsComparison?.comparableScopeKeys || [],
-    );
-
-    (weekData.currentTrainings || []).forEach((training) => {
-      const routineName = getRoutineName(training);
-      const scopeKey = getTrainingProgressScopeKey(training);
-      const routineKey = `${scopeKey}::${routineName}`;
-      const routine = byRoutine.get(routineKey) || {
-        key: routineKey,
-        name: routineName,
-        sets: 0,
-        recordedSets: 0,
-        incompleteSets: 0,
-        sessions: 0,
-        hasReference: comparableScopes.has(scopeKey),
-      };
-      routine.sessions += 1;
-
-      (training.exercises || []).forEach((exercise) => {
-        const metrics = getExerciseLoadMetrics(exercise, catalogIndex);
-        const sets = metrics.completedSets;
-        routine.recordedSets += metrics.recordedSets;
-        routine.incompleteSets += metrics.incompleteSets;
-        if (!sets) return;
-        routine.sets += sets;
-        getExerciseMuscleExposure(exercise, catalogIndex).forEach(
-          (exposure) => {
-            if (exposure.weight >= 1) {
-              const primaryRow = byPrimaryMuscle.get(exposure.group) || {
-                name: exposure.group,
-                sets: 0,
-              };
-              primaryRow.sets += sets;
-              byPrimaryMuscle.set(exposure.group, primaryRow);
-            }
-          },
-        );
-      });
-
-      byRoutine.set(routineKey, routine);
-    });
-
-    const comparison = getWeeklyComparisonSummary(
-      weekData.setsComparison,
-      (value) => Math.round(value),
-      "series",
-    );
-    const previousTotal = weekData.previousLoadMetrics.completedSets;
-    const diff = weekData.totalSets - previousTotal;
-    const sessions = weekData.sessions || 0;
-    const previousSessions = weekData.previousSessions || 0;
-    const completionRate = weekData.loadMetrics.recordedSets
-      ? Math.round(
-          (weekData.loadMetrics.completedSets /
-            weekData.loadMetrics.recordedSets) *
-            100,
-        )
-      : 0;
-    const primaryMuscleRows = Array.from(byPrimaryMuscle.values()).sort(
-      (a, b) => b.sets - a.sets,
-    );
-    return {
-      total: weekData.totalSets,
-      recorded: weekData.loadMetrics.recordedSets,
-      incomplete: weekData.loadMetrics.incompleteSets,
-      sessions,
-      previousSessions,
-      averagePerSession: sessions ? weekData.totalSets / sessions : 0,
-      previousAveragePerSession: previousSessions
-        ? previousTotal / previousSessions
-        : 0,
-      completionRate,
-      comparableCurrent: comparison.comparableCurrent,
-      previous: comparison.previous,
-      previousTotal,
-      excluded: comparison.excluded,
-      hasReference: previousTotal > 0,
-      hasProgressionReference: comparison.hasReference,
-      isPartial: comparison.isPartial,
-      description:
-        "Cuenta las series que terminaste en tus entrenamientos de esta semana.",
-      diff,
-      diffLabel:
-        previousTotal > 0
-          ? !diff
-            ? "Igual que la semana anterior"
-            : `${Math.abs(diff)} ${diff > 0 ? "más" : "menos"} que la semana anterior`
-          : "Aún sin comparación semanal",
-      statusLabel: weekData.loadMetrics.incompleteSets
-        ? `${weekData.loadMetrics.incompleteSets} sin completar`
-        : "Todo completado",
-      progressionDescription: comparison.description,
-      progressionLabel: comparison.changeLabel,
-      byPrimaryMuscle: primaryMuscleRows,
-      byRoutine: Array.from(byRoutine.values()).sort((a, b) => b.sets - a.sets),
-    };
-  }, [catalogIndex, weekData]);
+  const workoutSeries = useMemo(
+    () => buildWorkoutMuscleSeries(orderedTrainings, catalogIndex),
+    [orderedTrainings, catalogIndex],
+  );
 
   const recovery = useMemo(() => {
     const todayStart = new Date(todayKey).getTime();
@@ -3447,7 +3352,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}
-        weeklyMuscleSummary={weeklySets}
+        workoutSeries={workoutSeries}
         onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
@@ -3459,7 +3364,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}
-        onOpenMuscleDetails={() => setWeeklySetsModalOpen(true)}
+        onOpenMuscleDetails={() => setWorkoutSeriesOpen(true)}
         onOpenTrackingMission={(type) => {
           if (type === "weight") setQuickWeightOpen(true);
           else if (type === "photos") {
@@ -4422,153 +4327,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </div>
       ) : null}
 
-      {weeklySetsModalOpen ? (
+      {workoutSeriesOpen ? (
         <DashboardFullscreenPortal>
-          <div
-            className="dashboard-sets-detail fixed inset-0 z-[100] h-[100dvh] w-screen overflow-y-auto bg-[color:var(--card)] text-[color:var(--text)]"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Detalle de series semanales"
-          >
-            <div className="mx-auto min-h-[100dvh] w-full max-w-xl bg-[color:var(--card)]">
-              <header className="dashboard-sets-detail__header sticky top-0 z-10 grid grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[color:var(--detail-row-divider)] bg-[color:var(--card)] px-[var(--mobile-page-gutter)]">
-                <button
-                  type="button"
-                  onClick={() => setWeeklySetsModalOpen(false)}
-                  className="grid h-11 w-11 place-items-center text-[color:var(--text)] transition active:scale-95"
-                  aria-label="Volver al inicio"
-                >
-                  <ArrowLeft className="h-6 w-6" strokeWidth={1.9} />
-                </button>
-                <h2 className="text-center text-lg font-medium tracking-[-0.025em]">
-                  Series completadas
-                </h2>
-                <span aria-hidden="true" />
-              </header>
-
-              <main className="px-[var(--mobile-page-gutter)] pb-12 pt-8">
-                <section className="dashboard-sets-detail__summary pb-7 text-center">
-                  <p className="text-sm font-normal text-[color:var(--text-muted)]">
-                    Esta semana
-                  </p>
-                  <p className="mt-2 text-5xl font-medium tracking-[-0.045em] tabular-nums">
-                    {weeklySets.total}
-                  </p>
-                  <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
-                    {weeklySets.total === 1
-                      ? "serie completada"
-                      : "series completadas"}
-                  </p>
-
-                  <div className="dashboard-sets-detail__summary-meta mx-auto mt-6 grid max-w-sm grid-cols-2 border-y border-[color:var(--detail-row-divider)] py-4 text-left">
-                    <div className="pr-4">
-                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                        Entrenamientos
-                      </p>
-                      <p className="mt-1 text-lg font-medium tabular-nums">
-                        {weeklySets.sessions}
-                      </p>
-                    </div>
-                    <div className="border-l border-[color:var(--detail-row-divider)] pl-4">
-                      <p className="text-xs font-normal text-[color:var(--text-muted)]">
-                        Promedio
-                      </p>
-                      <p className="mt-1 text-lg font-medium tabular-nums">
-                        {weeklySets.sessions
-                          ? `${formatSeriesCount(weeklySets.averagePerSession)} por sesión`
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="dashboard-sets-detail__muscles border-t border-[color:var(--detail-row-divider)] pt-7">
-                  <h3 className="text-lg font-medium tracking-[-0.02em]">
-                    Series por grupo muscular
-                  </h3>
-                  <p className="mt-1 text-sm font-normal leading-5 text-[color:var(--text-muted)]">
-                    Así se distribuyó tu trabajo de la semana.
-                  </p>
-
-                  {weeklySets.byPrimaryMuscle.length ? (
-                    <div className="mt-6 space-y-5">
-                      {weeklySets.byPrimaryMuscle.map((item) => {
-                        const maxSets =
-                          weeklySets.byPrimaryMuscle[0]?.sets || 1;
-                        const width = Math.max(6, (item.sets / maxSets) * 100);
-
-                        return (
-                          <div
-                            key={item.name}
-                            className="dashboard-sets-detail__muscle-row"
-                            aria-label={`${item.name}: ${item.sets} ${item.sets === 1 ? "serie" : "series"}`}
-                          >
-                            <div className="mb-2 flex items-baseline justify-between gap-4">
-                              <span className="truncate text-sm font-normal">
-                                {item.name}
-                              </span>
-                              <strong className="shrink-0 text-sm font-medium tabular-nums">
-                                {item.sets}{" "}
-                                {item.sets === 1 ? "serie" : "series"}
-                              </strong>
-                            </div>
-                            <div className="dashboard-sets-detail__bar h-2 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
-                              <span
-                                className="block h-full rounded-full bg-[color:var(--accent)]"
-                                style={{ width: `${width}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="mt-5 border-y border-[color:var(--detail-row-divider)] py-5 text-sm font-normal text-[color:var(--text-muted)]">
-                      Completa una serie para ver el reparto muscular.
-                    </p>
-                  )}
-                </section>
-
-                <section className="dashboard-sets-detail__routines mt-9 border-t border-[color:var(--detail-row-divider)] pt-7">
-                  <h3 className="text-lg font-medium tracking-[-0.02em]">
-                    Por entrenamiento
-                  </h3>
-                  <p className="mt-1 text-sm font-normal text-[color:var(--text-muted)]">
-                    Dónde completaste esas series.
-                  </p>
-                  <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
-                    {weeklySets.byRoutine.length ? (
-                      weeklySets.byRoutine.map((item) => (
-                        <div
-                          key={item.key}
-                          className="flex min-h-[4.5rem] items-center justify-between gap-4 py-4"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {item.name}
-                            </p>
-                            <p className="mt-1 text-xs font-normal text-[color:var(--text-muted)]">
-                              {formatSessionCount(item.sessions)}
-                              {item.incompleteSets
-                                ? ` · ${item.incompleteSets} ${item.incompleteSets === 1 ? "pendiente" : "pendientes"}`
-                                : ""}
-                            </p>
-                          </div>
-                          <p className="shrink-0 text-sm font-medium tabular-nums">
-                            {item.sets} {item.sets === 1 ? "serie" : "series"}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="py-5 text-sm font-normal text-[color:var(--text-muted)]">
-                        No hay rutinas registradas esta semana.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              </main>
-            </div>
-          </div>
+          <WorkoutSeriesDetail
+            ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
+            catalogIndex={catalogIndex}
+            onClose={() => setWorkoutSeriesOpen(false)}
+          />
         </DashboardFullscreenPortal>
       ) : null}
 

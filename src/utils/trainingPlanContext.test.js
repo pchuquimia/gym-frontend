@@ -84,6 +84,28 @@ describe("resolveRoutinePlanContext", () => {
 });
 
 describe("getTrainingPlanLineageIds", () => {
+  it("resuelve IDs históricos de una planificación fusionada", () => {
+    const plans = [
+      { _id: "current", mergedPlanIds: ["original", "extension"] },
+    ];
+    expect(getTrainingPlanLineageIds("original", plans)).toEqual([
+      "current",
+      "original",
+      "extension",
+    ]);
+    expect(getTrainingPlanLineageIds("current", plans)).toEqual([
+      "current",
+      "original",
+      "extension",
+    ]);
+    expect(
+      resolveRoutinePlanContext(
+        { id: "routine" },
+        { planId: "original", slotId: "slot_1" },
+        plans,
+      ),
+    ).toEqual({ planId: "current", slotId: "slot_1" });
+  });
   it("reúne el plan original y todas sus continuaciones", () => {
     const plans = [
       { _id: "plan-1" },

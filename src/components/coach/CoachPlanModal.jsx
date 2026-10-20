@@ -625,19 +625,37 @@ export default function CoachPlanModal({
   const missingRoutines = manageRoutinesSeparately
     ? 0
     : trainingDays.filter((day) => !day.sourceRoutineId).length;
+  const maxDurationWeeks = Math.max(
+    52,
+    Number(initialData?.durationWeeks || 0),
+  );
   const validDuration =
     Number.isInteger(Number(durationWeeks)) &&
     Number(durationWeeks) >= 1 &&
-    Number(durationWeeks) <= 52;
+    Number(durationWeeks) <= maxDurationWeeks;
   const validStartDate = Boolean(
     startDate && !Number.isNaN(new Date(`${startDate}T12:00:00`).getTime()),
   );
   const endDate = useMemo(() => {
     if (!validStartDate || !validDuration) return "";
+    if (
+      initialData?.endDate &&
+      startDate === String(initialData.startDate).slice(0, 10) &&
+      Number(durationWeeks) === Number(initialData.durationWeeks)
+    )
+      return String(initialData.endDate).slice(0, 10);
     const date = new Date(`${startDate}T12:00:00`);
     date.setDate(date.getDate() + Number(durationWeeks) * 7 - 1);
     return date.toISOString().slice(0, 10);
-  }, [durationWeeks, startDate, validDuration, validStartDate]);
+  }, [
+    durationWeeks,
+    startDate,
+    validDuration,
+    validStartDate,
+    initialData?.endDate,
+    initialData?.startDate,
+    initialData?.durationWeeks,
+  ]);
   const todayDateKey = localDateInputValue();
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
@@ -1611,7 +1629,7 @@ export default function CoachPlanModal({
               <input
                 type="number"
                 min="1"
-                max="52"
+                max={maxDurationWeeks}
                 value={durationWeeks}
                 onChange={(event) => setDurationWeeks(event.target.value)}
                 className="w-12 bg-transparent text-sm font-medium text-[color:var(--text)] outline-none"
@@ -1633,7 +1651,7 @@ export default function CoachPlanModal({
             role="alert"
             className="mt-2 text-sm text-red-700 dark:text-red-300"
           >
-            La duración debe ser un número entero entre 1 y 52 semanas.
+            La duración debe ser un número entero entre 1 y {maxDurationWeeks} semanas.
           </p>
         ) : null}
         {endDate ? (

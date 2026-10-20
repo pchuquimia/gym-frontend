@@ -9,6 +9,13 @@ export const getTrainingPlanLineageIds = (planId, plans = []) => {
       .map((plan) => [getId(plan), plan])
       .filter(([id]) => Boolean(id)),
   );
+  const merged = plans.find((plan) =>
+    plan.mergedPlanIds?.includes(normalizedPlanId),
+  );
+  if (merged) return [getId(merged), ...(merged.mergedPlanIds || [])];
+  const selected = planById.get(normalizedPlanId);
+  if (selected?.mergedPlanIds?.length)
+    return [normalizedPlanId, ...selected.mergedPlanIds];
   const lineageIds = new Set([normalizedPlanId]);
   let changed = true;
 
@@ -47,7 +54,13 @@ export const resolveRoutinePlanContext = (
     requestedContext?.slotId || rawRoutine.trainingPlanSlotId || "",
   );
 
-  let plan = plans.find((candidate) => getId(candidate) === planId) || null;
+  let plan =
+    plans.find(
+      (candidate) =>
+        getId(candidate) === planId ||
+        candidate.mergedPlanIds?.includes(planId),
+    ) || null;
+  if (plan) planId = getId(plan);
   if (!plan && routineId) {
     const matchingPlans = plans.filter(
       (candidate) =>

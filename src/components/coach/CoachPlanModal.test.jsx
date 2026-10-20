@@ -31,6 +31,15 @@ describe("CoachPlanModal", () => {
     vi.restoreAllMocks();
   });
 
+  it("permite editar un plan extendido más de un año conservando su fecha final exacta", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<CoachPlanModal athlete={{ name: "Laura" }} initialData={{ ...initialPlan, durationWeeks: 63, startDate: "2026-08-10", endDate: "2027-10-26" }} manageRoutinesSeparately onSave={onSave} onClose={vi.fn()} />);
+    expect(screen.getByText(/Finaliza el/)).toHaveTextContent("26 oct");
+    await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][0]).toMatchObject({ durationWeeks: 63, startDate: "2026-08-10" });
+  });
+
   it("conserva los datos entre pestañas y guarda directamente desde seguimiento", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(

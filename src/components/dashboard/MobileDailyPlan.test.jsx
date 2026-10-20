@@ -299,14 +299,13 @@ describe("MobileDailyPlan", () => {
     const onOpenHydration = vi.fn();
     renderPlan({
       journeyStage: "plan_assigned",
-      weeklyMuscleSummary: {
-        sessions: 3,
+      workoutSeries: [{ key: "session-1", name: "Piernas", date: "2026-09-09", completedSets: 23,
         byPrimaryMuscle: [
           { name: "Cuádriceps", sets: 10 },
           { name: "Isquiotibiales", sets: 7 },
           { name: "Espalda", sets: 6 },
         ],
-      },
+      }],
       hydrationTask: {
         title: "Hidratación",
         subtitle: "Registrar agua",
@@ -320,7 +319,7 @@ describe("MobileDailyPlan", () => {
       name: "Misión de hoy",
     });
     const muscleHeading = screen.getByRole("heading", {
-      name: "Series por grupo muscular",
+      name: "Series por entrenamiento",
     });
     const progressHeading = screen.getByRole("heading", {
       name: "Registrar progreso",
@@ -333,9 +332,9 @@ describe("MobileDailyPlan", () => {
       muscleHeading.compareDocumentPosition(progressHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText("Esta semana · 3 sesiones")).toBeVisible();
+    expect(screen.getByText("Última sesión · Por grupo muscular")).toBeVisible();
     expect(screen.getByText("Cuádriceps")).toBeVisible();
-    expect(screen.getByText("10 series")).toBeVisible();
+    expect(screen.getByRole("img", { name: "Series completadas por entrenamiento y músculo" })).toBeVisible();
     expect(screen.getByRole("button", { name: /Fotos/ })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /Fotos/ }));
     expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
@@ -355,28 +354,33 @@ describe("MobileDailyPlan", () => {
     expect(screen.queryByRole("list")).toBeNull();
   });
 
-  it("permite abrir el detalle si existen más de cinco grupos", async () => {
-    const onOpenMuscleDetails = vi.fn();
-    renderPlan({
-      journeyStage: "plan_assigned",
-      weeklyMuscleSummary: {
-        sessions: 2,
-        byPrimaryMuscle: [
-          { name: "Espalda", sets: 8 },
-          { name: "Bíceps", sets: 7 },
-          { name: "Pecho", sets: 6 },
-          { name: "Tríceps", sets: 5 },
-          { name: "Hombros", sets: 4 },
-          { name: "Core", sets: 3 },
-        ],
-      },
-      onOpenMuscleDetails,
-    });
+  it.each([1, 6, 0])(
+    "permite abrir el detalle con %s grupos",
+    async (count) => {
+      const onOpenMuscleDetails = vi.fn();
+      renderPlan({
+        journeyStage: "plan_assigned",
+        workoutSeries: [{ key: "session-1", name: "Torso", date: "2026-09-09", completedSets: 33,
+          byPrimaryMuscle: [
+            { name: "Espalda", sets: 8 },
+            { name: "Bíceps", sets: 7 },
+            { name: "Pecho", sets: 6 },
+            { name: "Tríceps", sets: 5 },
+            { name: "Hombros", sets: 4 },
+            { name: "Core", sets: 3 },
+          ].slice(0, count),
+        }],
+        onOpenMuscleDetails,
+      });
 
-    expect(screen.queryByText("Core")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Ver todos" }));
-    expect(onOpenMuscleDetails).toHaveBeenCalledTimes(1);
-  });
+      await userEvent.click(
+        screen.getByRole("button", {
+          name: "Ver series por grupo muscular por entrenamiento",
+        }),
+      );
+      expect(onOpenMuscleDetails).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("abre el ingreso rapido de peso sin navegar al historial", async () => {
     const onOpenWeighIn = vi.fn();

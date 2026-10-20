@@ -50,7 +50,10 @@ import Modal from "../components/shared/Modal";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import { buildRoutineExerciseOptionMap } from "../utils/routineExerciseOptions";
-import { planStartsInFuture } from "../utils/trainingPlanDates";
+import {
+  getPlanExtensionPreview,
+  planStartsInFuture,
+} from "../utils/trainingPlanDates";
 import { consumeTrainingPlanExtension } from "../utils/trainingPlanNavigation";
 import { useRoutines } from "../context/RoutineContext";
 import { useTrainingData } from "../context/TrainingContext";
@@ -77,6 +80,7 @@ import {
   fetchCachedTrainingPlans,
   getPlanTemplatesQueryKey,
   getTrainingPlansQueryKey,
+  replaceTrainingPlan,
 } from "../queries/trainingPlanQueries";
 
 const BRANCH_OPTIONS = ["sopocachi", "miraflores"];
@@ -219,25 +223,6 @@ const getPlanEndDate = (plan) => {
   const end = new Date(plan.startDate);
   end.setUTCDate(end.getUTCDate() + Number(plan.durationWeeks || 1) * 7 - 1);
   return end;
-};
-const getTodayIsoDate = () => new Date().toISOString().slice(0, 10);
-const getContinuationStartDate = (plan) => {
-  const nextDay = new Date(getPlanEndDate(plan));
-  if (Number.isNaN(nextDay.getTime())) return getTodayIsoDate();
-  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-  const nextDayIso = nextDay.toISOString().slice(0, 10);
-  const todayIso = getTodayIsoDate();
-  return nextDayIso > todayIso ? nextDayIso : todayIso;
-};
-const getContinuationEndDate = (startDate, durationWeeks) => {
-  const weeks = Number(durationWeeks);
-  if (!startDate || !Number.isInteger(weeks) || weeks < 1 || weeks > 52) {
-    return "";
-  }
-  const end = new Date(`${startDate}T00:00:00Z`);
-  if (Number.isNaN(end.getTime())) return "";
-  end.setUTCDate(end.getUTCDate() + weeks * 7 - 1);
-  return formatPlanDate(end);
 };
 const PLAN_DAY_NAMES = [
   "Lunes",
@@ -5288,7 +5273,6 @@ function Routines({
   const [deletePlanConfirmOpen, setDeletePlanConfirmOpen] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState(false);
   const [planToExtend, setPlanToExtend] = useState(null);
-  const [extensionStartDate, setExtensionStartDate] = useState("");
   const [extensionWeeks, setExtensionWeeks] = useState(4);
   const [extendingPlan, setExtendingPlan] = useState(false);
   const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
@@ -5637,21 +5621,19 @@ function Routines({
     if (!requestedPlanId) return;
     const completedPlan = trainingPlans.find(
       (plan) =>
-        String(plan._id || plan.id) === requestedPlanId &&
-        plan.status === "completed",
+        (String(plan._id || plan.id) === requestedPlanId ||
+          plan.mergedPlanIds?.includes(requestedPlanId)) &&
+        ["active", "completed", "paused", "scheduled"].includes(plan.status),
     );
     if (!completedPlan) {
-      toast.message("La planificación ya tiene una continuación disponible.");
+      toast.message("La planificación ya no está disponible para extenderla.");
       return;
     }
     setWorkspaceView("plans");
     setActivePlan(completedPlan);
     setSelectedPlanWeek(getPlanWeekIndex(completedPlan));
     setPlanToExtend(completedPlan);
-    setExtensionStartDate(getContinuationStartDate(completedPlan));
-    setExtensionWeeks(
-      Math.min(52, Math.max(1, Number(completedPlan.durationWeeks) || 4)),
-    );
+    setExtensionWeeks(4);
   }, [isCoach, planToExtend, plansLoading, trainingPlans]);
 
   useEffect(() => {
@@ -6178,22 +6160,18 @@ function Routines({
 
   const openPlanExtension = (plan) => {
     setPlanToExtend(plan);
-    setExtensionStartDate(getContinuationStartDate(plan));
-    setExtensionWeeks(
-      Math.min(52, Math.max(1, Number(plan.durationWeeks) || 4)),
-    );
+    setExtensionWeeks(4);
   };
 
   const extendTrainingPlan = async () => {
     if (!planToExtend || extendingPlan) return;
     const durationWeeks = Number(extensionWeeks);
     if (
-      !extensionStartDate ||
       !Number.isInteger(durationWeeks) ||
       durationWeeks < 1 ||
       durationWeeks > 52
     ) {
-      toast.error("Selecciona una fecha y una duración de 1 a 52 semanas");
+      toast.error("Selecciona de 1 a 52 semanas adicionales");
       return;
     }
     setExtendingPlan(true);
@@ -6201,22 +6179,26 @@ function Routines({
       const saved = await api.extendTrainingPlan(
         planToExtend._id || planToExtend.id,
         {
-          startDate: extensionStartDate,
-          durationWeeks,
+          additionalWeeks: durationWeeks,
+          expectedEndDate: planToExtend.endDate,
+          expectedUpdatedAt: planToExtend.updatedAt,
         },
       );
-      const plans = await refreshPlans();
-      await reloadRoutines({ silent: true });
-      const refreshedPlan =
-        plans.find(
-          (plan) =>
-            String(plan._id || plan.id) === String(saved._id || saved.id),
-        ) || saved;
+      queryClient.setQueryData(
+        getTrainingPlansQueryKey(planCacheScope),
+        (current) => replaceTrainingPlan(current, saved),
+      );
+      setTrainingPlans((current) => replaceTrainingPlan(current, saved));
       setPlanToExtend(null);
-      setActivePlan(refreshedPlan);
-      setSelectedPlanWeek(0);
-      toast.success("Continuación creada", {
-        description: "Revisa la planificación y actívala cuando estés listo.",
+      setActivePlan(saved);
+      setSelectedPlanWeek(getPlanWeekIndex(saved));
+      await Promise.allSettled([
+        refreshPlans(),
+        reloadRoutines({ silent: true }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] }),
+      ]);
+      toast.success("Planificación extendida", {
+        description: `Nueva fecha de fin: ${formatPlanDate(saved.endDate)}.`,
       });
     } catch (error) {
       toast.error(error.message || "No se pudo extender la planificación");
@@ -7061,7 +7043,10 @@ function Routines({
                         <Pause className="h-4 w-4" /> Desactivar planificación
                       </button>
                     ) : null}
-                    {!isManagedClient && activePlan.status === "completed" ? (
+                    {!isManagedClient &&
+                    ["active", "completed", "paused", "scheduled"].includes(
+                      activePlan.status,
+                    ) ? (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -7675,36 +7660,24 @@ function Routines({
                 onClick={extendTrainingPlan}
                 disabled={
                   extendingPlan ||
-                  !extensionStartDate ||
+                  !Number.isInteger(Number(extensionWeeks)) ||
                   Number(extensionWeeks) < 1 ||
                   Number(extensionWeeks) > 52
                 }
               >
-                {extendingPlan ? "Creando..." : "Crear continuación"}
+                {extendingPlan ? "Guardando..." : "Extender planificación"}
               </Button>
             </div>
           }
         >
           <div className="space-y-5 py-2">
             <p className="text-sm leading-relaxed text-[color:var(--text-muted)]">
-              Conservaremos el plan terminado y crearemos una continuación con
-              las mismas rutinas y el progreso acumulado.
+              Añade semanas a esta misma planificación. Se conservarán la fecha
+              de inicio, las rutinas y todos tus entrenamientos.
             </p>
             <div className="divide-y divide-[color:var(--detail-row-divider)] overflow-hidden rounded-2xl bg-[color:var(--card)]">
               <label className="grid min-h-[72px] grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4">
-                <span className="text-sm font-medium">Inicio</span>
-                <input
-                  type="date"
-                  min={getTodayIsoDate()}
-                  value={extensionStartDate}
-                  onChange={(event) =>
-                    setExtensionStartDate(event.target.value)
-                  }
-                  className="h-11 min-w-0 bg-transparent text-right text-sm font-medium outline-none"
-                />
-              </label>
-              <label className="grid min-h-[72px] grid-cols-[112px_minmax(0,1fr)] items-center gap-3 px-4">
-                <span className="text-sm font-medium">Duración</span>
+                <span className="text-sm font-medium">Añadir</span>
                 <span className="flex items-center justify-end gap-2">
                   <input
                     type="number"
@@ -7721,13 +7694,19 @@ function Routines({
                 </span>
               </label>
             </div>
-            {getContinuationEndDate(extensionStartDate, extensionWeeks) ? (
+            {getPlanExtensionPreview(planToExtend, extensionWeeks) ? (
               <p className="text-xs text-[color:var(--text-muted)]">
-                La continuación terminará el{" "}
+                La planificación terminará el{" "}
                 <span className="font-semibold text-[color:var(--text)]">
-                  {getContinuationEndDate(extensionStartDate, extensionWeeks)}
+                  {formatPlanDate(
+                    getPlanExtensionPreview(planToExtend, extensionWeeks)
+                      .endDate,
+                  )}
                 </span>
-                . Se guardará primero como borrador.
+                .{" "}
+                {planToExtend.status === "completed"
+                  ? "Se reactivará esta misma planificación."
+                  : "Se mantendrá su estado actual."}
               </p>
             ) : null}
           </div>
