@@ -9,11 +9,11 @@ import {
   Clock3,
   Droplets,
   Dumbbell,
-  Heart,
   Ruler,
   Weight,
 } from "lucide-react";
 import WorkoutSeriesCard from "./WorkoutMuscleChart";
+import DashboardPlanTrend from "./DashboardPlanTrend";
 import ProfileAvatar from "../profile/ProfileAvatar";
 import "./starter-experience.css";
 import "./daily-workspace.css";
@@ -212,38 +212,6 @@ function ManagedOnboarding({
   );
 }
 
-function CheckInMission({ task, onOpen, readOnly, primary }) {
-  if (!task) return null;
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={readOnly}
-      className={`daily-check-in ${primary ? "is-primary" : ""} ${task.completed ? "is-complete" : ""}`}
-      aria-label={
-        task.completed ? `Completado: ${task.title}` : `Completar ${task.title}`
-      }
-    >
-      <span className="daily-check-in__icon" aria-hidden="true">
-        {task.completed ? <Check /> : <Heart />}
-      </span>
-      <span className="daily-check-in__copy">
-        <strong>
-          {task.completed ? "Check-in completado" : "Check-in pendiente"}
-        </strong>
-        <small>{task.subtitle}</small>
-      </span>
-      {primary ? (
-        <span className="daily-check-in__action">
-          Completar check-in <ArrowRight aria-hidden="true" />
-        </span>
-      ) : (
-        <ChevronRight className="daily-check-in__chevron" aria-hidden="true" />
-      )}
-    </button>
-  );
-}
-
 function WorkoutMission({ task, onOpen, readOnly }) {
   if (!task) return null;
   const actionLabel =
@@ -380,20 +348,41 @@ function TrackingMission({ task, onOpen, readOnly }) {
   );
 }
 
-function ActivePlanContext({ plan, onOpen }) {
+function ActivePlanContext({ plan, onOpen, summary, chart }) {
   if (!plan) return null;
   return (
-    <button type="button" onClick={onOpen} className="daily-plan-row">
-      <ClipboardList aria-hidden="true" />
-      <span className="daily-plan-row__copy">
-        <strong>{plan.name}</strong>
-        <small>
-          Semana {plan.currentWeek} de {plan.durationWeeks}
-        </small>
-      </span>
-      <em>Ver progreso</em>
-      <ChevronRight aria-hidden="true" />
-    </button>
+    <section
+      className="daily-plan-overview"
+      aria-labelledby="daily-plan-overview-title"
+    >
+      <div className="daily-workspace__section-heading">
+        <h2 id="daily-plan-overview-title">Tu planificación</h2>
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Ver progreso de ${plan.name}`}
+        >
+          Ver plan <ChevronRight aria-hidden="true" />
+        </button>
+      </div>
+      <div className="daily-plan-overview__summary">
+        <div>
+          <h3>{plan.name}</h3>
+          <p>
+            Semana {plan.currentWeek} de {plan.durationWeeks}
+          </p>
+        </div>
+        {summary?.change !== null && summary?.change !== undefined && (
+          <div
+            className={`daily-plan-overview__change${summary.changeValue < 0 ? " is-negative" : summary.changeValue > 0 ? " is-positive" : ""}`}
+          >
+            <strong>{summary.change}</strong>
+            <span>marcas comparables</span>
+          </div>
+        )}
+      </div>
+      {chart}
+    </section>
   );
 }
 
@@ -544,8 +533,8 @@ export default function MobileDailyPlan({
   planningContext = null,
   coach = null,
   activePlanContext = null,
+  planTrend = null,
   activitySummary = null,
-  checkInTask = null,
   workoutTask,
   hydrationTask = null,
   trackingMissions = [],
@@ -557,7 +546,6 @@ export default function MobileDailyPlan({
   onOpenPlan,
   onCreateRoutine,
   onOpenLibrary,
-  onOpenCheckIn,
   onOpenWorkout,
   onOpenHydration,
   onOpenWeighIn,
@@ -586,9 +574,6 @@ export default function MobileDailyPlan({
   ].filter(
     (task) => task && !task.completed && !requiredTrackingTypes.has(task.type),
   );
-  const primaryCheckIn =
-    !checkInTask?.completed &&
-    (!workoutTask || workoutTask.completed || workoutTask.type === "rest");
   const isDailyWorkspace =
     !starterStage && (!journeyStage || journeyStage === "plan_assigned");
   const openTracking = (type) => {
@@ -668,14 +653,8 @@ export default function MobileDailyPlan({
               onOpen={onOpenWorkout}
               readOnly={readOnly}
             />
-            {(checkInTask || requiredTracking.length > 0) && (
+            {requiredTracking.length > 0 && (
               <section className="daily-tasks" aria-label="Seguimiento de hoy">
-                <CheckInMission
-                  task={checkInTask}
-                  onOpen={onOpenCheckIn}
-                  readOnly={readOnly}
-                  primary={primaryCheckIn}
-                />
                 {requiredTracking.map((task) => (
                   <TrackingMission
                     key={task.id || task.type}
@@ -719,9 +698,25 @@ export default function MobileDailyPlan({
             )}
             <WorkoutSeriesCard
               rows={workoutSeries}
+              date={date}
               onOpenDetails={onOpenMuscleDetails}
             />
-            <ActivePlanContext plan={activePlanContext} onOpen={onOpenPlan} />
+            {activePlanContext && (
+              <DashboardPlanTrend
+                ownerId={planTrend?.ownerId || ""}
+                plan={planTrend?.plan || null}
+                recentTrainings={planTrend?.trainings || []}
+                variant="sparkline"
+                renderPlanCard={(summary, chart) => (
+                  <ActivePlanContext
+                    plan={activePlanContext}
+                    onOpen={onOpenPlan}
+                    summary={summary}
+                    chart={chart}
+                  />
+                )}
+              />
+            )}
             {quickRegistrations.length ? (
               <section
                 className="daily-registrations"

@@ -66,7 +66,6 @@ import {
   summarizeCalorieEstimates,
 } from "../utils/calorieEstimate";
 import { getMonthActivityBarPercent } from "../utils/monthActivityChart";
-import { hasPremiumFeature, PREMIUM_FEATURES } from "../utils/premium";
 import {
   estimateFullSessionDuration,
   formatSessionDuration,
@@ -3083,30 +3082,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     if (todayAction.type === "empty") onNavigate("rutinas");
   };
 
-  const canUseDailyCheckIn =
-    Boolean(managedAthleteStage) ||
-    hasPremiumFeature(authUser, PREMIUM_FEATURES.DAILY_CHECKIN);
-  const todayDailyMetric = (dashboardBootstrap.data?.dailyMetrics || []).find(
-    (metric) => metric?.dateKey === todayKey,
-  );
-  const checkInCompleted =
-    todayDailyMetric?.readinessScore !== null &&
-    todayDailyMetric?.readinessScore !== undefined &&
-    Number.isFinite(Number(todayDailyMetric.readinessScore));
   const followUpMissions = bootstrapTrackingMissions;
-  const scheduledCheckIn = followUpMissions.find(
-    (mission) => mission.type === "check_in",
-  );
-  const mobileCheckInTask =
-    canUseDailyCheckIn && (!managedAthleteStage || scheduledCheckIn)
-      ? {
-          completed: checkInCompleted,
-          title: "Check-in diario",
-          subtitle: checkInCompleted
-            ? `Completado · recuperación ${Math.round(Number(todayDailyMetric.readinessScore))}%`
-            : "Sueño, energía y molestias · 20 s",
-        }
-      : null;
   const mobileTrackingMissions = followUpMissions.filter(
     (mission) => mission.type !== "check_in",
   );
@@ -3346,8 +3322,18 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           }
         }}
         activePlanContext={mobileActivePlanContext}
+        planTrend={{
+          ownerId: String(
+            coachAthlete?.id ||
+              coachAthlete?._id ||
+              authUser?.id ||
+              authUser?._id ||
+              "",
+          ),
+          plan: activePlan,
+          trainings: orderedTrainings,
+        }}
         activitySummary={monthActivity}
-        checkInTask={mobileCheckInTask}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}
@@ -3362,7 +3348,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }
         onCreateRoutine={openFirstRoutineEditor}
         onOpenLibrary={() => onNavigate("library")}
-        onOpenCheckIn={() => onNavigate("check_in")}
         onOpenWorkout={handleTodayPrimary}
         onOpenHydration={() => onNavigate("hidratacion")}
         onOpenMuscleDetails={() => setWorkoutSeriesOpen(true)}

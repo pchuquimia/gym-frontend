@@ -81,3 +81,48 @@ export function workoutSetCount(row, muscle = "") {
     ? row.byPrimaryMuscle.find((item) => item.name === muscle)?.sets || 0
     : row.completedSets;
 }
+
+// Build local calendar days rather than adding milliseconds (DST can change
+// the duration of a day). Keep empty dates so the weekly rhythm stays visible.
+export function buildWorkoutWeeks(rows, referenceDate = new Date()) {
+  const today = workoutDate(referenceDate) || new Date();
+  today.setHours(12, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 7);
+  const dateKey = (date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const days = Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return {
+      key: dateKey(date),
+      date: dateKey(date),
+      name: "",
+      completedSets: 0,
+      byPrimaryMuscle: [],
+      sessions: 0,
+      weekday: ["L", "M", "X", "J", "V", "S", "D"][index % 7],
+      dayNumber: date.getDate(),
+      isToday: date.getTime() === today.getTime(),
+      status: date > today ? "future" : date < today ? "rest" : "pending",
+    };
+  });
+  const byDate = new Map(days.map((day) => [day.key, day]));
+  rows.forEach((row) => {
+    const date = workoutDate(row.date);
+    const day = date && byDate.get(dateKey(date));
+    if (!day || day.status === "future") return;
+    day.sessions += 1;
+    day.name = [day.name, row.name].filter(Boolean).join(" + ");
+    day.completedSets += row.completedSets;
+    row.byPrimaryMuscle.forEach((item) => {
+      const existing = day.byPrimaryMuscle.find(
+        (entry) => entry.name === item.name,
+      );
+      if (existing) existing.sets += item.sets;
+      else day.byPrimaryMuscle.push({ ...item });
+    });
+    day.status = day.completedSets > 0 ? "training" : "empty-session";
+  });
+  return [days.slice(0, 7), days.slice(7)];
+}

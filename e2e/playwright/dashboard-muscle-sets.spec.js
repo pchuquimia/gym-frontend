@@ -116,7 +116,14 @@ test("grafico compacto y detalle de 100 entrenamientos", async ({
     .locator(".workout-series-card")
     .filter({ visible: true });
   await expect(preview).toBeVisible();
-  await expect(preview.locator(".workout-series__column")).toHaveCount(10);
+  await expect(preview.locator(".workout-series__column")).toHaveCount(9);
+  await expect(
+    preview.locator(".workout-series__column.is-future"),
+  ).toHaveCount(0);
+  await expect(
+    preview.getByLabel(/Semana anterior: 12 oct 2026/),
+  ).toBeVisible();
+  await expect(preview.getByLabel(/Esta semana: 19 oct 2026/)).toBeVisible();
   expect(requests()).toBe(0);
   await preview.evaluate((element) =>
     element.scrollIntoView({ block: "center" }),

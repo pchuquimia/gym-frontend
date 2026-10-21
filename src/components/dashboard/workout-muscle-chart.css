@@ -157,6 +157,53 @@ button.workout-series__bar {
   font-size: 0.6rem;
   color: var(--text-muted);
 }
+.workout-series__chart.is-calendar .workout-series__column {
+  padding-bottom: 1.5rem;
+}
+.workout-series__chart.is-calendar .workout-series__grid {
+  bottom: 1.5rem;
+}
+.workout-series__chart.is-calendar .workout-series__date {
+  top: calc(100% - 1.1rem);
+  line-height: 1.4;
+}
+.workout-series__column.is-week-start::before {
+  content: "";
+  position: absolute;
+  top: -0.5rem;
+  bottom: 0;
+  left: -2px;
+  border-left: 1px dashed var(--border);
+}
+.workout-series__column.is-today .workout-series__date {
+  color: var(--text);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.workout-series__rest-day {
+  position: absolute;
+  bottom: 0;
+  width: 11px;
+  height: 11px;
+  color: var(--text-muted);
+}
+.workout-series__column.is-pending .workout-series__zero {
+  width: 8px;
+}
+.workout-series__weeks {
+  display: grid;
+  margin: 0.75rem 0 0;
+  gap: 0.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.6;
+}
+.workout-series__weeks strong {
+  font-weight: 550;
+  color: var(--text);
+}
 .workout-series__legend {
   display: flex;
   flex-wrap: wrap;

@@ -1,10 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { prepareTrainings } from "./progressDashboard";
-import { alignPlanProgressWeeks, buildPlanProgressData } from "./planProgressComparison";
+import {
+  alignPlanProgressWeeks,
+  buildPlanProgressData,
+} from "./planProgressComparison";
 
 const plans = [
-  { _id: "new", name: "Plan nuevo", status: "active", startDate: "2025-09-01", endDate: "2025-09-30" },
-  { _id: "old", name: "Plan anterior", status: "completed", startDate: "2025-05-01", endDate: "2025-05-31" },
+  {
+    _id: "new",
+    name: "Plan nuevo",
+    status: "active",
+    startDate: "2025-09-01",
+    endDate: "2025-09-30",
+  },
+  {
+    _id: "old",
+    name: "Plan anterior",
+    status: "completed",
+    startDate: "2025-05-01",
+    endDate: "2025-05-31",
+  },
 ];
 
 const training = (id, planId, date, weightKg, muscleGroup = "Pecho") => ({
@@ -13,17 +28,32 @@ const training = (id, planId, date, weightKg, muscleGroup = "Pecho") => ({
   trainingPlanId: planId,
   progressScopeId: planId,
   routineId: `${planId}-routine`,
-  exercises: [{
-    exerciseId: muscleGroup === "Pecho" ? "press" : "row",
-    exerciseName: muscleGroup === "Pecho" ? "Press" : "Remo",
-    muscleGroup,
-    loadType: "external",
-    weightBasis: "total",
-    sets: [{ weightKg, reps: 10, done: true }],
-  }],
+  exercises: [
+    {
+      exerciseId: muscleGroup === "Pecho" ? "press" : "row",
+      exerciseName: muscleGroup === "Pecho" ? "Press" : "Remo",
+      muscleGroup,
+      loadType: "external",
+      weightBasis: "total",
+      sets: [{ weightKg, reps: 10, done: true }],
+    },
+  ],
 });
 
 describe("comparación de planificaciones", () => {
+  it("resume mejoras del mismo plan sin multiplicar progresos de músculos distintos", () => {
+    const sessions = prepareTrainings([
+      training("n1", "new", "2025-09-03", 50),
+      training("n2", "new", "2025-09-04", 40, "Espalda"),
+      training("n3", "new", "2025-09-10", 55),
+      training("n4", "new", "2025-09-11", 44, "Espalda"),
+      training("excluded", "old", "2025-09-12", 500),
+    ]);
+    expect(
+      buildPlanProgressData(plans[0], sessions, "", "2025-10-01").totalChange,
+    ).toBe(10);
+  });
+
   it("alinea semanas relativas, normaliza el inicio y deja huecos sin inventar sesiones", () => {
     const sessions = prepareTrainings([
       training("n1", "new", "2025-09-03", 50),
@@ -33,7 +63,12 @@ describe("comparación de planificaciones", () => {
       training("wrong", "other", "2025-09-12", 90),
     ]);
     const current = buildPlanProgressData(plans[0], sessions, "", "2025-10-01");
-    const previous = buildPlanProgressData(plans[1], sessions, "", "2025-10-01");
+    const previous = buildPlanProgressData(
+      plans[1],
+      sessions,
+      "",
+      "2025-10-01",
+    );
 
     expect(current.comparisons).toBe(1);
     expect(previous.comparisons).toBe(1);
@@ -52,8 +87,18 @@ describe("comparación de planificaciones", () => {
       training("o2", "old", "2025-05-17", 44),
       training("o3", "old", "2025-05-21", 60, "Espalda"),
     ]);
-    const previousChest = buildPlanProgressData(plans[1], sessions, "Pecho", "2025-10-01");
-    const previousBack = buildPlanProgressData(plans[1], sessions, "Espalda", "2025-10-01");
+    const previousChest = buildPlanProgressData(
+      plans[1],
+      sessions,
+      "Pecho",
+      "2025-10-01",
+    );
+    const previousBack = buildPlanProgressData(
+      plans[1],
+      sessions,
+      "Espalda",
+      "2025-10-01",
+    );
 
     expect(previousChest.points).toHaveLength(2);
     expect(previousChest.comparisons).toBe(1);

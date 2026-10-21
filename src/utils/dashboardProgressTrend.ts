@@ -42,18 +42,33 @@ export interface ColoredTrendSeries {
 }
 
 export function planColoredSeries(trend: ProgressTrend): ColoredTrendSeries[] {
-  return trend.bands.map((band, index) => {
-    const values = trend.points.map((point, position) =>
-      position >= band.startIndex && position <= band.endIndex ? point.value : null,
-    );
-    const before = band.startIndex - 1;
-    if (before >= 0 && values[band.startIndex] !== null && trend.points[before].value !== null)
-      values[before] = trend.points[before].value;
-    return { name: `${band.name} ${index + 1}`, color: band.color, values };
-  }).filter((series) => series.values.some((value) => value !== null));
+  return trend.bands
+    .map((band, index) => {
+      const values = trend.points.map((point, position) =>
+        position >= band.startIndex && position <= band.endIndex
+          ? point.value
+          : null,
+      );
+      const before = band.startIndex - 1;
+      if (
+        before >= 0 &&
+        values[band.startIndex] !== null &&
+        trend.points[before].value !== null
+      )
+        values[before] = trend.points[before].value;
+      return { name: `${band.name} ${index + 1}`, color: band.color, values };
+    })
+    .filter((series) => series.values.some((value) => value !== null));
 }
 
-const PLAN_COLORS = ["#8b5cf6", "#0ea5a4", "#e88c37", "#4f78d1", "#c05d9a", "#87912f"];
+const PLAN_COLORS = [
+  "#8b5cf6",
+  "#0ea5a4",
+  "#e88c37",
+  "#4f78d1",
+  "#c05d9a",
+  "#87912f",
+];
 
 const median = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -86,62 +101,83 @@ export function buildDashboardProgressTrend(
     .sort((a, b) => dayKey(a.startDate).localeCompare(dayKey(b.startDate)));
   const descendingPlans = [...relevantPlans].reverse();
   const planColors = new Map(
-    relevantPlans.map((plan, index) => [plan._id, PLAN_COLORS[index % PLAN_COLORS.length]]),
+    relevantPlans.map((plan, index) => [
+      plan._id,
+      PLAN_COLORS[index % PLAN_COLORS.length],
+    ]),
   );
   const planById = new Map(relevantPlans.map((plan) => [plan._id, plan]));
-  const grouped = new Map<string, SessionRow[]>(dates.map((date) => [date, []]));
-  const previous = new Map<string, number>();
+  const grouped = new Map<string, SessionRow[]>(
+    dates.map((date) => [date, []]),
+  );
+  const baseline = new Map<string, number>();
+  const relativePerformance = new Map<string, number>();
 
   for (const session of sessions) {
     if (session.date > to) continue;
-    if (session.date < from) {
-      for (const exercise of session.exercises) {
-        const metric = exercise.stats.performance?.metric;
-        if (metric && exercise.stats.loadType !== "unknown")
-          previous.set(performanceKey(session, exercise), metric);
-      }
-      continue;
-    }
+    if (session.date < from) continue;
     grouped.get(bucketKey(session.date, bucket))?.push(session);
   }
 
   let index = 100;
   const points = dates.map((date, position): TrendPoint => {
     const rows = grouped.get(date) || [];
-    const current = new Map<string, number>();
+    let comparisons = 0;
+    let hasPerformance = false;
     for (const session of rows) {
+      const current = new Map<string, number>();
       for (const exercise of session.exercises) {
         const metric = exercise.stats.performance?.metric;
-        if (metric && exercise.stats.loadType !== "unknown")
-          current.set(performanceKey(session, exercise), metric);
+        if (
+          !metric ||
+          !Number.isFinite(metric) ||
+          metric <= 0 ||
+          exercise.stats.loadType === "unknown"
+        )
+          continue;
+        const key = performanceKey(session, exercise);
+        current.set(key, Math.max(current.get(key) ?? 0, metric));
+      }
+      for (const [key, metric] of current) {
+        hasPerformance = true;
+        const first = baseline.get(key);
+        if (first !== undefined) {
+          // Each compatible exercise contributes once, relative to its own
+          // first observation. Never compound gains from different exercises.
+          relativePerformance.set(key, metric / first);
+          comparisons += 1;
+        } else {
+          baseline.set(key, metric);
+        }
       }
     }
-    const changes: number[] = [];
-    for (const [key, metric] of current) {
-      const earlier = previous.get(key);
-      if (earlier && Number.isFinite(metric))
-        changes.push(Math.max(-25, Math.min(25, ((metric - earlier) / earlier) * 100)));
-      previous.set(key, metric);
-    }
-    const change = changes.length ? median(changes) : null;
-    if (change !== null) index *= 1 + change / 100;
+    const nextIndex = relativePerformance.size
+      ? median([...relativePerformance.values()]) * 100
+      : 100;
+    const change = comparisons ? ((nextIndex - index) / index) * 100 : null;
+    index = nextIndex;
 
     const linkedCounts = new Map<string, number>();
     rows.forEach((session) => {
       if (session.trainingPlanId && planById.has(session.trainingPlanId))
-        linkedCounts.set(session.trainingPlanId, (linkedCounts.get(session.trainingPlanId) || 0) + 1);
+        linkedCounts.set(
+          session.trainingPlanId,
+          (linkedCounts.get(session.trainingPlanId) || 0) + 1,
+        );
     });
     const linkedPlanId = [...linkedCounts].sort((a, b) => b[1] - a[1])[0]?.[0];
-    const bucketEnd = position + 1 < dates.length ? shiftDay(dates[position + 1], -1) : to;
+    const bucketEnd =
+      position + 1 < dates.length ? shiftDay(dates[position + 1], -1) : to;
     const scheduledPlan = descendingPlans.find(
-      (plan) => dayKey(plan.startDate) <= bucketEnd && dayKey(plan.endDate) >= date,
+      (plan) =>
+        dayKey(plan.startDate) <= bucketEnd && dayKey(plan.endDate) >= date,
     );
     const plan = planById.get(linkedPlanId || "") || scheduledPlan;
     return {
       date,
-      value: current.size ? Number(index.toFixed(1)) : null,
+      value: hasPerformance ? Number(index.toFixed(1)) : null,
       change: change === null ? null : Number(change.toFixed(1)),
-      comparisons: changes.length,
+      comparisons,
       planId: plan?._id || "",
       planName: plan?.name || "Sin planificación",
     };
@@ -163,11 +199,14 @@ export function buildDashboardProgressTrend(
     }
   });
   const measured = points.filter((point) => point.value !== null);
-  const first = measured[0]?.value;
   const last = measured.at(-1)?.value;
+  const comparisons = measured.reduce(
+    (total, point) => total + point.comparisons,
+    0,
+  );
   const totalChange =
-    measured.length >= 2 && measured.some((point) => point.comparisons > 0) && first && last
-      ? Number((((last - first) / first) * 100).toFixed(1))
+    comparisons > 0 && last !== null && last !== undefined
+      ? Number((last - 100).toFixed(1))
       : null;
   const direction =
     totalChange === null
@@ -183,6 +222,6 @@ export function buildDashboardProgressTrend(
     bands,
     direction,
     totalChange,
-    comparisons: measured.reduce((total, point) => total + point.comparisons, 0),
+    comparisons,
   };
 }

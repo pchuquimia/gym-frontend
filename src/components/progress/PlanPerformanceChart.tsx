@@ -14,7 +14,9 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
   if (!current.points.length) {
     return (
       <div className="plan-progress-empty">
-        <strong>Aún no hay entrenamientos registrados en esta selección.</strong>
+        <strong>
+          Aún no hay entrenamientos registrados en esta selección.
+        </strong>
         <span>Cuando completes sesiones, aquí aparecerá su evolución.</span>
       </div>
     );
@@ -24,7 +26,10 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
     return (
       <div className="plan-progress-empty">
         <strong>Ya tienes un punto de partida.</strong>
-        <span>Registra otra sesión con los mismos ejercicios para ver cómo cambia tu rendimiento.</span>
+        <span>
+          Registra otra sesión con los mismos ejercicios para ver cómo cambia tu
+          rendimiento.
+        </span>
       </div>
     );
   }
@@ -36,8 +41,14 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
         <div className="plan-progress-compare-heading">
           <span>Índice de rendimiento</span>
           <div className="plan-progress-legend" aria-label="Planes comparados">
-            <span><i className="plan-progress-legend-current" aria-hidden="true" />Actual: {current.plan.name}</span>
-            <span><i className="plan-progress-legend-other" aria-hidden="true" />Comparado: {comparison.plan.name}</span>
+            <span>
+              <i className="plan-progress-legend-current" aria-hidden="true" />
+              Actual: {current.plan.name}
+            </span>
+            <span>
+              <i className="plan-progress-legend-other" aria-hidden="true" />
+              Comparado: {comparison.plan.name}
+            </span>
           </div>
         </div>
         <AppChart
@@ -45,8 +56,17 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
           description="Cada planificación comienza en 100 en su primera semana con registros. Las líneas muestran el cambio relativo de marcas comparables dentro de cada plan."
           labels={aligned.labels}
           series={[
-            { name: `Actual: ${current.plan.name}`, values: aligned.current, token: "--success" },
-            { name: `Comparado: ${comparison.plan.name}`, values: aligned.comparison, color: "#8b5cf6", dashed: true },
+            {
+              name: `Actual: ${current.plan.name}`,
+              values: aligned.current,
+              token: "--success",
+            },
+            {
+              name: `Comparado: ${comparison.plan.name}`,
+              values: aligned.comparison,
+              color: "#8b5cf6",
+              dashed: true,
+            },
           ]}
           unit="puntos"
           height={330}
@@ -58,7 +78,9 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
           connectNulls
         />
         <p className="plan-progress-explanation">
-          Cada plan parte de 100 en su primera semana registrada. Las líneas comparan la evolución de marcas compatibles dentro de cada plan; los espacios sin entrenamientos no añaden datos.
+          Cada plan parte de 100 en su primera semana registrada. Las líneas
+          comparan la evolución de marcas compatibles dentro de cada plan; los
+          espacios sin entrenamientos no añaden datos.
         </p>
       </div>
     );
@@ -69,24 +91,29 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
       <div className="plan-progress-graph-heading">
         <div>
           <span>Índice de rendimiento</span>
-          <strong>{number(current.points.at(-1)?.value ?? 100)} <small>puntos</small></strong>
+          <strong>
+            {number(current.points.at(-1)?.value ?? 100)} <small>puntos</small>
+          </strong>
         </div>
         {current.totalChange !== null ? (
           <span className="plan-progress-change">
-            {current.totalChange > 0 ? "+" : ""}{number(current.totalChange)}%
-            <small> desde la primera sesión</small>
+            {current.totalChange > 0 ? "+" : ""}
+            {number(current.totalChange)}%
+            <small> frente al inicio de cada ejercicio</small>
           </span>
         ) : null}
       </div>
       <AppChart
         title={`Rendimiento de ${current.plan.name}`}
-        description="El índice comienza en 100. Compara marcas de los mismos ejercicios y configuraciones en sesiones sucesivas."
+        description="Índice base 100. Mediana del cambio de cada ejercicio frente a su primer registro compatible, sin acumular porcentajes entre ejercicios."
         labels={current.points.map((point) => dateLabel(point.date))}
-        series={[{
-          name: "Rendimiento",
-          values: current.points.map((point) => point.value),
-          token: "--success",
-        }]}
+        series={[
+          {
+            name: "Rendimiento",
+            values: current.points.map((point) => point.value),
+            token: "--success",
+          },
+        ]}
         unit="puntos"
         context={current.points.map((point) =>
           point.comparisons
@@ -102,7 +129,9 @@ export default function PlanPerformanceChart({ current, comparison }: Props) {
         minimal
       />
       <p className="plan-progress-explanation">
-        100 es el punto de partida. La línea sube cuando mejoran tus marcas en ejercicios comparables.
+        100 es el punto de partida de cada ejercicio. El índice resume la
+        mediana de sus cambios con la misma configuración; no suma ni multiplica
+        las mejoras de ejercicios distintos.
       </p>
     </div>
   );

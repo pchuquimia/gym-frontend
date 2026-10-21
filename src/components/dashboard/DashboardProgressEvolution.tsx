@@ -132,7 +132,7 @@ function DashboardProgressEvolution({ ownerId }: { ownerId: string }) {
   const loading = isPending || plansQuery.isPending;
   const chartTitle = `Tendencia del rendimiento${trend.direction ? `: ${STATUS_LABELS[trend.direction]}` : ""}`;
   const chartDescription =
-    "Comparamos tus marcas en los mismos ejercicios. La línea sube cuando mejoras y cada color identifica una planificación. El rendimiento parte de 100 al inicio del período.";
+    "Base 100 para el primer registro compatible de cada ejercicio en el período. El índice resume la mediana de sus cambios, sin acumular mejoras entre ejercicios. Cada color identifica una planificación.";
   const previewStatus = isError
     ? "No se pudo cargar"
     : loading

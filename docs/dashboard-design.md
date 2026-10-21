@@ -2,16 +2,44 @@
 
 La pantalla conserva la paleta cálida, la navegación y los datos existentes.
 El calendario precede a una única tarjeta fotográfica del entrenamiento. La
-acción cambia entre comenzar, continuar, ver resumen y ver recuperación. Un
-check-in pendiente recibe la acción principal cuando ya no hay entrenamiento
-por completar. Las tareas obligatorias del coach siguen visibles y mantienen
+acción cambia entre comenzar, continuar, ver resumen y ver recuperación. El
+dashboard no muestra la tarjeta de check-in. Las tareas obligatorias del coach siguen visibles y mantienen
 sus destinos y campos solicitados.
 
 El resumen de actividad usa las sesiones y series completadas del mes actual,
-sin incluir fechas futuras. La vista breve presenta las últimas diez sesiones
-con barras apiladas por músculo, sus colores y la leyenda completa; al pulsarla se abre el historial muscular completo con
-sus filtros, colores y cantidades originales. La planificación se presenta como
-una fila que abre su progreso completo. Los registros opcionales se agrupan
+sin incluir fechas futuras. La vista breve presenta los días con series
+completadas de la semana anterior y la actual hasta hoy, con una posición por
+día transcurrido. Los días pasados sin entrenamiento registrado se marcan con
+una luna. Las fechas futuras se excluyen y el rango de la semana actual termina
+en la fecha de hoy.
+No se añade una leyenda inferior de descanso. Las sesiones del mismo día se suman en una barra apilada por
+músculo, manteniendo sus colores. La vista compacta evita el eje numérico
+redundante, las fechas repetidas y la leyenda muscular extensa: conserva los
+totales sobre las barras, el número de día y un único rango por semana.
+Las etiquetas semanales se alinean con sus días visibles y una separación
+vertical marca el cambio de semana.
+El rango de la semana actual se destaca en negrita y el día de hoy se subraya.
+Al pulsarla se abre el historial muscular completo con la leyenda de músculos,
+sus filtros, colores y cantidades originales. Las fechas y el desglose por músculo
+de cada día también están disponibles en los textos accesibles y al pasar el
+cursor. El acceso al detalle usa una flecha en el encabezado, sin una fila de
+navegación adicional. «Tu planificación» aparece debajo de la gráfica de series:
+incluye nombre del plan, semana actual, cambio porcentual del índice de
+rendimiento y una línea compacta sin ejes. Usa el historial completo del plan y
+la misma comparación de ejercicios y configuraciones que el progreso existente.
+El índice se calcula como `100 × mediana(última marca / primera marca)` de
+las variantes de ejercicio con al menos dos registros compatibles en el período.
+Cada variante pesa una vez, independientemente de su frecuencia. Se conserva
+la misma configuración, ámbito de progresión y sede. Las primeras observaciones
+de variantes nuevas no cuentan como mejoras. Los cambios no se multiplican
+entre ejercicios ni se limitan artificialmente a un porcentaje máximo. La
+agrupación visual por día, semana o mes conserva el mismo resultado final.
+El porcentaje es el cambio típico de marcas comparables desde el inicio de
+cada ejercicio, no una mejora absoluta de fuerza. Las bajadas se muestran en
+rojo. No se inventan curvas ni
+porcentajes cuando faltan comparaciones; se indica la carga o el error con
+opción de reintentar. «Ver plan» abre el progreso completo del plan activo.
+Los registros opcionales se agrupan
 en accesos compactos; el calendario mensual y la carga histórica permanecen
 disponibles en «Actividad y carga histórica».
 

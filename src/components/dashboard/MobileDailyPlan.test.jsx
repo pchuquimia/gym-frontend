@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import MobileDailyPlan from "./MobileDailyPlan";
@@ -95,7 +95,7 @@ describe("MobileDailyPlan", () => {
     expect(onOpenWorkout).toHaveBeenCalledTimes(1);
   });
 
-  it("ofrece recuperación en descanso y prioriza el check-in pendiente", async () => {
+  it("ofrece recuperación en descanso sin mostrar la tarjeta de check-in pendiente", async () => {
     const onOpenWorkout = vi.fn();
     renderPlan({
       workoutTask: {
@@ -113,15 +113,19 @@ describe("MobileDailyPlan", () => {
     });
 
     const rest = screen.getByRole("button", { name: "Ver recuperación" });
-    const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
-    expect(checkIn).toHaveTextContent("Completar check-in");
+    expect(
+      screen.queryByRole("button", { name: /Check-in diario/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Seguimiento de hoy" }),
+    ).toBeNull();
     expect(rest).toHaveTextContent("Hoy toca descansar");
     expect(rest.querySelector(".daily-workout__action.is-primary")).toBeNull();
     await userEvent.click(rest);
     expect(onOpenWorkout).toHaveBeenCalledTimes(1);
   });
 
-  it("permite ver la sesión completada y completar el check-in sin iniciar otra sesión", async () => {
+  it("permite ver la sesión completada sin mostrar check-in ni iniciar otra sesión", async () => {
     const onOpenWorkout = vi.fn();
     renderPlan({
       workoutTask: {
@@ -140,10 +144,11 @@ describe("MobileDailyPlan", () => {
     });
 
     const workout = screen.getByRole("button", { name: "Ver resumen" });
-    const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
+    expect(
+      screen.queryByRole("button", { name: /Check-in diario/ }),
+    ).toBeNull();
     expect(workout).toHaveTextContent("Completado");
     expect(workout).toHaveTextContent("UPPER");
-    expect(checkIn).toHaveTextContent("Completar check-in");
     expect(
       screen.queryByRole("button", { name: "Comenzar entrenamiento" }),
     ).toBeNull();
@@ -262,9 +267,9 @@ describe("MobileDailyPlan", () => {
       onOpenPlan,
     });
     const planCard = screen.getByRole("button", {
-      name: /Mes 1 · Continuación.*Ver progreso/,
+      name: "Ver progreso de Mes 1 · Continuación",
     });
-    expect(planCard).toHaveTextContent("Semana 2 de 4");
+    expect(screen.getByText("Semana 2 de 4")).toBeVisible();
     const chart = screen.getByRole("heading", {
       name: "Series por entrenamiento",
     });
@@ -274,7 +279,7 @@ describe("MobileDailyPlan", () => {
     ).toBeTruthy();
     await userEvent.click(
       screen.getByRole("button", {
-        name: /Mes 1 · Continuación.*Ver progreso/,
+        name: "Ver progreso de Mes 1 · Continuación",
       }),
     );
     expect(onOpenPlan).toHaveBeenCalledTimes(1);
@@ -324,13 +329,27 @@ describe("MobileDailyPlan", () => {
       muscleHeading.compareDocumentPosition(progressHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText("Última sesión")).toBeVisible();
+    expect(screen.getByLabelText(/Esta semana:/)).toBeVisible();
     expect(
-      screen.getByRole("img", {
-        name: "Series completadas por entrenamiento y músculo",
+      screen.getByRole("group", {
+        name: "Series diarias por músculo, agrupadas por semana",
         exact: true,
       }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("img", { name: /8 sept 2026: Descanso/ }),
+    ).toBeVisible();
+    expect(screen.queryByRole("img", { name: /10 sept 2026/ })).toBeNull();
+    expect(
+      screen.getByLabelText(/Esta semana: 7 sept 2026 – 9 sept 2026/),
+    ).toBeVisible();
+    expect(
+      within(
+        screen.getByRole("group", {
+          name: "Series diarias por músculo, agrupadas por semana",
+        }),
+      ).getAllByRole("img"),
+    ).toHaveLength(10);
     expect(screen.getByRole("button", { name: /Fotos/ })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /Fotos/ }));
     expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
@@ -473,8 +492,8 @@ describe("MobileDailyPlan", () => {
       screen.getByRole("button", { name: "Comenzar entrenamiento" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: /Completar Check-in diario/ }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /Completar Check-in diario/ }),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: /Fotos/ })).toBeDisabled();
   });
 });
