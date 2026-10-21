@@ -95,7 +95,7 @@ describe("MobileDailyPlan", () => {
     expect(onOpenWorkout).toHaveBeenCalledTimes(1);
   });
 
-  it("presenta el descanso como una fila igual al check-in y abre la recuperación", async () => {
+  it("ofrece recuperación en descanso y prioriza el check-in pendiente", async () => {
     const onOpenWorkout = vi.fn();
     renderPlan({
       workoutTask: {
@@ -114,14 +114,14 @@ describe("MobileDailyPlan", () => {
 
     const rest = screen.getByRole("button", { name: "Ver recuperación" });
     const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
-    expect(rest.className).toBe(checkIn.className);
+    expect(checkIn).toHaveTextContent("Completar check-in");
     expect(rest).toHaveTextContent("Hoy toca descansar");
-    expect(rest.querySelector(".mobile-daily-plan__workout-action")).toBeNull();
+    expect(rest.querySelector(".daily-workout__action.is-primary")).toBeNull();
     await userEvent.click(rest);
     expect(onOpenWorkout).toHaveBeenCalledTimes(1);
   });
 
-  it("alinea la rutina completada y el check-in con la acción de resumen a la derecha", async () => {
+  it("permite ver la sesión completada y completar el check-in sin iniciar otra sesión", async () => {
     const onOpenWorkout = vi.fn();
     renderPlan({
       workoutTask: {
@@ -141,13 +141,12 @@ describe("MobileDailyPlan", () => {
 
     const workout = screen.getByRole("button", { name: "Ver resumen" });
     const checkIn = screen.getByRole("button", { name: /Check-in diario/ });
-    expect(workout.children[0]).toHaveClass("mobile-daily-plan__status");
-    expect(checkIn.children[0]).toHaveClass("mobile-daily-plan__status");
-    expect(workout.children[1]).toHaveClass("mobile-daily-plan__visual");
-    expect(checkIn.children[1]).toHaveClass("mobile-daily-plan__visual");
-    expect(workout.children[2]).toHaveClass("mobile-daily-plan__mission-copy");
-    expect(checkIn.children[2]).toHaveClass("mobile-daily-plan__mission-copy");
-    expect(workout.children[3]).toHaveClass("mobile-daily-plan__workout-action");
+    expect(workout).toHaveTextContent("Completado");
+    expect(workout).toHaveTextContent("UPPER");
+    expect(checkIn).toHaveTextContent("Completar check-in");
+    expect(
+      screen.queryByRole("button", { name: "Comenzar entrenamiento" }),
+    ).toBeNull();
     expect(workout.querySelectorAll("button")).toHaveLength(0);
     await userEvent.click(workout);
     expect(onOpenWorkout).toHaveBeenCalledOnce();
@@ -194,8 +193,8 @@ describe("MobileDailyPlan", () => {
     expect(screen.queryByText("Comenzar entrenamiento")).toBeNull();
   });
 
-  it("muestra las misiones y no cuenta la hidratacion opcional", () => {
-    const { container } = renderPlan({
+  it("mantiene los registros requeridos del coach separados de los opcionales", () => {
+    renderPlan({
       journeyStage: "plan_assigned",
       activePlanContext: {
         name: "Mes 1 · Adaptación",
@@ -224,46 +223,29 @@ describe("MobileDailyPlan", () => {
         },
       ],
     });
-    expect(screen.getByText("Misión de hoy")).toBeVisible();
-    expect(screen.getByText("1 de 3")).toBeVisible();
     const planContext = screen.getByText("Mes 1 · Adaptación");
-    const missionHeading = screen.getByText("Misión de hoy");
+    const workoutAction = screen.getByRole("button", {
+      name: "Comenzar entrenamiento",
+    });
     expect(
-      planContext.compareDocumentPosition(missionHeading) &
+      workoutAction.compareDocumentPosition(planContext) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getAllByText("Mes 1 · Adaptación")).toHaveLength(1);
     expect(screen.getByText("Vinculado como tu coach")).toBeVisible();
     expect(screen.queryByText("Próximo paso")).toBeNull();
     expect(screen.queryByText("Solicitado por tu coach")).toBeNull();
-    expect(screen.getByText("Registrar progreso")).toBeVisible();
-    expect(
-      screen.getByText("Opcional · fotos, medidas e hidratación"),
-    ).toBeVisible();
+    expect(screen.getByText("Registros opcionales")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /Peso/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Hidratación/ })).toBeVisible();
     expect(screen.queryByText("3 accesos")).toBeNull();
     expect(screen.queryByText("Otros registros")).toBeNull();
-    const workoutAction = screen.getByRole("button", {
-      name: "Comenzar entrenamiento",
-    });
     expect(workoutAction).toBeVisible();
-    expect(workoutAction).toHaveClass("mobile-daily-plan__mission", "mobile-daily-plan__workout-card");
-    expect(workoutAction.querySelector(".mobile-daily-plan__workout-action")).toHaveTextContent("Comenzar");
-    expect(workoutAction).not.toHaveTextContent("Comenzar entrenamiento");
     expect(
+      screen.getByRole("region", { name: "Seguimiento de hoy" }),
+    ).toContainElement(
       screen.getByRole("button", { name: /Peso de seguimiento/ }),
-    ).toHaveClass("is-tracking");
-    expect(
-      screen.getByRole("button", { name: /Peso de seguimiento/ }).parentElement,
-    ).toHaveClass("mobile-daily-plan__mission-list");
-    expect(
-      container.querySelector('img[src="/images/daily-checkin-card.webp"]'),
-    ).toBeInTheDocument();
-    expect(
-      container.querySelector('img[src="/images/daily-weight-card.webp"]'),
-    ).toBeInTheDocument();
-    expect(
-      container.querySelector('img[src="/images/daily-planning-card.webp"]'),
-    ).toBeInTheDocument();
+    );
   });
 
   it("abre el progreso de la planificación desde su tarjeta", async () => {
@@ -277,20 +259,24 @@ describe("MobileDailyPlan", () => {
         durationWeeks: 4,
         progress: 50,
       },
-      planTrend: (renderPlanCard) => <>
-        {renderPlanCard({ points: "110", change: "+10%", changeValue: 10 })}
-        <div data-testid="compact-plan-trend">Gráfica del plan</div>
-      </>,
       onOpenPlan,
     });
-    const planCard = screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ });
-    const preview = screen.getByTestId("compact-plan-trend");
-    const missions = screen.getByRole("heading", { name: "Misión de hoy" });
-    expect(planCard).toHaveTextContent("Rendimiento 110 pts");
-    expect(planCard).toHaveTextContent("+10% desde 1.ª sesión");
-    expect(planCard.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(preview.compareDocumentPosition(missions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /Mes 1 · Continuación.*Ver progreso/ }));
+    const planCard = screen.getByRole("button", {
+      name: /Mes 1 · Continuación.*Ver progreso/,
+    });
+    expect(planCard).toHaveTextContent("Semana 2 de 4");
+    const chart = screen.getByRole("heading", {
+      name: "Series por entrenamiento",
+    });
+    expect(
+      chart.compareDocumentPosition(planCard) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /Mes 1 · Continuación.*Ver progreso/,
+      }),
+    );
     expect(onOpenPlan).toHaveBeenCalledTimes(1);
   });
 
@@ -299,13 +285,19 @@ describe("MobileDailyPlan", () => {
     const onOpenHydration = vi.fn();
     renderPlan({
       journeyStage: "plan_assigned",
-      workoutSeries: [{ key: "session-1", name: "Piernas", date: "2026-09-09", completedSets: 23,
-        byPrimaryMuscle: [
-          { name: "Cuádriceps", sets: 10 },
-          { name: "Isquiotibiales", sets: 7 },
-          { name: "Espalda", sets: 6 },
-        ],
-      }],
+      workoutSeries: [
+        {
+          key: "session-1",
+          name: "Piernas",
+          date: "2026-09-09",
+          completedSets: 23,
+          byPrimaryMuscle: [
+            { name: "Cuádriceps", sets: 10 },
+            { name: "Isquiotibiales", sets: 7 },
+            { name: "Espalda", sets: 6 },
+          ],
+        },
+      ],
       hydrationTask: {
         title: "Hidratación",
         subtitle: "Registrar agua",
@@ -315,26 +307,30 @@ describe("MobileDailyPlan", () => {
       onOpenHydration,
     });
 
-    const missionHeading = screen.getByRole("heading", {
-      name: "Misión de hoy",
+    const workout = screen.getByRole("button", {
+      name: "Comenzar entrenamiento",
     });
     const muscleHeading = screen.getByRole("heading", {
       name: "Series por entrenamiento",
     });
     const progressHeading = screen.getByRole("heading", {
-      name: "Registrar progreso",
+      name: "Registros opcionales",
     });
     expect(
-      missionHeading.compareDocumentPosition(muscleHeading) &
+      workout.compareDocumentPosition(muscleHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
       muscleHeading.compareDocumentPosition(progressHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(screen.getByText("Última sesión · Por grupo muscular")).toBeVisible();
-    expect(screen.getByText("Cuádriceps")).toBeVisible();
-    expect(screen.getByRole("img", { name: "Series completadas por entrenamiento y músculo" })).toBeVisible();
+    expect(screen.getByText("Última sesión")).toBeVisible();
+    expect(
+      screen.getByRole("img", {
+        name: "Series completadas por entrenamiento y músculo",
+        exact: true,
+      }),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: /Fotos/ })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: /Fotos/ }));
     expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
@@ -360,16 +356,22 @@ describe("MobileDailyPlan", () => {
       const onOpenMuscleDetails = vi.fn();
       renderPlan({
         journeyStage: "plan_assigned",
-        workoutSeries: [{ key: "session-1", name: "Torso", date: "2026-09-09", completedSets: 33,
-          byPrimaryMuscle: [
-            { name: "Espalda", sets: 8 },
-            { name: "Bíceps", sets: 7 },
-            { name: "Pecho", sets: 6 },
-            { name: "Tríceps", sets: 5 },
-            { name: "Hombros", sets: 4 },
-            { name: "Core", sets: 3 },
-          ].slice(0, count),
-        }],
+        workoutSeries: [
+          {
+            key: "session-1",
+            name: "Torso",
+            date: "2026-09-09",
+            completedSets: 33,
+            byPrimaryMuscle: [
+              { name: "Espalda", sets: 8 },
+              { name: "Bíceps", sets: 7 },
+              { name: "Pecho", sets: 6 },
+              { name: "Tríceps", sets: 5 },
+              { name: "Hombros", sets: 4 },
+              { name: "Core", sets: 3 },
+            ].slice(0, count),
+          },
+        ],
         onOpenMuscleDetails,
       });
 
@@ -432,5 +434,47 @@ describe("MobileDailyPlan", () => {
     );
     expect(screen.getByText("Tu plan está listo")).toBeVisible();
     expect(screen.getByText(/Bloque inicial comenzará/)).toBeVisible();
+  });
+
+  it("muestra sesiones y series del período recibido, sin inventar métricas", () => {
+    renderPlan({
+      activitySummary: {
+        monthLabel: "Octubre",
+        totalSessions: 13,
+        totalSets: 199,
+      },
+    });
+    const summary = screen.getByRole("region", { name: "Tu actividad" });
+    expect(summary).toHaveTextContent("Octubre");
+    expect(summary).toHaveTextContent("13");
+    expect(summary).toHaveTextContent("199");
+    expect(screen.queryByText(/rendimiento|constancia|racha/i)).toBeNull();
+  });
+
+  it("mantiene continuar como acción principal durante una sesión", () => {
+    renderPlan({
+      workoutTask: {
+        type: "active",
+        title: "Continúa LOWER A",
+        subtitle: "4 de 14 series",
+        actionLabel: "Continuar entrenamiento",
+      },
+      checkInTask: { title: "Check-in diario", subtitle: "Pendiente" },
+    });
+    expect(
+      screen.getByRole("button", { name: "Continuar entrenamiento" }),
+    ).toHaveTextContent("En curso");
+    expect(screen.queryByText("Completar check-in")).toBeNull();
+  });
+
+  it("deshabilita el registro y entrenamiento en modo de solo lectura", () => {
+    renderPlan({ readOnly: true, checkInTask: { title: "Check-in diario" } });
+    expect(
+      screen.getByRole("button", { name: "Comenzar entrenamiento" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Completar Check-in diario/ }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Fotos/ })).toBeDisabled();
   });
 });

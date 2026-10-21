@@ -38,7 +38,6 @@ import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import WorkoutSeriesDetail from "../components/dashboard/WorkoutSeriesDetail";
 import { buildWorkoutMuscleSeries } from "../utils/workoutMuscleSeries";
 import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
-import DashboardPlanTrend from "../components/dashboard/DashboardPlanTrend";
 import AppChart from "../components/progress/AppChart";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
@@ -874,8 +873,8 @@ function PeriodComparisonPanel({
               Comparativa inteligente
             </h2>
             <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              Sesiones, trabajo, rendimiento, adherencia y recuperación frente
-              a los mismos días de la semana anterior.
+              Sesiones, trabajo, rendimiento, adherencia y recuperación frente a
+              los mismos días de la semana anterior.
             </p>
           </div>
           <button
@@ -2151,7 +2150,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       if (!date) return;
       const key = getISODateKey(date);
       const day = map.get(key);
-      if (!day) return;
+      if (!day || day.isFuture) return;
       const metrics = getTrainingLoadMetrics(training, catalogIndex);
       day.sessions += 1;
       day.sets += metrics.completedSets;
@@ -2211,14 +2210,21 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
 
     return Array.from(map.values());
   }, [catalogIndex, now, trainings]);
-  const threeMonthChart = useMemo(() => ({
-    labels: threeMonthSummary.map((month) => month.month),
-    series: [{
-      name: "Carga externa",
-      values: threeMonthSummary.map((month) => month.volume),
-    }],
-    context: threeMonthSummary.map((month) => formatSessionCount(month.sessions)),
-  }), [threeMonthSummary]);
+  const threeMonthChart = useMemo(
+    () => ({
+      labels: threeMonthSummary.map((month) => month.month),
+      series: [
+        {
+          name: "Carga externa",
+          values: threeMonthSummary.map((month) => month.volume),
+        },
+      ],
+      context: threeMonthSummary.map((month) =>
+        formatSessionCount(month.sessions),
+      ),
+    }),
+    [threeMonthSummary],
+  );
 
   const selectedMonthDetail = useMemo(() => {
     const selected = threeMonthSummary.find(
@@ -3340,14 +3346,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           }
         }}
         activePlanContext={mobileActivePlanContext}
-        planTrend={mobileActivePlanContext?.id ? (renderPlanCard) => (
-          <DashboardPlanTrend
-            ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
-            plan={{ ...activePlan, _id: mobileActivePlanContext.id }}
-            recentTrainings={orderedTrainings}
-            renderPlanCard={renderPlanCard}
-          />
-        ) : null}
+        activitySummary={monthActivity}
         checkInTask={mobileCheckInTask}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
@@ -3357,7 +3356,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onStartEvaluation={() => onNavigate("onboarding")}
         onOpenCoach={() => onNavigate("perfil")}
         onOpenPlan={() =>
-          onNavigate("plan_progreso", { progressPlanId: mobileActivePlanContext?.id })
+          onNavigate("plan_progreso", {
+            progressPlanId: mobileActivePlanContext?.id,
+          })
         }
         onCreateRoutine={openFirstRoutineEditor}
         onOpenLibrary={() => onNavigate("library")}
@@ -3549,87 +3550,95 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         </button>
       </div>
 
-      <div className="dashboard-analytics-heading hidden md:block">
-        <p>Tu progreso</p>
-        <h2>Actividad y tendencias</h2>
-      </div>
+      {!starterStage &&
+        (!managedAthleteStage || managedAthleteStage === "plan_assigned") && (
+          <details className="dashboard-history">
+            <summary>Actividad y carga histórica</summary>
+            <MonthActivityChart
+              data={monthActivity.days}
+              trainedDays={monthActivity.trainedDays}
+              totalSets={monthActivity.totalSets}
+              monthLabel={monthActivity.monthLabel}
+            />
 
-      <MonthActivityChart
-        data={monthActivity.days}
-        trainedDays={monthActivity.trainedDays}
-        totalSets={monthActivity.totalSets}
-        monthLabel={monthActivity.monthLabel}
-        className="hidden md:block"
-      />
-
-      <CollapsibleSection
-        title={
-          selectedMonthDetail
-            ? selectedMonthDetail.fullMonthName
-            : "Carga externa · últimos 3 meses"
-        }
-        subtitle={selectedMonthDetail ? "Mes seleccionado" : "Total acumulado"}
-        meta={`${formatCompact(
-          selectedMonthDetail
-            ? selectedMonthDetail.volume
-            : threeMonthSummary.reduce((sum, item) => sum + item.volume, 0),
-        )} kg`}
-        open={isThreeMonthsOpen}
-        className="hidden md:block"
-        onToggle={() => {
-          setIsThreeMonthsOpen((value) => !value);
-          if (isThreeMonthsOpen) setSelectedMonthKey(null);
-        }}
-      >
-        {selectedMonthDetail ? (
-          <MonthDetailView
-            key={selectedMonthDetail.key}
-            detail={selectedMonthDetail}
-            onBack={() => setSelectedMonthKey(null)}
-          />
-        ) : (
-          <div className="space-y-3">
-            <div className="rounded-2xl bg-[color:var(--surface-subtle)] p-2 sm:p-3">
-              <AppChart
-                title="Carga externa de los últimos tres meses"
-                description="Carga externa acumulada por mes. Selecciona una barra para ver el detalle."
-                kind="bar"
-                height={210}
-                labels={threeMonthChart.labels}
-                series={threeMonthChart.series}
-                unit="kg"
-                context={threeMonthChart.context}
-                onSelect={(index) => setSelectedMonthKey(threeMonthSummary[index]?.key || null)}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {threeMonthSummary.map((month) => (
-                <button
-                  type="button"
-                  key={month.key}
-                  onClick={() => setSelectedMonthKey(month.key)}
-                  className="min-w-0 rounded-xl bg-[color:var(--surface-subtle)] p-3 text-left transition hover:bg-[color:var(--surface-raised)]"
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <p className="truncate text-sm font-semibold text-[color:var(--text)]">
-                      {month.month}
-                    </p>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+            <CollapsibleSection
+              title={
+                selectedMonthDetail
+                  ? selectedMonthDetail.fullMonthName
+                  : "Carga externa · últimos 3 meses"
+              }
+              subtitle={
+                selectedMonthDetail ? "Mes seleccionado" : "Total acumulado"
+              }
+              meta={`${formatCompact(
+                selectedMonthDetail
+                  ? selectedMonthDetail.volume
+                  : threeMonthSummary.reduce(
+                      (sum, item) => sum + item.volume,
+                      0,
+                    ),
+              )} kg`}
+              open={isThreeMonthsOpen}
+              onToggle={() => {
+                setIsThreeMonthsOpen((value) => !value);
+                if (isThreeMonthsOpen) setSelectedMonthKey(null);
+              }}
+            >
+              {selectedMonthDetail ? (
+                <MonthDetailView
+                  key={selectedMonthDetail.key}
+                  detail={selectedMonthDetail}
+                  onBack={() => setSelectedMonthKey(null)}
+                />
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-2xl bg-[color:var(--surface-subtle)] p-2 sm:p-3">
+                    <AppChart
+                      title="Carga externa de los últimos tres meses"
+                      description="Carga externa acumulada por mes. Selecciona una barra para ver el detalle."
+                      kind="bar"
+                      height={210}
+                      labels={threeMonthChart.labels}
+                      series={threeMonthChart.series}
+                      unit="kg"
+                      context={threeMonthChart.context}
+                      onSelect={(index) =>
+                        setSelectedMonthKey(
+                          threeMonthSummary[index]?.key || null,
+                        )
+                      }
+                    />
                   </div>
-                  <p className="mt-3 text-lg font-semibold leading-none text-[color:var(--text)]">
-                    {formatCompact(month.volume)} kg
-                  </p>
-                  <p className="mt-1 truncate text-[10px] text-[color:var(--text-muted)]">
-                    {formatSessionCount(month.sessions)} ·{" "}
-                    {formatSessionMinutes(month.minutes * 60)}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {threeMonthSummary.map((month) => (
+                      <button
+                        type="button"
+                        key={month.key}
+                        onClick={() => setSelectedMonthKey(month.key)}
+                        className="min-w-0 rounded-xl bg-[color:var(--surface-subtle)] p-3 text-left transition hover:bg-[color:var(--surface-raised)]"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="truncate text-sm font-semibold text-[color:var(--text)]">
+                            {month.month}
+                          </p>
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+                        </div>
+                        <p className="mt-3 text-lg font-semibold leading-none text-[color:var(--text)]">
+                          {formatCompact(month.volume)} kg
+                        </p>
+                        <p className="mt-1 truncate text-[10px] text-[color:var(--text-muted)]">
+                          {formatSessionCount(month.sessions)} ·{" "}
+                          {formatSessionMinutes(month.minutes * 60)}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CollapsibleSection>
+          </details>
         )}
-      </CollapsibleSection>
 
       {recoveryModalOpen ? (
         <div
@@ -4330,7 +4339,13 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
       {workoutSeriesOpen ? (
         <DashboardFullscreenPortal>
           <WorkoutSeriesDetail
-            ownerId={String(coachAthlete?.id || coachAthlete?._id || authUser?.id || authUser?._id || "")}
+            ownerId={String(
+              coachAthlete?.id ||
+                coachAthlete?._id ||
+                authUser?.id ||
+                authUser?._id ||
+                "",
+            )}
             catalogIndex={catalogIndex}
             onClose={() => setWorkoutSeriesOpen(false)}
           />

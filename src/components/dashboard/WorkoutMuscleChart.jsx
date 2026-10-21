@@ -68,6 +68,17 @@ export function WorkoutMuscleBars({
             );
             const content = (
               <>
+                {compact && (index % 2 === 0 || index === rows.length - 1) && (
+                  <span
+                    className="workout-series__total"
+                    aria-hidden="true"
+                    style={{
+                      bottom: `calc(${(sets / ceiling) * 100}% + 5px)`,
+                    }}
+                  >
+                    {sets}
+                  </span>
+                )}
                 {onSelect && row.key === selectedKey && (
                   <span
                     className="workout-series__value"
@@ -132,7 +143,7 @@ export default function WorkoutSeriesCard({ rows = [], onOpenDetails }) {
   const muscles = workoutMuscles(visible);
   return (
     <section
-      className="mobile-daily-plan__muscle-chart workout-series-card"
+      className="workout-series-card"
       aria-labelledby="workout-series-preview-title"
     >
       <div className="workout-series-card__heading">
@@ -142,10 +153,8 @@ export default function WorkoutSeriesCard({ rows = [], onOpenDetails }) {
             {visible.length === 1
               ? "Última sesión"
               : `Últimas ${visible.length} sesiones`}{" "}
-            · Por grupo muscular
           </p>
         </div>
-        <ChevronRight aria-hidden="true" />
       </div>
       {visible.length ? (
         <>
@@ -156,6 +165,11 @@ export default function WorkoutSeriesCard({ rows = [], onOpenDetails }) {
         <p className="workout-series__empty">
           Completa una serie para ver qué grupos musculares trabajaste.
         </p>
+      )}
+      {onOpenDetails && (
+        <span className="workout-series-card__footer" aria-hidden="true">
+          Ver músculos e historial <ChevronRight />
+        </span>
       )}
       {onOpenDetails && (
         <button
