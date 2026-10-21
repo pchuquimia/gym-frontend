@@ -21,3 +21,21 @@ export const buildQuickPlanSchedule = (selectedDays) => {
     };
   });
 };
+
+export const getQuickPlanAssignments = (
+  routineIds,
+  selectedDays,
+  overrides = {},
+) => {
+  let position = 0;
+  return buildQuickPlanSchedule(selectedDays).map((day) => {
+    if (day.type !== "training") return day;
+    const suggested = routineIds[position++ % routineIds.length] || "";
+    return {
+      ...day,
+      routineId: routineIds.includes(overrides[day.dayIndex])
+        ? overrides[day.dayIndex]
+        : suggested,
+    };
+  });
+};

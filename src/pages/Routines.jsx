@@ -978,11 +978,7 @@ function DeleteRoutineSheet({ routine, onConfirm, onClose }) {
   );
 }
 
-function ExercisePickerOption({
-  option,
-  selected,
-  onToggle,
-}) {
+function ExercisePickerOption({ option, selected, onToggle }) {
   const thumb = getExerciseImageUrl(option, { width: 320, height: 320 });
 
   return (
@@ -1315,14 +1311,14 @@ export function RoutineModal({
       .filter((ex) => query || pickerAllMuscles || ex.muscle === selectedMuscle)
       .filter((ex) => exerciseMatchesRoutineFilter(ex, exercisePickerFilter))
       .filter((ex) => !currentIds.has(ex.id))
-      .sort(
-        (a, b) =>
-          (query ? 0 :
-          (b.usageByBranch?.[exerciseFilterBranch]?.count || 0) -
-            (a.usageByBranch?.[exerciseFilterBranch]?.count || 0) ||
-          (b.usageCount || 0) - (a.usageCount || 0) ||
-          (b.lastUsedAt || 0) - (a.lastUsedAt || 0) ||
-          a.name.localeCompare(b.name)),
+      .sort((a, b) =>
+        query
+          ? 0
+          : (b.usageByBranch?.[exerciseFilterBranch]?.count || 0) -
+              (a.usageByBranch?.[exerciseFilterBranch]?.count || 0) ||
+            (b.usageCount || 0) - (a.usageCount || 0) ||
+            (b.lastUsedAt || 0) - (a.lastUsedAt || 0) ||
+            a.name.localeCompare(b.name),
       );
     if (query) return sortedOptions.slice(0, 200);
     return sortedOptions.slice(0, 100);
@@ -3071,7 +3067,9 @@ export function RoutineModal({
                             ?.muscle === muscle,
                       ).length;
                     const isActive =
-                      !isExerciseSearchActive && !pickerAllMuscles && selectedMuscle === muscle;
+                      !isExerciseSearchActive &&
+                      !pickerAllMuscles &&
+                      selectedMuscle === muscle;
                     return (
                       <button
                         key={muscle}
@@ -3124,7 +3122,8 @@ export function RoutineModal({
                     </button>
                   ) : null}
                 </div>
-                {!pickerAllMuscles && showAllPickerMuscles &&
+                {!pickerAllMuscles &&
+                showAllPickerMuscles &&
                 !effectiveSetupMuscles.has(selectedMuscle) ? (
                   <p className="mt-2 px-1 text-xs text-[color:var(--text-muted)]">
                     Se añadirá como complemento de la rutina.
@@ -3266,7 +3265,8 @@ export function RoutineModal({
                         />
                       ))}
                     </div>
-                    {exercisePickerOptions.length >= (isExerciseSearchActive ? 200 : 100) ? (
+                    {exercisePickerOptions.length >=
+                    (isExerciseSearchActive ? 200 : 100) ? (
                       <p className="px-1 py-3 text-center text-xs text-[color:var(--text-muted)]">
                         Hay más ejercicios. Usa la búsqueda para encontrarlos.
                       </p>
@@ -3279,7 +3279,9 @@ export function RoutineModal({
                         ? `No encontramos “${search.trim()}”. Prueba con otro nombre o grupo muscular.`
                         : "No hay ejercicios con estos filtros."}
                     </p>
-                    {(isExerciseSearchActive || exercisePickerFilter || !pickerAllMuscles) && (
+                    {(isExerciseSearchActive ||
+                      exercisePickerFilter ||
+                      !pickerAllMuscles) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -5252,7 +5254,15 @@ function Routines({
   const planRequestInFlightRef = useRef(null);
   const hadRoutinesOnEntryRef = useRef(Boolean(routines.length));
   const [planModalOpen, setPlanModalOpen] = useState(false);
-  const [quickPlanOpen, setQuickPlanOpen] = useState(false);
+  const quickPlanStorageKey = `rirfit_quick_plan_${user?.id || user?._id || "self"}`;
+  const [quickPlanOpen, setQuickPlanOpen] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem(quickPlanStorageKey));
+    } catch {
+      return false;
+    }
+  });
+  const [quickPlanAddedRoutineId, setQuickPlanAddedRoutineId] = useState(null);
   const [quickPlanIntent] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -5373,11 +5383,8 @@ function Routines({
         setActivePlan(draft);
         setSelectedPlanWeek(getPlanWeekIndex(draft));
       }
-    } else if (quickPlanRoutines.length) {
-      setQuickPlanOpen(true);
     } else {
-      setWorkspaceView("routines");
-      setModalMode("create");
+      setQuickPlanOpen(true);
     }
   }, [
     isCoach,
@@ -5998,6 +6005,8 @@ function Routines({
     if (isManagedClient) return;
     if (modalMode === "create") {
       const savedRoutine = await addRoutine(routine);
+      if (quickPlanOpen)
+        setQuickPlanAddedRoutineId(String(savedRoutine.id || savedRoutine._id));
       if (replacementPlanDay && activePlan) {
         let savedPlan;
         try {
@@ -6117,22 +6126,19 @@ function Routines({
     }
   };
 
-  const createQuickPlan = async ({
-    routineId,
-    selectedDays,
-    durationWeeks,
-    startDate,
-  }) => {
-    const routine = quickPlanRoutines.find(
-      (item) => String(item.id || item._id) === String(routineId),
-    );
+  const createQuickPlan = async (configuration) => {
+    const selectedRoutines = configuration.routineIds
+      .map((id) =>
+        quickPlanRoutines.find(
+          (item) => String(item.id || item._id) === String(id),
+        ),
+      )
+      .filter(Boolean);
     try {
       const active = await createQuickTrainingPlan({
+        ...configuration,
         client: api,
-        routine,
-        selectedDays,
-        durationWeeks,
-        startDate,
+        routines: selectedRoutines,
       });
       setTrainingPlans((current) => [
         active,
@@ -6508,13 +6514,10 @@ function Routines({
 
   const activePlanStartsInFuture = planStartsInFuture(activePlan?.startDate);
   const openNewPlan = () => {
-    if (!visibleTrainingPlans.length && quickPlanRoutines.length) {
+    if (isManagedClient) return;
+    if (!isCoach) {
+      setQuickPlanAddedRoutineId(null);
       setQuickPlanOpen(true);
-      return;
-    }
-    if (!visibleTrainingPlans.length && !quickPlanRoutines.length) {
-      setWorkspaceView("routines");
-      openCreate();
       return;
     }
     setEditingPlan(null);
@@ -6825,7 +6828,7 @@ function Routines({
                 ? "Aún no tienes una rutina asignada"
                 : quickPlanRoutines.length
                   ? "Organiza tus rutinas por días"
-                  : "Crea primero una rutina"}
+                  : "Organiza tu primera semana"}
             </h2>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[color:var(--text-muted)]">
               {isManagedClient
@@ -6843,7 +6846,7 @@ function Routines({
                 )}
                 {quickPlanRoutines.length
                   ? "Crear primera planificación"
-                  : "Crear rutina"}
+                  : "Crear primera planificación"}
               </Button>
             ) : null}
           </div>
@@ -7772,14 +7775,27 @@ function Routines({
       {quickPlanOpen && !isCoach && !isManagedClient ? (
         <QuickPlanSetup
           routines={quickPlanRoutines}
+          storageKey={quickPlanStorageKey}
+          addedRoutineId={quickPlanAddedRoutineId}
+          suspended={Boolean(modalMode)}
+          activePlan={currentActivePlan}
+          scheduledPlan={visibleTrainingPlans.find(
+            (plan) => plan.status === "scheduled",
+          )}
+          onCreateRoutine={() => openCreate()}
           onCreate={createQuickPlan}
-          onClose={() => setQuickPlanOpen(false)}
-          onStart={() => {
+          onClose={() => {
             setQuickPlanOpen(false);
-            onNavigate?.("registrar");
+            setQuickPlanAddedRoutineId(null);
           }}
           onView={(plan) => {
+            try {
+              sessionStorage.removeItem(quickPlanStorageKey);
+            } catch {
+              /* Optional persistence. */
+            }
             setQuickPlanOpen(false);
+            setQuickPlanAddedRoutineId(null);
             openTrainingPlan(plan);
           }}
         />
