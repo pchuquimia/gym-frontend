@@ -455,19 +455,12 @@ describe("MobileDailyPlan", () => {
     expect(screen.getByText(/Bloque inicial comenzará/)).toBeVisible();
   });
 
-  it("muestra sesiones y series del período recibido, sin inventar métricas", () => {
-    renderPlan({
-      activitySummary: {
-        monthLabel: "Octubre",
-        totalSessions: 13,
-        totalSets: 199,
-      },
-    });
-    const summary = screen.getByRole("region", { name: "Tu actividad" });
-    expect(summary).toHaveTextContent("Octubre");
-    expect(summary).toHaveTextContent("13");
-    expect(summary).toHaveTextContent("199");
-    expect(screen.queryByText(/rendimiento|constancia|racha/i)).toBeNull();
+  it("muestra la gráfica de series sin el bloque de Tu actividad", () => {
+    renderPlan();
+    expect(screen.queryByRole("region", { name: "Tu actividad" })).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Series por entrenamiento" }),
+    ).toBeVisible();
   });
 
   it("mantiene continuar como acción principal durante una sesión", () => {

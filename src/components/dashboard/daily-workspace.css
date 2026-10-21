@@ -94,6 +94,7 @@
   border: 1px solid var(--border);
   border-radius: 1.125rem;
   background: var(--card);
+  box-shadow: var(--shadow-sm);
   text-align: left;
   color: var(--text);
   cursor: pointer;
@@ -250,45 +251,17 @@
   color: var(--text-muted);
   font-size: 0.8125rem;
 }
-.daily-activity {
-  padding-top: 1.35rem;
-  border-top: 1px solid var(--border);
-}
-.daily-activity dl {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin-top: 0.85rem;
-}
-.daily-activity dl > div {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 0.2rem;
-}
-.daily-activity dl > div + div {
-  padding-left: 1.5rem;
-  border-left: 1px solid var(--border);
-}
-.daily-activity dt {
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-.daily-activity dd {
-  order: -1;
-  font-size: 2.4rem;
-  font-weight: 700;
-  letter-spacing: -0.05em;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-.daily-workspace .workout-series-card {
+.daily-workspace .workout-series-card,
+.daily-workspace .daily-plan-overview {
   margin: 0;
-  padding: 1rem 0 0;
-  border: 0;
-  border-top: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.125rem;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+.daily-workspace__insights {
+  gap: 1rem;
 }
 .daily-workspace .workout-series-card__heading p {
   font-size: 0.8125rem;
@@ -332,8 +305,6 @@
 }
 .daily-plan-overview {
   min-width: 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
 }
 .daily-plan-overview .daily-workspace__section-heading {
   margin-bottom: 0.75rem;
@@ -404,10 +375,94 @@
 .daily-plan-overview__sparkline {
   display: block;
   width: 100%;
-  height: 72px;
-  margin-top: 0.5rem;
+  height: 112px;
+  overflow: visible;
 }
-.daily-plan-overview__baseline,
+.daily-plan-overview__trend {
+  margin-top: 1rem;
+}
+.daily-plan-overview__chart-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.daily-plan-overview__reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.daily-plan-overview__reference::before {
+  content: "";
+  width: 14px;
+  border-top: 1px dashed currentColor;
+}
+.daily-plan-overview__plot {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0.35rem;
+}
+.daily-plan-overview__scale {
+  position: relative;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+.daily-plan-overview__scale span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+}
+.daily-plan-overview__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.daily-plan-overview__zero {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.daily-plan-overview__area {
+  fill: currentColor;
+  opacity: 0.08;
+}
+.daily-plan-overview__dates {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.4rem 0 0 3.1rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+.daily-plan-overview__dates.is-single {
+  justify-content: center;
+}
+.daily-plan-overview__method {
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.daily-plan-overview__method summary {
+  width: fit-content;
+  min-height: 32px;
+  padding: 0.4rem 0;
+  cursor: pointer;
+}
+.daily-plan-overview__method summary:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.daily-plan-overview__method p {
+  margin: 0.25rem 0 0;
+  max-width: 48ch;
+}
 .daily-plan-overview__status {
   margin: 0.4rem 0 0;
   color: var(--text-muted);
@@ -529,17 +584,17 @@
     align-items: start;
   }
   .daily-workspace__insights {
-    gap: 1.5rem;
+    gap: 1rem;
+  }
+  .daily-workspace .workout-series-card,
+  .daily-workspace .daily-plan-overview {
+    padding: 1.25rem;
   }
   .daily-workout__photo {
     height: clamp(210px, 22vw, 310px);
   }
   .daily-workout__body {
     padding: 1.2rem;
-  }
-  .daily-activity {
-    padding-top: 0;
-    border-top: 0;
   }
   .daily-workspace .workout-series__chart.is-compact {
     height: 205px;

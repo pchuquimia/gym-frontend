@@ -28,6 +28,7 @@ vi.mock("../progress/AppChart", () => ({
 }));
 
 import DashboardPlanTrend from "./DashboardPlanTrend";
+import { dateLabel } from "../../utils/progressDashboard";
 
 const plan = {
   _id: "plan-1",
@@ -109,6 +110,7 @@ it("integra la línea compacta y el porcentaje real sin mezclar sesiones de otro
   mocks.getTrainings.mockResolvedValue({
     items: [
       training("1", "2025-09-03", 50),
+      training("middle", "2025-09-04", 52.5),
       training("2", "2025-09-10", 55),
       {
         ...training("other", "2025-09-11", 100),
@@ -132,8 +134,27 @@ it("integra la línea compacta y el porcentaje real sin mezclar sesiones de otro
     name: "Rendimiento de Mes 1 · Continuación",
   });
   expect(chart.tagName.toLowerCase()).toBe("svg");
-  expect(screen.getByText("+10%")).toBeVisible();
-  expect(screen.getByText("Frente al inicio de cada ejercicio")).toBeVisible();
+  expect(screen.getAllByText("+10%")).toHaveLength(2);
+  expect(screen.getByText("Evolución de marcas")).toBeVisible();
+  expect(screen.getByText("0% · inicio")).toBeVisible();
+  expect(screen.getByText(dateLabel("2025-09-03"))).toBeVisible();
+  expect(screen.getByText(dateLabel("2025-09-10"))).toBeVisible();
+  const coordinates = chart
+    .querySelector('path[fill="none"]')
+    .getAttribute("d")
+    .match(/[ML]([^ ]+)/g)
+    .map((point) => point.slice(1).split(",").map(Number));
+  // One day and seven days after the first record occupy proportional widths.
+  expect(coordinates[1][0] - coordinates[0][0]).toBeCloseTo(
+    (coordinates[2][0] - coordinates[0][0]) / 7,
+  );
+  expect(chart.querySelector(".daily-plan-overview__zero")).toHaveAttribute(
+    "y1",
+    "104",
+  );
+  const method = screen.getByText("Cómo se calcula").closest("details");
+  expect(method).not.toHaveAttribute("open");
+  expect(method).toHaveTextContent("misma configuración");
 });
 
 it("explica la falta de comparaciones sin inventar una línea o un porcentaje", async () => {
@@ -182,10 +203,52 @@ it("permite reintentar si falla la carga del plan", async () => {
     hasMore: false,
   });
   fireEvent.click(retry);
-  expect(await screen.findByText("-10%")).toBeVisible();
+  expect(await screen.findAllByText("-10%")).toHaveLength(2);
   expect(
     screen.getByRole("img", { name: "Rendimiento de Mes 1 · Continuación" }),
   ).toBeVisible();
+  const chart = screen.getByRole("img", {
+    name: "Rendimiento de Mes 1 · Continuación",
+  });
+  expect(chart).toHaveClass("is-negative");
+  expect(chart.querySelector(".daily-plan-overview__zero")).toHaveAttribute(
+    "y1",
+    "8",
+  );
+  expect(screen.getByText("-5%")).toBeVisible();
+});
+
+it("mantiene una línea plana y una escala válida cuando las marcas no cambian", async () => {
+  mocks.getTrainings.mockResolvedValue({
+    items: [training("1", "2025-09-03", 50), training("2", "2025-09-10", 50)],
+    hasMore: false,
+  });
+  renderTrend([], undefined, "sparkline");
+  const chart = await screen.findByRole("img", {
+    name: "Rendimiento de Mes 1 · Continuación",
+  });
+  expect(chart.querySelector('path[fill="none"]')).toHaveAttribute(
+    "d",
+    "M6,104 L474,104",
+  );
+  expect(screen.getByText("0%")).toBeVisible();
+  expect(chart).not.toHaveClass("is-negative");
+});
+
+it("muestra un punto centrado si las comparaciones corresponden a un solo día", async () => {
+  mocks.getTrainings.mockResolvedValue({
+    items: [training("1", "2025-09-03", 50), training("2", "2025-09-03", 55)],
+    hasMore: false,
+  });
+  renderTrend([], undefined, "sparkline");
+  const chart = await screen.findByRole("img", {
+    name: "Rendimiento de Mes 1 · Continuación",
+  });
+  expect(chart.querySelector('path[fill="none"]')).toHaveAttribute(
+    "d",
+    "M240,8",
+  );
+  expect(screen.getAllByText(dateLabel("2025-09-03"))).toHaveLength(1);
 });
 
 it("dibuja la gráfica con las sesiones disponibles antes de terminar la consulta", async () => {

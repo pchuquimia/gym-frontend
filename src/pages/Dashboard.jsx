@@ -3333,7 +3333,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
           plan: activePlan,
           trainings: orderedTrainings,
         }}
-        activitySummary={monthActivity}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
         trackingMissions={mobileTrackingMissions}

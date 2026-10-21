@@ -377,7 +377,7 @@ function ActivePlanContext({ plan, onOpen, summary, chart }) {
             className={`daily-plan-overview__change${summary.changeValue < 0 ? " is-negative" : summary.changeValue > 0 ? " is-positive" : ""}`}
           >
             <strong>{summary.change}</strong>
-            <span>marcas comparables</span>
+            <span>desde el inicio</span>
           </div>
         )}
       </div>
@@ -534,7 +534,6 @@ export default function MobileDailyPlan({
   coach = null,
   activePlanContext = null,
   planTrend = null,
-  activitySummary = null,
   workoutTask,
   hydrationTask = null,
   trackingMissions = [],
@@ -667,35 +666,6 @@ export default function MobileDailyPlan({
             )}
           </div>
           <div className="daily-workspace__insights">
-            {activitySummary && (
-              <section
-                className="daily-activity"
-                aria-labelledby="daily-activity-title"
-              >
-                <div className="daily-workspace__section-heading">
-                  <h2 id="daily-activity-title">Tu actividad</h2>
-                  <span>{activitySummary.monthLabel}</span>
-                </div>
-                <dl>
-                  <div>
-                    <dt>sesiones</dt>
-                    <dd>
-                      {Number(
-                        activitySummary.totalSessions || 0,
-                      ).toLocaleString("es-BO")}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>series completadas</dt>
-                    <dd>
-                      {Number(activitySummary.totalSets || 0).toLocaleString(
-                        "es-BO",
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-            )}
             <WorkoutSeriesCard
               rows={workoutSeries}
               date={date}

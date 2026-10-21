@@ -6,8 +6,9 @@ acción cambia entre comenzar, continuar, ver resumen y ver recuperación. El
 dashboard no muestra la tarjeta de check-in. Las tareas obligatorias del coach siguen visibles y mantienen
 sus destinos y campos solicitados.
 
-El resumen de actividad usa las sesiones y series completadas del mes actual,
-sin incluir fechas futuras. La vista breve presenta los días con series
+El dashboard no incluye el bloque «Tu actividad». El calendario y el resumen
+mensual siguen disponibles en «Actividad y carga histórica». La vista breve
+de series presenta los días con series
 completadas de la semana anterior y la actual hasta hoy, con una posición por
 día transcurrido. Los días pasados sin entrenamiento registrado se marcan con
 una luna. Las fechas futuras se excluyen y el rango de la semana actual termina
@@ -25,7 +26,12 @@ de cada día también están disponibles en los textos accesibles y al pasar el
 cursor. El acceso al detalle usa una flecha en el encabezado, sin una fila de
 navegación adicional. «Tu planificación» aparece debajo de la gráfica de series:
 incluye nombre del plan, semana actual, cambio porcentual del índice de
-rendimiento y una línea compacta sin ejes. Usa el historial completo del plan y
+rendimiento y una gráfica compacta de variación porcentual. La escala incluye
+siempre el 0%, con una referencia discontinua, tres etiquetas de porcentaje y
+fechas del primer y último registro. Los puntos conservan la distancia real
+entre fechas; el área tenue y el punto final ayudan a seguir la evolución.
+«Cómo se calcula» despliega la explicación sin ocupar espacio al entrar.
+Usa el historial completo del plan y
 la misma comparación de ejercicios y configuraciones que el progreso existente.
 El índice se calcula como `100 × mediana(última marca / primera marca)` de
 las variantes de ejercicio con al menos dos registros compatibles en el período.
@@ -45,6 +51,10 @@ disponibles en «Actividad y carga histórica».
 
 En escritorio se distribuyen las acciones de hoy y el análisis en dos columnas.
 En móvil se conserva el mismo orden y se usa la navegación inferior existente.
+El entrenamiento, las series y la planificación se presentan en tarjetas con
+el fondo de superficie del tema, borde fino, radio de 18 px y sombra suave.
+Las dos gráficas tienen 16 px de relleno en móvil y 20 px en escritorio, con
+16 px entre tarjetas. Los registros opcionales permanecen fuera de ellas.
 Los estados iniciales, evaluación pendiente y planificación programada mantienen
 su flujo de bienvenida. Los estilos nuevos están limitados a `.daily-workspace`.
 
