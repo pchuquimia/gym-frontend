@@ -12,6 +12,10 @@ autoriza operaciones sin conexión: el servidor sigue validando cada petición.
 La comprobación ocurre al abrir la app, volver a ella, recuperar internet y
 cada dos minutos mientras está abierta. Las comprobaciones en segundo plano
 se agrupan durante 30 segundos; recuperar internet fuerza una nueva.
+También se verifica al restaurar una página desde la caché de navegación
+(`pageshow`). Un GET/HEAD con `AUTH_SESSION_MISSING` se reintenta una sola vez
+leyendo de nuevo las credenciales antes de cerrar el acceso; no se repiten
+escrituras ni rechazos por tokens vencidos, inválidos o revocados.
 
 Al finalizar el acceso se guarda un respaldo local del entrenamiento en curso
 asociado al usuario, se pausa su reloj y se limpian los datos visibles de esa
@@ -30,6 +34,13 @@ No hay renovación automática ni temporizador de cierre por inactividad.
 la cookie con fecha de expiración; sin marcarlo se usa almacenamiento de sesión
 y una cookie de sesión. Cerrar una pestaña no equivale siempre a cerrar el
 navegador; la restauración de cookies depende del navegador.
+La opción aparece marcada por defecto en el formulario de acceso y puede
+desmarcarse en dispositivos compartidos. Esto no amplía la caducidad del token
+ni convierte automáticamente una sesión anterior en persistente. Al desmarcarla,
+el formulario explica que abrir de nuevo el navegador puede requerir otro acceso.
+Los fallos de lectura/escritura de localStorage y sessionStorage se manejan por
+separado; un almacén bloqueado no impide usar el otro, y el token recuperado
+se conserva en memoria mientras esa página siga abierta.
 
 También pueden invalidarse accesos por recuperar la contraseña, cambiarla
 desde otra sesión, cerrar otros dispositivos, desactivar/eliminar la cuenta

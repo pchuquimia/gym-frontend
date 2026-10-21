@@ -106,9 +106,23 @@ axiosClient.interceptors.response.use(
     reportRequestTiming(response);
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response) reportRequestTiming(error.response, error);
     const responseData = error.response?.data;
+    const config = error.config;
+    // A missing credential on resume is not proof that an existing session
+    // expired. Re-read storage/cookies once before telling the app to sign out.
+    // Restrict recovery to reads; never replay a user's write operation.
+    if (
+      error.response?.status === 401 &&
+      responseData?.code === "AUTH_SESSION_MISSING" &&
+      config?.metadata?.authSessionVersion === getAuthSessionVersion() &&
+      !config.skipAuth &&
+      !config.authRecoveryAttempted &&
+      ["get", "head"].includes(String(config.method || "get").toLowerCase())
+    ) {
+      return axiosClient.request({ ...config, authRecoveryAttempted: true });
+    }
     if (
       !error.config?.skipSessionExpiration &&
       !error.config?.skipAuth &&

@@ -42,7 +42,7 @@ test.each([401, 403, 503])("la verificación controlada no emite cierre global: 
   }
 });
 
-test("un 401 atrasado de un acceso anterior no cierra el nuevo", async () => {
+test.each(["AUTH_SESSION_EXPIRED", "AUTH_SESSION_MISSING"])("un 401 atrasado de un acceso anterior no cierra ni reintenta el nuevo: %s", async (code) => {
   const listener = vi.fn();
   window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
   setAuthToken("previous-access");
@@ -52,7 +52,7 @@ test("un 401 atrasado de un acceso anterior no cierra el nuevo", async () => {
   const request = axiosClient.get("/api/trainings", {
     adapter: (config) => new Promise((_, reject) => {
       rejectRequest = () => reject(Object.assign(new Error("expired"), {
-        config, response: { status: 401, data: { code: "AUTH_SESSION_EXPIRED" }, config },
+        config, response: { status: 401, data: { code }, config },
       }));
       requestStarted();
     }),
@@ -67,4 +67,60 @@ test("un 401 atrasado de un acceso anterior no cierra el nuevo", async () => {
   } finally {
     window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
   }
+});
+
+test("recupera una lectura sin credenciales antes de emitir un cierre", async () => {
+  const listener = vi.fn();
+  window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
+  const adapter = vi.fn(async (config) => {
+    if (!config.authRecoveryAttempted) {
+      window.sessionStorage.setItem("gym_auth_token", "restored-token");
+      return failingAdapter(401, { code: "AUTH_SESSION_MISSING" })(config);
+    }
+    expect(config.headers.Authorization).toBe("Bearer restored-token");
+    return { config, status: 200, data: { ok: true }, headers: {} };
+  });
+  try {
+    const response = await axiosClient.get("/api/auth/me", { adapter, skipSessionExpiration: true });
+    expect(response.data).toEqual({ ok: true });
+    expect(adapter).toHaveBeenCalledTimes(2);
+    expect(listener).not.toHaveBeenCalled();
+  } finally {
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
+  }
+});
+
+test("si siguen faltando credenciales, reintenta solo una vez y emite un único cierre", async () => {
+  const listener = vi.fn();
+  window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
+  const adapter = vi.fn(failingAdapter(401, { code: "AUTH_SESSION_MISSING" }));
+  try {
+    await expect(axiosClient.get("/api/trainings", { adapter })).rejects.toMatchObject({
+      status: 401, code: "AUTH_SESSION_MISSING",
+    });
+    expect(adapter).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledOnce();
+  } finally {
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, listener);
+  }
+});
+
+test.each(["AUTH_SESSION_EXPIRED", "AUTH_SESSION_INVALID", "AUTH_SESSION_REVOKED"])(
+  "no reintenta un token rechazado por el servidor: %s", async (code) => {
+    const adapter = vi.fn(failingAdapter(401, { code }));
+    await expect(axiosClient.get("/api/trainings", { adapter })).rejects.toMatchObject({ status: 401, code });
+    expect(adapter).toHaveBeenCalledOnce();
+  },
+);
+
+test.each(["post", "patch", "delete"])("no repite escrituras: %s", async (method) => {
+  const adapter = vi.fn(failingAdapter(401, { code: "AUTH_SESSION_MISSING" }));
+  await expect(axiosClient.request({ url: "/api/trainings", method, adapter })).rejects.toMatchObject({ status: 401 });
+  expect(adapter).toHaveBeenCalledOnce();
+});
+
+test("no reintenta solicitudes sin autenticación", async () => {
+  const adapter = vi.fn(failingAdapter(401, { code: "AUTH_SESSION_MISSING" }));
+  await expect(axiosClient.get("/public", { skipAuth: true, adapter })).rejects.toMatchObject({ status: 401 });
+  expect(adapter).toHaveBeenCalledOnce();
 });

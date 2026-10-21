@@ -112,7 +112,7 @@ function LoginForm({ onNavigate }) {
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendingVerification, setResendingVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
@@ -259,6 +259,7 @@ function LoginForm({ onNavigate }) {
             type="checkbox"
             name="keepLoggedIn"
             checked={keepLoggedIn}
+            aria-describedby={!keepLoggedIn ? "session-duration-help" : undefined}
             onChange={(event) => setKeepLoggedIn(event.target.checked)}
             className="h-5 w-5 shrink-0 cursor-pointer rounded-[3px] border border-[#c9cbc5] bg-white accent-[#202120] focus:ring-2 focus:ring-[#202120]/20 focus:ring-offset-2"
           />
@@ -272,6 +273,11 @@ function LoginForm({ onNavigate }) {
           ¿Olvidaste tu contraseña?
         </button>
       </div>
+      {!keepLoggedIn ? (
+        <p id="session-duration-help" className="font-sans text-xs leading-5 text-[color:var(--auth-muted)]">
+          Al volver a abrir el navegador, puede que necesites iniciar sesión de nuevo.
+        </p>
+      ) : null}
       {error ? (
         <p
           role="alert"

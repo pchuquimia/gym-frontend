@@ -72,6 +72,21 @@ test("verifica de nuevo al recuperar internet, incluso dentro del intervalo de 3
   expect(api.me).toHaveBeenCalledTimes(2);
 });
 
+test("verifica la sesión al restaurar una página guardada por Safari", async () => {
+  const now = Date.now();
+  const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+  try {
+    renderAuth();
+    await act(async () => {});
+    expect(api.me).toHaveBeenCalledTimes(1);
+    clock.mockReturnValue(now + 31_000);
+    await act(async () => window.dispatchEvent(new Event("pageshow")));
+    expect(api.me).toHaveBeenCalledTimes(2);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
 test("una verificación atrasada no restaura la sesión después de salir", async () => {
   let resolveVerification;
   api.me.mockReturnValue(new Promise((resolve) => { resolveVerification = resolve; }));

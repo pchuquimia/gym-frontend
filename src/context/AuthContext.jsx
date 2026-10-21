@@ -379,12 +379,14 @@ export function AuthProvider({ children }) {
 
     window.addEventListener("focus", refreshPermissions);
     window.addEventListener("online", handleOnline);
+    window.addEventListener("pageshow", refreshPermissions);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     const intervalId = window.setInterval(refreshPermissions, 2 * 60_000);
 
     return () => {
       window.removeEventListener("focus", refreshPermissions);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pageshow", refreshPermissions);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.clearInterval(intervalId);
     };
