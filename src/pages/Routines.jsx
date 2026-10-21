@@ -67,6 +67,7 @@ import { api } from "../services/api";
 import { createQuickTrainingPlan } from "../services/quickPlanCreation";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import QuickPlanSetup from "../components/training/QuickPlanSetup";
+import RoutineThumbnail from "../components/training/RoutineThumbnail";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import DetailModal from "../components/library/DetailModal";
@@ -579,6 +580,7 @@ const ROUTINE_TYPES = [
   {
     id: "push",
     label: "Empuje",
+    image: "/images/routine-push.webp",
     description: "Pecho, hombros y tríceps",
     muscles: ["Pecho", "Hombros", "Triceps"],
     suggestedName: "Pecho · Hombro · Triceps",
@@ -586,6 +588,7 @@ const ROUTINE_TYPES = [
   {
     id: "pull",
     label: "Tracción",
+    image: "/images/routine-pull.webp",
     description: "Espalda y bíceps",
     muscles: ["Espalda", "Biceps"],
     suggestedName: "Espalda · Biceps",
@@ -593,6 +596,7 @@ const ROUTINE_TYPES = [
   {
     id: "legs",
     label: "Piernas",
+    image: "/images/routine-lower-a.webp",
     description: "Cuádriceps, femorales y glúteos",
     muscles: ["Cuadriceps", "Femoral", "Gluteos"],
     suggestedName: "Pierna completa",
@@ -600,6 +604,7 @@ const ROUTINE_TYPES = [
   {
     id: "upper",
     label: "Tren superior",
+    image: "/images/routine-upper.webp",
     description: "Torso completo",
     muscles: ["Pecho", "Espalda", "Hombros", "Biceps", "Triceps"],
     suggestedName: "Tren superior",
@@ -607,6 +612,7 @@ const ROUTINE_TYPES = [
   {
     id: "lower",
     label: "Tren inferior",
+    image: "/images/workout-hero-model.webp",
     description: "Pierna completa",
     muscles: ["Cuadriceps", "Femoral", "Gluteos", "Pantorrillas"],
     suggestedName: "Tren inferior",
@@ -614,6 +620,7 @@ const ROUTINE_TYPES = [
   {
     id: "full_body",
     label: "Cuerpo completo",
+    image: "/images/dashboard-workout-completed-color.jpg",
     description: "Un poco de cada grupo muscular",
     muscles: ["Pecho", "Espalda", "Cuadriceps", "Femoral", "Hombros"],
     suggestedName: "Full body",
@@ -621,6 +628,7 @@ const ROUTINE_TYPES = [
   {
     id: "custom",
     label: "Elegir músculos",
+    image: "/images/routine-upper.webp",
     description: "Selecciona uno o varios grupos",
     muscles: [],
     suggestedName: "Rutina personalizada",
@@ -2107,7 +2115,7 @@ export function RoutineModal({
                 ordenar los ejercicios.
               </p>
               <div
-                className="mt-6 grid gap-2 sm:grid-cols-2"
+                className="mt-6 grid gap-2"
                 role="radiogroup"
                 aria-label="Enfoque de la rutina"
               >
@@ -2122,6 +2130,12 @@ export function RoutineModal({
                       onClick={() => handleRoutineTypeSelect(type.id)}
                       title={type.label}
                       description={type.description}
+                      visual={
+                        <RoutineThumbnail
+                          routine={{ name: type.label }}
+                          image={type.image}
+                        />
+                      }
                     />
                   );
                 })}

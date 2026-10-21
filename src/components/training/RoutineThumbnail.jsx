@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Dumbbell, Moon } from "lucide-react";
 import { getExerciseImageUrl } from "../../utils/cloudinary";
+import "./routine-thumbnail.css";
 
 const fallbackImage = (routine) => {
   const name = String(routine.name || "").toLocaleLowerCase("es");
@@ -14,11 +15,11 @@ const fallbackImage = (routine) => {
   return "/images/dashboard-workout-completed-color.jpg";
 };
 
-export default function RoutineThumbnail({ routine }) {
+export default function RoutineThumbnail({ routine, image }) {
   const [failedSources, setFailedSources] = useState([]);
   if (!routine)
     return (
-      <span className="quick-plan__thumbnail is-rest" aria-hidden="true">
+      <span className="routine-thumbnail quick-plan__thumbnail is-rest" aria-hidden="true">
         <Moon size={23} />
       </span>
     );
@@ -26,17 +27,17 @@ export default function RoutineThumbnail({ routine }) {
     .filter((item) => !item.isExtra)
     .map((item) => getExerciseImageUrl(item, { preset: "thumbnail" }))
     .find(Boolean);
-  const source = [exerciseImage, fallbackImage(routine)].find(
+  const source = [image, exerciseImage, fallbackImage(routine)].find(
     (item) => item && !failedSources.includes(item),
   );
   return (
-    <span className="quick-plan__thumbnail" aria-hidden="true">
+    <span className="routine-thumbnail quick-plan__thumbnail" aria-hidden="true">
       {source ? (
         <img
           key={source}
           src={source}
-          width={48}
-          height={48}
+          width={80}
+          height={80}
           alt=""
           loading="lazy"
           onError={() => setFailedSources((current) => [...current, source])}

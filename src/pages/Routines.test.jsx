@@ -330,6 +330,14 @@ describe("RoutineModal drafts", () => {
       </QueryClientProvider>,
     );
 
+    const focusChoices = within(
+      screen.getByRole("radiogroup", { name: "Enfoque de la rutina" }),
+    ).getAllByRole("radio");
+    expect(focusChoices).toHaveLength(7);
+    focusChoices.forEach((choice) => {
+      expect(choice.querySelector("img")).toHaveAttribute("src");
+      expect(choice.querySelector("img")).toHaveAttribute("alt", "");
+    });
     fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
     fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
     expect(screen.getByRole("button", { name: "Todos los grupos" })).toHaveAttribute("aria-pressed", "true");

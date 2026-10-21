@@ -1,17 +1,18 @@
 import { Check } from "lucide-react";
 
-export default function ChoiceCard({ selected, title, description, ...props }) {
+export default function ChoiceCard({ selected, title, description, visual, ...props }) {
   return (
     <button
       type="button"
       data-choice-card
       {...props}
-      className={`flex min-h-[4.5rem] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+      className={`flex min-h-[4.5rem] items-center gap-3 rounded-2xl border p-3 text-left transition ${
         selected
           ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--card)] shadow-sm"
           : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]"
       }`}
     >
+      {visual}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold leading-tight">
           {title}

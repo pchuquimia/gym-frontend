@@ -1,0 +1,29 @@
+/* Match the routine library previews: 80px on mobile, 92 × 96px on desktop. */
+.routine-thumbnail {
+  --routine-thumbnail-width: 5rem;
+  --routine-thumbnail-height: 5rem;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--routine-thumbnail-width);
+  height: var(--routine-thumbnail-height);
+  overflow: hidden;
+  border-radius: 1.125rem;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+.routine-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: none;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+@media (min-width: 768px) {
+  .routine-thumbnail {
+    --routine-thumbnail-width: 5.75rem;
+    --routine-thumbnail-height: 6rem;
+  }
+}
