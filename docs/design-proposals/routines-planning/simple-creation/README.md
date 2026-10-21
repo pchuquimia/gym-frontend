@@ -1,8 +1,8 @@
 # Creación simplificada de una planificación
 
 Propuesta visual posterior al creador de cuatro pasos de la primera lámina.
-La dirección actual es una sola pantalla donde se colocan rutinas directamente
-en los días de la semana, con el formato visual de «Crear rutina».
+La dirección actual es una sola lista de lunes a domingo: en cada fila se elige
+una rutina o «Descanso».
 Estas imágenes son estados de la interacción, no cuatro páginas obligatorias.
 Son referencias conceptuales de la propuesta anterior. El creador actual está en
 «Rutinas y planificación → Nueva planificación».
@@ -32,21 +32,19 @@ cantidades son ejemplos de interfaz. Los prompts completos se guardan junto a el
 
 ## Implementación
 
-- Se reutilizan `Modal`, `Button` y `ChoiceCard` de «Crear rutina». Las tarjetas
-  comparten altura mínima de 72 px, márgenes interiores, tipografía, bordes,
-  selección y distribución: una columna en móvil, dos desde 640 px.
-- La semana está disponible desde el inicio. Se elige una rutina y se tocan sus
-  días para asignarla; tocar de nuevo una asignación con esa misma rutina la quita.
-- Elegir otra rutina y tocar un día reemplaza su asignación. El modo «Descanso»
-  permite quitar cualquier asignación sin buscar la rutina anterior.
-- Cada rutina tiene un color estable en el calendario; se muestran su nombre,
-  ejercicios y los totales de entrenamientos y descansos.
-- No hay selección múltiple previa, confirmación intermedia ni una segunda vista
-  de revisión. El botón «Crear planificación» guarda directamente la semana visible.
-- Se muestran cuatro opciones de rutina, con búsqueda y acceso al resto. Al volver
-  de crear una rutina, queda seleccionada para colocarla sin asignar días por error.
-- La distribución se repite cada semana. Fecha, duración, nombre y otros ajustes
-  se agrupan bajo «Ajustar»: inicio hoy y cuatro semanas por defecto.
+- La pantalla principal muestra únicamente la semana, un resumen de frecuencia
+  y el botón «Crear planificación». No hay paleta, tarjetas por rutina ni modos
+  de colocar o quitar entrenamientos.
+- Cada día tiene un selector nativo con «Descanso» y las rutinas disponibles.
+  Cambiar la selección afecta únicamente a ese día. Las rutinas personales y las
+  procedentes de una planificación se agrupan para distinguir nombres repetidos.
+- Todos los días empiezan como descanso. Se requiere al menos un entrenamiento.
+- Nombre, inicio y duración se editan bajo «Ajustar». Inicio hoy y cuatro semanas
+  por defecto; objetivo, nivel y notas quedan en «Más opciones».
+- La biblioteca vacía muestra una acción directa para crear una rutina. Crear una
+  rutina conserva el formulario y la incorpora a los selectores sin asignarla por
+  error a ningún día.
+- El botón final guarda exactamente la semana visible, sin confirmación intermedia.
 - Se restauran tanto los formularios actuales como los borradores locales del
   creador anterior sin cambiar sus asignaciones.
 - Vista de confirmación con resumen y acceso al plan. Los inicios futuros quedan

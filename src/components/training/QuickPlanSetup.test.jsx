@@ -13,15 +13,14 @@ const props = {
   onClose: vi.fn(),
   onView: vi.fn(),
 };
-const placeWeek = async () => {
-  await userEvent.click(
-    screen.getByRole("button", { name: "Lunes: Descanso", exact: true }),
+const configureWeek = async () => {
+  await userEvent.selectOptions(
+    screen.getByLabelText("Rutina del lunes"),
+    "torso",
   );
-  await userEvent.click(
-    screen.getByRole("button", { name: "Colocar Pierna", exact: true }),
-  );
-  await userEvent.click(
-    screen.getByRole("button", { name: "Jueves: Descanso", exact: true }),
+  await userEvent.selectOptions(
+    screen.getByLabelText("Rutina del jueves"),
+    "pierna",
   );
 };
 afterEach(() => {
@@ -30,7 +29,7 @@ afterEach(() => {
 });
 
 describe("QuickPlanSetup", () => {
-  it("uses the routine creation dialog and creates directly from the visible week", async () => {
+  it("shows only the week and saves exactly the routines chosen for its days", async () => {
     const onCreate = vi
       .fn()
       .mockResolvedValue({ id: "plan-1", status: "active" });
@@ -39,16 +38,15 @@ describe("QuickPlanSetup", () => {
     expect(
       screen.getByRole("dialog", { name: "Nueva planificación" }),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Volver" })).toBeVisible();
     const create = screen.getByRole("button", { name: "Crear planificación" });
     expect(create).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /Listo, elegir/ })).toBeNull();
-    expect(screen.queryByLabelText("Rutina del lunes")).toBeNull();
-    await placeWeek();
-    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Jueves: Pierna" }),
-    ).toBeVisible();
+      screen.getAllByRole("combobox", { name: /^Rutina del/ }),
+    ).toHaveLength(7);
+    expect(
+      screen.queryByRole("button", { name: /Colocar|Listo, elegir|Ver todas/ }),
+    ).toBeNull();
+    await configureWeek();
     expect(onCreate).not.toHaveBeenCalled();
     await userEvent.click(create);
     expect(onCreate).toHaveBeenCalledWith(
@@ -66,28 +64,27 @@ describe("QuickPlanSetup", () => {
       expect.objectContaining({ id: "plan-1" }),
     );
   });
-  it("replaces a routine on a day and supports both direct toggle and rest mode", async () => {
+  it("replaces a routine without affecting other days and can return all days to rest", async () => {
     render(<QuickPlanSetup {...props} />);
-    await placeWeek();
-    await userEvent.click(screen.getByRole("button", { name: "Lunes: Torso" }));
-    expect(screen.getByRole("button", { name: "Lunes: Pierna" })).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Pierna" }),
+    await configureWeek();
+    await userEvent.selectOptions(
+      screen.getByLabelText("Rutina del lunes"),
+      "pierna",
     );
-    expect(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Colocar descanso" }),
+    expect(screen.getByLabelText("Rutina del jueves")).toHaveValue("pierna");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Rutina del lunes"),
+      "",
     );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Jueves: Pierna" }),
+    await userEvent.selectOptions(
+      screen.getByLabelText("Rutina del jueves"),
+      "",
     );
     expect(
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeDisabled();
   });
-  it("keeps a failed draft locked and retries the same plan", async () => {
+  it("locks a failed server draft and retries that same draft", async () => {
     const draft = { id: "draft-1", status: "draft" };
     const onCreate = vi
       .fn()
@@ -96,19 +93,19 @@ describe("QuickPlanSetup", () => {
       )
       .mockResolvedValue({ id: "draft-1", status: "active" });
     render(<QuickPlanSetup {...props} onCreate={onCreate} />);
-    await placeWeek();
+    await configureWeek();
     await userEvent.click(
       screen.getByRole("button", { name: "Crear planificación" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
-    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeDisabled();
+    expect(screen.getByLabelText("Rutina del lunes")).toBeDisabled();
     await userEvent.click(
       screen.getByRole("button", { name: "Reintentar creación" }),
     );
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
     expect(onCreate.mock.calls[1][0].existingDraft).toEqual(draft);
   });
-  it("preserves the painted week across creating a routine and navigation", async () => {
+  it("preserves the week when navigating to create a routine", async () => {
     const onCreateRoutine = vi.fn();
     const { unmount } = render(
       <QuickPlanSetup
@@ -117,21 +114,15 @@ describe("QuickPlanSetup", () => {
         onCreateRoutine={onCreateRoutine}
       />,
     );
-    await placeWeek();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Crear una rutina" }),
-    );
+    await configureWeek();
+    await userEvent.click(screen.getByRole("button", { name: "Crear rutina" }));
     expect(onCreateRoutine).toHaveBeenCalledOnce();
     unmount();
     render(<QuickPlanSetup {...props} storageKey="test-plan" />);
-    expect(
-      screen.getByRole("button", { name: "Lunes: Torso" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: "Jueves: Pierna" }),
-    ).toBeVisible();
+    expect(screen.getByLabelText("Rutina del lunes")).toHaveValue("torso");
+    expect(screen.getByLabelText("Rutina del jueves")).toHaveValue("pierna");
   });
-  it("restores drafts from the previous multi-selection form", () => {
+  it("restores both earlier draft formats without changing their assignments", () => {
     sessionStorage.setItem(
       "legacy",
       JSON.stringify({
@@ -140,11 +131,21 @@ describe("QuickPlanSetup", () => {
         overrides: { 4: "torso" },
       }),
     );
-    render(<QuickPlanSetup {...props} storageKey="legacy" />);
-    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Jueves: Torso" })).toBeVisible();
+    const { unmount } = render(
+      <QuickPlanSetup {...props} storageKey="legacy" />,
+    );
+    expect(screen.getByLabelText("Rutina del lunes")).toHaveValue("torso");
+    expect(screen.getByLabelText("Rutina del jueves")).toHaveValue("torso");
+    unmount();
+    sessionStorage.setItem(
+      "paint",
+      JSON.stringify({ dayRoutines: { 2: "pierna" }, paintRoutineId: "torso" }),
+    );
+    render(<QuickPlanSetup {...props} storageKey="paint" />);
+    expect(screen.getByLabelText("Rutina del martes")).toHaveValue("pierna");
+    expect(screen.getByLabelText("Rutina del lunes")).toHaveValue("");
   });
-  it("offers routine creation from an empty library", async () => {
+  it("offers a clear action when the routine library is empty", async () => {
     const onCreateRoutine = vi.fn();
     render(
       <QuickPlanSetup
@@ -153,9 +154,7 @@ describe("QuickPlanSetup", () => {
         onCreateRoutine={onCreateRoutine}
       />,
     );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
-    );
+    expect(screen.getByLabelText("Rutina del lunes")).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeDisabled();
@@ -164,43 +163,49 @@ describe("QuickPlanSetup", () => {
     );
     expect(onCreateRoutine).toHaveBeenCalledOnce();
   });
-  it("arms a newly created routine without assigning an unintended day", async () => {
-    const { rerender } = render(
-      <QuickPlanSetup {...props} addedRoutineId="pierna" />,
+  it("makes a newly created routine available without assigning an unintended day", async () => {
+    render(<QuickPlanSetup {...props} addedRoutineId="pierna" />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Pierna ya está disponible",
+    );
+    expect(screen.getByLabelText("Rutina del lunes")).toHaveValue("");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Rutina del lunes"),
+      "pierna",
     );
     expect(
-      screen.getByRole("button", { name: "Colocar Pierna" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("button", { name: "Crear planificación" }),
+    ).toBeEnabled();
+  });
+  it("lets unavailable assignments be cleared instead of trapping a restored form", async () => {
+    sessionStorage.setItem(
+      "missing",
+      JSON.stringify({ dayRoutines: { 1: "deleted" } }),
+    );
+    render(<QuickPlanSetup {...props} storageKey="missing" />);
     expect(
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeDisabled();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Colocar Torso" }),
-    );
-    rerender(
-      <QuickPlanSetup
-        {...props}
-        routines={[...routines]}
-        addedRoutineId="pierna"
-      />,
+    await userEvent.selectOptions(
+      screen.getByLabelText("Rutina del lunes"),
+      "torso",
     );
     expect(
-      screen.getByRole("button", { name: "Colocar Torso" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("button", { name: "Crear planificación" }),
+    ).toBeEnabled();
   });
-  it("clears the local form on explicit close without saving a plan", async () => {
+  it("clears the local form on explicit close without saving", async () => {
     const onClose = vi.fn();
     render(
       <QuickPlanSetup {...props} storageKey="test-plan" onClose={onClose} />,
     );
-    await placeWeek();
-    expect(sessionStorage.getItem("test-plan")).toContain("torso");
+    await configureWeek();
     await userEvent.click(screen.getByRole("button", { name: "Volver" }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(sessionStorage.getItem("test-plan")).toBeNull();
     expect(props.onCreate).not.toHaveBeenCalled();
   });
-  it("keeps date and duration optional and explains switching active plans", async () => {
+  it("keeps optional settings collapsed and explains active plan replacement", async () => {
     render(
       <QuickPlanSetup
         {...props}
@@ -209,11 +214,12 @@ describe("QuickPlanSetup", () => {
       />,
     );
     expect(screen.getByText(/Su historial se conserva/)).toBeVisible();
+    expect(screen.getByLabelText("Empieza")).not.toBeVisible();
     await userEvent.click(screen.getByText("Ajustar"));
     fireEvent.change(screen.getByLabelText("Empieza"), {
       target: { value: "2099-01-01" },
     });
-    expect(screen.getByText(/Se activará en la fecha elegida/)).toBeVisible();
+    expect(screen.getByText(/Al empezar, se pausará/)).toBeVisible();
     expect(screen.getByText(/Siguiente.*quedará en pausa/)).toBeVisible();
   });
 });
