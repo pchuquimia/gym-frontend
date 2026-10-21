@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+﻿import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import QuickPlanSetup from "./QuickPlanSetup";
@@ -13,16 +13,16 @@ const props = {
   onClose: vi.fn(),
   onView: vi.fn(),
 };
-const choose = async () => {
+const placeWeek = async () => {
   await userEvent.click(
-    screen.getByRole("button", { name: /Torso, 1 ejercicio/ }),
+    screen.getByRole("button", { name: "Lunes: Descanso", exact: true }),
   );
   await userEvent.click(
-    screen.getByRole("button", { name: /Pierna, 2 ejercicios/ }),
+    screen.getByRole("button", { name: "Colocar Pierna", exact: true }),
   );
-  await userEvent.click(screen.getByRole("button", { name: /Listo, elegir/ }));
-  await userEvent.click(screen.getByRole("button", { name: "Lunes" }));
-  await userEvent.click(screen.getByRole("button", { name: "Jueves" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Jueves: Descanso", exact: true }),
+  );
 };
 afterEach(() => {
   sessionStorage.clear();
@@ -30,33 +30,32 @@ afterEach(() => {
 });
 
 describe("QuickPlanSetup", () => {
-  it("requires both choices and previews the exact assignments before saving", async () => {
+  it("uses the routine creation dialog and creates directly from the visible week", async () => {
     const onCreate = vi
       .fn()
       .mockResolvedValue({ id: "plan-1", status: "active" });
     const onView = vi.fn();
     render(<QuickPlanSetup {...props} onCreate={onCreate} onView={onView} />);
-    const create = screen.getByRole("button", { name: /Crear planificaci/ });
+    expect(
+      screen.getByRole("dialog", { name: "Nueva planificación" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Volver" })).toBeVisible();
+    const create = screen.getByRole("button", { name: "Crear planificación" });
     expect(create).toBeDisabled();
-    await choose();
-    expect(screen.getByLabelText("Rutina del lunes")).toHaveValue("torso");
-    expect(screen.getByLabelText("Rutina del jueves")).toHaveValue("pierna");
+    expect(screen.queryByRole("button", { name: /Listo, elegir/ })).toBeNull();
+    expect(screen.queryByLabelText("Rutina del lunes")).toBeNull();
+    await placeWeek();
+    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Jueves: Pierna" }),
+    ).toBeVisible();
     expect(onCreate).not.toHaveBeenCalled();
-    await userEvent.selectOptions(
-      screen.getByLabelText("Rutina del lunes"),
-      "pierna",
-    );
-    expect(create).toBeDisabled(); // Every selected routine must actually be used.
-    await userEvent.selectOptions(
-      screen.getByLabelText("Rutina del jueves"),
-      "torso",
-    );
     await userEvent.click(create);
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         routineIds: ["torso", "pierna"],
         selectedDays: [1, 4],
-        overrides: { 1: "pierna", 4: "torso" },
+        overrides: { 1: "torso", 4: "pierna" },
         durationWeeks: 4,
       }),
     );
@@ -67,7 +66,28 @@ describe("QuickPlanSetup", () => {
       expect.objectContaining({ id: "plan-1" }),
     );
   });
-  it("keeps a failed draft locked and retries it without starting over", async () => {
+  it("replaces a routine on a day and supports both direct toggle and rest mode", async () => {
+    render(<QuickPlanSetup {...props} />);
+    await placeWeek();
+    await userEvent.click(screen.getByRole("button", { name: "Lunes: Torso" }));
+    expect(screen.getByRole("button", { name: "Lunes: Pierna" })).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Lunes: Pierna" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Lunes: Descanso" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Colocar descanso" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Jueves: Pierna" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    ).toBeDisabled();
+  });
+  it("keeps a failed draft locked and retries the same plan", async () => {
     const draft = { id: "draft-1", status: "draft" };
     const onCreate = vi
       .fn()
@@ -76,19 +96,19 @@ describe("QuickPlanSetup", () => {
       )
       .mockResolvedValue({ id: "draft-1", status: "active" });
     render(<QuickPlanSetup {...props} onCreate={onCreate} />);
-    await choose();
+    await placeWeek();
     await userEvent.click(
-      screen.getByRole("button", { name: /Crear planificaci/ }),
+      screen.getByRole("button", { name: "Crear planificación" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
-    expect(screen.getByRole("button", { name: "Lunes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeDisabled();
     await userEvent.click(
-      screen.getByRole("button", { name: /Reintentar creaci/ }),
+      screen.getByRole("button", { name: "Reintentar creación" }),
     );
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
     expect(onCreate.mock.calls[1][0].existingDraft).toEqual(draft);
   });
-  it("preserves selections across routine creation and navigation", async () => {
+  it("preserves the painted week across creating a routine and navigation", async () => {
     const onCreateRoutine = vi.fn();
     const { unmount } = render(
       <QuickPlanSetup
@@ -97,23 +117,34 @@ describe("QuickPlanSetup", () => {
         onCreateRoutine={onCreateRoutine}
       />,
     );
-    await choose();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Cambiar rutinas" }),
-    );
+    await placeWeek();
     await userEvent.click(
       screen.getByRole("button", { name: "Crear una rutina" }),
     );
     expect(onCreateRoutine).toHaveBeenCalledOnce();
     unmount();
     render(<QuickPlanSetup {...props} storageKey="test-plan" />);
-    expect(screen.getByRole("button", { name: "Lunes" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByLabelText("Rutina del jueves")).toHaveValue("pierna");
+    expect(
+      screen.getByRole("button", { name: "Lunes: Torso" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Jueves: Pierna" }),
+    ).toBeVisible();
   });
-  it("offers routine creation when the library is empty", async () => {
+  it("restores drafts from the previous multi-selection form", () => {
+    sessionStorage.setItem(
+      "legacy",
+      JSON.stringify({
+        routineIds: ["torso", "pierna"],
+        selectedDays: [1, 4],
+        overrides: { 4: "torso" },
+      }),
+    );
+    render(<QuickPlanSetup {...props} storageKey="legacy" />);
+    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Jueves: Torso" })).toBeVisible();
+  });
+  it("offers routine creation from an empty library", async () => {
     const onCreateRoutine = vi.fn();
     render(
       <QuickPlanSetup
@@ -122,21 +153,29 @@ describe("QuickPlanSetup", () => {
         onCreateRoutine={onCreateRoutine}
       />,
     );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Lunes: Descanso" }),
+    );
     expect(
-      screen.getByRole("button", { name: /Crear planificaci/ }),
+      screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeDisabled();
     await userEvent.click(
       screen.getByRole("button", { name: "Crear una rutina" }),
     );
     expect(onCreateRoutine).toHaveBeenCalledOnce();
   });
-  it("adds a newly saved routine once and lets the user deselect it", async () => {
+  it("arms a newly created routine without assigning an unintended day", async () => {
     const { rerender } = render(
       <QuickPlanSetup {...props} addedRoutineId="pierna" />,
     );
-    expect(screen.getByRole("button", { name: "Quitar Pierna" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Colocar Pierna" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    ).toBeDisabled();
     await userEvent.click(
-      screen.getByRole("button", { name: "Quitar Pierna" }),
+      screen.getByRole("button", { name: "Colocar Torso" }),
     );
     rerender(
       <QuickPlanSetup
@@ -145,23 +184,23 @@ describe("QuickPlanSetup", () => {
         addedRoutineId="pierna"
       />,
     );
-    expect(screen.queryByRole("button", { name: "Quitar Pierna" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Colocar Torso" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
-  it("clears the local form on explicit close without persisting a plan", async () => {
+  it("clears the local form on explicit close without saving a plan", async () => {
     const onClose = vi.fn();
     render(
       <QuickPlanSetup {...props} storageKey="test-plan" onClose={onClose} />,
     );
-    await choose();
+    await placeWeek();
     expect(sessionStorage.getItem("test-plan")).toContain("torso");
-    await userEvent.click(
-      screen.getByRole("button", { name: /Cerrar creaci/ }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Volver" }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(sessionStorage.getItem("test-plan")).toBeNull();
     expect(props.onCreate).not.toHaveBeenCalled();
   });
-  it("explains the active plan replacement and changes the message for future dates", async () => {
+  it("keeps date and duration optional and explains switching active plans", async () => {
     render(
       <QuickPlanSetup
         {...props}
@@ -170,11 +209,11 @@ describe("QuickPlanSetup", () => {
       />,
     );
     expect(screen.getByText(/Su historial se conserva/)).toBeVisible();
-    await userEvent.clear(screen.getByLabelText("Empieza"));
-    await userEvent.type(screen.getByLabelText("Empieza"), "2099-01-01");
-    expect(
-      screen.getByText(/pausará cualquier otro plan activo/),
-    ).toBeVisible();
-    expect(screen.getByText(/Siguiente/)).toBeVisible();
+    await userEvent.click(screen.getByText("Ajustar"));
+    fireEvent.change(screen.getByLabelText("Empieza"), {
+      target: { value: "2099-01-01" },
+    });
+    expect(screen.getByText(/Se activará en la fecha elegida/)).toBeVisible();
+    expect(screen.getByText(/Siguiente.*quedará en pausa/)).toBeVisible();
   });
 });

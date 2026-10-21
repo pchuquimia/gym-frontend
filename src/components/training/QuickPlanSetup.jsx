@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
-  CalendarDays,
-  Dumbbell,
+  Moon,
   Plus,
   Search,
-  X,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   getLocalPlanDate,
   getQuickPlanAssignments,
 } from "../../utils/quickPlan";
+import Modal from "../shared/Modal";
+import ChoiceCard from "../shared/ChoiceCard";
+import Button from "../ui/button";
 import "./quick-plan-setup.css";
 
 const WEEKDAYS = [
@@ -24,7 +25,23 @@ const WEEKDAYS = [
   [6, "Sáb", "Sábado"],
   [7, "Dom", "Domingo"],
 ];
-const idOf = (routine) => String(routine?.id || routine?._id || "");
+const COLORS = [
+  "#608b78",
+  "#8085b4",
+  "#b88857",
+  "#b77885",
+  "#5d92aa",
+  "#96934e",
+  "#9d7fa7",
+];
+const REST = "__rest__";
+const idOf = (item) => String(item?.id || item?._id || "");
+const tone = (id) => ({
+  "--routine-color":
+    COLORS[
+      [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % COLORS.length
+    ],
+});
 const readDraft = (key) => {
   try {
     return key ? JSON.parse(sessionStorage.getItem(key)) || {} : {};
@@ -39,6 +56,17 @@ const clearDraft = (key) => {
     /* Optional persistence. */
   }
 };
+const initialWeek = (draft) =>
+  draft.dayRoutines ||
+  Object.fromEntries(
+    getQuickPlanAssignments(
+      draft.routineIds || [],
+      draft.selectedDays || [],
+      draft.overrides || {},
+    )
+      .filter((day) => day.routineId)
+      .map((day) => [day.dayIndex, day.routineId]),
+  );
 
 export default function QuickPlanSetup({
   routines,
@@ -52,11 +80,12 @@ export default function QuickPlanSetup({
   addedRoutineId,
   suspended = false,
 }) {
-  const dialogRef = useRef(null);
+  const titleRef = useRef(null);
   const [initial] = useState(() => readDraft(storageKey));
-  const [routineIds, setRoutineIds] = useState(initial.routineIds || []);
-  const [selectedDays, setSelectedDays] = useState(initial.selectedDays || []);
-  const [overrides, setOverrides] = useState(initial.overrides || {});
+  const [dayRoutines, setDayRoutines] = useState(() => initialWeek(initial));
+  const [paintRoutineId, setPaintRoutineId] = useState(
+    initial.paintRoutineId ?? null,
+  );
   const [durationWeeks, setDurationWeeks] = useState(
     initial.durationWeeks || 4,
   );
@@ -68,42 +97,54 @@ export default function QuickPlanSetup({
   const [level, setLevel] = useState(initial.level || "beginner");
   const [notes, setNotes] = useState(initial.notes || "");
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState(false);
-  const [routinePickerOpen, setRoutinePickerOpen] = useState(
-    !(initial.routineIds?.length && initial.selectedDays?.length),
-  );
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [createdPlan, setCreatedPlan] = useState(null);
+  const [createdRoutines, setCreatedRoutines] = useState([]);
   const [partialPlan, setPartialPlan] = useState(initial.partialPlan || null);
   const submitting = useRef(false);
   const consumedRoutine = useRef(null);
+  const [expanded, setExpanded] = useState(false);
+  const displayRoutines = createdPlan ? createdRoutines : routines;
+  const activeRoutine =
+    routines.find((item) => idOf(item) === paintRoutineId) || routines[0];
+  const resting = paintRoutineId === REST;
+  const selectedDays = WEEKDAYS.filter(([index]) => dayRoutines[index]).map(
+    ([index]) => index,
+  );
+  const routineIds = [
+    ...new Set(selectedDays.map((index) => dayRoutines[index])),
+  ];
   const selected = routineIds
-    .map((id) => routines.find((item) => idOf(item) === id))
+    .map((id) => displayRoutines.find((item) => idOf(item) === id))
     .filter(Boolean);
   const suggestedName = selected.length
     ? `Plan de ${selected.map((item) => item.name).join(" + ")}`.slice(0, 100)
     : "Mi planificación";
-  const assignments = useMemo(
-    () => getQuickPlanAssignments(routineIds, selectedDays, overrides),
-    [routineIds, selectedDays, overrides],
-  );
-  const matches = routines.filter((item) =>
-    item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
-  );
-  const visibleRoutines = query || expanded ? matches : matches.slice(0, 4);
   const future = startDate > getLocalPlanDate();
+  const missingRoutines = selected.length !== routineIds.length;
   const valid =
-    selected.length === routineIds.length &&
-    selected.length > 0 &&
     selectedDays.length > 0 &&
+    !missingRoutines &&
     startDate >= getLocalPlanDate() &&
     Number.isInteger(durationWeeks) &&
     durationWeeks >= 1 &&
     durationWeeks <= 52;
-  const unused = selected.filter(
-    (item) => !assignments.some((day) => day.routineId === idOf(item)),
+  const matches = routines.filter((item) =>
+    item.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
+  const visibleRoutines = expanded || query ? matches : matches.slice(0, 4);
+  if (
+    !expanded &&
+    !query &&
+    !resting &&
+    activeRoutine &&
+    !visibleRoutines.includes(activeRoutine)
+  ) {
+    visibleRoutines.splice(3, 1, activeRoutine);
+  }
 
   useEffect(() => {
     if (
@@ -113,10 +154,9 @@ export default function QuickPlanSetup({
     )
       return;
     consumedRoutine.current = addedRoutineId;
-    setRoutineIds((current) =>
-      current.includes(addedRoutineId) ? current : [...current, addedRoutineId],
-    );
-    setRoutinePickerOpen(true);
+    setPaintRoutineId(addedRoutineId);
+    setQuery("");
+    setAnnouncement("Rutina lista. Toca los días donde quieres colocarla.");
   }, [addedRoutineId, routines]);
 
   useEffect(() => {
@@ -125,9 +165,8 @@ export default function QuickPlanSetup({
       sessionStorage.setItem(
         storageKey,
         JSON.stringify({
-          routineIds,
-          selectedDays,
-          overrides,
+          dayRoutines,
+          paintRoutineId,
           durationWeeks,
           startDate,
           name,
@@ -143,9 +182,8 @@ export default function QuickPlanSetup({
   }, [
     storageKey,
     createdPlan,
-    routineIds,
-    selectedDays,
-    overrides,
+    dayRoutines,
+    paintRoutineId,
     durationWeeks,
     startDate,
     name,
@@ -156,30 +194,26 @@ export default function QuickPlanSetup({
   ]);
 
   useEffect(() => {
-    if (suspended) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus?.();
-    };
-  }, [suspended]);
+    if (createdPlan) titleRef.current?.focus();
+  }, [createdPlan]);
 
   const close = () => {
-    if (saving) return;
-    // A partial server draft remains recoverable from the plans list.
-    clearDraft(storageKey);
-    onClose();
+    if (!saving) {
+      clearDraft(storageKey);
+      onClose();
+    }
   };
-  const toggleRoutine = (id) => {
-    setRoutineIds((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id],
-    );
-    setOverrides({});
+  const placeRoutine = (index, full) => {
+    if (!resting && !activeRoutine) return;
+    const id = resting ? null : idOf(activeRoutine);
+    const remove = !id || dayRoutines[index] === id;
+    setDayRoutines((current) => {
+      const next = { ...current };
+      if (remove) delete next[index];
+      else next[index] = id;
+      return next;
+    });
+    setAnnouncement(`${full}: ${remove ? "descanso" : activeRoutine.name}.`);
     setError("");
   };
   const submit = async () => {
@@ -187,11 +221,12 @@ export default function QuickPlanSetup({
     submitting.current = true;
     setSaving(true);
     setError("");
+    setCreatedRoutines(routines);
     try {
       const plan = await onCreate({
         routineIds,
         selectedDays,
-        overrides,
+        overrides: dayRoutines,
         durationWeeks,
         startDate,
         name: name.trim() || suggestedName,
@@ -202,7 +237,6 @@ export default function QuickPlanSetup({
       });
       setCreatedPlan(plan);
       clearDraft(storageKey);
-      dialogRef.current?.focus();
     } catch (failure) {
       if (failure?.draftPlan) setPartialPlan(failure.draftPlan);
       setError(
@@ -215,363 +249,284 @@ export default function QuickPlanSetup({
     }
   };
   const week = (editable) => (
-    <div className="quick-plan__week">
+    <div className="quick-plan__calendar" aria-label="Tu semana">
       {WEEKDAYS.map(([index, short, full]) => {
-        const day = assignments.find((item) => item.dayIndex === index);
-        return (
+        const routineId = dayRoutines[index];
+        const routine = displayRoutines.find(
+          (item) => idOf(item) === routineId,
+        );
+        const label = routine
+          ? routine.name
+          : routineId
+            ? "Rutina no disponible"
+            : "Descanso";
+        const content = (
+          <>
+            <span className="quick-plan__day-top">
+              <span>{short}</span>
+              {routineId ? (
+                <span className="quick-plan__dot" />
+              ) : (
+                <Moon size={13} aria-hidden="true" />
+              )}
+            </span>
+            <strong>{label}</strong>
+            {routine && (
+              <small>
+                {
+                  (routine.exercises || []).filter((item) => !item.isExtra)
+                    .length
+                }{" "}
+                ejercicios
+              </small>
+            )}
+          </>
+        );
+        return editable ? (
+          <button
+            key={index}
+            type="button"
+            className={`quick-plan__day ${routineId ? "is-training" : "is-rest"}`}
+            style={tone(routineId || "rest")}
+            aria-label={`${full}: ${label}`}
+            aria-pressed={Boolean(routineId)}
+            title={`${full}: ${label}`}
+            onClick={() => placeRoutine(index, full)}
+          >
+            {content}
+          </button>
+        ) : (
           <div
             key={index}
-            className={`quick-plan__week-day ${day.type === "rest" ? "is-rest" : ""}`}
+            className={`quick-plan__day ${routineId ? "is-training" : "is-rest"}`}
+            style={tone(routineId || "rest")}
           >
-            <span>{short}</span>
-            {day.type === "training" ? (
-              editable ? (
-                <select
-                  aria-label={`Rutina del ${full.toLowerCase()}`}
-                  value={day.routineId}
-                  onChange={(event) =>
-                    setOverrides((current) => ({
-                      ...current,
-                      [index]: event.target.value,
-                    }))
-                  }
-                >
-                  {selected.map((item) => (
-                    <option key={idOf(item)} value={idOf(item)}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <strong>
-                  {selected.find((item) => idOf(item) === day.routineId)
-                    ?.name || "Entrenamiento"}
-                </strong>
-              )
-            ) : (
-              <span>Descanso</span>
-            )}
+            {content}
           </div>
         );
       })}
     </div>
   );
 
+  if (suspended) return null;
   return (
-    <div className="quick-plan" hidden={suspended}>
+    <Modal
+      mobilePage
+      title={createdPlan ? "Planificación creada" : "Nueva planificación"}
+      onClose={close}
+      dialogClassName="quick-plan"
+      size="default"
+      footer={
+        !createdPlan ? (
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="quick-plan__replacement text-center sm:text-left">
+              {activePlan
+                ? future
+                  ? "Se activará en la fecha elegida y pausará el plan que esté activo."
+                  : `«${activePlan.name}» quedará en pausa. Su historial se conserva.`
+                : selectedDays.length
+                  ? `${selectedDays.length} días de entrenamiento · ${7 - selectedDays.length} de descanso`
+                  : "Selecciona una rutina y toca un día."}
+            </span>
+            <Button
+              className="h-12 shrink-0 px-4 text-sm"
+              disabled={saving || (!partialPlan && !valid)}
+              onClick={submit}
+            >
+              {saving
+                ? "Preparando tu plan…"
+                : partialPlan
+                  ? "Reintentar creación"
+                  : "Crear planificación"}
+            </Button>
+          </div>
+        ) : null
+      }
+    >
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="quick-plan-title"
-        tabIndex={-1}
-        className="quick-plan__dialog"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            close();
-          }
-          if (event.key !== "Tab") return;
-          const controls = [
-            ...event.currentTarget.querySelectorAll(
-              'button, input, select, textarea, summary, [tabindex="0"]',
-            ),
-          ].filter(
-            (item) => !item.disabled && item.getClientRects().length > 0,
-          );
-          const first = controls[0];
-          const last = controls.at(-1);
-          if (
-            event.shiftKey &&
-            (document.activeElement === first ||
-              document.activeElement === dialogRef.current)
-          ) {
-            event.preventDefault();
-            last?.focus();
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first?.focus();
-          }
-        }}
+        className={`quick-plan__content ${createdPlan ? "quick-plan__success" : ""}`}
       >
-        <header className="quick-plan__header">
-          <button
-            type="button"
-            onClick={close}
-            disabled={saving}
-            aria-label="Cerrar creación de planificación"
-            className="quick-plan__back"
-          >
-            <ArrowLeft aria-hidden="true" />
-          </button>
-          <span>
-            {createdPlan ? "Planificación creada" : "Nueva planificación"}
-          </span>
-          <span />
-        </header>
         {createdPlan ? (
-          <main className="quick-plan__content quick-plan__success">
+          <>
             <span className="quick-plan__success-icon">
               <Check aria-hidden="true" />
             </span>
-            <h1 id="quick-plan-title">Tu plan está listo.</h1>
+            <h1 ref={titleRef} tabIndex={-1}>
+              Tu plan está listo.
+            </h1>
             <p>
               {createdPlan.status === "scheduled"
                 ? `Comienza el ${startDate.split("-").reverse().join("/")}.`
                 : "Ya puedes empezar a entrenar."}
             </p>
-            <section className="quick-plan__card">
-              <span className="quick-plan__eyebrow">
-                {createdPlan.status === "scheduled" ? "Programado" : "Activo"}
-              </span>
-              <h2>{createdPlan.name || name || suggestedName}</h2>
-              <p>
-                {durationWeeks} semanas · {selectedDays.length} días por semana
-              </p>
-              {week(false)}
-            </section>
-            <button
-              type="button"
-              className="quick-plan__primary"
-              onClick={() => onView(createdPlan)}
-            >
+            <h2 className="quick-plan__created-name">
+              {createdPlan.name || name || suggestedName}
+            </h2>
+            <p className="quick-plan__hint">
+              {durationWeeks} semanas · {selectedDays.length} días por semana
+            </p>
+            {week(false)}
+            <Button className="h-12 w-full" onClick={() => onView(createdPlan)}>
               Ver mi plan <ArrowRight aria-hidden="true" />
-            </button>
-          </main>
+            </Button>
+          </>
         ) : (
           <>
-            <main className="quick-plan__content">
-              <div className="quick-plan__intro">
-                <p className="quick-plan__eyebrow">A tu ritmo</p>
-                <h1 id="quick-plan-title">Organiza tu semana.</h1>
-                <p>
-                  Elige tus rutinas y los días. Nosotros las distribuimos por
-                  ti.
-                </p>
-              </div>
-              <fieldset
-                disabled={saving || Boolean(partialPlan)}
-                className="quick-plan__fields"
+            <div className="quick-plan__intro">
+              <h1 id="quick-plan-title">Dale forma a tu semana.</h1>
+              <p>Elige una rutina y toca los días donde la entrenarás.</p>
+            </div>
+            <fieldset
+              disabled={saving || Boolean(partialPlan)}
+              className="quick-plan__fields"
+            >
+              <section
+                className="quick-plan__palette"
+                aria-label="Rutinas para colocar"
               >
-                <section
-                  className="quick-plan__card"
-                  aria-labelledby="quick-plan-routines-title"
-                >
-                  <div className="quick-plan__section-heading">
-                    <span>1</span>
-                    <h2 id="quick-plan-routines-title">Elige tus rutinas</h2>
-                    {routineIds.length > 0 && (
-                      <small>{routineIds.length} elegidas</small>
-                    )}
-                  </div>
-                  <div hidden={!routinePickerOpen && selected.length > 0}>
-                    <p className="quick-plan__hint">
-                      Selecciona en el orden en que quieres alternarlas.
-                    </p>
+                <div className="quick-plan__palette-heading">
+                  <h2>Tus rutinas</h2>
+                  <div>
                     {routines.length > 4 && (
-                      <label className="quick-plan__search">
-                        <Search size={18} aria-hidden="true" />
-                        <input
-                          type="search"
-                          placeholder="Buscar rutina"
-                          aria-label="Buscar rutina"
-                          value={query}
-                          onChange={(event) => setQuery(event.target.value)}
-                        />
-                      </label>
-                    )}
-                    <div className="quick-plan__routines">
-                      {visibleRoutines.map((item) => {
-                        const id = idOf(item);
-                        const position = routineIds.indexOf(id);
-                        const count = (item.exercises || []).filter(
-                          (exercise) => !exercise.isExtra,
-                        ).length;
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            aria-label={`${item.name}, ${count} ${count === 1 ? "ejercicio" : "ejercicios"}`}
-                            aria-pressed={position >= 0}
-                            onClick={() => toggleRoutine(id)}
-                            className={`quick-plan__routine ${position >= 0 ? "is-selected" : ""}`}
-                          >
-                            <span className="quick-plan__routine-icon">
-                              <Dumbbell aria-hidden="true" />
-                            </span>
-                            <span className="quick-plan__routine-name">
-                              <strong>{item.name}</strong>
-                              <small>
-                                {count}{" "}
-                                {count === 1 ? "ejercicio" : "ejercicios"}
-                              </small>
-                            </span>
-                            <span className="quick-plan__routine-check">
-                              {position >= 0 ? (
-                                position + 1
-                              ) : (
-                                <Plus size={16} aria-hidden="true" />
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {!routines.length && (
-                      <p className="quick-plan__empty">
-                        Primero guarda una rutina con tus ejercicios. Después
-                        podrás organizarla aquí.
-                      </p>
-                    )}
-                    {routines.length > 0 && !matches.length && (
-                      <p className="quick-plan__hint">
-                        No hay rutinas con ese nombre.
-                      </p>
-                    )}
-                    {!query && routines.length > 4 && (
                       <button
                         type="button"
-                        className="quick-plan__text-button"
-                        onClick={() => setExpanded(!expanded)}
-                      >
-                        {expanded
-                          ? "Mostrar menos"
-                          : `Ver las ${routines.length} rutinas`}
-                      </button>
-                    )}
-                  </div>
-                  {selected.length !== routineIds.length && (
-                    <p className="quick-plan__notice">
-                      Una rutina elegida ya no está disponible.{" "}
-                      <button
-                        type="button"
-                        className="quick-plan__text-button"
+                        className="quick-plan__icon-button"
+                        aria-label={
+                          searching
+                            ? "Cerrar búsqueda de rutinas"
+                            : "Buscar rutina"
+                        }
                         onClick={() => {
-                          setRoutineIds(selected.map(idOf));
-                          setOverrides({});
+                          setSearching(!searching);
+                          setQuery("");
                         }}
                       >
-                        Quitar rutinas no disponibles
+                        <Search size={18} aria-hidden="true" />
                       </button>
-                    </p>
-                  )}
-                  {routineIds.length > 0 && (
-                    <div
-                      className="quick-plan__selected"
-                      aria-label="Orden de las rutinas"
-                    >
-                      {selected.map((item, index) => (
-                        <button
-                          type="button"
-                          key={idOf(item)}
-                          onClick={() => toggleRoutine(idOf(item))}
-                          aria-label={`Quitar ${item.name}`}
-                        >
-                          <span>{index + 1}</span>
-                          {item.name}
-                          <X size={13} aria-hidden="true" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {!routinePickerOpen && selected.length > 0 && (
-                    <button
-                      type="button"
-                      className="quick-plan__text-button"
-                      onClick={() => setRoutinePickerOpen(true)}
-                    >
-                      Cambiar rutinas
-                    </button>
-                  )}
-                  {onCreateRoutine &&
-                    (routinePickerOpen || !selected.length) && (
+                    )}
+                    {onCreateRoutine && (
                       <button
                         type="button"
-                        className="quick-plan__text-button"
+                        className="quick-plan__icon-button"
+                        aria-label="Crear una rutina"
                         onClick={onCreateRoutine}
                       >
-                        <Plus size={16} aria-hidden="true" /> Crear una rutina
+                        <Plus size={19} aria-hidden="true" />
                       </button>
                     )}
-                  {routinePickerOpen && selected.length > 0 && (
-                    <button
-                      type="button"
-                      className="quick-plan__text-button quick-plan__done"
-                      onClick={() => setRoutinePickerOpen(false)}
-                    >
-                      Listo, elegir días{" "}
-                      <ArrowRight size={15} aria-hidden="true" />
-                    </button>
-                  )}
-                </section>
-                <section
-                  className="quick-plan__card"
-                  aria-labelledby="quick-plan-days-title"
+                  </div>
+                </div>
+                {searching && (
+                  <input
+                    type="search"
+                    className="quick-plan__search"
+                    aria-label="Buscar por nombre de rutina"
+                    placeholder="Buscar rutina…"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                )}
+                <div
+                  className="quick-plan__routine-strip"
+                  role="group"
+                  aria-label="Rutina para colocar"
                 >
-                  <div className="quick-plan__section-heading">
-                    <span>2</span>
-                    <h2 id="quick-plan-days-title">¿Qué días entrenarás?</h2>
-                  </div>
-                  <div className="quick-plan__days">
-                    {WEEKDAYS.map(([index, short, full]) => (
-                      <button
-                        type="button"
-                        key={index}
-                        aria-label={full}
-                        aria-pressed={selectedDays.includes(index)}
-                        onClick={() => {
-                          setSelectedDays((current) =>
-                            current.includes(index)
-                              ? current.filter((day) => day !== index)
-                              : [...current, index].sort((a, b) => a - b),
-                          );
-                          setError("");
-                        }}
-                      >
-                        {short}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="quick-plan__hint">
-                    Los demás días quedan como descanso.
+                  {visibleRoutines.map((routine) => (
+                    <ChoiceCard
+                      key={idOf(routine)}
+                      title={routine.name}
+                      description={`${(routine.exercises || []).filter((item) => !item.isExtra).length} ejercicios`}
+                      selected={
+                        !resting && idOf(activeRoutine) === idOf(routine)
+                      }
+                      aria-label={`Colocar ${routine.name}`}
+                      aria-pressed={
+                        !resting && idOf(activeRoutine) === idOf(routine)
+                      }
+                      onClick={() => {
+                        setPaintRoutineId(idOf(routine));
+                        setAnnouncement(
+                          `Colocando ${routine.name}. Toca un día.`,
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+                {!query && routines.length > 4 && (
+                  <button
+                    type="button"
+                    className="quick-plan__text-button"
+                    onClick={() => setExpanded(!expanded)}
+                  >
+                    {expanded ? "Ver menos" : `Ver todas (${routines.length})`}
+                  </button>
+                )}
+                {!routines.length && (
+                  <p className="quick-plan__empty">
+                    Crea una rutina con tus ejercicios para colocarla en la
+                    semana.
                   </p>
-                  {selected.length > 0 && selectedDays.length > 0 && (
-                    <div className="quick-plan__preview">
-                      <h3>Así queda tu semana</h3>
-                      <p className="quick-plan__hint">
-                        Puedes cambiar la rutina de cada día.
-                      </p>
-                      {week(true)}
-                      {unused.length > 0 && (
-                        <p className="quick-plan__notice">
-                          Sin día asignado:{" "}
-                          {unused.map((item) => item.name).join(", ")}. Elige
-                          más días o cambia la distribución.
-                        </p>
-                      )}
-                      <p className="quick-plan__hint">
-                        Esta distribución se repite cada semana.
-                      </p>
-                    </div>
-                  )}
-                </section>
-                <section
-                  className="quick-plan__card quick-plan__settings"
-                  aria-label="Configuración del plan"
+                )}
+                {query && !matches.length && (
+                  <p className="quick-plan__hint">
+                    No hay rutinas con ese nombre.
+                  </p>
+                )}
+              </section>
+              <section
+                className="quick-plan__board"
+                aria-label="Distribución semanal"
+              >
+                <div className="quick-plan__board-heading">
+                  <h2>Tu semana</h2>
+                  <span>
+                    {selectedDays.length
+                      ? `${selectedDays.length} entrenos · ${7 - selectedDays.length} descansos`
+                      : "Toca un día para empezar"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={`quick-plan__rest-tool ${resting ? "is-active" : ""}`}
+                  aria-label="Colocar descanso"
+                  aria-pressed={resting}
+                  onClick={() => setPaintRoutineId(REST)}
                 >
+                  <Moon size={19} aria-hidden="true" />
+                  <strong>Descanso</strong>
+                </button>
+                {week(true)}
+                <p className="quick-plan__hint quick-plan__board-hint">
+                  {resting
+                    ? "Toca un día para dejarlo como descanso."
+                    : `Colocando: ${activeRoutine?.name || "elige una rutina"}. Toca de nuevo para quitarla.`}
+                </p>
+              </section>
+              <details className="quick-plan__options">
+                <summary>
+                  <SlidersHorizontal size={16} aria-hidden="true" />
+                  <span>
+                    {startDate === getLocalPlanDate()
+                      ? "Desde hoy"
+                      : startDate
+                        ? startDate.split("-").reverse().join("/")
+                        : "Elige inicio"}{" "}
+                    · {durationWeeks} semanas
+                  </span>
+                  <strong>Ajustar</strong>
+                </summary>
+                <div className="quick-plan__settings">
                   <label className="quick-plan__name">
                     Nombre del plan
                     <input
                       maxLength={100}
-                      value={name}
                       placeholder={suggestedName}
+                      value={name}
                       onChange={(event) => setName(event.target.value)}
                     />
                   </label>
                   <label>
-                    <span>
-                      <CalendarDays size={15} aria-hidden="true" /> Empieza
-                    </span>
+                    Empieza
                     <input
                       type="date"
                       min={getLocalPlanDate()}
@@ -587,136 +542,91 @@ export default function QuickPlanSetup({
                         setDurationWeeks(Number(event.target.value))
                       }
                     >
-                      {[2, 4, 6, 8, 12, 16, 24, 52].map((value) => (
+                      {[1, 2, 4, 6, 8, 12, 16, 24, 52].map((value) => (
                         <option key={value} value={value}>
                           {value} semanas
                         </option>
                       ))}
                     </select>
                   </label>
-                  {startDate && startDate < getLocalPlanDate() && (
-                    <p className="quick-plan__notice">
+                  <label>
+                    Objetivo
+                    <select
+                      value={goal}
+                      onChange={(event) => setGoal(event.target.value)}
+                    >
+                      <option>General</option>
+                      <option>Hipertrofia</option>
+                      <option>Fuerza</option>
+                      <option>Salud y bienestar</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nivel
+                    <select
+                      value={level}
+                      onChange={(event) => setLevel(event.target.value)}
+                    >
+                      <option value="beginner">Principiante</option>
+                      <option value="intermediate">Intermedio</option>
+                      <option value="advanced">Avanzado</option>
+                    </select>
+                  </label>
+                  <label className="quick-plan__name">
+                    Notas
+                    <textarea
+                      rows={2}
+                      maxLength={2000}
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                    />
+                  </label>
+                  {startDate < getLocalPlanDate() && (
+                    <p className="quick-plan__error">
                       Elige hoy o una fecha futura.
                     </p>
                   )}
-                  <details>
-                    <summary>
-                      Más opciones <span>Opcional</span>
-                    </summary>
-                    <div className="quick-plan__extras">
-                      <label>
-                        Objetivo
-                        <select
-                          value={goal}
-                          onChange={(event) => setGoal(event.target.value)}
-                        >
-                          <option>General</option>
-                          <option>Hipertrofia</option>
-                          <option>Fuerza</option>
-                          <option>Salud y bienestar</option>
-                        </select>
-                      </label>
-                      <label>
-                        Nivel
-                        <select
-                          value={level}
-                          onChange={(event) => setLevel(event.target.value)}
-                        >
-                          <option value="beginner">Principiante</option>
-                          <option value="intermediate">Intermedio</option>
-                          <option value="advanced">Avanzado</option>
-                        </select>
-                      </label>
-                      <label>
-                        Notas
-                        <textarea
-                          maxLength={2000}
-                          rows={2}
-                          value={notes}
-                          onChange={(event) => setNotes(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                  </details>
-                </section>
-              </fieldset>
-              {activePlan && (
-                <p className="quick-plan__notice">
-                  {future
-                    ? `«${activePlan.name}» seguirá su calendario actual. Este plan se activará en la fecha elegida y pausará cualquier otro plan activo.`
-                    : `Al crear este plan, «${activePlan.name}» quedará en pausa. Su historial se conserva.`}
-                </p>
-              )}
-              {future && scheduledPlan && (
-                <p className="quick-plan__notice">
-                  Reemplazará al plan programado «{scheduledPlan.name}», que
-                  quedará en pausa.
-                </p>
-              )}
-              {!future && scheduledPlan && (
-                <p className="quick-plan__notice">
-                  «{scheduledPlan.name}» sigue programado y se activará según su
-                  fecha de inicio.
-                </p>
-              )}
-              {partialPlan && (
-                <div className="quick-plan__notice">
-                  <strong>Tu borrador está guardado.</strong>
-                  <p>
-                    Reintenta para completar las asignaciones pendientes sin
-                    crear otro plan.
-                  </p>
-                  <button
-                    type="button"
-                    className="quick-plan__text-button"
-                    disabled={saving}
-                    onClick={() => onView(partialPlan)}
-                  >
-                    Abrir borrador
-                  </button>
                 </div>
-              )}
-              {error && (
-                <p role="alert" className="quick-plan__error">
-                  {error}
-                </p>
-              )}
-            </main>
-            <footer className="quick-plan__footer">
-              <div>
-                <strong>
-                  {selectedDays.length
-                    ? `${selectedDays.length} días por semana`
-                    : "Tu semana, a tu medida"}
-                </strong>
-                <span>
-                  {startDate === getLocalPlanDate()
-                    ? "Empieza hoy"
-                    : startDate
-                      ? `Desde ${startDate.split("-").reverse().join("/")}`
-                      : "Elige el inicio"}{" "}
-                  · {durationWeeks} semanas
-                </span>
+              </details>
+            </fieldset>
+            {missingRoutines && (
+              <p className="quick-plan__notice">
+                Hay rutinas que ya no están disponibles. Sustitúyelas tocando
+                sus días.
+              </p>
+            )}
+            {scheduledPlan && (
+              <p className="quick-plan__notice">
+                {future
+                  ? `«${scheduledPlan.name}» quedará en pausa al programar este plan.`
+                  : `«${scheduledPlan.name}» sigue programado para su fecha de inicio.`}
+              </p>
+            )}
+            {partialPlan && (
+              <div className="quick-plan__notice">
+                <strong>Tu borrador está guardado.</strong>
+                <p>Reintenta para terminarlo sin crear otro plan.</p>
+                <button
+                  type="button"
+                  className="quick-plan__text-button"
+                  disabled={saving}
+                  onClick={() => onView(partialPlan)}
+                >
+                  Abrir borrador
+                </button>
               </div>
-              <button
-                type="button"
-                className="quick-plan__primary"
-                disabled={
-                  saving || (!partialPlan && (!valid || unused.length > 0))
-                }
-                onClick={submit}
-              >
-                {saving
-                  ? "Preparando tu plan…"
-                  : partialPlan
-                    ? "Reintentar creación"
-                    : "Crear planificación"}
-                {!saving && <ArrowRight aria-hidden="true" />}
-              </button>
-            </footer>
+            )}
+            {error && (
+              <p role="alert" className="quick-plan__error">
+                {error}
+              </p>
+            )}
           </>
         )}
+        <span className="quick-plan__sr-only" role="status" aria-live="polite">
+          {announcement}
+        </span>
       </div>
-    </div>
+    </Modal>
   );
 }

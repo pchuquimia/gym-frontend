@@ -47,6 +47,7 @@ import {
   UserRoundPlus,
 } from "lucide-react";
 import Modal from "../components/shared/Modal";
+import ChoiceCard from "../components/shared/ChoiceCard";
 import { getExerciseImageUrl } from "../utils/cloudinary";
 import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import { buildRoutineExerciseOptionMap } from "../utils/routineExerciseOptions";
@@ -2113,43 +2114,15 @@ export function RoutineModal({
                 {ROUTINE_TYPES.map((type) => {
                   const active = routineType === type.id;
                   return (
-                    <button
+                    <ChoiceCard
                       key={type.id}
-                      type="button"
                       role="radio"
-                      onClick={() => handleRoutineTypeSelect(type.id)}
+                      selected={active}
                       aria-checked={active}
-                      className={`flex min-h-[4.5rem] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
-                        active
-                          ? "border-[color:var(--text)] bg-[color:var(--text)] text-[color:var(--card)] shadow-sm"
-                          : "border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]"
-                      }`}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold leading-tight">
-                          {type.label}
-                        </span>
-                        <span
-                          className={`mt-1 block text-xs leading-snug ${
-                            active
-                              ? "text-[color:var(--card)] opacity-70"
-                              : "text-[color:var(--text-muted)]"
-                          }`}
-                        >
-                          {type.description}
-                        </span>
-                      </span>
-                      <span
-                        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-                          active
-                            ? "border-[color:var(--card)] bg-[color:var(--card)] text-[color:var(--text)]"
-                            : "border-[color:var(--border-strong)] text-transparent"
-                        }`}
-                        aria-hidden="true"
-                      >
-                        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                      </span>
-                    </button>
+                      onClick={() => handleRoutineTypeSelect(type.id)}
+                      title={type.label}
+                      description={type.description}
+                    />
                   );
                 })}
               </div>
