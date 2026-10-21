@@ -33,6 +33,28 @@ describe("auth session lifecycle", () => {
     ).toBe(false);
   });
 
+  test.each([403, 429, 500, 503, undefined])("no expira por permisos, red o servidor: %s", (status) => {
+    expect(isExpiredSessionResponse({
+      status, url: "/api/auth/me", data: { error: "No autenticado" },
+    })).toBe(false);
+  });
+
+  test("reconoce códigos de sesión aunque cambie el texto", () => {
+    expect(isExpiredSessionResponse({
+      status: 401, url: "/api/trainings", data: { code: "AUTH_SESSION_REVOKED" },
+    })).toBe(true);
+  });
+
+  test.each([
+    ["AUTH_SESSION_REVOKED", "invalidada"],
+    ["AUTH_SESSION_MISSING", "No encontramos"],
+    ["AUTH_ACCOUNT_UNAVAILABLE", "soporte"],
+    ["AUTH_DEMO_EXPIRED", "demostración terminó"],
+  ])("explica por qué terminó el acceso: %s", (code, text) => {
+    storeExpiredSessionNotice(code);
+    expect(consumeExpiredSessionNotice()).toContain(text);
+  });
+
   test("emite el evento global de expiración", () => {
     const listener = vi.fn();
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, listener, {

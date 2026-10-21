@@ -1,6 +1,10 @@
 import axios from "axios";
 import { getAuthToken } from "./tokenStorage";
-import { isExpiredSessionResponse, notifyExpiredSession } from "./authSession";
+import {
+  getAuthSessionVersion,
+  isExpiredSessionResponse,
+  notifyExpiredSession,
+} from "./authSession";
 
 const FALLBACK_API_URL = "https://api.rirfit.com";
 
@@ -68,6 +72,7 @@ export const axiosClient = axios.create({
 axiosClient.interceptors.request.use((config) => {
   config.metadata = {
     ...(config.metadata || {}),
+    authSessionVersion: getAuthSessionVersion(),
     startedAt:
       typeof performance !== "undefined" ? performance.now() : Date.now(),
   };
@@ -105,13 +110,16 @@ axiosClient.interceptors.response.use(
     if (error.response) reportRequestTiming(error.response, error);
     const responseData = error.response?.data;
     if (
+      !error.config?.skipSessionExpiration &&
+      !error.config?.skipAuth &&
+      error.config?.metadata?.authSessionVersion === getAuthSessionVersion() &&
       isExpiredSessionResponse({
         status: error.response?.status,
         url: error.config?.url,
         data: responseData,
       })
     ) {
-      notifyExpiredSession();
+      notifyExpiredSession(responseData?.code);
     }
     const message =
       responseData?.error ||

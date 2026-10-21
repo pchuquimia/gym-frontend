@@ -16,6 +16,8 @@ import {
 } from "../services/tokenStorage";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
+  advanceAuthSessionVersion,
+  getAuthSessionVersion,
   storeExpiredSessionNotice,
 } from "../services/authSession";
 import { DASHBOARD_SNAPSHOT_PREFIX } from "../utils/dashboardBootstrapCache";
@@ -239,24 +241,27 @@ export function AuthProvider({ children }) {
   }, []);
 
   const expireSession = useCallback(
-    ({ showNotice = true } = {}) => {
+    ({ showNotice = true, code } = {}) => {
       const currentUser = userRef.current;
       const hadSession = Boolean(currentUser || getAuthToken());
+      if (hadSession && developmentAdminMode) setDevAutoLoginDisabled(true);
       if (currentUser) {
         preserveActiveTraining(currentUser.id || currentUser._id);
       }
       clearAuthToken();
+      refreshInFlightRef.current = null;
       clearUserScopedStorage();
       queryClient.clear();
       commitUser(null);
       setLoading(false);
-      if (showNotice && hadSession) storeExpiredSessionNotice();
+      if (showNotice && hadSession) storeExpiredSessionNotice(code);
     },
-    [commitUser, queryClient],
+    [commitUser, developmentAdminMode, queryClient],
   );
 
   useEffect(() => {
-    const handleExpiredSession = () => expireSession({ showNotice: true });
+    const handleExpiredSession = (event) =>
+      expireSession({ showNotice: true, code: event.detail?.code });
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
     return () =>
       window.removeEventListener(
@@ -292,10 +297,12 @@ export function AuthProvider({ children }) {
 
       if (!silent) setLoading(true);
       setError("");
+      const sessionVersion = getAuthSessionVersion();
 
       const operation = (async () => {
         try {
           const data = await api.me();
+          if (sessionVersion !== getAuthSessionVersion()) return userRef.current;
           const nextUser = normalizeUser(data);
           restoreActiveTraining(nextUser?.id || nextUser?._id);
           commitUser(nextUser);
@@ -303,13 +310,17 @@ export function AuthProvider({ children }) {
           if (googleOAuthReturn) clearGoogleOAuthReturn();
           return nextUser;
         } catch (requestError) {
+          if (sessionVersion !== getAuthSessionVersion()) return userRef.current;
           if (
+            requestError?.status === 401 &&
+            !userRef.current &&
             shouldUseDevAdminLogin() &&
             !isDevAutoLoginDisabled() &&
             !socialOAuthReturn
           ) {
             try {
               const data = await api.devAdminLogin();
+              if (sessionVersion !== getAuthSessionVersion()) return userRef.current;
               if (data?.token) setAuthToken(data.token);
               const nextUser = normalizeUser(data);
               restoreActiveTraining(nextUser?.id || nextUser?._id);
@@ -334,7 +345,7 @@ export function AuthProvider({ children }) {
           if (facebookOAuthReturn) markFacebookOAuthSessionFailure();
           if (googleOAuthReturn) markGoogleOAuthSessionFailure();
 
-          expireSession({ showNotice: !socialOAuthReturn });
+          expireSession({ showNotice: !socialOAuthReturn, code: requestError.code });
           return null;
         } finally {
           if (!silent) setLoading(false);
@@ -358,23 +369,26 @@ export function AuthProvider({ children }) {
   }, [refreshUser]);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
+    if (!(user?.id || user?._id)) return undefined;
 
     const refreshPermissions = () => refreshUser({ silent: true });
+    const handleOnline = () => refreshUser({ silent: true, force: true });
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refreshPermissions();
     };
 
     window.addEventListener("focus", refreshPermissions);
+    window.addEventListener("online", handleOnline);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     const intervalId = window.setInterval(refreshPermissions, 2 * 60_000);
 
     return () => {
       window.removeEventListener("focus", refreshPermissions);
+      window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.clearInterval(intervalId);
     };
-  }, [refreshUser, user?.id]);
+  }, [refreshUser, user?.id, user?._id]);
 
   const login = useCallback(
     async (payload, { remember = false } = {}) => {
@@ -498,6 +512,9 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     const userId = userRef.current?.id || userRef.current?._id;
     preserveActiveTraining(userId);
+    // In-flight /me responses must not restore the user while logout completes.
+    advanceAuthSessionVersion();
+    refreshInFlightRef.current = null;
     if (developmentAdminMode) setDevAutoLoginDisabled(true);
     try {
       await api.logout();

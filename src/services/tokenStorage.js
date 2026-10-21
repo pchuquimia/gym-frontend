@@ -1,3 +1,5 @@
+import { advanceAuthSessionVersion } from "./authSession";
+
 const TOKEN_KEY = "gym_auth_token";
 let memoryToken = "";
 
@@ -28,6 +30,7 @@ export const setAuthToken = (
   token,
   { persistent = configuredStorage === "localStorage" } = {},
 ) => {
+  advanceAuthSessionVersion();
   memoryToken = token || "";
   try {
     window.localStorage?.removeItem(TOKEN_KEY);
@@ -41,6 +44,7 @@ export const setAuthToken = (
 };
 
 export const clearAuthToken = () => {
+  advanceAuthSessionVersion();
   memoryToken = "";
   try {
     window.localStorage?.removeItem(TOKEN_KEY);
