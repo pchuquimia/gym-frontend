@@ -18,6 +18,7 @@ function Modal({
   contentClassName = "",
   footerClassName = "",
   portal = false,
+  initialFocus,
 }) {
   const sizeClasses = {
     small: "max-w-xl",
@@ -28,6 +29,7 @@ function Modal({
   const scrollRef = useRef(null);
   const dialogRef = useRef(null);
   const onCloseRef = useRef(onClose);
+  const initialFocusRef = useRef(initialFocus);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -40,7 +42,9 @@ function Modal({
     const previousRootOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
-    dialogRef.current?.focus();
+    const focusTarget = initialFocusRef.current?.();
+    if (focusTarget?.isConnected) focusTarget.focus();
+    else dialogRef.current?.focus();
     const handleKeyDown = (event) => {
       if (event.key === "Escape") onCloseRef.current?.();
       if (event.key !== "Tab" || !dialogRef.current) return;

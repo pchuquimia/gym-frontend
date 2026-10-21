@@ -35,9 +35,19 @@ cantidades son ejemplos de interfaz. Los prompts completos se guardan junto a el
 - La pantalla principal muestra únicamente la semana, un resumen de frecuencia
   y el botón «Crear planificación». No hay paleta, tarjetas por rutina ni modos
   de colocar o quitar entrenamientos.
-- Cada día tiene un selector nativo con «Descanso» y las rutinas disponibles.
-  Cambiar la selección afecta únicamente a ese día. Las rutinas personales y las
-  procedentes de una planificación se agrupan para distinguir nombres repetidos.
+- Los días con entrenamiento muestran una miniatura del ejercicio; los descansos,
+  un icono de luna. Las imágenes conservan sus colores originales y, si no cargan,
+  tienen una foto alternativa local y un icono como último recurso.
+- Tocar un día abre un selector propio con buscador, miniaturas, número de ejercicios
+  y la opción actual marcada. Las rutinas personales y las procedentes de un plan
+  se agrupan para distinguir nombres repetidos. Elegir una opción vuelve a la semana.
+- La búsqueda admite mayúsculas y palabras sin acentos; «Descanso» siempre está
+  disponible. Volver o pulsar Escape no cambia la asignación ni cierra el creador.
+- El selector comparte la ventana del creador, sin diálogos superpuestos ni menú
+  nativo del navegador. Al regresar, el foco vuelve al día editado, también con
+  React StrictMode. La pantalla se revisa en claro y oscuro y a ancho móvil.
+- Colores y foco adaptados al tema: los textos secundarios medidos en móvil tienen
+  contraste mínimo de 4,99:1 en claro y 6,62:1 en oscuro sobre sus fondos más exigentes.
 - Todos los días empiezan como descanso. Se requiere al menos un entrenamiento.
 - Nombre, inicio y duración se editan bajo «Ajustar». Inicio hoy y cuatro semanas
   por defecto; objetivo, nivel y notas quedan en «Más opciones».
