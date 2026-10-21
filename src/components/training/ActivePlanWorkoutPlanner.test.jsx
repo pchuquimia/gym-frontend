@@ -157,6 +157,8 @@ describe("ActivePlanWorkoutPlanner", () => {
 
   it("prioriza hoy y permite revisar otra sesión sin desplegar toda la semana", async () => {
     const user = userEvent.setup();
+    const onRestDurationChange = vi.fn();
+    const onRestTimingToggle = vi.fn();
 
     render(
       <ActivePlanWorkoutPlanner
@@ -182,6 +184,10 @@ describe("ActivePlanWorkoutPlanner", () => {
         error=""
         selectedWeek={0}
         currentDate="2026-08-26"
+        restTimingEnabled
+        restDurationSeconds={120}
+        onRestDurationChange={onRestDurationChange}
+        onRestTimingToggle={onRestTimingToggle}
         onRetry={vi.fn()}
         onOpenPlans={vi.fn()}
         onStart={vi.fn()}
@@ -202,6 +208,16 @@ describe("ActivePlanWorkoutPlanner", () => {
     expect(
       screen.getByRole("button", { name: "Entrenar esta rutina" }),
     ).toBeVisible();
+    expect(screen.getByRole("button", { name: "2 min" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "3 min" }));
+    expect(onRestDurationChange).toHaveBeenCalledWith(180);
+    await user.click(
+      screen.getByRole("switch", { name: "Usar tiempos de descanso" }),
+    );
+    expect(onRestTimingToggle).toHaveBeenCalledWith(false);
 
     await user.click(
       screen.getByRole("button", { name: "Entrenar esta rutina" }),
@@ -271,7 +287,7 @@ describe("ActivePlanWorkoutPlanner", () => {
       screen.getByRole("status", { name: "Rutina completada" }),
     ).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "INICIAR ENTRENAMIENTO" }),
+      screen.queryByRole("button", { name: /iniciar entrenamiento/i }),
     ).toBeNull();
   });
 

@@ -703,198 +703,204 @@ export default function ActivePlanWorkoutPlanner({
                 </div>
               ) : null}
 
-              <div className="flex items-start gap-3.5">
-                <div className="training-schedule__selected-date grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
-                  <div>
-                    <span className="block text-sm font-bold uppercase leading-none">
-                      {sequential ? "Día" : DAY_SHORT_NAMES[selectedDay.index]}
-                    </span>
-                    <strong className="mt-1 block text-3xl font-bold leading-none tabular-nums">
-                      {sequential
-                        ? selectedDay.index + 1
-                        : selectedDay.date?.getUTCDate()}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedDay.current ? (
-                      <span className="training-schedule__today-badge border border-current bg-transparent px-2 py-1 text-[10px] font-bold uppercase text-current">
-                        {sequential ? "Actual" : "Hoy"}
+              <div className="training-schedule__details">
+                <div className="flex items-start gap-3.5">
+                  <div className="training-schedule__selected-date grid h-[68px] w-[62px] shrink-0 place-items-center border border-[#dddddd] bg-white text-center text-[#666] dark:border-[#292929] dark:bg-[#121212] dark:text-[#c8c8aa]">
+                    <div>
+                      <span className="block text-sm font-bold uppercase leading-none">
+                        {sequential
+                          ? "Día"
+                          : DAY_SHORT_NAMES[selectedDay.index]}
                       </span>
-                    ) : null}
-                    {!selectedDay.completed &&
-                    !selectedDay.rest &&
-                    plan.goal ? (
-                      <span
-                        className={`training-schedule__goal text-xs font-bold uppercase ${
-                          selectedDay.current
-                            ? "text-current"
-                            : "text-[#101110] dark:text-[#d8ff00]"
-                        }`}
-                      >
-                        {plan.goal}
-                      </span>
-                    ) : null}
+                      <strong className="mt-1 block text-3xl font-bold leading-none tabular-nums">
+                        {sequential
+                          ? selectedDay.index + 1
+                          : selectedDay.date?.getUTCDate()}
+                      </strong>
+                    </div>
                   </div>
 
-                  <h3 className="training-schedule__selected-title mt-1.5 font-condensed text-2xl font-bold uppercase leading-none sm:text-3xl">
-                    {selectedDay.title}
-                  </h3>
-
-                  <div
-                    className={`mt-2.5 flex flex-wrap items-center gap-2 text-xs font-semibold ${
-                      selectedDay.current
-                        ? "text-current/80"
-                        : "text-[#555] dark:text-[#d0d0b8]"
-                    }`}
-                  >
-                    {selectedDay.rest ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <BedDouble className="h-4 w-4" />
-                        {selectedDay.day.type === "rest"
-                          ? "Recuperación programada"
-                          : "Movilidad ligera"}
-                      </span>
-                    ) : (
-                      <>
-                        {selectedDay.duration ? (
-                          <>
-                            <span
-                              className="training-schedule__duration"
-                              title={
-                                selectedDay.durationSource === "history"
-                                  ? `Promedio total de ${selectedDay.durationSampleSize} ${selectedDay.durationSampleSize === 1 ? "sesión" : "sesiones"}, incluidos los descansos`
-                                  : "Duración total estimada, incluidos los descansos entre series"
-                              }
-                              aria-label={
-                                selectedDay.durationSource === "history"
-                                  ? `${selectedDurationLabel} en promedio por sesión, incluidos los descansos`
-                                  : `${selectedDurationLabel} estimados para la sesión completa, incluidos los descansos`
-                              }
-                            >
-                              {selectedDay.durationSource === "history"
-                                ? `${selectedDurationLabel} `
-                                : `~${selectedDurationLabel} total`}
-                            </span>
-                            {plannedCalories ? (
-                              <>
-                                <span
-                                  className="training-schedule__metric-divider"
-                                  aria-hidden="true"
-                                >
-                                  |
-                                </span>
-                                <span
-                                  title={
-                                    selectedDay.calorieSource === "history"
-                                      ? `Promedio del cálculo real del dashboard en las últimas ${selectedDay.calorieSampleSize} ${selectedDay.calorieSampleSize === 1 ? "sesión" : "sesiones"} de esta rutina`
-                                      : "Estimación inicial hasta completar esta rutina"
-                                  }
-                                  aria-label={`${plannedCalories} calorías estimadas, ${
-                                    selectedDay.calorieSource === "history"
-                                      ? `calculadas con el promedio real de ${selectedDay.calorieSampleSize} ${selectedDay.calorieSampleSize === 1 ? "sesión" : "sesiones"}`
-                                      : "calculadas con la duración planificada"
-                                  }`}
-                                >
-                                  {plannedCalories} Cal
-                                </span>
-                              </>
-                            ) : null}
-                          </>
-                        ) : null}
-                        <span className="training-schedule__exercise-count inline-flex items-center gap-1.5">
-                          <Dumbbell className="h-3.5 w-3.5" />
-                          {selectedDay.exerciseCount}{" "}
-                          {Number(selectedDay.exerciseCount) === 1
-                            ? "ejercicio"
-                            : "ejercicios"}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedDay.current ? (
+                        <span className="training-schedule__today-badge border border-current bg-transparent px-2 py-1 text-[10px] font-bold uppercase text-current">
+                          {sequential ? "Actual" : "Hoy"}
                         </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {selectedDay.completed && selectedDay.routine ? (
-                <div
-                  className="training-schedule__completed-state mt-5 flex h-14 items-center justify-center gap-2.5 border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-5 text-sm font-bold"
-                  role="status"
-                  aria-label="Rutina completada"
-                >
-                  <span className="training-schedule__completed-state-icon grid h-7 w-7 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#d8ff00] dark:text-black">
-                    <Check className="h-4 w-4" strokeWidth={3} />
-                  </span>
-                  <span>Rutina completada</span>
-                </div>
-              ) : selectedDay.current && selectedDay.routine ? (
-                <div className="mt-5 space-y-3">
-                  <div className="training-schedule__action-row flex">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onStart(
-                          selectedDay.routine.id || selectedDay.routine._id,
-                          selectedDay.day.slotId,
-                          {
-                            isScheduleOverride: false,
-                            scheduledDate: selectedDay.dateValue,
-                            dayIndex: selectedDay.index,
-                          },
-                        )
-                      }
-                      disabled={selectedDay.preparing}
-                      className="training-schedule__primary-action flex h-14 w-full items-center justify-center gap-3 bg-[#181918] px-5 text-sm font-bold uppercase text-white disabled:opacity-60 dark:bg-[#d8ff00] dark:text-black sm:ml-auto sm:w-auto"
-                    >
-                      {selectedDay.preparing ? (
-                        <RotateCcw className="h-4 w-4 animate-spin" />
                       ) : null}
-                      {selectedDay.preparing
-                        ? "PREPARANDO ENTRENAMIENTO"
-                        : "INICIAR ENTRENAMIENTO"}
-                    </button>
+                      {!selectedDay.completed &&
+                      !selectedDay.rest &&
+                      plan.goal ? (
+                        <span
+                          className={`training-schedule__goal text-xs font-bold uppercase ${
+                            selectedDay.current
+                              ? "text-current"
+                              : "text-[#101110] dark:text-[#d8ff00]"
+                          }`}
+                        >
+                          {plan.goal}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <h3 className="training-schedule__selected-title mt-1.5 font-condensed text-2xl font-bold uppercase leading-none sm:text-3xl">
+                      {selectedDay.title}
+                    </h3>
+
+                    <div
+                      className={`mt-2.5 flex flex-wrap items-center gap-2 text-xs font-semibold ${
+                        selectedDay.current
+                          ? "text-current/80"
+                          : "text-[#555] dark:text-[#d0d0b8]"
+                      }`}
+                    >
+                      {selectedDay.rest ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <BedDouble className="h-4 w-4" />
+                          {selectedDay.day.type === "rest"
+                            ? "Recuperación programada"
+                            : "Movilidad ligera"}
+                        </span>
+                      ) : (
+                        <>
+                          {selectedDay.duration ? (
+                            <>
+                              <span
+                                className="training-schedule__duration"
+                                title={
+                                  selectedDay.durationSource === "history"
+                                    ? `Promedio total de ${selectedDay.durationSampleSize} ${selectedDay.durationSampleSize === 1 ? "sesión" : "sesiones"}, incluidos los descansos`
+                                    : "Duración total estimada, incluidos los descansos entre series"
+                                }
+                                aria-label={
+                                  selectedDay.durationSource === "history"
+                                    ? `${selectedDurationLabel} en promedio por sesión, incluidos los descansos`
+                                    : `${selectedDurationLabel} estimados para la sesión completa, incluidos los descansos`
+                                }
+                              >
+                                {selectedDay.durationSource === "history"
+                                  ? `${selectedDurationLabel} `
+                                  : `~${selectedDurationLabel} total`}
+                              </span>
+                              {plannedCalories ? (
+                                <>
+                                  <span
+                                    className="training-schedule__metric-divider"
+                                    aria-hidden="true"
+                                  >
+                                    |
+                                  </span>
+                                  <span
+                                    title={
+                                      selectedDay.calorieSource === "history"
+                                        ? `Promedio del cálculo real del dashboard en las últimas ${selectedDay.calorieSampleSize} ${selectedDay.calorieSampleSize === 1 ? "sesión" : "sesiones"} de esta rutina`
+                                        : "Estimación inicial hasta completar esta rutina"
+                                    }
+                                    aria-label={`${plannedCalories} calorías estimadas, ${
+                                      selectedDay.calorieSource === "history"
+                                        ? `calculadas con el promedio real de ${selectedDay.calorieSampleSize} ${selectedDay.calorieSampleSize === 1 ? "sesión" : "sesiones"}`
+                                        : "calculadas con la duración planificada"
+                                    }`}
+                                  >
+                                    {plannedCalories} Cal
+                                  </span>
+                                </>
+                              ) : null}
+                            </>
+                          ) : null}
+                          <span className="training-schedule__exercise-count inline-flex items-center gap-1.5">
+                            <Dumbbell className="h-3.5 w-3.5" />
+                            {selectedDay.exerciseCount}{" "}
+                            {Number(selectedDay.exerciseCount) === 1
+                              ? "ejercicio"
+                              : "ejercicios"}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <RestTimingControl
-                    enabled={restTimingEnabled}
-                    durationSeconds={restDurationSeconds}
-                    onToggle={onRestTimingToggle}
-                    onDurationChange={onRestDurationChange}
-                  />
                 </div>
-              ) : null}
 
-              {!selectedDay.current &&
-              !selectedDay.completed &&
-              !selectedDay.rest &&
-              selectedDay.routine ? (
-                <button
-                  type="button"
-                  onClick={() => setOverrideCandidate(selectedDay)}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 border border-[#9a9a9a] px-4 text-xs font-bold uppercase text-[#444] transition-colors hover:border-[#181918] hover:text-[#101110] dark:border-[#4a4a4a] dark:text-[#d0d0b8] dark:hover:border-[#d8ff00] dark:hover:text-[#d8ff00] sm:ml-auto sm:w-auto"
-                >
-                  <Play className="h-4 w-4" />
-                  Entrenar esta rutina
-                </button>
-              ) : null}
+                {selectedDay.completed && selectedDay.routine ? (
+                  <div
+                    className="training-schedule__session-action training-schedule__completed-state mt-5 flex h-14 items-center justify-center gap-2.5 border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-5 text-sm font-bold"
+                    role="status"
+                    aria-label="Rutina completada"
+                  >
+                    <span className="training-schedule__completed-state-icon grid h-7 w-7 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#d8ff00] dark:text-black">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                    <span>Rutina completada</span>
+                  </div>
+                ) : !selectedDay.rest && selectedDay.routine ? (
+                  <div className="training-schedule__start-controls">
+                    <div className="training-schedule__action-row flex">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedDay.current) {
+                            setOverrideCandidate(selectedDay);
+                            return;
+                          }
+                          onStart(
+                            selectedDay.routine.id || selectedDay.routine._id,
+                            selectedDay.day.slotId,
+                            {
+                              isScheduleOverride: false,
+                              scheduledDate: selectedDay.dateValue,
+                              dayIndex: selectedDay.index,
+                            },
+                          );
+                        }}
+                        disabled={selectedDay.preparing}
+                        className="training-schedule__session-action training-schedule__primary-action flex w-full items-center justify-center px-5 disabled:opacity-60"
+                      >
+                        <span
+                          className="training-schedule__start-icon"
+                          aria-hidden="true"
+                        >
+                          {selectedDay.preparing ? (
+                            <RotateCcw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                          )}
+                        </span>
+                        {!selectedDay.current
+                          ? "Entrenar esta rutina"
+                          : selectedDay.preparing
+                            ? "Preparando entrenamiento"
+                            : "Iniciar entrenamiento"}
+                      </button>
+                    </div>
+                    <RestTimingControl
+                      compact
+                      animateExpansion
+                      className="training-schedule__rest-control"
+                      enabled={restTimingEnabled}
+                      durationSeconds={restDurationSeconds}
+                      onToggle={onRestTimingToggle}
+                      onDurationChange={onRestDurationChange}
+                    />
+                  </div>
+                ) : null}
 
-              {sequential && selectedDay.current && selectedDay.rest ? (
-                <button
-                  type="button"
-                  onClick={onAdvance}
-                  disabled={advancing}
-                  className="mt-4 h-12 w-full border border-[#181918] px-4 text-xs font-bold uppercase text-[#101110] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
-                >
-                  {advancing ? "Actualizando..." : "Completar descanso"}
-                </button>
-              ) : null}
+                {sequential && selectedDay.current && selectedDay.rest ? (
+                  <button
+                    type="button"
+                    onClick={onAdvance}
+                    disabled={advancing}
+                    className="mt-4 h-12 w-full border border-[#181918] px-4 text-xs font-bold uppercase text-[#101110] disabled:opacity-60 dark:border-[#d8ff00] dark:text-[#d8ff00] sm:ml-auto sm:w-auto"
+                  >
+                    {advancing ? "Actualizando..." : "Completar descanso"}
+                  </button>
+                ) : null}
 
-              {!sequential && selectedDay.current && selectedDay.rest ? (
-                <p className="mx-4 mt-4 border-t border-[#d7d7d7] pt-3 text-sm leading-6 text-[#686868] dark:border-[#303030] dark:text-[#b8b8a6] sm:mx-5">
-                  La recuperación forma parte del plan. Si entrenarás hoy,
-                  selecciona otro día de la agenda.
-                </p>
-              ) : null}
+                {!sequential && selectedDay.current && selectedDay.rest ? (
+                  <p className="mx-4 mt-4 border-t border-[#d7d7d7] pt-3 text-sm leading-6 text-[#686868] dark:border-[#303030] dark:text-[#b8b8a6] sm:mx-5">
+                    La recuperación forma parte del plan. Si entrenarás hoy,
+                    selecciona otro día de la agenda.
+                  </p>
+                ) : null}
+              </div>
             </article>
           </>
         ) : (

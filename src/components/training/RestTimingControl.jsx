@@ -13,6 +13,7 @@ export default function RestTimingControl({
   onToggle,
   onDurationChange,
   compact = false,
+  animateExpansion = false,
   className = "",
 }) {
   return (
@@ -69,26 +70,43 @@ export default function RestTimingControl({
         </button>
       </div>
 
-      {enabled ? (
+      {enabled || animateExpansion ? (
         <div
-          className={`mt-3 grid grid-cols-4 gap-1.5 ${compact ? "pl-10" : ""}`}
-          aria-label="Duración del descanso"
+          className={
+            animateExpansion
+              ? `rest-timing__expansion${enabled ? " is-expanded" : ""}`
+              : undefined
+          }
+          aria-hidden={!enabled}
+          inert={!enabled ? "" : undefined}
         >
-          {REST_DURATION_OPTIONS.map(({ seconds, label }) => (
-            <button
-              key={seconds}
-              type="button"
-              onClick={() => onDurationChange(seconds)}
-              aria-pressed={durationSeconds === seconds}
-              className={`h-9 rounded-lg px-1 text-xs font-semibold tabular-nums transition-colors ${
-                durationSeconds === seconds
-                  ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
-                  : "bg-[color:var(--card)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-              }`}
+          <div
+            className={
+              animateExpansion ? "rest-timing__expansion-content" : undefined
+            }
+          >
+            <div
+              className={`mt-3 grid grid-cols-4 gap-1.5 ${compact ? "pl-10" : ""}`}
+              aria-label="Duración del descanso"
             >
-              {label}
-            </button>
-          ))}
+              {REST_DURATION_OPTIONS.map(({ seconds, label }) => (
+                <button
+                  key={seconds}
+                  type="button"
+                  disabled={!enabled}
+                  onClick={() => onDurationChange(seconds)}
+                  aria-pressed={durationSeconds === seconds}
+                  className={`h-9 rounded-lg px-1 text-xs font-semibold tabular-nums transition-colors ${
+                    durationSeconds === seconds
+                      ? "bg-[#181918] text-white dark:bg-[#e2ff00] dark:text-black"
+                      : "bg-[color:var(--card)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

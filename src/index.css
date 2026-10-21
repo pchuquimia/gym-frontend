@@ -1738,17 +1738,115 @@ button,
   letter-spacing: -0.035em;
 }
 
-.training-schedule__selection--hero > .flex.items-start .mt-2\.5.flex {
+.training-schedule__selection--hero .training-schedule__details > .flex.items-start .mt-2\.5.flex {
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.25rem;
 }
 
-.training-schedule__primary-action {
+.training-schedule__session-action {
+  height: 3.5rem;
+  gap: 0.625rem;
+  border-radius: 0.875rem;
   font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1rem;
-  letter-spacing: 0.01em;
+  line-height: 1.25rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.training-schedule__primary-action {
+  border: 1px solid transparent;
+  background: #181918 !important;
+  color: #fff !important;
+  transition: background-color 150ms ease;
+}
+
+.training-schedule__primary-action:hover:not(:disabled) {
+  background: #2b2d2a !important;
+}
+
+.training-schedule__primary-action:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.training-schedule__start-icon {
+  display: grid;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #181918;
+}
+
+.training-schedule__start-controls {
+  display: grid;
+  flex: none;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.training-schedule__rest-control {
+  padding: 0;
+  border-radius: 0;
+}
+
+.training-schedule__rest-control > div:first-child,
+.training-schedule__rest-control > div:first-child > div {
+  gap: 0.5rem;
+}
+
+.training-schedule__rest-control > div:first-child > div > span:first-child {
+  width: 1.25rem;
+  height: 1.5rem;
+}
+
+.training-schedule__rest-control strong {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.training-schedule__rest-control [aria-label="Duración del descanso"] {
+  padding-left: 0;
+  margin-top: 0.5rem;
+}
+
+.training-schedule__rest-control [aria-pressed] {
+  height: 2.75rem;
+  border: 1px solid var(--border);
+}
+
+.training-schedule__rest-control [aria-pressed="true"] {
+  border-color: #181918;
+  background: #181918;
+  color: white;
+}
+
+.rest-timing__expansion {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 240ms ease, opacity 180ms ease;
+}
+
+.rest-timing__expansion.is-expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.rest-timing__expansion-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rest-timing__expansion {
+    transition: none;
+  }
 }
 
 .training-schedule__session-kicker {
@@ -4972,6 +5070,7 @@ button,
     height: 100dvh;
     min-height: 0;
     overflow: hidden;
+    background: var(--card);
   }
 
   .app-shell:has(.training-setup-page--static) > .grid {
@@ -4991,6 +5090,8 @@ button,
     height: 100%;
     min-height: 0;
     overflow: hidden;
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px)) !important;
+    background: var(--card);
   }
 
   .mobile-app-content:has(.training-setup-page--static) > main,
@@ -4999,6 +5100,7 @@ button,
     height: 100%;
     min-height: 0;
     overflow: hidden;
+    background: var(--card);
   }
 
   .training-setup-page {
@@ -5022,6 +5124,7 @@ button,
     min-height: 0 !important;
     overflow: hidden;
     padding-bottom: 0 !important;
+    background: var(--card);
   }
 
   .training-setup-page--static .training-setup-page__content,
@@ -5039,6 +5142,8 @@ button,
   .training-setup-page--static .training-schedule {
     height: 100%;
     min-height: 0;
+    flex: 1;
+    background: var(--bg);
   }
 
   .training-schedule {
@@ -5243,7 +5348,7 @@ button,
     backdrop-filter: blur(12px);
   }
 
-  .training-schedule__selection--hero > .flex.items-start {
+  .training-schedule__selection--hero .training-schedule__details > .flex.items-start {
     position: relative;
     z-index: 4;
     justify-content: center;
@@ -5254,7 +5359,7 @@ button,
     text-align: center;
   }
 
-  .training-schedule__selection--hero > .flex.items-start > .min-w-0.flex-1 {
+  .training-schedule__selection--hero .training-schedule__details > .flex.items-start > .min-w-0.flex-1 {
     flex: 0 1 auto;
     width: 100%;
   }
@@ -5291,7 +5396,7 @@ button,
     text-transform: none;
   }
 
-  .training-schedule__selection--hero > .flex.items-start .mt-2\.5.flex {
+  .training-schedule__selection--hero .training-schedule__details > .flex.items-start .mt-2\.5.flex {
     justify-content: center;
     margin-top: 0.625rem;
     color: var(--text-muted);
@@ -5312,17 +5417,23 @@ button,
     flex: 1;
     height: 3.25rem;
     border-radius: 0.875rem;
-    background: var(--accent) !important;
-    color: var(--accent-contrast) !important;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .training-schedule__action-row {
     margin-top: 1.5rem;
     padding-inline: var(--mobile-page-gutter);
+  }
+
+  .training-schedule__start-controls .training-schedule__action-row {
+    margin-top: 0;
+  }
+
+  .training-schedule__rest-control {
+    margin-inline: var(--mobile-page-gutter);
   }
 
   .training-schedule__completed-state {
@@ -5347,23 +5458,41 @@ button,
   }
 
   .training-setup-page--static .training-schedule__selection--hero {
-    display: flex;
+    position: relative;
+    display: block;
     min-height: 0;
     flex: 1;
-    flex-direction: column;
     overflow: hidden;
+    border-radius: 0;
+    padding-bottom: 0;
+  }
+
+  .training-setup-page--static .training-schedule__details {
+    position: absolute;
+    z-index: 4;
+    inset-inline: 0;
+    bottom: 0;
+    border-radius: 2rem 2rem 0 0;
+    background: var(--card);
+    padding-top: 2.25rem;
     padding-bottom: 1rem;
   }
 
+  .training-setup-page--static .training-schedule__selection--hero .training-schedule__details > .flex.items-start {
+    margin: 0;
+    padding-top: 0;
+  }
+
   .training-setup-page--static .training-schedule__hero {
-    height: auto;
+    /* Preserve the original preview height before adding the rest controls. */
+    height: max(8rem, calc(100dvh - 26rem));
     min-height: 8rem;
-    flex: 1 1 auto;
+    flex: none;
   }
 
   .training-setup-page--static .training-schedule__action-row {
     flex: none;
-    margin-top: 1rem;
+    margin-top: 0;
   }
 
   .training-setup-page--static .training-schedule__completed-state {
@@ -6837,7 +6966,7 @@ button,
     line-height: 1;
   }
 
-  .training-schedule__selection--hero > .flex.items-start {
+  .training-schedule__selection--hero .training-schedule__details > .flex.items-start {
     padding-top: 2.125rem;
   }
 
@@ -6848,7 +6977,7 @@ button,
     letter-spacing: -0.03em;
   }
 
-  .training-schedule__selection--hero > .flex.items-start .mt-2\.5.flex {
+  .training-schedule__selection--hero .training-schedule__details > .flex.items-start .mt-2\.5.flex {
     margin-top: 0.5rem;
     font-size: 1rem;
     font-weight: 400;
@@ -6856,11 +6985,11 @@ button,
   }
 
   .training-schedule__primary-action {
-    height: var(--mobile-control-height);
-    border-radius: var(--mobile-control-radius);
-    font-size: 0.9375rem;
+    height: 3.25rem;
+    border-radius: 0.875rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
   }
 
   [data-training-header] {
