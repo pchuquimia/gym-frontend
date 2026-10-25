@@ -6255,6 +6255,17 @@ button,
   flex-direction: column;
   align-items: center;
 }
+.training-exercise-card__surface:not(.is-open) .training-exercise-card__summary {
+  row-gap: 4px !important;
+}
+.training-exercise-card__surface:not(.is-open)
+  .training-exercise-card__summary:has(.training-exercise-card__info)
+  .training-exercise-card__heading {
+  align-self: end;
+}
+.training-exercise-card__surface:not(.is-open) .training-exercise-card__info {
+  align-self: start;
+}
 .training-exercise-card__surface:not(.is-open)
   .training-exercise-card__summary:not(:has(.training-exercise-card__info)) {
   grid-template-areas: "image name actions";
@@ -8331,8 +8342,30 @@ button,
   .training-active-overview [data-training-overview] {
     border-right: 0;
     border-left: 0;
+    border-bottom: 0;
     border-radius: 0;
-    box-shadow: 0 8px 24px rgba(18, 18, 18, 0.12);
+    box-shadow: none;
+  }
+
+  .training-active-overview__visual {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 36px),
+      rgba(0, 0, 0, 0.92) calc(100% - 24px),
+      rgba(0, 0, 0, 0.45) calc(100% - 10px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - 36px),
+      rgba(0, 0, 0, 0.92) calc(100% - 24px),
+      rgba(0, 0, 0, 0.45) calc(100% - 10px),
+      transparent 100%
+    );
   }
 
   .training-active-overview [data-training-overview] > div:last-child {

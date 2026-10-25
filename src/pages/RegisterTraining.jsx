@@ -7350,20 +7350,24 @@ export default function RegisterTraining({
                   : "border-white/15"
               }`}
             >
-              <motion.img
-                key={getTrainingCompletionHeroImage(selectorRoutine)}
-                src={getTrainingCompletionHeroImage(selectorRoutine)}
-                alt=""
-                initial={reduceMotion ? false : { scale: 1.06, opacity: 0.82 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{
-                  duration: reduceMotion ? 0 : 0.75,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-                className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
-              />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-r from-black/90 via-black/65 to-black/25" />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+              <div className="training-active-overview__visual">
+                <motion.img
+                  key={getTrainingCompletionHeroImage(selectorRoutine)}
+                  src={getTrainingCompletionHeroImage(selectorRoutine)}
+                  alt=""
+                  initial={
+                    reduceMotion ? false : { scale: 1.06, opacity: 0.82 }
+                  }
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.75,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/25" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+              </div>
 
               <motion.div
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
