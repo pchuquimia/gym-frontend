@@ -2,14 +2,7 @@ import PropTypes from "prop-types";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  Check,
-  ChevronDown,
-  Repeat2,
-  Settings2,
-  SlidersHorizontal,
-  Trash2,
-} from "lucide-react";
+import { Check, ChevronDown, Repeat2, Settings2, Trash2 } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
 import SetRow from "./SetRow";
@@ -55,6 +48,48 @@ const getReferenceDateLabel = (exercise = {}) => {
       .pop()
       ?.trim() || ""
   );
+};
+
+function ExerciseOptionSwitch({ label, value, options, onChange }) {
+  const switchId = useId();
+  const reduceMotion = useReducedMotion();
+  return (
+    <div className="training-exercise-card__switch-setting">
+      <div
+        className="training-exercise-card__switch"
+        role="group"
+        aria-label={label}
+      >
+        {options.map(([key, text, accessibleName]) => (
+          <button
+            key={key}
+            type="button"
+            aria-label={accessibleName || text}
+            title={accessibleName || text}
+            aria-pressed={value === key}
+            onClick={() => onChange(key)}
+          >
+            {value === key && (
+              <motion.span
+                className="training-exercise-card__switch-selection"
+                layoutId={switchId}
+                initial={false}
+                transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                aria-hidden="true"
+              />
+            )}
+            <span>{text}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+ExerciseOptionSwitch.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  options: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)).isRequired,
+  onChange: PropTypes.func.isRequired,
 };
 
 function DeleteExerciseSheet({ exerciseName, onConfirm, onClose }) {
@@ -191,6 +226,9 @@ export default function ExerciseCard({
   const hasStoredHistory = Boolean(
     referenceDateLabel || exercise.hasStoredHistory,
   );
+  const showHistory = Boolean(
+    open && hasStoredHistory && (onViewTracking || historyDateLabel),
+  );
   const setupNote = String(exercise.setupNote || "").trim();
   const weightUnitLabel = getWeightUnitLabel(exercise);
   const isComplete =
@@ -305,6 +343,21 @@ export default function ExerciseCard({
     };
   }, [currentImageSrc, exercise.id]);
 
+  const optionsButton =
+    open && !readOnly ? (
+      <button
+        type="button"
+        onClick={() => setShowOptions((value) => !value)}
+        className="training-exercise-card__options"
+        aria-label={`Opciones de ${exercise.name}`}
+        aria-expanded={showOptions}
+        aria-controls={optionsPanelId}
+        title="Opciones"
+      >
+        Opciones
+      </button>
+    ) : null;
+
   return (
     <motion.div
       data-exercise-id={exercise.id}
@@ -402,54 +455,57 @@ export default function ExerciseCard({
             (open && hasStoredHistory) ||
             setupNote ||
             isComplete ||
-            exercise.isActive) && (
+            exercise.isActive ||
+            optionsButton) && (
             <div className="training-exercise-card__info min-w-0">
-              {(hasVariants ||
-                isComplete ||
-                (exercise.isActive && !isComplete)) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {exercise.isActive && !isComplete && (
-                    <span className="training-exercise-card__status">
-                      <span aria-hidden="true" />
-                      En curso
-                    </span>
-                  )}
-                  {isComplete && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--text-muted)]"
-                      aria-label="Completado"
+              <div className="training-exercise-card__metadata-row">
+                {(hasVariants ||
+                  isComplete ||
+                  (exercise.isActive && !isComplete)) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {exercise.isActive && !isComplete && (
+                      <span className="training-exercise-card__status">
+                        <span aria-hidden="true" />
+                        En curso
+                      </span>
+                    )}
+                    {isComplete && (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--text-muted)]"
+                        aria-label="Completado"
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                        Completado
+                      </span>
+                    )}
+                    {hasVariants && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
+                        title="Variante actual"
+                      >
+                        <Repeat2 className="h-3 w-3" aria-hidden="true" />
+                        {variantPosition}/{variantTotal}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {showHistory &&
+                  (onViewTracking ? (
+                    <button
+                      type="button"
+                      onClick={onViewTracking}
+                      className="training-exercise-card__meta group flex min-w-0 items-start gap-1.5 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                      aria-label={`Ver historial de ${exercise.name}`}
                     >
-                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      Completado
-                    </span>
-                  )}
-                  {hasVariants && (
-                    <span
-                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
-                      title="Variante actual"
-                    >
-                      <Repeat2 className="h-3 w-3" aria-hidden="true" />
-                      {variantPosition}/{variantTotal}
-                    </span>
-                  )}
-                </div>
-              )}
-              {open &&
-                hasStoredHistory &&
-                (onViewTracking ? (
-                  <button
-                    type="button"
-                    onClick={onViewTracking}
-                    className="training-exercise-card__meta group flex min-w-0 items-start gap-1.5 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
-                    aria-label={`Ver historial de ${exercise.name}`}
-                  >
-                    <span>{`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${referenceDateLabel && exercise.referenceSourceText ? ` · ${exercise.referenceSourceText}` : !referenceDateLabel ? " · Otra rutina" : ""}`}</span>
-                  </button>
-                ) : historyDateLabel ? (
-                  <p className="training-exercise-card__meta text-xs font-medium text-[color:var(--text-muted)]">
-                    Última vez: {historyDateLabel}
-                  </p>
-                ) : null)}
+                      <span>{`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${referenceDateLabel && exercise.referenceSourceText ? ` · ${exercise.referenceSourceText}` : !referenceDateLabel ? " · Otra rutina" : ""}`}</span>
+                    </button>
+                  ) : historyDateLabel ? (
+                    <p className="training-exercise-card__meta text-xs font-medium text-[color:var(--text-muted)]">
+                      Última vez: {historyDateLabel}
+                    </p>
+                  ) : null)}
+              </div>
+              {optionsButton}
               {setupNote && (
                 <div
                   className="training-exercise-card__setup flex min-w-0 items-start gap-1.5 text-xs text-[color:var(--text-muted)]"
@@ -482,19 +538,6 @@ export default function ExerciseCard({
                 className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
               />
             </button>
-            {open && !readOnly && (
-              <button
-                type="button"
-                onClick={() => setShowOptions((value) => !value)}
-                className="training-exercise-card__options"
-                aria-label={`Opciones de ${exercise.name}`}
-                aria-expanded={showOptions}
-                aria-controls={optionsPanelId}
-                title="Opciones"
-              >
-                <SlidersHorizontal size={16} aria-hidden="true" />
-              </button>
-            )}
           </div>
         </div>
 
@@ -509,7 +552,7 @@ export default function ExerciseCard({
             >
               <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
                 <AnimatePresence initial={false}>
-                  {showOptions && (
+                  {showOptions && !readOnly && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -517,64 +560,35 @@ export default function ExerciseCard({
                       className="overflow-hidden"
                       id={optionsPanelId}
                     >
-                      <div className="space-y-3 rounded-xl bg-[color:var(--surface-subtle)] p-3">
-                        <fieldset className="min-w-0">
-                          <legend className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            Formato
-                          </legend>
-                          <div className="mt-1.5 grid grid-cols-3 rounded-lg bg-[color:var(--card)] p-1">
-                            {[
+                      <div className="training-exercise-card__settings">
+                        <div className="training-exercise-card__switches">
+                          <ExerciseOptionSwitch
+                            label="Formato"
+                            value={seriesValue}
+                            options={[
                               ["serie", "Normal"],
-                              ["biserie", "Biserie"],
-                              ["triserie", "Triserie"],
-                            ].map(([value, label]) => (
-                              <button
-                                key={value}
-                                type="button"
-                                onClick={() => onSeriesTypeChange(value)}
-                                aria-pressed={seriesValue === value}
-                                className={`h-9 rounded-md text-xs font-semibold transition-colors ${
-                                  seriesValue === value
-                                    ? "bg-[#181918] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
-                                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                        </fieldset>
-                        {supportsUnilateral && (
-                          <fieldset className="min-w-0">
-                            <legend className="text-[11px] font-semibold text-[color:var(--text-muted)]">
-                              Ejecución
-                            </legend>
-                            <div className="mt-1.5 grid grid-cols-2 rounded-lg bg-[color:var(--card)] p-1">
-                              {[
+                              ["biserie", "Bi", "Biserie"],
+                              ["triserie", "Tri", "Triserie"],
+                            ]}
+                            onChange={onSeriesTypeChange}
+                          />
+                          {supportsUnilateral && (
+                            <ExerciseOptionSwitch
+                              label="Ejecución"
+                              value={movementMode}
+                              options={[
                                 ["bilateral", "Bilateral"],
                                 ["unilateral", "Unilateral"],
-                              ].map(([value, label]) => (
-                                <button
-                                  key={value}
-                                  type="button"
-                                  onClick={() => onMovementModeChange(value)}
-                                  aria-pressed={movementMode === value}
-                                  className={`h-9 rounded-md text-xs font-semibold transition-colors ${
-                                    movementMode === value
-                                      ? "bg-[#181918] text-white shadow-sm dark:bg-[#e2ff00] dark:text-black"
-                                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          </fieldset>
-                        )}
-                        <label className="block">
-                          <span className="mb-1.5 block text-[11px] font-semibold text-[color:var(--text-muted)]">
-                            Ajuste del equipo
-                          </span>
+                              ]}
+                              onChange={onMovementModeChange}
+                            />
+                          )}
+                        </div>
+                        <label
+                          className="training-exercise-card__setting"
+                          title="Ajuste del equipo"
+                        >
+                          <span>Equipo</span>
                           <input
                             type="text"
                             value={exercise.setupNote || ""}
@@ -584,8 +598,7 @@ export default function ExerciseCard({
                             maxLength={240}
                             enterKeyHint="done"
                             autoComplete="off"
-                            placeholder="Ej. asiento 3 · respaldo 5"
-                            className="h-10 w-full min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-sm text-[color:var(--text)] outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-[#181918] focus:ring-2 focus:ring-[#181918]/15 dark:rounded-[3px] dark:focus:border-[#e2ff00] dark:focus:ring-[#e2ff00]/15"
+                            placeholder="Ej. asiento 3"
                             aria-label={`Ajuste de ${exercise.name}`}
                           />
                         </label>

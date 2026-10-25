@@ -6271,10 +6271,20 @@ button,
   grid-template-areas: "image name actions";
 }
 .training-exercise-card__surface.is-open .training-exercise-card__summary {
-  grid-template-areas: "image name actions" "image info actions";
+  grid-template-areas: "image name actions" "image info info";
   grid-template-rows: auto 1fr;
   row-gap: 6px !important;
   align-items: start;
+}
+.training-exercise-card__metadata-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+}
+.training-exercise-card__metadata-row:empty {
+  display: none;
 }
 .training-exercise-card__surface.is-open .training-exercise-card__title {
   overflow-wrap: anywhere;
@@ -6282,12 +6292,13 @@ button,
 }
 .training-exercise-card__surface.is-open .training-exercise-card__heading {
   align-self: start;
+  min-height: 32px;
 }
 .training-exercise-card__surface.is-open .training-exercise-card__info {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 14px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
 }
 .training-exercise-card__status {
   display: inline-flex;
@@ -6322,25 +6333,117 @@ button,
   font-weight: 400;
   line-height: 1.4 !important;
 }
-.training-exercise-card__actions .training-exercise-card__options {
-  display: grid;
+.training-exercise-card .training-exercise-card__options {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 44px !important;
-  height: 44px;
+  align-self: flex-start;
+  justify-content: flex-start;
+  width: auto !important;
+  min-height: 32px !important;
+  height: auto;
   padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0 !important;
   background: transparent;
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
+  flex-shrink: 0;
 }
-.training-exercise-card__actions
+.training-exercise-card
   .training-exercise-card__options[aria-expanded="true"] {
-  background: var(--text);
+  background: transparent;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.training-exercise-card__settings {
+  display: grid;
+  gap: 6px;
+  padding: 6px 12px 8px;
+  background: transparent;
+}
+.training-exercise-card__switches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.training-exercise-card__switches:not(:has(.training-exercise-card__switch-setting:nth-child(2))) {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 14rem;
+}
+.training-exercise-card__switch-setting {
+  min-width: 0;
+}
+.training-exercise-card__switch {
+  display: flex;
+  min-width: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-subtle);
+}
+.training-exercise-card__switch button {
+  position: relative;
+  isolation: isolate;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 26px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.training-exercise-card__switch button[aria-pressed="true"] {
   color: var(--card);
+}
+.training-exercise-card__switch-selection {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--text);
+  pointer-events: none;
+}
+.training-exercise-card__setting {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.training-exercise-card__setting > span {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.training-exercise-card__setting input {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+}
+.training-exercise-card__setting input:focus-visible,
+.training-exercise-card__switch button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.training-exercise-card__setting input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
 }
 @media (min-width: 640px) {
   .training-exercise-card__summary {

@@ -175,14 +175,19 @@ describe("ExerciseCard", () => {
     });
     expect(optionsButton).toHaveAttribute("aria-expanded", "false");
     expect(optionsButton).toHaveAttribute("title", "Opciones");
+    expect(optionsButton).toHaveTextContent("Opciones");
 
     fireEvent.click(optionsButton);
 
     expect(optionsButton).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Ajuste del equipo")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Ajuste de Press en máquina" }),
+    ).toBeInTheDocument();
     expect(
       document.getElementById(optionsButton.getAttribute("aria-controls")),
-    ).toContainElement(screen.getByText("Ajuste del equipo"));
+    ).toContainElement(
+      screen.getByRole("textbox", { name: "Ajuste de Press en máquina" }),
+    );
   });
   it("oculta las opciones al contraer y en sesiones de solo lectura", () => {
     const { rerender } = render(
@@ -201,6 +206,61 @@ describe("ExerciseCard", () => {
     );
     expect(
       screen.queryByRole("button", { name: /Opciones de/ }),
+    ).not.toBeInTheDocument();
+  });
+  it("ofrece switches compactos y conserva los cambios de formato, ejecución y equipo", () => {
+    const onSeriesTypeChange = vi.fn();
+    const onMovementModeChange = vi.fn();
+    const onSetupNoteChange = vi.fn();
+    render(
+      <ExerciseCard
+        exercise={{
+          ...createExercise("Asiento 3"),
+          supportsUnilateral: true,
+          seriesType: "biserie",
+          movementMode: "unilateral",
+          hasStoredHistory: true,
+          storedHistoryLastDate: "2026-08-12",
+        }}
+        {...defaultProps}
+        onSeriesTypeChange={onSeriesTypeChange}
+        onMovementModeChange={onMovementModeChange}
+        onSetupNoteChange={onSetupNoteChange}
+        onViewTracking={vi.fn()}
+        open
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Opciones de Press en máquina" }),
+    );
+    const format = screen.getByRole("group", { name: "Formato" });
+    const execution = screen.getByRole("group", { name: "Ejecución" });
+    expect(
+      within(format).getByRole("button", { name: "Biserie" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(execution).getByRole("button", { name: "Unilateral" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(format).getByRole("button", { name: "Triserie" }));
+    fireEvent.click(
+      within(execution).getByRole("button", { name: "Bilateral" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ajuste de Press en máquina" }),
+      { target: { value: "Asiento 5" } },
+    );
+    expect(onSeriesTypeChange).toHaveBeenCalledWith("triserie");
+    expect(onMovementModeChange).toHaveBeenCalledWith("bilateral");
+    expect(onSetupNoteChange).toHaveBeenCalledWith("Asiento 5");
+  });
+  it("no ofrece ejecución unilateral cuando el ejercicio no la admite", () => {
+    render(<ExerciseCard exercise={createExercise()} {...defaultProps} open />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Opciones de Press en máquina" }),
+    );
+    expect(screen.getByRole("group", { name: "Formato" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "Ejecución" }),
     ).not.toBeInTheDocument();
   });
   it("mantiene contraer y opciones juntos en la cabecera sin activar el ejercicio", () => {
@@ -224,7 +284,7 @@ describe("ExerciseCard", () => {
     expect(collapse).toBeVisible();
     expect(collapse).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(
-      within(controls).getByRole("button", {
+      screen.getByRole("button", {
         name: "Opciones de Press en máquina",
       }),
     );
