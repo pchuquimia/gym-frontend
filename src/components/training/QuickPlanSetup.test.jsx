@@ -38,6 +38,7 @@ const configureWeek = async () => {
 };
 afterEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -250,7 +251,7 @@ describe("QuickPlanSetup", () => {
       screen.getByRole("button", { name: "Jueves: Pierna" }),
     ).toHaveFocus();
     expect(onClose).not.toHaveBeenCalled();
-    expect(sessionStorage.getItem("week")).toContain("pierna");
+    expect(localStorage.getItem("week")).toContain("pierna");
     await userEvent.click(screen.getByRole("button", { name: "Lunes: Torso" }));
     await userEvent.keyboard("{Escape}");
     expect(
@@ -480,16 +481,121 @@ describe("QuickPlanSetup", () => {
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeEnabled();
   });
-  it("clears the local form only on explicit close of the week", async () => {
+  it("restores the full draft after leaving the week and starting a new browser session", async () => {
     const onClose = vi.fn();
-    render(
+    const { unmount } = render(
       <QuickPlanSetup {...props} storageKey="test-plan" onClose={onClose} />,
     );
     await configureWeek();
+    await choose("Martes", "Descanso");
+    await userEvent.type(screen.getByLabelText("Nombre del plan"), "Mi bloque");
+    await userEvent.click(screen.getByText("Editar"));
+    fireEvent.change(screen.getByLabelText("Empieza"), {
+      target: { value: "2099-01-01" },
+    });
+    await userEvent.selectOptions(screen.getByLabelText("Duración"), "8");
+    await userEvent.click(screen.getByText("Más opciones"));
+    await userEvent.selectOptions(screen.getByLabelText("Objetivo"), "Fuerza");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Nivel"),
+      "intermediate",
+    );
+    await userEvent.type(screen.getByLabelText("Notas"), "Progresar sin prisa");
     await userEvent.click(screen.getByRole("button", { name: "Volver" }));
     expect(onClose).toHaveBeenCalledOnce();
-    expect(sessionStorage.getItem("test-plan")).toBeNull();
+    expect(localStorage.getItem("test-plan")).toContain("pierna");
     expect(props.onCreate).not.toHaveBeenCalled();
+    unmount();
+    sessionStorage.clear();
+    render(<QuickPlanSetup {...props} storageKey="test-plan" />);
+    expect(screen.getByRole("button", { name: "Lunes: Torso" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Jueves: Pierna" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Martes: Descanso" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue("Mi bloque");
+    expect(screen.getByLabelText("Empieza")).toHaveValue("2099-01-01");
+    expect(screen.getByLabelText("Duración")).toHaveValue("8");
+    expect(screen.getByLabelText("Objetivo")).toHaveValue("Fuerza");
+    expect(screen.getByLabelText("Nivel")).toHaveValue("intermediate");
+    expect(screen.getByLabelText("Notas")).toHaveValue("Progresar sin prisa");
+  });
+  it("discards only the local draft when explicitly requested", async () => {
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <QuickPlanSetup {...props} storageKey="discard" onClose={onClose} />,
+    );
+    await configureWeek();
+    expect(
+      screen.getByText("Borrador guardado automáticamente."),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Descartar borrador" }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(localStorage.getItem("discard")).toBeNull();
+    expect(sessionStorage.getItem("discard")).toBeNull();
+    expect(props.onCreate).not.toHaveBeenCalled();
+    unmount();
+    render(<QuickPlanSetup {...props} storageKey="discard" />);
+    expect(
+      screen.getAllByRole("button", { name: /: Añadir rutina$/ }),
+    ).toHaveLength(7);
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue("");
+  });
+  it("clears both draft stores only after a successful creation", async () => {
+    sessionStorage.setItem(
+      "created",
+      JSON.stringify({ dayRoutines: { 1: "torso" } }),
+    );
+    const onCreate = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValue({ id: "plan" });
+    render(
+      <QuickPlanSetup {...props} storageKey="created" onCreate={onCreate} />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
+    expect(localStorage.getItem("created")).not.toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Ver mi plan" }),
+    ).toBeVisible();
+    expect(localStorage.getItem("created")).toBeNull();
+    expect(sessionStorage.getItem("created")).toBeNull();
+  });
+  it("keeps a partial server draft attached when leaving and returning to retry", async () => {
+    const draft = { id: "partial", status: "draft" };
+    const onCreate = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Offline"), { draftPlan: draft }),
+      )
+      .mockResolvedValue({ id: "partial" });
+    const { unmount } = render(
+      <QuickPlanSetup {...props} storageKey="retry" onCreate={onCreate} />,
+    );
+    await configureWeek();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
+    await userEvent.click(screen.getByRole("button", { name: "Volver" }));
+    unmount();
+    render(
+      <QuickPlanSetup {...props} storageKey="retry" onCreate={onCreate} />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Reintentar creación" }),
+    );
+    expect(onCreate.mock.calls[1][0].existingDraft).toEqual(draft);
   });
   it("keeps optional settings collapsed and explains switching active plans", async () => {
     render(

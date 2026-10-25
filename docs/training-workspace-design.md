@@ -47,6 +47,16 @@ siete días: los que quedan sin rutina se guardan como descanso. El borrador
 recuerda qué descansos se eligieron explícitamente, sin cambiar el formato de
 creación del plan ni las asignaciones recuperadas de borradores anteriores.
 
+Salir con «Volver» conserva el borrador automáticamente en el dispositivo, por
+usuario. Al pulsar «Nuevo plan» se recuperan el nombre, las asignaciones,
+descansos, fecha, duración y opciones. La biblioteca no abre el creador por sí
+sola. Se recuperan también los borradores anteriores de la pestaña; si el
+almacenamiento persistente no está disponible se intenta guardar en la sesión.
+El pie del formulario indica si pudo guardarse y permite «Descartar borrador».
+Solo esa acción o la creación exitosa borran la copia local. Abrir un plan en
+preparación conserva su referencia para reintentar sin crear otro. Descartar
+la copia local no elimina un plan que ya se haya guardado en el servidor.
+
 El objetivo, nivel y notas se agrupan en «Más opciones». El pie fijo
 resume los días de entrenamiento y la duración, conserva el aviso sobre el plan
 activo y ofrece «Crear planificación». El selector mantiene la búsqueda, las

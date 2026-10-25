@@ -15,6 +15,11 @@ import {
   getQuickPlanAssignments,
 } from "../../utils/quickPlan";
 import { suggestQuickPlanName } from "../../utils/quickPlanName";
+import {
+  clearQuickPlanDraft,
+  readQuickPlanDraft,
+  saveQuickPlanDraft,
+} from "../../utils/quickPlanDraft";
 import Modal from "../shared/Modal";
 import Button from "../ui/button";
 import RoutineThumbnail from "./RoutineThumbnail";
@@ -30,20 +35,6 @@ const WEEKDAYS = [
   [7, "Domingo"],
 ];
 const idOf = (item) => String(item?.id || item?._id || "");
-const readDraft = (key) => {
-  try {
-    return key ? JSON.parse(sessionStorage.getItem(key)) || {} : {};
-  } catch {
-    return {};
-  }
-};
-const clearDraft = (key) => {
-  try {
-    if (key) sessionStorage.removeItem(key);
-  } catch {
-    /* Optional persistence. */
-  }
-};
 const initialWeek = (draft) =>
   draft.dayRoutines ||
   Object.fromEntries(
@@ -73,7 +64,8 @@ export default function QuickPlanSetup({
   const returnFocusDay = useRef(null);
   const [editingDay, setEditingDay] = useState(null);
   const [query, setQuery] = useState("");
-  const [initial] = useState(() => readDraft(storageKey));
+  const [initial] = useState(() => readQuickPlanDraft(storageKey));
+  const [draftSaved, setDraftSaved] = useState(false);
   const [dayRoutines, setDayRoutines] = useState(() => initialWeek(initial));
   const [restDays, setRestDays] = useState(initial.restDays || []);
   const [durationWeeks, setDurationWeeks] = useState(
@@ -121,6 +113,17 @@ export default function QuickPlanSetup({
     durationWeeks <= 52;
   const durationLabel = `${durationWeeks} ${durationWeeks === 1 ? "semana" : "semanas"}`;
   const trainingLabel = `${selectedDays.length} ${selectedDays.length === 1 ? "día" : "días"} de entrenamiento`;
+  const hasDraft = Boolean(
+    name.trim() ||
+    selectedDays.length ||
+    restDays.length ||
+    notes.trim() ||
+    partialPlan ||
+    durationWeeks !== 4 ||
+    startDate !== getLocalPlanDate() ||
+    goal !== "General" ||
+    level !== "beginner",
+  );
 
   useEffect(() => {
     const added = routines.find((item) => idOf(item) === addedRoutineId);
@@ -134,24 +137,19 @@ export default function QuickPlanSetup({
 
   useEffect(() => {
     if (!storageKey || createdPlan) return;
-    try {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          dayRoutines,
-          restDays,
-          durationWeeks,
-          startDate,
-          name,
-          goal,
-          level,
-          notes,
-          partialPlan,
-        }),
-      );
-    } catch {
-      /* Optional persistence. */
-    }
+    setDraftSaved(
+      saveQuickPlanDraft(storageKey, {
+        dayRoutines,
+        restDays,
+        durationWeeks,
+        startDate,
+        name,
+        goal,
+        level,
+        notes,
+        partialPlan,
+      }),
+    );
   }, [
     storageKey,
     createdPlan,
@@ -181,7 +179,11 @@ export default function QuickPlanSetup({
       closePicker();
       return;
     }
-    clearDraft(storageKey);
+    onClose();
+  };
+  const discardDraft = () => {
+    if (saving) return;
+    clearQuickPlanDraft(storageKey);
     onClose();
   };
   const assignDay = (index, routineId) => {
@@ -218,7 +220,7 @@ export default function QuickPlanSetup({
         existingDraft: partialPlan,
       });
       setCreatedPlan(plan);
-      clearDraft(storageKey);
+      clearQuickPlanDraft(storageKey);
     } catch (failure) {
       if (failure?.draftPlan) setPartialPlan(failure.draftPlan);
       setError(
@@ -630,6 +632,24 @@ export default function QuickPlanSetup({
                 </button>
               )}
             </fieldset>
+            {hasDraft && storageKey && (
+              <div className="quick-plan__draft">
+                <p>
+                  {draftSaved
+                    ? "Borrador guardado automáticamente."
+                    : "No se pudo guardar el borrador en este dispositivo."}
+                </p>
+                {partialPlan && (
+                  <p>
+                    El plan en preparación seguirá disponible en tus
+                    planificaciones.
+                  </p>
+                )}
+                <button type="button" onClick={discardDraft} disabled={saving}>
+                  Descartar borrador
+                </button>
+              </div>
+            )}
             {invalidDate && (
               <p className="quick-plan__error">
                 Elige hoy o una fecha futura en «Editar».

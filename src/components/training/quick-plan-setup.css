@@ -329,6 +329,29 @@ button.quick-plan__row:focus-visible {
 .quick-plan__options {
   border-top: 1px solid var(--border);
 }
+.quick-plan__draft {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.quick-plan__draft p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+.quick-plan__draft button {
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
 .quick-plan__options > summary,
 .quick-plan__schedule > summary {
   display: flex;

@@ -5131,13 +5131,7 @@ function Routines({
   const hadRoutinesOnEntryRef = useRef(Boolean(routines.length));
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const quickPlanStorageKey = `rirfit_quick_plan_${user?.id || user?._id || "self"}`;
-  const [quickPlanOpen, setQuickPlanOpen] = useState(() => {
-    try {
-      return Boolean(sessionStorage.getItem(quickPlanStorageKey));
-    } catch {
-      return false;
-    }
-  });
+  const [quickPlanOpen, setQuickPlanOpen] = useState(false);
   const [quickPlanAddedRoutineId, setQuickPlanAddedRoutineId] = useState(null);
   const [quickPlanIntent] = useState(
     () =>
@@ -7543,11 +7537,6 @@ function Routines({
             setQuickPlanAddedRoutineId(null);
           }}
           onView={(plan) => {
-            try {
-              sessionStorage.removeItem(quickPlanStorageKey);
-            } catch {
-              /* Optional persistence. */
-            }
             setQuickPlanOpen(false);
             setQuickPlanAddedRoutineId(null);
             openTrainingPlan(plan);
