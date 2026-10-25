@@ -21,6 +21,7 @@ import {
   Pause,
   Pencil,
   Play,
+  Plus,
   RotateCcw,
   Timer,
   X,
@@ -7709,30 +7710,22 @@ export default function RegisterTraining({
 
                   {!isHistoryReadOnly && extraExerciseOptions.length > 0 && (
                     <details className="training-extra-options group max-w-full overflow-hidden rounded-[1.25rem] border border-[color:var(--border)] bg-[color:var(--card)] shadow-[var(--shadow-xs)]">
-                      <summary className="training-extra-options__header grid min-h-[5rem] cursor-pointer list-none grid-cols-[4.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 px-3 py-2 text-left [&::-webkit-details-marker]:hidden">
-                        <ExerciseThumbnail
-                          src={
-                            getExerciseImageUrl(extraExerciseOptions[0], {
-                              preset: "thumbnail",
-                            }) || "/images/dashboard-workout-completed-color.jpg"
-                          }
-                          alt=""
-                          fallback={
-                            <img
-                              src="/images/dashboard-workout-completed-color.jpg"
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          }
-                          className="h-[72px] w-[72px] rounded-xl"
-                        />
-                        <strong className="min-w-0 text-[15px] font-semibold tracking-[-0.015em] text-[color:var(--text)]">
-                          Ejercicios opcionales
-                        </strong>
-                        <ChevronDown
-                          className="h-4 w-4 text-[color:var(--text-muted)] transition-transform group-open:rotate-180"
-                          aria-hidden="true"
-                        />
+                      <summary className="training-extra-options__header">
+                        <span className="training-extra-options__copy">
+                          <span className="training-extra-options__expand" aria-hidden="true">
+                            <Plus size={16} />
+                          </span>
+                          <strong>Ejercicios opcionales</strong>
+                        </span>
+                        <span className="training-extra-options__reference" aria-hidden="true">
+                          <img
+                            src="/images/optional-exercises-equipment.webp"
+                            alt=""
+                            width={720}
+                            height={480}
+                            loading="lazy"
+                          />
+                        </span>
                       </summary>
                       <div className="training-extra-options__grid min-w-0 divide-y divide-[color:var(--detail-row-divider)] border-t border-[color:var(--detail-row-divider)]">
                         {extraExerciseOptions.map((ex) => {
