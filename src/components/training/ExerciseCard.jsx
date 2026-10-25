@@ -1,11 +1,10 @@
 import PropTypes from "prop-types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Check,
   ChevronDown,
-  History,
   Repeat2,
   Settings2,
   SlidersHorizontal,
@@ -13,7 +12,6 @@ import {
 } from "lucide-react";
 import Card from "../ui/card";
 import Button from "../ui/button";
-import Badge from "../ui/badge";
 import SetRow from "./SetRow";
 import DetailModal from "../library/DetailModal";
 import ExerciseThumbnail from "../analytics/ExerciseThumbnail";
@@ -151,6 +149,7 @@ export default function ExerciseCard({
 }) {
   const reduceMotion = useReducedMotion();
   const [showOptions, setShowOptions] = useState(false);
+  const optionsPanelId = useId();
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [isHoldingExercise, setIsHoldingExercise] = useState(false);
   const exerciseHoldTimerRef = useRef(null);
@@ -359,7 +358,7 @@ export default function ExerciseCard({
             : "border-[color:var(--border)] shadow-lg"
         }`}
       >
-        <div className="training-exercise-card__summary relative z-30 flex items-center gap-2 p-3 transition-colors hover:bg-[color:var(--bg)]/40 sm:p-4">
+        <div className="training-exercise-card__summary relative z-30 gap-2 p-3 transition-colors hover:bg-[color:var(--bg)]/40 sm:p-4">
           <button
             type="button"
             onClick={handleOpenDetails}
@@ -374,121 +373,104 @@ export default function ExerciseCard({
               fallback={(exercise.name || "?").charAt(0).toUpperCase()}
               className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
             />
-            {exercise.isExtra ? (
+            {exercise.isExtra && (
               <span className="training-exercise-card__extra-label">Extra</span>
-            ) : null}
+            )}
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-            <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={handleToggleOpen}
-                onPointerDown={handleExercisePointerDown}
-                onPointerMove={handleExercisePointerMove}
-                onPointerUp={clearExerciseLongPress}
-                onPointerCancel={clearExerciseLongPress}
-                onPointerLeave={clearExerciseLongPress}
-                onContextMenu={(event) => {
-                  if (!readOnly && onRemoveExercise) event.preventDefault();
-                }}
-                className="block w-full text-left"
-                aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
-                aria-expanded={open}
-              >
-                <div className="flex min-w-0 items-start gap-2">
-                  <p className="training-exercise-card__title line-clamp-2 min-w-0 flex-1 text-lg font-bold leading-tight text-[color:var(--text)]">
-                    {exercise.name}
-                  </p>
-                  {exercise.isActive && !isComplete ? (
-                    <Badge variant="active" className="shrink-0">
+          <button
+            type="button"
+            onClick={handleToggleOpen}
+            onPointerDown={handleExercisePointerDown}
+            onPointerMove={handleExercisePointerMove}
+            onPointerUp={clearExerciseLongPress}
+            onPointerCancel={clearExerciseLongPress}
+            onPointerLeave={clearExerciseLongPress}
+            onContextMenu={(event) => {
+              if (!readOnly && onRemoveExercise) event.preventDefault();
+            }}
+            className="training-exercise-card__heading min-w-0 w-full text-left"
+            aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
+            aria-expanded={open}
+          >
+            <p
+              className={`training-exercise-card__title ${open ? "" : "line-clamp-2"} min-w-0 text-lg font-bold leading-tight text-[color:var(--text)]`}
+            >
+              {exercise.name}
+            </p>
+          </button>
+          {(hasVariants ||
+            (open && hasStoredHistory) ||
+            setupNote ||
+            isComplete ||
+            exercise.isActive) && (
+            <div className="training-exercise-card__info min-w-0">
+              {(hasVariants ||
+                isComplete ||
+                (exercise.isActive && !isComplete)) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {exercise.isActive && !isComplete && (
+                    <span className="training-exercise-card__status">
+                      <span aria-hidden="true" />
                       En curso
-                    </Badge>
-                  ) : null}
-                </div>
-              </button>
-              <div className="mt-1 flex min-w-0 items-center gap-1.5">
-                {hasVariants ? (
-                  <>
+                    </span>
+                  )}
+                  {isComplete && (
                     <span
-                      className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--text-muted)]"
+                      aria-label="Completado"
+                    >
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      Completado
+                    </span>
+                  )}
+                  {hasVariants && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
                       title="Variante actual"
                     >
-                      <Repeat2 className="h-3 w-3" />
+                      <Repeat2 className="h-3 w-3" aria-hidden="true" />
                       {variantPosition}/{variantTotal}
                     </span>
-                    <span
-                      className="text-xs text-[color:var(--text-muted)]"
-                      aria-hidden="true"
-                    >
-                      ·
-                    </span>
-                  </>
-                ) : null}
-                {hasStoredHistory ? (
-                  onViewTracking ? (
-                    <button
-                      type="button"
-                      onClick={onViewTracking}
-                      className="training-exercise-card__meta group flex min-w-0 items-center gap-1 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
-                      aria-label={`Ver historial de ${exercise.name}`}
-                    >
-                      <History className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">
-                        {`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${
-                          referenceDateLabel && exercise.referenceSourceText
-                            ? ` · ${exercise.referenceSourceText}`
-                            : !referenceDateLabel
-                              ? " · Otra rutina"
-                              : ""
-                        }`}
-                      </span>
-                    </button>
-                  ) : historyDateLabel ? (
-                    <p className="training-exercise-card__meta min-w-0 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                      Última vez: {historyDateLabel}
-                    </p>
-                  ) : null
-                ) : null}
-              </div>
-              {setupNote ? (
+                  )}
+                </div>
+              )}
+              {open &&
+                hasStoredHistory &&
+                (onViewTracking ? (
+                  <button
+                    type="button"
+                    onClick={onViewTracking}
+                    className="training-exercise-card__meta group flex min-w-0 items-start gap-1.5 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                    aria-label={`Ver historial de ${exercise.name}`}
+                  >
+                    <span>{`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${referenceDateLabel && exercise.referenceSourceText ? ` · ${exercise.referenceSourceText}` : !referenceDateLabel ? " · Otra rutina" : ""}`}</span>
+                  </button>
+                ) : historyDateLabel ? (
+                  <p className="training-exercise-card__meta text-xs font-medium text-[color:var(--text-muted)]">
+                    Última vez: {historyDateLabel}
+                  </p>
+                ) : null)}
+              {setupNote && (
                 <div
-                  className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)]"
+                  className="training-exercise-card__setup flex min-w-0 items-start gap-1.5 text-xs text-[color:var(--text-muted)]"
                   title={`Ajuste: ${setupNote}`}
                 >
-                  <Settings2 className="h-3.5 w-3.5 shrink-0 text-[#181918] dark:text-[#e2ff00]" />
-                  <span className="shrink-0 font-bold">Ajuste:</span>
-                  <span className="min-w-0 truncate">{setupNote}</span>
+                  <Settings2
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className={`min-w-0 ${open ? "" : "truncate"}`}>
+                    <strong>Ajuste:</strong> {setupNote}
+                  </span>
                 </div>
-              ) : null}
+              )}
             </div>
-            {isComplete ? (
-              <span
-                className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)] shadow-sm"
-                title="Completado"
-                aria-label="Completado"
-              >
-                <Check className="h-3.5 w-3.5 stroke-[3]" />
-              </span>
-            ) : null}
-            {open && !readOnly ? (
-              <button
-                type="button"
-                onClick={() => setShowOptions((value) => !value)}
-                className={`training-exercise-card__options grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors ${
-                  showOptions
-                    ? "bg-[color:var(--text)] text-[color:var(--card)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                }`}
-                aria-label={`Opciones de ${exercise.name}`}
-                aria-expanded={showOptions}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </button>
-            ) : null}
+          )}
+          {!open && (
             <button
               type="button"
               onClick={handleToggleOpen}
-              className="training-exercise-card__disclosure grid h-10 w-8 shrink-0 place-items-center text-[color:var(--text-muted)]"
+              className="training-exercise-card__disclosure grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text-muted)]"
               aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
               aria-expanded={open}
             >
@@ -496,7 +478,7 @@ export default function ExerciseCard({
                 className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
               />
             </button>
-          </div>
+          )}
         </div>
 
         <AnimatePresence initial={false}>
@@ -509,6 +491,36 @@ export default function ExerciseCard({
               className="training-exercise-card__expanded relative flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
               <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
+                <div className="training-exercise-card__toolbar">
+                  <span>Series</span>
+                  <div className="flex items-center gap-2">
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => setShowOptions((value) => !value)}
+                        className="training-exercise-card__options"
+                        aria-label={`Opciones de ${exercise.name}`}
+                        aria-expanded={showOptions}
+                        aria-controls={optionsPanelId}
+                      >
+                        <SlidersHorizontal size={16} aria-hidden="true" />
+                        Opciones
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleToggleOpen}
+                      className="training-exercise-card__disclosure grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text-muted)]"
+                      aria-label={`Contraer ${exercise.name}`}
+                      aria-expanded={open}
+                    >
+                      <ChevronDown
+                        className="h-4 w-4 rotate-180"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
+                </div>
                 <AnimatePresence initial={false}>
                   {showOptions && (
                     <motion.div
@@ -516,6 +528,7 @@ export default function ExerciseCard({
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
+                      id={optionsPanelId}
                     >
                       <div className="space-y-3 rounded-xl bg-[color:var(--surface-subtle)] p-3">
                         <fieldset className="min-w-0">

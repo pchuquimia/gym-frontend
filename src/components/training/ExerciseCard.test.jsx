@@ -57,7 +57,7 @@ describe("ExerciseCard", () => {
     expect(screen.queryByText("Ajuste:")).toBeNull();
   });
 
-  it("abre el historial desde la fecha sin expandir la tarjeta", () => {
+  it("abre el historial desde la tarjeta abierta sin contraerla", () => {
     const exercise = createExercise();
     exercise.sets[0].entries[0].previousDate = "2026-08-28";
     const onViewTracking = vi.fn();
@@ -69,6 +69,7 @@ describe("ExerciseCard", () => {
         {...defaultProps}
         onToggleOpen={onToggleOpen}
         onViewTracking={onViewTracking}
+        open
       />,
     );
 
@@ -86,6 +87,7 @@ describe("ExerciseCard", () => {
         exercise={createExercise()}
         {...defaultProps}
         onViewTracking={vi.fn()}
+        open
       />,
     );
 
@@ -108,6 +110,7 @@ describe("ExerciseCard", () => {
         }}
         {...defaultProps}
         onViewTracking={onViewTracking}
+        open
       />,
     );
 
@@ -132,6 +135,37 @@ describe("ExerciseCard", () => {
       container.querySelector('[aria-current="step"]'),
     ).toBeInTheDocument();
   });
+  it.each([true, false])(
+    "muestra la última vez solo al abrir la card (historial interactivo: %s)",
+    (interactive) => {
+      const exercise = {
+        ...createExercise(),
+        hasStoredHistory: true,
+        storedHistoryLastDate: "2026-08-12",
+      };
+      const extraProps = { onViewTracking: interactive ? vi.fn() : undefined };
+      const { rerender } = render(
+        <ExerciseCard exercise={exercise} {...defaultProps} {...extraProps} />,
+      );
+      expect(screen.queryByText(/Última vez/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Ver historial/ }),
+      ).not.toBeInTheDocument();
+      rerender(
+        <ExerciseCard
+          exercise={exercise}
+          {...defaultProps}
+          {...extraProps}
+          open
+        />,
+      );
+      expect(screen.getByText(/Última vez: 12 ago/)).toBeVisible();
+      rerender(
+        <ExerciseCard exercise={exercise} {...defaultProps} {...extraProps} />,
+      );
+      expect(screen.queryByText(/Última vez/)).not.toBeInTheDocument();
+    },
+  );
 
   it("muestra las opciones directamente desde la tarjeta desplegada", () => {
     render(<ExerciseCard exercise={createExercise()} {...defaultProps} open />);
@@ -140,11 +174,34 @@ describe("ExerciseCard", () => {
       name: "Opciones de Press en máquina",
     });
     expect(optionsButton).toHaveAttribute("aria-expanded", "false");
+    expect(optionsButton).toHaveTextContent("Opciones");
 
     fireEvent.click(optionsButton);
 
     expect(optionsButton).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Ajuste del equipo")).toBeInTheDocument();
+    expect(
+      document.getElementById(optionsButton.getAttribute("aria-controls")),
+    ).toContainElement(screen.getByText("Ajuste del equipo"));
+  });
+  it("oculta las opciones al contraer y en sesiones de solo lectura", () => {
+    const { rerender } = render(
+      <ExerciseCard exercise={createExercise()} {...defaultProps} />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /Opciones de/ }),
+    ).not.toBeInTheDocument();
+    rerender(
+      <ExerciseCard
+        exercise={createExercise()}
+        {...defaultProps}
+        readOnly
+        open
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /Opciones de/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("activa el ejercicio al desplegarlo sin mostrar un boton Iniciar", () => {
