@@ -68,6 +68,12 @@ import { createQuickTrainingPlan } from "../services/quickPlanCreation";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
 import QuickPlanSetup from "../components/training/QuickPlanSetup";
 import RoutineThumbnail from "../components/training/RoutineThumbnail";
+import {
+  TrainingWorkspaceHeader,
+  TrainingWorkspaceSection,
+  TrainingPlanOverview,
+  RoutineLibraryGroups,
+} from "../components/training/TrainingWorkspace";
 import CoachPlanTemplates from "../components/coach/CoachPlanTemplates";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import DetailModal from "../components/library/DetailModal";
@@ -3984,6 +3990,7 @@ function RoutineToolbar({
             type="search"
             inputMode="search"
             placeholder="Buscar rutina..."
+            aria-label="Buscar rutina"
             className="theme-accent-focus h-11 w-full rounded-none border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-muted)] dark:focus:border-[#e2ff00]"
           />
         </div>
@@ -4189,115 +4196,14 @@ function CoachRoutineLibraryList({
   );
 }
 
-function CurrentPlanOverview({ plan, state, onOpen, onStart }) {
+function CurrentPlanOverview({ plan, onOpen }) {
   if (!plan) return null;
-  const schedule = Array.isArray(plan.weeklySchedule)
-    ? plan.weeklySchedule
-    : [];
-  const day = state?.day;
-  const isCompleted = Boolean(state?.isCompleted);
-  const isRest = Boolean(state?.isRest);
-  const routine = state?.routine;
-  const title = !state
-    ? "Consulta la agenda del plan"
-    : isRest
-      ? day.type === "recovery"
-        ? "Recuperación activa"
-        : "Descanso programado"
-      : routine?.name || "Rutina pendiente de asignar";
-  const currentWeek = Math.min(
-    Math.max(1, getPlanWeekIndex(plan) + 1),
-    Math.max(1, Number(plan.durationWeeks || 1)),
-  );
-  const planContext =
-    plan.scheduleMode === "fixed"
-      ? `Semana ${currentWeek} de ${Math.max(1, Number(plan.durationWeeks || 1))}`
-      : `${plan.weeklySchedule?.length || 0} días en orden`;
-  const todayContext = !state
-    ? "Revisa qué toca esta semana"
-    : isCompleted
-      ? "Entrenamiento completado"
-      : isRest
-        ? day.type === "recovery"
-          ? "Movilidad o actividad ligera"
-          : "Día sin entrenamiento"
-        : routine
-          ? getRoutineExerciseSummary(routine)
-          : "Falta asignar una rutina";
-  const canStart =
-    plan.status === "active" && !isCompleted && !isRest && Boolean(routine);
-  const currentDayIndex = Number.isInteger(state?.index) ? state.index : -1;
-  let nextTrainingDay = null;
-  let nextTrainingIndex = -1;
-  if (currentDayIndex >= 0 && schedule.length) {
-    for (let offset = 1; offset <= schedule.length; offset += 1) {
-      const index = (currentDayIndex + offset) % schedule.length;
-      if (schedule[index]?.type === "training") {
-        nextTrainingDay = schedule[index];
-        nextTrainingIndex = index;
-        break;
-      }
-    }
-  }
-  const nextTrainingContext = nextTrainingDay
-    ? `Próximo: ${nextTrainingDay.focus || "Entrenamiento"} · ${
-        plan.scheduleMode === "fixed"
-          ? PLAN_DAY_NAMES[nextTrainingIndex] || `Día ${nextTrainingIndex + 1}`
-          : `Día ${nextTrainingIndex + 1}`
-      }`
-    : "Consulta la agenda del plan";
   return (
-    <section className="current-plan-overview overflow-hidden bg-[color:var(--card)] sm:rounded-3xl">
-      <div className="current-plan-overview__hero relative h-32 overflow-hidden">
-        <img
-          src={planningOverviewImage}
-          alt=""
-          className="h-full w-full object-cover object-[center_62%]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/10" />
-        <div className="current-plan-overview__caption absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 px-4 py-3 text-white">
-          <div className="min-w-0">
-            <p className="text-xs text-white/75">Plan actual</p>
-            <h2 className="mt-0.5 truncate text-xl font-medium leading-tight">
-              {plan.name}
-            </h2>
-          </div>
-          <span className="shrink-0 rounded-full bg-white/90 px-3 py-2 text-xs font-medium text-[#171817] backdrop-blur-sm">
-            {planContext}
-          </span>
-        </div>
-      </div>
-
-      <div className="current-plan-overview__body border-t border-[color:var(--detail-row-divider)] px-4 py-4">
-        <p className="text-xs font-medium text-[color:var(--text-muted)]">
-          Hoy
-        </p>
-        <h3 className="mt-1 text-xl font-medium leading-tight text-[color:var(--text)]">
-          {title}
-        </h3>
-        <p className="mt-1 truncate text-sm text-[color:var(--text-muted)]">
-          {isRest ? nextTrainingContext : todayContext}
-        </p>
-        <div className="mt-4 flex items-center gap-2">
-          {canStart ? (
-            <button
-              type="button"
-              onClick={() => onStart(day, plan)}
-              className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-[color:var(--accent)] px-4 text-sm font-medium text-[color:var(--accent-contrast)] transition hover:bg-[color:var(--accent-hover)]"
-            >
-              Iniciar entrenamiento
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onOpen}
-            className={`inline-flex h-11 items-center justify-center rounded-2xl border border-[color:var(--border)] px-4 text-sm font-medium text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] ${canStart ? "shrink-0" : "w-full"}`}
-          >
-            Ver planificación
-          </button>
-        </div>
-      </div>
-    </section>
+    <TrainingPlanOverview
+      plan={plan}
+      currentWeek={getPlanWeekIndex(plan) + 1}
+      onOpen={onOpen}
+    />
   );
 }
 
@@ -4308,12 +4214,23 @@ function SecondaryPlanRow({ plan, onOpen }) {
       onClick={() => onOpen(plan)}
       className="secondary-plan-row flex min-h-[76px] w-full items-center gap-3 bg-[color:var(--card)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)]"
     >
+      <img
+        src="/images/dashboard-workout-completed-color.jpg"
+        className="secondary-plan-row__photo"
+        width="56"
+        height="56"
+        alt=""
+        loading="lazy"
+      />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-[color:var(--text)] sm:text-base">
           {plan.name}
         </span>
         <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
           {PLAN_STATUS_LABELS[plan.status] || plan.status}
+          {Number(plan.durationWeeks) > 0
+            ? ` · ${plan.durationWeeks} ${Number(plan.durationWeeks) === 1 ? "semana" : "semanas"}`
+            : ""}
         </span>
       </span>
       <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
@@ -5215,6 +5132,7 @@ function Routines({
   const bootstrapActivePlan = dashboardBootstrap.data?.activePlan || null;
   const [activePlan, setActivePlan] = useState(null);
   const [workspaceView, setWorkspaceView] = useState(() => "plans");
+  const [showPlanHistory, setShowPlanHistory] = useState(false);
   const [trainingPlans, setTrainingPlans] = useState(() =>
     Array.isArray(cachedTrainingPlans)
       ? cachedTrainingPlans
@@ -5388,15 +5306,6 @@ function Routines({
     () => visibleTrainingPlans.find((plan) => plan.status === "active") || null,
     [visibleTrainingPlans],
   );
-  const currentPlanToday = useMemo(
-    () =>
-      getPlanTodayState({
-        plan: currentActivePlan,
-        routines,
-        trainings,
-      }),
-    [currentActivePlan, routines, trainings],
-  );
   const draftPlanCount = useMemo(
     () => trainingPlans.filter((plan) => plan.status === "draft").length,
     [trainingPlans],
@@ -5419,9 +5328,14 @@ function Routines({
   const secondaryTrainingPlans = useMemo(
     () =>
       orderedTrainingPlans.filter(
-        (plan) => getEntityId(plan) !== getEntityId(currentActivePlan),
+        (plan) =>
+          getEntityId(plan) !== getEntityId(currentActivePlan) &&
+          !["completed", "cancelled"].includes(plan.status),
       ),
     [currentActivePlan, orderedTrainingPlans],
+  );
+  const historicalTrainingPlans = orderedTrainingPlans.filter((plan) =>
+    ["completed", "cancelled"].includes(plan.status),
   );
   const routineAssignmentById = useMemo(() => {
     const map = new Map();
@@ -6545,10 +6459,15 @@ function Routines({
 
   return (
     <div
-      className={`routines-shell w-full max-w-none ${activePlan ? "routines-shell--plan-detail" : ""}`}
+      className={`routines-shell w-full max-w-none ${activePlan ? "routines-shell--plan-detail" : !isCoach ? "routines-shell--library" : ""}`}
     >
       <section className="space-y-5">
-        {!activePlan ? (
+        {!activePlan && !isCoach && (
+          <TrainingWorkspaceHeader
+            onReturn={canReturnToTraining ? handleReturnToTraining : undefined}
+          />
+        )}
+        {!activePlan && isCoach ? (
           <MobilePageHeader
             title={isCoach ? "Planes" : "Rutinas"}
             variant="main"
@@ -6617,7 +6536,13 @@ function Routines({
             }
           />
         ) : null}
-        <div className="hidden items-start justify-between gap-2 md:flex md:items-center md:gap-3">
+        <div
+          className={
+            !activePlan && !isCoach
+              ? "hidden"
+              : "hidden items-start justify-between gap-2 md:flex md:items-center md:gap-3"
+          }
+        >
           <div className="min-w-0">
             <p className="theme-accent-text text-[11px] font-black uppercase tracking-[0.14em]">
               {activePlan
@@ -6748,6 +6673,33 @@ function Routines({
                 type="button"
                 role="tab"
                 aria-selected={workspaceView === item.id}
+                tabIndex={workspaceView === item.id ? 0 : -1}
+                onKeyDown={(event) => {
+                  if (
+                    !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                      event.key,
+                    )
+                  )
+                    return;
+                  event.preventDefault();
+                  const tabs = Array.from(
+                    event.currentTarget.parentElement.querySelectorAll(
+                      '[role="tab"]',
+                    ),
+                  );
+                  const current = tabs.indexOf(event.currentTarget);
+                  const index =
+                    event.key === "Home"
+                      ? 0
+                      : event.key === "End"
+                        ? tabs.length - 1
+                        : (current +
+                            (event.key === "ArrowRight" ? 1 : -1) +
+                            tabs.length) %
+                          tabs.length;
+                  tabs[index].click();
+                  tabs[index].focus();
+                }}
                 onClick={() => setWorkspaceView(item.id)}
                 className={`inline-flex h-11 min-w-0 items-center justify-center rounded-full border px-1 text-[14px] font-semibold transition ${
                   workspaceView === item.id
@@ -6766,6 +6718,17 @@ function Routines({
             ))}
           </div>
         ) : null}
+
+        {!activePlan && !isCoach && (
+          <TrainingWorkspaceSection
+            view={workspaceView}
+            hasActivePlan={Boolean(currentActivePlan)}
+            canCreate={!isManagedClient}
+            onCreate={() =>
+              workspaceView === "plans" ? openNewPlan() : openCreate()
+            }
+          />
+        )}
 
         {!activePlan && workspaceLoading ? (
           <div className="min-h-52 border-y border-[color:var(--border)]">
@@ -6887,9 +6850,7 @@ function Routines({
           {currentActivePlan ? (
             <CurrentPlanOverview
               plan={currentActivePlan}
-              state={currentPlanToday}
               onOpen={() => openTrainingPlan(currentActivePlan)}
-              onStart={startPlanRoutine}
             />
           ) : (
             <section className="rounded-3xl bg-[color:var(--card)] px-4 py-5">
@@ -6917,7 +6878,7 @@ function Routines({
                   {secondaryTrainingPlans.length}
                 </span>
               </div>
-              <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-3xl bg-[color:var(--card)] md:grid md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="training-other-plans divide-y divide-[color:var(--border)] overflow-hidden rounded-3xl bg-[color:var(--card)] md:grid md:grid-cols-2 md:divide-x md:divide-y-0">
                 {secondaryTrainingPlans.map((plan) => (
                   <SecondaryPlanRow
                     key={plan._id || plan.id}
@@ -6928,6 +6889,36 @@ function Routines({
               </div>
             </div>
           ) : null}
+          {historicalTrainingPlans.length > 0 && (
+            <div className="training-workspace__history">
+              <button
+                type="button"
+                aria-expanded={showPlanHistory}
+                aria-controls="training-plan-history"
+                onClick={() => setShowPlanHistory((value) => !value)}
+              >
+                <span>
+                  {showPlanHistory ? "Ocultar historial" : "Ver historial"} (
+                  {historicalTrainingPlans.length})
+                </span>
+                <ChevronDown size={18} aria-hidden="true" />
+              </button>
+              {showPlanHistory && (
+                <div
+                  id="training-plan-history"
+                  className="training-workspace__history-list"
+                >
+                  {historicalTrainingPlans.map((plan) => (
+                    <SecondaryPlanRow
+                      key={plan._id || plan.id}
+                      plan={plan}
+                      onOpen={openTrainingPlan}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       ) : null}
 
@@ -7317,205 +7308,18 @@ function Routines({
             </section>
           ) : null}
 
-          {!isCoach
-            ? routineGroups.map((group) => (
-                <section key={group.id} className="routine-library-group">
-                  <header className="routine-library-group__header mb-3 px-1">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                      {group.eyebrow}
-                    </p>
-                    <h2 className="mt-1 text-xl font-medium leading-tight tracking-[-0.02em] text-[color:var(--text)]">
-                      {group.title}
-                    </h2>
-                    <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                      {group.description}
-                    </p>
-                  </header>
-                  <div className="routine-library-group__cards grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <AnimatePresence initial={false} mode="popLayout">
-                      {group.routines.map((routine) => {
-                        const isHighlighted = ["active", "scheduled"].includes(
-                          routine.plan?.status,
-                        );
-                        const assignmentDays = (
-                          routine.assignment?.dayIndexes || []
-                        )
-                          .map((dayIndex) =>
-                            routine.plan?.scheduleMode === "fixed"
-                              ? PLAN_DAY_NAMES[dayIndex]?.slice(0, 3)
-                              : `Día ${dayIndex + 1}`,
-                          )
-                          .filter(Boolean)
-                          .join(" / ");
-                        const assignmentLabel = routine.plan
-                          ? assignmentDays || "Asignada"
-                          : "";
-
-                        return (
-                          <motion.article
-                            key={routine.id || routine._id}
-                            layout
-                            initial={{ opacity: 0, y: 8, scale: 0.99 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -6, scale: 0.99 }}
-                            transition={{
-                              duration: 0.2,
-                              ease: [0.2, 0.8, 0.2, 1],
-                            }}
-                            className={`routine-library-card routines-surface relative overflow-visible border border-[color:var(--border)] border-t-[3px] bg-[color:var(--card)] shadow-sm ${
-                              isHighlighted
-                                ? "border-t-[#181918] dark:border-t-[#e2ff00]"
-                                : "border-t-[#626262] dark:border-t-[#6d6d62]"
-                            } transition hover:border-[#ff8a66] dark:hover:border-[#e2ff00]`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setViewingRoutine(routine)}
-                              className="absolute inset-0 z-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#181918]/35 dark:focus-visible:ring-[#e2ff00]/40"
-                              aria-label={`Ver ejercicios de ${routine.name}`}
-                            />
-                            <div className="routine-library-card__content pointer-events-none relative z-[1] p-3 sm:p-4">
-                              <div className="routine-library-card__header flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  {assignmentLabel ? (
-                                    <p className="mb-1.5 truncate text-[9px] font-black uppercase tracking-[0.08em] text-[color:var(--accent-strong)]">
-                                      {assignmentLabel}
-                                    </p>
-                                  ) : null}
-                                  <h2 className="line-clamp-2 text-xl font-black uppercase leading-[0.98] text-[color:var(--text)] sm:text-[25px]">
-                                    {routine.name}
-                                  </h2>
-                                  <p className="mt-2 truncate text-xs font-black uppercase text-[#181918] dark:text-[#e2ff00]">
-                                    {routine.totalExerciseCount}{" "}
-                                    {routine.totalExerciseCount === 1
-                                      ? "ejercicio"
-                                      : "ejercicios"}{" "}
-                                    · {routine.estimatedMinutes} min
-                                  </p>
-                                </div>
-                                {!isManagedClient ? (
-                                  <details
-                                    name="routine-options"
-                                    data-routine-options
-                                    onToggle={handleRoutineOptionsToggle}
-                                    className="overflow-menu pointer-events-auto relative shrink-0"
-                                  >
-                                    <summary
-                                      className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                                      aria-label={`Opciones de ${routine.name}`}
-                                    >
-                                      <MoreVertical className="h-5 w-5" />
-                                    </summary>
-                                    <div className="overflow-menu-panel absolute right-0 top-12 z-20 w-48">
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.currentTarget
-                                            .closest("details")
-                                            ?.removeAttribute("open");
-                                          openEdit(routine);
-                                        }}
-                                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)]"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                        Editar
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.currentTarget
-                                            .closest("details")
-                                            ?.removeAttribute("open");
-                                          handleDuplicateRoutine(routine);
-                                        }}
-                                        disabled={Boolean(duplicatingRoutineId)}
-                                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--bg)] disabled:opacity-60"
-                                      >
-                                        <Copy className="h-4 w-4" />
-                                        {duplicatingRoutineId === routine.id
-                                          ? "Duplicando..."
-                                          : "Duplicar"}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(event) => {
-                                          event.currentTarget
-                                            .closest("details")
-                                            ?.removeAttribute("open");
-                                          requestDeleteRoutine(routine);
-                                        }}
-                                        className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                        Eliminar
-                                      </button>
-                                    </div>
-                                  </details>
-                                ) : null}
-                              </div>
-
-                              <div className="routine-library-card__previews mt-3 flex min-h-14 items-stretch gap-2 sm:mt-5">
-                                {routine.preview
-                                  .slice(0, 3)
-                                  .map((item, idx) => (
-                                    <div
-                                      key={`${routine.id}-preview-${idx}`}
-                                      className="h-16 w-[60px] shrink-0 overflow-hidden rounded border border-[color:var(--border)] bg-[color:var(--bg)] sm:h-24 sm:w-[92px]"
-                                    >
-                                      <RoutinePreviewImage item={item} />
-                                    </div>
-                                  ))}
-                                {routine.hiddenPreviewCount > 0 ? (
-                                  <div className="grid h-16 w-[60px] shrink-0 place-items-center rounded border border-[#d8c8c0] bg-[#f3f1f3] text-sm font-bold text-[#38242a] dark:border-[#444] dark:bg-[#202020] dark:text-[#e2ff00] sm:h-24 sm:w-[92px]">
-                                    +{routine.hiddenPreviewCount}
-                                  </div>
-                                ) : null}
-                                {routine.preview.length === 0 ? (
-                                  <div className="grid h-14 flex-1 place-items-center border border-dashed border-[color:var(--border)] bg-[color:var(--bg)] text-xs font-black text-[color:var(--text-muted)] sm:h-16">
-                                    Sin ejercicios
-                                  </div>
-                                ) : null}
-                              </div>
-
-                              <div className="routine-library-card__footer mt-3 flex min-h-10 items-center justify-between gap-3 border-t border-[#ecd7d0] pt-3 text-xs dark:border-[#333] sm:mt-5">
-                                <div className="flex min-w-0 items-center gap-2 text-[color:var(--text-muted)]">
-                                  <span className="shrink-0 font-medium">
-                                    {routine.totalSets}{" "}
-                                    {routine.totalSets === 1
-                                      ? "serie"
-                                      : "series"}
-                                  </span>
-                                  {routine.muscles.length ? (
-                                    <>
-                                      <span aria-hidden="true">·</span>
-                                      <span className="truncate">
-                                        {routine.muscles
-                                          .slice(0, 2)
-                                          .join(" y ")}
-                                      </span>
-                                    </>
-                                  ) : null}
-                                </div>
-                                <span className="shrink-0 font-medium text-[color:var(--text)]">
-                                  {routine.trainingCount
-                                    ? `${routine.trainingCount} ${routine.trainingCount === 1 ? "sesión" : "sesiones"}`
-                                    : "Sin iniciar"}
-                                </span>
-                                {isManagedClient ? (
-                                  <span className="theme-accent-text shrink-0 text-xs font-black uppercase">
-                                    Coach
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-                          </motion.article>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </div>
-                </section>
-              ))
-            : null}
+          {!isCoach && (
+            <RoutineLibraryGroups
+              groups={routineGroups}
+              canEdit={!isManagedClient}
+              onOpen={setViewingRoutine}
+              onEdit={openEdit}
+              onDuplicate={handleDuplicateRoutine}
+              onDelete={requestDeleteRoutine}
+              onOptionsToggle={handleRoutineOptionsToggle}
+              duplicatingRoutineId={duplicatingRoutineId}
+            />
+          )}
 
           {!visibleRoutineCards.length ? (
             <div className="border-y border-[color:var(--border)] py-12 text-center">
