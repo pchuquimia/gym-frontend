@@ -2,6 +2,10 @@
   font-family: var(--mobile-ui-font);
   --text-muted: color-mix(in srgb, var(--text) 65%, var(--bg));
 }
+.quick-plan .routine-thumbnail {
+  --routine-thumbnail-width: 80px;
+  --routine-thumbnail-height: 80px;
+}
 .quick-plan__content {
   max-width: 29rem;
   margin: 0 auto;
@@ -16,7 +20,7 @@
   letter-spacing: -0.04em;
 }
 .quick-plan__intro {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .quick-plan__intro p,
 .quick-plan__intro-text {
@@ -48,14 +52,12 @@
 }
 .quick-plan__row {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr) 15px;
-  grid-template-rows: auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 12px;
-  row-gap: 4px;
   width: 100%;
-  min-height: 64px;
-  padding: 8px 13px;
+  min-height: 52px;
+  padding: 8px 14px;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -72,30 +74,54 @@ button.quick-plan__row:focus-visible {
   outline-offset: -3px;
 }
 .quick-plan__weekday {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: end;
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 0.83rem;
   font-weight: 550;
 }
 .quick-plan__day-name {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.quick-plan__day-name > svg {
+  flex-shrink: 0;
+}
+.quick-plan__row.is-empty .quick-plan__day-name {
+  color: var(--text);
+}
+.quick-plan__row.is-training {
+  grid-template-columns: 80px minmax(0, 1fr) 17px;
+  grid-template-rows: auto auto;
+  row-gap: 5px;
+  min-height: 100px;
+  padding-block: 10px;
+}
+.quick-plan__row.is-training .quick-plan__weekday {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 400;
+}
+.quick-plan__row.is-training .quick-plan__day-name {
   grid-column: 2;
   grid-row: 2;
   align-self: start;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 400;
-  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-}
-.quick-plan__row.is-training .quick-plan__day-name {
   color: var(--text);
-  font-weight: 550;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 .quick-plan__row > svg {
   grid-column: 3;
@@ -107,6 +133,7 @@ button.quick-plan__row:focus-visible {
   grid-row: 1 / span 2;
 }
 .quick-plan__thumbnail.is-rest {
+  width: 40px;
   height: 40px;
   background: transparent;
   border-radius: 0;
@@ -278,33 +305,32 @@ button.quick-plan__row:focus-visible {
   outline-offset: 2px;
 }
 .quick-plan__week-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 5px 0;
-  min-height: 44px;
+  padding: 10px 2px 14px;
   color: var(--text-muted);
   font-size: 0.7rem;
 }
-.quick-plan__week-footer button {
+.quick-plan__week-footer p {
+  margin: 0;
+  line-height: 1.5;
+}
+.quick-plan__create-routine {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 40px;
-  padding: 6px 0;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 2px;
   border: 0;
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   cursor: pointer;
 }
 .quick-plan__options {
-  margin-top: 8px;
   border-top: 1px solid var(--border);
 }
-.quick-plan__options > summary {
+.quick-plan__options > summary,
+.quick-plan__schedule > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -312,15 +338,56 @@ button.quick-plan__row:focus-visible {
   min-height: 50px;
   list-style: none;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   cursor: pointer;
 }
-.quick-plan__options > summary::-webkit-details-marker {
+.quick-plan__options > summary::-webkit-details-marker,
+.quick-plan__schedule > summary::-webkit-details-marker {
   display: none;
 }
-.quick-plan__options > summary strong {
+.quick-plan__schedule > summary strong {
   color: var(--text);
   font-weight: 550;
+}
+.quick-plan__options[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.quick-plan__schedule {
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  margin-bottom: 22px;
+}
+.quick-plan__schedule > summary {
+  gap: 8px;
+}
+.quick-plan__schedule > summary > svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.quick-plan__schedule > summary > span {
+  flex: 1;
+  min-width: 0;
+}
+.quick-plan__schedule > summary > strong {
+  font-size: 0.72rem;
+}
+.quick-plan__week-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.quick-plan__week-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.quick-plan__week-heading > span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 .quick-plan__settings {
   display: grid;
@@ -348,21 +415,13 @@ button.quick-plan__row:focus-visible {
   background: var(--card);
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 .quick-plan__settings input[type="date"] {
   appearance: none;
 }
-.quick-plan__name,
-.quick-plan__extras {
+.quick-plan__name {
   grid-column: 1 / -1;
-}
-.quick-plan__extras > summary {
-  min-height: 40px;
-  padding: 10px 0;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  cursor: pointer;
 }
 .quick-plan__footer {
   width: 100%;
@@ -375,6 +434,11 @@ button.quick-plan__row:focus-visible {
   font-size: 0.7rem;
   line-height: 1.5;
   text-align: center;
+}
+.quick-plan__footer > .quick-plan__footer-summary {
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 550;
 }
 .quick-plan__empty {
   margin: 0 0 20px;
@@ -445,6 +509,9 @@ button.quick-plan__row:focus-visible {
   border: 0;
 }
 @media (max-width: 350px) {
+  .quick-plan__schedule .quick-plan__settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .quick-plan__row {
     padding-inline: 10px;
     column-gap: 10px;
@@ -455,10 +522,5 @@ button.quick-plan__row:focus-visible {
   .quick-plan__choice {
     padding-inline: 8px;
     gap: 10px;
-  }
-}
-@media (min-width: 768px) {
-  .quick-plan__row {
-    grid-template-columns: 92px minmax(0, 1fr) 15px;
   }
 }

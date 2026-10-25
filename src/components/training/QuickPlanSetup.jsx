@@ -1,5 +1,15 @@
 ﻿import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown, Plus, Search, X } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Moon,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import {
   getLocalPlanDate,
   getQuickPlanAssignments,
@@ -64,6 +74,7 @@ export default function QuickPlanSetup({
   const [query, setQuery] = useState("");
   const [initial] = useState(() => readDraft(storageKey));
   const [dayRoutines, setDayRoutines] = useState(() => initialWeek(initial));
+  const [restDays, setRestDays] = useState(initial.restDays || []);
   const [durationWeeks, setDurationWeeks] = useState(
     initial.durationWeeks || 4,
   );
@@ -109,6 +120,8 @@ export default function QuickPlanSetup({
     Number.isInteger(durationWeeks) &&
     durationWeeks >= 1 &&
     durationWeeks <= 52;
+  const durationLabel = `${durationWeeks} ${durationWeeks === 1 ? "semana" : "semanas"}`;
+  const trainingLabel = `${selectedDays.length} ${selectedDays.length === 1 ? "día" : "días"} de entrenamiento`;
 
   useEffect(() => {
     const added = routines.find((item) => idOf(item) === addedRoutineId);
@@ -127,6 +140,7 @@ export default function QuickPlanSetup({
         storageKey,
         JSON.stringify({
           dayRoutines,
+          restDays,
           durationWeeks,
           startDate,
           name,
@@ -143,6 +157,7 @@ export default function QuickPlanSetup({
     storageKey,
     createdPlan,
     dayRoutines,
+    restDays,
     durationWeeks,
     startDate,
     name,
@@ -171,6 +186,11 @@ export default function QuickPlanSetup({
     onClose();
   };
   const assignDay = (index, routineId) => {
+    setRestDays((current) =>
+      routineId
+        ? current.filter((day) => day !== index)
+        : [...new Set([...current, index])],
+    );
     setDayRoutines((current) => {
       const next = { ...current };
       if (routineId) next[index] = routineId;
@@ -225,14 +245,32 @@ export default function QuickPlanSetup({
         const routine = displayRoutines.find(
           (item) => idOf(item) === routineId,
         );
+        const isRest = !routineId && (!editable || restDays.includes(index));
         const label =
-          routine?.name || (routineId ? "Rutina no disponible" : "Descanso");
+          routine?.name ||
+          (routineId
+            ? "Rutina no disponible"
+            : isRest
+              ? "Descanso"
+              : "Añadir rutina");
+        const rowClass = `quick-plan__row ${routineId ? "is-training" : isRest ? "is-rest" : "is-empty"}`;
         const content = (
           <>
+            {routineId && (
+              <RoutineThumbnail
+                key={routineId}
+                routine={routine || { name: label }}
+              />
+            )}
             <span className="quick-plan__weekday">{full}</span>
-            <RoutineThumbnail key={routineId || "rest"} routine={routine} />
-            <span className="quick-plan__day-name">{label}</span>
-            {editable && <ChevronDown size={15} aria-hidden="true" />}
+            <span className="quick-plan__day-name">
+              {isRest && <Moon size={15} aria-hidden="true" />}
+              {!routineId && !isRest && <Plus size={15} aria-hidden="true" />}
+              {label}
+            </span>
+            {editable && routineId && (
+              <ChevronRight size={17} aria-hidden="true" />
+            )}
           </>
         );
         return (
@@ -244,7 +282,7 @@ export default function QuickPlanSetup({
                   if (element) dayButtons.current.set(index, element);
                   else dayButtons.current.delete(index);
                 }}
-                className={`quick-plan__row ${routineId ? "is-training" : ""}`}
+                className={rowClass}
                 aria-label={`${full}: ${label}`}
                 aria-haspopup="dialog"
                 onClick={() => {
@@ -255,11 +293,7 @@ export default function QuickPlanSetup({
                 {content}
               </button>
             ) : (
-              <div
-                className={`quick-plan__row ${routineId ? "is-training" : ""}`}
-              >
-                {content}
-              </div>
+              <div className={rowClass}>{content}</div>
             )}
           </li>
         );
@@ -283,7 +317,9 @@ export default function QuickPlanSetup({
   const pickerDayName = WEEKDAYS.find(([index]) => index === editingDay)?.[1];
   const pickerOption = (routine) => {
     const id = routine ? idOf(routine) : "";
-    const isSelected = (dayRoutines[editingDay] || "") === id;
+    const isSelected = routine
+      ? dayRoutines[editingDay] === id
+      : !dayRoutines[editingDay] && restDays.includes(editingDay);
     const count = (routine?.exercises || []).filter(
       (item) => !item.isExtra,
     ).length;
@@ -347,6 +383,11 @@ export default function QuickPlanSetup({
           ) : null
         ) : !createdPlan ? (
           <div className="quick-plan__footer">
+            <p className="quick-plan__footer-summary">
+              {selectedDays.length
+                ? `${trainingLabel} · ${durationLabel}`
+                : "Elige al menos un día"}
+            </p>
             {activePlan && (
               <p>
                 {future
@@ -364,6 +405,9 @@ export default function QuickPlanSetup({
                 : partialPlan
                   ? "Reintentar creación"
                   : "Crear planificación"}
+              {!saving && !partialPlan && (
+                <ArrowRight size={17} aria-hidden="true" />
+              )}
             </Button>
           </div>
         ) : null
@@ -440,8 +484,7 @@ export default function QuickPlanSetup({
               {createdPlan.name || name || suggestedName}
             </h2>
             <p className="quick-plan__summary">
-              {selectedDays.length} {selectedDays.length === 1 ? "día" : "días"}{" "}
-              de entrenamiento · {durationWeeks} semanas
+              {trainingLabel} · {durationLabel}
             </p>
             {week(false)}
             <Button
@@ -454,8 +497,8 @@ export default function QuickPlanSetup({
         ) : (
           <>
             <div className="quick-plan__intro">
-              <h1>¿Qué entrenas cada día?</h1>
-              <p>Elige una rutina o deja el día para descansar.</p>
+              <h1>Organiza tu semana</h1>
+              <p>Toca un día para elegir tu rutina.</p>
             </div>
             {!routines.length && (
               <div className="quick-plan__empty">
@@ -477,41 +520,20 @@ export default function QuickPlanSetup({
               disabled={saving || Boolean(partialPlan)}
               className="quick-plan__fields"
             >
-              {week(true)}
-              <div className="quick-plan__week-footer">
-                <span>
-                  {selectedDays.length
-                    ? `${selectedDays.length} ${selectedDays.length === 1 ? "día" : "días"} de entrenamiento`
-                    : "Elige al menos un día"}
-                </span>
-                {routines.length > 0 && onCreateRoutine && (
-                  <button type="button" onClick={onCreateRoutine}>
-                    Crear rutina <Plus size={14} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-              <details className="quick-plan__options">
+              <details className="quick-plan__schedule">
                 <summary>
+                  <CalendarDays size={18} aria-hidden="true" />
                   <span>
                     {startDate === getLocalPlanDate()
                       ? "Empieza hoy"
                       : startDate
                         ? `Desde ${startDate.split("-").reverse().join("/")}`
                         : "Elige inicio"}{" "}
-                    · {durationWeeks} semanas
+                    · {durationLabel}
                   </span>
-                  <strong>Ajustar</strong>
+                  <strong>Editar</strong>
                 </summary>
                 <div className="quick-plan__settings">
-                  <label className="quick-plan__name">
-                    Nombre del plan
-                    <input
-                      maxLength={100}
-                      placeholder={suggestedName}
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                    />
-                  </label>
                   <label>
                     Empieza
                     <input
@@ -531,54 +553,85 @@ export default function QuickPlanSetup({
                     >
                       {[1, 2, 4, 6, 8, 12, 16, 24, 52].map((value) => (
                         <option key={value} value={value}>
-                          {value} semanas
+                          {value} {value === 1 ? "semana" : "semanas"}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <details className="quick-plan__extras">
-                    <summary>Más opciones</summary>
-                    <div className="quick-plan__settings">
-                      <label>
-                        Objetivo
-                        <select
-                          value={goal}
-                          onChange={(event) => setGoal(event.target.value)}
-                        >
-                          <option>General</option>
-                          <option>Hipertrofia</option>
-                          <option>Fuerza</option>
-                          <option>Salud y bienestar</option>
-                        </select>
-                      </label>
-                      <label>
-                        Nivel
-                        <select
-                          value={level}
-                          onChange={(event) => setLevel(event.target.value)}
-                        >
-                          <option value="beginner">Principiante</option>
-                          <option value="intermediate">Intermedio</option>
-                          <option value="advanced">Avanzado</option>
-                        </select>
-                      </label>
-                      <label className="quick-plan__name">
-                        Notas
-                        <textarea
-                          rows={2}
-                          maxLength={2000}
-                          value={notes}
-                          onChange={(event) => setNotes(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                  </details>
                 </div>
               </details>
+              <div className="quick-plan__week-heading">
+                <h2>Tu semana</h2>
+                <span>
+                  {selectedDays.length}{" "}
+                  {selectedDays.length === 1 ? "día" : "días"}
+                </span>
+              </div>
+              {week(true)}
+              <div className="quick-plan__week-footer">
+                <p>Los días sin rutina quedan de descanso.</p>
+              </div>
+              <details className="quick-plan__options">
+                <summary>
+                  Más opciones <ChevronDown size={16} aria-hidden="true" />
+                </summary>
+                <div className="quick-plan__settings">
+                  <label className="quick-plan__name">
+                    Nombre del plan
+                    <input
+                      maxLength={100}
+                      placeholder={suggestedName}
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Objetivo
+                    <select
+                      value={goal}
+                      onChange={(event) => setGoal(event.target.value)}
+                    >
+                      <option>General</option>
+                      <option>Hipertrofia</option>
+                      <option>Fuerza</option>
+                      <option>Salud y bienestar</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nivel
+                    <select
+                      value={level}
+                      onChange={(event) => setLevel(event.target.value)}
+                    >
+                      <option value="beginner">Principiante</option>
+                      <option value="intermediate">Intermedio</option>
+                      <option value="advanced">Avanzado</option>
+                    </select>
+                  </label>
+                  <label className="quick-plan__name">
+                    Notas
+                    <textarea
+                      rows={2}
+                      maxLength={2000}
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                    />
+                  </label>
+                </div>
+              </details>
+              {routines.length > 0 && onCreateRoutine && (
+                <button
+                  className="quick-plan__create-routine"
+                  type="button"
+                  onClick={onCreateRoutine}
+                >
+                  <Plus size={15} aria-hidden="true" /> Crear rutina
+                </button>
+              )}
             </fieldset>
             {invalidDate && (
               <p className="quick-plan__error">
-                Elige hoy o una fecha futura en «Ajustar».
+                Elige hoy o una fecha futura en «Editar».
               </p>
             )}
             {missingRoutines && (

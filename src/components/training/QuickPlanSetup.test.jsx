@@ -1,4 +1,4 @@
-﻿import {
+import {
   fireEvent,
   render,
   screen,
@@ -42,6 +42,107 @@ afterEach(() => {
 });
 
 describe("QuickPlanSetup", () => {
+  it("offers seven empty days and keeps date editing separate from optional fields", async () => {
+    render(<QuickPlanSetup {...props} />);
+    expect(
+      screen.getByRole("heading", { name: "Organiza tu semana" }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: /: Añadir rutina$/ }),
+    ).toHaveLength(7);
+    expect(screen.getByText("0 días")).toBeVisible();
+    expect(
+      screen.getByText("Los días sin rutina quedan de descanso."),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Empieza")).not.toBeVisible();
+    expect(screen.getByLabelText("Nombre del plan")).not.toBeVisible();
+    await userEvent.click(screen.getByText("Editar"));
+    expect(screen.getByLabelText("Empieza")).toBeVisible();
+    expect(screen.getByLabelText("Nombre del plan")).not.toBeVisible();
+    await userEvent.click(screen.getByText("Más opciones"));
+    expect(screen.getByLabelText("Nombre del plan")).toBeVisible();
+  });
+  it("remembers explicitly chosen rest days without requiring every day to be configured", async () => {
+    const onCreate = vi.fn().mockResolvedValue({ id: "plan" });
+    const { unmount } = render(
+      <QuickPlanSetup {...props} storageKey="rests" />,
+    );
+    await choose("Lunes", "Torso");
+    await choose("Martes", "Descanso");
+    expect(
+      screen.getByRole("button", { name: "Martes: Descanso" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Domingo: Añadir rutina" }),
+    ).toBeVisible();
+    unmount();
+    render(
+      <QuickPlanSetup {...props} storageKey="rests" onCreate={onCreate} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Martes: Descanso" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Martes: Descanso" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Descanso", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Volver" }));
+    expect(
+      screen.getByText("1 día de entrenamiento · 4 semanas"),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    );
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedDays: [1],
+          overrides: { 1: "torso" },
+        }),
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Ver mi plan" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Añadir rutina")).toBeNull();
+  });
+  it("submits the edited schedule and optional details together", async () => {
+    const onCreate = vi.fn().mockResolvedValue({ id: "plan" });
+    render(<QuickPlanSetup {...props} onCreate={onCreate} />);
+    await choose("Lunes", "Torso");
+    await userEvent.click(screen.getByText("Editar"));
+    fireEvent.change(screen.getByLabelText("Empieza"), {
+      target: { value: "2099-01-01" },
+    });
+    await userEvent.selectOptions(screen.getByLabelText("Duración"), "1");
+    await userEvent.click(screen.getByText("Más opciones"));
+    await userEvent.type(
+      screen.getByLabelText("Nombre del plan"),
+      "Mi nuevo plan",
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Objetivo"), "Fuerza");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Nivel"),
+      "intermediate",
+    );
+    await userEvent.type(screen.getByLabelText("Notas"), "Semana habitual");
+    expect(screen.getByText("1 día de entrenamiento · 1 semana")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Crear planificación" }),
+    );
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Mi nuevo plan",
+        startDate: "2099-01-01",
+        durationWeeks: 1,
+        goal: "Fuerza",
+        level: "intermediate",
+        notes: "Semana habitual",
+      }),
+    );
+  });
   it("shows a simple week and opens a styled picker instead of a native day select", async () => {
     const onCreate = vi
       .fn()
@@ -53,7 +154,7 @@ describe("QuickPlanSetup", () => {
     ).toBeDisabled();
     expect(screen.queryByRole("combobox", { name: /^Rutina del/ })).toBeNull();
     await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
+      screen.getByRole("button", { name: "Lunes: Añadir rutina" }),
     );
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(screen.getByRole("dialog", { name: "Lunes" })).toBeVisible();
@@ -65,7 +166,7 @@ describe("QuickPlanSetup", () => {
     ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Descanso", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    ).toHaveAttribute("aria-pressed", "false");
     await userEvent.click(
       screen.getByRole("button", { name: "Torso", exact: true }),
     );
@@ -141,7 +242,7 @@ describe("QuickPlanSetup", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
+      screen.getByRole("button", { name: "Lunes: Añadir rutina" }),
     );
     await userEvent.type(screen.getByRole("searchbox"), "BICEPS");
     expect(
@@ -176,7 +277,7 @@ describe("QuickPlanSetup", () => {
       />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
+      screen.getByRole("button", { name: "Lunes: Añadir rutina" }),
     );
     const group = screen.getByRole("region", { name: "De mi planificación" });
     await userEvent.click(
@@ -273,7 +374,7 @@ describe("QuickPlanSetup", () => {
       screen.getByRole("button", { name: "Martes: Pierna" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
+      screen.getByRole("button", { name: "Lunes: Añadir rutina" }),
     ).toBeVisible();
   });
   it("shows the newly created routine when returning to an open day picker", async () => {
@@ -282,7 +383,7 @@ describe("QuickPlanSetup", () => {
       <QuickPlanSetup {...props} onCreateRoutine={onCreateRoutine} />,
     );
     await userEvent.click(
-      screen.getByRole("button", { name: "Lunes: Descanso" }),
+      screen.getByRole("button", { name: "Lunes: Añadir rutina" }),
     );
     await userEvent.type(screen.getByRole("searchbox"), "no existe");
     await userEvent.click(
@@ -373,7 +474,7 @@ describe("QuickPlanSetup", () => {
     );
     expect(screen.getByText(/Su historial se conserva/)).toBeVisible();
     expect(screen.getByLabelText("Empieza")).not.toBeVisible();
-    await userEvent.click(screen.getByText("Ajustar"));
+    await userEvent.click(screen.getByText("Editar"));
     fireEvent.change(screen.getByLabelText("Empieza"), {
       target: { value: "2099-01-01" },
     });
