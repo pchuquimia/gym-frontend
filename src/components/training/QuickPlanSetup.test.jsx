@@ -174,6 +174,10 @@ describe("QuickPlanSetup", () => {
     expect(screen.getByRole("button", { name: "Lunes: Torso" })).toHaveFocus();
     await choose("Jueves", "Pierna");
     expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Nombre del plan")).toHaveAttribute(
+      "placeholder",
+      "Torso · Pierna",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "Crear planificación" }),
     );
@@ -183,6 +187,7 @@ describe("QuickPlanSetup", () => {
         selectedDays: [1, 4],
         overrides: { 1: "torso", 4: "pierna" },
         durationWeeks: 4,
+        name: "Torso · Pierna",
       }),
     );
     await userEvent.click(
@@ -204,6 +209,27 @@ describe("QuickPlanSetup", () => {
     expect(
       screen.getByRole("button", { name: "Crear planificación" }),
     ).toBeDisabled();
+  });
+  it("updates the suggestion while preserving a name written by the user", async () => {
+    render(<QuickPlanSetup {...props} />);
+    await choose("Lunes", "Torso");
+    expect(screen.getByLabelText("Nombre del plan")).toHaveAttribute(
+      "placeholder",
+      "Torso",
+    );
+    await userEvent.type(
+      screen.getByLabelText("Nombre del plan"),
+      "Mi bloque de fuerza",
+    );
+    await choose("Jueves", "Pierna");
+    expect(screen.getByLabelText("Nombre del plan")).toHaveValue(
+      "Mi bloque de fuerza",
+    );
+    await userEvent.clear(screen.getByLabelText("Nombre del plan"));
+    expect(screen.getByLabelText("Nombre del plan")).toHaveAttribute(
+      "placeholder",
+      "Torso · Pierna",
+    );
   });
   it("returns from the picker without changing or discarding the week", async () => {
     const onClose = vi.fn();

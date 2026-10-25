@@ -14,6 +14,7 @@ import {
   getLocalPlanDate,
   getQuickPlanAssignments,
 } from "../../utils/quickPlan";
+import { suggestQuickPlanName } from "../../utils/quickPlanName";
 import Modal from "../shared/Modal";
 import Button from "../ui/button";
 import RoutineThumbnail from "./RoutineThumbnail";
@@ -107,9 +108,7 @@ export default function QuickPlanSetup({
   const selected = routineIds
     .map((id) => displayRoutines.find((item) => idOf(item) === id))
     .filter(Boolean);
-  const suggestedName = selected.length
-    ? `Plan de ${selected.map((item) => item.name).join(" + ")}`.slice(0, 100)
-    : "Mi planificación";
+  const suggestedName = suggestQuickPlanName(selected);
   const future = startDate > getLocalPlanDate();
   const missingRoutines = selected.length !== routineIds.length;
   const invalidDate = !startDate || startDate < getLocalPlanDate();

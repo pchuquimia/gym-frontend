@@ -52,3 +52,10 @@ resume los días de entrenamiento y la duración, conserva el aviso sobre el pla
 activo y ofrece «Crear planificación». El selector mantiene la búsqueda, las
 rutinas agrupadas por origen y el acceso a crear una rutina. Un fallo parcial
 conserva el mismo borrador del servidor para reintentar sin duplicar planes.
+
+La sugerencia de nombre identifica la distribución seleccionada, como
+«Empuje · Jale · Pierna» o «Torso · Pierna», sin concatenar los títulos ni
+repetir variantes A/B. Reconoce nombres en español e inglés y, cuando no hay una
+distribución explícita, usa los grupos musculares principales disponibles.
+Si faltan datos usa «Plan semanal», sin inventar una distribución. La sugerencia
+cambia con la selección, pero nunca sustituye un nombre escrito por el usuario.
