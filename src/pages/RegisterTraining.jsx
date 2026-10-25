@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import optionalExercisesEquipment from "../assets/optional-exercises-equipment.webp";
 import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import {
   collapseRepeatedTrainingRows,
@@ -7719,11 +7720,11 @@ export default function RegisterTraining({
                         </span>
                         <span className="training-extra-options__reference" aria-hidden="true">
                           <img
-                            src="/images/optional-exercises-equipment.webp"
+                            src={optionalExercisesEquipment}
                             alt=""
                             width={720}
                             height={480}
-                            loading="lazy"
+                            loading="eager"
                           />
                         </span>
                       </summary>
