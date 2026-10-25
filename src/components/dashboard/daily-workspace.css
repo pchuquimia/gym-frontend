@@ -183,6 +183,61 @@
   color: var(--daily-action-text);
   background: var(--daily-action);
 }
+.daily-workout.is-rest {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+.daily-workout.is-rest .daily-workout__photo {
+  height: auto;
+  min-height: 160px;
+  align-self: stretch;
+}
+.daily-workout.is-rest .daily-workout__photo > img {
+  position: absolute;
+  inset: 0;
+  object-position: center;
+}
+.daily-workout.is-rest .daily-workout__body {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px;
+}
+.daily-workout.is-rest .daily-workout__copy {
+  flex: none;
+}
+.daily-workout__rest-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.daily-workout.is-rest .daily-workout__copy strong {
+  font-size: 1.1875rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.daily-workout.is-rest .daily-workout__copy small {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.daily-workout.is-rest .daily-workout__action {
+  justify-content: flex-start;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+@media (min-width: 768px) {
+  .daily-workout.is-rest {
+    grid-template-columns: 128px minmax(0, 1fr);
+  }
+  .daily-workout.is-rest .daily-workout__body {
+    padding: 18px;
+  }
+}
 .daily-tasks {
   display: grid;
   gap: 0.5rem;

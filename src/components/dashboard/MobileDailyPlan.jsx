@@ -28,7 +28,7 @@ const DAILY_CARD_IMAGES = Object.freeze({
   photos: "/images/daily-progress-photos-card.webp",
   plan: "/images/daily-planning-card.webp",
   ready: "/images/daily-plan-ready-card.webp",
-  recovery: "/images/daily-recovery-card.webp",
+  recovery: "/images/dashboard-rest-recovery.webp",
   weight: "/images/daily-weight-card.webp",
 });
 
@@ -244,18 +244,21 @@ function WorkoutMission({ task, onOpen, readOnly }) {
         <img
           src={image}
           alt=""
-          width="1024"
-          height="512"
+          width={isRest ? 768 : 1024}
+          height={isRest ? 1024 : 512}
           decoding="async"
           fetchPriority="high"
         />
-        <span className="daily-workout__badge">
-          {isCompleted && <Check aria-hidden="true" />}
-          {label}
-        </span>
+        {!isRest && (
+          <span className="daily-workout__badge">
+            {isCompleted && <Check aria-hidden="true" />}
+            {label}
+          </span>
+        )}
       </span>
       <span className="daily-workout__body">
         <span className="daily-workout__copy">
+          {isRest && <span className="daily-workout__rest-label">{label}</span>}
           <strong>{task.title}</strong>
           <small>{task.subtitle}</small>
         </span>

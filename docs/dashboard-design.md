@@ -60,6 +60,28 @@ su flujo de bienvenida. Los estilos nuevos están limitados a `.daily-workspace`
 
 ## Fotografía
 
+### Día de descanso
+
+La tarjeta de descanso usa una composición horizontal: fotografía de 104 px
+de ancho a la izquierda (128 px en escritorio), con etiqueta, título, descripción
+y acceso a recuperación a la derecha. La altura mínima de la foto es 160 px;
+el contenido puede crecer para evitar recortes al ampliar texto. En la revisión
+a 390 px de ancho la tarjeta mide 162 px de alto; a 320 px mide 185 px sin
+desbordamiento horizontal. Los estados de entrenamiento conservan su composición.
+Se mantienen la superficie del tema, el borde, el radio y el foco de teclado.
+
+Recurso: `public/images/dashboard-rest-recovery.webp`, generado con imagegen
+integrado y optimizado a 528 × 704 px, WebP de 39.8 kB. Sustituye la fotografía
+de accesorios en el estado de descanso. La luz cálida, la colchoneta verde y el
+rodillo terracota mantienen el color y comunican recuperación. No hay texto
+superpuesto a la foto. El acceso «Ver recuperación» conserva su destino.
+
+Prompt final (herramienta integrada):
+
+> Use case: photorealistic editorial sports photography. Asset type: photo for a compact rest-day card in a premium strength training mobile app, displayed as a narrow vertical crop. Primary request: an adult male athlete taking a quiet recovery day in a modern gym with warm natural daylight. Subject seated on a muted sage green exercise mat, relaxed upright torso in a gentle seated mobility stretch with one knee bent, natural hands resting on the shin, calm candid expression looking down. Average athletic build, charcoal t-shirt and muted navy shorts, natural warm skin tone. One small terracotta orange foam roller nearby. Composition: vertical 3:4 portrait, full person comfortably inside the central 75 percent, leave breathing room around body, readable at a small 110px thumbnail size. Side three-quarter view, uncluttered gym background softly out of focus, warm cream wall, subtle olive and terracotta color accents. Style: realistic high-end fitness editorial photograph, authentic everyday recovery rather than performance pose, soft daylight, full natural color, detailed skin and clothing, refined restrained palette. No text, no logos, no watermarks, no UI, no borders, no monochrome, no excessive gym equipment, no extreme stretching, no medical treatment.
+
+### Entrenamiento completado
+
 Recurso final: `public/images/dashboard-workout-completed-color.jpg`.
 Se generó con la herramienta integrada imagegen usando como referencia
 `public/images/daily-plan-ready-card.webp`; se codificó como JPEG a calidad 85
