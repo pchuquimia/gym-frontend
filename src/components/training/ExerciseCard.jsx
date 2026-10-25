@@ -588,7 +588,7 @@ export default function ExerciseCard({
                           className="training-exercise-card__setting"
                           title="Ajuste del equipo"
                         >
-                          <span>Equipo</span>
+                          <span>Ajuste del equipo</span>
                           <input
                             type="text"
                             value={exercise.setupNote || ""}

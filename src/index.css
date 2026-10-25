@@ -6359,19 +6359,17 @@ button,
   text-underline-offset: 4px;
 }
 .training-exercise-card__settings {
+  --exercise-settings-gap: 12px;
+  --exercise-settings-control-height: 40px;
   display: grid;
-  gap: 6px;
-  padding: 6px 12px 8px;
+  gap: 10px;
+  padding: 12px;
   background: transparent;
 }
 .training-exercise-card__switches {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.training-exercise-card__switches:not(:has(.training-exercise-card__switch-setting:nth-child(2))) {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 14rem;
+  gap: var(--exercise-settings-gap);
 }
 .training-exercise-card__switch-setting {
   min-width: 0;
@@ -6383,20 +6381,21 @@ button,
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-subtle);
+  min-height: var(--exercise-settings-control-height);
 }
 .training-exercise-card__switch button {
   position: relative;
   isolation: isolate;
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 26px;
-  padding: 2px 4px;
+  min-height: 34px;
+  padding: 4px 2px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -6414,22 +6413,22 @@ button,
 }
 .training-exercise-card__setting {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  gap: 8px;
+  gap: var(--exercise-settings-gap);
   min-width: 0;
 }
 .training-exercise-card__setting > span {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-muted);
 }
 .training-exercise-card__setting input {
   width: 100%;
   min-width: 0;
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid transparent;
+  min-height: var(--exercise-settings-control-height);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-subtle);
   color: var(--text);
