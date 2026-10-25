@@ -466,7 +466,11 @@ export default function ExerciseCard({
               )}
             </div>
           )}
-          {!open && (
+          <div
+            className="training-exercise-card__actions"
+            role="group"
+            aria-label={`Controles de ${exercise.name}`}
+          >
             <button
               type="button"
               onClick={handleToggleOpen}
@@ -478,7 +482,20 @@ export default function ExerciseCard({
                 className={`h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
               />
             </button>
-          )}
+            {open && !readOnly && (
+              <button
+                type="button"
+                onClick={() => setShowOptions((value) => !value)}
+                className="training-exercise-card__options"
+                aria-label={`Opciones de ${exercise.name}`}
+                aria-expanded={showOptions}
+                aria-controls={optionsPanelId}
+                title="Opciones"
+              >
+                <SlidersHorizontal size={16} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
 
         <AnimatePresence initial={false}>
@@ -491,36 +508,6 @@ export default function ExerciseCard({
               className="training-exercise-card__expanded relative flex flex-col border-t border-[color:var(--border)] bg-[color:var(--bg)]/70"
             >
               <div className="training-exercise-card__sets order-1 space-y-2 px-2 py-3 sm:px-3">
-                <div className="training-exercise-card__toolbar">
-                  <span>Series</span>
-                  <div className="flex items-center gap-2">
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => setShowOptions((value) => !value)}
-                        className="training-exercise-card__options"
-                        aria-label={`Opciones de ${exercise.name}`}
-                        aria-expanded={showOptions}
-                        aria-controls={optionsPanelId}
-                      >
-                        <SlidersHorizontal size={16} aria-hidden="true" />
-                        Opciones
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleToggleOpen}
-                      className="training-exercise-card__disclosure grid h-11 w-11 shrink-0 place-items-center text-[color:var(--text-muted)]"
-                      aria-label={`Contraer ${exercise.name}`}
-                      aria-expanded={open}
-                    >
-                      <ChevronDown
-                        className="h-4 w-4 rotate-180"
-                        aria-hidden="true"
-                      />
-                    </button>
-                  </div>
-                </div>
                 <AnimatePresence initial={false}>
                   {showOptions && (
                     <motion.div

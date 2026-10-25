@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ExerciseCard from "./ExerciseCard";
 
@@ -174,7 +174,7 @@ describe("ExerciseCard", () => {
       name: "Opciones de Press en máquina",
     });
     expect(optionsButton).toHaveAttribute("aria-expanded", "false");
-    expect(optionsButton).toHaveTextContent("Opciones");
+    expect(optionsButton).toHaveAttribute("title", "Opciones");
 
     fireEvent.click(optionsButton);
 
@@ -202,6 +202,36 @@ describe("ExerciseCard", () => {
     expect(
       screen.queryByRole("button", { name: /Opciones de/ }),
     ).not.toBeInTheDocument();
+  });
+  it("mantiene contraer y opciones juntos en la cabecera sin activar el ejercicio", () => {
+    const onToggleOpen = vi.fn();
+    const onActivate = vi.fn();
+    render(
+      <ExerciseCard
+        exercise={createExercise()}
+        {...defaultProps}
+        onToggleOpen={onToggleOpen}
+        onActivate={onActivate}
+        open
+      />,
+    );
+    const controls = screen.getByRole("group", {
+      name: "Controles de Press en máquina",
+    });
+    const collapse = within(controls).getByRole("button", {
+      name: "Contraer Press en máquina",
+    });
+    expect(collapse).toBeVisible();
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(
+      within(controls).getByRole("button", {
+        name: "Opciones de Press en máquina",
+      }),
+    );
+    expect(onToggleOpen).not.toHaveBeenCalled();
+    fireEvent.click(collapse);
+    expect(onToggleOpen).toHaveBeenCalledOnce();
+    expect(onActivate).not.toHaveBeenCalled();
   });
 
   it("activa el ejercicio al desplegarlo sin mostrar un boton Iniciar", () => {
