@@ -520,6 +520,17 @@ export default function QuickPlanSetup({
               disabled={saving || Boolean(partialPlan)}
               className="quick-plan__fields"
             >
+              <div className="quick-plan__settings quick-plan__identity">
+                <label className="quick-plan__name">
+                  Nombre del plan
+                  <input
+                    maxLength={100}
+                    placeholder={suggestedName}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
+              </div>
               <details className="quick-plan__schedule">
                 <summary>
                   <CalendarDays size={18} aria-hidden="true" />
@@ -576,15 +587,6 @@ export default function QuickPlanSetup({
                   Más opciones <ChevronDown size={16} aria-hidden="true" />
                 </summary>
                 <div className="quick-plan__settings">
-                  <label className="quick-plan__name">
-                    Nombre del plan
-                    <input
-                      maxLength={100}
-                      placeholder={suggestedName}
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                    />
-                  </label>
                   <label>
                     Objetivo
                     <select

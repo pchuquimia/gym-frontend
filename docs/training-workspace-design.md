@@ -39,14 +39,15 @@ El color verde se reserva para el estado activo y el avance de semanas. No se
 introducen datos de ejemplo ni nuevas fotografías generadas en esta pantalla.
 
 «Nueva planificación» organiza una semana en una sola pantalla. El inicio y la
-duración aparecen arriba en un resumen editable. Cada día vacío ofrece «Añadir
+duración aparecen en un resumen editable, debajo del nombre del plan, que es el
+primer campo visible. Cada día vacío ofrece «Añadir
 rutina»; al asignar una sesión muestra su fotografía a color de 80 × 80 px. Los
 descansos elegidos se muestran en filas compactas. No hace falta configurar los
 siete días: los que quedan sin rutina se guardan como descanso. El borrador
 recuerda qué descansos se eligieron explícitamente, sin cambiar el formato de
 creación del plan ni las asignaciones recuperadas de borradores anteriores.
 
-El nombre, objetivo, nivel y notas se agrupan en «Más opciones». El pie fijo
+El objetivo, nivel y notas se agrupan en «Más opciones». El pie fijo
 resume los días de entrenamiento y la duración, conserva el aviso sobre el plan
 activo y ofrece «Crear planificación». El selector mantiene la búsqueda, las
 rutinas agrupadas por origen y el acceso a crear una rutina. Un fallo parcial

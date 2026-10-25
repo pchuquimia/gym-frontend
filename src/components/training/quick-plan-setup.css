@@ -403,6 +403,9 @@ button.quick-plan__row:focus-visible {
   color: var(--text-muted);
   font-size: 0.75rem;
 }
+.quick-plan__identity {
+  padding: 0 0 16px;
+}
 .quick-plan__settings input,
 .quick-plan__settings select,
 .quick-plan__settings textarea {

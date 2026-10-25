@@ -55,12 +55,13 @@ describe("QuickPlanSetup", () => {
       screen.getByText("Los días sin rutina quedan de descanso."),
     ).toBeVisible();
     expect(screen.getByLabelText("Empieza")).not.toBeVisible();
-    expect(screen.getByLabelText("Nombre del plan")).not.toBeVisible();
+    expect(screen.getByLabelText("Nombre del plan")).toBeVisible();
+    expect(screen.getByLabelText("Objetivo")).not.toBeVisible();
     await userEvent.click(screen.getByText("Editar"));
     expect(screen.getByLabelText("Empieza")).toBeVisible();
-    expect(screen.getByLabelText("Nombre del plan")).not.toBeVisible();
+    expect(screen.getByLabelText("Objetivo")).not.toBeVisible();
     await userEvent.click(screen.getByText("Más opciones"));
-    expect(screen.getByLabelText("Nombre del plan")).toBeVisible();
+    expect(screen.getByLabelText("Objetivo")).toBeVisible();
   });
   it("remembers explicitly chosen rest days without requiring every day to be configured", async () => {
     const onCreate = vi.fn().mockResolvedValue({ id: "plan" });
