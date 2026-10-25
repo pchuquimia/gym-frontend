@@ -15,7 +15,11 @@ presentarlos como sesiones completadas. Los ciclos secuenciales muestran días
 numerados y frecuencia por ciclo, en lugar de días de la semana.
 
 «Ver planificación» abre el detalle existente, donde permanecen los controles
-para iniciar sesiones y gestionar la agenda. Los demás planes en preparación,
+para iniciar sesiones y gestionar la agenda. La agenda se muestra una sola vez,
+en la semana actual del plan, conservando sus fechas y sesiones realizadas.
+Se elimina la fila de selectores «Semana 1, Semana 2…» porque la estructura
+se repite. Los ciclos secuenciales conservan su orden y avance por día.
+Los demás planes en preparación,
 programados o pausados se muestran debajo. Los completados y archivados se
 agrupan en un historial desplegable que conserva su acceso al detalle.
 

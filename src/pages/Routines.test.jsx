@@ -42,6 +42,7 @@ const schedule = [
 afterEach(() => {
   localStorage.removeItem("routine_edit_library_draft");
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("TrainingPlanSchedule", () => {
@@ -63,7 +64,6 @@ describe("TrainingPlanSchedule", () => {
           },
         ]}
         trainings={[]}
-        selectedWeek={0}
         isManagedClient={false}
         onChooseRoutine={vi.fn()}
         onOpenRoutine={vi.fn()}
@@ -104,7 +104,6 @@ describe("TrainingPlanSchedule", () => {
           },
         ]}
         trainings={[]}
-        selectedWeek={0}
         isManagedClient={false}
         onChooseRoutine={vi.fn()}
         onOpenRoutine={vi.fn()}
@@ -126,8 +125,9 @@ describe("TrainingPlanSchedule", () => {
     ).toBeNull();
   });
 
-  it("permite seleccionar otra semana de la planificación", () => {
-    const onSelectWeek = vi.fn();
+  it("muestra automáticamente la semana actual sin repetir selectores de semanas", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-19T12:00:00"));
     render(
       <TrainingPlanSchedule
         plan={{
@@ -140,8 +140,6 @@ describe("TrainingPlanSchedule", () => {
         }}
         routines={[]}
         trainings={[]}
-        selectedWeek={0}
-        onSelectWeek={onSelectWeek}
         isManagedClient={false}
         onChooseRoutine={vi.fn()}
         onOpenRoutine={vi.fn()}
@@ -154,8 +152,9 @@ describe("TrainingPlanSchedule", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Semana 2" }));
-    expect(onSelectWeek).toHaveBeenCalledWith(1);
+    expect(screen.getByText("Semana 2 de 4")).toBeVisible();
+    expect(screen.queryByLabelText("Seleccionar semana de la planificación")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Semana \d/ })).toBeNull();
   });
 
   it("reconoce una rutina completada aunque se entrene otro día de la misma semana", () => {
@@ -184,7 +183,6 @@ describe("TrainingPlanSchedule", () => {
             trainingPlanSlotId: "slot_1",
           },
         ]}
-        selectedWeek={3}
         isManagedClient={false}
         onChooseRoutine={vi.fn()}
         onOpenRoutine={vi.fn()}

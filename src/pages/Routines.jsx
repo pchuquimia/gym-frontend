@@ -4242,8 +4242,6 @@ export function TrainingPlanSchedule({
   plan,
   routines,
   trainings,
-  selectedWeek,
-  onSelectWeek,
   isManagedClient,
   onChooseRoutine,
   onOpenRoutine,
@@ -4264,7 +4262,7 @@ export function TrainingPlanSchedule({
   const [editingSchedulePlanId, setEditingSchedulePlanId] = useState("");
   const editingSchedule = editingSchedulePlanId === planId;
   const todayIso = new Date().toLocaleDateString("en-CA");
-  const currentWeekIndex = getPlanWeekIndex(plan);
+  const selectedWeek = getPlanWeekIndex(plan);
   const currentCycleIndex = Math.min(
     schedule.length - 1,
     Math.max(0, Number(plan.cycleProgress?.currentIndex || 0)),
@@ -4364,33 +4362,6 @@ export function TrainingPlanSchedule({
             className="theme-accent-solid h-full border-0 transition-all"
             style={{ width: `${(progressValue / progressTotal) * 100}%` }}
           />
-        </div>
-      ) : null}
-
-      {!sequential && Number(plan.durationWeeks || 1) > 1 ? (
-        <div
-          className="plan-schedule__weeks mt-4 flex gap-2 overflow-x-auto pb-1"
-          aria-label="Seleccionar semana de la planificación"
-        >
-          {Array.from(
-            { length: Math.max(1, Number(plan.durationWeeks || 1)) },
-            (_, weekIndex) => (
-              <button
-                key={weekIndex}
-                type="button"
-                onClick={() => onSelectWeek?.(weekIndex)}
-                aria-pressed={selectedWeek === weekIndex}
-                className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
-                  selectedWeek === weekIndex
-                    ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-                    : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]"
-                }`}
-              >
-                Semana {weekIndex + 1}
-                {weekIndex === currentWeekIndex ? " · Actual" : ""}
-              </button>
-            ),
-          )}
         </div>
       ) : null}
 
@@ -5190,7 +5161,6 @@ function Routines({
   const [planToExtend, setPlanToExtend] = useState(null);
   const [extensionWeeks, setExtensionWeeks] = useState(4);
   const [extendingPlan, setExtendingPlan] = useState(false);
-  const [selectedPlanWeek, setSelectedPlanWeek] = useState(0);
   const [advancingCycle, setAdvancingCycle] = useState(false);
   const [templateProcessingId, setTemplateProcessingId] = useState("");
   const [showArchivedRoutines, setShowArchivedRoutines] = useState(false);
@@ -5286,7 +5256,6 @@ function Routines({
       );
       if (draft) {
         setActivePlan(draft);
-        setSelectedPlanWeek(getPlanWeekIndex(draft));
       }
     } else {
       setQuickPlanOpen(true);
@@ -5539,7 +5508,6 @@ function Routines({
     }
     setWorkspaceView("plans");
     setActivePlan(completedPlan);
-    setSelectedPlanWeek(getPlanWeekIndex(completedPlan));
     setPlanToExtend(completedPlan);
     setExtensionWeeks(4);
   }, [isCoach, planToExtend, plansLoading, trainingPlans]);
@@ -6004,7 +5972,6 @@ function Routines({
           )
         : await api.createTrainingPlan(payload);
       setActivePlan(saved);
-      setSelectedPlanWeek(getPlanWeekIndex(saved));
       setTrainingPlans((current) => [
         saved,
         ...current.filter(
@@ -6098,7 +6065,6 @@ function Routines({
       setTrainingPlans((current) => replaceTrainingPlan(current, saved));
       setPlanToExtend(null);
       setActivePlan(saved);
-      setSelectedPlanWeek(getPlanWeekIndex(saved));
       await Promise.allSettled([
         refreshPlans(),
         reloadRoutines({ silent: true }),
@@ -6254,7 +6220,6 @@ function Routines({
   const openTrainingPlan = (plan) => {
     setWorkspaceView("plans");
     setActivePlan(plan);
-    setSelectedPlanWeek(getPlanWeekIndex(plan));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -7079,8 +7044,6 @@ function Routines({
             plan={activePlan}
             routines={routines}
             trainings={trainings}
-            selectedWeek={selectedPlanWeek}
-            onSelectWeek={setSelectedPlanWeek}
             isManagedClient={isManagedClient}
             onChooseRoutine={setPlanDayChoice}
             onOpenRoutine={setViewingRoutine}
