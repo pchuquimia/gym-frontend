@@ -8,6 +8,23 @@ afterEach(() => {
 });
 
 describe("AppToaster", () => {
+  it("reinicia la animación al sustituir sucesivamente el mismo aviso", async () => {
+    render(<AppToaster />);
+    act(() => toast.success("Activado"));
+    expect(await screen.findByText("Activado")).toBeVisible();
+
+    act(() => toast.success("Desactivado"));
+    const second = await screen.findByText("Desactivado");
+    const secondClass = second.closest("[data-sonner-toast]").className;
+    expect(secondClass).toMatch(/rirfit-toast--replace-[ab]/);
+
+    act(() => toast.success("Activado otra vez"));
+    const third = await screen.findByText("Activado otra vez");
+    expect(third.closest("[data-sonner-toast]").className).not.toBe(secondClass);
+    expect(document.querySelectorAll("[data-sonner-toast]")).toHaveLength(1);
+    expect(screen.queryByText("Desactivado")).not.toBeInTheDocument();
+  });
+
   it("sustituye la activación por la desactivación inmediata", async () => {
     render(<AppToaster />);
     act(() => {

@@ -354,10 +354,9 @@ export default function ExerciseCard({
         aria-controls={optionsPanelId}
         title="Opciones"
       >
-        <Settings2 size={13} aria-hidden="true" />
         Opciones
         <ChevronDown
-          size={13}
+          size={12}
           className={showOptions ? "rotate-180" : ""}
           aria-hidden="true"
         />

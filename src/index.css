@@ -6471,15 +6471,15 @@ details.training-extra-options {
   align-items: center;
   align-self: flex-start;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   width: auto !important;
-  min-height: 36px !important;
+  min-height: 28px !important;
   height: auto;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px !important;
-  background: var(--surface-subtle);
-  color: var(--text);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem !important;
+  background: transparent;
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -6491,13 +6491,15 @@ details.training-extra-options {
   outline-offset: 2px;
 }
 .training-exercise-card .training-exercise-card__options:hover {
-  border-color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text);
 }
 .training-exercise-card
   .training-exercise-card__options[aria-expanded="true"] {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--card);
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+  color: var(--text);
 }
 .training-exercise-card__settings {
   --exercise-settings-gap: 12px;
@@ -7304,9 +7306,6 @@ details.training-extra-options {
   }
 
   @media (max-width: 350px) {
-    .training-exercise-card__options > svg:first-child {
-      display: none;
-    }
     .training-exercise-card__set-table-header,
     .training-set-entry,
     .training-set-entry--single {
@@ -8394,6 +8393,33 @@ details.training-extra-options {
   border-radius: 0 999px 999px 0;
   background: var(--rirfit-toast-tone);
   content: "";
+}
+
+.rirfit-toast--replace-a {
+  animation: rirfit-toast-replace-a 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.rirfit-toast--replace-b {
+  animation: rirfit-toast-replace-b 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes rirfit-toast-replace-a {
+  from {
+    opacity: 0.4;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes rirfit-toast-replace-b {
+  from {
+    opacity: 0.4;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 .rirfit-toast__icon {

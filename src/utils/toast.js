@@ -1,6 +1,7 @@
 import { toast as sonnerToast } from "sonner";
 
 const FEEDBACK_ID = "rirfit-feedback";
+let feedbackAnimation = 0;
 const replaceFeedback =
   (notify) =>
   (message, options = {}) => {
@@ -10,7 +11,20 @@ const replaceFeedback =
     const clearedOptions = Object.fromEntries(
       Object.keys(previous || {}).map((key) => [key, undefined]),
     );
-    return notify(message, { ...clearedOptions, ...options, id: FEEDBACK_ID });
+    const replacing = sonnerToast
+      .getToasts?.()
+      ?.some((item) => item.id === FEEDBACK_ID);
+    const animationClass = replacing
+      ? `rirfit-toast--replace-${++feedbackAnimation % 2 ? "a" : "b"}`
+      : "";
+    return notify(message, {
+      ...clearedOptions,
+      ...options,
+      id: FEEDBACK_ID,
+      className:
+        [options.className, animationClass].filter(Boolean).join(" ") ||
+        undefined,
+    });
   };
 
 // Every transient notice updates the same toast, including rapid on/off changes.
