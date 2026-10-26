@@ -24,6 +24,7 @@ import {
   Plus,
   RotateCcw,
   Timer,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -6083,6 +6084,7 @@ export default function RegisterTraining({
 
   const handleCancel = () => {
     setSessionMenuOpen(false);
+    setDesktopSessionMenuOpen(false);
     if (sessionLocked) {
       setCancelConfirmOpen(true);
       return;
@@ -6694,29 +6696,31 @@ export default function RegisterTraining({
                 </h2>
                 <button
                   type="button"
-                  className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]"
                   aria-label="Cerrar opciones"
                   onClick={() => setSessionMenuOpen(false)}
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="px-2">
-                <div className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+              <div className="space-y-2 px-4 pb-2">
+                <div className="flex min-h-12 w-full items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
                   <span>Apariencia</span>
                   <ThemeToggle compact />
                 </div>
                 <RestTimingControl
                   compact
+                  className="border border-[color:var(--border)] bg-[color:var(--surface)]"
                   enabled={autoFlowEnabled}
                   durationSeconds={restDurationSeconds}
                   onToggle={handleAutoFlowToggle}
                   onDurationChange={handleAutoFlowDurationChange}
                 />
                 {isAdmin ? (
-                  <button
+                  <Button
                     type="button"
-                    className="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)]"
+                    variant="outline"
+                    className="h-12 w-full justify-start gap-3 rounded-xl px-3"
                     onClick={() => {
                       setSessionMenuOpen(false);
                       handleEditRoutineFromTraining();
@@ -6724,16 +6728,18 @@ export default function RegisterTraining({
                   >
                     <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
                     <span>Editar rutina activa</span>
-                  </button>
+                  </Button>
                 ) : null}
                 <div className="mx-3 mt-3 border-t border-[color:var(--border)]" />
-                <button
+                <Button
                   type="button"
-                  className="mt-1 h-11 w-full rounded-xl text-sm font-semibold text-[color:var(--danger)] transition hover:bg-[color:var(--surface-subtle)]"
+                  variant="destructiveOutline"
+                  className="training-session-menu__cancel h-12 w-full rounded-xl"
                   onClick={handleCancel}
                 >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Cancelar entrenamiento
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -7203,30 +7209,33 @@ export default function RegisterTraining({
                         }
                         aria-expanded={desktopSessionMenuOpen}
                         aria-haspopup="menu"
+                        aria-label="Opciones del entrenamiento"
                       >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                       {desktopSessionMenuOpen ? (
                         <div
                           role="menu"
-                          className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-40 w-64"
+                          className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-40 w-72 space-y-2"
                         >
-                          <div className="flex min-h-11 items-center justify-between rounded-xl px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+                          <div className="flex min-h-11 items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
                             <span>Apariencia</span>
                             <ThemeToggle compact />
                           </div>
                           <RestTimingControl
                             compact
+                            className="border border-[color:var(--border)] bg-[color:var(--surface)]"
                             enabled={autoFlowEnabled}
                             durationSeconds={restDurationSeconds}
                             onToggle={handleAutoFlowToggle}
                             onDurationChange={handleAutoFlowDurationChange}
                           />
                           {isAdmin ? (
-                            <button
+                            <Button
                               type="button"
                               role="menuitem"
-                              className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                              variant="outline"
+                              className="h-11 w-full justify-start gap-3 px-3"
                               onClick={() => {
                                 setDesktopSessionMenuOpen(false);
                                 handleEditRoutineFromTraining();
@@ -7234,13 +7243,14 @@ export default function RegisterTraining({
                             >
                               <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
                               Editar rutina
-                            </button>
+                            </Button>
                           ) : null}
                           {showResetButton ? (
-                            <button
+                            <Button
                               type="button"
                               role="menuitem"
-                              className="flex h-11 w-full items-center gap-3 px-3 text-left text-sm font-bold text-[color:var(--text)] transition-colors hover:bg-[color:var(--bg)]"
+                              variant="outline"
+                              className="h-11 w-full justify-start gap-3 px-3"
                               onClick={() => {
                                 setDesktopSessionMenuOpen(false);
                                 handleReset();
@@ -7248,19 +7258,21 @@ export default function RegisterTraining({
                             >
                               <RotateCcw className="h-4 w-4 text-[color:var(--text-muted)]" />
                               Reiniciar cronometro
-                            </button>
+                            </Button>
                           ) : null}
                           {showCancelButton ? (
                             <>
                               <div className="mx-2 mt-1 border-t border-[color:var(--border)]" />
-                              <button
+                              <Button
                                 type="button"
                                 role="menuitem"
-                                className="mt-1 h-10 w-full text-center text-sm font-semibold text-[color:var(--danger)] transition-colors hover:bg-[color:var(--surface-subtle)]"
+                                variant="destructiveOutline"
+                                className="training-session-menu__cancel h-11 w-full"
                                 onClick={handleCancel}
                               >
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                                 Cancelar entrenamiento
-                              </button>
+                              </Button>
                             </>
                           ) : null}
                         </div>
@@ -8494,7 +8506,7 @@ export default function RegisterTraining({
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
-              className="relative w-full rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-sm md:rounded-[2rem] md:px-6 md:pb-6 md:pt-6"
+              className="training-cancel-dialog relative w-full rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-sm md:rounded-[2rem] md:px-6 md:pb-6 md:pt-6"
             >
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[color:var(--border)] md:hidden" />
               <h2
@@ -8509,21 +8521,25 @@ export default function RegisterTraining({
               >
                 Se perderán los datos registrados en esta sesión.
               </p>
-              <div className="mt-5 grid gap-1">
+              <div className="mt-5 grid gap-2">
                 <Button
                   type="button"
-                  className="h-12 rounded-xl !bg-[#181918] text-white hover:!bg-[#2b2d2a] dark:!bg-[#e2ff00] dark:text-black dark:hover:!bg-[#cbe600]"
+                  variant="outline"
+                  className="h-12 w-full rounded-xl"
+                  autoFocus
                   onClick={() => setCancelConfirmOpen(false)}
                 >
                   Seguir entrenando
                 </Button>
-                <button
+                <Button
                   type="button"
-                  className="h-11 rounded-xl text-sm font-semibold text-[color:var(--danger)] transition hover:bg-[color:var(--surface-subtle)]"
+                  variant="destructive"
+                  className="training-cancel-dialog__confirm h-12 w-full rounded-xl"
                   onClick={performCancel}
                 >
-                  Sí, cancelar entrenamiento
-                </button>
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  Cancelar entrenamiento
+                </Button>
               </div>
             </motion.section>
           </motion.div>

@@ -6228,6 +6228,18 @@ button,
   display: none;
 }
 
+.training-session-menu__cancel {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.overflow-menu-panel > .training-session-menu__cancel:hover {
+  background: var(--danger-soft) !important;
+}
+.dark .training-cancel-dialog__confirm {
+  color: #2b100d;
+}
+
 :root:not(.dark) .training-set-entry__field {
   border: 1px solid #d8dde3 !important;
   background: #fff !important;
