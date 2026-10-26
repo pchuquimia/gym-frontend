@@ -7,8 +7,8 @@ import {
   ChevronRight,
   ClipboardList,
   Clock3,
-  Droplets,
   Dumbbell,
+  Plus,
   Ruler,
   Weight,
 } from "lucide-react";
@@ -299,13 +299,8 @@ const QUICK_REGISTRATION_DEFAULTS = Object.freeze([
 ]);
 
 function QuickRegistration({ task, onOpen, readOnly }) {
-  const Icon =
-    {
-      weight: Weight,
-      photos: Camera,
-      measurements: Ruler,
-      hydration: Droplets,
-    }[task.type] || ClipboardList;
+  const image =
+    DAILY_CARD_IMAGES[task.type] || DAILY_CARD_IMAGES.measurements;
 
   return (
     <button
@@ -316,8 +311,20 @@ function QuickRegistration({ task, onOpen, readOnly }) {
       aria-label={`${task.title}${task.subtitle ? `: ${task.subtitle}` : ""}`}
       title={task.subtitle}
     >
-      <Icon aria-hidden="true" />
-      <span>{task.type === "hydration" ? "Agua" : task.title}</span>
+      <img
+        className="daily-quick-action__photo"
+        src={image}
+        alt=""
+        width={512}
+        height={512}
+        loading="eager"
+      />
+      <span className="daily-quick-action__copy">
+        <span className="daily-quick-action__add" aria-hidden="true">
+          <Plus size={16} />
+        </span>
+        <span>{task.type === "hydration" ? "Agua" : task.title}</span>
+      </span>
     </button>
   );
 }
@@ -698,10 +705,7 @@ export default function MobileDailyPlan({
                 <h2 id="mobile-daily-plan-progress-title">
                   Registros opcionales
                 </h2>
-                <div
-                  className="daily-registrations__actions"
-                  style={{ "--registration-count": quickRegistrations.length }}
-                >
+                <div className="daily-registrations__actions">
                   {quickRegistrations.map((task) => (
                     <QuickRegistration
                       key={task.id || task.type}
