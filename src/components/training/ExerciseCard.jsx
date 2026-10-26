@@ -354,7 +354,13 @@ export default function ExerciseCard({
         aria-controls={optionsPanelId}
         title="Opciones"
       >
+        <Settings2 size={13} aria-hidden="true" />
         Opciones
+        <ChevronDown
+          size={13}
+          className={showOptions ? "rotate-180" : ""}
+          aria-hidden="true"
+        />
       </button>
     ) : null;
 
@@ -424,7 +430,7 @@ export default function ExerciseCard({
               src={imageSrc}
               alt=""
               fallback={(exercise.name || "?").charAt(0).toUpperCase()}
-              className="h-full w-full text-base font-black transition-transform group-hover:scale-105"
+              className="absolute inset-0 h-full w-full text-base font-black transition-transform group-hover:scale-105"
             />
             {exercise.isExtra && (
               <span className="training-exercise-card__extra-label">Extra</span>
