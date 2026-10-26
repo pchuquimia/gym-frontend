@@ -12,7 +12,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import ConfirmModal from "../components/library/ConfirmModal";
 import Button from "../components/ui/button";
 import { useThemeMode } from "../hooks/useThemeMode";

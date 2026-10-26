@@ -12,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import Button from "../components/ui/button";
 import Modal from "../components/shared/Modal";
 import { useAuth } from "../context/AuthContext";

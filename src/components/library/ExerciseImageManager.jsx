@@ -15,7 +15,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "../../utils/toast";
 import Button from "../ui/button";
 import Skeleton from "../ui/skeleton";
 import ExerciseCodexImageGenerator from "./ExerciseCodexImageGenerator";

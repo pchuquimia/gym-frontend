@@ -34,7 +34,7 @@ import {
   Scale,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import Modal from "../components/shared/Modal";
 import PhotoViewSelector from "../components/shared/PhotoViewSelector";
 import CoachIntakeQuestionnaire from "../components/coach/CoachIntakeQuestionnaire";

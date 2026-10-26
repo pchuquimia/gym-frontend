@@ -7,7 +7,7 @@ import {
   Save,
   Search,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import ExerciseThumbnail from "../components/analytics/ExerciseThumbnail";
 import Button from "../components/ui/button";
 import Skeleton from "../components/ui/skeleton";

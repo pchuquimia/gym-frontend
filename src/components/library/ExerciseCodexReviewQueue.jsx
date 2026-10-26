@@ -11,7 +11,7 @@ import {
   Sparkles,
   SkipForward,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/toast";
 import { api } from "../../services/api";
 import Button from "../ui/button";
 

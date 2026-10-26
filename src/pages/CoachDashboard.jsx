@@ -38,7 +38,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import Badge from "../components/ui/badge";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";

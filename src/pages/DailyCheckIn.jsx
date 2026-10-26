@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import OperationLoader from "../components/system/OperationLoader";
 import PremiumGate from "../components/shared/PremiumGate";

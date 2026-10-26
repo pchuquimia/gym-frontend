@@ -13,7 +13,7 @@ import {
   Target,
   UserRound,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import { useAuth } from "../context/AuthContext";
 import OperationLoader from "../components/system/OperationLoader";
 import CoachIntakeQuestionnaire from "../components/coach/CoachIntakeQuestionnaire";

@@ -3,7 +3,7 @@ import Card from "../components/ui/card";
 import Button from "../components/ui/button";
 import Spinner from "../components/ui/spinner";
 import { useTrainingData } from "../context/TrainingContext";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 
 const initialGoals = {
   bench1rm: {

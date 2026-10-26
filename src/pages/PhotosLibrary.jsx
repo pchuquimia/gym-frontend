@@ -23,7 +23,7 @@ import {
   UsersRound,
   UserRound,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import ConfirmModal from "../components/library/ConfirmModal";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Modal from "../components/shared/Modal";

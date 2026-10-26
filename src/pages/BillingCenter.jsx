@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
 import { useAuth } from "../context/AuthContext";

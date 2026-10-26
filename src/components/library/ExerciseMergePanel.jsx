@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Loader2, Search } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/toast";
 import Modal from "../shared/Modal";
 import { api } from "../../services/api";
 

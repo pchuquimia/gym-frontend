@@ -28,7 +28,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import optionalExercisesEquipment from "../assets/optional-exercises-equipment.webp";
 import { scoreExerciseSearch } from "../utils/exerciseSearch";
 import {

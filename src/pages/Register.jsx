@@ -15,7 +15,7 @@ import { isGoogleSignInConfigured } from "../config/googleAuth";
 import PremiumAuthLayout from "../components/auth/PremiumAuthLayout";
 import Button from "../components/ui/button";
 import OperationLoader from "../components/system/OperationLoader";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import {

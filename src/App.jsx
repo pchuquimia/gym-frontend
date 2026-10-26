@@ -15,7 +15,7 @@ import LegalPage from "./pages/LegalPage";
 import RoleBasedRoute from "./components/auth/RoleBasedRoute";
 import PageErrorBoundary from "./components/system/PageErrorBoundary";
 import OperationLoader from "./components/system/OperationLoader";
-import { toast } from "sonner";
+import { toast } from "./utils/toast";
 import { useAuth } from "./context/AuthContext";
 import { api } from "./services/api";
 import { TrainingProvider } from "./context/TrainingContext";

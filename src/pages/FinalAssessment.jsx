@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, ClipboardCheck } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import { api } from "../services/api";
 
 export default function FinalAssessment({ onBack, onNavigate }) {

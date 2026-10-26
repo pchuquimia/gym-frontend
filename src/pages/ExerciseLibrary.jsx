@@ -31,7 +31,7 @@ import Button from "../components/ui/button";
 import { useAuth } from "../context/AuthContext";
 import { useTrainingData } from "../context/TrainingContext";
 import { api } from "../services/api";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import {
   ALL_FILTER_VALUE,
   BODY_REGION_GROUPS,

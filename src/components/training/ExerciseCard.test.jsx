@@ -135,6 +135,36 @@ describe("ExerciseCard", () => {
       container.querySelector('[aria-current="step"]'),
     ).toBeInTheDocument();
   });
+  it.each([
+    "Curl",
+    "Curl femoral acostado en máquina de palanca con apoyo ajustable",
+  ])(
+    "presenta el historial antes del estado activo con el título %s",
+    (name) => {
+      render(
+        <ExerciseCard
+          exercise={{
+            ...createExercise(),
+            name,
+            isActive: true,
+            hasStoredHistory: true,
+            storedHistoryLastDate: "2026-08-12",
+          }}
+          {...defaultProps}
+          open
+        />,
+      );
+      const history = screen.getByText(/Última vez: 12 ago/);
+      const status = screen.getByText("En curso");
+      expect(
+        history.compareDocumentPosition(status) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        screen.getAllByRole("button", { name: `Contraer ${name}` }),
+      ).toHaveLength(2);
+    },
+  );
   it.each([true, false])(
     "muestra la última vez solo al abrir la card (historial interactivo: %s)",
     (interactive) => {

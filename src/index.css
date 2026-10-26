@@ -6351,7 +6351,7 @@ details.training-extra-options {
 .training-exercise-card__summary {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr) 44px;
-  grid-template-areas: "image name actions" "image info actions";
+  grid-template-areas: "image content actions";
   align-items: center;
 }
 .training-exercise-card__thumbnail {
@@ -6360,11 +6360,14 @@ details.training-extra-options {
   height: 100% !important;
   min-height: 80px;
 }
-.training-exercise-card__heading {
-  grid-area: name;
+.training-exercise-card__body {
+  grid-area: content;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 .training-exercise-card__info {
-  grid-area: info;
   overflow-wrap: anywhere;
 }
 .training-exercise-card__actions {
@@ -6374,26 +6377,11 @@ details.training-extra-options {
   flex-direction: column;
   align-items: center;
 }
-.training-exercise-card__surface:not(.is-open) .training-exercise-card__summary {
-  row-gap: 4px !important;
-}
-.training-exercise-card__surface:not(.is-open)
-  .training-exercise-card__summary:has(.training-exercise-card__info)
-  .training-exercise-card__heading {
-  align-self: end;
-}
-.training-exercise-card__surface:not(.is-open) .training-exercise-card__info {
-  align-self: start;
-}
-.training-exercise-card__surface:not(.is-open)
-  .training-exercise-card__summary:not(:has(.training-exercise-card__info)) {
-  grid-template-areas: "image name actions";
-}
 .training-exercise-card__surface.is-open .training-exercise-card__summary {
-  grid-template-areas: "image name actions" "image info info";
-  grid-template-rows: auto 1fr;
-  row-gap: 6px !important;
   align-items: start;
+}
+.training-exercise-card__surface.is-open .training-exercise-card__body {
+  gap: 8px;
 }
 .training-exercise-card__metadata-row {
   display: flex;
@@ -6410,8 +6398,7 @@ details.training-extra-options {
   white-space: normal;
 }
 .training-exercise-card__surface.is-open .training-exercise-card__heading {
-  align-self: start;
-  min-height: 32px;
+  min-height: 0;
 }
 .training-exercise-card__surface.is-open .training-exercise-card__info {
   display: flex;
@@ -6497,6 +6484,7 @@ details.training-extra-options {
   font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .training-exercise-card__options:focus-visible {
   outline: 2px solid var(--text);
@@ -7039,7 +7027,8 @@ details.training-extra-options {
   }
 
   .training-exercise-card__surface.is-open .training-exercise-card__summary {
-    grid-template-columns: 5.5rem minmax(0, 1fr) 2.75rem;
+    grid-template-columns: 5.5rem minmax(0, 1fr) 2rem;
+    column-gap: 0.5rem !important;
     padding: 0.75rem !important;
   }
 
@@ -7100,7 +7089,7 @@ details.training-extra-options {
   }
 
   .training-exercise-card__surface.is-open .training-exercise-card__disclosure {
-    width: 2.75rem !important;
+    width: 2rem !important;
     height: 2.75rem !important;
     border: 0;
     border-radius: 0.75rem;
@@ -7315,6 +7304,9 @@ details.training-extra-options {
   }
 
   @media (max-width: 350px) {
+    .training-exercise-card__options > svg:first-child {
+      display: none;
+    }
     .training-exercise-card__set-table-header,
     .training-set-entry,
     .training-set-entry--single {

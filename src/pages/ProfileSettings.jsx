@@ -25,7 +25,7 @@ import { useTrainingData } from "../context/TrainingContext";
 import { useUserProfile } from "../context/UserContext";
 import { useThemeMode } from "../hooks/useThemeMode";
 import { api } from "../services/api";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import ProfileAvatar from "../components/profile/ProfileAvatar";

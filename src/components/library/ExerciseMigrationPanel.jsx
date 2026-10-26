@@ -13,7 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/toast";
 import Button from "../ui/button";
 import { api } from "../../services/api";
 

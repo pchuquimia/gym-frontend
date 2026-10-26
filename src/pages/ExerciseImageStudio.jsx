@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ImageIcon, LoaderCircle, Search } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import ExerciseCodexReviewQueue from "../components/library/ExerciseCodexReviewQueue";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import Button from "../components/ui/button";

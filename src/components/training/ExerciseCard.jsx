@@ -436,98 +436,100 @@ export default function ExerciseCard({
               <span className="training-exercise-card__extra-label">Extra</span>
             )}
           </button>
-          <button
-            type="button"
-            onClick={handleToggleOpen}
-            onPointerDown={handleExercisePointerDown}
-            onPointerMove={handleExercisePointerMove}
-            onPointerUp={clearExerciseLongPress}
-            onPointerCancel={clearExerciseLongPress}
-            onPointerLeave={clearExerciseLongPress}
-            onContextMenu={(event) => {
-              if (!readOnly && onRemoveExercise) event.preventDefault();
-            }}
-            className="training-exercise-card__heading min-w-0 w-full text-left"
-            aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
-            aria-expanded={open}
-          >
-            <p
-              className={`training-exercise-card__title ${open ? "" : "line-clamp-2"} min-w-0 text-lg font-bold leading-tight text-[color:var(--text)]`}
+          <div className="training-exercise-card__body">
+            <button
+              type="button"
+              onClick={handleToggleOpen}
+              onPointerDown={handleExercisePointerDown}
+              onPointerMove={handleExercisePointerMove}
+              onPointerUp={clearExerciseLongPress}
+              onPointerCancel={clearExerciseLongPress}
+              onPointerLeave={clearExerciseLongPress}
+              onContextMenu={(event) => {
+                if (!readOnly && onRemoveExercise) event.preventDefault();
+              }}
+              className="training-exercise-card__heading min-w-0 w-full text-left"
+              aria-label={`${open ? "Contraer" : "Expandir"} ${exercise.name}`}
+              aria-expanded={open}
             >
-              {exercise.name}
-            </p>
-          </button>
-          {(hasVariants ||
-            (open && hasStoredHistory) ||
-            setupNote ||
-            isComplete ||
-            exercise.isActive ||
-            optionsButton) && (
-            <div className="training-exercise-card__info min-w-0">
-              <div className="training-exercise-card__metadata-row">
-                {(hasVariants ||
-                  isComplete ||
-                  (exercise.isActive && !isComplete)) && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {exercise.isActive && !isComplete && (
-                      <span className="training-exercise-card__status">
-                        <span aria-hidden="true" />
-                        En curso
-                      </span>
-                    )}
-                    {isComplete && (
-                      <span
-                        className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--text-muted)]"
-                        aria-label="Completado"
+              <p
+                className={`training-exercise-card__title ${open ? "" : "line-clamp-2"} min-w-0 text-lg font-bold leading-tight text-[color:var(--text)]`}
+              >
+                {exercise.name}
+              </p>
+            </button>
+            {(hasVariants ||
+              (open && hasStoredHistory) ||
+              setupNote ||
+              isComplete ||
+              exercise.isActive ||
+              optionsButton) && (
+              <div className="training-exercise-card__info min-w-0">
+                <div className="training-exercise-card__metadata-row">
+                  {showHistory &&
+                    (onViewTracking ? (
+                      <button
+                        type="button"
+                        onClick={onViewTracking}
+                        className="training-exercise-card__meta group flex min-w-0 items-start gap-1.5 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+                        aria-label={`Ver historial de ${exercise.name}`}
                       >
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                        Completado
-                      </span>
-                    )}
-                    {hasVariants && (
-                      <span
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
-                        title="Variante actual"
-                      >
-                        <Repeat2 className="h-3 w-3" aria-hidden="true" />
-                        {variantPosition}/{variantTotal}
-                      </span>
-                    )}
+                        <span>{`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${referenceDateLabel && exercise.referenceSourceText ? ` · ${exercise.referenceSourceText}` : !referenceDateLabel ? " · Otra rutina" : ""}`}</span>
+                      </button>
+                    ) : historyDateLabel ? (
+                      <p className="training-exercise-card__meta text-xs font-medium text-[color:var(--text-muted)]">
+                        Última vez: {historyDateLabel}
+                      </p>
+                    ) : null)}
+                  {(hasVariants ||
+                    isComplete ||
+                    (exercise.isActive && !isComplete)) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {exercise.isActive && !isComplete && (
+                        <span className="training-exercise-card__status">
+                          <span aria-hidden="true" />
+                          En curso
+                        </span>
+                      )}
+                      {isComplete && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--text-muted)]"
+                          aria-label="Completado"
+                        >
+                          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                          Completado
+                        </span>
+                      )}
+                      {hasVariants && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-[color:var(--text-muted)]"
+                          title="Variante actual"
+                        >
+                          <Repeat2 className="h-3 w-3" aria-hidden="true" />
+                          {variantPosition}/{variantTotal}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {optionsButton}
+                {setupNote && (
+                  <div
+                    className="training-exercise-card__setup flex min-w-0 items-start gap-1.5 text-xs text-[color:var(--text-muted)]"
+                    title={`Ajuste: ${setupNote}`}
+                  >
+                    <Settings2
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className={`min-w-0 ${open ? "" : "truncate"}`}>
+                      <strong>Ajuste:</strong> {setupNote}
+                    </span>
                   </div>
                 )}
-                {showHistory &&
-                  (onViewTracking ? (
-                    <button
-                      type="button"
-                      onClick={onViewTracking}
-                      className="training-exercise-card__meta group flex min-w-0 items-start gap-1.5 text-left text-xs font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
-                      aria-label={`Ver historial de ${exercise.name}`}
-                    >
-                      <span>{`Última vez${historyDateLabel ? `: ${historyDateLabel}` : ""}${referenceDateLabel && exercise.referenceSourceText ? ` · ${exercise.referenceSourceText}` : !referenceDateLabel ? " · Otra rutina" : ""}`}</span>
-                    </button>
-                  ) : historyDateLabel ? (
-                    <p className="training-exercise-card__meta text-xs font-medium text-[color:var(--text-muted)]">
-                      Última vez: {historyDateLabel}
-                    </p>
-                  ) : null)}
               </div>
-              {optionsButton}
-              {setupNote && (
-                <div
-                  className="training-exercise-card__setup flex min-w-0 items-start gap-1.5 text-xs text-[color:var(--text-muted)]"
-                  title={`Ajuste: ${setupNote}`}
-                >
-                  <Settings2
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className={`min-w-0 ${open ? "" : "truncate"}`}>
-                    <strong>Ajuste:</strong> {setupNote}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           <div
             className="training-exercise-card__actions"
             role="group"

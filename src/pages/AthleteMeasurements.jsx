@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Ruler, Save } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../utils/toast";
 import OperationLoader from "../components/system/OperationLoader";
 import { api } from "../services/api";
 
