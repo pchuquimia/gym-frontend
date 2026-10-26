@@ -303,7 +303,7 @@ describe("getAssignableRoutines", () => {
 });
 
 describe("RoutineModal drafts", () => {
-  it("muestra todos los grupos y distingue variantes con el mismo nombre", () => {
+  it("prioriza los más usados del enfoque y permite ampliar a todos los grupos", () => {
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
       value: vi.fn(),
@@ -317,9 +317,9 @@ describe("RoutineModal drafts", () => {
         <RoutineModal
           mode="create"
           availableExercises={[
-            { id: "press-bar", name: "Press", muscle: "Pecho", equipment: ["Barra"], branches: ["general"] },
+            { id: "press-bar", name: "Press", muscle: "Pecho", equipment: ["Barra"], branches: ["general"], usageCount: 5 },
             { id: "press-dumbbell", name: "Press", muscle: "Pecho", equipment: ["Mancuernas"], branches: ["general"] },
-            { id: "squat", name: "Sentadilla", muscle: "Cuadriceps", equipment: ["Barra"], branches: ["general"] },
+            { id: "squat", name: "Sentadilla", muscle: "Cuadriceps", equipment: ["Barra"], branches: ["general"], usageCount: 100 },
           ]}
           existingRoutines={[]}
           onSave={vi.fn()}
@@ -338,8 +338,14 @@ describe("RoutineModal drafts", () => {
     });
     fireEvent.click(screen.getByRole("radio", { name: /Empuje/ }));
     fireEvent.click(screen.getByRole("button", { name: "Elegir ejercicios" }));
-    expect(screen.getByRole("button", { name: "Todos los grupos" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Empuje", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Todos los grupos" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getAllByRole("button", { name: /Press, Pecho/ })).toHaveLength(2);
+    expect(screen.getByText("Tus más usados")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Sentadilla/ })).toBeNull();
+    expect(screen.queryByText("Toca un ejercicio para seleccionarlo.")).toBeNull();
+    expect(screen.getByRole("group", { name: "Filtrar ejercicios por equipamiento" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Todos los grupos" }));
     expect(screen.getByRole("button", { name: /Sentadilla/ })).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Press, Pecho, Barra" }));
@@ -416,7 +422,6 @@ describe("RoutineModal drafts", () => {
       screen.getByRole("button", { name: /Elevación de pantorrilla/ }),
     ).toBeVisible();
 
-    fireEvent.click(screen.getByText("Filtrar por equipamiento"));
     const filterGroup = screen.getByRole("group", {
       name: "Filtrar ejercicios por equipamiento",
     });

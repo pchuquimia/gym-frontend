@@ -1323,7 +1323,11 @@ export function RoutineModal({
     );
     const sortedOptions = sourceExercises
       .filter((ex) => exerciseMatchesBranch(ex, exerciseFilterBranch))
-      .filter((ex) => query || pickerAllMuscles || ex.muscle === selectedMuscle)
+      .filter((ex) =>
+        query || (pickerAllMuscles
+          ? mode !== "create" || !effectiveSetupMuscles.size || showAllPickerMuscles || effectiveSetupMuscles.has(ex.muscle)
+          : ex.muscle === selectedMuscle),
+      )
       .filter((ex) => exerciseMatchesRoutineFilter(ex, exercisePickerFilter))
       .filter((ex) => !currentIds.has(ex.id))
       .sort((a, b) =>
@@ -1343,6 +1347,9 @@ export function RoutineModal({
     exerciseFilterBranch,
     exercises,
     exercisePickerFilter,
+    effectiveSetupMuscles,
+    mode,
+    showAllPickerMuscles,
     pickerAllMuscles,
     remoteExerciseOptions,
     selectedMuscle,
@@ -3007,11 +3014,11 @@ export function RoutineModal({
                         ? "Elige tus opcionales"
                         : "Añade tus ejercicios"}
                     </p>
-                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                      {exercisePickerMode === "optional"
-                        ? "No forman parte del recorrido principal."
-                        : "Toca un ejercicio para seleccionarlo."}
-                    </p>
+                    {exercisePickerMode === "optional" && (
+                      <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                        No forman parte del recorrido principal.
+                      </p>
+                    )}
                   </div>
                   <span className="shrink-0 text-xs font-medium text-[color:var(--text-muted)]">
                     {selectedExerciseIds.length
@@ -3035,14 +3042,29 @@ export function RoutineModal({
                   />
                 </div>
                 <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {mode === "create" && effectiveSetupMuscles.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAllPickerMuscles(false);
+                        setPickerAllMuscles(true);
+                        setSearch("");
+                      }}
+                      aria-pressed={pickerAllMuscles && !showAllPickerMuscles && !isExerciseSearchActive}
+                      className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${pickerAllMuscles && !showAllPickerMuscles && !isExerciseSearchActive ? "theme-accent-solid border-transparent" : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"}`}
+                    >
+                      {selectedRoutineType.label || "Mi enfoque"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
                       setPickerAllMuscles(true);
+                      setShowAllPickerMuscles(true);
                       setSearch("");
                     }}
-                    aria-pressed={pickerAllMuscles && !isExerciseSearchActive}
-                    className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${pickerAllMuscles && !isExerciseSearchActive ? "theme-accent-solid border-transparent" : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"}`}
+                    aria-pressed={pickerAllMuscles && (showAllPickerMuscles || mode !== "create" || !effectiveSetupMuscles.size) && !isExerciseSearchActive}
+                    className={`h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${pickerAllMuscles && (showAllPickerMuscles || mode !== "create" || !effectiveSetupMuscles.size) && !isExerciseSearchActive ? "theme-accent-solid border-transparent" : "border-transparent bg-[color:var(--card)] text-[color:var(--text-muted)]"}`}
                   >
                     Todos los grupos
                   </button>
@@ -3122,7 +3144,7 @@ export function RoutineModal({
                     Se añadirá como complemento de la rutina.
                   </p>
                 ) : null}
-                <details className="group mt-2 border-t border-[color:var(--detail-row-divider)]">
+                <details open className="group mt-2 border-t border-[color:var(--detail-row-divider)]">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-[color:var(--text)] [&::-webkit-details-marker]:hidden">
                     <span>Filtrar por equipamiento</span>
                     <span className="flex items-center gap-2 text-[color:var(--text-muted)]">
@@ -3281,6 +3303,7 @@ export function RoutineModal({
                           setSearch("");
                           setExercisePickerFilter(null);
                           setPickerAllMuscles(true);
+                          setShowAllPickerMuscles(true);
                         }}
                         className="theme-accent-text mt-3 text-sm font-semibold"
                       >
