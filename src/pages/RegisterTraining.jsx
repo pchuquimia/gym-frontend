@@ -7367,8 +7367,8 @@ export default function RegisterTraining({
                   }}
                   className="absolute inset-0 h-full w-full object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/25" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+                <div className="training-active-overview__shade absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/25" />
+                <div className="training-active-overview__fade absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
               </div>
 
               <motion.div
@@ -7379,11 +7379,11 @@ export default function RegisterTraining({
                   delay: reduceMotion ? 0 : 0.12,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="flex min-h-[152px] flex-col justify-between p-4 text-white"
+                className="training-active-overview__content flex min-h-[152px] flex-col justify-between p-4 text-white"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <span className="inline-flex rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[11px] font-black uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
+                    <span className="training-active-overview__status inline-flex rounded-full border border-white/20 bg-black/25 px-2.5 py-1 font-condensed text-[11px] font-black uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
                       {isHistoryReadOnly
                         ? "Sesión registrada"
                         : sessionComplete
@@ -7391,16 +7391,16 @@ export default function RegisterTraining({
                           : "Rutina activa"}
                     </span>
                   </div>
-                  <strong className="font-condensed text-2xl font-black tabular-nums drop-shadow-sm">
+                  <strong className="training-active-overview__percent font-condensed text-2xl font-black tabular-nums drop-shadow-sm">
                     {progressPct}%
                   </strong>
                 </div>
 
                 <div>
-                  <h2 className="truncate font-condensed text-[1.875rem] font-semibold uppercase leading-none tracking-[-0.025em] drop-shadow-sm">
+                  <h2 className="training-active-overview__title truncate font-condensed text-[1.875rem] font-semibold uppercase leading-none tracking-[-0.025em] drop-shadow-sm">
                     {selectorRoutine?.name || "Rutina seleccionada"}
                   </h2>
-                  <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-white/80">
+                  <div className="training-active-overview__stats mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-white/80">
                     <span>
                       {doneSets} de {totalSets} series
                     </span>
@@ -7409,7 +7409,7 @@ export default function RegisterTraining({
                     </span>
                   </div>
                   <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
+                    className="training-active-overview__progress mt-2 h-1.5 overflow-hidden rounded-full bg-white/25"
                     role="progressbar"
                     aria-label="Progreso de series"
                     aria-valuemin="0"
