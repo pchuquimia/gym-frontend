@@ -6228,6 +6228,16 @@ button,
   display: none;
 }
 
+:root:not(.dark) .training-set-entry__field {
+  border: 1px solid #d8dde3 !important;
+  background: #fff !important;
+  color: #25313c;
+}
+:root:not(.dark) .training-set-entry__field:focus-within {
+  border-color: #64748b !important;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.12);
+}
+
 .training-exercise-card__set-table-header {
   display: none;
 }
