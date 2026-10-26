@@ -3007,25 +3007,16 @@ export function RoutineModal({
               </div>
 
               <div className="shrink-0 px-4 pb-3 pt-4">
-                <div className="mb-3 flex items-end justify-between gap-3">
-                  <div>
+                {exercisePickerMode === "optional" && (
+                  <div className="mb-3">
                     <p className="text-lg font-medium text-[color:var(--text)]">
-                      {exercisePickerMode === "optional"
-                        ? "Elige tus opcionales"
-                        : "Añade tus ejercicios"}
+                      Elige tus opcionales
                     </p>
-                    {exercisePickerMode === "optional" && (
-                      <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                        No forman parte del recorrido principal.
-                      </p>
-                    )}
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      No forman parte del recorrido principal.
+                    </p>
                   </div>
-                  <span className="shrink-0 text-xs font-medium text-[color:var(--text-muted)]">
-                    {selectedExerciseIds.length
-                      ? `${selectedExerciseIds.length} elegido${selectedExerciseIds.length === 1 ? "" : "s"}`
-                      : "Ninguno elegido"}
-                  </span>
-                </div>
+                )}
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                   <input
