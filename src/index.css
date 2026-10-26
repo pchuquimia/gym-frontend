@@ -6229,15 +6229,27 @@ button,
 }
 
 .training-session-menu__cancel {
-  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
-  background: var(--danger-soft);
-  color: var(--danger);
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.training-session-menu__cancel > svg {
+  color: var(--text-muted);
+}
+.training-session-menu__action {
+  justify-content: flex-start !important;
 }
 .overflow-menu-panel > .training-session-menu__cancel:hover {
-  background: var(--danger-soft) !important;
+  background: var(--surface-subtle) !important;
 }
-.dark .training-cancel-dialog__confirm {
-  color: #2b100d;
+.training-cancel-dialog .training-cancel-dialog__confirm {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--card);
+  font-weight: 600;
+}
+.training-cancel-dialog .training-cancel-dialog__continue {
+  font-weight: 500;
 }
 
 :root:not(.dark) .training-set-entry__field {

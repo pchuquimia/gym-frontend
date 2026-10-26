@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronRight,
   Circle,
   CircleDot,
   ClipboardList,
@@ -6690,7 +6691,7 @@ export default function RegisterTraining({
               <div className="flex items-center justify-between px-5 pb-2">
                 <h2
                   id="session-options-title"
-                  className="text-lg font-black text-[color:var(--text)]"
+                  className="text-xl font-semibold tracking-[-0.025em] text-[color:var(--text)]"
                 >
                   Opciones
                 </h2>
@@ -6704,13 +6705,12 @@ export default function RegisterTraining({
                 </button>
               </div>
               <div className="space-y-2 px-4 pb-2">
-                <div className="flex min-h-12 w-full items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+                <div className="flex min-h-12 w-full items-center justify-between px-3 py-1 text-sm font-medium text-[color:var(--text)]">
                   <span>Apariencia</span>
                   <ThemeToggle compact />
                 </div>
                 <RestTimingControl
                   compact
-                  className="border border-[color:var(--border)] bg-[color:var(--surface)]"
                   enabled={autoFlowEnabled}
                   durationSeconds={restDurationSeconds}
                   onToggle={handleAutoFlowToggle}
@@ -6719,8 +6719,8 @@ export default function RegisterTraining({
                 {isAdmin ? (
                   <Button
                     type="button"
-                    variant="outline"
-                    className="h-12 w-full justify-start gap-3 rounded-xl px-3"
+                    variant="ghost"
+                    className="training-session-menu__action h-12 w-full gap-3 rounded-xl px-3"
                     onClick={() => {
                       setSessionMenuOpen(false);
                       handleEditRoutineFromTraining();
@@ -6728,12 +6728,13 @@ export default function RegisterTraining({
                   >
                     <ClipboardList className="h-4 w-4 text-[color:var(--text-muted)]" />
                     <span>Editar rutina activa</span>
+                    <ChevronRight className="ml-auto h-4 w-4 text-[color:var(--text-muted)]" aria-hidden="true" />
                   </Button>
                 ) : null}
                 <div className="mx-3 mt-3 border-t border-[color:var(--border)]" />
                 <Button
                   type="button"
-                  variant="destructiveOutline"
+                  variant="outline"
                   className="training-session-menu__cancel h-12 w-full rounded-xl"
                   onClick={handleCancel}
                 >
@@ -7218,13 +7219,12 @@ export default function RegisterTraining({
                           role="menu"
                           className="overflow-menu-panel absolute right-0 top-[calc(100%+0.5rem)] z-40 w-72 space-y-2"
                         >
-                          <div className="flex min-h-11 items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-sm font-semibold text-[color:var(--text)]">
+                          <div className="flex min-h-11 items-center justify-between px-3 py-1 text-sm font-medium text-[color:var(--text)]">
                             <span>Apariencia</span>
                             <ThemeToggle compact />
                           </div>
                           <RestTimingControl
                             compact
-                            className="border border-[color:var(--border)] bg-[color:var(--surface)]"
                             enabled={autoFlowEnabled}
                             durationSeconds={restDurationSeconds}
                             onToggle={handleAutoFlowToggle}
@@ -7234,8 +7234,8 @@ export default function RegisterTraining({
                             <Button
                               type="button"
                               role="menuitem"
-                              variant="outline"
-                              className="h-11 w-full justify-start gap-3 px-3"
+                              variant="ghost"
+                              className="training-session-menu__action h-11 w-full gap-3 px-3"
                               onClick={() => {
                                 setDesktopSessionMenuOpen(false);
                                 handleEditRoutineFromTraining();
@@ -7249,8 +7249,8 @@ export default function RegisterTraining({
                             <Button
                               type="button"
                               role="menuitem"
-                              variant="outline"
-                              className="h-11 w-full justify-start gap-3 px-3"
+                              variant="ghost"
+                              className="training-session-menu__action h-11 w-full gap-3 px-3"
                               onClick={() => {
                                 setDesktopSessionMenuOpen(false);
                                 handleReset();
@@ -7266,7 +7266,7 @@ export default function RegisterTraining({
                               <Button
                                 type="button"
                                 role="menuitem"
-                                variant="destructiveOutline"
+                                variant="outline"
                                 className="training-session-menu__cancel h-11 w-full"
                                 onClick={handleCancel}
                               >
@@ -8506,26 +8506,32 @@ export default function RegisterTraining({
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
-              className="training-cancel-dialog relative w-full rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-sm md:rounded-[2rem] md:px-6 md:pb-6 md:pt-6"
+              className="training-cancel-dialog relative w-full rounded-t-[2rem] border border-[color:var(--border)] bg-[color:var(--card)] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl md:max-w-sm md:rounded-[1.75rem] md:p-6"
             >
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[color:var(--border)] md:hidden" />
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]" aria-hidden="true">
+                <Trash2 className="h-5 w-5" />
+              </span>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                Sesión en curso
+              </p>
               <h2
                 id="cancel-training-title"
-                className="text-xl font-black text-[color:var(--text)]"
+                className="mt-1 text-[1.65rem] font-semibold leading-tight tracking-[-0.035em] text-[color:var(--text)]"
               >
                 ¿Cancelar entrenamiento?
               </h2>
               <p
                 id="cancel-training-description"
-                className="mt-2 text-sm leading-5 text-[color:var(--text-muted)]"
+                className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]"
               >
                 Se perderán los datos registrados en esta sesión.
               </p>
-              <div className="mt-5 grid gap-2">
+              <div className="mt-6 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 w-full rounded-xl"
+                  className="training-cancel-dialog__continue h-12 w-full rounded-xl px-3"
                   autoFocus
                   onClick={() => setCancelConfirmOpen(false)}
                 >
@@ -8533,12 +8539,12 @@ export default function RegisterTraining({
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
-                  className="training-cancel-dialog__confirm h-12 w-full rounded-xl"
+                  variant="outline"
+                  className="training-cancel-dialog__confirm h-12 w-full rounded-xl px-3"
+                  aria-label="Cancelar entrenamiento"
                   onClick={performCancel}
                 >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  Cancelar entrenamiento
+                  Cancelar sesión
                 </Button>
               </div>
             </motion.section>
