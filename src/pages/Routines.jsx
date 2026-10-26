@@ -1002,9 +1002,9 @@ function ExercisePickerOption({ option, selected, onToggle }) {
       onClick={() => onToggle(option.id)}
       aria-label={`${option.name}, ${option.muscle}, ${getExerciseEquipmentLabel(option)}`}
       aria-pressed={selected}
-      className={`grid min-h-[120px] w-full grid-cols-[96px_minmax(0,1fr)_24px] items-center gap-3 px-3 py-3 text-left transition sm:grid-cols-[112px_minmax(0,1fr)_24px] ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
+      className={`grid min-h-[112px] w-full grid-cols-[88px_minmax(0,1fr)_24px] items-center gap-3 px-3 py-3 text-left transition sm:grid-cols-[104px_minmax(0,1fr)_24px] ${selected ? "theme-accent-solid" : "bg-[color:var(--card)]"}`}
     >
-      <div className="h-24 w-24 overflow-hidden rounded-2xl bg-[color:var(--surface-subtle)] sm:h-28 sm:w-28">
+      <div className="h-[88px] w-[88px] overflow-hidden rounded-2xl bg-[color:var(--surface-subtle)] sm:h-[104px] sm:w-[104px]">
         <ExerciseThumbnail
           src={thumb}
           alt=""
