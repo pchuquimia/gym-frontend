@@ -4,10 +4,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CoachDashboard from "./CoachDashboard";
 
-const { mockUseAuth, mockCreateInvitation } = vi.hoisted(() => ({
-  mockUseAuth: vi.fn(),
-  mockCreateInvitation: vi.fn(),
-}));
+const { mockUseAuth, mockCreateInvitation, mockGetPortfolio, mockGetAthletes } =
+  vi.hoisted(() => ({
+    mockUseAuth: vi.fn(),
+    mockCreateInvitation: vi.fn(),
+    mockGetPortfolio: vi.fn(),
+    mockGetAthletes: vi.fn(),
+  }));
 
 vi.mock("../context/AuthContext", () => ({ useAuth: mockUseAuth }));
 vi.mock("../context/UserContext", () => ({
@@ -18,7 +21,9 @@ vi.mock("../context/RoutineContext", () => ({
 }));
 vi.mock("../services/api", () => ({
   api: {
-    getCoachPortfolio: () => Promise.resolve({ athletes: [], summary: {} }),
+    getCoachPortfolio: mockGetPortfolio,
+    getCoachAthletes: mockGetAthletes,
+    getPlanTemplates: () => Promise.resolve([]),
     getCoachPlanCatalog: () => Promise.resolve({ plans: [], routines: [] }),
     getCoachNotifications: () =>
       Promise.resolve({ notifications: [], unread: 0 }),
@@ -29,6 +34,9 @@ vi.mock("../services/api", () => ({
 describe("invitaciones del administrador en modo coach", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    mockGetAthletes.mockReset();
+    mockGetPortfolio.mockReset();
+    mockGetPortfolio.mockResolvedValue({ athletes: [], summary: {} });
     mockUseAuth.mockReturnValue({
       user: { id: "admin_1", role: "Admin", name: "Admin" },
     });
@@ -53,7 +61,9 @@ describe("invitaciones del administrador en modo coach", () => {
       });
       await userEvent.click(inviteButtons[0]);
 
-      await waitFor(() => expect(mockCreateInvitation).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(mockCreateInvitation).toHaveBeenCalledTimes(1),
+      );
       expect(
         await screen.findByRole("textbox", { name: "Enlace de invitación" }),
       ).toHaveValue("https://rirfit.com/invite/example");
@@ -69,12 +79,73 @@ describe("invitaciones del administrador en modo coach", () => {
       </QueryClientProvider>,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Invitar alumno" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Reintentar" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Invitar alumno" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Reintentar" }),
+    );
 
     expect(
       await screen.findByRole("textbox", { name: "Enlace de invitación" }),
     ).toHaveValue("https://rirfit.com/invite/example");
     expect(mockCreateInvitation).toHaveBeenCalledTimes(2);
+  });
+  it.each(["trainer", "coach_athletes"])(
+    "muestra un fallo recuperable en %s sin fingir una cartera vacía",
+    async (pageId) => {
+      mockGetPortfolio.mockRejectedValueOnce(new Error("No hay conexión"));
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <CoachDashboard pageId={pageId} />
+        </QueryClientProvider>,
+      );
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "No hay conexión",
+      );
+      expect(screen.queryByText("Aún no tienes atletas")).toBeNull();
+      expect(screen.queryByText("Sin prioridades hoy")).toBeNull();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Reintentar carga" }),
+      );
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      expect(mockGetPortfolio).toHaveBeenCalledTimes(2);
+    },
+  );
+  it("filtra alumnos que requieren atención también con una cuenta coach gratuita", async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: "coach_1",
+        role: "Entrenador",
+        name: "Coach",
+        entitlements: [],
+      },
+    });
+    const today = new Date().toLocaleDateString("en-CA");
+    mockGetAthletes.mockResolvedValue([
+      { id: "ana", name: "Ana", routineCount: 0, trainingCount: 0 },
+      {
+        id: "luis",
+        name: "Luis",
+        routineCount: 1,
+        trainingCount: 2,
+        lastTraining: { date: today },
+      },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CoachDashboard pageId="coach_athletes" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("button", { name: /Luis/ }).length,
+      ).toBeGreaterThan(0),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Atención/ }));
+    expect(screen.queryByRole("button", { name: /Luis/ })).toBeNull();
+    expect(
+      screen.getAllByRole("button", { name: /Ana/ }).length,
+    ).toBeGreaterThan(0);
   });
 });

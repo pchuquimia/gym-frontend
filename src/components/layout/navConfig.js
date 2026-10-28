@@ -14,6 +14,7 @@ import {
   HeartPulse,
   Crown,
   TrendingUp,
+  Utensils,
 } from "lucide-react";
 
 export const sections = [
@@ -28,6 +29,12 @@ export const sections = [
       },
       { id: "rutinas", label: "Rutinas y Planificacion", icon: ClipboardList },
       { id: "library", label: "Biblioteca de Ejercicios", icon: Dumbbell },
+      {
+        id: "nutricion",
+        label: "Alimentación",
+        icon: Utensils,
+        roles: ["Cliente"],
+      },
     ],
   },
   {
@@ -124,6 +131,7 @@ export const coachSections = [
   {
     heading: "Herramientas",
     items: [
+      { id: "nutricion", label: "Alimentación", icon: Utensils },
       { id: "progreso", label: "Progreso y planes", icon: TrendingUp },
       {
         id: "rutinas",
@@ -166,6 +174,12 @@ export const managedClientSections = [
       { id: "dashboard", label: "Inicio", icon: LayoutDashboard },
       { id: "registrar", label: "Entrenar", icon: Dumbbell },
       { id: "rutinas", label: "Mis rutinas", icon: ClipboardList },
+      { id: "nutricion", label: "Mi alimentación", icon: Utensils },
+      {
+        id: "coach_messages",
+        label: "Mensajes con mi coach",
+        icon: MessageCircle,
+      },
     ],
   },
   {

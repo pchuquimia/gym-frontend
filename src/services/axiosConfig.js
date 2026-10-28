@@ -69,7 +69,26 @@ export const axiosClient = axios.create({
   },
 });
 
-axiosClient.interceptors.request.use((config) => {
+let csrfToken = "";
+let csrfRequest = null;
+
+const loadCsrfToken = () => {
+  if (csrfToken) return Promise.resolve(csrfToken);
+  if (!csrfRequest) {
+    csrfRequest = axiosClient
+      .get("/api/auth/csrf", { timeout: 8_000 })
+      .then(({ data }) => {
+        csrfToken = data.csrfToken || "";
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfRequest = null;
+      });
+  }
+  return csrfRequest;
+};
+
+axiosClient.interceptors.request.use(async (config) => {
   config.metadata = {
     ...(config.metadata || {}),
     authSessionVersion: getAuthSessionVersion(),
@@ -79,6 +98,14 @@ axiosClient.interceptors.request.use((config) => {
   const token = config.skipAuth ? "" : getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (
+    !["get", "head", "options"].includes(
+      String(config.method || "get").toLowerCase(),
+    )
+  ) {
+    const token = await loadCsrfToken();
+    if (token) config.headers["X-CSRF-Token"] = token;
   }
   return config;
 });
@@ -104,6 +131,13 @@ const reportRequestTiming = (response, error = null) => {
 axiosClient.interceptors.response.use(
   (response) => {
     reportRequestTiming(response);
+    // Authentication responses may replace the HTTP-only cookie. The next
+    // mutation needs a token bound to that new cookie, including after logout.
+    if (
+      String(response.config.url || "").startsWith("/api/auth/") &&
+      response.config.method !== "get"
+    )
+      csrfToken = "";
     return response;
   },
   async (error) => {
@@ -113,6 +147,16 @@ axiosClient.interceptors.response.use(
     // A missing credential on resume is not proof that an existing session
     // expired. Re-read storage/cookies once before telling the app to sign out.
     // Restrict recovery to reads; never replay a user's write operation.
+    if (
+      error.response?.status === 403 &&
+      responseData?.code === "INVALID_CSRF_TOKEN" &&
+      config &&
+      config.metadata?.authSessionVersion === getAuthSessionVersion() &&
+      !config.csrfRetried
+    ) {
+      csrfToken = "";
+      return axiosClient.request({ ...config, csrfRetried: true });
+    }
     if (
       error.response?.status === 401 &&
       responseData?.code === "AUTH_SESSION_MISSING" &&
@@ -124,9 +168,9 @@ axiosClient.interceptors.response.use(
       return axiosClient.request({ ...config, authRecoveryAttempted: true });
     }
     if (
-      !error.config?.skipSessionExpiration &&
-      !error.config?.skipAuth &&
-      error.config?.metadata?.authSessionVersion === getAuthSessionVersion() &&
+      !config?.skipSessionExpiration &&
+      !config?.skipAuth &&
+      config?.metadata?.authSessionVersion === getAuthSessionVersion() &&
       isExpiredSessionResponse({
         status: error.response?.status,
         url: error.config?.url,

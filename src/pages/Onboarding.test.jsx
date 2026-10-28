@@ -191,39 +191,13 @@ describe("Onboarding account type", () => {
     mocks.getCoachIntakeForm.mockResolvedValue({ questions: [] });
   });
 
-  it("separa la eleccion de uso del formulario de registro", () => {
+  it("inicia directamente con el objetivo sin elegir rol", () => {
     render(<Onboarding />);
-
-    expect(
-      screen.getByRole("heading", { name: /cómo quieres usar rirfit/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: /entreno para mí/i }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("radio", { name: /soy entrenador\/a/i }),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: /continuar/i })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /decidir despu.s/i })).toBeNull();
-  });
-
-  it("abre la configuracion profesional despues de elegir entrenador", async () => {
-    render(<Onboarding />);
-
-    fireEvent.click(screen.getByRole("radio", { name: /soy entrenador\/a/i }));
-    fireEvent.click(screen.getByRole("button", { name: /continuar/i }));
-
-    await waitFor(() =>
-      expect(auth.selectOnboardingAccountType).toHaveBeenCalledWith("coach"),
-    );
-    expect(
-      await screen.findByRole("heading", {
-        name: /preséntate ante tus alumnos/i,
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByLabelText(/nombre público del entrenador/i),
-    ).toBeVisible();
+    expect(screen.queryByRole("radiogroup", { name: /tipo de cuenta/i })).toBeNull();
+    expect(screen.queryByText(/cómo quieres usar rirfit/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /continuar/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /anterior/i })).toBeDisabled();
+    expect(auth.selectOnboardingAccountType).not.toHaveBeenCalled();
   });
 
   it("envía el perfil base sin una versión vacía de evaluación de coach", async () => {

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  BriefcaseBusiness,
   Check,
   Dumbbell,
   Flame,
@@ -11,7 +10,6 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  UserRound,
 } from "lucide-react";
 import { toast } from "../utils/toast";
 import { useAuth } from "../context/AuthContext";
@@ -48,23 +46,6 @@ const levels = [
   { id: "beginner", title: "Principiante", detail: "Menos de 1 ano" },
   { id: "intermediate", title: "Intermedio", detail: "1 a 3 anos" },
   { id: "advanced", title: "Avanzado", detail: "Mas de 3 anos" },
-];
-
-const accountTypes = [
-  {
-    id: "athlete",
-    title: "Entreno para mí",
-    detail: "Organiza tus rutinas y registra tu progreso.",
-    meta: "Objetivos · rutinas · progreso",
-    icon: UserRound,
-  },
-  {
-    id: "coach",
-    title: "Soy entrenador/a",
-    detail: "Planifica, acompaña y revisa el progreso de tus alumnos.",
-    meta: "Alumnos · planes · seguimiento",
-    icon: BriefcaseBusiness,
-  },
 ];
 
 const readDraft = (
@@ -172,76 +153,14 @@ function ChoiceCard({ selected, icon: Icon, title, detail, onClick }) {
   );
 }
 
-function AccountTypeChoice({ selected, icon: Icon, title, detail, meta, onClick }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onClick}
-      className={`group flex min-h-[124px] w-full items-center gap-4 rounded-[20px] border px-4 py-4 text-left transition duration-300 ${
-        selected
-          ? "border-[#181918] bg-[#181918] text-white shadow-[0_14px_36px_rgba(0,0,0,0.14)] dark:border-[#eeeae2] dark:bg-[#eeeae2] dark:text-black"
-          : "border-[color:var(--border)] bg-[color:var(--card)] shadow-[0_5px_18px_rgba(0,0,0,0.035)] hover:border-[color:var(--text)]"
-      }`}
-    >
-      <span
-        className={`grid h-12 w-12 shrink-0 place-items-center rounded-[14px] transition ${
-          selected
-            ? "bg-white/10 dark:bg-black/10"
-            : "bg-[color:var(--surface-subtle)]"
-        }`}
-      >
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-base font-bold tracking-[-0.02em]">
-          {title}
-        </span>
-        <span
-          className={`mt-1 block text-sm font-normal leading-5 ${
-            selected ? "text-current/70" : "text-[color:var(--text-muted)]"
-          }`}
-        >
-          {detail}
-        </span>
-        <span
-          className={`mt-2 block text-[11px] font-semibold tracking-[0.02em] ${
-            selected ? "text-current/65" : "text-[color:var(--text-muted)]"
-          }`}
-        >
-          {meta}
-        </span>
-      </span>
-      <span
-        className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border transition ${
-          selected
-            ? "border-current/30 bg-[color:var(--bg)] text-[color:var(--text)]"
-            : "border-[color:var(--border)]"
-        }`}
-      >
-        {selected ? <Check className="h-3.5 w-3.5" /> : null}
-      </span>
-    </button>
-  );
-}
-
 export default function Onboarding({ onNavigate = () => {} }) {
-  const {
-    user,
-    completeOnboarding,
-    completeCoachOnboarding,
-    selectOnboardingAccountType,
-    logout,
-  } = useAuth();
+  const { user, completeOnboarding, completeCoachOnboarding, logout } =
+    useAuth();
   const isManagedAthlete =
     user?.role === "Cliente" && user?.trainingMode === "coach_managed";
-  const initialAccountType =
-    user?.onboarding?.accountType || (isManagedAthlete ? "athlete" : "");
   const managedProfileAlreadyComplete =
     isManagedAthlete && user?.onboarding?.status === "complete";
-  const [accountType, setAccountType] = useState(initialAccountType);
-  const [showAccountType, setShowAccountType] = useState(!initialAccountType);
+  const accountType = user?.role === "Entrenador" ? "coach" : "athlete";
   const [step, setStep] = useState(() =>
     managedProfileAlreadyComplete
       ? 3
@@ -353,24 +272,6 @@ export default function Onboarding({ onNavigate = () => {} }) {
     };
     setErrors(nextErrors);
     return !Object.values(nextErrors).some(Boolean);
-  };
-
-  const persistAccountType = async (nextAccountType) => {
-    if (saving || !nextAccountType) return;
-    try {
-      setSaving(true);
-      await selectOnboardingAccountType(nextAccountType);
-      setAccountType(nextAccountType);
-      setShowAccountType(false);
-      setErrors({});
-      setStep(0);
-    } catch (error) {
-      toast.error(
-        error.message || "No pudimos guardar como quieres usar RIRFIT",
-      );
-    } finally {
-      setSaving(false);
-    }
   };
 
   const finishCoach = async () => {
@@ -612,7 +513,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             RIRFIT
           </p>
           <h1 className="truncate text-center text-lg font-semibold tracking-[-0.03em]">
-            {showAccountType ? "Bienvenido a RIRFIT" : "Configuración inicial"}
+            Configuración inicial
           </h1>
           <button
             type="button"
@@ -624,7 +525,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
           </button>
         </div>
 
-        {!showAccountType && accountType === "athlete" ? (
+        {accountType === "athlete" ? (
           <div
             className={`mx-auto grid w-full max-w-lg px-5 pb-4 pt-2 ${isManagedAthlete ? "grid-cols-4" : "grid-cols-3"}`}
             aria-label="Progreso de configuración"
@@ -642,7 +543,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
                 >
                   {index ? (
                     <span
-                    className={`absolute right-1/2 top-3 h-px w-full ${index <= step ? "bg-[#181918] dark:bg-[#eeeae2]" : "bg-[color:var(--border)]"}`}
+                      className={`absolute right-1/2 top-3 h-px w-full ${index <= step ? "bg-[#181918] dark:bg-[#eeeae2]" : "bg-[color:var(--border)]"}`}
                     />
                   ) : null}
                   <span
@@ -672,47 +573,13 @@ export default function Onboarding({ onNavigate = () => {} }) {
         ) : null}
       </header>
 
-      <section className={`min-h-0 flex-1 overflow-y-auto ${showAccountType ? "md:flex md:items-center" : ""}`}>
+      <section className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-lg px-5 py-6 md:py-10">
-          {!showAccountType ? (
-            <p className="text-xs font-medium text-[color:var(--text-muted)]">
-              Hola, {user?.name?.split(" ")[0] || "atleta"}
-            </p>
-          ) : null}
+          <p className="text-xs font-medium text-[color:var(--text-muted)]">
+            Hola, {user?.name?.split(" ")[0] || "atleta"}
+          </p>
 
-          {showAccountType ? (
-            <div>
-              <p className="mb-4 inline-flex rounded-full border border-[color:var(--border)] bg-[color:var(--card)] px-3 py-1.5 text-[11px] font-semibold tracking-[0.05em] text-[color:var(--text-muted)]">
-                TU CUENTA YA ESTÁ LISTA
-              </p>
-              <h1 className="text-[32px] font-semibold leading-[1.02] tracking-[-0.05em]">
-                ¿Cómo quieres usar RIRFIT?
-              </h1>
-              <p className="mt-3 text-sm font-normal leading-6 text-[color:var(--text-muted)]">
-                Elige tu espacio para preparar los siguientes pasos. Si entrenas
-                por tu cuenta, podrás activar un espacio profesional más adelante.
-              </p>
-              <div
-                className="mt-6 grid gap-3"
-                role="radiogroup"
-                aria-label="Tipo de cuenta"
-              >
-                {accountTypes.map((option) => (
-                  <AccountTypeChoice
-                    key={option.id}
-                    {...option}
-                    selected={accountType === option.id}
-                    onClick={() => setAccountType(option.id)}
-                  />
-                ))}
-              </div>
-              <p className="mt-5 text-center text-xs leading-5 text-[color:var(--text-muted)]">
-                Tu elección define la configuración inicial de tu cuenta.
-              </p>
-            </div>
-          ) : null}
-
-          {!showAccountType && accountType === "coach" ? (
+          {accountType === "coach" ? (
             <div className="mt-3">
               <p className="text-xs font-medium text-[color:var(--text-muted)]">
                 Espacio profesional
@@ -785,7 +652,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             </div>
           ) : null}
 
-          {!showAccountType && accountType === "athlete" && step === 0 ? (
+          {accountType === "athlete" && step === 0 ? (
             <div className="mt-2">
               {isManagedAthlete ? (
                 <p className="mb-2 inline-flex rounded-full bg-[#e6f6e9] px-3 py-1.5 text-xs font-semibold text-[#27743d]">
@@ -814,7 +681,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             </div>
           ) : null}
 
-          {!showAccountType && accountType === "athlete" && step === 1 ? (
+          {accountType === "athlete" && step === 1 ? (
             <div className="mt-2">
               <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
                 Ajustemos el punto de partida
@@ -877,7 +744,7 @@ export default function Onboarding({ onNavigate = () => {} }) {
             </div>
           ) : null}
 
-          {!showAccountType && accountType === "athlete" && step === 2 ? (
+          {accountType === "athlete" && step === 2 ? (
             <div className="mt-2">
               <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.05em]">
                 Completa tu perfil base
@@ -1031,30 +898,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
 
       <footer className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-2">
-          {showAccountType ? (
+          {accountType === "coach" ? (
             <>
-              <p className="text-xs text-[color:var(--text-muted)]">
-                Selecciona una opción
-              </p>
-              <button
-                type="button"
-                onClick={() => persistAccountType(accountType)}
-                disabled={saving || !accountType}
-                className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-[#181918] px-6 text-sm font-semibold text-white disabled:opacity-40 dark:bg-[#eeeae2] dark:text-black"
-              >
-                Continuar <ArrowRight className="h-4 w-4" />
-              </button>
-            </>
-          ) : accountType === "coach" ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowAccountType(true)}
-                disabled={saving}
-                className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-[color:var(--border)] px-4 text-sm font-medium text-[color:var(--text-muted)] disabled:opacity-50"
-              >
-                <ArrowLeft className="h-4 w-4" /> Cambiar elección
-              </button>
               <button
                 type="button"
                 onClick={finishCoach}
@@ -1068,12 +913,8 @@ export default function Onboarding({ onNavigate = () => {} }) {
             <>
               <button
                 type="button"
-                onClick={() =>
-                  step === 0
-                    ? setShowAccountType(true)
-                    : setStep((value) => Math.max(0, value - 1))
-                }
-                disabled={saving}
+                onClick={() => setStep((value) => Math.max(0, value - 1))}
+                disabled={saving || step === 0}
                 className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-[color:var(--border-strong)] bg-[color:var(--card)] px-4 text-sm font-semibold disabled:opacity-50"
               >
                 <ArrowLeft className="h-4 w-4" /> Anterior
@@ -1110,11 +951,9 @@ export default function Onboarding({ onNavigate = () => {} }) {
         delayMs={200}
         title="Preparando tu cuenta"
         description={
-          showAccountType
-            ? "Preparando el espacio adecuado para ti."
-            : accountType === "coach"
-              ? "Creando tu perfil profesional y codigo de invitacion."
-              : "Guardando objetivos y configurando el dashboard."
+          accountType === "coach"
+            ? "Creando tu perfil profesional y codigo de invitacion."
+            : "Guardando objetivos y configurando el dashboard."
         }
       />
     </div>

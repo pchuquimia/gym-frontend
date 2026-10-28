@@ -9,6 +9,7 @@ import { coachSections, managedClientSections, sections } from "./navConfig";
 const canSeeItem = (item, role) => !item.roles || item.roles.includes(role);
 
 const mobileNavOrder = [
+  "nutricion",
   "progreso",
   "dashboard",
   "registrar",
@@ -32,6 +33,7 @@ const mobileNavOrder = [
 ];
 
 const mobileLabels = {
+  nutricion: "Alimentación",
   progreso: "Progreso y planes",
   trainer: "Inicio",
   coach_athletes: "Alumnos",
@@ -58,7 +60,7 @@ const mobileGroups = [
   {
     title: "Entrenamiento",
     detail: "Accesos diarios",
-    ids: ["dashboard", "registrar", "rutinas", "library"],
+    ids: ["dashboard", "registrar", "rutinas", "library", "nutricion"],
   },
   {
     title: "Rendimiento",
@@ -104,6 +106,7 @@ const coachMobileGroups = [
     title: "Herramientas",
     detail: "Planificación y progreso",
     ids: [
+      "nutricion",
       "progreso",
       "rutinas",
       "library",
@@ -125,7 +128,7 @@ const managedClientMobileGroups = [
   {
     title: "Entrenamiento",
     detail: "Plan de tu coach",
-    ids: ["dashboard", "registrar", "rutinas"],
+    ids: ["dashboard", "registrar", "rutinas", "coach_messages", "nutricion"],
   },
   {
     title: "Progreso",

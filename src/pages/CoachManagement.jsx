@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "../utils/toast";
+import CoachApplicationReview from "../components/coach/CoachApplicationReview";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import Badge from "../components/ui/badge";
 import Button from "../components/ui/button";
@@ -267,6 +268,18 @@ export default function CoachManagement({ onNavigate }) {
         ))}
       </nav>
 
+      {!loading ? (
+        <CoachApplicationReview
+          users={users}
+          onReviewed={(updated) =>
+            setUsers((current) =>
+              current.map((item) =>
+                idOf(item) === idOf(updated) ? { ...item, ...updated } : item,
+              ),
+            )
+          }
+        />
+      ) : null}
       {loading ? (
         <div className="mt-4 min-h-64 border border-[color:var(--border)] bg-[color:var(--card)]">
           <OperationLoader
@@ -415,7 +428,8 @@ export default function CoachManagement({ onNavigate }) {
             <p className="mt-1 max-w-3xl text-[12px] font-semibold leading-5 text-current/80">
               En beta, toda cuenta nueva inicia como atleta independiente. El
               coach comparte su codigo y el atleta decide vincularse desde
-              Perfil. El administrador solo supervisa los indicadores generales.
+              Perfil. El administrador revisa las solicitudes de acceso como
+              coach.
             </p>
           </section>
         </div>

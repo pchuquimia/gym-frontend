@@ -145,10 +145,21 @@ Additional commands:
 | `npm run lint`            | Run the ESLint checks.                                     |
 | `npm run preview`         | Preview the production build locally.                      |
 | `npm test`                | Run Vitest unit and React Testing Library component tests. |
+| `npm run typecheck:progress` | Check the configured TypeScript progress modules.       |
 | `npm run test:playwright` | Run responsive desktop and mobile browser tests.           |
 | `npm run test:cypress`    | Run functional authentication tests in Cypress.            |
 
 ## Automated testing
+
+GitHub Actions runs lint, the configured TypeScript check, unit tests, the
+production build, a production-dependency audit, and mocked desktop/mobile
+smoke tests for authentication, onboarding, and progress. Browser binaries are
+installed with `npx playwright install chromium --only-shell` for local runs.
+
+Cookie-authenticated writes use a session-bound CSRF token obtained from
+`GET /api/auth/csrf`. The shared Axios client adds the header, refreshes it after
+authentication changes, and retries a CSRF rejection once. Deploy this client
+together with the corresponding backend protection and reload existing tabs.
 
 The frontend uses complementary testing layers:
 

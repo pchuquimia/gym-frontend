@@ -30,7 +30,8 @@ test("una cuenta nueva completa onboarding y llega al dashboard", async ({
       const body = request.postDataJSON();
       currentUser = {
         id: "new-athlete",
-        name: body.name,
+        name: body.username,
+        username: body.username,
         email: body.email,
         role: "Cliente",
         trainingMode: "independent",
@@ -56,6 +57,7 @@ test("una cuenta nueva completa onboarding y llega al dashboard", async ({
       currentUser = {
         ...currentUser,
         onboarding: {
+          accountType: "athlete",
           status: "complete",
           completedAt: "2026-08-17T12:00:00.000Z",
         },
@@ -93,14 +95,19 @@ test("una cuenta nueva completa onboarding y llega al dashboard", async ({
   });
 
   await page.goto("/registro");
-  await page.getByLabel("Nombre completo").fill("Lucia Nueva");
-  await page.getByLabel(/Correo electr/i).fill("lucia@example.com");
+  await page.getByLabel("Nombre de usuario").fill("lucia_nueva");
+  await page
+    .getByRole("textbox", { name: "Correo electrónico", exact: true })
+    .fill("lucia@example.com");
   await page.locator("#register-password").fill("Rirfit1234");
   await page.locator("#register-confirmPassword").fill("Rirfit1234");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "¿Cual es tu objetivo principal?" }),
+    page.getByRole("radiogroup", { name: "Tipo de cuenta" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "¿Cuál es tu objetivo principal?" }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Ganar masa/ }).click();
   await page.getByRole("button", { name: "Continuar" }).click();
@@ -109,17 +116,21 @@ test("una cuenta nueva completa onboarding y llega al dashboard", async ({
   await page.getByRole("button", { name: "4 dias por semana" }).click();
   await page.getByRole("button", { name: "Continuar" }).click();
 
+  await page.getByLabel("Nombre para tu perfil").fill("Lucia Nueva");
   await page.getByLabel("Peso actual en kilogramos").fill("68.5");
   await page.getByLabel("Altura en centimetros").fill("166");
-  await page.getByRole("button", { name: "Preparar dashboard" }).click();
+  await page.getByRole("button", { name: "Enviar evaluación" }).click();
 
-  await expect(page.getByText("Semana activa").first()).toBeVisible();
+  await expect(page.locator('[data-active-page="dashboard"]')).toBeVisible();
   expect(onboardingPayload).toEqual({
+    name: "Lucia Nueva",
+    username: "lucia_nueva",
     goal: "volumen",
     experienceLevel: "intermediate",
     weeklyFrequency: 4,
     weight: 68.5,
     height: 166,
+    healthNotes: "",
   });
 });
 
@@ -151,7 +162,7 @@ test("una cuenta pendiente no puede saltarse la configuracion", async ({
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "¿Cual es tu objetivo principal?" }),
+    page.getByRole("heading", { name: "¿Cuál es tu objetivo principal?" }),
   ).toBeVisible();
   await expect(page.locator('[data-active-page="onboarding"]')).toBeVisible();
 });

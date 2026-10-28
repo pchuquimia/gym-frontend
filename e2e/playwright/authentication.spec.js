@@ -5,13 +5,21 @@ test.beforeEach(async ({ page }) => {
     window.localStorage.clear();
     window.sessionStorage.setItem("gym_dev_auto_login_disabled", "true");
   });
-  await page.route("**/api/auth/me", (route) =>
-    route.fulfill({
-      status: 401,
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const unauthenticated = path === "/api/auth/me";
+    return route.fulfill({
+      status: unauthenticated ? 401 : 200,
       contentType: "application/json",
-      body: JSON.stringify({ error: "No autenticado" }),
-    }),
-  );
+      body: JSON.stringify(
+        unauthenticated
+          ? { error: "No autenticado" }
+          : path === "/api/auth/csrf"
+            ? { csrfToken: "e2e-csrf-token" }
+            : { enabled: false, roles: [] },
+      ),
+    });
+  });
 });
 
 test("el login es visible y no desborda el viewport", async ({ page }) => {
@@ -20,7 +28,9 @@ test("el login es visible y no desborda el viewport", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.locator('input[name="email"]')).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Correo o usuario" }),
+  ).toBeVisible();
   await expect(page.locator('input[name="password"]')).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Acceso de demostracion" }),
@@ -84,12 +94,18 @@ test("un rechazo de autenticacion mantiene los datos y muestra feedback", async 
   );
   await page.goto("/");
 
-  await page.locator('input[name="email"]').fill("usuario@prueba.com");
-  await page.locator('input[name="password"]').fill("prueba123");
+  await page
+    .getByRole("textbox", { name: "Correo o usuario" })
+    .fill("usuario@prueba.com");
+  await page
+    .getByRole("textbox", { name: "Contraseña", exact: true })
+    .fill("prueba123");
   await page.locator('button[type="submit"]').click();
 
-  await expect(page.locator('[role="alert"]')).toBeVisible();
-  await expect(page.locator('input[name="email"]')).toHaveValue(
-    "usuario@prueba.com",
+  await expect(page.getByRole("alert")).toContainText(
+    "El correo, usuario o contraseña no son correctos.",
   );
+  await expect(
+    page.getByRole("textbox", { name: "Correo o usuario" }),
+  ).toHaveValue("usuario@prueba.com");
 });

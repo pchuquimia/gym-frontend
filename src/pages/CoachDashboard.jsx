@@ -1042,19 +1042,21 @@ function AthleteSummaryView({
                         ? "Plan finalizado"
                         : "Borrador en preparación"}
               </span>
-              {isLivePlan ? <span className="mt-3 flex items-center gap-3">
-                <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-                  <span
-                    className="block h-full rounded-full bg-[#181918] dark:bg-[#eeeae2]"
-                    style={{
-                      width: `${activePlanTimeProgress?.percentage || 0}%`,
-                    }}
-                  />
+              {isLivePlan ? (
+                <span className="mt-3 flex items-center gap-3">
+                  <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]">
+                    <span
+                      className="block h-full rounded-full bg-[#181918] dark:bg-[#eeeae2]"
+                      style={{
+                        width: `${activePlanTimeProgress?.percentage || 0}%`,
+                      }}
+                    />
+                  </span>
+                  <span className="text-xs font-medium text-[color:var(--text-muted)]">
+                    {activePlanTimeProgress?.percentage || 0}%
+                  </span>
                 </span>
-                <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                  {activePlanTimeProgress?.percentage || 0}%
-                </span>
-              </span> : null}
+              ) : null}
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
           </button>
@@ -1459,19 +1461,21 @@ function MobileAthletePlanView({
                   ? `Comienza el ${shortPlanDate(activePlan.startDate)}`
                   : planStatusLabel}
             </span>
-            {isLivePlan ? <span className="mt-3 flex items-center gap-3">
-              <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/20">
-                <span
-                  className="block h-full rounded-full bg-white"
-                  style={{
-                    width: `${activePlanTimeProgress?.percentage || 0}%`,
-                  }}
-                />
+            {isLivePlan ? (
+              <span className="mt-3 flex items-center gap-3">
+                <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/20">
+                  <span
+                    className="block h-full rounded-full bg-white"
+                    style={{
+                      width: `${activePlanTimeProgress?.percentage || 0}%`,
+                    }}
+                  />
+                </span>
+                <span className="text-[15px] font-medium">
+                  {activePlanTimeProgress?.percentage || 0}%
+                </span>
               </span>
-              <span className="text-[15px] font-medium">
-                {activePlanTimeProgress?.percentage || 0}%
-              </span>
-            </span> : null}
+            ) : null}
           </span>
           <span className="flex h-full flex-col items-center justify-center border-l border-white/15 pl-5 text-center">
             <CalendarDays className="h-6 w-6" strokeWidth={1.7} />
@@ -1653,9 +1657,7 @@ const countPlanSessionsDue = (plan, periodStart, periodEnd) => {
     (day) => day.type === "training",
   );
   if (plan.scheduleMode === "fixed" && trainingDays.length) {
-    const dayIndexes = new Set(
-      trainingDays.map((day) => Number(day.dayIndex)),
-    );
+    const dayIndexes = new Set(trainingDays.map((day) => Number(day.dayIndex)));
     let count = 0;
     for (
       const date = new Date(effectiveStart);
@@ -1726,10 +1728,7 @@ function MobileAthleteHistoryView({
       ),
   ).size;
   const adherence = expectedTrainings
-    ? Math.min(
-        100,
-        Math.round((completedPlanDays / expectedTrainings) * 100),
-      )
+    ? Math.min(100, Math.round((completedPlanDays / expectedTrainings) * 100))
     : null;
   const weeklyCounts = [0, 0, 0, 0];
   sortedTrainings.forEach((training) => {
@@ -2044,10 +2043,27 @@ function CoachInvitationPanel({
   );
 }
 
+function CoachDataError({ message, onRetry }) {
+  return (
+    <div
+      role="alert"
+      className="my-5 rounded-2xl border border-red-400 bg-[color:var(--card)] p-5"
+    >
+      <h2 className="font-semibold">No se pudo actualizar el panel</h2>
+      <p className="mt-2 text-sm text-[color:var(--text-muted)]">{message}</p>
+      <Button onClick={onRetry} className="mt-4">
+        Reintentar carga
+      </Button>
+    </div>
+  );
+}
+
 function CoachHome({
   athletes,
   portfolio,
   loading,
+  loadError,
+  onReload,
   user,
   inviteOpen,
   setInviteOpen,
@@ -2161,7 +2177,10 @@ function CoachHome({
     [athletes],
   );
   const summary = portfolio?.summary || {};
-  const attentionCount = Number(summary.attention ?? alerts.length);
+  const attentionCount = Number(
+    summary.attention ??
+      athletes.filter((athlete) => getBasicCoachAlert(athlete)).length,
+  );
   const withoutRoutine = athletes.filter(
     (athlete) => !Number(athlete.routineCount || 0),
   ).length;
@@ -2254,6 +2273,17 @@ function CoachHome({
         </div>
       </header>
 
+      {loadError ? (
+        <CoachDataError message={loadError} onRetry={onReload} />
+      ) : null}
+      <button
+        type="button"
+        onClick={onReload}
+        disabled={loading}
+        className="mt-4 min-h-11 rounded-full border border-[color:var(--border)] px-4 text-sm font-semibold disabled:opacity-50"
+      >
+        Actualizar panel
+      </button>
       <section className="mt-7 flex items-center justify-between gap-4 px-1">
         <div className="min-w-0">
           <h2 className="truncate text-[26px] font-bold leading-none tracking-[-0.04em] sm:text-[30px]">
@@ -2661,6 +2691,7 @@ export default function CoachDashboard({
   const [athleteFilter, setAthleteFilter] = useState("all");
   const [athleteSort, setAthleteSort] = useState("priority");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [initialPlanTemplateId, setInitialPlanTemplateId] = useState("");
@@ -2714,10 +2745,31 @@ export default function CoachDashboard({
           setAthletes(Array.isArray(data?.athletes) ? data.athletes : []);
         } else {
           setPortfolio(null);
-          setAthletes(await api.getCoachAthletes());
+          const basicAthletes = await api.getCoachAthletes();
+          setAthletes(
+            basicAthletes.map((athlete) => {
+              const alert = getBasicCoachAlert(athlete);
+              const priority = !alert
+                ? "normal"
+                : !Number(athlete.routineCount || 0) ||
+                    !Number(athlete.trainingCount || 0) ||
+                    daysSince(athlete.lastTraining?.date) >= 14
+                  ? "high"
+                  : "medium";
+              return {
+                ...athlete,
+                priority,
+                alerts: alert ? [{ title: alert, severity: priority }] : [],
+              };
+            }),
+          );
         }
+        setLoadError("");
       } catch (err) {
-        toast.error(err.message || "No se pudieron cargar los atletas");
+        setLoadError(
+          err.message ||
+            "No se pudieron cargar los alumnos. Inténtalo de nuevo.",
+        );
       } finally {
         if (!silent) setLoading(false);
       }
@@ -3351,12 +3403,25 @@ export default function CoachDashboard({
     }
   };
 
+  if (!loading && loadError && !athletes.length) {
+    return (
+      <main className="mx-auto w-full max-w-4xl pb-24 text-[color:var(--text)]">
+        <h1 className="text-3xl font-semibold">
+          {pageId === "trainer" ? "Inicio coach" : "Mis alumnos"}
+        </h1>
+        <CoachDataError message={loadError} onRetry={() => loadAthletes()} />
+      </main>
+    );
+  }
+
   if (pageId === "trainer" && ["Admin", "Entrenador"].includes(user?.role)) {
     return (
       <CoachHome
         athletes={athletes}
         portfolio={portfolio}
         loading={loading}
+        loadError={loadError}
+        onReload={() => loadAthletes()}
         user={user}
         inviteOpen={inviteOpen}
         setInviteOpen={setInviteOpen}
@@ -3569,6 +3634,17 @@ export default function CoachDashboard({
         />
       ) : null}
 
+      {loadError ? (
+        <CoachDataError message={loadError} onRetry={() => loadAthletes()} />
+      ) : null}
+      <button
+        type="button"
+        onClick={() => loadAthletes()}
+        disabled={loading}
+        className="my-3 min-h-11 rounded-full border border-[color:var(--border)] px-4 text-sm font-semibold disabled:opacity-50"
+      >
+        Actualizar alumnos
+      </button>
       {loading ? (
         <div className="min-h-72 border-y border-[color:var(--border)]">
           <OperationLoader
@@ -3762,7 +3838,13 @@ export default function CoachDashboard({
                     if (!activeSession) onSelectCoachAthlete(null);
                   }
                 }}
-                onMessage={() => onNavigate("coach_messages")}
+                onMessage={() => {
+                  window.sessionStorage.setItem(
+                    "rirfit_message_peer",
+                    String(selectedId),
+                  );
+                  onNavigate("coach_messages");
+                }}
                 onEditPlan={() => {
                   if (activePlan) setEditingPlan(activePlan);
                   else setCreatingPlan(true);
@@ -3854,6 +3936,20 @@ export default function CoachDashboard({
                   ) : null}
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectCoachAthlete({
+                    id: String(selectedId),
+                    name: overview.athlete.name,
+                  });
+                  onNavigate("nutricion");
+                }}
+                className="my-3 min-h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-sm font-semibold"
+              >
+                Alimentación · crear dieta y ver cumplimiento
+              </button>
 
               <div
                 className={`mt-2 grid grid-cols-4 border-b border-[color:var(--border)] lg:hidden ${planDetailMode ? "hidden" : ""}`}

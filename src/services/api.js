@@ -118,6 +118,16 @@ export const api = {
   getAuthSessions: () => request("/api/auth/sessions"),
   logoutAllSessions: () => request("/api/auth/logout-all", { method: "POST" }),
 
+  requestCoachAccess: (payload) =>
+    request("/api/users/coach-application", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  reviewCoachApplication: (id, decision, reason = "") =>
+    request(`/api/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ coachApplicationDecision: decision, reason }),
+    }),
   getUsers: () => request("/api/users"),
   updateUser: (id, payload) =>
     request(`/api/users/${id}`, {
@@ -131,6 +141,44 @@ export const api = {
     }),
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
   getAssignedClients: () => request("/api/users/clients"),
+  searchFoodNutrition: (query, options = {}) =>
+    request(
+      `/api/nutrition/foods/search?${new URLSearchParams({ q: query })}`,
+      options,
+    ),
+  getNutritionDay: (params = {}, options = {}) =>
+    request(`/api/nutrition/day?${new URLSearchParams(params)}`, options),
+  completeNutritionMeal: (payload) =>
+    request("/api/nutrition/day", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  getCoachNutrition: (athleteId, params = {}, options = {}) =>
+    request(
+      `/api/nutrition/athletes/${athleteId}?${new URLSearchParams(params)}`,
+      options,
+    ),
+  createNutritionPlan: (athleteId, payload) =>
+    request(`/api/nutrition/athletes/${athleteId}/plans`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getMessageConversations: (options = {}) => request("/api/messages", options),
+  getConversationMessages: (peerId, { before, ...options } = {}) =>
+    request(
+      `/api/messages/${peerId}${before ? `?before=${encodeURIComponent(before)}` : ""}`,
+      options,
+    ),
+  sendCoachMessage: (peerId, payload) =>
+    request(`/api/messages/${peerId}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  markConversationRead: (peerId, messageIds) =>
+    request(`/api/messages/${peerId}/read`, {
+      method: "PATCH",
+      body: JSON.stringify({ messageIds }),
+    }),
   getCoachAthletes: () => request("/api/coach/athletes"),
   getCoachPlans: () => request("/api/coach/plans"),
   getCoachPortfolio: () =>

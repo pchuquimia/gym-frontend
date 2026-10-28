@@ -73,6 +73,7 @@ const Routines = lazy(() => import("./pages/Routines"));
 const PhotosLibrary = lazy(() => import("./pages/PhotosLibrary"));
 const TrainingAdmin = lazy(() => import("./pages/TrainingAdmin"));
 const CoachDashboard = lazy(() => import("./pages/CoachDashboard"));
+const Nutrition = lazy(() => import("./pages/Nutrition"));
 const CoachMessages = lazy(() => import("./pages/CoachMessages"));
 const CoachManagement = lazy(() => import("./pages/CoachManagement"));
 const WeightTracking = lazy(() => import("./pages/WeightTracking"));
@@ -108,6 +109,7 @@ const PAGES = {
   rutinas: { label: "Rutinas y Planificacion", component: Routines },
   trainer: { label: "Inicio coach", component: CoachDashboard },
   coach_athletes: { label: "Alumnos", component: CoachDashboard },
+  nutricion: { label: "Alimentación", component: Nutrition },
   coach_messages: { label: "Mensajes", component: CoachMessages },
   coach_workflow: {
     label: "Evaluaciones y seguimiento",
@@ -132,7 +134,7 @@ const PAGE_ROLES = {
   admin_sesiones: ["Admin", "Entrenador", "Cliente"],
   trainer: ["Admin", "Entrenador"],
   coach_athletes: ["Admin", "Entrenador"],
-  coach_messages: ["Admin", "Entrenador"],
+  coach_messages: ["Admin", "Entrenador", "Cliente"],
   coach_workflow: ["Admin", "Entrenador"],
   coach_admin: ["Admin"],
   onboarding: ["Cliente", "Entrenador"],
@@ -149,6 +151,7 @@ const COACH_ALLOWED_PAGES = new Set([
   "trainer",
   "coach_athletes",
   "coach_messages",
+  "nutricion",
   "coach_workflow",
   "rutinas",
   "library",
@@ -178,6 +181,8 @@ const MANAGED_CLIENT_ALLOWED_PAGES = new Set([
   "progreso",
   "plan_progreso",
   "dashboard",
+  "coach_messages",
+  "nutricion",
   "onboarding",
   "registrar",
   "ejercicio_analitica",
@@ -527,7 +532,12 @@ function App() {
     const isManagedClient = isCoachManagedClient(user);
     const isManagedEvaluationPending =
       isManagedClient && needsCoachIntake(user);
-    const pendingAllowedPages = new Set(["dashboard", "onboarding"]);
+    const pendingAllowedPages = new Set([
+      "dashboard",
+      "onboarding",
+      "coach_messages",
+      "nutricion",
+    ]);
     if (
       isAuthenticated &&
       isManagedClient &&

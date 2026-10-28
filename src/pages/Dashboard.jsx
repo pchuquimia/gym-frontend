@@ -37,6 +37,7 @@ import OperationLoader from "../components/system/OperationLoader";
 import QuickWeightModal from "../components/dashboard/QuickWeightModal";
 import WorkoutSeriesDetail from "../components/dashboard/WorkoutSeriesDetail";
 import { buildWorkoutMuscleSeries } from "../utils/workoutMuscleSeries";
+import NutritionDiary from "../components/nutrition/NutritionDiary";
 import MobileDailyPlan from "../components/dashboard/MobileDailyPlan";
 import AppChart from "../components/progress/AppChart";
 import CalorieEstimateModal from "../components/analytics/CalorieEstimateModal";
@@ -3383,6 +3384,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }}
         onOpenWeighIn={() => setQuickWeightOpen(true)}
       />
+      {authUser?.role === "Cliente" && authUser?.assignedTrainerId ? (
+        <NutritionDiary compact onOpen={() => onNavigate("nutricion")} />
+      ) : null}
       <header className="dashboard-legacy-overview dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />

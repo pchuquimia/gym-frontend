@@ -28,6 +28,7 @@ import { api } from "../services/api";
 import { toast } from "../utils/toast";
 import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
+import CoachAccessRequest from "../components/coach/CoachAccessRequest";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import {
   passwordStatus,
@@ -1748,6 +1749,12 @@ export default function ProfileSettings({ onNavigate }) {
           </p>
           {user?.role === "Cliente" ? (
             <Section title="Acompañamiento">
+              {user?.assignedTrainerId ? (
+                <SettingsRow
+                  title="Mensajes con mi coach"
+                  onClick={() => onNavigate?.("coach_messages")}
+                />
+              ) : null}
               {coachRelationship.loading ? (
                 <p className="px-4 py-5 text-sm font-semibold text-[color:var(--text-muted)]">
                   Consultando tu modalidad de entrenamiento...
@@ -1836,6 +1843,14 @@ export default function ProfileSettings({ onNavigate }) {
                 title="Evaluaciones y seguimiento"
                 value="Preguntas, fotos, medidas y revisiones"
                 onClick={() => onNavigate?.("coach_workflow")}
+              />
+            </Section>
+          ) : null}
+          {user?.role === "Cliente" && !user?.isDemo ? (
+            <Section title="Acceso como coach">
+              <CoachAccessRequest
+                user={user}
+                onSubmitted={() => refreshUser({ silent: true, force: true })}
               />
             </Section>
           ) : null}

@@ -102,7 +102,10 @@ for (const status of ["active", "completed"]) {
       await page
         .getByRole("button", { name: "Ver planificación", exact: true })
         .click();
-    else await page.getByRole("button", { name: /Mes 1/ }).click();
+    else {
+      await page.getByRole("button", { name: /Ver historial/ }).click();
+      await page.getByRole("button", { name: /Mes 1/ }).click();
+    }
     await page
       .getByLabel("Opciones de la planificación", { exact: true })
       .click();

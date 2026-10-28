@@ -231,6 +231,18 @@ function ProgressContent({
         onReset={reset}
       />
 
+      {queries.plans.isError ? (
+        <section className="progress-message" role="alert">
+          <p>
+            No pudimos cargar tus planificaciones. El historial sigue
+            disponible.
+          </p>
+          <button onClick={() => void queries.plans.refetch()}>
+            Reintentar planes
+          </button>
+        </section>
+      ) : null}
+
       {!validRange ? (
         <p className="progress-message" role="alert">
           Elige un período válido que termine hoy o antes.

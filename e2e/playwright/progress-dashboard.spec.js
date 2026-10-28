@@ -105,6 +105,14 @@ async function openProgress(
   page,
   { theme = "light", empty = false, error = "", loading = false } = {},
 ) {
+  let plansFailed = error === "plans";
+  let historyFailed = error === "trainings";
+  let finishLoading;
+  const historyReady = loading
+    ? new Promise((resolve) => {
+        finishLoading = resolve;
+      })
+    : Promise.resolve();
   await page.clock.setFixedTime(new Date("2026-09-16T16:00:00Z"));
   await page.addInitScript(
     ({ theme, user }) => {
@@ -128,14 +136,14 @@ async function openProgress(
     if (path === "/api/auth/dev-admin") return json({ error: "disabled" }, 401);
     if (path === "/api/trainings") {
       if (url.searchParams.get("meta") === "true") {
-        if (loading) await new Promise((resolve) => setTimeout(resolve, 1700));
-        if (error === "trainings") return json({ error: "temporary" }, 500);
+        await historyReady;
+        if (historyFailed) return json({ error: "temporary" }, 500);
         return json({ items: empty ? [] : trainings, hasMore: false });
       }
       return json(empty ? [] : trainings);
     }
     if (path === "/api/plans")
-      return error === "plans"
+      return plansFailed
         ? json({ error: "temporary" }, 500)
         : json(empty ? [] : plans);
     if (path === "/api/routines") return json(empty ? [] : routines);
@@ -153,45 +161,50 @@ async function openProgress(
   });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Progreso.", exact: true }),
+    page.getByRole("heading", { name: "Analíticas", exact: true }),
   ).toBeVisible({ timeout: 20000 });
+  return {
+    recoverPlans: () => {
+      plansFailed = false;
+    },
+    recoverHistory: () => {
+      historyFailed = false;
+    },
+    finishLoading,
+  };
 }
 
+const weeklyChart = (page) =>
+  page.getByRole("img", { name: /^Sesiones por semana(?:\.|$)/ });
+
 for (const theme of ["light", "dark"]) {
-  test(`progress ${theme}: charts, filters, plan comparison and details`, async ({
+  test(`progress ${theme}: charts, filters, plan selection and session details`, async ({
     page,
   }, testInfo) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await openProgress(page, { theme });
-    await expect(page.locator(".progress-evolution svg")).toBeVisible();
+    await expect(weeklyChart(page).locator("svg")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Lo más importante" }),
+    ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath(`progress-${theme}-overview.png`),
     });
+
+    const plan = page.getByRole("combobox", {
+      name: "Planificación",
+      exact: true,
+    });
+    await plan.selectOption("current");
+    await expect(plan).toHaveValue("current");
     await expect(
-      page.getByRole("heading", { name: "¿Qué cambió entre planes?" }),
+      page
+        .getByRole("region", { name: "Lo más importante" })
+        .getByText("10 días con entrenamiento"),
     ).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath(`progress-${theme}-full.png`),
-      fullPage: true,
-    });
-    await page
-      .locator(".progress-evolution")
-      .screenshot({ path: testInfo.outputPath(`progress-${theme}-chart.png`) });
-    const legend = page.getByRole("group", {
-      name: "Series de Comparación de planes",
-    });
-    await legend.getByRole("button").first().click();
-    await expect(legend.getByRole("button").first()).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    await legend.getByRole("button").first().click();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
-      ),
-    ).toBe(true);
+    await plan.selectOption("");
+
     await page.getByRole("button", { name: "7D", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "7D", exact: true }),
@@ -202,17 +215,26 @@ for (const theme of ["light", "dark"]) {
     await dialog.getByLabel("Grupo muscular").selectOption("Pecho");
     await dialog.getByRole("button", { name: "Ver resultados" }).click();
     await expect(
-      page.getByRole("button", { name: "Quitar filtro: Pecho" }),
+      page.getByRole("button", { name: "Filtros (1)", exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByText("El cumplimiento se calcula con sesiones completas.", {
-        exact: false,
-      }),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Quitar filtro: Pecho" }).click();
+    await expect(page.locator(".progress-date-context")).toContainText(
+      "Vista filtrada",
+    );
+
     await page
       .getByRole("button", { name: "Restablecer", exact: true })
       .click();
+    const strength = page.getByRole("region", {
+      name: "Tu fuerza por ejercicio",
+    });
+    await strength
+      .getByRole("combobox", { name: "Ejercicio", exact: true })
+      .selectOption("press");
+    await expect(
+      strength.getByRole("combobox", { name: "Ejercicio", exact: true }),
+    ).toHaveValue("press");
+    await expect(strength.locator("svg").first()).toBeVisible();
+
     await page.locator(".progress-workout-list button").first().click();
     await expect(
       page
@@ -221,53 +243,72 @@ for (const theme of ["light", "dark"]) {
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).not.toBeVisible();
-    await page.locator(".progress-evolution summary").click();
-    await expect(page.locator(".progress-evolution table")).toBeVisible();
-    const chart = page.locator('.progress-evolution [role="img"]').first();
-    const box = await chart.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    ).toBe(true);
     await page.screenshot({
-      path: testInfo.outputPath(`progress-${theme}-interaction.png`),
-      fullPage: false,
+      path: testInfo.outputPath(`progress-${theme}-full.png`),
+      fullPage: true,
     });
     expect(errors).toEqual([]);
   });
 }
+
 test("progress has honest empty states", async ({ page }) => {
   await openProgress(page, { empty: true });
   await expect(
     page.getByRole("heading", {
-      name: "No hay entrenamientos en esta selección",
+      name: "No hay entrenamientos en este período",
     }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Necesitas al menos dos planificaciones", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Registrar entrenamiento", exact: true }),
   ).toBeVisible();
+  await expect(weeklyChart(page)).toHaveCount(0);
 });
-test("progress isolates plan errors and retains training charts", async ({
+
+test("progress isolates plan errors and can retry without losing training charts", async ({
   page,
 }) => {
-  await openProgress(page, { error: "plans" });
+  const backend = await openProgress(page, { error: "plans" });
+  const retry = page.getByRole("button", { name: "Reintentar planes" });
+  await expect(retry).toBeVisible();
+  await expect(weeklyChart(page).locator("svg")).toBeVisible();
+  backend.recoverPlans();
+  await retry.click();
+  await expect(retry).not.toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Reintentar planes" }),
-  ).toBeVisible();
-  await expect(page.locator(".progress-evolution svg")).toBeVisible();
+    page
+      .getByRole("combobox", { name: "Planificación", exact: true })
+      .getByRole("option", { name: "Fuerza · bloque 02" }),
+  ).toHaveCount(1);
 });
-test("progress does not show partial history as a result", async ({ page }) => {
-  await openProgress(page, { error: "trainings" });
+
+test("progress does not show partial history and can recover", async ({
+  page,
+}) => {
+  const backend = await openProgress(page, { error: "trainings" });
+  const alert = page.getByRole("alert");
   await expect(
-    page.getByRole("button", { name: "Reintentar historial" }),
+    alert.getByRole("heading", { name: "No pudimos cargar tus analíticas" }),
   ).toBeVisible();
-  await expect(page.locator(".progress-kpis")).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Lo más importante" }),
+  ).toHaveCount(0);
+  await expect(weeklyChart(page)).toHaveCount(0);
+  backend.recoverHistory();
+  await alert.getByRole("button", { name: "Reintentar", exact: true }).click();
+  await expect(weeklyChart(page).locator("svg")).toBeVisible();
 });
+
 test("progress loading and reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await openProgress(page, { loading: true });
+  const backend = await openProgress(page, { loading: true });
   await expect(
-    page.getByRole("status", { name: "Cargando métricas de entrenamiento" }),
+    page.getByRole("status", { name: "Cargando resumen" }),
   ).toBeVisible();
-  await expect(page.locator(".progress-evolution svg")).toBeVisible();
+  backend.finishLoading();
+  await expect(weeklyChart(page).locator("svg")).toBeVisible();
 });
