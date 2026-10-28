@@ -173,21 +173,26 @@ function SolidNavIcon({ name, className = "" }) {
   }
 }
 
-function MobileNav({ activePage, onNavigate, onOpenMenu, menuOpen = false }) {
+function MobileNav({
+  activePage,
+  onNavigate,
+  onOpenMenu,
+  menuOpen = false,
+  messageUnread = 0,
+}) {
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
   const isAdminCoachPage =
     user?.role === "Admin" &&
     ["trainer", "coach_athletes", "coach_messages"].includes(activePage);
   const isCoach = user?.role === "Entrenador" || isAdminCoachPage;
-  const primaryItemIds =
-    isCoach
-      ? ["trainer", "coach_athletes", "rutinas", "coach_messages"]
-      : user?.role === "Admin"
-        ? ["dashboard", "registrar", "rutinas", "library"]
-        : user?.trainingMode === "coach_managed"
-          ? ["dashboard", "registrar", "rutinas", "ejercicio_analitica"]
-          : ["dashboard", "registrar", "rutinas", "library"];
+  const primaryItemIds = isCoach
+    ? ["trainer", "coach_athletes", "rutinas", "coach_messages"]
+    : user?.role === "Admin"
+      ? ["dashboard", "registrar", "rutinas", "library"]
+      : user?.trainingMode === "coach_managed"
+        ? ["dashboard", "registrar", "rutinas", "ejercicio_analitica"]
+        : ["dashboard", "registrar", "rutinas", "library"];
   const items = [
     ...primaryItemIds
       .map((id) => navLinks.find((link) => link.id === id))
@@ -265,6 +270,16 @@ function MobileNav({ activePage, onNavigate, onOpenMenu, menuOpen = false }) {
               >
                 {getMobileLabel(item, user)}
               </span>
+              {messageUnread > 0 &&
+              (item.id === "coach_messages" ||
+                (opensMenu && !primaryItemIds.includes("coach_messages"))) ? (
+                <span
+                  aria-label={`${messageUnread} mensajes sin leer`}
+                  className="absolute right-2 top-0 rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white"
+                >
+                  {messageUnread > 99 ? "99+" : messageUnread}
+                </span>
+              ) : null}
             </button>
           );
         })}

@@ -12,6 +12,23 @@ vi.mock("../../context/AuthContext", () => ({
 }));
 
 describe("MobileNav", () => {
+  it("avisa de mensajes sin leer en el acceso al menú del atleta", async () => {
+    mockUseAuth.mockReturnValue({
+      user: { role: "Cliente", trainingMode: "coach_managed" },
+    });
+    const openMenu = vi.fn();
+    render(
+      <MobileNav
+        activePage="dashboard"
+        onNavigate={vi.fn()}
+        onOpenMenu={openMenu}
+        messageUnread={2}
+      />,
+    );
+    expect(screen.getByLabelText("2 mensajes sin leer")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /Más/ }));
+    expect(openMenu).toHaveBeenCalledTimes(1);
+  });
   beforeEach(() => {
     mockUseAuth.mockReset();
   });

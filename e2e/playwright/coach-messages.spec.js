@@ -1,5 +1,172 @@
 import { expect, test } from "@playwright/test";
 
+for (const trainingMode of ["coach_managed", "independent"]) {
+  test(`el atleta ${trainingMode} recibe el aviso y tiene Mensajes en su menú`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    const coachPage = await context.newPage();
+    const messages = [];
+    const athlete = {
+      id: "athlete",
+      name: "Ana Alumna",
+      role: "Cliente",
+      trainingMode,
+      assignedTrainerId: "coach",
+      isActive: true,
+      onboarding: { status: "complete" },
+      coachIntake: { status: "pending", coachId: "coach" },
+      profile: { language: "es" },
+      subscription: { plan: "free", effectivePlan: "free", status: "active" },
+      entitlements: [],
+    };
+    const coach = {
+      ...athlete,
+      id: "coach",
+      name: "Diego Coach",
+      role: "Entrenador",
+      trainingMode: "independent",
+      assignedTrainerId: null,
+    };
+    const setup = async (target, user, peer, initialPage) => {
+      await target.addInitScript(
+        ({ user, initialPage }) => {
+          localStorage.setItem("active_page", initialPage);
+          localStorage.setItem("gym_auth_token", "e2e-only-token");
+          localStorage.setItem("gym_authenticated_user", JSON.stringify(user));
+        },
+        { user, initialPage },
+      );
+      await target.route("**/api/**", async (route) => {
+        const req = route.request();
+        const path = new URL(req.url()).pathname;
+        const json = (body, status = 200) =>
+          route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(body),
+          });
+        if (path === "/api/auth/me") return json({ user });
+        if (path === "/api/auth/dev-admin")
+          return json({ error: "disabled" }, 401);
+        if (path === "/api/messages")
+          return json({
+            conversations: [
+              {
+                peer,
+                lastMessage: messages.at(-1) || null,
+                unread: messages.filter(
+                  (message) =>
+                    message.recipientId === user.id && !message.readAt,
+                ).length,
+              },
+            ],
+          });
+        if (path === `/api/messages/${peer.id}` && req.method() === "POST") {
+          const message = {
+            _id: "message-1",
+            ...req.postDataJSON(),
+            senderId: user.id,
+            recipientId: peer.id,
+            createdAt: new Date().toISOString(),
+            readAt: null,
+          };
+          messages.push(message);
+          return json({ message }, 201);
+        }
+        if (path === `/api/messages/${peer.id}`)
+          return json({ messages, nextCursor: null });
+        if (path === `/api/messages/${peer.id}/read`) {
+          for (const message of messages)
+            if (message.recipientId === user.id)
+              message.readAt = new Date().toISOString();
+          return json({ updated: messages.length });
+        }
+        if (path === "/api/nutrition/day")
+          return json({ plan: null, day: null });
+        if (path === "/api/auth/profile")
+          return json({
+            profile: user.profile,
+            security: {},
+            capabilities: {},
+          });
+        if (path === "/api/preferences")
+          return json({
+            branch: "sopocachi",
+            locationMode: "single",
+            allowedBranches: ["sopocachi"],
+            goals: {},
+          });
+        if (path === "/api/exercises") return json({ items: [], total: 0 });
+        return json({});
+      });
+      await target.goto("/");
+    };
+    // Use isolated storage so coach and athlete can remain signed in together.
+    const coachContext = await context
+      .browser()
+      .newContext({ viewport: page.viewportSize() });
+    const isolatedCoachPage = await coachContext.newPage();
+    await coachPage.close();
+    try {
+      await setup(page, athlete, coach, "nutricion");
+      await expect(
+        page.getByRole("heading", { name: "Mi alimentación", exact: true }),
+      ).toBeVisible();
+      const mobile = (page.viewportSize()?.width || 0) < 1024;
+      if (mobile)
+        await page.getByRole("button", { name: "Más", exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: /Mensajes/ }),
+      ).toBeVisible();
+      if (mobile)
+        await page
+          .getByRole("button", { name: "Cerrar menu principal" })
+          .click();
+      await setup(isolatedCoachPage, coach, athlete, "coach_messages");
+      await isolatedCoachPage
+        .getByRole("button", { name: /Ana Alumna/ })
+        .click();
+      await isolatedCoachPage
+        .getByLabel("Escribe un mensaje")
+        .fill("Ana, revisemos tu entrenamiento de mañana.");
+      await isolatedCoachPage
+        .getByRole("button", { name: "Enviar mensaje" })
+        .click();
+      await expect(
+        isolatedCoachPage.getByRole("log").getByText(/Ana, revisemos/),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Nuevo mensaje de tu coach", { exact: true }),
+      ).toBeVisible({ timeout: 25_000 });
+      await expect(
+        page.locator('[aria-label="1 mensajes sin leer"]:visible'),
+      ).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath("athlete-message-notification.png"),
+        fullPage: true,
+      });
+      if (mobile) {
+        await page.getByRole("button", { name: /Más/ }).click();
+        await page.getByRole("button", { name: /Mensajes/ }).click();
+        await page.getByRole("button", { name: /Diego Coach/ }).click();
+      } else
+        await page
+          .getByRole("button", { name: "Ver mensaje", exact: true })
+          .click();
+      await expect(
+        page.getByRole("log").getByText(/Ana, revisemos/),
+      ).toBeVisible();
+      await expect(
+        page.locator('[aria-label="1 mensajes sin leer"]:visible'),
+      ).toHaveCount(0);
+      expect(messages[0].readAt).toBeTruthy();
+    } finally {
+      await coachContext.close();
+    }
+  });
+}
+
 for (const role of ["Entrenador", "Cliente"]) {
   test(`${role} abre una conversación y envía mensajes`, async ({
     page,

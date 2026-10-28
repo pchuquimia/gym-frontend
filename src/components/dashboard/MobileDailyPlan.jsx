@@ -299,8 +299,7 @@ const QUICK_REGISTRATION_DEFAULTS = Object.freeze([
 ]);
 
 function QuickRegistration({ task, onOpen, readOnly }) {
-  const image =
-    DAILY_CARD_IMAGES[task.type] || DAILY_CARD_IMAGES.measurements;
+  const image = DAILY_CARD_IMAGES[task.type] || DAILY_CARD_IMAGES.measurements;
 
   return (
     <button
@@ -563,6 +562,7 @@ export default function MobileDailyPlan({
   notifications = [],
   notificationUnread = 0,
   onReadNotifications,
+  onOpenNotification,
 }) {
   const requiredTracking = trackingMissions.filter((task) => task.required);
   const requiredTrackingTypes = new Set(
@@ -621,6 +621,15 @@ export default function MobileDailyPlan({
             <div key={item._id || item.id}>
               <strong>{item.title}</strong>
               <small>{item.message}</small>
+              {item.type === "coach_message" && item.peerId && (
+                <button
+                  type="button"
+                  className="mt-2 min-h-11 text-sm font-semibold underline"
+                  onClick={() => onOpenNotification?.(item)}
+                >
+                  Ver mensaje
+                </button>
+              )}
             </div>
           ))}
         </details>

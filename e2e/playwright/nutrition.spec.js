@@ -132,6 +132,37 @@ async function setup(
       return json({ user }, 201);
     }
     if (path === "/api/messages") return json({ conversations: [] });
+    if (path === "/api/nutrition/foods/5678/portions")
+      return json({
+        portions: [{ id: "large", label: "huevo grande", gramWeight: 50 }],
+      });
+    if (/\/api\/nutrition\/foods\/\d+\/portions$/.test(path))
+      return json({ portions: [] });
+    if (
+      path === "/api/nutrition/foods/search" &&
+      /huevo/i.test(url.searchParams.get("q"))
+    )
+      return json({
+        foods: [
+          {
+            foodId: "5678",
+            name: "Huevo · Crudo",
+            description: "Egg, whole, raw",
+            quantity: "100 g",
+            calories: 140,
+            protein: 12,
+            carbs: 1,
+            fat: 10,
+            nutritionSource: {
+              provider: "usda",
+              foodId: "5678",
+              description: "Egg, whole, raw",
+              grams: 100,
+              per100g: { calories: 140, protein: 12, carbs: 1, fat: 10 },
+            },
+          },
+        ],
+      });
     if (path === "/api/nutrition/foods/search")
       return json({
         foods: [
@@ -348,6 +379,50 @@ test("escribir 200g de pollo trae los macros y cambiar gramos los recalcula", as
     calories: 180,
     protein: 33.75,
     nutritionSource: { grams: 150, foodId: "1234" },
+  });
+});
+
+test("el coach indica cinco huevos por unidades y conserva la cantidad al asignar", async ({
+  page,
+}, testInfo) => {
+  const state = await setup(page, "Entrenador");
+  await page.getByLabel("Alumno para alimentación").selectOption("athlete");
+  await page.getByRole("button", { name: "Crear dieta" }).click();
+  await page
+    .getByRole("button", { name: "Agregar alimento a Desayuno" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Buscar macros · Desayuno").fill("huevo");
+  await dialog.getByRole("button", { name: /Huevo · Crudo/ }).click();
+  await expect(
+    dialog.getByRole("option", { name: /huevo grande/ }),
+  ).toHaveCount(1);
+  await dialog
+    .getByLabel("Medida del alimento")
+    .selectOption({ label: "Unidad / porción: huevo grande (50 g)" });
+  await dialog.getByLabel("Cantidad", { exact: true }).fill("5");
+  await expect(dialog.getByLabel("Proteínas", { exact: true })).toHaveValue(
+    "30",
+  );
+  await expect(dialog.getByText(/5 × huevo grande/)).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("five-eggs.png"),
+    fullPage: true,
+  });
+  await dialog.getByRole("button", { name: "Agregar a Desayuno" }).click();
+  await page.getByRole("button", { name: /Editar Huevo/ }).click();
+  await expect(dialog.getByLabel("Cantidad", { exact: true })).toHaveValue("5");
+  await page.keyboard.press("Escape");
+  for (const name of ["Almuerzo", "Cena"])
+    await addManualFood(page, name, "Preparación manual", "1 porción");
+  await page.getByRole("button", { name: "Guardar y asignar dieta" }).click();
+  await expect(page.getByRole("status")).toContainText("Dieta asignada");
+  expect(state.getSaved().meals[0].foods[0]).toMatchObject({
+    quantity: "5 × huevo grande",
+    calories: 350,
+    protein: 30,
+    nutritionSource: { grams: 250, portion: { amount: 5, gramWeight: 50 } },
   });
 });
 

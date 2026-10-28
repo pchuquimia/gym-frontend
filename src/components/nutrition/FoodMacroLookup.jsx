@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { LoaderCircle, Plus, Search, SearchX } from "lucide-react";
+import { ChevronRight, LoaderCircle, Search, SearchX } from "lucide-react";
 import { api } from "../../services/api";
 import { displayNutrient, foodEmoji } from "./foodPresentation";
+
+const weightPattern =
+  /\d+(?:[.,]\d+)?\s*(?:kilogramos?|kilos?|kg|gramos?|grs?|g)\b/i;
 
 export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
   const [input, setInput] = useState("");
@@ -19,12 +22,10 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
       setError("");
       // The catalog returns values for a weight. A plain food search starts at
       // 100 g; the coach chooses the final amount before adding the food.
-      const query =
-        /\d+(?:[.,]\d+)?\s*(?:kilogramos?|kilos?|kg|gramos?|grs?|g)\b/i.test(
-          input,
-        )
-          ? input.trim()
-          : `100 g de ${input.trim()}`;
+      const countSearch = input.trim().match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+      const query = weightPattern.test(input)
+        ? input.trim()
+        : `100 g de ${countSearch ? countSearch[2] : input.trim()}`;
       try {
         const data = await api.searchFoodNutrition(query, {
           signal: controller.signal,
@@ -48,6 +49,9 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
     };
   }, [input, retry]);
   const apply = (food) => {
+    const countSearch =
+      !weightPattern.test(input) &&
+      input.trim().match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
     onApply({
       name: food.name,
       quantity: food.quantity,
@@ -56,6 +60,7 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
       carbs: food.carbs,
       fat: food.fat,
       nutritionSource: food.nutritionSource,
+      ...(countSearch ? { requestedCount: countSearch[1] } : {}),
     });
     setInput("");
     setResults([]);
@@ -108,7 +113,9 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
       {results.length > 0 && (
         <div className="nutrition-search-results">
           <p className="nutrition-search-caption">
-            Elige la preparación: crudo y cocido tienen valores diferentes.
+            Selecciona un alimento para indicar el peso o la cantidad de
+            unidades. Revisa la preparación: crudo y cocido tienen valores
+            diferentes.
           </p>
           {results.map((food) => (
             <button
@@ -125,8 +132,10 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
                 <small>
                   {food.quantity} · {displayNutrient(food.calories)} kcal
                 </small>
+                {food.description && <small>{food.description}</small>}
+                <small>Elegir cantidad</small>
               </span>
-              <Plus size={19} />
+              <ChevronRight size={19} aria-hidden="true" />
             </button>
           ))}
           <p className="nutrition-search-attribution">
@@ -137,7 +146,8 @@ export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
       {!input && (
         <p className="nutrition-empty-search">
           <Search size={29} />
-          Busca por nombre o escribe, por ejemplo, «200 g de pechuga de pollo».
+          Busca por nombre, por ejemplo, «huevo». Selecciona un resultado para
+          elegir la cantidad antes de agregarlo.
         </p>
       )}
     </div>

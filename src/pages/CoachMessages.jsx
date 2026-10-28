@@ -126,6 +126,7 @@ export default function CoachMessages({ onNavigate = () => {} }) {
             .map((message) => message._id);
           if (unread.length) {
             await api.markConversationRead(selectedId, unread);
+            window.dispatchEvent(new Event("coach-messages-read"));
             if (!controller.signal.aborted)
               setConversations((previous) =>
                 previous.map((item) =>
@@ -201,6 +202,7 @@ export default function CoachMessages({ onNavigate = () => {} }) {
         .map((message) => message._id);
       if (unread.length && document.visibilityState !== "hidden") {
         await api.markConversationRead(peerId, unread);
+        window.dispatchEvent(new Event("coach-messages-read"));
         setConversations((previous) =>
           previous.map((item) =>
             item.peer.id === peerId

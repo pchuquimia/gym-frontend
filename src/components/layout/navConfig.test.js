@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coachSections, sections } from "./navConfig";
+import { coachSections, managedClientSections, sections } from "./navConfig";
 
 const visibleFor = (role) =>
   sections
@@ -12,6 +12,16 @@ const visibleFor = (role) =>
     .filter((section) => section.ids.length);
 
 describe("configuracion del menu lateral", () => {
+  it("permite abrir Mensajes desde el menú de ambos tipos de atleta", () => {
+    expect(visibleFor("Cliente").flatMap((section) => section.ids)).toContain(
+      "coach_messages",
+    );
+    expect(
+      managedClientSections.flatMap((section) =>
+        section.items.map((item) => item.id),
+      ),
+    ).toContain("coach_messages");
+  });
   it("muestra primero la navegacion personal y despues las herramientas elevadas", () => {
     const adminSections = visibleFor("Admin");
 

@@ -1838,7 +1838,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     queryFn: api.getNotifications,
     enabled: authUser?.role === "Cliente",
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 15 * 1000,
   });
   const [isThreeMonthsOpen, setIsThreeMonthsOpen] = useState(false);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
@@ -3314,6 +3314,12 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         coach={managedCoach}
         notifications={athleteNotificationsQuery.data?.notifications || []}
         notificationUnread={athleteNotificationsQuery.data?.unread || 0}
+        onOpenNotification={(notification) => {
+          if (notification.type === "coach_message" && notification.peerId) {
+            sessionStorage.setItem("rirfit_message_peer", notification.peerId);
+            onNavigate("coach_messages");
+          }
+        }}
         onReadNotifications={async () => {
           try {
             await api.markNotificationsRead();

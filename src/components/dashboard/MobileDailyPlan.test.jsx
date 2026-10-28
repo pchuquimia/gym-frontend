@@ -45,6 +45,30 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it("muestra la notificación del coach y permite abrir su mensaje", async () => {
+    const open = vi.fn();
+    const read = vi.fn();
+    const notification = {
+      _id: "notice",
+      type: "coach_message",
+      peerId: "coach",
+      title: "Nuevo mensaje de tu coach",
+      message: "Revisemos la próxima sesión",
+    };
+    renderPlan({
+      notifications: [notification],
+      notificationUnread: 1,
+      onReadNotifications: read,
+      onOpenNotification: open,
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }),
+    );
+    expect(screen.getByText(notification.message)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Ver mensaje" }));
+    expect(open).toHaveBeenCalledWith(notification);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
   it("guía al usuario sin rutina hacia su primer entrenamiento", async () => {
     const onCreateRoutine = vi.fn();
     const onOpenLibrary = vi.fn();

@@ -67,6 +67,12 @@ export const sections = [
   {
     heading: "Cuenta",
     items: [
+      {
+        id: "coach_messages",
+        label: "Mensajes",
+        icon: MessageCircle,
+        roles: ["Cliente"],
+      },
       { id: "perfil", label: "Perfil y Ajustes", icon: User },
       { id: "planes", label: "Planes y Premium", icon: Crown },
     ],
@@ -224,7 +230,7 @@ const standardNavLinks = sections.flatMap((section) => section.items);
 const standardNavIds = new Set(standardNavLinks.map((item) => item.id));
 
 export const navLinks = [
-  ...standardNavLinks,
+  ...new Map(standardNavLinks.map((item) => [item.id, item])).values(),
   ...coachSections
     .flatMap((section) => section.items)
     .filter((item) => !standardNavIds.has(item.id)),

@@ -158,6 +158,7 @@ function Sidebar({
   onNavigate,
   forceVisible = false,
   onClose = null,
+  messageUnread = 0,
 }) {
   const { user, logout } = useAuth();
   const { profile } = useUserProfile();
@@ -189,6 +190,15 @@ function Sidebar({
     const didLogout = await logout();
     if (didLogout) onNavigate?.("login");
   };
+  const messageBadge =
+    messageUnread > 0 ? (
+      <span
+        aria-label={`${messageUnread} mensajes sin leer`}
+        className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white"
+      >
+        {messageUnread > 99 ? "99+" : messageUnread}
+      </span>
+    ) : null;
 
   if (forceVisible) {
     const mobileOrderById = new Map(
@@ -305,6 +315,7 @@ function Sidebar({
                           >
                             {mobileLabels[item.id] || item.label}
                           </span>
+                          {item.id === "coach_messages" ? messageBadge : null}
                         </button>
                       );
                     })}
@@ -385,6 +396,7 @@ function Sidebar({
                       <span className="min-w-0 flex-1 truncate">
                         {item.label}
                       </span>
+                      {item.id === "coach_messages" ? messageBadge : null}
                     </button>
                   );
                 })}

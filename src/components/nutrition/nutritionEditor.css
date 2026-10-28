@@ -212,6 +212,7 @@
   font-weight: 500;
 }
 .nutrition-label input,
+.nutrition-label select,
 .nutrition-label textarea {
   display: block;
   margin-top: 7px;
@@ -228,6 +229,7 @@
   line-height: 1.5;
 }
 .nutrition-label input:focus,
+.nutrition-label select:focus,
 .nutrition-label textarea:focus {
   outline: 2px solid var(--meal-yellow);
   outline-offset: 2px;

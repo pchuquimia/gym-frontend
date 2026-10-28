@@ -12,6 +12,7 @@ import MobileMenuButton from "./MobileMenuButton";
 import ActiveTrainingTopbar from "./ActiveTrainingTopbar";
 import ThemeToggle from "../ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
+import { useMessageNotifications } from "../../hooks/useMessageNotifications";
 import {
   canAccessActiveTraining,
   readActiveTrainingSnapshot,
@@ -30,6 +31,7 @@ function MainLayout({
   const shellRef = useRef(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const { user } = useAuth();
+  const messageUnread = useMessageNotifications(activePage, onNavigate);
   const useDashboardChrome = activePage === "dashboard";
   const useDailyCheckInChrome = activePage === "check_in";
   const useHydrationChrome = activePage === "hidratacion";
@@ -246,7 +248,11 @@ function MainLayout({
       >
         {!useOnboardingChrome ? (
           <div className="desktop-sidebar-slot hidden min-w-0 lg:block">
-            <Sidebar activePage={activePage} onNavigate={handleNavigate} />
+            <Sidebar
+              activePage={activePage}
+              onNavigate={handleNavigate}
+              messageUnread={messageUnread}
+            />
           </div>
         ) : null}
         <div
@@ -327,6 +333,7 @@ function MainLayout({
           <div className="premium-drawer mobile-drawer-panel absolute inset-y-0 left-0 h-dvh w-[min(86vw,320px)] border-r border-[color:var(--drawer-border)] shadow-drawer">
             <Sidebar
               forceVisible
+              messageUnread={messageUnread}
               onClose={() => setShowDrawer(false)}
               activePage={activePage}
               onNavigate={(id) => {
@@ -342,6 +349,7 @@ function MainLayout({
         <div className="mobile-nav-slot fixed inset-x-0 bottom-0 z-40 lg:hidden">
           <MobileNav
             activePage={activePage}
+            messageUnread={messageUnread}
             onNavigate={handleNavigate}
             onOpenMenu={() => setShowDrawer(true)}
             menuOpen={showDrawer}

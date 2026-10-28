@@ -72,7 +72,8 @@ export const api = {
   devAdminLogin: () => request("/api/auth/dev-admin", { method: "POST" }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   // AuthContext handles verification failures and OAuth returns itself.
-  me: () => request("/api/auth/me", { timeout: 8_000, skipSessionExpiration: true }),
+  me: () =>
+    request("/api/auth/me", { timeout: 8_000, skipSessionExpiration: true }),
   getProfile: () => request("/api/auth/profile"),
   getProfileSummary: () => request("/api/auth/profile-summary"),
   updateAccount: (payload) =>
@@ -148,6 +149,11 @@ export const api = {
     ),
   getNutritionDay: (params = {}, options = {}) =>
     request(`/api/nutrition/day?${new URLSearchParams(params)}`, options),
+  getFoodPortions: (foodId, options = {}) =>
+    request(
+      `/api/nutrition/foods/${encodeURIComponent(foodId)}/portions`,
+      options,
+    ),
   completeNutritionMeal: (payload) =>
     request("/api/nutrition/day", {
       method: "PATCH",
