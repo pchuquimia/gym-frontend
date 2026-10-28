@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
-import { scaleFoodQuantity } from "./foodQuantity";
+import { LoaderCircle, Plus, Search, SearchX } from "lucide-react";
 import { api } from "../../services/api";
+import { displayNutrient, foodEmoji } from "./foodPresentation";
 
-export default function FoodMacroLookup({ label, onApply, source }) {
+export default function FoodMacroLookup({ label, onApply, autoFocus = false }) {
   const [input, setInput] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,18 +11,22 @@ export default function FoodMacroLookup({ label, onApply, source }) {
   const [searched, setSearched] = useState(false);
   const [demo, setDemo] = useState(false);
   const [retry, setRetry] = useState(0);
-  const calculated =
-    source?.grams != null
-      ? scaleFoodQuantity({ nutritionSource: source }, `${source.grams} g`)
-      : null;
   useEffect(() => {
     if (input.trim().length < 3) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setLoading(true);
       setError("");
+      // The catalog returns values for a weight. A plain food search starts at
+      // 100 g; the coach chooses the final amount before adding the food.
+      const query =
+        /\d+(?:[.,]\d+)?\s*(?:kilogramos?|kilos?|kg|gramos?|grs?|g)\b/i.test(
+          input,
+        )
+          ? input.trim()
+          : `100 g de ${input.trim()}`;
       try {
-        const data = await api.searchFoodNutrition(input.trim(), {
+        const data = await api.searchFoodNutrition(query, {
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
@@ -37,7 +41,7 @@ export default function FoodMacroLookup({ label, onApply, source }) {
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
-    }, 650);
+    }, 500);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -60,118 +64,82 @@ export default function FoodMacroLookup({ label, onApply, source }) {
     setError("");
   };
   return (
-    <div className="space-y-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-      <label className="block text-xs font-semibold">
-        Calcular desde un alimento
-        <span className="relative mt-2 block">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-[color:var(--text-muted)]" />
-          <input
-            aria-label={`Buscar macros · ${label}`}
-            value={input}
-            maxLength={200}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.preventDefault();
-            }}
-            placeholder="Ej. 200 g de pechuga de pollo"
-            onChange={(event) => {
-              setInput(event.target.value);
-              setResults([]);
-              setError("");
-              setSearched(false);
-              setLoading(false);
-            }}
-            className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-base font-normal"
-          />
-        </span>
+    <div className="nutrition-food-search">
+      <label className="nutrition-search-input">
+        <Search size={20} aria-hidden="true" />
+        <input
+          aria-label={`Buscar macros · ${label}`}
+          autoFocus={autoFocus}
+          value={input}
+          maxLength={180}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.preventDefault();
+          }}
+          placeholder="Buscar un alimento"
+          onChange={(event) => {
+            setInput(event.target.value);
+            setResults([]);
+            setError("");
+            setSearched(false);
+            setLoading(false);
+          }}
+        />
       </label>
-      {loading ? (
-        <p role="status" className="text-xs text-[color:var(--text-muted)]">
-          Buscando alimento y calculando macros...
+      {loading && (
+        <p role="status" className="nutrition-search-status">
+          <LoaderCircle className="animate-spin" size={17} />
+          Buscando alimentos…
         </p>
-      ) : null}
-      {error ? (
-        <div role="alert" className="text-xs text-red-500">
+      )}
+      {error && (
+        <div role="alert" className="nutrition-search-error">
           <p>{error}</p>
-          <button
-            type="button"
-            onClick={() => setRetry((value) => value + 1)}
-            className="min-h-11 font-semibold underline"
-          >
+          <button type="button" onClick={() => setRetry((value) => value + 1)}>
             Reintentar búsqueda
           </button>
         </div>
-      ) : null}
-      {searched && !results.length ? (
-        <p className="text-xs text-[color:var(--text-muted)]">
-          No encontramos una ficha completa. Prueba otro nombre o ingresa los
-          valores manualmente.
+      )}
+      {searched && !results.length && (
+        <p className="nutrition-empty-search">
+          <SearchX size={27} />
+          No encontramos este alimento. Prueba otro nombre o crea un alimento.
         </p>
-      ) : null}
-      {results.length ? (
-        <div className="space-y-2">
-          <p className="text-xs text-[color:var(--text-muted)]">
-            Selecciona la preparación correcta. Crudo y cocido tienen valores
-            diferentes.
+      )}
+      {results.length > 0 && (
+        <div className="nutrition-search-results">
+          <p className="nutrition-search-caption">
+            Elige la preparación: crudo y cocido tienen valores diferentes.
           </p>
-          <div className="max-h-80 space-y-2 overflow-y-auto">
-            {results.map((food) => (
-              <button
-                type="button"
-                key={food.foodId}
-                onClick={() => apply(food)}
-                className="block w-full rounded-xl border border-[color:var(--border)] p-3 text-left hover:bg-[color:var(--surface-subtle)]"
-              >
-                <span className="block text-sm font-semibold">{food.name}</span>
-                <span className="mt-1 block break-words text-xs text-[color:var(--text-muted)]">
-                  {food.description}
-                </span>
-                <span className="mt-2 block text-xs">
-                  {food.quantity} · {food.calories} kcal · P {food.protein} g ·
-                  C {food.carbs} g · G {food.fat} g
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-[color:var(--text-muted)]">
-            Fuente: USDA FoodData Central
-            {demo ? " · Modo de prueba, consultas limitadas" : ""}
+          {results.map((food) => (
+            <button
+              type="button"
+              key={food.foodId}
+              onClick={() => apply(food)}
+              className="nutrition-search-result"
+            >
+              <span className="nutrition-food-emoji" aria-hidden="true">
+                {foodEmoji(food.name)}
+              </span>
+              <span className="nutrition-result-copy">
+                <strong>{food.name}</strong>
+                <small>
+                  {food.quantity} · {displayNutrient(food.calories)} kcal
+                </small>
+              </span>
+              <Plus size={19} />
+            </button>
+          ))}
+          <p className="nutrition-search-attribution">
+            USDA FoodData Central{demo ? " · Acceso de prueba limitado" : ""}
           </p>
         </div>
-      ) : null}
-      {source ? (
-        <div className="text-xs text-[color:var(--text-muted)]">
-          <p>
-            {source.grams == null
-              ? "Indica una cantidad válida en g o kg para recalcular."
-              : `Macros calculados para ${source.grams} g. Cambia la cantidad en g o kg para recalcular.`}
-          </p>
-          {calculated ? (
-            <p className="mt-2 font-semibold text-[color:var(--text)]">
-              {calculated.calories} kcal · P {calculated.protein} g · C{" "}
-              {calculated.carbs} g · G {calculated.fat} g
-            </p>
-          ) : null}
-          <a
-            href={`https://fdc.nal.usda.gov/food-details/${source.foodId}/nutrients`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-block underline"
-          >
-            Ver ficha de USDA
-          </a>
-          <button
-            type="button"
-            onClick={() => onApply({ nutritionSource: null })}
-            className="ml-3 min-h-11 underline"
-          >
-            Usar valores manuales
-          </button>
-        </div>
-      ) : !input ? (
-        <p className="text-xs text-[color:var(--text-muted)]">
-          Escribe cantidad + alimento para cargar calorías y macros.
+      )}
+      {!input && (
+        <p className="nutrition-empty-search">
+          <Search size={29} />
+          Busca por nombre o escribe, por ejemplo, «200 g de pechuga de pollo».
         </p>
-      ) : null}
+      )}
     </div>
   );
 }

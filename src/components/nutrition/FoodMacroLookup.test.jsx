@@ -98,22 +98,22 @@ it("updates the actual editor food and recalculates after changing grams", async
       onCancel={vi.fn()}
     />,
   );
-  fireEvent.change(
-    screen.getByLabelText("Buscar macros · alimento 1 de Desayuno"),
-    { target: { value: "200g de pechuga de pollo" } },
+  fireEvent.click(
+    screen.getByRole("button", { name: "Agregar alimento a Desayuno" }),
   );
+  fireEvent.change(screen.getByLabelText("Buscar macros · Desayuno"), {
+    target: { value: "200g de pechuga de pollo" },
+  });
   fireEvent.click(
     await screen.findByRole("button", { name: /Pechuga de pollo/ }),
   );
-  expect(
-    screen.getByLabelText("Cantidad · alimento 1 de Desayuno"),
-  ).toHaveValue("200 g");
-  fireEvent.change(screen.getByLabelText("Cantidad · alimento 1 de Desayuno"), {
+  expect(screen.getByLabelText("Cantidad")).toHaveValue("200 g");
+  fireEvent.change(screen.getByLabelText("Cantidad"), {
     target: { value: "150 g" },
   });
-  expect(
-    screen.getByLabelText("Proteínas · alimento 1 de Desayuno"),
-  ).toHaveValue(33.75);
+  expect(screen.getByLabelText("Proteínas")).toHaveValue(33.75);
+  fireEvent.click(screen.getByRole("button", { name: "Agregar a Desayuno" }));
+  expect(onSave).not.toHaveBeenCalled();
   fireEvent.submit(
     screen.getByRole("form", { name: "Editor de alimentación" }),
   );
@@ -134,5 +134,17 @@ it("updates the actual editor food and recalculates after changing grams", async
         ],
       }),
     ),
+  );
+});
+
+it("accepts a plain food search and uses 100 g as the initial catalog quantity", async () => {
+  render(<FoodMacroLookup label="Desayuno" onApply={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Buscar macros · Desayuno"), {
+    target: { value: "pechuga de pollo" },
+  });
+  await screen.findByRole("button", { name: /Pechuga de pollo/ });
+  expect(mockSearch).toHaveBeenCalledWith(
+    "100 g de pechuga de pollo",
+    expect.any(Object),
   );
 });

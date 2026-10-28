@@ -59,6 +59,25 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
     );
     onSelectCoachAthlete?.(athlete ? { id, name: athlete.name } : null);
   };
+  if (editing && selectedId && query.data) {
+    const athlete = students.data?.find(
+      (item) => String(item.id || item._id) === selectedId,
+    );
+    return (
+      <main className="mx-auto w-full max-w-3xl pb-28">
+        <NutritionPlanEditor
+          key={`${selectedId}-${latest?._id || "new"}`}
+          athleteName={athlete?.name || coachAthlete?.name}
+          initialPlan={latest}
+          onSave={(payload) => save.mutate(payload)}
+          onCancel={() => setEditing(false)}
+          saving={save.isPending}
+          error={save.error?.message}
+          hasDailyRecord={Boolean(daily?.day)}
+        />
+      </main>
+    );
+  }
   return (
     <main className="mx-auto w-full max-w-3xl space-y-5 pb-28 text-[color:var(--text)]">
       <header>
@@ -137,16 +156,6 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
             Reintentar alimentación
           </button>
         </div>
-      ) : editing ? (
-        <NutritionPlanEditor
-          key={`${selectedId}-${latest?._id || "new"}`}
-          initialPlan={latest}
-          onSave={(payload) => save.mutate(payload)}
-          onCancel={() => setEditing(false)}
-          saving={save.isPending}
-          error={save.error?.message}
-          hasDailyRecord={Boolean(daily?.day)}
-        />
       ) : (
         <>
           <section className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5">

@@ -70,10 +70,17 @@ const userFor = (role) => ({
   subscription: { plan: "free", effectivePlan: "free", status: "active" },
   entitlements: [],
 });
-async function setup(page, role, initialPage = "nutricion", overrides = {}) {
+async function setup(
+  page,
+  role,
+  initialPage = "nutricion",
+  overrides = {},
+  initialPlan = null,
+) {
   const user = { ...userFor(role), ...overrides };
   const completions = new Map();
-  let storedPlan = role === "Cliente" ? structuredClone(nutritionPlan) : null;
+  let storedPlan =
+    initialPlan || (role === "Cliente" ? structuredClone(nutritionPlan) : null);
   let saved;
   await page.addInitScript(
     ({ user, initialPage }) => {
@@ -247,20 +254,36 @@ test("el alumno completa comidas por día y ve el avance en el dashboard", async
   });
 });
 
+async function addManualFood(page, mealName, foodName, quantity) {
+  await page
+    .getByRole("button", { name: `Agregar alimento a ${mealName}` })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: /Crear alimento/ }).click();
+  await dialog.getByLabel("Nombre del alimento").fill(foodName);
+  await dialog.getByLabel("Cantidad", { exact: true }).fill(quantity);
+  await dialog.getByRole("button", { name: `Agregar a ${mealName}` }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 test("el coach crea una dieta dividida en comidas con macros opcionales", async ({
   page,
 }, testInfo) => {
   const state = await setup(page, "Entrenador");
   await page.getByLabel("Alumno para alimentación").selectOption("athlete");
   await page.getByRole("button", { name: "Crear dieta" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Plan de comidas", exact: true }),
+  ).toBeVisible();
   for (const name of ["Desayuno", "Almuerzo", "Cena"]) {
-    await page
-      .getByLabel(`Alimento 1 · ${name}`, { exact: true })
-      .fill(`Preparación de ${name.toLowerCase()}`);
-    await page
-      .getByLabel(`Cantidad · alimento 1 de ${name}`, { exact: true })
-      .fill("1 porción indicada");
+    await addManualFood(
+      page,
+      name,
+      `Preparación de ${name.toLowerCase()}`,
+      "1 porción indicada",
+    );
   }
+  expect(state.getSaved()).toBeUndefined();
   await noOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("nutrition-editor.png"),
@@ -281,30 +304,43 @@ test("escribir 200g de pollo trae los macros y cambiar gramos los recalcula", as
   const state = await setup(page, "Entrenador");
   await page.getByLabel("Alumno para alimentación").selectOption("athlete");
   await page.getByRole("button", { name: "Crear dieta" }).click();
-  await page
-    .getByLabel("Buscar macros · alimento 1 de Desayuno")
+  const addBreakfast = page.getByRole("button", {
+    name: "Agregar alimento a Desayuno",
+  });
+  await addBreakfast.click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("textbox", { name: "Buscar macros · Desayuno" }),
+  ).toBeFocused();
+  await dialog
+    .getByLabel("Buscar macros · Desayuno")
     .fill("200g de pechuga de pollo");
-  await page.getByRole("button", { name: /Pechuga de pollo · Crudo/ }).click();
-  const quantity = page.getByLabel("Cantidad · alimento 1 de Desayuno");
+  await dialog
+    .getByRole("button", { name: /Pechuga de pollo · Crudo/ })
+    .click();
+  const quantity = dialog.getByLabel("Cantidad", { exact: true });
   await expect(quantity).toHaveValue("200 g");
   await quantity.fill("150 g");
-  await expect(
-    page.getByLabel("Proteínas · alimento 1 de Desayuno"),
-  ).toHaveValue("33.75");
-  await expect(page.getByText(/Macros calculados para 150 g/)).toBeVisible();
-  for (const name of ["Almuerzo", "Cena"]) {
-    await page
-      .getByLabel(`Alimento 1 · ${name}`, { exact: true })
-      .fill("Preparación manual");
-    await page
-      .getByLabel(`Cantidad · alimento 1 de ${name}`, { exact: true })
-      .fill("1 porción");
-  }
+  await expect(dialog.getByText(/Macros calculados para 150 g/)).toBeVisible();
+  await expect(dialog.getByLabel("Proteínas", { exact: true })).toHaveValue(
+    "33.75",
+  );
   await noOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("food-macros-automatic.png"),
     fullPage: true,
   });
+  await dialog.getByRole("button", { name: "Agregar a Desayuno" }).click();
+  await expect(addBreakfast).toBeFocused();
+  await page.getByRole("button", { name: /Editar Pechuga de pollo/ }).click();
+  await dialog.getByLabel("Cantidad", { exact: true }).fill("100 g");
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: /Editar Pechuga de pollo/ }),
+  ).toContainText("150 g");
+  for (const name of ["Almuerzo", "Cena"]) {
+    await addManualFood(page, name, "Preparación manual", "1 porción");
+  }
   await page.getByRole("button", { name: "Guardar y asignar dieta" }).click();
   await expect(page.getByRole("status")).toContainText("Dieta asignada");
   expect(state.getSaved().meals[0].foods[0]).toMatchObject({
@@ -380,4 +416,104 @@ test("el atleta independiente puede solicitar acceso de coach desde su perfil", 
   await expect(
     page.getByRole("button", { name: "Alumnos", exact: true }),
   ).toHaveCount(0);
+});
+
+test("el plan mantiene el diseño claro y oscuro y conserva los cambios al reordenar comidas", async ({
+  page,
+}, testInfo) => {
+  const plan = structuredClone(nutritionPlan);
+  const foods = [
+    [
+      {
+        name: "Avena",
+        quantity: "40 g",
+        calories: 150,
+        protein: 5,
+        carbs: 27,
+        fat: 3,
+      },
+      {
+        name: "Leche",
+        quantity: "200 ml",
+        calories: 100,
+        protein: 7,
+        carbs: 10,
+        fat: 3,
+      },
+    ],
+    [
+      {
+        name: "Pechuga de pollo",
+        quantity: "200 g",
+        calories: 240,
+        protein: 45,
+        carbs: 0,
+        fat: 5,
+      },
+      {
+        name: "Arroz",
+        quantity: "150 g",
+        calories: 195,
+        protein: 4,
+        carbs: 42,
+        fat: 1,
+      },
+    ],
+    [
+      {
+        name: "Salmón",
+        quantity: "150 g",
+        calories: 300,
+        protein: 30,
+        carbs: 0,
+        fat: 20,
+      },
+      {
+        name: "Ensalada",
+        quantity: "1 plato",
+        calories: 80,
+        protein: 2,
+        carbs: 10,
+        fat: 4,
+      },
+    ],
+  ];
+  plan.content.meals.forEach((meal, index) => {
+    meal.foods = foods[index];
+  });
+  const state = await setup(page, "Entrenador", "nutricion", {}, plan);
+  await page.getByLabel("Alumno para alimentación").selectOption("athlete");
+  await page
+    .getByRole("button", { name: "Editar y asignar nueva versión" })
+    .click();
+  const summary = page.getByRole("region", { name: "Resumen del plan" });
+  await expect(summary).toContainText("1065");
+  for (const theme of ["light", "dark"]) {
+    if (theme === "dark")
+      await page.getByRole("button", { name: "Activar modo oscuro" }).click();
+    await noOverflow(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`meal-plan-${theme}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+  }
+  await page
+    .getByRole("button", { name: "Editar Desayuno", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Nombre de la comida").fill("Primera comida");
+  await dialog.getByRole("button", { name: "Bajar comida" }).click();
+  const mealNames = page.locator(".nutrition-meal h2");
+  await expect(mealNames).toHaveText(["Almuerzo", "Primera comida", "Cena"]);
+  await page.getByRole("button", { name: "Agregar alimento a Cena" }).click();
+  await dialog
+    .getByRole("button", { name: "En este plan", exact: true })
+    .click();
+  await dialog.getByRole("button", { name: /Avena/ }).click();
+  await dialog.getByRole("button", { name: "Agregar a Cena" }).click();
+  await page.getByRole("button", { name: "Guardar y asignar dieta" }).click();
+  await expect(page.getByRole("status")).toContainText("Dieta asignada");
+  expect(state.getSaved().meals[1].name).toBe("Primera comida");
+  expect(state.getSaved().meals[2].foods).toHaveLength(3);
 });

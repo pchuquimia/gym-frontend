@@ -132,9 +132,16 @@ it("creates meals with quantities and optional macros without inventing values",
       onCancel={vi.fn()}
     />,
   );
-  fireEvent.change(screen.getByLabelText("Cantidad · alimento 1 de Desayuno"), {
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Editar Preparación del coach de Desayuno",
+    }),
+  );
+  fireEvent.change(screen.getByLabelText("Cantidad"), {
     target: { value: "2 porciones" },
   });
+  fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+  expect(onSave).not.toHaveBeenCalled();
   fireEvent.submit(
     screen.getByRole("form", { name: "Editor de alimentación" }),
   );
@@ -158,11 +165,37 @@ it("can add and remove a complete meal without removing the last meal", () => {
       onCancel={vi.fn()}
     />,
   );
+  fireEvent.click(screen.getByRole("button", { name: "Editar Desayuno" }));
   expect(
-    screen.getByRole("button", { name: "Eliminar comida 1" }),
+    screen.getByRole("button", { name: "Eliminar comida" }),
   ).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
   fireEvent.click(screen.getByRole("button", { name: /Agregar comida/ }));
-  expect(screen.getByLabelText("Nombre de comida 2")).toHaveValue("Comida 2");
-  fireEvent.click(screen.getByRole("button", { name: "Eliminar comida 2" }));
-  expect(screen.queryByLabelText("Nombre de comida 2")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Editar Almuerzo" }));
+  expect(screen.getByLabelText("Nombre de la comida")).toHaveValue("Almuerzo");
+  fireEvent.click(screen.getByRole("button", { name: "Eliminar comida" }));
+  expect(screen.queryByRole("region", { name: "Almuerzo" })).toBeNull();
+});
+
+it("blocks assigning empty meals and keeps cancelled food edits out of the plan", () => {
+  const onSave = vi.fn();
+  render(<NutritionPlanEditor onSave={onSave} onCancel={vi.fn()} />);
+  fireEvent.submit(
+    screen.getByRole("form", { name: "Editor de alimentación" }),
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Agrega al menos un alimento a Desayuno",
+  );
+  expect(onSave).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Agregar alimento a Desayuno" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Crear alimento/ }));
+  fireEvent.change(screen.getByLabelText("Nombre del alimento"), {
+    target: { value: "Borrador sin guardar" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+  expect(
+    screen.queryByRole("button", { name: /Editar Borrador sin guardar/ }),
+  ).toBeNull();
 });
