@@ -328,23 +328,25 @@ function BackButton({ onClick }) {
   );
 }
 
-function SessionIcon({ device = "" }) {
+function SessionIcon({ device = "", className }) {
   const normalized = device.toLowerCase();
   if (normalized.includes("ipad") || normalized.includes("tablet")) {
-    return Tablet;
+    return <Tablet className={className} />;
   }
   if (normalized.includes("iphone") || normalized.includes("android")) {
-    return Smartphone;
+    return <Smartphone className={className} />;
   }
-  return Monitor;
+  return <Monitor className={className} />;
 }
 
 function SessionRow({ session }) {
-  const Icon = SessionIcon(session.device);
   return (
     <div className="flex min-h-20 items-center gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0">
       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--bg)]">
-        <Icon className="h-5 w-5 text-[#181918] dark:text-[#e2ff00]" />
+        <SessionIcon
+          device={session.device}
+          className="h-5 w-5 text-[#181918] dark:text-[#e2ff00]"
+        />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

@@ -616,7 +616,6 @@ export default function CoachPlanModal({
     }));
   });
 
-  const initialSignatureRef = useRef("");
   const warning = intakeWarning(athlete);
   const selectedPlanTemplate = planTemplates.find(
     (item) => String(item._id || item.id) === String(selectedPlanTemplateId),
@@ -673,8 +672,8 @@ export default function CoachPlanModal({
     followUp,
     schedule,
   });
-  if (!initialSignatureRef.current) initialSignatureRef.current = signature;
-  const dirty = signature !== initialSignatureRef.current;
+  const [initialSignature] = useState(signature);
+  const dirty = signature !== initialSignature;
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

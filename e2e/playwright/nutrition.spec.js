@@ -70,18 +70,18 @@ const userFor = (role) => ({
   subscription: { plan: "free", effectivePlan: "free", status: "active" },
   entitlements: [],
 });
-async function setup(page, role) {
-  const user = userFor(role);
+async function setup(page, role, initialPage = "nutricion", overrides = {}) {
+  const user = { ...userFor(role), ...overrides };
   const completions = new Map();
   let storedPlan = role === "Cliente" ? structuredClone(nutritionPlan) : null;
   let saved;
   await page.addInitScript(
-    ({ user }) => {
-      localStorage.setItem("active_page", "nutricion");
+    ({ user, initialPage }) => {
+      localStorage.setItem("active_page", initialPage);
       localStorage.setItem("gym_auth_token", "test-only");
       localStorage.setItem("gym_authenticated_user", JSON.stringify(user));
     },
-    { user },
+    { user, initialPage },
   );
   await page.route("**/api/**", async (route) => {
     const req = route.request();
@@ -115,6 +115,16 @@ async function setup(page, role) {
         daily: { plan: storedPlan, day: null, dateKey: today },
         days: [],
       });
+    if (path === "/api/users/coach-application" && req.method() === "POST") {
+      const body = req.postDataJSON();
+      user.coachApplication = {
+        status: "pending",
+        experience: body.experience,
+        intendedUse: body.intendedUse,
+      };
+      return json({ user }, 201);
+    }
+    if (path === "/api/messages") return json({ conversations: [] });
     if (path === "/api/nutrition/foods/search")
       return json({
         foods: [
@@ -303,4 +313,71 @@ test("escribir 200g de pollo trae los macros y cambiar gramos los recalcula", as
     protein: 33.75,
     nutritionSource: { grams: 150, foodId: "1234" },
   });
+});
+
+test("el atleta encuentra alimentación y mensajes desde el inicio sin acceso directo", async ({
+  page,
+}, testInfo) => {
+  await setup(page, "Cliente", "dashboard");
+  const card = page.getByRole("region", { name: "Comidas de hoy" });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: /Ver plan/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Mi alimentación", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Guardar y asignar dieta" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: /Buscar macros/ }),
+  ).toHaveCount(0);
+  const mobile = (page.viewportSize()?.width || 0) < 1024;
+  if (mobile) {
+    await page.getByRole("button", { name: "Más", exact: true }).click();
+    const menu = page.getByRole("dialog", { name: "Menu principal" });
+    await expect(
+      menu.getByRole("button", { name: "Alimentación", exact: true }),
+    ).toBeVisible();
+    await menu.getByRole("button", { name: "Mensajes", exact: true }).click();
+  } else {
+    await expect(
+      page.getByRole("button", { name: "Mi alimentación", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Mensajes con mi coach", exact: true })
+      .click();
+  }
+  await expect(
+    page.getByRole("heading", { name: "Mensajes", exact: true }),
+  ).toBeVisible();
+  await noOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("athlete-feature-navigation.png"),
+    fullPage: true,
+  });
+});
+
+test("el atleta independiente puede solicitar acceso de coach desde su perfil", async ({
+  page,
+}) => {
+  await setup(page, "Cliente", "perfil", {
+    trainingMode: "independent",
+    assignedTrainerId: null,
+  });
+  await page
+    .getByRole("button", { name: "Solicitar acceso como coach" })
+    .click();
+  await page
+    .getByLabel("Tu experiencia como coach")
+    .fill("Experiencia de prueba en entrenamiento");
+  await page
+    .getByLabel("¿Cómo piensas usar Rirfit con tus alumnos?")
+    .fill("Planificar rutinas y acompañar a mis alumnos");
+  await page.getByRole("button", { name: "Enviar solicitud" }).click();
+  await expect(
+    page.getByText("Solicitud en revisión", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Alumnos", exact: true }),
+  ).toHaveCount(0);
 });

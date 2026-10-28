@@ -85,7 +85,7 @@ function WeightTracking({ coachAthlete = null }) {
 
   const entries = useMemo(
     () => (Array.isArray(data?.entries) ? data.entries : []),
-    [data?.entries],
+    [data],
   );
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.dateKey === selectedDate) || null,

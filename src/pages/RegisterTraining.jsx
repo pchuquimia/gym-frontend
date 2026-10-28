@@ -1358,7 +1358,7 @@ export default function RegisterTraining({
   const [hasStarted, setHasStarted] = useState(false);
   const [timeEvents, setTimeEvents] = useState([]);
   const [activeExerciseId, setActiveExerciseId] = useState("");
-  const [nowMs, setNowMs] = useState(Date.now());
+  const [nowMs, setNowMs] = useState(Date.now);
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [showAllRoutineOptions, setShowAllRoutineOptions] = useState(false);
@@ -1439,7 +1439,7 @@ export default function RegisterTraining({
   const initializedTrainingScreen = useRef(false);
   const routineLoadRequestRef = useRef(0);
   const loadedHistoryRoutineRef = useRef("");
-  const lastUpdateRef = useRef(Date.now());
+  const lastUpdateRef = useRef(nowMs);
   const timerRef = useRef(null);
   const datePickerRef = useRef(null);
   const restTimerRef = useRef(null);

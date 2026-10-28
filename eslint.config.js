@@ -45,6 +45,51 @@ export default defineConfig([
       ],
     },
   },
+  // The existing screens predate the React Compiler diagnostics in hooks v7.
+  // Keep their migration diagnostics visible as warnings; hooks correctness,
+  // JS/TS errors and all new screens retain the recommended error levels.
+  // This app currently uses React 18 without the React Compiler (vite.config.js).
+  {
+    files: [
+      "src/App.jsx",
+      "src/components/library/ExerciseModal.jsx",
+      "src/components/training/QuickPlanSetup.jsx",
+      "src/context/UserContext.jsx",
+      "src/pages/CoachDashboard.jsx",
+      "src/pages/CoachInvitation.jsx",
+      "src/pages/CoachManagement.jsx",
+      "src/pages/DailyCheckIn.jsx",
+      "src/pages/DataIntelligencePage.jsx",
+      "src/pages/ExerciseHistoryEditor.jsx",
+      "src/pages/Goals.jsx",
+      "src/pages/HydrationTracker.jsx",
+      "src/pages/Onboarding.jsx",
+      "src/pages/PhotosLibrary.jsx",
+      "src/pages/ProfileSettings.jsx",
+      "src/pages/Routines.jsx",
+      "src/pages/WeightTracking.jsx",
+    ],
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+  {
+    files: ["src/components/coach/CoachPlanModal.jsx"],
+    rules: {
+      "react-hooks/purity": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
+  {
+    files: ["src/pages/RegisterTraining.jsx"],
+    rules: {
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+    },
+  },
   {
     files: [
       "vite.config.js",
