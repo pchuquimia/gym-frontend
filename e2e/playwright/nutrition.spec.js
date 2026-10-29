@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
-const today = new Date().toLocaleDateString("en-CA", {
-  timeZone: "America/La_Paz",
-});
+
+test.use({ timezoneId: "America/La_Paz" });
+// Keep the mock API and browser on the same day, including UTC CI runners.
+// A fixed midday also prevents a midnight rollover during the test run.
+const today = "2026-10-28";
 const breakfast = {
   mealId: "95d624ba-78cb-4366-8ab7-7c75131ce573",
   name: "Desayuno",
@@ -77,6 +79,7 @@ async function setup(
   overrides = {},
   initialPlan = null,
 ) {
+  await page.clock.setFixedTime(new Date(`${today}T16:00:00Z`));
   const user = { ...userFor(role), ...overrides };
   const completions = new Map();
   let storedPlan =
