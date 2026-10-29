@@ -211,3 +211,7 @@ These features are under active development and are not yet included in the publ
 
 - GitHub: [@pchuquimia](https://github.com/pchuquimia)
 - LinkedIn: [linkedin.com/in/pchuquimia](https://www.linkedin.com/in/pchuquimia/)
+
+## Mantenimiento de dependencias
+
+Las actualizaciones se gestionan mediante propuestas de Dependabot y verificaciones de CI. Consulta [la política de actualización y reversión](docs/DEPENDENCIES.md).

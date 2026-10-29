@@ -1,0 +1,64 @@
+# Regular updates are reviewed weekly; security updates are event-driven.
+# Major releases do not match these groups and get separate pull requests.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:15"
+      timezone: "America/La_Paz"
+    open-pull-requests-limit: 5
+    versioning-strategy: "increase-if-necessary"
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      react-compatible:
+        applies-to: "version-updates"
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["minor", "patch"]
+      radix-compatible:
+        applies-to: "version-updates"
+        patterns: ["@radix-ui/*"]
+        update-types: ["minor", "patch"]
+      charts-compatible:
+        applies-to: "version-updates"
+        patterns: ["@nivo/*", "echarts"]
+        update-types: ["minor", "patch"]
+      testing-compatible:
+        applies-to: "version-updates"
+        patterns: ["vitest", "jsdom", "@testing-library/*", "@playwright/test", "cypress"]
+        update-types: ["minor", "patch"]
+      app-compatible:
+        applies-to: "version-updates"
+        dependency-type: "production"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      tooling-compatible:
+        applies-to: "version-updates"
+        dependency-type: "development"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:45"
+      timezone: "America/La_Paz"
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions-compatible:
+        applies-to: "version-updates"
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
