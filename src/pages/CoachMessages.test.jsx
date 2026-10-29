@@ -68,6 +68,40 @@ it("sends a real message, appends it and clears the draft", async () => {
     clientMessageId: expect.any(String),
   });
 });
+
+it("sends with Enter while preserving Shift+Enter and IME composition", async () => {
+  render(<CoachMessages />);
+  await open();
+  const input = screen.getByLabelText("Escribe un mensaje");
+  fireEvent.change(input, { target: { value: "Revisemos el plan" } });
+  fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+  fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+  expect(mocks.send).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() =>
+    expect(mocks.send).toHaveBeenCalledWith(
+      "athlete",
+      expect.objectContaining({ text: "Revisemos el plan" }),
+    ),
+  );
+  await waitFor(() => expect(input).toHaveValue(""));
+});
+
+it("filters unread conversations and restores the complete list", async () => {
+  mocks.inbox.mockResolvedValue({
+    conversations: [
+      { peer, unread: 1 },
+      { peer: { id: "other", name: "Luis" }, unread: 0 },
+    ],
+  });
+  render(<CoachMessages />);
+  await screen.findByRole("button", { name: /Luis/ });
+  fireEvent.click(screen.getByRole("button", { name: /Sin leer/ }));
+  expect(screen.queryByRole("button", { name: /Luis/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /Ana/ })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Todos" }));
+  expect(screen.getByRole("button", { name: /Luis/ })).toBeVisible();
+});
 it("keeps failed drafts and retries the same message ID", async () => {
   mocks.send.mockRejectedValueOnce(new Error("Sin conexión"));
   render(<CoachMessages />);

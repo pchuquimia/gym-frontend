@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Check,
+  CheckCheck,
+  Inbox,
+  LoaderCircle,
   MessageCircle,
   RefreshCw,
   Search,
@@ -9,6 +13,7 @@ import {
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import "./coachMessages.css";
 
 const mergeMessages = (previous, incoming) =>
   [
@@ -16,13 +21,22 @@ const mergeMessages = (previous, incoming) =>
       [...previous, ...incoming].map((message) => [message._id, message]),
     ).values(),
   ].sort((a, b) => a._id.localeCompare(b._id));
-const dateLabel = (value) =>
-  new Date(value).toLocaleString("es-BO", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const dateLabel = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
+};
+const dayLabel = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Conversación";
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return "Hoy";
+  if (date.toDateString() === yesterday.toDateString()) return "Ayer";
+  return date.toLocaleDateString("es-BO", { day: "numeric", month: "long" });
+};
 
 export default function CoachMessages({ onNavigate = () => {} }) {
   const { user } = useAuth();
@@ -33,6 +47,7 @@ export default function CoachMessages({ onNavigate = () => {} }) {
   });
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const [drafts, setDrafts] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(Boolean(selectedId));
@@ -47,6 +62,7 @@ export default function CoachMessages({ onNavigate = () => {} }) {
   const sendInFlight = useRef(false);
   const pendingSend = useRef({});
   const endRef = useRef(null);
+  const composerRef = useRef(null);
   const isAthlete = user?.role === "Cliente";
   const currentId = String(user?.id || user?._id || "");
   const selected = conversations.find((item) => item.peer.id === selectedId);
@@ -168,6 +184,10 @@ export default function CoachMessages({ onNavigate = () => {} }) {
     };
   }, [selectedId, currentId, reload]);
 
+  useEffect(() => {
+    if (!draft && composerRef.current)
+      composerRef.current.style.height = "auto";
+  }, [draft]);
   const lastMessageId = messages.at(-1)?._id;
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "nearest" });
@@ -266,245 +286,362 @@ export default function CoachMessages({ onNavigate = () => {} }) {
       setSending(false);
     }
   };
-  const filtered = conversations.filter(({ peer }) =>
-    peer.name.toLocaleLowerCase("es").includes(search.toLocaleLowerCase("es")),
+  const filtered = conversations.filter(
+    ({ peer, unread }) =>
+      peer.name
+        .toLocaleLowerCase("es")
+        .includes(search.toLocaleLowerCase("es")) &&
+      (!unreadOnly || unread > 0),
+  );
+  const unreadTotal = conversations.reduce(
+    (total, item) => total + (item.unread || 0),
+    0,
   );
 
   return (
-    <main className="mx-auto w-full max-w-[1120px] pb-24 text-[color:var(--text)] sm:pb-12">
-      <header className="mb-5 flex min-h-16 items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-[-0.04em]">
-            Mensajes
-          </h1>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+    <main
+      className={`messenger ${selectedId ? "messenger--thread-open" : ""}`}
+      aria-label="Centro de mensajes"
+    >
+      <aside className="messenger__sidebar" aria-label="Conversaciones">
+        <header className="messenger__list-header">
+          <div className="messenger__eyebrow">
+            <span /> RIRFIT CONNECT
+          </div>
+          <div className="messenger__heading-row">
+            <h1>Mensajes</h1>
+            <button
+              type="button"
+              aria-label="Actualizar mensajes"
+              className="messenger__icon-button"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              <RefreshCw size={18} />
+            </button>
+          </div>
+          <p>
             {isAthlete
-              ? "Habla con tu coach sobre tu entrenamiento."
-              : "Conversaciones con tus alumnos vinculados."}
+              ? "Tu progreso empieza con una conversación."
+              : "Más cerca de cada uno de tus alumnos."}
           </p>
-        </div>
-        <button
-          type="button"
-          aria-label="Actualizar mensajes"
-          onClick={() => setReload((value) => value + 1)}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--border)]"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
-      </header>
-      {listError ? (
+        </header>
+        <label className="messenger__search">
+          <Search size={18} aria-hidden="true" />
+          <input
+            aria-label="Buscar conversación"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar una conversación"
+          />
+        </label>
         <div
-          role="alert"
-          className="mb-4 rounded-xl border border-red-400 p-4 text-sm"
+          className="messenger__filters"
+          role="group"
+          aria-label="Filtrar conversaciones"
         >
-          <p>{listError}</p>
           <button
             type="button"
-            onClick={() => setReload((value) => value + 1)}
-            className="mt-2 font-semibold"
+            aria-pressed={!unreadOnly}
+            onClick={() => setUnreadOnly(false)}
           >
-            Reintentar conversaciones
+            Todos
+          </button>
+          <button
+            type="button"
+            aria-pressed={unreadOnly}
+            onClick={() => setUnreadOnly(true)}
+          >
+            Sin leer {unreadTotal > 0 && <span>{unreadTotal}</span>}
           </button>
         </div>
-      ) : null}
-      <div className="grid min-h-[440px] overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] md:grid-cols-[290px_minmax(0,1fr)]">
-        <aside
-          aria-label="Conversaciones"
-          className={`${selectedId ? "hidden md:block" : "block"} border-[color:var(--border)] md:border-r`}
-        >
-          <label className="relative m-3 block">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-[color:var(--text-muted)]" />
-            <input
-              aria-label="Buscar conversación"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-11 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] pl-10 pr-3 text-sm"
-              placeholder="Buscar conversación"
-            />
-          </label>
-          {loading ? (
-            <p role="status" className="p-5 text-sm">
-              Cargando conversaciones...
+        {listError && (
+          <div role="alert" className="messenger__error">
+            <p>{listError}</p>
+            <button
+              type="button"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Reintentar conversaciones
+            </button>
+          </div>
+        )}
+        <div className="messenger__contacts">
+          {loading && (
+            <p role="status" className="messenger__loading">
+              <LoaderCircle size={18} className="animate-spin" /> Cargando
+              conversaciones...
             </p>
-          ) : null}
+          )}
           {filtered.map((item) => (
             <button
               type="button"
               key={item.peer.id}
               onClick={() => select(item.peer.id)}
               aria-pressed={selectedId === item.peer.id}
-              className={`flex min-h-20 w-full items-center gap-3 border-t border-[color:var(--border)] p-4 text-left ${selectedId === item.peer.id ? "bg-[color:var(--surface-subtle)]" : ""}`}
+              className={`messenger__contact ${item.unread ? "has-unread" : ""}`}
             >
               <ProfileAvatar
                 photoId={item.peer.avatarPhotoId}
                 name={item.peer.name}
-                className="h-10 w-10 shrink-0 rounded-full"
+                className="messenger__avatar"
+                fallbackClassName="messenger__avatar-fallback"
               />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">
-                  {item.peer.name}
+              <span className="messenger__contact-copy">
+                <span className="messenger__contact-top">
+                  <strong>{item.peer.name}</strong>
+                  <time>
+                    {item.lastMessage
+                      ? dateLabel(item.lastMessage.createdAt)
+                      : ""}
+                  </time>
                 </span>
-                <span className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
-                  {item.lastMessage?.text || "Iniciar conversación"}
+                <span className="messenger__contact-bottom">
+                  <span>
+                    {item.lastMessage?.senderId === currentId && (
+                      <CheckCheck size={15} aria-hidden="true" />
+                    )}
+                    {item.lastMessage?.text || "Iniciar conversación"}
+                  </span>
+                  {item.unread > 0 && (
+                    <b aria-label={`${item.unread} mensajes sin leer`}>
+                      {item.unread > 99 ? "99+" : item.unread}
+                    </b>
+                  )}
                 </span>
               </span>
-              {item.unread > 0 ? (
-                <span
-                  aria-label={`${item.unread} mensajes sin leer`}
-                  className="theme-accent-solid rounded-full px-2 py-1 text-xs font-semibold"
-                >
-                  {item.unread}
-                </span>
-              ) : null}
             </button>
           ))}
-          {!loading && !listError && !filtered.length ? (
-            <div className="space-y-3 p-5 text-sm">
+          {!loading && !listError && !filtered.length && (
+            <div className="messenger__list-empty">
+              <Inbox size={30} strokeWidth={1.4} />
               <p>
                 {conversations.length
-                  ? "No hay coincidencias con tu búsqueda."
+                  ? unreadOnly
+                    ? "Estás al día. No tienes mensajes sin leer."
+                    : "No hay coincidencias con tu búsqueda."
                   : isAthlete
                     ? "Vincula un coach desde tu perfil para iniciar una conversación."
                     : "Invita a tu primer alumno para iniciar una conversación."}
               </p>
-              {!conversations.length ? (
+              {!conversations.length && (
                 <button
                   type="button"
                   onClick={() =>
                     onNavigate(isAthlete ? "perfil" : "coach_athletes")
                   }
-                  className="font-semibold underline"
                 >
                   {isAthlete ? "Ir a mi perfil" : "Ir a alumnos"}
                 </button>
-              ) : null}
+              )}
             </div>
-          ) : null}
-        </aside>
-        <section
-          aria-label="Conversación seleccionada"
-          className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-col`}
-        >
-          {selectedId ? (
-            <>
-              <header className="flex min-h-16 items-center gap-3 border-b border-[color:var(--border)] px-4">
+          )}
+        </div>
+        <footer className="messenger__list-footer">
+          <MessageCircle size={15} />{" "}
+          {isAthlete
+            ? "Un espacio para ti y tu coach"
+            : "Acompaña, escucha y motiva"}
+        </footer>
+      </aside>
+      <section
+        aria-label="Conversación seleccionada"
+        className="messenger__thread"
+      >
+        {selectedId ? (
+          <>
+            <header className="messenger__thread-header">
+              <button
+                type="button"
+                aria-label="Volver a conversaciones"
+                onClick={() => select("")}
+                className="messenger__back"
+              >
+                <ArrowLeft size={22} />
+              </button>
+              <ProfileAvatar
+                photoId={selected?.peer.avatarPhotoId}
+                name={selected?.peer.name}
+                className="messenger__avatar messenger__avatar--small"
+                fallbackClassName="messenger__avatar-fallback"
+              />
+              <div className="messenger__peer">
+                <h2>{selected?.peer.name || "Conversación"}</h2>
+                <span>{isAthlete ? "Tu coach" : "Atleta vinculado"}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Actualizar conversación"
+                className="messenger__icon-button"
+                onClick={() => setReload((value) => value + 1)}
+              >
+                <RefreshCw size={18} />
+              </button>
+            </header>
+            {threadError && (
+              <div role="alert" className="messenger__error">
+                <p>{threadError}</p>
                 <button
                   type="button"
-                  aria-label="Volver a conversaciones"
-                  onClick={() => select("")}
-                  className="grid h-11 w-11 place-items-center md:hidden"
+                  onClick={() => setReload((value) => value + 1)}
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  Reintentar mensajes
                 </button>
-                <h2 className="min-w-0 truncate font-semibold">
-                  {selected?.peer.name || "Conversación"}
-                </h2>
-              </header>
-              {threadError ? (
-                <div role="alert" className="m-4 text-sm text-red-500">
-                  <p>{threadError}</p>
-                  <button
-                    type="button"
-                    onClick={() => setReload((value) => value + 1)}
-                    className="mt-1 font-semibold underline"
-                  >
-                    Reintentar mensajes
-                  </button>
-                </div>
-              ) : null}
-              <div
-                role="log"
-                aria-label="Historial de mensajes"
-                className="max-h-[55dvh] min-h-64 flex-1 space-y-3 overflow-y-auto p-4"
-              >
-                {cursor ? (
-                  <button
-                    type="button"
-                    onClick={loadOlder}
-                    disabled={loadingOlder}
-                    className="mx-auto block min-h-11 px-4 text-sm font-semibold"
-                  >
-                    {loadingOlder
-                      ? "Cargando..."
-                      : "Cargar mensajes anteriores"}
-                  </button>
-                ) : null}
-                {loadingMessages ? (
-                  <p role="status" className="text-sm">
-                    Cargando mensajes...
-                  </p>
-                ) : null}
-                {!loadingMessages && !threadError && !messages.length ? (
-                  <p className="py-10 text-center text-sm text-[color:var(--text-muted)]">
-                    Escribe el primer mensaje.
-                  </p>
-                ) : null}
-                {messages.map((message) => (
-                  <article
-                    key={message._id}
-                    className={`max-w-[88%] rounded-2xl px-4 py-3 ${message.senderId === currentId ? "ml-auto bg-[color:var(--accent)] text-[color:var(--accent-contrast)]" : "mr-auto bg-[color:var(--surface-subtle)]"}`}
-                  >
-                    <p className="whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
-                      {message.text}
-                    </p>
-                    <p className="mt-1 text-right text-[10px] opacity-70">
-                      {dateLabel(message.createdAt)}
-                      {message.senderId === currentId
-                        ? ` · ${message.readAt ? "Leído" : "Enviado"}`
-                        : ""}
-                    </p>
-                  </article>
-                ))}
-                <div ref={endRef} />
               </div>
-              <form
-                onSubmit={send}
-                className="space-y-2 border-t border-[color:var(--border)] p-3"
-              >
-                {sendError ? (
-                  <p role="alert" className="text-sm text-red-500">
-                    {sendError}
-                  </p>
-                ) : null}
+            )}
+            <div
+              role="log"
+              aria-label="Historial de mensajes"
+              className="messenger__history"
+            >
+              {cursor && (
+                <button
+                  type="button"
+                  onClick={loadOlder}
+                  disabled={loadingOlder}
+                  className="messenger__load-older"
+                >
+                  {loadingOlder ? "Cargando..." : "Cargar mensajes anteriores"}
+                </button>
+              )}
+              {loadingMessages && (
+                <p role="status" className="messenger__loading">
+                  <LoaderCircle size={18} className="animate-spin" /> Cargando
+                  mensajes...
+                </p>
+              )}
+              {!loadingMessages && !threadError && !messages.length && (
+                <div className="messenger__conversation-start">
+                  <MessageCircle size={22} />
+                  <p>Todo empieza con un mensaje.</p>
+                  <span>
+                    Comparte tus avances, preguntas o el próximo paso.
+                  </span>
+                </div>
+              )}
+              {messages.map((message, index) => {
+                const mine = message.senderId === currentId;
+                const showDay =
+                  index === 0 ||
+                  new Date(message.createdAt).toDateString() !==
+                    new Date(messages[index - 1].createdAt).toDateString();
+                return (
+                  <Fragment key={message._id}>
+                    {showDay && (
+                      <div className="messenger__day">
+                        <span>{dayLabel(message.createdAt)}</span>
+                      </div>
+                    )}
+                    <article
+                      className={`messenger__bubble ${mine ? "messenger__bubble--sent" : "messenger__bubble--received"}`}
+                    >
+                      <p>{message.text}</p>
+                      <footer>
+                        <time dateTime={message.createdAt}>
+                          {dateLabel(message.createdAt)}
+                        </time>
+                        {mine && (
+                          <span
+                            className={message.readAt ? "is-read" : ""}
+                            aria-label={message.readAt ? "Leído" : "Enviado"}
+                            title={message.readAt ? "Leído" : "Enviado"}
+                          >
+                            {message.readAt ? (
+                              <CheckCheck size={16} />
+                            ) : (
+                              <Check size={16} />
+                            )}
+                          </span>
+                        )}
+                      </footer>
+                    </article>
+                  </Fragment>
+                );
+              })}
+              <div ref={endRef} />
+            </div>
+            <form onSubmit={send} className="messenger__composer">
+              {sendError && (
+                <p role="alert" className="messenger__send-error">
+                  {sendError}
+                </p>
+              )}
+              <div className="messenger__composer-row">
                 <label className="sr-only" htmlFor="coach-message-text">
                   Escribe un mensaje
                 </label>
                 <textarea
                   id="coach-message-text"
+                  ref={composerRef}
                   value={draft}
                   maxLength={2000}
-                  rows={3}
-                  onChange={(event) =>
+                  rows={1}
+                  onChange={(event) => {
                     setDrafts((previous) => ({
                       ...previous,
                       [selectedId]: event.target.value,
-                    }))
-                  }
+                    }));
+                    event.target.style.height = "auto";
+                    event.target.style.height = `${Math.min(event.target.scrollHeight, 128)}px`;
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
                   placeholder="Escribe un mensaje..."
-                  className="w-full resize-y rounded-xl border border-[color:var(--border)] bg-[color:var(--bg)] p-3 text-base"
                 />
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-[color:var(--text-muted)]">
-                    {draft.length}/2000
-                  </span>
-                  <button
-                    disabled={sending || !selected || !draft.trim()}
-                    className="theme-accent-solid inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:opacity-50"
-                  >
-                    <Send className="h-4 w-4" />
+                <button
+                  type="submit"
+                  aria-label={sending ? "Enviando mensaje" : "Enviar mensaje"}
+                  disabled={sending || !selected || !draft.trim()}
+                  className="messenger__send"
+                >
+                  {sending ? (
+                    <LoaderCircle size={21} className="animate-spin" />
+                  ) : (
+                    <Send size={21} />
+                  )}
+                  <span className="sr-only">
                     {sending ? "Enviando..." : "Enviar mensaje"}
-                  </button>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="m-auto p-8 text-center text-[color:var(--text-muted)]">
-              <MessageCircle className="mx-auto mb-3 h-8 w-8" />
-              <p>Selecciona una conversación.</p>
+                  </span>
+                </button>
+              </div>
+              <div className="messenger__composer-hint">
+                <span>Enter para enviar · Shift + Enter para nueva línea</span>
+                <span>{draft.length}/2000</span>
+              </div>
+            </form>
+          </>
+        ) : (
+          <div className="messenger__welcome">
+            <div className="messenger__welcome-art">
+              <MessageCircle size={56} strokeWidth={1.2} />
+              <span>
+                <CheckCheck size={24} />
+              </span>
             </div>
-          )}
-        </section>
-      </div>
+            <span className="messenger__eyebrow">CONECTA CON TU PROGRESO</span>
+            <h2>
+              Una buena conversación
+              <br />
+              hace la diferencia.
+            </h2>
+            <p>
+              {isAthlete
+                ? "Selecciona a tu coach para compartir tus avances y resolver tus dudas."
+                : "Selecciona un chat para acompañar a tus alumnos, una conversación a la vez."}
+            </p>
+            <div className="messenger__welcome-note">
+              <span /> Tus conversaciones, en un solo lugar
+            </div>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

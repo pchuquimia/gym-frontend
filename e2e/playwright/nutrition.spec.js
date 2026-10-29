@@ -288,6 +288,52 @@ test("el alumno completa comidas por día y ve el avance en el dashboard", async
   });
 });
 
+test("el atleta marca desayuno almuerzo y cena sin abrir cada alimento", async ({
+  page,
+}, testInfo) => {
+  await setup(page, "Cliente");
+  for (const name of ["Desayuno", "Almuerzo", "Cena"]) {
+    const check = page.getByRole("button", { name: `Completar ${name}` });
+    await expect(check).toBeEnabled();
+    await check.click();
+    await expect(
+      page.getByRole("button", { name: `Desmarcar ${name}` }),
+    ).toHaveAttribute("aria-pressed", "true");
+  }
+  await expect(
+    page.getByRole("progressbar", { name: "Comidas completadas" }),
+  ).toHaveAttribute("aria-valuenow", "3");
+  await expect(page.getByText("Todas las comidas completadas")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Desmarcar Cena" }),
+  ).toBeEnabled();
+  await expect(page.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "3",
+  );
+  await page.getByRole("button", { name: "Desmarcar Almuerzo" }).click();
+  await expect(page.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "2",
+  );
+  await expect(
+    page.getByRole("button", { name: "Completar Almuerzo" }),
+  ).toBeEnabled();
+  await noOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("daily-meal-checks.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.screenshot({
+    path: testInfo.outputPath("daily-meal-checks-dark.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+});
+
 async function addManualFood(page, mealName, foodName, quantity) {
   await page
     .getByRole("button", { name: `Agregar alimento a ${mealName}` })

@@ -262,18 +262,19 @@ export default function Nutrition(props) {
   if (["Entrenador", "Admin"].includes(user?.role))
     return <CoachNutrition {...props} />;
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-5 pb-24 text-[color:var(--text)]">
+    <main className="nutrition-athlete-page text-[color:var(--text)]">
       <button
         type="button"
         onClick={() => props.onNavigate?.("dashboard")}
-        className="inline-flex min-h-11 items-center gap-2 text-sm"
+        className="nutrition-athlete-page__back"
       >
         <ArrowLeft className="h-4 w-4" />
         Inicio
       </button>
-      <h1 className="text-3xl font-semibold tracking-[-0.04em]">
-        Mi alimentación
-      </h1>
+      <header className="nutrition-athlete-page__heading">
+        <h1>Mi alimentación</h1>
+        <p>Un día equilibrado, una comida a la vez.</p>
+      </header>
       <NutritionDiary />
     </main>
   );

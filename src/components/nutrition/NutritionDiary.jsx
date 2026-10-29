@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, ChevronRight, Utensils } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Coffee,
+  LoaderCircle,
+  Moon,
+  Sun,
+  Sunrise,
+  Utensils,
+} from "lucide-react";
 import { api } from "../../services/api";
 import {
   nutritionDate,
@@ -10,6 +21,24 @@ import {
   nutrientTotal,
 } from "./nutritionUtils";
 import { useAuth } from "../../context/AuthContext";
+import { displayNutrient, foodEmoji } from "./foodPresentation";
+import "./nutritionDiary.css";
+
+const mealAppearance = (name, index) => {
+  if (/desayuno/i.test(name))
+    return { Icon: Sunrise, tone: "peach", label: "Empieza tu día" };
+  if (/almuerzo|comida/i.test(name))
+    return { Icon: Sun, tone: "mint", label: "Recarga tu energía" };
+  if (/cena/i.test(name))
+    return { Icon: Moon, tone: "lilac", label: "Cierra bien tu día" };
+  if (/merienda|snack|colaci[oó]n/i.test(name))
+    return { Icon: Coffee, tone: "peach", label: "Una pausa para ti" };
+  return {
+    Icon: Utensils,
+    tone: ["peach", "mint", "lilac"][index % 3],
+    label: "Tu siguiente comida",
+  };
+};
 
 export default function NutritionDiary({ compact = false, onOpen }) {
   const { user } = useAuth();
@@ -58,73 +87,64 @@ export default function NutritionDiary({ compact = false, onOpen }) {
           month: "long",
         });
   const dayIsFuture = date > (query.data?.today || nutritionDate());
+  const completion = meals.length ? completedCount / meals.length : 0;
+  const changeDate = (delta) => {
+    setSelectedDate(shiftNutritionDate(date, delta));
+    setExpanded("");
+    mutation.reset();
+  };
   return (
     <section
       aria-label={compact ? "Comidas de hoy" : "Mi alimentación"}
-      className="overflow-hidden rounded-[24px] border border-[color:var(--border)] bg-[color:var(--card)] text-[color:var(--text)]"
+      className={`diet-plan ${compact ? "diet-plan--compact" : ""}`}
     >
-      <header className="flex items-center justify-between gap-3 px-5 pb-4 pt-5">
+      <header className="diet-plan__header">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-            Alimentación · {titleDate}
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em]">
-            {compact ? "Comidas de hoy" : "Tu plan de comidas"}
-          </h2>
+          <span className="diet-plan__eyebrow">TU PLAN, A TU RITMO</span>
+          <h2>{compact ? "Comidas de hoy" : "Tu plan de comidas"}</h2>
         </div>
         {compact ? (
-          <button
-            type="button"
-            onClick={onOpen}
-            className="min-h-11 px-2 text-sm font-semibold"
-          >
-            Ver plan <ChevronRight className="inline h-4 w-4" />
+          <button type="button" onClick={onOpen} className="diet-plan__open">
+            Ver plan <ChevronRight size={16} />
           </button>
         ) : (
-          <div className="flex shrink-0 gap-1">
+          <div className="diet-plan__date">
             <button
               type="button"
               aria-label="Día anterior"
-              onClick={() => {
-                setSelectedDate(shiftNutritionDate(date, -1));
-                mutation.reset();
-              }}
-              className="grid h-11 w-11 place-items-center rounded-full border border-[color:var(--border)]"
+              onClick={() => changeDate(-1)}
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft size={19} />
             </button>
+            <span>{titleDate}</span>
             <button
               type="button"
               aria-label="Día siguiente"
-              onClick={() => {
-                setSelectedDate(shiftNutritionDate(date, 1));
-                mutation.reset();
-              }}
-              className="grid h-11 w-11 place-items-center rounded-full border border-[color:var(--border)]"
+              onClick={() => changeDate(1)}
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight size={19} />
             </button>
           </div>
         )}
       </header>
       {query.isPending ? (
-        <p role="status" className="px-5 pb-5 text-sm">
-          Cargando tus comidas...
-        </p>
+        <div role="status" className="diet-plan__state">
+          <LoaderCircle size={21} className="animate-spin" /> Cargando tus
+          comidas...
+        </div>
       ) : query.isError ? (
-        <div role="alert" className="px-5 pb-5 text-sm">
+        <div role="alert" className="diet-plan__state diet-plan__state--error">
           <p>No pudimos cargar tu alimentación. {query.error.message}</p>
-          <button
-            type="button"
-            onClick={() => query.refetch()}
-            className="mt-2 min-h-11 font-semibold underline"
-          >
+          <button type="button" onClick={() => query.refetch()}>
             Reintentar alimentación
           </button>
         </div>
       ) : !plan ? (
-        <div className="px-5 pb-6 text-sm text-[color:var(--text-muted)]">
-          <Utensils className="mb-3 h-6 w-6" />
+        <div className="diet-plan__empty">
+          <span>
+            <Utensils size={29} strokeWidth={1.5} />
+          </span>
+          <h3>Tu próximo paso empieza aquí</h3>
           <p>
             {dayIsFuture
               ? "Todavía no tienes comidas asignadas para este día."
@@ -133,180 +153,230 @@ export default function NutritionDiary({ compact = false, onOpen }) {
         </div>
       ) : (
         <>
-          <div className="mx-5 rounded-2xl bg-[color:var(--surface-subtle)] p-4">
-            <div className="flex items-center gap-4">
+          <div className="diet-plan__summary">
+            <div className="diet-plan__energy">
               <div
                 role="progressbar"
                 aria-label="Comidas completadas"
                 aria-valuenow={completedCount}
                 aria-valuemin={0}
                 aria-valuemax={meals.length}
-                className="grid h-16 w-16 shrink-0 place-items-center rounded-full"
-                style={{
-                  background: `conic-gradient(#438362 ${(completedCount / meals.length) * 360}deg, var(--border) 0deg)`,
-                }}
+                className="diet-plan__ring"
+                style={{ "--diet-progress": `${completion * 360}deg` }}
               >
-                <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--card)] text-base font-semibold">
-                  {completedCount}/{meals.length}
-                </span>
+                <div>
+                  <Utensils size={17} strokeWidth={1.6} />
+                  <strong>
+                    {completedCount}
+                    <small>/{meals.length}</small>
+                  </strong>
+                  <span>comidas</span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">
-                  {completedCount === meals.length
+              <div className="diet-plan__energy-copy">
+                <span>ENERGÍA DE TU PLAN</span>
+                <p>
+                  <strong>
+                    {calories.planned !== null
+                      ? displayNutrient(calories.completed)
+                      : "—"}
+                  </strong>
+                  <span> / {displayNutrient(calories.planned)} kcal</span>
+                </p>
+                <small>
+                  {completion === 1
                     ? "Todas las comidas completadas"
-                    : "Un paso a la vez"}
-                </p>
-                <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                  {calories.planned !== null
-                    ? `${calories.completed ?? "—"} / ${calories.planned} kcal del plan completado`
                     : `${completedCount} de ${meals.length} comidas completadas`}
-                </p>
-                <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">
-                  {plan.content.name}
-                </p>
+                </small>
               </div>
             </div>
-            {summary.slice(1).some((item) => item.planned !== null) ? (
-              <div className="mt-4 grid grid-cols-3 gap-3">
+            {summary.slice(1).some((item) => item.planned !== null) && (
+              <div className="diet-plan__macros">
                 {summary.slice(1).map((item) => (
-                  <div key={item.key}>
-                    <p className="truncate text-[11px] text-[color:var(--text-muted)]">
+                  <div
+                    key={item.key}
+                    className="diet-plan__macro"
+                    style={{ "--macro-color": item.color }}
+                  >
+                    <span>
+                      <i />
                       {item.label}
+                    </span>
+                    <p>
+                      <strong>{displayNutrient(item.completed)}</strong>
+                      <small> / {displayNutrient(item.planned)} g</small>
                     </p>
-                    <p className="mt-1 text-xs font-semibold">
-                      {item.planned === null
-                        ? "Sin datos"
-                        : `${item.completed ?? "—"} / ${item.planned} g`}
-                    </p>
-                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-                      <div
-                        className="h-full rounded-full"
+                    <div className="diet-plan__macro-track">
+                      <i
                         style={{
                           width: `${item.planned ? Math.min(100, ((item.completed || 0) / item.planned) * 100) : 0}%`,
-                          background: item.color,
                         }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            ) : null}
+            )}
           </div>
-          {plan.content.notes && !compact ? (
-            <p className="mx-5 mt-4 whitespace-pre-wrap rounded-xl border border-[color:var(--border)] p-3 text-sm text-[color:var(--text-muted)]">
-              {plan.content.notes}
-            </p>
-          ) : null}
-          <div className="mt-3 divide-y divide-[color:var(--border)]">
+          {!compact && (
+            <div className="diet-plan__section-title">
+              <div>
+                <h3>Tus comidas</h3>
+                <p>Marca cada comida cuando la completes.</p>
+              </div>
+              <span>{meals.length} comidas</span>
+            </div>
+          )}
+          <div className="diet-plan__meals">
             {meals.map((meal, index) => {
               const done = doneIds.includes(meal.mealId);
               const open = expanded === meal.mealId;
               const mealCalories = nutrientTotal(meal.foods, "calories");
+              const { Icon, tone, label } = mealAppearance(meal.name, index);
+              const saving =
+                mutation.isPending &&
+                mutation.variables?.mealId === meal.mealId;
               return (
-                <article key={meal.mealId} className="px-5 py-4">
-                  <div className="flex items-center gap-3">
+                <article
+                  key={meal.mealId}
+                  aria-label={meal.name}
+                  className={`diet-meal ${done ? "diet-meal--done" : ""}`}
+                >
+                  <div className="diet-meal__top">
+                    <span
+                      className={`diet-meal__icon diet-meal__icon--${tone}`}
+                    >
+                      <Icon size={25} strokeWidth={1.5} aria-hidden="true" />
+                    </span>
+                    <div className="diet-meal__heading">
+                      <div>
+                        <h3>{meal.name}</h3>
+                        {meal.time && <time>{meal.time}</time>}
+                      </div>
+                      <p>{done ? "Comida completada" : label}</p>
+                    </div>
                     <button
                       type="button"
                       aria-pressed={done}
                       aria-label={`${done ? "Desmarcar" : "Completar"} ${meal.name}`}
                       disabled={!query.data.canComplete || mutation.isPending}
+                      className="diet-meal__check"
                       onClick={() =>
                         mutation.mutate({
                           mealId: meal.mealId,
                           completed: !done,
                         })
                       }
-                      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border transition disabled:opacity-50 ${done ? "border-[#438362] bg-[#438362] text-white" : "border-[color:var(--border)]"}`}
                     >
-                      {done ? (
-                        <Check className="h-5 w-5" />
+                      {saving ? (
+                        <LoaderCircle size={21} className="animate-spin" />
                       ) : (
-                        <span className="text-sm font-semibold">
-                          {index + 1}
-                        </span>
+                        <Check size={23} strokeWidth={done ? 2.5 : 1.5} />
                       )}
                     </button>
+                  </div>
+                  <div className="diet-meal__body">
+                    <div className="diet-meal__meta">
+                      <span>
+                        {meal.foods.length}{" "}
+                        {meal.foods.length === 1 ? "alimento" : "alimentos"}
+                      </span>
+                      {mealCalories !== null && (
+                        <strong>
+                          {displayNutrient(mealCalories)} <small>kcal</small>
+                        </strong>
+                      )}
+                    </div>
+                    {!open && (
+                      <p className="diet-meal__preview">
+                        {meal.foods.map((food) => food.name).join(" · ")}
+                      </p>
+                    )}
                     <button
                       type="button"
-                      aria-expanded={open}
-                      onClick={() => setExpanded(open ? "" : meal.mealId)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <span className="block text-base font-semibold">
-                        {meal.name}
-                      </span>
-                      <span className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
-                        {[
-                          meal.time,
-                          `${meal.foods.length} alimentos`,
-                          mealCalories !== null ? `${mealCalories} kcal` : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
+                      className="diet-meal__expand"
                       aria-label={`Ver alimentos de ${meal.name}`}
+                      aria-expanded={open}
+                      aria-controls={`diet-meal-${meal.mealId}`}
                       onClick={() => setExpanded(open ? "" : meal.mealId)}
-                      className="grid h-11 w-11 shrink-0 place-items-center"
                     >
-                      <ChevronRight
-                        className={`h-5 w-5 transition-transform ${open ? "rotate-90" : ""}`}
+                      {open
+                        ? "Ocultar alimentos"
+                        : "Ver alimentos y cantidades"}
+                      <ChevronDown
+                        size={16}
+                        className={open ? "is-expanded" : ""}
                       />
                     </button>
                   </div>
-                  {open ? (
-                    <div className="ml-3 mt-4 space-y-3 border-l border-[color:var(--border)] pl-5">
-                      <ul className="space-y-3">
+                  {open && (
+                    <div
+                      id={`diet-meal-${meal.mealId}`}
+                      className="diet-meal__details"
+                    >
+                      <ul>
                         {meal.foods.map((food, foodIndex) => (
-                          <li
-                            key={foodIndex}
-                            className="flex items-start justify-between gap-3 text-sm"
-                          >
-                            <span className="min-w-0 break-words">
-                              {food.name}
-                              <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                                {food.quantity}
-                              </span>
+                          <li key={foodIndex}>
+                            <span
+                              className="diet-meal__food-icon"
+                              aria-hidden="true"
+                            >
+                              {foodEmoji(food.name)}
                             </span>
-                            {food.calories != null ? (
-                              <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
-                                {food.calories} kcal
-                              </span>
-                            ) : null}
+                            <div>
+                              <strong>{food.name}</strong>
+                              <span>{food.quantity}</span>
+                            </div>
+                            {food.calories != null && (
+                              <small>
+                                {displayNutrient(food.calories)} kcal
+                              </small>
+                            )}
                           </li>
                         ))}
                       </ul>
-                      {meal.notes ? (
-                        <p className="whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">
-                          {meal.notes}
-                        </p>
-                      ) : null}
+                      {meal.notes && (
+                        <p className="diet-meal__notes">{meal.notes}</p>
+                      )}
                     </div>
-                  ) : null}
+                  )}
                 </article>
               );
             })}
           </div>
-          {dayIsFuture ? (
-            <p className="px-5 pb-5 text-xs text-[color:var(--text-muted)]">
+          {!compact && plan.content.notes && (
+            <aside className="diet-plan__coach-note">
+              <span>
+                <Utensils size={17} /> Indicaciones de tu coach
+              </span>
+              <p>{plan.content.notes}</p>
+            </aside>
+          )}
+          <footer className="diet-plan__footer">
+            <span>{plan.content.name}</span>
+            <p>
+              {completion === 1
+                ? "¡Listo por hoy! Cada comida cuenta."
+                : "Tu constancia se construye una comida a la vez."}
+            </p>
+          </footer>
+          {dayIsFuture && (
+            <p className="diet-plan__notice">
               Puedes revisar este día. El registro se habilita cuando llegue la
               fecha.
             </p>
-          ) : null}
-          {mutation.isError ? (
-            <p role="alert" className="px-5 pb-5 text-sm text-red-500">
+          )}
+          {mutation.isError && (
+            <p
+              role="alert"
+              className="diet-plan__notice diet-plan__notice--error"
+            >
               No se guardó el cambio. {mutation.error.message}{" "}
-              <button
-                type="button"
-                onClick={() => query.refetch()}
-                className="font-semibold underline"
-              >
+              <button type="button" onClick={() => query.refetch()}>
                 Actualizar plan
               </button>
             </p>
-          ) : null}
+          )}
         </>
       )}
     </section>

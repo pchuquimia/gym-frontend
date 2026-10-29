@@ -289,7 +289,17 @@ for (const role of ["Entrenador", "Cliente"]) {
     await page.screenshot({
       path: testInfo.outputPath(`messages-${role}.png`),
       fullPage: true,
+      animations: "disabled",
     });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.screenshot({
+      path: testInfo.outputPath(`messages-${role}-dark.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.evaluate(() =>
+      document.documentElement.classList.remove("dark"),
+    );
     if ((page.viewportSize()?.width || 0) < 768) {
       await page
         .getByRole("button", { name: "Volver a conversaciones" })
