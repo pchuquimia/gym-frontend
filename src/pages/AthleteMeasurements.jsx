@@ -52,7 +52,25 @@ export default function AthleteMeasurements({
   const load = () =>
     api
       .getMeasurements(athleteId)
-      .then((data) => setItems(data.measurements || []))
+      .then((data) => {
+        const measurements = data.measurements || [];
+        setItems(measurements);
+        const todayMeasurement = measurements.find(
+          (item) => item.dateKey === localDateKey(),
+        );
+        if (todayMeasurement) {
+          setForm({
+            dateKey: todayMeasurement.dateKey,
+            values: Object.fromEntries(
+              FIELDS.map(([key]) => [
+                key,
+                todayMeasurement.values?.[key] ?? "",
+              ]),
+            ),
+            notes: todayMeasurement.notes || "",
+          });
+        }
+      })
       .catch((error) =>
         toast.error(error.message || "No se pudieron cargar las medidas"),
       )

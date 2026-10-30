@@ -243,6 +243,95 @@
   gap: 0.5rem;
   min-width: 0;
 }
+.daily-tasks__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.daily-quick-action.is-assigned {
+  min-height: 212px;
+  padding: 16px;
+  border-style: solid;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 16px;
+  border-color: rgba(231, 221, 208, 0.38);
+}
+.daily-tasks__heading {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+.daily-tasks__summary {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.daily-quick-action__receipt {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(239, 231, 218, 0.7);
+  border-radius: 9px;
+  background: #e6ddcf;
+  color: #312d28;
+}
+.daily-quick-action.is-assigned.is-completed {
+  border-color: #b8aa96;
+  box-shadow: inset 0 0 0 1px rgba(230, 221, 207, 0.25);
+}
+.daily-quick-action.is-assigned.is-completed::after {
+  background: linear-gradient(180deg, rgba(40, 35, 30, 0.36), rgba(40, 35, 30, 0.93));
+}
+.daily-quick-action.is-assigned.is-completed .daily-quick-action__photo {
+  filter: saturate(0.1);
+  opacity: 0.65;
+}
+.daily-quick-action.is-assigned.is-scheduled::after {
+  background: linear-gradient(180deg, rgba(36, 32, 28, 0.28), rgba(36, 32, 28, 0.92));
+}
+.daily-quick-action__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+  padding-top: 12px;
+  border-top: 1px solid rgba(239, 231, 218, 0.35);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #f2ece2;
+}
+.daily-quick-action.is-assigned.is-completed .daily-quick-action__footer {
+  margin: 0 -16px -16px;
+  padding: 12px 16px;
+  background: #e6ddcf;
+  border-top: 0;
+  color: #312d28;
+}
+.daily-quick-action.is-assigned .daily-quick-action__copy {
+  align-items: flex-start;
+  margin-top: 30px;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.daily-quick-action.is-assigned small {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.85);
+}
 .daily-tracking {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 20px;
@@ -530,13 +619,44 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.daily-registrations h2 {
+.daily-registrations h2,
+.daily-workspace__tracking-title {
   margin: 0;
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.11em;
   color: var(--text-muted);
+}
+.daily-registrations__preferences {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.daily-registrations__preferences summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.daily-registrations__preferences label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--text);
+}
+.daily-registrations__preferences small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+}
+.daily-registrations__preferences input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--text);
 }
 .daily-registrations__actions {
   display: grid;

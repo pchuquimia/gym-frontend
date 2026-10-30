@@ -46,13 +46,10 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const PHOTO_CAPTURE_INTENT_KEY = "rirfit_photo_capture_intent";
 
-const consumePhotoCaptureIntent = () => {
+const readPhotoCaptureIntent = () => {
   if (typeof window === "undefined") return false;
   try {
-    const requested =
-      window.sessionStorage.getItem(PHOTO_CAPTURE_INTENT_KEY) === "1";
-    window.sessionStorage.removeItem(PHOTO_CAPTURE_INTENT_KEY);
-    return requested;
+    return window.sessionStorage.getItem(PHOTO_CAPTURE_INTENT_KEY) === "1";
   } catch {
     return false;
   }
@@ -482,14 +479,22 @@ function PhotoActionsMenu({ onEdit, onSetAsAvatar, onDelete }) {
 function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
   const [position, setPosition] = useState(50);
   const [showAdjustments, setShowAdjustments] = useState(false);
-  const [manualAlignment, setManualAlignment] = useState({ horizontal: 0, vertical: 0, zoom: 100, width: 100 });
+  const [manualAlignment, setManualAlignment] = useState({
+    horizontal: 0,
+    vertical: 0,
+    zoom: 100,
+    width: 100,
+  });
   const [beforeBlob, setBeforeBlob] = useState(null);
   const [afterBlob, setAfterBlob] = useState(null);
   const [beforeImageReady, setBeforeImageReady] = useState(false);
   const [afterImageReady, setAfterImageReady] = useState(false);
   const [alignmentReady, setAlignmentReady] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-  const handleBeforeImageReady = useCallback(() => setBeforeImageReady(true), []);
+  const handleBeforeImageReady = useCallback(
+    () => setBeforeImageReady(true),
+    [],
+  );
   const handleAfterImageReady = useCallback(() => setAfterImageReady(true), []);
   const handleImageError = useCallback(() => setImageFailed(true), []);
   const [alignment, setAlignment] = useState({
@@ -545,10 +550,15 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
 
   const alignmentUnavailable = !before.contentUrl || !after.contentUrl;
   const comparisonReady =
-    beforeImageReady && afterImageReady && (alignmentReady || alignmentUnavailable);
+    beforeImageReady &&
+    afterImageReady &&
+    (alignmentReady || alignmentUnavailable);
 
   return (
-    <figure className="mx-auto w-full max-w-[620px]" aria-busy={!comparisonReady && !imageFailed}>
+    <figure
+      className="mx-auto w-full max-w-[620px]"
+      aria-busy={!comparisonReady && !imageFailed}
+    >
       <div className="relative aspect-[4/5] touch-pan-y overflow-hidden rounded-xl bg-black/5 shadow-sm dark:rounded-[4px] dark:bg-black/20 dark:shadow-none">
         <AuthenticatedPhotoImage
           photo={after}
@@ -575,7 +585,7 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
             alt={`Antes: ${beforeLabel}`}
             className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 ease-out ${comparisonReady ? "opacity-100" : "opacity-0"}`}
             style={{
-              transform: `translate(${(alignment.offsetXPercent || 0) + manualAlignment.horizontal}%, ${(alignment.offsetYPercent || 0) + manualAlignment.vertical}%) rotate(${alignment.rotationDeg || 0}deg) scale(${(alignment.scaleX || alignment.scale || 1) * manualAlignment.zoom * manualAlignment.width / 10000}, ${(alignment.scaleY || alignment.scale || 1) * manualAlignment.zoom / 100})`,
+              transform: `translate(${(alignment.offsetXPercent || 0) + manualAlignment.horizontal}%, ${(alignment.offsetYPercent || 0) + manualAlignment.vertical}%) rotate(${alignment.rotationDeg || 0}deg) scale(${((alignment.scaleX || alignment.scale || 1) * manualAlignment.zoom * manualAlignment.width) / 10000}, ${((alignment.scaleY || alignment.scale || 1) * manualAlignment.zoom) / 100})`,
             }}
             dataAlignmentMethod={alignment.method || "none"}
             onContentReady={setBeforeBlob}
@@ -585,14 +595,25 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
         </div>
 
         {imageFailed ? (
-          <div role="alert" className="absolute inset-0 z-40 grid place-items-center bg-[color:var(--card)] px-6 text-center text-sm font-medium text-[color:var(--text-muted)]">
-            No pudimos cargar una de las fotos. Selecciona otra pareja o vuelve a intentarlo.
+          <div
+            role="alert"
+            className="absolute inset-0 z-40 grid place-items-center bg-[color:var(--card)] px-6 text-center text-sm font-medium text-[color:var(--text-muted)]"
+          >
+            No pudimos cargar una de las fotos. Selecciona otra pareja o vuelve
+            a intentarlo.
           </div>
         ) : !comparisonReady ? (
-          <div role="status" aria-label="Emparejando fotos" aria-live="polite" className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[color:var(--card)] text-[color:var(--text)]">
+          <div
+            role="status"
+            aria-label="Emparejando fotos"
+            aria-live="polite"
+            className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 bg-[color:var(--card)] text-[color:var(--text)]"
+          >
             <LoaderCircle className="h-8 w-8 animate-spin" aria-hidden="true" />
             <span className="text-sm font-semibold">Emparejando fotos...</span>
-            <span className="text-xs text-[color:var(--text-muted)]">Preparando la comparación antes y después</span>
+            <span className="text-xs text-[color:var(--text-muted)]">
+              Preparando la comparación antes y después
+            </span>
           </div>
         ) : null}
 
@@ -634,7 +655,8 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
         <div className="mt-3">
           {alignment.method === "none" ? (
             <p className="mb-2 text-xs text-[color:var(--text-muted)]">
-              No encontramos una alineación automática fiable. Puedes ajustar el encuadre.
+              No encontramos una alineación automática fiable. Puedes ajustar el
+              encuadre.
             </p>
           ) : null}
           <button
@@ -647,14 +669,47 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
           </button>
           {showAdjustments ? (
             <div className="mt-3 grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-3">
-              <p className="text-xs text-[color:var(--text-muted)]">Ajusta la foto «Antes» para alinear mejor el cuerpo.</p>
+              <p className="text-xs text-[color:var(--text-muted)]">
+                Ajusta la foto «Antes» para alinear mejor el cuerpo.
+              </p>
               {[
-                { key: "horizontal", label: "Horizontal", min: -15, max: 15, step: 0.5, suffix: "%" },
-                { key: "vertical", label: "Vertical", min: -15, max: 15, step: 0.5, suffix: "%" },
-                { key: "zoom", label: "Tamaño", min: 85, max: 115, step: 1, suffix: "%" },
-                { key: "width", label: "Ancho", min: 85, max: 115, step: 1, suffix: "%" },
+                {
+                  key: "horizontal",
+                  label: "Horizontal",
+                  min: -15,
+                  max: 15,
+                  step: 0.5,
+                  suffix: "%",
+                },
+                {
+                  key: "vertical",
+                  label: "Vertical",
+                  min: -15,
+                  max: 15,
+                  step: 0.5,
+                  suffix: "%",
+                },
+                {
+                  key: "zoom",
+                  label: "Tamaño",
+                  min: 85,
+                  max: 115,
+                  step: 1,
+                  suffix: "%",
+                },
+                {
+                  key: "width",
+                  label: "Ancho",
+                  min: 85,
+                  max: 115,
+                  step: 1,
+                  suffix: "%",
+                },
               ].map((control) => (
-                <label key={control.key} className="grid grid-cols-[5.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-xs font-medium text-[color:var(--text)]">
+                <label
+                  key={control.key}
+                  className="grid grid-cols-[5.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-xs font-medium text-[color:var(--text)]"
+                >
                   <span>{control.label}</span>
                   <input
                     type="range"
@@ -662,19 +717,31 @@ function BeforeAfterSlider({ before, after, beforeLabel, afterLabel }) {
                     max={control.max}
                     step={control.step}
                     value={manualAlignment[control.key]}
-                    onChange={(event) => setManualAlignment((current) => ({
-                      ...current,
-                      [control.key]: Number(event.target.value),
-                    }))}
+                    onChange={(event) =>
+                      setManualAlignment((current) => ({
+                        ...current,
+                        [control.key]: Number(event.target.value),
+                      }))
+                    }
                     aria-label={`Ajustar ${control.label.toLowerCase()} de la foto anterior`}
                     className="w-full accent-[color:var(--accent)]"
                   />
-                  <output className="text-right tabular-nums text-[color:var(--text-muted)]">{manualAlignment[control.key]}{control.suffix}</output>
+                  <output className="text-right tabular-nums text-[color:var(--text-muted)]">
+                    {manualAlignment[control.key]}
+                    {control.suffix}
+                  </output>
                 </label>
               ))}
               <button
                 type="button"
-                onClick={() => setManualAlignment({ horizontal: 0, vertical: 0, zoom: 100, width: 100 })}
+                onClick={() =>
+                  setManualAlignment({
+                    horizontal: 0,
+                    vertical: 0,
+                    zoom: 100,
+                    width: 100,
+                  })
+                }
                 className="justify-self-start text-xs font-semibold text-[color:var(--text)] underline underline-offset-4"
               >
                 Restablecer ajuste
@@ -704,7 +771,10 @@ export default function PhotosLibrary({ onBack, onNavigate }) {
   const [mode, setMode] = useState("history");
   const [typeFilter, setTypeFilter] = useState("");
   const [viewFilter, setViewFilter] = useState("");
-  const [uploadOpen, setUploadOpen] = useState(consumePhotoCaptureIntent);
+  const [uploadOpen, setUploadOpen] = useState(readPhotoCaptureIntent);
+  useEffect(() => {
+    window.sessionStorage.removeItem(PHOTO_CAPTURE_INTENT_KEY);
+  }, []);
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");

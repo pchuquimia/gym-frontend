@@ -1,6 +1,8 @@
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   Check,
   ChevronRight,
   MessageCircle,
@@ -8,6 +10,7 @@ import {
   UserMinus,
 } from "lucide-react";
 import ProfileAvatar from "../profile/ProfileAvatar";
+import CoachFollowUpDetail from "./CoachFollowUpDetail";
 import "./coachAthleteProfile.css";
 
 const dateKey = (value = new Date()) => {
@@ -457,69 +460,95 @@ export function CoachAthleteSummary({
 }
 
 export function CoachAthleteFollowUp({ overview, latestCheckIn }) {
+  const [detailType, setDetailType] = useState("");
   const records = overview.followUpRecords || {};
-  const checkIn = records.checkIns?.[0] || latestCheckIn;
-  const weights = [...(records.weights || [])].filter(
+  const newestFirst = (items = []) =>
+    [...items].sort((a, b) =>
+      String(b.dateKey || b.date || "").localeCompare(
+        String(a.dateKey || a.date || ""),
+      ),
+    );
+  const checkIns = newestFirst(
+    records.checkIns?.length
+      ? records.checkIns
+      : latestCheckIn
+        ? [latestCheckIn]
+        : [],
+  );
+  const measurements = newestFirst(
+    records.measurements?.length
+      ? records.measurements
+      : records.latestMeasurement
+        ? [records.latestMeasurement]
+        : [],
+  );
+  const assessments = newestFirst(
+    records.assessments?.length
+      ? records.assessments
+      : records.latestAssessment
+        ? [records.latestAssessment]
+        : [],
+  );
+  const photos = newestFirst(records.photos);
+  const checkIn = checkIns[0];
+  const weights = newestFirst(records.weights).filter(
     (item) =>
       item.weightKg != null &&
       item.weightKg !== "" &&
       Number.isFinite(Number(item.weightKg)),
   );
   const weight = weights[0];
-  const delta =
-    weight && weights[1]
-      ? Number(weight.weightKg) - Number(weights[1].weightKg)
-      : null;
-  const measurement = records.measurements?.[0];
-  const assessment = records.assessments?.[0] || records.latestAssessment;
+  const measurement = measurements[0];
+  const assessment = assessments[0];
   const items = [
     {
       label: "Check-in",
+      type: "checkIns",
       image: "daily-checkin-wellness.webp",
       record: checkIn,
       value: checkIn ? `${checkIn.readinessScore ?? "—"}/100` : "—",
-      detail: checkIn
-        ? {
-            recover: "Requiere recuperación",
-            adjust: "Conviene ajustar",
-            ready: "Listo para entrenar",
-          }[checkIn.readinessState] || "Estado registrado"
-        : "Pendiente de registro",
+      count: records.counts?.checkIns ?? checkIns.length,
     },
     {
       label: "Peso",
+      type: "weights",
       image: "daily-weight-card.webp",
       record: weight,
       value: weight ? `${weight.weightKg} kg` : "—",
-      detail:
-        delta === null
-          ? "Sin comparación anterior"
-          : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg desde el anterior`,
+      count: records.counts?.weights ?? weights.length,
     },
     {
       label: "Medidas",
+      type: "measurements",
       image: "daily-measurements-card.webp",
       record: measurement,
       value: measurement
         ? `${Object.values(measurement.values || {}).filter((value) => value != null).length} medidas`
         : "—",
-      detail: measurement?.notes || "Registro corporal",
+      count: records.counts?.measurements ?? measurements.length,
     },
     {
       label: "Fotos de progreso",
+      type: "photos",
       image: "daily-progress-photos-card.webp",
-      record: records.photos?.[0],
-      value: records.photos?.length ? `${records.photos.length} fotos` : "—",
-      detail: records.photos?.length
-        ? "Compartidas con el coach"
-        : "Pendiente de registro",
+      record: photos[0],
+      value: photos[0]
+        ? {
+            front: "Frontal",
+            side: "Lateral",
+            back: "Posterior",
+            other: "Otra vista",
+          }[photos[0].view] || "Foto reciente"
+        : "—",
+      count: records.counts?.photos ?? photos.length,
     },
     {
       label: "Evaluación final",
+      type: "assessments",
       image: "daily-final-assessment-card.webp",
       record: assessment,
       value: assessment ? `${assessment.answers?.progress ?? "—"}/5` : "—",
-      detail: assessment?.answers?.feedback || "Balance de su planificación",
+      count: records.counts?.assessments ?? assessments.length,
     },
   ];
   const trend = [...weights].sort((a, b) =>
@@ -549,12 +578,20 @@ export function CoachAthleteFollowUp({ overview, latestCheckIn }) {
           <h2>Su evolución</h2>
         </div>
         <span>
-          {items.filter((item) => item.record).length} registros recientes
+          {items.reduce((total, item) => total + item.count, 0)} registros{" "}
+          {records.counts ? "en total" : "disponibles"}
         </span>
       </header>
       <div className="athlete-followup__grid">
         {items.map((item) => (
-          <article className="athlete-followup__card" key={item.label}>
+          <button
+            type="button"
+            className="athlete-followup__card"
+            key={item.type}
+            onClick={() => setDetailType(item.type)}
+            aria-label={`Ver historial de ${item.label.toLowerCase()}`}
+            aria-haspopup="dialog"
+          >
             <img
               src={`/images/${item.image}`}
               alt=""
@@ -562,19 +599,40 @@ export function CoachAthleteFollowUp({ overview, latestCheckIn }) {
               height={512}
               loading="lazy"
             />
-            <div>
+            <div className="athlete-followup__card-copy">
               <small>{item.label}</small>
               <strong>{item.value}</strong>
               <span>
                 {item.record
-                  ? formatDate(item.record.dateKey || item.record.date)
+                  ? `Último: ${formatDate(item.record.dateKey || item.record.date)}`
                   : "Sin registro"}
               </span>
+              <span className="athlete-followup__card-meta">
+                <span>
+                  {item.count}{" "}
+                  {item.type === "photos"
+                    ? item.count === 1
+                      ? "foto"
+                      : "fotos"
+                    : item.count === 1
+                      ? "registro"
+                      : "registros"}
+                </span>
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </span>
             </div>
-            <p>{item.detail}</p>
-          </article>
+          </button>
         ))}
       </div>
+      {detailType && (
+        <CoachFollowUpDetail
+          key={`${overview.athlete?.id || overview.athlete?._id || "athlete"}-${detailType}`}
+          type={detailType}
+          overview={overview}
+          latestCheckIn={latestCheckIn}
+          onClose={() => setDetailType("")}
+        />
+      )}
       {trend.length > 1 && (
         <figure className="athlete-profile-panel athlete-followup__trend">
           <figcaption>

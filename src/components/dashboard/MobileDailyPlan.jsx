@@ -25,6 +25,8 @@ const DAILY_CARD_IMAGES = Object.freeze({
   finalAssessment: "/images/daily-final-assessment-card.webp",
   hydration: "/images/daily-hydration-card.webp",
   measurements: "/images/daily-measurements-card.webp",
+  check_in: "/images/daily-checkin-card.webp",
+  final_evaluation: "/images/daily-final-assessment-card.webp",
   photos: "/images/daily-progress-photos-card.webp",
   plan: "/images/daily-planning-card.webp",
   ready: "/images/daily-plan-ready-card.webp",
@@ -269,17 +271,49 @@ const QUICK_REGISTRATION_DEFAULTS = Object.freeze([
   },
 ]);
 
-function QuickRegistration({ task, onOpen, readOnly }) {
+const TRACKING_ACTIONS = {
+  weight: { create: "Registrar peso", saved: "Editar peso" },
+  photos: { create: "Subir fotos", saved: "Ver fotos" },
+  measurements: { create: "Registrar medidas", saved: "Editar medidas" },
+  check_in: { create: "Responder check-in", saved: "Ver mis respuestas" },
+  final_evaluation: {
+    create: "Responder evaluación",
+    saved: "Ver mi evaluación",
+  },
+};
+
+function QuickRegistration({ task, onOpen, readOnly, assigned = false }) {
   const image = DAILY_CARD_IMAGES[task.type] || DAILY_CARD_IMAGES.measurements;
+  const state = task.completed
+    ? "completed"
+    : task.dueToday === false
+      ? "scheduled"
+      : "pending";
+  const stateLabel = {
+    completed: "Completado",
+    scheduled: "Programado",
+    pending: "Pendiente",
+  }[state];
+  const action =
+    TRACKING_ACTIONS[task.type]?.[task.completed ? "saved" : "create"] ||
+    "Abrir formulario";
+  const scheduledDate =
+    task.dueToday === false && task.nextDueDate
+      ? new Intl.DateTimeFormat("es-BO", {
+          day: "numeric",
+          month: "short",
+          timeZone: "UTC",
+        }).format(new Date(`${task.nextDueDate}T12:00:00Z`))
+      : "";
 
   return (
     <button
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className="daily-quick-action"
-      aria-label={`${task.title}${task.subtitle ? `: ${task.subtitle}` : ""}`}
-      title={task.subtitle}
+      className={`daily-quick-action ${assigned ? `is-assigned is-${state}` : ""} ${task.completed ? "is-complete" : ""}`}
+      aria-label={`${assigned ? `${stateLabel}: ` : ""}${task.title}${task.subtitle ? `: ${task.subtitle}` : ""}${assigned ? `. ${action}` : ""}`}
+      title={assigned ? action : task.subtitle}
     >
       <img
         className="daily-quick-action__photo"
@@ -289,17 +323,51 @@ function QuickRegistration({ task, onOpen, readOnly }) {
         height={512}
         loading="eager"
       />
-      <span className="daily-quick-action__copy">
-        <span className="daily-quick-action__add" aria-hidden="true">
-          <Plus size={16} />
+      {assigned && task.completed ? (
+        <span className="daily-quick-action__receipt" aria-hidden="true">
+          <Check size={18} strokeWidth={1.8} />
         </span>
-        <span>{task.type === "hydration" ? "Agua" : task.title}</span>
+      ) : null}
+      <span className="daily-quick-action__copy">
+        {!assigned ? (
+          <span className="daily-quick-action__add" aria-hidden="true">
+            {task.completed ? <Check size={16} /> : <Plus size={16} />}
+          </span>
+        ) : null}
+        <span>
+          {task.type === "hydration" ? "Agua" : task.title}
+          {assigned ? (
+            <small>
+              {task.completed
+                ? task.subtitle
+                : scheduledDate
+                  ? `Próximo registro: ${scheduledDate}`
+                  : task.subtitle}
+            </small>
+          ) : null}
+          {assigned && !task.required ? <small>A tu elección</small> : null}
+        </span>
       </span>
+      {assigned ? (
+        <span className="daily-quick-action__footer">
+          <span>{action}</span>
+          <ArrowRight size={16} strokeWidth={1.5} aria-hidden="true" />
+        </span>
+      ) : null}
     </button>
   );
 }
 
-function TrackingMission({ task, onOpen, readOnly }) {
+function TrackingMission({ task, onOpen, readOnly, visual = false }) {
+  if (visual)
+    return (
+      <QuickRegistration
+        task={task}
+        onOpen={() => onOpen?.(task.type)}
+        readOnly={readOnly}
+        assigned
+      />
+    );
   const Icon =
     { weight: Weight, photos: Camera, measurements: Ruler }[task.type] ||
     ClipboardList;
@@ -516,6 +584,9 @@ export default function MobileDailyPlan({
   planTrend = null,
   workoutTask,
   hydrationTask = null,
+  hydrationTrackingEnabled = false,
+  savingOptionalRecords = false,
+  onSetHydrationTracking,
   trackingMissions = [],
   workoutSeries = [],
   readOnly = false,
@@ -535,24 +606,32 @@ export default function MobileDailyPlan({
   onOpenNotification,
   nutritionContent = null,
 }) {
-  const requiredTracking = trackingMissions.filter((task) => task.required);
-  const requiredTrackingTypes = new Set(
-    requiredTracking.map((task) => task.type),
+  const isManagedAthlete = Boolean(
+    journeyStage || (user?.role === "Cliente" && user?.assignedTrainerId),
   );
+  const dailyTracking = isManagedAthlete
+    ? trackingMissions
+    : trackingMissions.filter((task) => task.required);
+  const dailyTrackingTypes = new Set(dailyTracking.map((task) => task.type));
+  const completedTracking = dailyTracking.filter(
+    (task) => task.completed,
+  ).length;
   const trackingByType = new Map(
     trackingMissions.map((task) => [task.type, task]),
   );
   const quickRegistrations = [
-    ...QUICK_REGISTRATION_DEFAULTS.map((fallback) => ({
-      ...fallback,
-      ...trackingByType.get(fallback.type),
-      required: false,
-    })),
-    hydrationTask
+    ...(isManagedAthlete ? [] : QUICK_REGISTRATION_DEFAULTS).map(
+      (fallback) => ({
+        ...fallback,
+        ...trackingByType.get(fallback.type),
+        required: false,
+      }),
+    ),
+    hydrationTask && hydrationTrackingEnabled
       ? { ...hydrationTask, id: "quick-hydration", type: "hydration" }
       : null,
   ].filter(
-    (task) => task && !task.completed && !requiredTrackingTypes.has(task.type),
+    (task) => task && !task.completed && !dailyTrackingTypes.has(task.type),
   );
   const isDailyWorkspace =
     !starterStage && (!journeyStage || journeyStage === "plan_assigned");
@@ -620,16 +699,38 @@ export default function MobileDailyPlan({
               readOnly={readOnly}
             />
             {nutritionContent}
-            {requiredTracking.length > 0 && (
+            {dailyTracking.length > 0 && (
               <section className="daily-tasks" aria-label="Seguimiento de hoy">
-                {requiredTracking.map((task) => (
-                  <TrackingMission
-                    key={task.id || task.type}
-                    task={task}
-                    onOpen={openTracking}
-                    readOnly={readOnly}
-                  />
-                ))}
+                {isManagedAthlete ? (
+                  <div className="daily-tasks__heading">
+                    <h2 className="daily-workspace__tracking-title">
+                      Registros asignados
+                    </h2>
+                    <span
+                      role="status"
+                      aria-label="Estado de los registros asignados"
+                      className="daily-tasks__summary"
+                    >
+                      {completedTracking} de {dailyTracking.length} registros
+                      guardados
+                    </span>
+                  </div>
+                ) : null}
+                <div
+                  className={
+                    isManagedAthlete ? "daily-tasks__cards" : "daily-tasks"
+                  }
+                >
+                  {dailyTracking.map((task) => (
+                    <TrackingMission
+                      key={task.id || task.type}
+                      task={task}
+                      onOpen={openTracking}
+                      readOnly={readOnly}
+                      visual={isManagedAthlete}
+                    />
+                  ))}
+                </div>
               </section>
             )}
           </div>
@@ -655,7 +756,7 @@ export default function MobileDailyPlan({
                 )}
               />
             )}
-            {quickRegistrations.length ? (
+            {quickRegistrations.length || onSetHydrationTracking ? (
               <section
                 className="daily-registrations"
                 aria-labelledby="mobile-daily-plan-progress-title"
@@ -663,6 +764,28 @@ export default function MobileDailyPlan({
                 <h2 id="mobile-daily-plan-progress-title">
                   Registros opcionales
                 </h2>
+                {onSetHydrationTracking ? (
+                  <details className="daily-registrations__preferences">
+                    <summary>Elegir registros opcionales</summary>
+                    <label>
+                      <span>
+                        Agua{" "}
+                        <small>
+                          Actívalo si quieres registrar tu hidratación.
+                        </small>
+                      </span>
+                      <input
+                        type="checkbox"
+                        aria-label="Mostrar registro de agua"
+                        checked={hydrationTrackingEnabled}
+                        disabled={readOnly || savingOptionalRecords}
+                        onChange={(event) =>
+                          onSetHydrationTracking(event.target.checked)
+                        }
+                      />
+                    </label>
+                  </details>
+                ) : null}
                 <div className="daily-registrations__actions">
                   {quickRegistrations.map((task) => (
                     <QuickRegistration

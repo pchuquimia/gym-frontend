@@ -190,7 +190,9 @@ export default function DailyCheckIn({ onNavigate, onBack }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const reduceMotion = useReducedMotion();
-  const canUseCheckIn = hasPremiumFeature(user, PREMIUM_FEATURES.DAILY_CHECKIN);
+  const canUseCheckIn =
+    user?.trainingMode === "coach_managed" ||
+    hasPremiumFeature(user, PREMIUM_FEATURES.DAILY_CHECKIN);
   const [form, setForm] = useState(emptyForm);
   const [latest, setLatest] = useState(null);
   const [recommendation, setRecommendation] = useState("");
@@ -257,6 +259,9 @@ export default function DailyCheckIn({ onNavigate, onBack }) {
         { queryKey: ["dashboard-bootstrap"] },
         (current) => upsertDashboardCheckIn(current, result.checkIn),
       );
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard-bootstrap", "core"],
+      });
       toast.success(
         wasSavedToday ? "Estado de hoy actualizado" : "Estado de hoy guardado",
       );

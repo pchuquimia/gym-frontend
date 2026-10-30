@@ -29,6 +29,7 @@ import { useRoutines } from "../context/RoutineContext";
 import { useDashboardBootstrap } from "../context/DashboardBootstrapContext";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import { toast } from "../utils/toast";
 import { useThemeMode } from "../hooks/useThemeMode";
 import ThemeToggle from "../components/ThemeToggle";
 import MobileMenuButton from "../components/layout/MobileMenuButton";
@@ -1778,7 +1779,8 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
   const queryClient = useQueryClient();
   const dashboardBootstrap = useDashboardBootstrap();
   const { user: authUser } = useAuth();
-  const { profile } = useUserProfile();
+  const { profile, updateProfile } = useUserProfile();
+  const [savingOptionalRecords, setSavingOptionalRecords] = useState(false);
   const {
     trainings = [],
     exercises: catalogExercises = [],
@@ -3083,10 +3085,7 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     if (todayAction.type === "empty") onNavigate("rutinas");
   };
 
-  const followUpMissions = bootstrapTrackingMissions;
-  const mobileTrackingMissions = followUpMissions.filter(
-    (mission) => mission.type !== "check_in",
-  );
+  const mobileTrackingMissions = bootstrapTrackingMissions;
   const isPostPlanFollowUp =
     !activePlan &&
     mobileTrackingMissions.some(
@@ -3216,6 +3215,22 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
     ),
     title: "Hidratación",
     subtitle: `${hydrationTotalMl.toLocaleString("es-BO")} de ${hydrationGoalMl.toLocaleString("es-BO")} ml`,
+  };
+  const setHydrationTracking = async (enabled) => {
+    if (savingOptionalRecords) return;
+    setSavingOptionalRecords(true);
+    try {
+      await updateProfile({ hydrationTrackingEnabled: enabled });
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard-bootstrap", "core"],
+      });
+    } catch (error) {
+      toast.error(
+        error.message || "No se pudo actualizar el registro opcional",
+      );
+    } finally {
+      setSavingOptionalRecords(false);
+    }
   };
   const mobileActivePlanContext = useMemo(() => {
     if (!activePlan) return null;
@@ -3353,6 +3368,9 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }}
         workoutTask={isPostPlanFollowUp ? null : mobileWorkoutTask}
         hydrationTask={mobileHydrationTask}
+        hydrationTrackingEnabled={Boolean(profile?.hydrationTrackingEnabled)}
+        savingOptionalRecords={savingOptionalRecords}
+        onSetHydrationTracking={setHydrationTracking}
         trackingMissions={mobileTrackingMissions}
         workoutSeries={workoutSeries}
         onOpenProfile={() => onNavigate("perfil")}
@@ -3368,9 +3386,15 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         onOpenHydration={() => onNavigate("hidratacion")}
         onOpenMuscleDetails={() => setWorkoutSeriesOpen(true)}
         onOpenTrackingMission={(type) => {
-          if (type === "weight") setQuickWeightOpen(true);
+          if (type === "check_in") onNavigate("check_in");
+          else if (type === "weight") setQuickWeightOpen(true);
           else if (type === "photos") {
-            sessionStorage.setItem("rirfit_photo_capture_intent", "1");
+            const mission = mobileTrackingMissions.find(
+              (item) => item.type === "photos",
+            );
+            if (mission?.completed)
+              sessionStorage.removeItem("rirfit_photo_capture_intent");
+            else sessionStorage.setItem("rirfit_photo_capture_intent", "1");
             onNavigate("fotos");
           } else if (type === "measurements") {
             const mission = mobileTrackingMissions.find(

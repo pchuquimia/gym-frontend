@@ -736,6 +736,215 @@ test("el listado completo pagina veinte alumnos y permite abrir al último desde
   await noOverflow(page);
 });
 
+test("cada tarjeta de evolución abre registros en filas y columnas", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name.includes("mobile"))
+    await page.setViewportSize({ width: 360, height: 800 });
+  const overview = {
+    athlete: athletes[19],
+    plans: [
+      {
+        _id: "strength-plan",
+        name: "Fuerza base",
+        status: "active",
+        startDate: "2026-10-01",
+        endDate: "2026-12-31",
+        durationWeeks: 12,
+        weeklySchedule: [],
+      },
+    ],
+    routines: [],
+    recentTrainings: [],
+    followUpRecords: {
+      checkIns: [
+        {
+          _id: "check",
+          dateKey: today,
+          readinessScore: 82,
+          readinessState: "ready",
+          sleep: 4,
+          energy: 4,
+          stress: 2,
+          soreness: 1,
+          motivation: 5,
+          jointPain: 1,
+          painAreas: ["hombro"],
+          notes: "Molestia leve después de entrenar",
+        },
+      ],
+      weights: Array.from({ length: 8 }, (_, index) => ({
+        _id: `weight-${index}`,
+        dateKey: `2026-10-${String(29 - index).padStart(2, "0")}`,
+        weightKg: 74 + index * 0.2,
+        note: "Registro al despertar",
+        source: "self",
+      })),
+      measurements: [
+        {
+          _id: "measure",
+          dateKey: today,
+          values: {
+            waist: 80,
+            chest: 98,
+            hips: 95,
+            arm: 32,
+            thigh: 55,
+            calf: 36,
+          },
+          notes: "Sin ajustar la cinta",
+        },
+      ],
+      photos: [
+        {
+          _id: "shared-photo",
+          date: today,
+          view: "front",
+          label: "Primera semana",
+          contentStatus: "available",
+        },
+      ],
+      assessments: [
+        {
+          _id: "assessment",
+          dateKey: today,
+          planId: "strength-plan",
+          answers: {
+            progress: 4,
+            goalReached: "partly",
+            pain: "Sin molestias al caminar",
+            feedback: "Me siento más fuerte y con energía",
+            availabilityChanged: true,
+          },
+        },
+      ],
+    },
+  };
+  await setup(page, "coach_athletes", { overview });
+  await page.route("**/api/photos/shared-photo/content**", (route) =>
+    route.fulfill({
+      path: "public/images/daily-progress-photos-card.webp",
+      contentType: "image/webp",
+    }),
+  );
+  await page
+    .getByPlaceholder(/Buscar (alumno|atleta)/)
+    .filter({ visible: true })
+    .fill("Alumno 20");
+  await page
+    .locator(".coach-directory .coach-athlete-row")
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole("tab", { name: "Seguimiento", exact: true }).click();
+  const weightCard = page.getByRole("button", {
+    name: "Ver historial de peso",
+    exact: true,
+  });
+  await expect(weightCard).toContainText("74 kg");
+  await expect(weightCard).toContainText("8 registros");
+  await expect(weightCard).toContainText("Último:");
+  await expect(weightCard.locator("p, .athlete-followup__open")).toHaveCount(0);
+  const cardHeight = (await weightCard.boundingBox()).height;
+  expect(cardHeight).toBeLessThanOrEqual(165);
+  await page
+    .locator(".athlete-followup__grid")
+    .screenshot({
+      path: testInfo.outputPath("compact-evolution-cards.png"),
+      animations: "disabled",
+    });
+  for (const [label, title, expected] of [
+    ["check-in", "Check-in", "82 / 100"],
+    ["peso", "Peso", "74 kg"],
+    ["medidas", "Medidas", "80 cm"],
+    ["fotos de progreso", "Fotos de progreso", "Frontal"],
+    ["evaluación final", "Evaluación final", "Fuerza base"],
+  ]) {
+    await page
+      .getByRole("button", { name: `Ver historial de ${label}`, exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: title, exact: true });
+    await expect(dialog.getByRole("table")).toBeVisible();
+    await expect(
+      dialog.getByRole("cell", { name: expected, exact: true }).first(),
+    ).toBeVisible();
+    if (label === "peso") {
+      await expect(dialog.getByRole("table").getByRole("row")).toHaveCount(7);
+      await expect(dialog.getByLabel("Desde", { exact: true })).toBeHidden();
+      await dialog.getByText("Filtrar registros", { exact: true }).click();
+      await dialog.getByLabel("Desde", { exact: true }).fill("2026-10-29");
+      await expect(dialog.getByRole("table").getByRole("row")).toHaveCount(2);
+      await dialog.getByRole("button", { name: "Quitar filtros" }).click();
+      await dialog.getByText("Filtrar registros", { exact: true }).click();
+      await expect(dialog.getByLabel("Desde", { exact: true })).toBeHidden();
+      await dialog
+        .getByRole("button", { name: "Más registros", exact: true })
+        .click();
+      await expect(dialog.getByRole("table").getByRole("row")).toHaveCount(3);
+      await dialog
+        .getByRole("button", {
+          name: "Registros anteriores de la lista",
+          exact: true,
+        })
+        .click();
+    }
+    if (label === "fotos de progreso") {
+      await expect(
+        dialog.getByRole("img", { name: /Vista frontal/ }),
+      ).toBeVisible();
+      await dialog.getByRole("button", { name: /Ampliar foto/ }).click();
+      await expect(dialog.locator(".followup-photo-large")).toBeVisible();
+      await expect(dialog.locator(".followup-photo-large")).toHaveJSProperty(
+        "complete",
+        true,
+      );
+      await dialog
+        .getByRole("button", { name: "Volver a registros", exact: true })
+        .click();
+    } else {
+      await dialog
+        .getByRole("button", { name: /Ver registro del/ })
+        .first()
+        .click();
+      await expect(dialog.locator(".followup-record-fields")).toBeVisible();
+      const fieldsBounds = await dialog
+        .locator(".followup-record-fields")
+        .boundingBox();
+      const tableBounds = await dialog
+        .locator(".followup-detail-table")
+        .boundingBox();
+      expect(fieldsBounds.x).toBeGreaterThanOrEqual(tableBounds.x);
+      expect(fieldsBounds.x + fieldsBounds.width).toBeLessThanOrEqual(
+        tableBounds.x + tableBounds.width + 1,
+      );
+      if (label === "check-in")
+        await expect(
+          dialog.getByText("Molestia leve después de entrenar"),
+        ).toBeVisible();
+      if (label === "evaluación final")
+        await expect(
+          dialog.getByText("Me siento más fuerte y con energía"),
+        ).toBeVisible();
+    }
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (dark) => document.documentElement.classList.toggle("dark", dark),
+        theme === "dark",
+      );
+      await noOverflow(page);
+      await dialog.screenshot({
+        path: testInfo.outputPath(`followup-${label}-${theme}.png`),
+        animations: "disabled",
+      });
+    }
+    await dialog.getByRole("button", { name: "Volver", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("tab", { name: "Seguimiento", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+  }
+});
+
 test("el perfil del alumno presenta sus cuatro pestañas con imágenes y registros reales", async ({
   page,
 }, testInfo) => {

@@ -16,6 +16,7 @@ const defaultProfile = {
   height: 181,
   goal: "mantenimiento",
   calories: 2500,
+  hydrationTrackingEnabled: false,
   units: "metric",
   language: "es",
   birthDate: "",

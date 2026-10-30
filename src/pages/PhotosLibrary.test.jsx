@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -64,6 +65,18 @@ const renderLibrary = () => {
 };
 
 describe("PhotosLibrary", () => {
+  it("abre la carga al llegar desde la tarea de fotos incluso con StrictMode", async () => {
+    sessionStorage.setItem("rirfit_photo_capture_intent", "1");
+    render(
+      <StrictMode>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <PhotosLibrary onNavigate={vi.fn()} />
+        </QueryClientProvider>
+      </StrictMode>,
+    );
+    expect(await screen.findByRole("dialog", { name: "Añadir foto" })).toBeVisible();
+    expect(sessionStorage.getItem("rirfit_photo_capture_intent")).toBeNull();
+  });
   beforeEach(() => {
     mocks.addPhoto.mockReset().mockResolvedValue({ id: "photo-1" });
     mocks.getPhotoSummary.mockReset().mockResolvedValue({ total: 0 });

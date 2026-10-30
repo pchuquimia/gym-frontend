@@ -250,6 +250,7 @@ describe("MobileDailyPlan", () => {
   it("mantiene los registros requeridos del coach separados de los opcionales", () => {
     renderPlan({
       journeyStage: "plan_assigned",
+      hydrationTrackingEnabled: true,
       activePlanContext: {
         name: "Mes 1 · Adaptación",
         currentWeek: 1,
@@ -289,9 +290,15 @@ describe("MobileDailyPlan", () => {
     expect(screen.queryByText("Vinculado como tu coach")).toBeNull();
     expect(screen.queryByText("Próximo paso")).toBeNull();
     expect(screen.queryByText("Solicitado por tu coach")).toBeNull();
-    expect(screen.getByText("Registros opcionales")).toBeVisible();
+    expect(screen.getByText("Registros asignados")).toBeVisible();
     expect(screen.getAllByRole("button", { name: /Peso/ })).toHaveLength(1);
     expect(screen.getByRole("button", { name: /Hidratación/ })).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Registros opcionales" }),
+    ).toContainElement(screen.getByRole("button", { name: /Hidratación/ }));
+    expect(
+      screen.getByRole("region", { name: "Seguimiento de hoy" }),
+    ).not.toContainElement(screen.getByRole("button", { name: /Hidratación/ }));
     expect(screen.queryByText("3 accesos")).toBeNull();
     expect(screen.queryByText("Otros registros")).toBeNull();
     expect(workoutAction).toBeVisible();
@@ -334,11 +341,11 @@ describe("MobileDailyPlan", () => {
     expect(onOpenPlan).toHaveBeenCalledTimes(1);
   });
 
-  it("muestra el trabajo muscular debajo de las misiones y los registros al final", async () => {
+  it("muestra el trabajo muscular y los registros libres del atleta independiente", async () => {
     const onOpenTrackingMission = vi.fn();
     const onOpenHydration = vi.fn();
     renderPlan({
-      journeyStage: "plan_assigned",
+      hydrationTrackingEnabled: true,
       workoutSeries: [
         {
           key: "session-1",
@@ -477,6 +484,151 @@ describe("MobileDailyPlan", () => {
 
     expect(onOpenWeighIn).toHaveBeenCalledTimes(1);
     expect(onOpenTrackingMission).not.toHaveBeenCalledWith("weight");
+  });
+
+  it("mantiene la card visual de peso asignado disponible antes de su próxima fecha", async () => {
+    const onOpenWeighIn = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      trackingMissions: [
+        {
+          id: "weight",
+          type: "weight",
+          title: "Peso de seguimiento",
+          subtitle: "Registrar peso actual",
+          required: true,
+          completed: false,
+          dueToday: false,
+          nextDueDate: "2026-11-02",
+        },
+      ],
+      onOpenWeighIn,
+    });
+    const card = screen.getByRole("button", { name: /Peso de seguimiento/ });
+    expect(card.querySelector("img")).toHaveAttribute(
+      "src",
+      "/images/daily-weight-card.webp",
+    );
+    expect(card).toHaveTextContent("Próximo registro:");
+    expect(
+      within(card).getByText("Registrar peso", { exact: true }),
+    ).toBeVisible();
+    expect(card).not.toHaveTextContent("Pendiente");
+    await userEvent.click(card);
+    expect(onOpenWeighIn).toHaveBeenCalledOnce();
+  });
+
+  it("muestra solo las tareas asignadas por el coach, incluidas las opcionales y completadas", async () => {
+    const onOpenTrackingMission = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      trackingMissions: [
+        {
+          id: "check_in",
+          type: "check_in",
+          title: "Check-in de bienestar",
+          subtitle: "Pendiente",
+          required: true,
+          completed: false,
+        },
+        {
+          id: "photos",
+          type: "photos",
+          title: "Fotos de progreso",
+          subtitle: "1 vista pendiente",
+          required: false,
+          completed: false,
+        },
+        {
+          id: "weight",
+          type: "weight",
+          title: "Peso de seguimiento",
+          subtitle: "70 kg registrados",
+          required: true,
+          completed: true,
+        },
+      ],
+      onOpenTrackingMission,
+    });
+    const tracking = screen.getByRole("region", { name: "Seguimiento de hoy" });
+    expect(within(tracking).getAllByRole("button")).toHaveLength(3);
+    expect(within(tracking).getByText("A tu elección")).toBeVisible();
+    expect(
+      within(tracking).getByRole("status", {
+        name: "Estado de los registros asignados",
+      }),
+    ).toHaveTextContent("1 de 3 registros guardados");
+    const completedCard = within(tracking).getByRole("button", {
+      name: /Completado: Peso de seguimiento/,
+    });
+    expect(completedCard).toHaveClass("is-completed");
+    expect(
+      within(completedCard).getByText("Editar peso", { exact: true }),
+    ).toBeVisible();
+    expect(
+      within(tracking).getByRole("button", {
+        name: /Pendiente: Fotos de progreso/,
+      }),
+    ).toHaveClass("is-pending");
+    expect(
+      within(tracking).getByRole("button", {
+        name: /Completado: Peso de seguimiento/,
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Medidas/ })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Registros opcionales" }),
+    ).toBeNull();
+    await userEvent.click(
+      within(tracking).getByRole("button", { name: /Check-in de bienestar/ }),
+    );
+    expect(onOpenTrackingMission).toHaveBeenCalledWith("check_in");
+    await userEvent.click(
+      within(tracking).getByRole("button", { name: /Fotos de progreso/ }),
+    );
+    expect(onOpenTrackingMission).toHaveBeenCalledWith("photos");
+  });
+
+  it("no añade tareas de seguimiento cuando el coach no las ha programado para hoy", () => {
+    renderPlan({
+      user: { role: "Cliente", assignedTrainerId: "coach" },
+      journeyStage: "plan_assigned",
+      trackingMissions: [],
+      hydrationTask: {
+        title: "Hidratación",
+        subtitle: "Registrar agua",
+        completed: false,
+      },
+    });
+    expect(
+      screen.queryByRole("region", { name: "Seguimiento de hoy" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Peso|Fotos|Medidas/ }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /Hidratación/ })).toBeNull();
+  });
+
+  it("permite al atleta elegir el agua como registro opcional sin añadirla a las tareas del coach", async () => {
+    const onSetHydrationTracking = vi.fn();
+    renderPlan({
+      journeyStage: "plan_assigned",
+      hydrationTask: {
+        title: "Hidratación",
+        subtitle: "Registrar agua",
+        completed: false,
+      },
+      onSetHydrationTracking,
+    });
+    expect(screen.queryByRole("button", { name: /Hidratación/ })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Registros asignados" }),
+    ).toBeNull();
+    await userEvent.click(screen.getByText("Elegir registros opcionales"));
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: "Mostrar registro de agua" }),
+    );
+    expect(onSetHydrationTracking).toHaveBeenCalledWith(true);
   });
 
   it("distingue un borrador de un plan programado", () => {
