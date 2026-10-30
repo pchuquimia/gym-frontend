@@ -3312,12 +3312,23 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         journeyStage={managedAthleteStage}
         planningContext={dashboardBootstrap.data?.planning || null}
         coach={managedCoach}
+        nutritionContent={
+          authUser?.role === "Cliente" && authUser?.assignedTrainerId ? (
+            <NutritionDiary compact onOpen={() => onNavigate("nutricion")} />
+          ) : null
+        }
         notifications={athleteNotificationsQuery.data?.notifications || []}
         notificationUnread={athleteNotificationsQuery.data?.unread || 0}
         onOpenNotification={(notification) => {
           if (notification.type === "coach_message" && notification.peerId) {
             sessionStorage.setItem("rirfit_message_peer", notification.peerId);
             onNavigate("coach_messages");
+          } else if (
+            ["plan_activated", "plan_scheduled"].includes(notification.type)
+          ) {
+            onNavigate("plan_progreso", {
+              progressPlanId: notification.entityId,
+            });
           }
         }}
         onReadNotifications={async () => {
@@ -3346,7 +3357,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         workoutSeries={workoutSeries}
         onOpenProfile={() => onNavigate("perfil")}
         onStartEvaluation={() => onNavigate("onboarding")}
-        onOpenCoach={() => onNavigate("perfil")}
         onOpenPlan={() =>
           onNavigate("plan_progreso", {
             progressPlanId: mobileActivePlanContext?.id,
@@ -3390,9 +3400,6 @@ function Dashboard({ onNavigate = () => {}, coachAthlete = null }) {
         }}
         onOpenWeighIn={() => setQuickWeightOpen(true)}
       />
-      {authUser?.role === "Cliente" && authUser?.assignedTrainerId ? (
-        <NutritionDiary compact onOpen={() => onNavigate("nutricion")} />
-      ) : null}
       <header className="dashboard-legacy-overview dashboard-pilot__header relative z-40 hidden items-center justify-between gap-3 border-b border-transparent pb-3 md:flex dark:border-[#252525] dark:pb-4">
         <div className="flex min-w-0 items-center gap-3">
           <MobileMenuButton />

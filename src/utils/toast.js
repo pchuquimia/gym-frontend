@@ -9,7 +9,9 @@ const replaceFeedback =
       .getHistory?.()
       ?.find((item) => item.id === FEEDBACK_ID);
     const clearedOptions = Object.fromEntries(
-      Object.keys(previous || {}).map((key) => [key, undefined]),
+      Object.keys(previous || {})
+        .filter((key) => !["id", "title", "message"].includes(key))
+        .map((key) => [key, undefined]),
     );
     const replacing = sonnerToast
       .getToasts?.()

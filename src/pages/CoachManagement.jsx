@@ -376,6 +376,8 @@ export default function CoachManagement({ onNavigate }) {
                       <div className="flex min-w-0 items-center gap-3">
                         <ProfileAvatar
                           photoId={coach.profile?.avatarPhotoId}
+                          avatarId={coach.profile?.avatarId}
+                          gender={coach.profile?.gender}
                           name={coach.name}
                           className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
                           fallbackClassName="bg-[color:var(--accent)] text-sm font-black text-[color:var(--accent-contrast)]"
@@ -472,6 +474,8 @@ export default function CoachManagement({ onNavigate }) {
                     <div className="flex min-w-0 items-center gap-3">
                       <ProfileAvatar
                         photoId={item.profile?.avatarPhotoId}
+                        avatarId={item.profile?.avatarId}
+                        gender={item.profile?.gender}
                         name={item.name}
                         className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
                         fallbackClassName="bg-[color:var(--accent)] text-sm font-black text-[color:var(--accent-contrast)]"

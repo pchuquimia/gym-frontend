@@ -114,12 +114,21 @@ for (const trainingMode of ["coach_managed", "independent"]) {
         page.getByRole("heading", { name: "Mi alimentación", exact: true }),
       ).toBeVisible();
       const mobile = (page.viewportSize()?.width || 0) < 1024;
-      if (mobile)
+      if (mobile && trainingMode !== "coach_managed")
         await page.getByRole("button", { name: "Más", exact: true }).click();
       await expect(
-        page.getByRole("button", { name: /Mensajes/ }),
+        page
+          .getByRole("button", { name: /Mensajes/ })
+          .filter({ visible: true }),
       ).toBeVisible();
-      if (mobile)
+      if (mobile && trainingMode === "coach_managed")
+        await expect(
+          page
+            .getByRole("navigation")
+            .filter({ visible: true })
+            .getByRole("button", { name: "Progreso", exact: true }),
+        ).toHaveCount(0);
+      if (mobile && trainingMode !== "coach_managed")
         await page
           .getByRole("button", { name: "Cerrar menu principal" })
           .click();
@@ -147,8 +156,12 @@ for (const trainingMode of ["coach_managed", "independent"]) {
         fullPage: true,
       });
       if (mobile) {
-        await page.getByRole("button", { name: /Más/ }).click();
-        await page.getByRole("button", { name: /Mensajes/ }).click();
+        if (trainingMode !== "coach_managed")
+          await page.getByRole("button", { name: /Más/ }).click();
+        await page
+          .getByRole("button", { name: /Mensajes/ })
+          .filter({ visible: true })
+          .click();
         await page.getByRole("button", { name: /Diego Coach/ }).click();
       } else
         await page
@@ -190,6 +203,7 @@ for (const role of ["Entrenador", "Cliente"]) {
       id: role === "Entrenador" ? "athlete" : "coach",
       name: role === "Entrenador" ? "Ana Alumna" : "Diego Coach",
       role: role === "Entrenador" ? "Cliente" : "Entrenador",
+      avatarId: role === "Entrenador" ? "gym-04" : "gym-01",
     };
     const messages = [
       {
@@ -268,10 +282,47 @@ for (const role of ["Entrenador", "Cliente"]) {
     await expect(
       page.getByRole("heading", { name: "Mensajes", exact: true }),
     ).toBeVisible();
+    const pageHeader = page.locator(
+      ".messages-page > .mobile-page-header--main",
+    );
+    await expect(pageHeader).toBeVisible();
+    await expect(
+      page.locator(".messenger__contacts [data-avatar-id]"),
+    ).toHaveAttribute("data-avatar-id", peer.avatarId);
+    await expect(page.getByText("RIRFIT CONNECT", { exact: true })).toHaveCount(
+      0,
+    );
+    expect(
+      await pageHeader
+        .getByRole("heading", { name: "Mensajes", exact: true })
+        .evaluate((element) => ({
+          size: getComputedStyle(element).fontSize,
+          weight: getComputedStyle(element).fontWeight,
+        })),
+    ).toEqual({ size: "32px", weight: "600" });
+    await page.screenshot({
+      path: testInfo.outputPath(`messages-list-${role}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    const listBounds = await page.locator(".messenger").boundingBox();
     await page.getByRole("button", { name: new RegExp(peer.name) }).click();
     await expect(
       page.getByRole("log").getByText("¿Revisamos el entrenamiento de mañana?"),
     ).toBeVisible();
+    await expect(pageHeader).toBeVisible();
+    await expect(
+      page.locator(".messenger__thread-header [data-avatar-id]"),
+    ).toHaveAttribute("data-avatar-id", peer.avatarId);
+    const chatBounds = await page.locator(".messenger").boundingBox();
+    expect(chatBounds.y).toBe(listBounds.y);
+    expect(chatBounds.height).toBe(listBounds.height);
+    if ((page.viewportSize()?.width || 0) < 768) {
+      const navigation = page.locator(".mobile-bottom-nav");
+      await expect(navigation).toBeVisible();
+      const navBounds = await navigation.boundingBox();
+      expect(chatBounds.y + chatBounds.height).toBeLessThan(navBounds.y);
+    }
     await page
       .getByLabel("Escribe un mensaje")
       .fill("Sí, revisemos las cargas y el horario.");

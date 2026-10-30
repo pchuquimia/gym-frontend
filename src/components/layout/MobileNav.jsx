@@ -191,7 +191,7 @@ function MobileNav({
     : user?.role === "Admin"
       ? ["dashboard", "registrar", "rutinas", "library"]
       : user?.trainingMode === "coach_managed"
-        ? ["dashboard", "registrar", "rutinas", "ejercicio_analitica"]
+        ? ["dashboard", "registrar", "rutinas", "coach_messages"]
         : ["dashboard", "registrar", "rutinas", "library"];
   const items = [
     ...primaryItemIds

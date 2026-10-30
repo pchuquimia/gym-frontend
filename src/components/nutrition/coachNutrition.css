@@ -1,0 +1,174 @@
+.nutrition-coach-page {
+  display: grid;
+  gap: 24px;
+  color: var(--text);
+}
+.nutrition-coach-page .nutrition-athlete-page__heading {
+  margin-bottom: 0;
+}
+.nutrition-coach-page button,
+.nutrition-coach-page select {
+  font-family: inherit;
+}
+.nutrition-coach__student {
+  display: grid;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.nutrition-coach__student select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+}
+.nutrition-coach__plan-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.nutrition-coach__plan-bar > div {
+  min-width: 0;
+}
+.nutrition-coach__plan-bar span,
+.nutrition-coach__plan-bar p {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.nutrition-coach__plan-bar h2 {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mobile-display-font);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.nutrition-coach__edit {
+  display: inline-flex;
+  min-height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 12px;
+  font-weight: 600;
+}
+.nutrition-coach__edit:focus-visible,
+.nutrition-coach__views button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.nutrition-coach__views {
+  display: flex;
+  gap: 4px;
+  width: fit-content;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+.nutrition-coach__views button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.nutrition-coach__views button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.nutrition-coach__empty {
+  padding: 36px 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  text-align: center;
+}
+.nutrition-coach__empty > div {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.nutrition-coach__empty img {
+  width: 70px;
+  height: 70px;
+  border: 4px solid var(--card);
+  border-radius: 50%;
+  object-fit: cover;
+}
+.nutrition-coach__empty img + img {
+  margin-left: -14px;
+}
+.nutrition-coach__empty h2,
+.nutrition-coach__history h2 {
+  font-family: var(--mobile-display-font);
+  font-size: 18px;
+  font-weight: 600;
+}
+.nutrition-coach__empty p {
+  max-width: 32ch;
+  margin: 10px auto 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.nutrition-coach__history {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+}
+.nutrition-coach__history h2 {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.nutrition-coach__history-day {
+  display: grid;
+  grid-template-columns: auto minmax(40px, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.nutrition-coach__history-day + .nutrition-coach__history-day {
+  border-top: 1px solid var(--border);
+}
+.nutrition-coach__history-day > div {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+.nutrition-coach__history-day i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.nutrition-coach__history-day small {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 380px) {
+  .nutrition-coach__plan-bar {
+    flex-wrap: wrap;
+  }
+  .nutrition-coach__edit {
+    width: 100%;
+  }
+}

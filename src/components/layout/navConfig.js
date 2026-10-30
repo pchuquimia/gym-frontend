@@ -228,9 +228,25 @@ export const managedClientSections = [
 
 const standardNavLinks = sections.flatMap((section) => section.items);
 const standardNavIds = new Set(standardNavLinks.map((item) => item.id));
+const standardLinkById = new Map();
+standardNavLinks.forEach((item) => {
+  const existing = standardLinkById.get(item.id);
+  standardLinkById.set(
+    item.id,
+    existing
+      ? {
+          ...item,
+          roles:
+            existing.roles && item.roles
+              ? [...new Set([...existing.roles, ...item.roles])]
+              : undefined,
+        }
+      : item,
+  );
+});
 
 export const navLinks = [
-  ...new Map(standardNavLinks.map((item) => [item.id, item])).values(),
+  ...standardLinkById.values(),
   ...coachSections
     .flatMap((section) => section.items)
     .filter((item) => !standardNavIds.has(item.id)),

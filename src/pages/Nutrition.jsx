@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Utensils } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
 import NutritionDiary from "../components/nutrition/NutritionDiary";
 import NutritionPlanEditor from "../components/nutrition/NutritionPlanEditor";
+import MobilePageHeader from "../components/layout/MobilePageHeader";
 import {
+  nutritionDate,
   nutritionTimezone,
-  nutritionSummary,
 } from "../components/nutrition/nutritionUtils";
+import "../components/nutrition/coachNutrition.css";
 
 function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
   const client = useQueryClient();
@@ -18,6 +20,7 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
   );
   const [editing, setEditing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [view, setView] = useState("today");
   const timezone = nutritionTimezone();
   const students = useQuery({
     queryKey: ["nutrition-athletes", user?.id || user?._id],
@@ -47,12 +50,29 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
   });
   const latest = query.data?.plans?.[0];
   const daily = query.data?.daily;
-  const meals = latest?.content?.meals || [];
-  const calories = nutritionSummary(meals)[0].planned;
+  const athlete = students.data?.find(
+    (item) => String(item.id || item._id) === selectedId,
+  );
+  const showLatest = view === "latest" || !daily?.plan;
+  const displayedPlan = showLatest ? latest : daily?.plan;
+  const displayedStartsOn =
+    displayedPlan?.startsOn ||
+    query.data?.plans?.find(
+      (plan) => String(plan._id) === String(displayedPlan?._id),
+    )?.startsOn;
+  const hasDifferentVersion =
+    latest && daily?.plan && String(latest._id) !== String(daily.plan._id);
+  const displayedDay = {
+    plan: displayedPlan,
+    day: showLatest ? null : daily?.day,
+    dateKey: showLatest ? latest?.startsOn : daily?.dateKey,
+    today: nutritionDate(),
+  };
   const changeAthlete = (id) => {
     setSelectedId(id);
     setEditing(false);
     setNotice("");
+    setView("today");
     save.reset();
     const athlete = students.data?.find(
       (item) => String(item.id || item._id) === id,
@@ -79,31 +99,21 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
     );
   }
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-5 pb-28 text-[color:var(--text)]">
-      <header>
-        <button
-          type="button"
-          onClick={() => onNavigate?.("coach_athletes")}
-          className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Alumnos
-        </button>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em]">
-          Alimentación
-        </h1>
-        <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-          Crea comidas completas y acompaña el cumplimiento diario de tu alumno.
-        </p>
-      </header>
-      <label className="block text-sm font-semibold">
+    <main className="nutrition-athlete-page nutrition-coach-page">
+      <MobilePageHeader
+        title="Alimentación"
+        variant="detail"
+        onBack={() => onNavigate?.("coach_athletes")}
+        mobileOnly={false}
+        className="nutrition-athlete-page__heading"
+      />
+      <label className="nutrition-coach__student">
         Alumno
         <select
           aria-label="Alumno para alimentación"
           value={selectedId}
           onChange={(event) => changeAthlete(event.target.value)}
           disabled={editing || save.isPending}
-          className="mt-2 h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-3 text-base"
         >
           <option value="">Selecciona un alumno</option>
           {(students.data || []).map((athlete) => (
@@ -137,9 +147,10 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
         </p>
       ) : null}
       {!selectedId ? (
-        <p className="py-8 text-sm text-[color:var(--text-muted)]">
-          Selecciona un alumno vinculado para gestionar su dieta.
-        </p>
+        <NutritionEmptyState
+          title="Elige un alumno"
+          description="Consulta sus comidas y acompaña su alimentación."
+        />
       ) : query.isPending ? (
         <p role="status">Cargando alimentación...</p>
       ) : query.isError ? (
@@ -158,102 +169,127 @@ function CoachNutrition({ coachAthlete, onNavigate, onSelectCoachAthlete }) {
         </div>
       ) : (
         <>
-          <section className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-[color:var(--text-muted)]">
-                  Última versión
-                </p>
-                <h2 className="mt-1 text-xl font-semibold">
-                  {latest?.content.name || "Aún sin dieta asignada"}
-                </h2>
-                {latest ? (
-                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    Desde {latest.startsOn} · {meals.length} comidas
-                    {calories !== null
-                      ? ` · ${calories} kcal planificadas`
-                      : ""}
-                  </p>
-                ) : null}
-              </div>
-              <Utensils className="h-6 w-6 shrink-0" />
+          <section
+            className="nutrition-coach__plan-bar"
+            aria-label="Plan asignado"
+          >
+            <div>
+              <span>{athlete?.name || coachAthlete?.name || "Tu alumno"}</span>
+              <h2>
+                {displayedPlan?.content.name || "Sin plan de alimentación"}
+              </h2>
+              {displayedStartsOn ? <p>Desde {displayedStartsOn}</p> : null}
             </div>
-            {meals.map((meal) => (
-              <div
-                key={meal.mealId}
-                className="border-t border-[color:var(--border)] pt-3"
-              >
-                <h3 className="text-sm font-semibold">
-                  {meal.name}
-                  {meal.time ? ` · ${meal.time}` : ""}
-                </h3>
-                <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                  {meal.foods
-                    .map((food) => `${food.name} (${food.quantity})`)
-                    .join(" · ")}
-                </p>
-              </div>
-            ))}
             <button
               type="button"
+              aria-label={
+                latest ? "Editar y asignar nueva versión" : "Crear dieta"
+              }
               onClick={() => {
                 save.reset();
                 setEditing(true);
                 setNotice("");
               }}
-              className="theme-accent-solid min-h-12 w-full rounded-xl px-4 text-sm font-semibold"
+              className="nutrition-coach__edit"
             >
-              {latest ? "Editar y asignar nueva versión" : "Crear dieta"}
+              {latest ? <Pencil size={16} /> : <Plus size={17} />}
+              {latest ? "Editar dieta" : "Crear dieta"}
             </button>
           </section>
-          <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5">
-            <h2 className="text-lg font-semibold">Cumplimiento de hoy</h2>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              {daily?.plan
-                ? `${daily.day?.completedMealIds?.length || 0} de ${daily.plan.content.meals.length} comidas completadas`
-                : "No hay una dieta disponible para hoy."}
-            </p>
-            {daily?.day ? (
-              <ul className="mt-3 space-y-2 text-sm">
-                {daily.plan.content.meals.map((meal) => (
-                  <li key={meal.mealId}>
-                    {daily.day.completedMealIds.includes(meal.mealId)
-                      ? "✓"
-                      : "○"}{" "}
-                    {meal.name}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <p className="mt-3 text-xs text-[color:var(--text-muted)]">
-              El alumno registra sus comidas desde su dashboard. Cada día
-              conserva la versión que utilizó al comenzar el registro.
-            </p>
-          </section>
-          {query.data.days.length ? (
-            <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5">
-              <h2 className="text-lg font-semibold">
-                Últimos días registrados
-              </h2>
-              <div className="mt-3 divide-y divide-[color:var(--border)]">
-                {query.data.days.map((day) => (
-                  <div
-                    key={day._id}
-                    className="flex justify-between gap-3 py-3 text-sm"
-                  >
+          {hasDifferentVersion && (
+            <div
+              className="nutrition-coach__views"
+              role="group"
+              aria-label="Versión de la dieta"
+            >
+              <button
+                type="button"
+                aria-pressed={view === "today"}
+                onClick={() => setView("today")}
+              >
+                Plan de hoy
+              </button>
+              <button
+                type="button"
+                aria-pressed={view === "latest"}
+                onClick={() => setView("latest")}
+              >
+                Última versión
+              </button>
+            </div>
+          )}
+          {displayedPlan ? (
+            <NutritionDiary
+              key={`${selectedId}-${displayedPlan._id}-${view}`}
+              readOnly
+              dayData={displayedDay}
+            />
+          ) : (
+            <NutritionEmptyState
+              title="Su alimentación empieza aquí"
+              description="Crea un plan con desayuno, almuerzo y cena adaptados a tu alumno."
+            />
+          )}
+          {query.data.days?.length ? (
+            <section
+              className="nutrition-coach__history"
+              aria-label="Últimos días registrados"
+            >
+              <h2>Últimos días registrados</h2>
+              {query.data.days.map((day) => {
+                const total = day.snapshot.meals.length;
+                const done = day.completedMealIds.length;
+                return (
+                  <div className="nutrition-coach__history-day" key={day._id}>
                     <span>{day.dateKey}</span>
-                    <span>
-                      {day.completedMealIds.length}/{day.snapshot.meals.length}{" "}
-                      comidas
-                    </span>
+                    <div
+                      role="progressbar"
+                      aria-label={`Comidas del ${day.dateKey}`}
+                      aria-valuemin={0}
+                      aria-valuemax={total}
+                      aria-valuenow={done}
+                    >
+                      <i
+                        style={{
+                          width: `${total ? Math.min(100, (done / total) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <small>
+                      {done}/{total}
+                    </small>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </section>
           ) : null}
         </>
       )}
     </main>
+  );
+}
+
+function NutritionEmptyState({ title, description }) {
+  return (
+    <section className="nutrition-coach__empty">
+      <div aria-hidden="true">
+        <img
+          src="/images/nutrition/breakfast.webp"
+          alt=""
+          width={80}
+          height={80}
+        />
+        <img src="/images/nutrition/lunch.webp" alt="" width={80} height={80} />
+        <img
+          src="/images/nutrition/dinner.webp"
+          alt=""
+          width={80}
+          height={80}
+        />
+      </div>
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </section>
   );
 }
 
@@ -263,18 +299,16 @@ export default function Nutrition(props) {
     return <CoachNutrition {...props} />;
   return (
     <main className="nutrition-athlete-page text-[color:var(--text)]">
-      <button
-        type="button"
-        onClick={() => props.onNavigate?.("dashboard")}
-        className="nutrition-athlete-page__back"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Inicio
-      </button>
-      <header className="nutrition-athlete-page__heading">
-        <h1>Mi alimentación</h1>
-        <p>Un día equilibrado, una comida a la vez.</p>
-      </header>
+      <MobilePageHeader
+        title="Mi alimentación"
+        variant="detail"
+        onBack={() => {
+          if (props.onBack) props.onBack("dashboard");
+          else props.onNavigate?.("dashboard");
+        }}
+        mobileOnly={false}
+        className="nutrition-athlete-page__heading"
+      />
       <NutritionDiary />
     </main>
   );

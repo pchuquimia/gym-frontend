@@ -1,23 +1,57 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../services/api";
+import { resolveProfileAvatar } from "../../utils/profileAvatars";
+import { UserRound } from "lucide-react";
 
-const getInitials = (name = "") =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
+function AvatarFallback({
+  name,
+  avatarId,
+  gender,
+  className = "",
+  fallbackClassName = "",
+}) {
+  const avatar = resolveProfileAvatar(avatarId, name, gender);
+  return (
+    <div className={`overflow-hidden ${className}`}>
+      <span
+        role="img"
+        aria-label={
+          avatar
+            ? `Avatar deportivo de ${name || "usuario"}`
+            : `Perfil de ${name || "usuario"}`
+        }
+        data-avatar-id={avatar?.id}
+        data-avatar-gender={avatar?.gender}
+        className={`grid h-full w-full place-items-center bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] ${fallbackClassName}`}
+        style={
+          avatar
+            ? {
+                backgroundImage: `url("${avatar.image}")`,
+                backgroundSize: "300% 200%",
+                backgroundPosition: avatar.position,
+                backgroundRepeat: "no-repeat",
+              }
+            : undefined
+        }
+      >
+        {!avatar && <UserRound className="h-1/2 w-1/2" aria-hidden="true" />}
+      </span>
+    </div>
+  );
+}
 
-export default function ProfileAvatar({
+function PhotoAvatar({
   photoId,
+  avatarId,
+  gender,
   name,
   className = "",
   imageClassName = "h-full w-full object-cover",
   fallbackClassName = "",
 }) {
   const [objectUrl, setObjectUrl] = useState("");
+  const [failedPhoto, setFailedPhoto] = useState(null);
   const avatarQuery = useQuery({
     queryKey: ["profile-avatar", String(photoId || "")],
     queryFn: () =>
@@ -51,22 +85,32 @@ export default function ProfileAvatar({
     };
   }, [avatarQuery.data]);
 
+  if (!objectUrl || failedPhoto === objectUrl)
+    return (
+      <AvatarFallback
+        name={name}
+        avatarId={avatarId}
+        gender={gender}
+        className={className}
+        fallbackClassName={fallbackClassName}
+      />
+    );
   return (
     <div className={`overflow-hidden ${className}`}>
-      {objectUrl ? (
-        <img
-          src={objectUrl}
-          alt={`Foto de ${name || "perfil"}`}
-          className={imageClassName}
-        />
-      ) : (
-        <span
-          aria-label={`Iniciales de ${name || "usuario"}`}
-          className={`grid h-full w-full place-items-center ${fallbackClassName}`}
-        >
-          {getInitials(name)}
-        </span>
-      )}
+      <img
+        src={objectUrl}
+        alt={`Foto de ${name || "perfil"}`}
+        className={imageClassName}
+        onError={() => setFailedPhoto(objectUrl)}
+      />
     </div>
+  );
+}
+
+export default function ProfileAvatar(props) {
+  return props.photoId ? (
+    <PhotoAvatar key={props.photoId} {...props} />
+  ) : (
+    <AvatarFallback {...props} />
   );
 }

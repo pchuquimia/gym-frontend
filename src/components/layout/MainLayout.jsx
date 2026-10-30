@@ -35,6 +35,7 @@ function MainLayout({
   const useDashboardChrome = activePage === "dashboard";
   const useDailyCheckInChrome = activePage === "check_in";
   const useHydrationChrome = activePage === "hidratacion";
+  const useNutritionChrome = activePage === "nutricion";
   const useCoachChrome =
     activePage === "trainer" ||
     activePage === "coach_athletes" ||
@@ -43,6 +44,7 @@ function MainLayout({
     useDashboardChrome ||
     useDailyCheckInChrome ||
     useHydrationChrome ||
+    useNutritionChrome ||
     activePage === "registrar" ||
     activePage === "rutinas" ||
     activePage === "library" ||
@@ -197,6 +199,7 @@ function MainLayout({
         useLibraryChrome ||
         useRoutinesChrome ||
         usePhotosChrome ||
+        useNutritionChrome ||
         useCoachChrome
       ? "max-lg:pb-28 max-lg:pt-0"
       : useProfileChrome || useSessionSummaryChrome
@@ -263,6 +266,7 @@ function MainLayout({
               useDashboardChrome ||
               useDailyCheckInChrome ||
               useHydrationChrome ||
+              useNutritionChrome ||
               useOnboardingChrome ||
               useProfileChrome ||
               useSessionSummaryChrome ||

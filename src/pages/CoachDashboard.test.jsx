@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -148,4 +148,45 @@ describe("invitaciones del administrador en modo coach", () => {
       screen.getAllByRole("button", { name: /Ana/ }).length,
     ).toBeGreaterThan(0);
   });
+
+  it.each(["trainer", "coach_athletes"])(
+    "actualiza los avatares en %s al volver a la ventana sin recargar la página",
+    async (pageId) => {
+      const athlete = {
+        id: "ana",
+        name: "Ana",
+        routineCount: 1,
+        trainingCount: 1,
+        profile: { avatarId: "gym-02", gender: "female" },
+      };
+      mockGetPortfolio.mockResolvedValue({ athletes: [athlete], summary: {} });
+      const { container, unmount } = render(
+        <QueryClientProvider client={new QueryClient()}>
+          <CoachDashboard pageId={pageId} />
+        </QueryClientProvider>,
+      );
+      await waitFor(() =>
+        expect(
+          container.querySelector('[data-avatar-id="gym-02"]'),
+        ).not.toBeNull(),
+      );
+      mockGetPortfolio.mockResolvedValue({
+        athletes: [
+          { ...athlete, profile: { ...athlete.profile, avatarId: "gym-18" } },
+        ],
+        summary: {},
+      });
+      fireEvent.focus(window);
+      await waitFor(() =>
+        expect(
+          container.querySelector('[data-avatar-id="gym-18"]'),
+        ).not.toBeNull(),
+      );
+      expect(container.querySelector('[data-avatar-id="gym-02"]')).toBeNull();
+      expect(mockGetPortfolio).toHaveBeenCalledTimes(2);
+      unmount();
+      fireEvent.focus(window);
+      expect(mockGetPortfolio).toHaveBeenCalledTimes(2);
+    },
+  );
 });

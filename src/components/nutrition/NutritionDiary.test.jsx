@@ -106,6 +106,49 @@ it("provides the dashboard a compact plan entry", async () => {
   expect(onOpen).toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "Día anterior" })).toBeNull();
 });
+it("shows the coach the athlete's meal records without fetching or changing their own diary", async () => {
+  wrap(<NutritionDiary readOnly dayData={data([mealId])} />);
+  expect(
+    screen.getByRole("img", { name: "Desayuno", exact: true }),
+  ).toHaveAttribute("src", "/images/nutrition/breakfast.webp");
+  expect(
+    screen.getByRole("img", { name: "Completada: Desayuno" }),
+  ).toBeVisible();
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+  expect(
+    screen.queryByRole("button", { name: /Completar|Desmarcar/ }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Día anterior" })).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Ver alimentos de Desayuno" }),
+  );
+  expect(screen.getByText("1 porción")).toBeVisible();
+  expect(mocks.day).not.toHaveBeenCalled();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
+it("lets the athlete expand and complete lunch directly on the compact dashboard", async () => {
+  const lunch = {
+    ...plan,
+    content: {
+      ...plan.content,
+      meals: [{ ...plan.content.meals[0], name: "Almuerzo" }],
+    },
+  };
+  mocks.day.mockResolvedValue({ ...data(), plan: lunch });
+  mocks.complete.mockResolvedValue({ ...data([mealId]), plan: lunch });
+  wrap(<NutritionDiary compact onOpen={vi.fn()} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Ver alimentos de Almuerzo" }),
+  );
+  expect(screen.getByText("Preparación del coach")).toBeVisible();
+  expect(screen.getByText("1 porción")).toBeVisible();
+  expect(screen.queryByText("ENERGÍA DE TU PLAN")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Completar Almuerzo" }));
+  expect(
+    await screen.findByRole("button", { name: "Desmarcar Almuerzo" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+});
 it("treats missing nutritional data as unknown instead of zero", () => {
   const summary = nutritionSummary(
     [

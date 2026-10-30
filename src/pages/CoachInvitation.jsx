@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import {
   ArrowRight,
@@ -9,18 +9,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import ProfileAvatar from "../components/profile/ProfileAvatar";
 import {
   clearCoachInvitation,
   storeCoachInvitation,
 } from "../utils/coachInvitation";
-
-const initials = (name = "") =>
-  String(name)
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "C";
 
 export default function CoachInvitation({ token, onNavigate = () => {} }) {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -29,10 +22,6 @@ export default function CoachInvitation({ token, onNavigate = () => {} }) {
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState("");
   const [transferRequired, setTransferRequired] = useState(false);
-  const coachInitials = useMemo(
-    () => initials(invitation?.coach?.name),
-    [invitation?.coach?.name],
-  );
 
   useEffect(() => {
     let active = true;
@@ -133,7 +122,12 @@ export default function CoachInvitation({ token, onNavigate = () => {} }) {
             Invitación privada
           </p>
           <div className="relative mx-auto mt-7 grid h-24 w-24 place-items-center rounded-full bg-[#191a19] text-2xl font-bold text-white shadow-[0_16px_38px_rgba(10,10,10,0.18)]">
-            {coachInitials}
+            <ProfileAvatar
+              avatarId={invitation?.coach?.avatarId}
+              gender={invitation?.coach?.gender}
+              name={coachName}
+              className="h-full w-full rounded-full"
+            />
             <span className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border-4 border-[#fbfaf6] bg-[#d9ef65] text-black">
               <Check className="h-4 w-4" strokeWidth={3} />
             </span>

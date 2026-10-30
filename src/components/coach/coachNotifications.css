@@ -1,0 +1,311 @@
+.coach-notifications__trigger {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text);
+}
+.coach-notifications__trigger > span {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 9px;
+  font-weight: 600;
+}
+.coach-notifications__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgb(0 0 0 / 24%);
+}
+.coach-notifications {
+  position: fixed;
+  right: 24px;
+  top: 76px;
+  z-index: 121;
+  display: flex;
+  width: min(400px, calc(100vw - 32px));
+  max-height: min(640px, calc(100dvh - 100px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 16%);
+  font-family: var(--mobile-ui-font, Inter, sans-serif);
+}
+.coach-notifications :is(h2, button) {
+  font-family: inherit;
+}
+.coach-notifications__handle {
+  display: none;
+}
+.coach-notifications__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 16px 6px 20px;
+}
+.coach-notifications__header > div {
+  min-width: 0;
+  flex: 1;
+}
+.coach-notifications__header h2 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.coach-notifications__header p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.coach-notifications__header button,
+.coach-notifications__mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+}
+.coach-notifications__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 16px 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.coach-notifications__toolbar > div {
+  display: flex;
+  gap: 5px;
+}
+.coach-notifications__toolbar > div button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.coach-notifications__toolbar button[aria-pressed="true"] {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+.coach-notifications__toolbar button span {
+  font-size: 10px;
+}
+.coach-notifications__mark {
+  color: var(--text-muted);
+}
+.coach-notifications__mark:disabled {
+  opacity: 0.3;
+}
+.coach-notifications__list {
+  min-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0 12px;
+}
+.coach-notifications__group > h2 {
+  padding: 14px 20px 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+.coach-notifications__item {
+  display: flex;
+  width: 100%;
+  min-height: 78px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 20px;
+  text-align: left;
+}
+.coach-notifications__item[data-unread="true"] {
+  background: color-mix(in srgb, var(--surface-subtle) 55%, transparent);
+}
+.coach-notifications__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text-muted);
+}
+.coach-notifications__icon.is-attention {
+  border-color: transparent;
+  background: #f8eedb;
+  color: #91651d;
+}
+.dark .coach-notifications__icon.is-attention {
+  background: #372c1c;
+  color: #e4b96e;
+}
+.coach-notifications__copy {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+.coach-notifications__copy strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coach-notifications__item[data-unread="true"] strong {
+  font-weight: 600;
+}
+.coach-notifications__copy > span {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coach-notifications__meta {
+  display: flex;
+  min-width: 35px;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  color: var(--text-muted);
+}
+.coach-notifications__meta time {
+  font-size: 10px;
+}
+.coach-notifications__meta i {
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--text);
+}
+.coach-notifications__empty {
+  display: grid;
+  min-height: 220px;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.coach-notifications__empty h2 {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 550;
+}
+.coach-notifications__empty p {
+  max-width: 26ch;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.coach-notifications__empty button {
+  min-height: 44px;
+  padding: 8px 16px;
+  color: var(--text);
+  font-size: 12px;
+  text-decoration: underline;
+}
+.coach-notifications__detail {
+  overflow-y: auto;
+  padding: 20px;
+}
+.coach-notifications__detail h2 {
+  margin-top: 18px;
+  font-size: 19px;
+  font-weight: 550;
+  letter-spacing: -0.025em;
+}
+.coach-notifications__detail > strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.coach-notifications__detail time {
+  display: block;
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.coach-notifications__detail p {
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.coach-notifications__open {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--card);
+  font-size: 12px;
+  font-weight: 500;
+}
+.coach-notifications__error {
+  padding: 10px 20px;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.coach-notifications button:focus-visible,
+.coach-notifications__trigger:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -3px;
+}
+@media (max-width: 639px) {
+  .coach-notifications {
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    max-height: 85dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-radius: 24px 24px 0 0;
+  }
+  .coach-notifications__handle {
+    display: block;
+    width: 32px;
+    height: 4px;
+    flex-shrink: 0;
+    margin: 10px auto 0;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .coach-notifications__header {
+    padding-top: 10px;
+  }
+}

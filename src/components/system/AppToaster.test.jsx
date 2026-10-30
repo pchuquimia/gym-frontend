@@ -8,6 +8,28 @@ afterEach(() => {
 });
 
 describe("AppToaster", () => {
+  it("mantiene el texto al mostrar otro error después de cerrar el aviso anterior", async () => {
+    render(<AppToaster />);
+    let id;
+    act(() => {
+      id = toast.error("Primer error");
+    });
+    expect(await screen.findByText("Primer error")).toBeVisible();
+    act(() => toast.dismiss(id));
+    await waitFor(() =>
+      expect(screen.queryByText("Primer error")).not.toBeInTheDocument(),
+    );
+    act(() =>
+      toast.error("No se pudo guardar Lower A", {
+        description: "Tu progreso sigue guardado en este dispositivo.",
+      }),
+    );
+    expect(await screen.findByText("No se pudo guardar Lower A")).toBeVisible();
+    expect(
+      screen.getByText("Tu progreso sigue guardado en este dispositivo."),
+    ).toBeVisible();
+    expect(toast.getToasts()[0].title).toBe("No se pudo guardar Lower A");
+  });
   it("reinicia la animación al sustituir sucesivamente el mismo aviso", async () => {
     render(<AppToaster />);
     act(() => toast.success("Activado"));
@@ -20,7 +42,9 @@ describe("AppToaster", () => {
 
     act(() => toast.success("Activado otra vez"));
     const third = await screen.findByText("Activado otra vez");
-    expect(third.closest("[data-sonner-toast]").className).not.toBe(secondClass);
+    expect(third.closest("[data-sonner-toast]").className).not.toBe(
+      secondClass,
+    );
     expect(document.querySelectorAll("[data-sonner-toast]")).toHaveLength(1);
     expect(screen.queryByText("Desactivado")).not.toBeInTheDocument();
   });

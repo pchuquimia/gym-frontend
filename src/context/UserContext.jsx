@@ -26,6 +26,8 @@ const defaultProfile = {
     community: false,
   },
   avatarPhotoId: "",
+  avatarId: "",
+  gender: "",
 };
 
 const defaultSecurity = {

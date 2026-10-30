@@ -24,7 +24,6 @@ const baseProps = {
   },
   onOpenProfile: vi.fn(),
   onStartEvaluation: vi.fn(),
-  onOpenCoach: vi.fn(),
   onOpenPlan: vi.fn(),
   onOpenCheckIn: vi.fn(),
   onOpenWorkout: vi.fn(),
@@ -45,6 +44,23 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it.each(["evaluation_pending", "plan_assigned"])(
+    "keeps the meal section in the daily workspace during %s",
+    (journeyStage) => {
+      renderPlan({
+        journeyStage,
+        nutritionContent: (
+          <section aria-label="Comidas de hoy">Almuerzo</section>
+        ),
+      });
+      expect(
+        within(
+          screen.getByRole("region", { name: "Tu plan del día" }),
+        ).getByRole("region", { name: "Comidas de hoy" }),
+      ).toBeVisible();
+      expect(screen.queryByText("Vinculado como tu coach")).toBeNull();
+    },
+  );
   it("muestra la notificación del coach y permite abrir su mensaje", async () => {
     const open = vi.fn();
     const read = vi.fn();
@@ -61,13 +77,21 @@ describe("MobileDailyPlan", () => {
       onReadNotifications: read,
       onOpenNotification: open,
     });
+    expect(screen.queryByText("Últimas novedades")).toBeNull();
+    expect(screen.queryByText(notification.message)).toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }),
     );
     expect(screen.getByText(notification.message)).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Ver mensaje" }));
+    expect(
+      screen.getByRole("dialog", { name: "Notificaciones" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: /Nuevo mensaje de tu coach/ }),
+    );
     expect(open).toHaveBeenCalledWith(notification);
     expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
   it("guía al usuario sin rutina hacia su primer entrenamiento", async () => {
     const onCreateRoutine = vi.fn();
@@ -196,9 +220,10 @@ describe("MobileDailyPlan", () => {
       screen.getByRole("button", { name: "Comenzar evaluación" }),
     ).toBeVisible();
     expect(screen.queryByText("Misión de hoy")).toBeNull();
-    expect(
-      container.querySelector(".mobile-daily-plan__onboarding-icon img"),
-    ).toHaveAttribute("src", "/images/daily-checkin-card.webp");
+    expect(container.querySelector(".managed-start__photo")).toHaveAttribute(
+      "src",
+      "/images/daily-checkin-card.webp",
+    );
   });
 
   it("confirma el envio mientras el coach prepara el plan", () => {
@@ -261,7 +286,7 @@ describe("MobileDailyPlan", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(screen.getAllByText("Mes 1 · Adaptación")).toHaveLength(1);
-    expect(screen.getByText("Vinculado como tu coach")).toBeVisible();
+    expect(screen.queryByText("Vinculado como tu coach")).toBeNull();
     expect(screen.queryByText("Próximo paso")).toBeNull();
     expect(screen.queryByText("Solicitado por tu coach")).toBeNull();
     expect(screen.getByText("Registros opcionales")).toBeVisible();

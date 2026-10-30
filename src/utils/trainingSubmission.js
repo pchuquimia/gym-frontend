@@ -43,9 +43,7 @@ export const hasRecordedTrainingData = (exercises = []) =>
   (Array.isArray(exercises) ? exercises : []).some((exercise) =>
     (Array.isArray(exercise?.sets) ? exercise.sets : []).some((set) => {
       const entries =
-        Array.isArray(set?.entries) && set.entries.length
-          ? set.entries
-          : [set];
+        Array.isArray(set?.entries) && set.entries.length ? set.entries : [set];
       return entries.some(
         (entry) =>
           entry?.done === true ||
@@ -70,3 +68,11 @@ export const getTrainingSaveErrorMessage = (error) => {
   }
   return "No se pudo guardar el entrenamiento. Intenta de nuevo; tu progreso no se perdio.";
 };
+
+export const isTrainingScheduleConfirmationRequired = (error) =>
+  (error?.status || error?.response?.status) === 409 &&
+  ((error?.code || error?.response?.data?.code) ===
+    "TRAINING_SCHEDULE_CONFIRMATION_REQUIRED" ||
+    /confirma.*dia distinto al planificado/.test(
+      normalizeText(error?.response?.data?.error || error?.message),
+    ));

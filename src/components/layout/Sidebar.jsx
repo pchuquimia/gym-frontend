@@ -240,6 +240,8 @@ function Sidebar({
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[color:var(--drawer-border)] bg-[color:var(--drawer-surface-hover)]">
               <ProfileAvatar
                 photoId={avatarPhotoId}
+                avatarId={profile?.avatarId || user?.profile?.avatarId}
+                gender={profile?.gender || user?.profile?.gender}
                 name={user?.name}
                 className="h-full w-full"
                 fallbackClassName="bg-[color:var(--drawer-surface-hover)] text-xs font-bold text-[color:var(--drawer-text)]"
@@ -414,6 +416,8 @@ function Sidebar({
         >
           <ProfileAvatar
             photoId={avatarPhotoId}
+            avatarId={profile?.avatarId || user?.profile?.avatarId}
+            gender={profile?.gender || user?.profile?.gender}
             name={user?.name}
             className="h-10 w-10 shrink-0 rounded-full"
             fallbackClassName="bg-[color:var(--accent)] font-bold text-[color:var(--accent-contrast)]"

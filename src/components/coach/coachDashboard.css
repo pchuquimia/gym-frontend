@@ -1,0 +1,451 @@
+.coach-home {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+  color: var(--text);
+  font-family: var(--mobile-ui-font);
+}
+.coach-home h1,
+.coach-home h2,
+.coach-home button,
+.coach-home input,
+.coach-athlete-row,
+.coach-pagination button {
+  font-family: var(--mobile-ui-font);
+}
+.coach-home__header,
+.coach-home__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.coach-home__header {
+  min-height: 84px;
+  padding-bottom: 16px;
+}
+.coach-home__header > div > span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.coach-home__header h1 {
+  font-size: clamp(26px, 5vw, 34px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.coach-home__icon-button {
+  display: grid;
+  width: 40px;
+  height: 44px;
+  place-items: center;
+  color: var(--text);
+  cursor: pointer;
+}
+.coach-home__profile {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  font-size: 12px;
+}
+.coach-home__activity > summary::-webkit-details-marker {
+  display: none;
+}
+.coach-home__hero,
+.coach-home__shortcut {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #272a27;
+  color: #fff;
+}
+.coach-home__hero > img,
+.coach-home__shortcut > img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.coach-home__hero::before,
+.coach-home__shortcut::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgb(0 0 0 / 72%), rgb(0 0 0 / 10%));
+  content: "";
+}
+.coach-home__hero > img {
+  object-position: center 5%;
+}
+.coach-home__hero-content {
+  display: flex;
+  min-height: 190px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 22px;
+}
+.coach-home__hero-content > span {
+  font-size: 9px;
+  font-weight: 550;
+  letter-spacing: 0.09em;
+  color: rgb(255 255 255 / 75%);
+}
+.coach-home__hero-content h2 {
+  max-width: 75%;
+  margin-top: 10px;
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: #fff;
+}
+.coach-home__hero-content > div {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+.coach-home__hero-content p {
+  max-width: 28ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 80%);
+}
+.coach-home__hero-content button {
+  display: inline-flex;
+  min-height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: 1px solid rgb(255 255 255 / 40%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  font-size: 12px;
+}
+.coach-home__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0 22px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.coach-home__metrics button {
+  display: flex;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text-muted);
+}
+.coach-home__metrics button + button {
+  border-left: 1px solid var(--border);
+}
+.coach-home__metrics strong {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+.coach-home__metrics span {
+  font-size: 11px;
+}
+.coach-home__metrics button[aria-pressed="true"] > span {
+  color: var(--text);
+}
+.coach-home__workspace,
+.coach-home__side {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  align-items: start;
+}
+.coach-home__panel {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.coach-home__panel > header {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.coach-home__panel h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.coach-home__panel h2 > small,
+.coach-home__panel > header > span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+.coach-home__panel > header > button,
+.coach-home__all-activity {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.coach-home__search {
+  position: relative;
+  display: block;
+}
+.coach-home__search svg {
+  position: absolute;
+  top: 14px;
+  left: 12px;
+  color: var(--text-muted);
+}
+.coach-home__search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px 10px 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+.coach-home__filters {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+.coach-home__filters button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.coach-home__filters button[aria-pressed="true"] {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+.coach-home__rows {
+  display: grid;
+  gap: 4px;
+}
+.coach-home__rows > p {
+  padding: 20px 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.coach-athlete-row {
+  display: grid;
+  width: 100%;
+  min-height: 60px;
+  min-width: 0;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+}
+.coach-home__rows .coach-athlete-row {
+  border-color: transparent;
+  background: transparent;
+}
+.coach-athlete-row:hover,
+.coach-athlete-row.is-selected,
+.coach-home__rows .coach-athlete-row:hover {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+.coach-athlete-row.is-blocked {
+  opacity: 0.45;
+}
+.coach-athlete-row__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  font-size: 11px;
+}
+.coach-athlete-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.coach-athlete-row__copy strong,
+.coach-athlete-row__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coach-athlete-row__copy strong {
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.2;
+}
+.coach-athlete-row__copy small {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.coach-athlete-row > svg {
+  color: var(--text-muted);
+}
+.coach-athlete-row__priority {
+  width: 6px;
+  height: 6px;
+  justify-self: center;
+  border-radius: 50%;
+  background: #d69c47;
+}
+.coach-athlete-row__priority.is-high {
+  background: #df5863;
+}
+.coach-pagination {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.coach-pagination > div {
+  display: flex;
+  align-items: center;
+}
+.coach-pagination button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 8px;
+}
+.coach-pagination button:disabled {
+  opacity: 0.3;
+}
+.coach-pagination button:hover:not(:disabled) {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+.coach-home__shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.coach-home__shortcut {
+  display: flex;
+  min-height: 108px;
+  align-items: flex-end;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: left;
+}
+.coach-home__shortcut::before {
+  background: linear-gradient(0deg, rgb(0 0 0 / 88%), rgb(0 0 0 / 10%));
+}
+.coach-home__shortcut > span {
+  display: grid;
+  gap: 5px;
+}
+.coach-home__shortcut strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.coach-home__shortcut small {
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgb(255 255 255 / 75%);
+}
+.coach-home__shortcut > svg {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+}
+.coach-home__activity > summary {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.coach-home__activity[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.coach-home__priority-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.coach-home__activity[open] .coach-home__priority-count > svg {
+  transform: rotate(90deg);
+}
+.coach-home button:focus-visible,
+.coach-home summary:focus-visible,
+.coach-athlete-row:focus-visible,
+.coach-pagination button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+.coach-directory-list {
+  display: grid;
+  gap: 6px;
+}
+@media (min-width: 900px) {
+  .coach-home__workspace {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+@media (max-width: 380px) {
+  .coach-home__header-actions {
+    gap: 0;
+  }
+  .coach-home__icon-button {
+    width: 32px;
+  }
+  .coach-home__hero-content {
+    padding: 18px;
+  }
+  .coach-home__hero-content p {
+    max-width: 14ch;
+    font-size: 11px;
+  }
+  .coach-home__hero-content button {
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+}

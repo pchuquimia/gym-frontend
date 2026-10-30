@@ -78,6 +78,7 @@ async function setup(
   initialPage = "nutricion",
   overrides = {},
   initialPlan = null,
+  fixtures = {},
 ) {
   await page.clock.setFixedTime(new Date(`${today}T16:00:00Z`));
   const user = { ...userFor(role), ...overrides };
@@ -85,6 +86,7 @@ async function setup(
   let storedPlan =
     initialPlan || (role === "Cliente" ? structuredClone(nutritionPlan) : null);
   let saved;
+  let notifications = fixtures.notifications || [];
   await page.addInitScript(
     ({ user, initialPage }) => {
       localStorage.setItem("active_page", initialPage);
@@ -105,6 +107,22 @@ async function setup(
       });
     if (path === "/api/auth/me") return json({ user });
     if (path === "/api/auth/dev-admin") return json({ error: "disabled" }, 401);
+    if (path.startsWith("/api/dashboard/bootstrap/") && fixtures.dashboard)
+      return json(fixtures.dashboard);
+    if (path === "/api/routines" && fixtures.dashboard)
+      return json(fixtures.dashboard.routines);
+    if (path === "/api/notifications/read") {
+      notifications = notifications.map((item) => ({
+        ...item,
+        readAt: new Date().toISOString(),
+      }));
+      return json({ ok: true });
+    }
+    if (path === "/api/notifications")
+      return json({
+        notifications,
+        unread: notifications.filter((item) => !item.readAt).length,
+      });
     if (path === "/api/coach/athletes")
       return json([{ id: "athlete", _id: "athlete", name: "Ana Alumna" }]);
     if (
@@ -120,11 +138,13 @@ async function setup(
       return json({ plan: storedPlan }, 201);
     }
     if (path === "/api/nutrition/athletes/athlete")
-      return json({
-        plans: storedPlan ? [storedPlan] : [],
-        daily: { plan: storedPlan, day: null, dateKey: today },
-        days: [],
-      });
+      return json(
+        fixtures.coachNutrition || {
+          plans: storedPlan ? [storedPlan] : [],
+          daily: { plan: storedPlan, day: null, dateKey: today },
+          days: [],
+        },
+      );
     if (path === "/api/users/coach-application" && req.method() === "POST") {
       const body = req.postDataJSON();
       user.coachApplication = {
@@ -237,13 +257,226 @@ const noOverflow = async (page) =>
     ),
   ).toBeLessThanOrEqual(1);
 
+const expectMealPhotos = async (card) => {
+  for (const [name, photo] of [
+    ["Desayuno", "breakfast"],
+    ["Almuerzo", "lunch"],
+    ["Cena", "dinner"],
+  ]) {
+    const image = card.getByRole("img", { name, exact: true });
+    await expect(image).toHaveAttribute(
+      "src",
+      `/images/nutrition/${photo}.webp`,
+    );
+    await expect
+      .poll(() => image.evaluate((element) => element.naturalWidth))
+      .toBeGreaterThan(0);
+  }
+};
+
+test("dashboard del alumno con coach muestra comidas compactas y notificaciones desde la campana", async ({
+  page,
+}, testInfo) => {
+  if (testInfo.project.name.includes("mobile")) {
+    await page.setViewportSize({ width: 360, height: 800 });
+  }
+  await setup(page, "Cliente", "dashboard", {}, null, {
+    notifications: [
+      {
+        _id: "notice-1",
+        type: "coach_message",
+        peerId: "coach",
+        title: "Nuevo mensaje de tu coach",
+        message: "Revisemos tu entrenamiento de mañana",
+        readAt: null,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  });
+  const hero = page.getByRole("region", { name: "Tu punto de partida" });
+  const mealsCard = page.getByRole("region", { name: "Comidas de hoy" });
+  await expect(hero).toBeVisible();
+  await expect(mealsCard).toBeVisible();
+  await expectMealPhotos(mealsCard);
+  await expect(page.getByText("Últimas novedades")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect((await hero.boundingBox()).height).toBeLessThanOrEqual(215);
+  expect((await mealsCard.boundingBox()).height).toBeLessThanOrEqual(330);
+  await expect(mealsCard.getByText("ENERGÍA DE TU PLAN")).toHaveCount(0);
+  await expect
+    .poll(() => hero.locator("img").evaluate((image) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  await mealsCard
+    .getByRole("button", { name: "Ver alimentos de Almuerzo" })
+    .click();
+  await expect(
+    mealsCard.getByRole("listitem").filter({ hasText: "Preparación A" }),
+  ).toBeVisible();
+  await mealsCard.getByRole("button", { name: "Completar Almuerzo" }).click();
+  await expect(
+    mealsCard.getByRole("button", { name: "Desmarcar Almuerzo" }),
+  ).toBeEnabled();
+  await expect(mealsCard.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "1",
+  );
+  await mealsCard
+    .getByRole("button", { name: "Ver alimentos de Almuerzo" })
+    .click();
+  await noOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("managed-dashboard-compact.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.screenshot({
+    path: testInfo.outputPath("managed-dashboard-compact-dark.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "Notificaciones, 1 sin leer" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Notificaciones" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Revisemos tu entrenamiento de mañana"),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("notification-center.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    mealsCard.getByRole("button", { name: "Desmarcar Almuerzo" }),
+  ).toBeVisible();
+});
+
+for (const dayType of ["training", "rest"]) {
+  test(`dashboard con plan activo permite completar comidas en día de ${dayType}`, async ({
+    page,
+  }, testInfo) => {
+    if (testInfo.project.name.includes("mobile")) {
+      await page.setViewportSize({ width: 360, height: 800 });
+    }
+    const routine = {
+      _id: "routine-upper",
+      name: "Torso A",
+      exercises: [],
+    };
+    await setup(
+      page,
+      "Cliente",
+      "dashboard",
+      {
+        coachIntake: {
+          status: "submitted",
+          coachId: "coach",
+          submittedAt: `${today}T12:00:00Z`,
+        },
+      },
+      null,
+      {
+        dashboard: {
+          ownerId: "athlete",
+          activePlan: {
+            _id: "training-plan",
+            name: "Plan de fuerza",
+            status: "active",
+            startDate: today,
+            durationWeeks: 8,
+            scheduleMode: "fixed",
+            weeklySchedule: [
+              {
+                dayIndex: 3,
+                type: dayType,
+                routineId: dayType === "training" ? routine._id : null,
+              },
+            ],
+          },
+          planning: { status: "active" },
+          followUp: { missions: [] },
+          routines: [routine],
+          profile: { profile: userFor("Cliente").profile },
+          preference: { branch: "sopocachi", goals: {} },
+          trainings: { summaries: [], details: [] },
+          dailyMetrics: [],
+        },
+      },
+    );
+    const workout = page.locator(".daily-workout");
+    const mealsCard = page.getByRole("region", { name: "Comidas de hoy" });
+    await expect(workout).toBeVisible();
+    await expect(workout).toContainText(
+      dayType === "training" ? "Torso A" : "Hoy toca descansar",
+    );
+    await expect(mealsCard).toBeVisible();
+    await expect(page.getByText("Últimas novedades")).toHaveCount(0);
+    const workoutBox = await workout.boundingBox();
+    const mealsBox = await mealsCard.boundingBox();
+    if (testInfo.project.name.includes("mobile")) {
+      expect(workoutBox.height).toBeLessThanOrEqual(245);
+      expect(mealsBox.y).toBeLessThan(500);
+    } else {
+      expect(Math.abs(workoutBox.y - mealsBox.y)).toBeLessThanOrEqual(1);
+      expect(mealsBox.x).toBeGreaterThan(workoutBox.x);
+    }
+    expect(
+      await mealsCard.evaluate((meals) =>
+        meals.previousElementSibling?.classList.contains("daily-workout"),
+      ),
+    ).toBe(true);
+    await mealsCard.getByRole("button", { name: "Completar Almuerzo" }).click();
+    await expect(
+      mealsCard.getByRole("button", { name: "Desmarcar Almuerzo" }),
+    ).toBeEnabled();
+    await noOverflow(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`managed-dashboard-${dayType}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.screenshot({
+      path: testInfo.outputPath(`managed-dashboard-${dayType}-dark.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+  });
+}
+
 test("el alumno completa comidas por día y ve el avance en el dashboard", async ({
   page,
 }, testInfo) => {
-  await setup(page, "Cliente");
+  await setup(page, "Cliente", "dashboard");
+  await page
+    .getByRole("region", { name: "Comidas de hoy" })
+    .getByRole("button", { name: "Ver plan" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Mi alimentación", exact: true }),
   ).toBeVisible();
+  const content = page.locator(".mobile-app-content");
+  await expect(
+    content.getByRole("button", { name: "Abrir menu principal", exact: true }),
+  ).toBeHidden();
+  await expect(
+    content.getByRole("button", { name: /Activar modo (claro|oscuro)/ }),
+  ).toBeHidden();
+  const heading = page.locator(".nutrition-athlete-page__heading");
+  await expect(heading.getByRole("button", { name: "Volver" })).toBeVisible();
+  await expect(heading.locator("p")).toHaveCount(0);
+  await expect(page.locator(".nutrition-athlete-page__back")).toHaveCount(0);
+  expect(
+    await heading
+      .locator("h1")
+      .evaluate((element) => getComputedStyle(element).fontFamily),
+  ).toContain("Inter Tight");
+  await expectMealPhotos(page.getByRole("region", { name: "Mi alimentación" }));
   await page.getByRole("button", { name: "Ver alimentos de Desayuno" }).click();
   await expect(
     page.getByRole("listitem").filter({ hasText: "Preparación A" }),
@@ -272,12 +505,10 @@ test("el alumno completa comidas por día y ve el avance en el dashboard", async
   await expect(
     page.getByRole("button", { name: "Desmarcar Desayuno" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Inicio", exact: true })
-    .first()
-    .click();
+  await heading.getByRole("button", { name: "Volver" }).click();
   const card = page.getByRole("region", { name: "Comidas de hoy" });
   await expect(card).toBeVisible();
+  await expectMealPhotos(card);
   await expect(card.getByRole("progressbar")).toHaveAttribute(
     "aria-valuenow",
     "1",
@@ -346,6 +577,97 @@ async function addManualFood(page, mealName, foodName, quantity) {
   await expect(dialog).toHaveCount(0);
 }
 
+test("el coach ve las comidas del alumno con fotos y conserva su registro al revisar una versión futura", async ({
+  page,
+}, testInfo) => {
+  const activePlan = {
+    ...structuredClone(nutritionPlan),
+    _id: "active-diet",
+  };
+  const futurePlan = {
+    ...structuredClone(nutritionPlan),
+    _id: "next-diet",
+    startsOn: "2026-10-29",
+    content: {
+      ...structuredClone(nutritionPlan.content),
+      name: "Próximo plan",
+    },
+  };
+  await setup(page, "Entrenador", "nutricion", {}, futurePlan, {
+    coachNutrition: {
+      plans: [futurePlan, activePlan],
+      daily: {
+        plan: { _id: activePlan._id, content: activePlan.content },
+        day: { completedMealIds: [breakfast.mealId] },
+        dateKey: today,
+      },
+      days: [
+        {
+          _id: "record-1",
+          dateKey: today,
+          completedMealIds: [breakfast.mealId],
+          snapshot: activePlan.content,
+        },
+      ],
+    },
+  });
+  await page.getByLabel("Alumno para alimentación").selectOption("athlete");
+  const diary = page.getByRole("region", { name: "Alimentación del alumno" });
+  await expect(diary).toBeVisible();
+  await expectMealPhotos(diary);
+  await expect(diary.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "1",
+  );
+  await expect(
+    diary.getByRole("img", { name: "Completada: Desayuno" }),
+  ).toBeVisible();
+  await expect(
+    diary.getByRole("img", { name: "Pendiente: Almuerzo" }),
+  ).toBeVisible();
+  await expect(
+    diary.getByRole("button", { name: /Completar|Desmarcar/ }),
+  ).toHaveCount(0);
+  await diary
+    .getByRole("button", { name: "Ver alimentos de Almuerzo" })
+    .click();
+  await expect(diary.getByText("1 porción").first()).toBeVisible();
+  await noOverflow(page);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (dark) => document.documentElement.classList.toggle("dark", dark),
+      theme === "dark",
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`coach-nutrition-${theme}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+  }
+  await page
+    .getByRole("button", { name: "Última versión", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Próximo plan", exact: true }),
+  ).toBeVisible();
+  await expect(diary.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "0",
+  );
+  await expect(diary.getByText("Desde 29 de octubre")).toBeVisible();
+  await page.getByRole("button", { name: "Plan de hoy", exact: true }).click();
+  await expect(diary.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "1",
+  );
+  await page
+    .getByRole("button", { name: "Editar y asignar nueva versión" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Plan de comidas", exact: true }),
+  ).toBeVisible();
+});
+
 test("el coach crea una dieta dividida en comidas con macros opcionales", async ({
   page,
 }, testInfo) => {
@@ -374,7 +696,7 @@ test("el coach crea una dieta dividida en comidas con macros opcionales", async 
   expect(state.getSaved().meals).toHaveLength(3);
   expect(state.getSaved().meals[0].foods[0].calories).toBeNull();
   await expect(
-    page.getByRole("heading", { name: "Cumplimiento de hoy" }),
+    page.getByRole("heading", { name: "Plan de comidas", exact: true }),
   ).toBeVisible();
 });
 
@@ -614,7 +936,7 @@ test("el plan mantiene el diseño claro y oscuro y conserva los cambios al reord
   await expect(summary).toContainText("1065");
   for (const theme of ["light", "dark"]) {
     if (theme === "dark")
-      await page.getByRole("button", { name: "Activar modo oscuro" }).click();
+      await page.evaluate(() => document.documentElement.classList.add("dark"));
     await noOverflow(page);
     await page.screenshot({
       path: testInfo.outputPath(`meal-plan-${theme}.png`),

@@ -370,6 +370,8 @@ function CoachAssignedPlans({ plans, onOpen, createMenu }) {
             >
               <ProfileAvatar
                 photoId={plan.athlete?.avatarPhotoId}
+                avatarId={plan.athlete?.avatarId}
+                gender={plan.athlete?.gender}
                 name={plan.athlete?.name}
                 className="h-[72px] w-[72px] shrink-0 rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold"
               />
@@ -6481,6 +6483,8 @@ function Routines({
                       aria-label="Abrir perfil"
                     >
                       <ProfileAvatar
+                        avatarId={profile?.avatarId || user?.profile?.avatarId}
+                        gender={profile?.gender || user?.profile?.gender}
                         photoId={
                           profile?.avatarPhotoId || user?.profile?.avatarPhotoId
                         }
@@ -7526,6 +7530,7 @@ function Routines({
           templates={isCoach ? routines : []}
           planTemplates={planTemplates}
           initialData={editingPlan}
+          loadCoachSettings={isCoach}
           manageRoutinesSeparately={!isCoach}
           onSave={saveTrainingPlan}
           onClose={() => {

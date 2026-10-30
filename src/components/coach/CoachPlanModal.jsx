@@ -10,9 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
-  Copy,
   Dumbbell,
-  FilePlus2,
   FileText,
   Info,
   Minus,
@@ -25,13 +23,13 @@ import {
   Plus,
   Ruler,
   Scale,
-  Sparkles,
   Target,
   X,
 } from "lucide-react";
 import Button from "../ui/button";
 import ProfileAvatar from "../profile/ProfileAvatar";
 import PhotoViewSelector from "../shared/PhotoViewSelector";
+import { api } from "../../services/api";
 import "./CoachPlanModal.css";
 
 const DAY_NAMES = [
@@ -162,6 +160,11 @@ const createFixedSchedule = (frequency = 3) => {
     routineId: "",
   }));
 };
+
+const normalizeDayActivity = (day) =>
+  day.type === "training" || !day.type
+    ? { ...day, type: "training" }
+    : { ...day, type: "rest", focus: "", sourceRoutineId: "", routineId: "" };
 
 const mergeFollowUp = (value = {}) => {
   const mergeFrequency = (key) => {
@@ -297,24 +300,13 @@ function AthleteContext({ athlete, compact = false }) {
     <section
       className={`plan-editor__athlete flex items-center gap-3 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] ${compact ? "p-3" : "p-4"}`}
     >
-      {athlete?.profile?.avatarPhotoId ? (
-        <ProfileAvatar
-          photoId={athlete.profile.avatarPhotoId}
-          name={athlete?.name}
-          className={`${compact ? "h-12 w-12" : "h-14 w-14"} rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold`}
-        />
-      ) : (
-        <span
-          className={`grid ${compact ? "h-12 w-12" : "h-14 w-14"} shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold`}
-        >
-          {String(athlete?.name || "A")
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part[0]?.toUpperCase())
-            .join("")}
-        </span>
-      )}
+      <ProfileAvatar
+        photoId={athlete?.profile?.avatarPhotoId}
+        avatarId={athlete?.profile?.avatarId}
+        gender={athlete?.profile?.gender}
+        name={athlete?.name}
+        className={`${compact ? "h-12 w-12" : "h-14 w-14"} shrink-0 rounded-full bg-[color:var(--surface-subtle)] text-sm font-semibold`}
+      />
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-lg font-semibold tracking-[-0.03em]">
           {athlete?.name || "Alumno"}
@@ -431,7 +423,6 @@ function FollowUpCard({
   onEnabled,
   required,
   onRequired,
-  readOnly = false,
   children,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -444,8 +435,8 @@ function FollowUpCard({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          disabled={readOnly || !enabled}
-          aria-expanded={!readOnly && enabled ? expanded : false}
+          disabled={!enabled}
+          aria-expanded={enabled ? expanded : false}
           className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
         >
           <span
@@ -459,28 +450,22 @@ function FollowUpCard({
               {enabled ? subtitle : "Desactivado"}
             </span>
           </span>
-          {!readOnly && enabled ? (
+          {enabled ? (
             <ChevronDown
               className={`h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition-transform ${expanded ? "rotate-180" : ""}`}
             />
           ) : null}
         </button>
-        {readOnly ? (
-          <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-1 text-[10px] font-semibold text-[color:var(--text-muted)]">
-            General
-          </span>
-        ) : (
-          <Toggle
-            checked={enabled}
-            onChange={(next) => {
-              onEnabled(next);
-              if (next) setExpanded(true);
-            }}
-            label={`Activar ${title}`}
-          />
-        )}
+        <Toggle
+          checked={enabled}
+          onChange={(next) => {
+            onEnabled(next);
+            if (next) setExpanded(true);
+          }}
+          label={`Activar ${title}`}
+        />
       </div>
-      {!readOnly && enabled && expanded ? (
+      {enabled && expanded ? (
         <div className="border-t border-[color:var(--detail-row-divider)] px-4 pb-4 pt-3">
           {children}
           {typeof required === "boolean" ? (
@@ -506,7 +491,7 @@ export default function CoachPlanModal({
   initialPlanTemplateId = "",
   initialSource = "",
   initialData,
-  replacingPlan,
+  loadCoachSettings = true,
   manageRoutinesSeparately = false,
   assignedRoutines = [],
   onEditRoutine,
@@ -550,7 +535,6 @@ export default function CoachPlanModal({
   );
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const [selectedScheduleIndex, setSelectedScheduleIndex] = useState(0);
-  const [dayEditorOpen, setDayEditorOpen] = useState(false);
   const [dayDraft, setDayDraft] = useState(null);
   const [routinePickerOpen, setRoutinePickerOpen] = useState(false);
   const [routineSearch, setRoutineSearch] = useState("");
@@ -596,24 +580,44 @@ export default function CoachPlanModal({
       : initialData?.scheduleMode || requestedTemplate?.scheduleMode || "fixed",
   );
   const [notes, setNotes] = useState(initialData?.notes || "");
-  const [followUp, setFollowUp] = useState(() =>
-    mergeFollowUp(initialData?.followUp),
+  const [followUpDraft, setFollowUpDraft] = useState(() =>
+    initialData?.followUp?.useCoachDefaults === false
+      ? mergeFollowUp(initialData.followUp)
+      : null,
   );
+  const [needsCoachFollowUp] = useState(
+    loadCoachSettings &&
+      initialData?.followUp?.useCoachDefaults !== false &&
+      !initialData?.effectiveFollowUp,
+  );
+  const [coachFollowUp, setCoachFollowUp] = useState(
+    initialData?.effectiveFollowUp,
+  );
+  const [followUpLoading, setFollowUpLoading] = useState(needsCoachFollowUp);
+  const [followUpError, setFollowUpError] = useState("");
+  const [followUpAttempt, setFollowUpAttempt] = useState(0);
+  const followUp = followUpDraft || {
+    ...mergeFollowUp(coachFollowUp),
+    useCoachDefaults: true,
+  };
   const [schedule, setSchedule] = useState(() => {
     const value = initialData?.weeklySchedule?.length
       ? initialData.weeklySchedule
       : requestedTemplate?.weeklySchedule?.length
         ? requestedTemplate.weeklySchedule
         : createFixedSchedule(initialFrequency);
-    return value.map((day, index) => ({
-      dayIndex: index + 1,
-      slotId: day.slotId || `slot_${index + 1}`,
-      order: day.order || index + 1,
-      type: day.type || "training",
-      focus: day.focus || "",
-      sourceRoutineId: day.sourceRoutineId || "",
-      routineId: day.routineId || "",
-    }));
+    return value.map((item, index) => {
+      const day = normalizeDayActivity(item);
+      return {
+        dayIndex: index + 1,
+        slotId: day.slotId || `slot_${index + 1}`,
+        order: day.order || index + 1,
+        type: day.type || "training",
+        focus: day.focus || "",
+        sourceRoutineId: day.sourceRoutineId || "",
+        routineId: day.routineId || "",
+      };
+    });
   });
 
   const warning = intakeWarning(athlete);
@@ -669,11 +673,32 @@ export default function CoachPlanModal({
     startDate,
     scheduleMode,
     notes,
-    followUp,
+    followUp: followUpDraft,
     schedule,
   });
   const [initialSignature] = useState(signature);
   const dirty = signature !== initialSignature;
+
+  useEffect(() => {
+    if (!needsCoachFollowUp) return;
+    let active = true;
+    api
+      .getCoachWorkflowSettings()
+      .then((settings) => {
+        if (!active) return;
+        if (!settings?.followUp) throw new Error("Missing follow-up settings");
+        setCoachFollowUp(settings.followUp);
+        setFollowUpLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setFollowUpError("No se pudieron cargar tus tareas de seguimiento.");
+        setFollowUpLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [needsCoachFollowUp, followUpAttempt]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -700,15 +725,18 @@ export default function CoachPlanModal({
     setDurationWeeks(requestedTemplate.durationWeeks || 5);
     setScheduleMode(requestedTemplate.scheduleMode || "fixed");
     setSchedule(
-      (requestedTemplate.weeklySchedule || []).map((day, index) => ({
-        dayIndex: index + 1,
-        slotId: day.slotId || `slot_${index + 1}`,
-        order: day.order || index + 1,
-        type: day.type || "training",
-        focus: day.focus || "",
-        sourceRoutineId: day.sourceRoutineId || day.routineId || "",
-        routineId: "",
-      })),
+      (requestedTemplate.weeklySchedule || []).map((item, index) => {
+        const day = normalizeDayActivity(item);
+        return {
+          dayIndex: index + 1,
+          slotId: day.slotId || `slot_${index + 1}`,
+          order: day.order || index + 1,
+          type: day.type || "training",
+          focus: day.focus || "",
+          sourceRoutineId: day.sourceRoutineId || day.routineId || "",
+          routineId: "",
+        };
+      }),
     );
     setTemplatePickerOpen(false);
     // The requested catalog item is an initial navigation intent only.
@@ -722,9 +750,10 @@ export default function CoachPlanModal({
   };
 
   const updateFollowUp = (key, changes) =>
-    setFollowUp((current) => ({
-      ...current,
-      [key]: { ...current[key], ...changes },
+    setFollowUpDraft((current) => ({
+      ...(current || followUp),
+      useCoachDefaults: false,
+      [key]: { ...(current || followUp)[key], ...changes },
     }));
 
   const updateDay = (index, changes) =>
@@ -735,7 +764,7 @@ export default function CoachPlanModal({
               ...day,
               ...changes,
               ...(changes.type && changes.type !== "training"
-                ? { sourceRoutineId: "", routineId: "" }
+                ? { focus: "", sourceRoutineId: "", routineId: "" }
                 : {}),
             }
           : day,
@@ -781,18 +810,10 @@ export default function CoachPlanModal({
   const changeScheduleMode = (mode) => {
     if (mode !== scheduleMode) setPendingMode(mode);
   };
-  const openDayEditor = (index, changes = {}) => {
-    setSelectedScheduleIndex(index);
-    setDayDraft({ ...schedule[index], ...changes });
-    setRoutineSearch("");
-    setDayEditorOpen(true);
-  };
-
   const openRoutinePicker = (index, changes = {}) => {
     setSelectedScheduleIndex(index);
     setDayDraft({ ...schedule[index], ...changes, type: "training" });
     setRoutineSearch("");
-    setDayEditorOpen(false);
     setRoutinePickerOpen(true);
   };
 
@@ -833,7 +854,7 @@ export default function CoachPlanModal({
         ...current,
         ...Array.from({ length: nextLength - current.length }, (_, index) => ({
           dayIndex: current.length + index + 1,
-          type: "training",
+          type: "rest",
           focus: "",
           slotId: freshSlotId("cycle"),
           order: current.length + index + 1,
@@ -854,15 +875,18 @@ export default function CoachPlanModal({
     setDurationWeeks(template.durationWeeks || 5);
     setScheduleMode(template.scheduleMode || "fixed");
     setSchedule(
-      (template.weeklySchedule || []).map((day, index) => ({
-        dayIndex: index + 1,
-        slotId: freshSlotId(template.scheduleMode || "fixed"),
-        order: index + 1,
-        type: day.type || "training",
-        focus: day.focus || "",
-        sourceRoutineId: day.sourceRoutineId || day.routineId || "",
-        routineId: "",
-      })),
+      (template.weeklySchedule || []).map((item, index) => {
+        const day = normalizeDayActivity(item);
+        return {
+          dayIndex: index + 1,
+          slotId: freshSlotId(template.scheduleMode || "fixed"),
+          order: index + 1,
+          type: day.type || "training",
+          focus: day.focus || "",
+          sourceRoutineId: day.sourceRoutineId || day.routineId || "",
+          routineId: "",
+        };
+      }),
     );
     setTemplatePickerOpen(false);
     setStep(1);
@@ -870,47 +894,13 @@ export default function CoachPlanModal({
 
   const beginFromZero = () => {
     setSource("zero");
+    setTemplatePickerOpen(false);
     setSelectedPlanTemplateId("");
     setName("Nueva planificación");
     setGoal("Hipertrofia");
     setLevel("beginner");
     setScheduleMode("fixed");
     setSchedule(resetSchedule(createFixedSchedule(3), "fixed"));
-    setStep(1);
-  };
-
-  const beginQuickPlan = () => {
-    const nextGoal = profileGoal(athlete?.profile?.goal);
-    setSource("quick");
-    setSelectedPlanTemplateId("");
-    setName(suggestedPlanName(nextGoal));
-    setGoal(nextGoal);
-    setLevel(athlete?.profile?.experienceLevel || "beginner");
-    setScheduleMode("fixed");
-    setSchedule(resetSchedule(createFixedSchedule(initialFrequency), "fixed"));
-    setStep(1);
-  };
-
-  const duplicatePrevious = () => {
-    if (!replacingPlan) return;
-    setSource("previous");
-    setSelectedPlanTemplateId("");
-    setName(`${replacingPlan.name} · Continuación`);
-    setGoal(replacingPlan.goal || initialGoal);
-    setLevel(replacingPlan.level || level);
-    setDurationWeeks(replacingPlan.durationWeeks || 5);
-    setScheduleMode(replacingPlan.scheduleMode || "fixed");
-    setSchedule(
-      (replacingPlan.weeklySchedule || []).map((day, index) => ({
-        dayIndex: index + 1,
-        slotId: freshSlotId(replacingPlan.scheduleMode || "fixed"),
-        order: index + 1,
-        type: day.type || "training",
-        focus: day.focus || "",
-        sourceRoutineId: day.sourceRoutineId || "",
-        routineId: "",
-      })),
-    );
     setStep(1);
   };
 
@@ -995,121 +985,6 @@ export default function CoachPlanModal({
       setSaving(false);
     }
   };
-
-  const currentScheduleDay = dayDraft;
-  const chooseDayActivity = (type) => {
-    if (type === "training" && !manageRoutinesSeparately) {
-      openRoutinePicker(selectedScheduleIndex, {
-        ...(dayDraft || {}),
-        type: "training",
-      });
-      return;
-    }
-
-    updateDay(selectedScheduleIndex, {
-      ...(dayDraft || {}),
-      type,
-      ...(type !== "training"
-        ? { focus: "", sourceRoutineId: "", routineId: "" }
-        : {}),
-    });
-    setDayDraft(null);
-    setDayEditorOpen(false);
-  };
-
-  const dayEditorPanel = currentScheduleDay ? (
-    <div
-      data-testid="day-activity-backdrop"
-      className="plan-editor__day-activity-backdrop fixed inset-0 z-[105] grid place-items-center bg-black/45 p-5 backdrop-blur-[2px]"
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Elegir actividad del día"
-        className="plan-editor__day-activity relative w-full max-w-sm rounded-[24px] bg-[color:var(--bg)] p-5 shadow-2xl"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              {scheduleMode === "fixed"
-                ? DAY_NAMES[selectedScheduleIndex]
-                : `Día ${selectedScheduleIndex + 1}`}
-            </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em]">
-              ¿Qué actividad tendrá?
-            </h2>
-          </div>
-          <button
-            type="button"
-            aria-label="Cerrar selección de actividad"
-            onClick={() => {
-              setDayDraft(null);
-              setDayEditorOpen(false);
-            }}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-          Elige una opción para continuar.
-        </p>
-        <div className="mt-5 space-y-2.5">
-          {[
-            {
-              value: "training",
-              title: "Entrenamiento",
-              detail: "Seleccionar o cambiar la rutina",
-              Icon: Dumbbell,
-            },
-            {
-              value: "recovery",
-              title: "Recuperación activa",
-              detail: "Movilidad o actividad ligera",
-              Icon: Activity,
-            },
-            {
-              value: "rest",
-              title: "Descanso",
-              detail: "Día sin entrenamiento",
-              Icon: Moon,
-            },
-          ].map(({ value, title, detail, Icon }) => {
-            const selected = currentScheduleDay.type === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-label={`Elegir ${title}`}
-                aria-pressed={selected}
-                onClick={() => chooseDayActivity(value)}
-                className="plan-editor__day-activity-option flex min-h-[72px] w-full items-center gap-3 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left"
-              >
-                <span className="plan-editor__day-activity-icon grid h-11 w-11 shrink-0 place-items-center rounded-[12px]">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-sm font-semibold">
-                    {title}
-                  </strong>
-                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                    {detail}
-                  </span>
-                </span>
-                {selected ? (
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--plan-accent)] text-[color:var(--plan-on-accent)]">
-                    <Check className="h-4 w-4" />
-                  </span>
-                ) : (
-                  <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  ) : null;
 
   const routinePickerScreen = () => {
     const normalizedSearch = routineSearch.trim().toLocaleLowerCase();
@@ -1321,197 +1196,103 @@ export default function CoachPlanModal({
   );
 
   const sourceScreen = () => (
-    <div className="space-y-5">
-      <section className="flex min-h-[102px] items-center gap-4 rounded-[14px] border border-[color:var(--border)] bg-[color:var(--card)] p-3 shadow-[0_5px_18px_rgba(0,0,0,0.035)]">
-        {athlete?.profile?.avatarPhotoId ? (
-          <ProfileAvatar
-            photoId={athlete.profile.avatarPhotoId}
-            name={athlete?.name}
-            className="h-[76px] w-[76px] shrink-0 rounded-full bg-[color:var(--surface-subtle)] text-base font-semibold"
-          />
-        ) : (
-          <span className="grid h-[76px] w-[76px] shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-base font-semibold">
-            {String(athlete?.name || "A")
-              .split(" ")
-              .filter(Boolean)
-              .slice(0, 2)
-              .map((part) => part[0]?.toUpperCase())
-              .join("")}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-lg font-semibold tracking-[-0.035em]">
-            {athlete?.name || "Alumno"}
-          </h3>
-          <p className="mt-1 flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#181918]" />
-            Activa hoy
-          </p>
-          <p className="mt-1 truncate text-sm text-[color:var(--text-muted)]">
-            Objetivo ·{" "}
-            {GOALS.find(
-              ([value]) => value === profileGoal(athlete?.profile?.goal),
-            )?.[1] || "Por definir"}
-          </p>
-        </div>
-      </section>
-
-      <header>
-        <h1 className="text-[28px] font-semibold leading-[1.05] tracking-[-0.055em]">
-          ¿Cómo quieres empezar?
-        </h1>
-        <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-muted)]">
-          Elige una base y personalízala antes de asignar.
-        </p>
+    <div className="plan-create">
+      <AthleteContext athlete={athlete} compact />
+      <header className="plan-create__intro">
+        <h1>¿Cómo quieres empezar?</h1>
+        <p>Elige una base y personalízala para tu alumno.</p>
       </header>
-
-      <div className="space-y-3">
+      <div className="plan-create__choices">
         <button
           type="button"
-          aria-pressed={source === "zero"}
-          onClick={() => setSource("zero")}
-          className="flex min-h-[92px] w-full items-center gap-4 rounded-[13px] bg-[#191a19] p-4 text-left text-white shadow-[0_10px_28px_rgba(0,0,0,0.13)]"
+          onClick={beginFromZero}
+          className="plan-create__photo"
         >
-          <span className="grid h-12 w-12 shrink-0 place-items-center">
-            <FilePlus2 className="h-9 w-9" strokeWidth={1.8} />
+          <img
+            src="/images/daily-planning-card.webp"
+            alt=""
+            width={512}
+            height={512}
+          />
+          <span>
+            <strong>Crear planificación desde cero</strong>
+            <small>Organiza sus días, rutinas y seguimiento.</small>
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center justify-between gap-2">
-              <strong className="block text-base font-semibold">
-                Desde cero
-              </strong>
-              <span className="shrink-0 rounded-full bg-[#7cde94] px-2.5 py-1 text-[10px] font-semibold text-[#153c20]">
-                Recomendado
-              </span>
-            </span>
-            <span className="mt-1 block max-w-[220px] text-sm leading-5 text-white/75">
-              Control total de semanas, rutinas y seguimiento
-            </span>
-          </span>
+          <ArrowRight size={20} aria-hidden="true" />
         </button>
-
         <button
           type="button"
           onClick={() => setTemplatePickerOpen(true)}
-          className="flex min-h-[90px] w-full items-center gap-4 rounded-[13px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-[0_5px_18px_rgba(0,0,0,0.035)]"
+          className="plan-create__photo"
         >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-            <FileText className="h-7 w-7" strokeWidth={1.8} />
+          <img
+            src="/images/daily-plan-ready-card.webp"
+            alt=""
+            width={512}
+            height={512}
+          />
+          <span>
+            <strong>Usar una plantilla</strong>
+            <small>Adapta una planificación que ya tienes.</small>
           </span>
-          <span className="min-w-0 flex-1">
-            <strong className="block text-base font-semibold">
-              Usar plantilla
-            </strong>
-            <span className="mt-1 block text-sm leading-5 text-[color:var(--text-muted)]">
-              Parte de una estructura reutilizable
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={duplicatePrevious}
-          disabled={!replacingPlan}
-          className="flex min-h-[90px] w-full items-center gap-4 rounded-[13px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-[0_5px_18px_rgba(0,0,0,0.035)]"
-        >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-            <Copy className="h-7 w-7" strokeWidth={1.8} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <strong className="block text-base font-semibold">
-              Duplicar plan anterior
-            </strong>
-            <span className="mt-1 block text-sm leading-5 text-[color:var(--text-muted)]">
-              Conserva la estructura y luego ajusta
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={beginQuickPlan}
-          className="flex min-h-[90px] w-full items-center gap-4 rounded-[13px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left shadow-[0_5px_18px_rgba(0,0,0,0.035)]"
-        >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-            <Sparkles className="h-7 w-7" strokeWidth={1.8} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <strong className="block text-base font-semibold">
-              Plan rápido
-            </strong>
-            <span className="mt-1 block text-sm leading-5 text-[color:var(--text-muted)]">
-              Configura lo esencial en pocos pasos
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+          <ArrowRight size={20} aria-hidden="true" />
         </button>
       </div>
-
-      <p className="flex items-center justify-center gap-2 pb-1 pt-1 text-xs text-[color:var(--text-muted)]">
-        <Info className="h-4 w-4 shrink-0" /> Nada se asignará hasta que
-        confirmes.
+      <p className="plan-create__hint">
+        Podrás revisar todo antes de asignarlo.
       </p>
     </div>
   );
 
   const templateScreen = () => (
-    <div className="space-y-5">
-      <header>
-        <h1 className="text-xl font-semibold tracking-[-0.03em]">
-          Plantillas disponibles
-        </h1>
-        <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-          Se copiarán para que puedas personalizarlas para{" "}
-          {athlete?.name?.split(" ")[0]}.
+    <div className="plan-create">
+      <header className="plan-create__intro">
+        <h1>Plantillas disponibles</h1>
+        <p>
+          Elige una y personalízala para{" "}
+          {athlete?.name?.split(" ")[0] || "tu alumno"}.
         </p>
       </header>
       {planTemplates.length ? (
-        <div className="space-y-2">
+        <div className="plan-create__choices">
           {planTemplates.map((template) => (
             <button
               key={template._id || template.id}
               type="button"
               onClick={() => applyTemplate(template)}
-              className="flex min-h-20 w-full items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left"
+              className="plan-create__template"
             >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[14px] bg-[color:var(--surface-subtle)]">
-                <Dumbbell className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-sm font-semibold">
-                  {template.name}
-                </strong>
-                <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+              <span>
+                <strong>{template.name}</strong>
+                <small>
                   {template.durationWeeks} semanas ·{" "}
                   {
                     (template.weeklySchedule || []).filter(
                       (day) => day.type === "training",
                     ).length
                   }{" "}
-                  días
-                </span>
+                  días de entrenamiento
+                </small>
               </span>
-              <ChevronRight className="h-5 w-5" />
+              <ArrowRight size={20} aria-hidden="true" />
             </button>
           ))}
         </div>
       ) : (
-        <p className="rounded-[18px] bg-[color:var(--card)] p-6 text-center text-sm text-[color:var(--text-muted)]">
-          Todavía no tienes plantillas de planes.
-        </p>
+        <section className="plan-create__empty">
+          <h2>Todavía no tienes plantillas</h2>
+          <p>Crea tu primera planificación desde cero.</p>
+        </section>
       )}
       <button
         type="button"
         onClick={beginFromZero}
-        className="h-12 w-full rounded-[16px] border border-[color:var(--border-strong)] text-sm font-semibold"
+        className="plan-create__secondary"
       >
-        Continuar desde cero
+        Crear planificación desde cero
       </button>
     </div>
   );
-
   const generalScreen = () => (
     <div className="plan-editor__general space-y-5">
       <AthleteContext athlete={athlete} compact />
@@ -1650,7 +1431,8 @@ export default function CoachPlanModal({
             role="alert"
             className="mt-2 text-sm text-red-700 dark:text-red-300"
           >
-            La duración debe ser un número entero entre 1 y {maxDurationWeeks} semanas.
+            La duración debe ser un número entero entre 1 y {maxDurationWeeks}{" "}
+            semanas.
           </p>
         ) : null}
         {endDate ? (
@@ -1727,24 +1509,7 @@ export default function CoachPlanModal({
         </button>
       </div>
 
-      {scheduleMode === "fixed" ? (
-        <div className="flex items-center justify-between gap-2">
-          {schedule.map((day, index) => (
-            <button
-              key={day.slotId}
-              type="button"
-              aria-label={`Editar ${DAY_NAMES[index]}: ${day.type === "training" ? "Entrenar" : day.type === "recovery" ? "Recuperar" : "Descansar"}`}
-              aria-pressed={day.type === "training"}
-              onClick={() => {
-                openDayEditor(index);
-              }}
-              className={`grid h-11 w-11 place-items-center rounded-full text-sm font-semibold ${day.type === "training" ? "bg-[#181918] text-white" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"}`}
-            >
-              {DAY_SHORT[index]}
-            </button>
-          ))}
-        </div>
-      ) : (
+      {scheduleMode !== "fixed" ? (
         <div className="flex items-center justify-between rounded-[18px] bg-[color:var(--card)] p-3">
           <span>
             <strong className="block text-sm">Tamaño del ciclo</strong>
@@ -1772,8 +1537,30 @@ export default function CoachPlanModal({
             </button>
           </span>
         </div>
-      )}
-      <section>
+      ) : null}
+      <div
+        role="group"
+        aria-label="Días de entrenamiento"
+        className="grid grid-cols-7 gap-1"
+      >
+        {schedule.map((day, index) => (
+          <button
+            key={day.slotId}
+            type="button"
+            aria-label={`Entrenar ${scheduleMode === "fixed" ? DAY_NAMES[index] : `día ${index + 1}`}`}
+            aria-pressed={day.type === "training"}
+            onClick={() =>
+              updateDay(index, {
+                type: day.type === "training" ? "rest" : "training",
+              })
+            }
+            className={`grid min-h-11 min-w-0 place-items-center rounded-full text-sm font-semibold ${day.type === "training" ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"}`}
+          >
+            {scheduleMode === "fixed" ? DAY_SHORT[index] : index + 1}
+          </button>
+        ))}
+      </div>
+      <section aria-label="Agenda de la planificación">
         <div className="space-y-2">
           {schedule.map((day, index) => {
             const sourceRoutine = templates.find(
@@ -1784,26 +1571,44 @@ export default function CoachPlanModal({
               (item) => String(item.id || item._id) === String(day.routineId),
             );
             const routine = assignedRoutine || sourceRoutine;
-            if (scheduleMode === "fixed" && day.type !== "training")
-              return null;
+            if (day.type !== "training")
+              return (
+                <article
+                  key={day.slotId}
+                  aria-label={`${scheduleMode === "fixed" ? DAY_NAMES[index] : `Día ${index + 1}`}: Descanso`}
+                  className="plan-editor__session plan-editor__session--rest flex min-h-16 w-full items-center gap-3 rounded-[16px] border border-[color:var(--border)] bg-[color:var(--card)] p-3 text-left"
+                >
+                  <span className="plan-editor__day-badge">
+                    <span>
+                      {scheduleMode === "fixed"
+                        ? DAY_NAMES[index].slice(0, 3).toUpperCase()
+                        : `DÍA ${index + 1}`}
+                    </span>
+                    <Moon className="h-6 w-6" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm font-semibold">
+                      Descanso
+                    </strong>
+                    <span className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
+                      Sin entrenamiento
+                    </span>
+                  </span>
+                </article>
+              );
             return (
               <button
                 key={day.slotId}
                 type="button"
+                disabled={
+                  manageRoutinesSeparately && !(day.routineId && onEditRoutine)
+                }
                 onClick={() => {
                   if (day.routineId && onEditRoutine) {
                     onEditRoutine(assignedRoutine || routine, day);
                     return;
                   }
-                  if (
-                    day.type === "training" &&
-                    !day.sourceRoutineId &&
-                    !manageRoutinesSeparately
-                  ) {
-                    openRoutinePicker(index);
-                  } else {
-                    openDayEditor(index);
-                  }
+                  openRoutinePicker(index);
                 }}
                 aria-label={
                   day.type === "training" &&
@@ -1832,54 +1637,25 @@ export default function CoachPlanModal({
                 </span>
                 <span className="min-w-0 flex-1">
                   <strong className="block truncate text-sm font-semibold">
-                    {day.type !== "training"
-                      ? day.type === "recovery"
-                        ? "Recuperación"
-                        : "Descanso"
-                      : routine?.name ||
-                        day.focus ||
-                        (day.type === "training"
-                          ? "Seleccionar rutina"
-                          : day.type === "recovery"
-                            ? "Recuperación"
-                            : "Descanso")}
+                    {routine?.name || day.focus || "Entrenamiento"}
                   </strong>
                   <span className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
                     {routine
                       ? `${routine.exercises?.length || 0} ejercicios · ${routine.exerciseOrderMode === "groups" ? "Por grupos" : "Orden libre"}`
-                      : day.type === "training"
-                        ? manageRoutinesSeparately
-                          ? "Sesión del plan"
-                          : "Rutina pendiente"
-                        : "Sin entrenamiento"}
+                      : manageRoutinesSeparately
+                        ? "Sesión del plan"
+                        : "Selecciona una rutina"}
                   </span>
                 </span>
-                <ChevronRight className="h-5 w-5" />
+                {!manageRoutinesSeparately ||
+                (day.routineId && onEditRoutine) ? (
+                  <ChevronRight className="h-5 w-5" />
+                ) : null}
               </button>
             );
           })}
         </div>
       </section>
-      {scheduleMode === "fixed" &&
-      schedule.some((day) => day.type !== "training") ? (
-        <p className="plan-editor__rest flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
-          <Moon className="h-4 w-4 shrink-0" />
-          <span>
-            {schedule
-              .map((day, index) =>
-                day.type === "rest"
-                  ? DAY_NAMES[index].slice(0, 3).toLowerCase()
-                  : null,
-              )
-              .filter(Boolean)
-              .join(", ")}
-            {schedule.some((day) => day.type === "rest") ? " · Descanso" : ""}
-            {schedule.some((day) => day.type === "recovery")
-              ? " · Incluye recuperación"
-              : ""}
-          </span>
-        </p>
-      ) : null}
       {scheduleMode === "fixed" && trainingDays.length < 7 ? (
         <button
           type="button"
@@ -1888,11 +1664,7 @@ export default function CoachPlanModal({
               (day) => day.type !== "training",
             );
             if (nextIndex < 0) return;
-            if (manageRoutinesSeparately) {
-              openDayEditor(nextIndex, { type: "training" });
-            } else {
-              openRoutinePicker(nextIndex, { type: "training" });
-            }
+            updateDay(nextIndex, { type: "training" });
           }}
           className="plan-editor__add flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-dashed border-[color:var(--border-strong)] text-sm font-semibold"
         >
@@ -1908,7 +1680,7 @@ export default function CoachPlanModal({
       ) : null}
       <p className="flex items-center justify-center gap-2 text-xs text-[color:var(--text-muted)]">
         <Info className="h-4 w-4" />
-        Toca una sesión para editarla
+        Marca los días de entrenamiento. Los demás son descanso.
       </p>
     </div>
   );
@@ -1936,239 +1708,227 @@ export default function CoachPlanModal({
   const followUpScreen = () => (
     <div className="plan-editor__followup space-y-4">
       <AthleteContext athlete={athlete} compact />
-      <section className="plan-editor__source rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-3.5 shadow-sm">
-        <div
-          className="grid grid-cols-2 gap-1 rounded-xl bg-[color:var(--surface-subtle)] p-1"
-          role="group"
-          aria-label="Origen del seguimiento"
+      {followUpLoading ? (
+        <p
+          role="status"
+          className="py-4 text-sm text-[color:var(--text-muted)]"
         >
-          {[
-            [true, "General del coach"],
-            [false, "Personalizado"],
-          ].map(([value, label]) => (
-            <button
-              key={label}
-              type="button"
-              aria-pressed={followUp.useCoachDefaults === value}
-              onClick={() =>
-                setFollowUp((current) => ({
-                  ...current,
-                  useCoachDefaults: value,
-                }))
-              }
-              className={`min-h-11 rounded-lg px-2 text-sm font-semibold ${followUp.useCoachDefaults === value ? "bg-[color:var(--card)] shadow-sm" : "text-[color:var(--text-muted)]"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-[color:var(--text-muted)]">
-          {followUp.useCoachDefaults
-            ? "Hereda tus reglas generales y se mantiene actualizado"
-            : `Configuración exclusiva para ${athlete?.name?.split(" ")[0]}`}
+          Cargando tus tareas de seguimiento…
         </p>
-      </section>
-      <header className="plan-editor__followup-heading flex items-end justify-between gap-3 px-0.5">
-        <div className="min-w-0">
-          <h1 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            Tareas de seguimiento
-          </h1>
-          <p className="plan-editor__followup-hint mt-0.5 text-[11px] leading-4 text-[color:var(--text-muted)]">
-            {followUp.useCoachDefaults
-              ? "Consulta las tareas incluidas en el seguimiento general."
-              : "Activa una tarea y tócala para configurar su frecuencia."}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
-          {enabledFollowUpCount} activas
-        </span>
-      </header>
-      <div className="space-y-2.5">
-        <FollowUpCard
-          icon={ClipboardCheck}
-          title="Check-in"
-          subtitle={
-            followUp.checkIn.cadence === "workout_days"
-              ? "Cada día de entrenamiento"
-              : followUp.checkIn.cadence === "daily"
-                ? "Todos los días"
-                : `Cada semana, ${DAY_NAMES[(followUp.checkIn.weekdays?.[0] || 1) - 1]}`
-          }
-          enabled={followUp.checkIn.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) => updateFollowUp("checkIn", { enabled })}
-        >
-          <select
-            value={followUp.checkIn.cadence}
-            onChange={(event) =>
-              updateFollowUp("checkIn", { cadence: event.target.value })
-            }
-            className="min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+      ) : followUpError ? (
+        <div role="alert" className="space-y-2 text-sm">
+          <p>{followUpError}</p>
+          <button
+            type="button"
+            className="min-h-11 underline"
+            onClick={() => {
+              setFollowUpError("");
+              setFollowUpLoading(true);
+              setFollowUpAttempt((current) => current + 1);
+            }}
           >
-            <option value="workout_days">Días de entrenamiento</option>
-            <option value="daily">Todos los días</option>
-            <option value="weekly">Una vez por semana</option>
-          </select>
-          {followUp.checkIn.cadence === "weekly" ? (
-            <select
-              value={followUp.checkIn.weekdays?.[0] || 1}
-              onChange={(event) =>
-                updateFollowUp("checkIn", {
-                  weekdays: [Number(event.target.value)],
-                })
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <>
+          <header className="plan-editor__followup-heading flex items-end justify-between gap-3 px-0.5">
+            <div className="min-w-0">
+              <h1 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                Tareas de seguimiento
+              </h1>
+              <p className="plan-editor__followup-hint mt-0.5 text-[11px] leading-4 text-[color:var(--text-muted)]">
+                Ajusta tus tareas del perfil para este alumno.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--text-muted)]">
+              {enabledFollowUpCount} activas
+            </span>
+          </header>
+          <div className="space-y-2.5">
+            <FollowUpCard
+              icon={ClipboardCheck}
+              title="Check-in"
+              subtitle={
+                followUp.checkIn.cadence === "workout_days"
+                  ? "Cada día de entrenamiento"
+                  : followUp.checkIn.cadence === "daily"
+                    ? "Todos los días"
+                    : `Cada semana, ${DAY_NAMES[(followUp.checkIn.weekdays?.[0] || 1) - 1]}`
               }
-              className="mt-2 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+              enabled={followUp.checkIn.enabled}
+              onEnabled={(enabled) => updateFollowUp("checkIn", { enabled })}
             >
-              {WEEKDAY_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          ) : null}
-        </FollowUpCard>
-        <FollowUpCard
-          icon={Scale}
-          title="Peso"
-          subtitle={`${cadenceText(followUp.weight)}${(followUp.weight.frequencyUnit || "week") === "week" ? ` · ${DAY_NAMES[(followUp.weight.weekday || 1) - 1]}` : ""}`}
-          enabled={followUp.weight.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) => updateFollowUp("weight", { enabled })}
-          required={followUp.weight.required}
-          onRequired={(required) => updateFollowUp("weight", { required })}
-        >
-          <FrequencyEditor
-            value={followUp.weight}
-            onChange={(changes) => updateFollowUp("weight", changes)}
-            showWeekday
-          />
-        </FollowUpCard>
-        <FollowUpCard
-          icon={Camera}
-          title="Fotos de progreso"
-          subtitle={`${cadenceText(followUp.photos)} · ${followUp.photos.views.length} ${followUp.photos.views.length === 1 ? "vista" : "vistas"}`}
-          enabled={followUp.photos.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
-          required={followUp.photos.required}
-          onRequired={(required) => updateFollowUp("photos", { required })}
-        >
-          <FrequencyEditor
-            value={followUp.photos}
-            onChange={(changes) => updateFollowUp("photos", changes)}
-          />
-          <div className="mt-4">
-            <PhotoViewSelector
-              multiple
-              label="Vistas solicitadas"
-              hint="El alumno verá estas opciones al registrar su progreso."
-              options={PHOTO_VIEWS}
-              value={followUp.photos.views}
-              onChange={(views) => updateFollowUp("photos", { views })}
-            />
-          </div>
-        </FollowUpCard>
-        <FollowUpCard
-          icon={Ruler}
-          title="Medidas"
-          subtitle={cadenceText(followUp.measurements)}
-          enabled={followUp.measurements.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) => updateFollowUp("measurements", { enabled })}
-          required={followUp.measurements.required}
-          onRequired={(required) =>
-            updateFollowUp("measurements", { required })
-          }
-        >
-          <FrequencyEditor
-            value={followUp.measurements}
-            onChange={(changes) => updateFollowUp("measurements", changes)}
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {MEASUREMENT_FIELDS.map(([value, label]) => {
-              const selected = followUp.measurements.fields.includes(value);
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    updateFollowUp("measurements", {
-                      fields: selected
-                        ? followUp.measurements.fields.filter(
-                            (item) => item !== value,
-                          )
-                        : [...followUp.measurements.fields, value],
+              <select
+                value={followUp.checkIn.cadence}
+                onChange={(event) =>
+                  updateFollowUp("checkIn", { cadence: event.target.value })
+                }
+                className="min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
+              >
+                <option value="workout_days">Días de entrenamiento</option>
+                <option value="daily">Todos los días</option>
+                <option value="weekly">Una vez por semana</option>
+              </select>
+              {followUp.checkIn.cadence === "weekly" ? (
+                <select
+                  value={followUp.checkIn.weekdays?.[0] || 1}
+                  onChange={(event) =>
+                    updateFollowUp("checkIn", {
+                      weekdays: [Number(event.target.value)],
                     })
                   }
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
+                  className="mt-2 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)]"
                 >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </FollowUpCard>
-        <FollowUpCard
-          icon={Target}
-          title="Revisión del plan"
-          subtitle={`Cada ${followUp.review.intervalWeeks} semanas`}
-          enabled={followUp.review.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) => updateFollowUp("review", { enabled })}
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-[color:var(--text-muted)]">
-              Revisar cada (semanas)
-              <input
-                type="number"
-                min="1"
-                max="12"
-                value={followUp.review.intervalWeeks}
-                onChange={(event) =>
-                  updateFollowUp("review", {
-                    intervalWeeks: Number(event.target.value),
-                  })
-                }
-                className="mt-1 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+                  {WEEKDAY_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </FollowUpCard>
+            <FollowUpCard
+              icon={Scale}
+              title="Peso"
+              subtitle={`${cadenceText(followUp.weight)}${(followUp.weight.frequencyUnit || "week") === "week" ? ` · ${DAY_NAMES[(followUp.weight.weekday || 1) - 1]}` : ""}`}
+              enabled={followUp.weight.enabled}
+              onEnabled={(enabled) => updateFollowUp("weight", { enabled })}
+              required={followUp.weight.required}
+              onRequired={(required) => updateFollowUp("weight", { required })}
+            >
+              <FrequencyEditor
+                value={followUp.weight}
+                onChange={(changes) => updateFollowUp("weight", changes)}
+                showWeekday
               />
-            </label>
-            <label className="text-[11px] text-[color:var(--text-muted)]">
-              Avisarme antes (días)
-              <input
-                type="number"
-                min="0"
-                max="14"
-                value={followUp.review.leadDays}
-                onChange={(event) =>
-                  updateFollowUp("review", {
-                    leadDays: Number(event.target.value),
-                  })
-                }
-                className="mt-1 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+            </FollowUpCard>
+            <FollowUpCard
+              icon={Camera}
+              title="Fotos de progreso"
+              subtitle={`${cadenceText(followUp.photos)} · ${followUp.photos.views.length} ${followUp.photos.views.length === 1 ? "vista" : "vistas"}`}
+              enabled={followUp.photos.enabled}
+              onEnabled={(enabled) => updateFollowUp("photos", { enabled })}
+              required={followUp.photos.required}
+              onRequired={(required) => updateFollowUp("photos", { required })}
+            >
+              <FrequencyEditor
+                value={followUp.photos}
+                onChange={(changes) => updateFollowUp("photos", changes)}
               />
-            </label>
+              <div className="mt-4">
+                <PhotoViewSelector
+                  multiple
+                  label="Vistas solicitadas"
+                  hint="El alumno verá estas opciones al registrar su progreso."
+                  options={PHOTO_VIEWS}
+                  value={followUp.photos.views}
+                  onChange={(views) => updateFollowUp("photos", { views })}
+                />
+              </div>
+            </FollowUpCard>
+            <FollowUpCard
+              icon={Ruler}
+              title="Medidas"
+              subtitle={cadenceText(followUp.measurements)}
+              enabled={followUp.measurements.enabled}
+              onEnabled={(enabled) =>
+                updateFollowUp("measurements", { enabled })
+              }
+              required={followUp.measurements.required}
+              onRequired={(required) =>
+                updateFollowUp("measurements", { required })
+              }
+            >
+              <FrequencyEditor
+                value={followUp.measurements}
+                onChange={(changes) => updateFollowUp("measurements", changes)}
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {MEASUREMENT_FIELDS.map(([value, label]) => {
+                  const selected = followUp.measurements.fields.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        updateFollowUp("measurements", {
+                          fields: selected
+                            ? followUp.measurements.fields.filter(
+                                (item) => item !== value,
+                              )
+                            : [...followUp.measurements.fields, value],
+                        })
+                      }
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${selected ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-[color:var(--surface-subtle)]"}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FollowUpCard>
+            <FollowUpCard
+              icon={Target}
+              title="Revisión del plan"
+              subtitle={`Cada ${followUp.review.intervalWeeks} semanas`}
+              enabled={followUp.review.enabled}
+              onEnabled={(enabled) => updateFollowUp("review", { enabled })}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[11px] text-[color:var(--text-muted)]">
+                  Revisar cada (semanas)
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={followUp.review.intervalWeeks}
+                    onChange={(event) =>
+                      updateFollowUp("review", {
+                        intervalWeeks: Number(event.target.value),
+                      })
+                    }
+                    className="mt-1 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+                  />
+                </label>
+                <label className="text-[11px] text-[color:var(--text-muted)]">
+                  Avisarme antes (días)
+                  <input
+                    type="number"
+                    min="0"
+                    max="14"
+                    value={followUp.review.leadDays}
+                    onChange={(event) =>
+                      updateFollowUp("review", {
+                        leadDays: Number(event.target.value),
+                      })
+                    }
+                    className="mt-1 min-h-11 w-full rounded-xl bg-[color:var(--surface-subtle)] px-3 text-sm text-[color:var(--text)]"
+                  />
+                </label>
+              </div>
+            </FollowUpCard>
+            <FollowUpCard
+              icon={FileText}
+              title="Evaluación final"
+              subtitle="Al finalizar el bloque"
+              enabled={followUp.finalEvaluation.enabled}
+              onEnabled={(enabled) =>
+                updateFollowUp("finalEvaluation", { enabled })
+              }
+            >
+              <p className="text-xs leading-5 text-[color:var(--text-muted)]">
+                Se solicitará antes de preparar el siguiente bloque.
+              </p>
+            </FollowUpCard>
           </div>
-        </FollowUpCard>
-        <FollowUpCard
-          icon={FileText}
-          title="Evaluación final"
-          subtitle="Al finalizar el bloque"
-          enabled={followUp.finalEvaluation.enabled}
-          readOnly={followUp.useCoachDefaults}
-          onEnabled={(enabled) =>
-            updateFollowUp("finalEvaluation", { enabled })
-          }
-        >
-          <p className="text-xs leading-5 text-[color:var(--text-muted)]">
-            Se solicitará antes de preparar el siguiente bloque.
+          <p className="plan-editor__mission-hint rounded-[14px] bg-[#eeebe5] px-3 py-2.5 text-center text-xs font-medium text-[#514d46]">
+            Check-in, peso, fotos, medidas y evaluación aparecerán en las
+            misiones de {athlete?.name?.split(" ")[0]}. La revisión del plan es
+            un recordatorio privado para ti.
           </p>
-        </FollowUpCard>
-      </div>
-      <p className="plan-editor__mission-hint rounded-[14px] bg-[#eeebe5] px-3 py-2.5 text-center text-xs font-medium text-[#514d46]">
-        Check-in, peso, fotos, medidas y evaluación aparecerán en las misiones
-        de {athlete?.name?.split(" ")[0]}. La revisión del plan es un
-        recordatorio privado para ti.
-      </p>
+        </>
+      )}
     </div>
   );
 
@@ -2212,18 +1972,21 @@ export default function CoachPlanModal({
             </span>
             <span className="min-w-0 flex-1">
               <strong className="block text-sm font-semibold">
-                {enabledFollowUpCount} de 6 tareas activas
+                {followUpLoading
+                  ? "Cargando tareas…"
+                  : followUpError
+                    ? "Revisar tareas de seguimiento"
+                    : `${enabledFollowUpCount} de 6 tareas activas`}
               </strong>
               <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                {followUp.useCoachDefaults
-                  ? "Usa el seguimiento general del coach"
-                  : `Personalizado para ${athlete?.name?.split(" ")[0] || "el alumno"}`}
+                Ajusta las tareas para este alumno
               </span>
             </span>
             <span className="shrink-0 text-xs font-semibold">Editar</span>
             <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
           </span>
-          {activeFollowUpLabels.length ? (
+          {followUpLoading ||
+          followUpError ? null : activeFollowUpLabels.length ? (
             <span className="mt-3 flex flex-wrap gap-1.5 border-t border-[color:var(--detail-row-divider)] pt-3">
               {activeFollowUpLabels.map((label) => (
                 <span
@@ -2321,7 +2084,7 @@ export default function CoachPlanModal({
 
   return (
     <div
-      className={`coach-plan-page routines-shell ${isEditing ? "plan-editor" : ""} fixed inset-0 z-[90] bg-[color:var(--bg)]`}
+      className={`coach-plan-page routines-shell plan-editor fixed inset-0 z-[90] bg-[color:var(--bg)]`}
     >
       <div
         ref={dialogRef}
@@ -2354,7 +2117,7 @@ export default function CoachPlanModal({
                         : reviewScreen()}
           </div>
         </div>
-        {!templatePickerOpen && !routinePickerOpen ? (
+        {step > 0 && !templatePickerOpen && !routinePickerOpen ? (
           <footer className="plan-editor__footer shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg)] px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
             {saveError ? (
               <p
@@ -2410,14 +2173,6 @@ export default function CoachPlanModal({
                     </Button>
                   ) : null}
                 </div>
-              ) : null}
-              {step === 0 ? (
-                <Button
-                  className="h-12 min-w-0 flex-1 rounded-[8px]"
-                  onClick={beginFromZero}
-                >
-                  Continuar
-                </Button>
               ) : null}
               {!isEditing && step === 1 ? (
                 <Button
@@ -2482,7 +2237,6 @@ export default function CoachPlanModal({
         ) : null}
       </div>
 
-      {dayEditorOpen ? dayEditorPanel : null}
       {confirmCycleRemoval ? (
         <div className="fixed inset-0 z-[110] grid place-items-center bg-black/45 p-5">
           <section

@@ -4,9 +4,41 @@ import {
   getTrainingSaveErrorMessage,
   hasRecordedTrainingData,
   usesBodyweightLoad,
+  isTrainingScheduleConfirmationRequired,
 } from "./trainingSubmission";
 
 describe("training submission", () => {
+  test("reconoce la confirmación de fecha normalizada por el cliente HTTP y la respuesta original", () => {
+    expect(
+      isTrainingScheduleConfirmationRequired({
+        status: 409,
+        code: "TRAINING_SCHEDULE_CONFIRMATION_REQUIRED",
+      }),
+    ).toBe(true);
+    expect(
+      isTrainingScheduleConfirmationRequired({
+        response: {
+          status: 409,
+          data: { code: "TRAINING_SCHEDULE_CONFIRMATION_REQUIRED" },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isTrainingScheduleConfirmationRequired({
+        status: 409,
+        message: "Confirma que deseas entrenar un dia distinto al planificado",
+      }),
+    ).toBe(true);
+    expect(
+      isTrainingScheduleConfirmationRequired({
+        status: 409,
+        message: "Ya existe un entrenamiento",
+      }),
+    ).toBe(false);
+    expect(
+      isTrainingScheduleConfirmationRequired(new Error("Network Error")),
+    ).toBe(false);
+  });
   test("distingue una plantilla vacia de una serie registrada", () => {
     expect(
       hasRecordedTrainingData([
@@ -29,9 +61,9 @@ describe("training submission", () => {
 
   test("distingue peso vacio de cero confirmado en peso corporal", () => {
     const exercise = { name: "Fondos para pecho", weightBasis: "additional" };
-    expect(
-      getBodyweightCompletionIssue(exercise, { kg: "", reps: "10" }),
-    ).toBe("missing_weight");
+    expect(getBodyweightCompletionIssue(exercise, { kg: "", reps: "10" })).toBe(
+      "missing_weight",
+    );
     expect(
       getBodyweightCompletionIssue(exercise, { kg: "0", reps: "10" }),
     ).toBe("confirm_bodyweight");

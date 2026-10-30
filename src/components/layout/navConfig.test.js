@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { coachSections, managedClientSections, sections } from "./navConfig";
+import {
+  coachSections,
+  managedClientSections,
+  sections,
+  navLinks,
+} from "./navConfig";
 
 const visibleFor = (role) =>
   sections
@@ -13,6 +18,9 @@ const visibleFor = (role) =>
 
 describe("configuracion del menu lateral", () => {
   it("permite abrir Mensajes desde el menú de ambos tipos de atleta", () => {
+    expect(navLinks.find((item) => item.id === "coach_messages").roles).toEqual(
+      expect.arrayContaining(["Cliente", "Admin", "Entrenador"]),
+    );
     expect(visibleFor("Cliente").flatMap((section) => section.ids)).toContain(
       "coach_messages",
     );

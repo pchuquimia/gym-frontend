@@ -476,9 +476,10 @@ export function AuthProvider({ children }) {
       const data = await api.updateAccount(payload);
       const nextUser = normalizeUser(data);
       commitUser(nextUser);
+      queryClient.invalidateQueries({ queryKey: ["dashboard-bootstrap"] });
       return data;
     },
-    [commitUser],
+    [commitUser, queryClient],
   );
 
   const completeOnboarding = useCallback(

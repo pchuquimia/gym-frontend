@@ -30,6 +30,7 @@ import OperationLoader from "../components/system/OperationLoader";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import CoachAccessRequest from "../components/coach/CoachAccessRequest";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
+import { PROFILE_AVATARS, resolveProfileAvatar } from "../utils/profileAvatars";
 import {
   passwordStatus,
   validateEmail,
@@ -61,14 +62,6 @@ const locationModes = [
 
 const inputClass =
   "theme-accent-focus h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-3 text-base font-normal text-[color:var(--text)] outline-none transition disabled:opacity-60 dark:rounded-[3px]";
-
-const getInitials = (name = "") =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
 
 const localDateKey = (date) => {
   const year = date.getFullYear();
@@ -243,27 +236,32 @@ function SettingsSelectRow({
   );
 }
 
-function ProfileHero({ user, avatarPhotoId, stats, onChangePhoto }) {
+function ProfileHero({
+  user,
+  avatarPhotoId,
+  avatarId,
+  gender,
+  stats,
+  onChangePhoto,
+}) {
   return (
     <section className="profile-reference-hero-wrap lg:sticky lg:top-6">
       <div className="profile-reference-hero rounded-[1.75rem] border border-[color:var(--detail-module-border)] bg-[color:var(--card)] px-5 py-7 text-center shadow-xs dark:shadow-none lg:px-6 lg:py-8">
         <button
           type="button"
           onClick={onChangePhoto}
-          aria-label="Cambiar foto de perfil"
-          title="Cambiar foto de perfil"
+          aria-label="Cambiar foto o avatar"
+          title="Cambiar foto o avatar"
           className="group relative mx-auto grid h-24 w-24 shrink-0 place-items-center overflow-visible rounded-full bg-[#e7d5da] font-sans text-3xl font-semibold text-[#4a2630] outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--accent)] focus-visible:ring-offset-4 focus-visible:ring-offset-[color:var(--card)] lg:h-28 lg:w-28"
         >
-          {avatarPhotoId ? (
-            <ProfileAvatar
-              photoId={avatarPhotoId}
-              name={user?.name}
-              className="absolute inset-0 h-full w-full rounded-full overflow-hidden"
-              imageClassName="h-full w-full object-cover"
-            />
-          ) : (
-            getInitials(user?.name)
-          )}
+          <ProfileAvatar
+            photoId={avatarPhotoId}
+            avatarId={avatarId}
+            gender={gender}
+            name={user?.name}
+            className="absolute inset-0 h-full w-full rounded-full overflow-hidden"
+            imageClassName="h-full w-full object-cover"
+          />
           <span className="absolute bottom-0 right-0 z-10 grid h-8 w-8 place-items-center rounded-full border-2 border-[color:var(--detail-module-border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-xs transition group-hover:scale-105">
             <Camera className="h-4 w-4" strokeWidth={2} />
           </span>
@@ -503,12 +501,6 @@ export default function ProfileSettings({ onNavigate }) {
       ),
     [photos, user?.id],
   );
-  const draftAvatar = personalDraft
-    ? ownPhotos.find(
-        (photo) =>
-          String(photo.id || photo._id) === personalDraft.avatarPhotoId,
-      )
-    : null;
   const stats = {
     workouts: summaryLoading ? null : summary.workouts,
     streak: summaryLoading ? null : calculateStreak(summary.trainingDates),
@@ -534,6 +526,8 @@ export default function ProfileSettings({ onNavigate }) {
       weight: profile?.weight ?? "",
       height: profile?.height ?? "",
       avatarPhotoId: profile?.avatarPhotoId || "",
+      avatarId: profile?.avatarId || "",
+      gender: profile?.gender || "",
     });
     setPersonalErrors({});
     setPersonalState({ saving: false, message: "", tone: "" });
@@ -574,7 +568,9 @@ export default function ProfileSettings({ onNavigate }) {
       personalDraft.birthDate !== (profile?.birthDate || "") ||
       String(personalDraft.weight) !== String(profile?.weight ?? "") ||
       String(personalDraft.height) !== String(profile?.height ?? "") ||
-      personalDraft.avatarPhotoId !== (profile?.avatarPhotoId || ""));
+      personalDraft.avatarPhotoId !== (profile?.avatarPhotoId || "") ||
+      personalDraft.avatarId !== (profile?.avatarId || "") ||
+      personalDraft.gender !== (profile?.gender || ""));
 
   const hasLocationChanges =
     locationDraft &&
@@ -651,6 +647,13 @@ export default function ProfileSettings({ onNavigate }) {
         height:
           personalDraft.height === "" ? null : Number(personalDraft.height),
         avatarPhotoId: personalDraft.avatarPhotoId,
+        avatarId:
+          resolveProfileAvatar(
+            personalDraft.avatarId,
+            personalDraft.name,
+            personalDraft.gender,
+          )?.id || "",
+        gender: personalDraft.gender,
       };
       if (capabilities.emailChange) {
         accountPayload.email = personalDraft.email.trim();
@@ -1198,6 +1201,33 @@ export default function ProfileSettings({ onNavigate }) {
                   }
                 />
               </Field>
+              <Field id="profile-gender" label="Género">
+                <select
+                  id="profile-gender"
+                  name="gender"
+                  className={inputClass}
+                  value={personalDraft.gender}
+                  onChange={(event) => {
+                    const gender = event.target.value;
+                    updatePersonalField("gender", gender);
+                    updatePersonalField(
+                      "avatarId",
+                      resolveProfileAvatar(
+                        personalDraft.avatarId,
+                        personalDraft.name,
+                        gender,
+                      )?.id || "",
+                    );
+                  }}
+                >
+                  <option value="">Sin especificar</option>
+                  <option value="female">Mujer</option>
+                  <option value="male">Hombre</option>
+                </select>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  Se usa para asignarte un avatar correspondiente. Es opcional.
+                </p>
+              </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field
                   id="profile-weight"
@@ -1251,24 +1281,22 @@ export default function ProfileSettings({ onNavigate }) {
             </div>
           </Section>
           <div id="profile-photo-section" className="scroll-mt-4">
-            <Section title="Foto de perfil">
+            <Section title="Foto o avatar">
               <div className="space-y-4 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] text-lg font-black">
-                      {draftAvatar ? (
-                        <ProfileAvatar
-                          photoId={draftAvatar.id || draftAvatar._id}
-                          name={personalDraft.name}
-                          className="h-full w-full"
-                        />
-                      ) : (
-                        getInitials(personalDraft.name)
-                      )}
+                    <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-[color:var(--border)] bg-[color:var(--bg)] text-lg font-black">
+                      <ProfileAvatar
+                        photoId={personalDraft.avatarPhotoId}
+                        avatarId={personalDraft.avatarId}
+                        gender={personalDraft.gender}
+                        name={personalDraft.name}
+                        className="h-full w-full"
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-[color:var(--text)]">
-                        Tu foto
+                        Tu imagen de perfil
                       </p>
                       <p className="text-xs text-[color:var(--text-muted)]">
                         JPG, PNG o WebP. Maximo 5 MB.
@@ -1299,15 +1327,55 @@ export default function ProfileSettings({ onNavigate }) {
                     {photoUploadState.message}
                   </p>
                 ) : null}
-                <div className="grid grid-cols-4 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => updatePersonalField("avatarPhotoId", "")}
-                    aria-pressed={!personalDraft.avatarPhotoId}
-                    className={`grid aspect-square place-items-center rounded-lg border text-lg font-black dark:rounded-[3px] ${!personalDraft.avatarPhotoId ? "theme-accent-soft" : "border-[color:var(--border)] bg-[color:var(--bg)]"}`}
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium">
+                    Avatares deportivos
+                  </legend>
+                  <p className="mb-3 text-xs text-[color:var(--text-muted)]">
+                    {personalDraft.gender
+                      ? "9 opciones según tu género. Elige la que te represente."
+                      : "18 opciones. Indica tu género para recibir una asignación automática."}
+                  </p>
+                  <div
+                    className="grid grid-cols-3 gap-3 sm:grid-cols-6"
+                    role="group"
+                    aria-label="Elegir avatar deportivo"
                   >
-                    {getInitials(personalDraft.name)}
-                  </button>
+                    {PROFILE_AVATARS.filter(
+                      (avatar) =>
+                        !personalDraft.gender ||
+                        avatar.gender === personalDraft.gender,
+                    ).map((avatar) => {
+                      const selected =
+                        !personalDraft.avatarPhotoId &&
+                        resolveProfileAvatar(
+                          personalDraft.avatarId,
+                          personalDraft.name,
+                          personalDraft.gender,
+                        )?.id === avatar.id;
+                      return (
+                        <button
+                          key={avatar.id}
+                          type="button"
+                          aria-label={`Elegir ${avatar.label.toLowerCase()}`}
+                          aria-pressed={selected}
+                          onClick={() => {
+                            updatePersonalField("avatarPhotoId", "");
+                            updatePersonalField("avatarId", avatar.id);
+                          }}
+                          className={`aspect-square overflow-hidden rounded-full border-2 p-0.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${selected ? "border-[color:var(--text)]" : "border-transparent"}`}
+                        >
+                          <ProfileAvatar
+                            avatarId={avatar.id}
+                            name={avatar.label}
+                            className="h-full w-full rounded-full"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+                <div className="grid grid-cols-4 gap-3">
                   {ownPhotos.slice(0, 7).map((photo) => {
                     const id = String(photo.id || photo._id);
                     return (
@@ -1686,6 +1754,8 @@ export default function ProfileSettings({ onNavigate }) {
           <ProfileHero
             user={user}
             avatarPhotoId={profile?.avatarPhotoId}
+            avatarId={profile?.avatarId}
+            gender={profile?.gender}
             stats={stats}
             onChangePhoto={openPersonalPhoto}
           />

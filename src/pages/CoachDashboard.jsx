@@ -5,13 +5,11 @@ import {
   ArrowLeft,
   AlertTriangle,
   BarChart3,
-  Bell,
   CalendarPlus,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronRight,
-  ClipboardList,
   Copy,
   Dumbbell,
   FileText,
@@ -21,20 +19,14 @@ import {
   Pencil,
   Play,
   Plus,
-  MoreHorizontal,
   MoreVertical,
   MessageCircle,
   Search,
-  Scale,
-  Camera,
-  Ruler,
+  RefreshCw,
   SlidersHorizontal,
   Sparkles,
-  SquareCheckBig,
   Target,
   Trash2,
-  UserMinus,
-  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -45,6 +37,18 @@ import OperationLoader from "../components/system/OperationLoader";
 import PremiumGate from "../components/shared/PremiumGate";
 import ProfileAvatar from "../components/profile/ProfileAvatar";
 import CoachPlanModal from "../components/coach/CoachPlanModal";
+import CoachHome from "../components/coach/CoachHome";
+import CoachNotifications from "../components/coach/CoachNotifications";
+import {
+  AthletePhotoCard,
+  CoachAthleteHeader,
+  CoachAthleteSummary,
+  CoachAthleteFollowUp,
+} from "../components/coach/CoachAthleteProfile";
+import {
+  CoachAthleteRow,
+  CoachPagination,
+} from "../components/coach/CoachRoster";
 import { SessionHistory } from "./TrainingAdmin";
 import { useAuth } from "../context/AuthContext";
 import { useUserProfile } from "../context/UserContext";
@@ -75,17 +79,6 @@ const formatDate = (value) => {
         day: "numeric",
         month: "short",
       });
-};
-
-const formatNotificationDate = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("es-BO", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 };
 
 const getPlanEndDate = (plan) => {
@@ -144,14 +137,6 @@ const PLAN_STATUS_LABELS = {
   cancelled: "Archivado",
 };
 
-const initials = (name = "") =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "A";
-
 const compactName = (name = "") => {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "Alumno";
@@ -160,64 +145,13 @@ const compactName = (name = "") => {
 
 function AthleteRow({ athlete, selected, blocked = false, onClick }) {
   return (
-    <button
-      type="button"
+    <CoachAthleteRow
+      athlete={athlete}
+      selected={selected}
+      blocked={blocked}
       onClick={onClick}
-      aria-disabled={blocked}
-      className={`flex min-h-[72px] w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition dark:rounded-[3px] ${
-        selected
-          ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-[color:var(--accent-contrast)]"
-          : blocked
-            ? "cursor-not-allowed border-transparent opacity-45"
-            : "border-transparent hover:border-[color:var(--border)] hover:bg-[color:var(--bg)]"
-      }`}
-    >
-      <span
-        className={`grid h-11 w-11 shrink-0 place-items-center rounded-md text-sm font-black dark:rounded-[3px] ${
-          selected
-            ? "border border-current bg-transparent text-current"
-            : "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black"
-        }`}
-      >
-        {initials(athlete.name)}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span
-            className={`block min-w-0 flex-1 truncate text-sm font-black ${
-              selected ? "text-current" : "text-[color:var(--text)]"
-            }`}
-          >
-            {athlete.name}
-          </span>
-          {athlete.priority === "high" ? (
-            <span
-              className="h-2 w-2 shrink-0 rounded-full bg-red-500"
-              title="Requiere atencion"
-            />
-          ) : athlete.priority === "medium" ? (
-            <span
-              className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
-              title="Revisar seguimiento"
-            />
-          ) : null}
-        </span>
-        <span
-          className={`mt-0.5 block truncate text-xs font-semibold ${
-            selected ? "text-current/80" : "text-[color:var(--text-muted)]"
-          }`}
-        >
-          {athlete.trainingCount
-            ? `Ultima sesion ${formatDate(athlete.lastTraining?.date)}`
-            : "Sin sesiones registradas"}
-        </span>
-      </span>
-      <ChevronRight
-        className={`h-4 w-4 shrink-0 ${
-          selected ? "text-current" : "text-[color:var(--text-muted)]"
-        }`}
-      />
-    </button>
+      detail={athleteListDetail(athlete)}
+    />
   );
 }
 
@@ -238,54 +172,13 @@ const athleteListDetail = (athlete) => {
 };
 
 function MobileAthleteCard({ athlete, blocked = false, onClick }) {
-  const priority = athlete.priority || "normal";
-  const isAttention = priority === "high" || priority === "medium";
-  const trainedToday =
-    relativeTrainingDate(athlete.lastTraining?.date) === "Hoy";
-
   return (
-    <button
-      type="button"
+    <CoachAthleteRow
+      athlete={athlete}
+      blocked={blocked}
       onClick={onClick}
-      aria-disabled={blocked}
-      className={`grid min-h-[94px] w-full grid-cols-[64px_minmax(0,1fr)_24px] items-center gap-4 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 text-left shadow-[0_8px_28px_rgba(28,25,20,0.035)] transition-transform active:scale-[0.99] ${blocked ? "cursor-not-allowed opacity-45" : ""}`}
-    >
-      <ProfileAvatar
-        photoId={athlete.profile?.avatarPhotoId}
-        name={athlete.name}
-        className="h-16 w-16 rounded-full bg-[color:var(--surface-subtle)] text-[17px] font-semibold"
-      />
-      <span className="min-w-0">
-        <span className="flex items-center gap-2.5">
-          <strong className="truncate text-[21px] font-bold leading-tight tracking-[-0.035em]">
-            {compactName(athlete.name)}
-          </strong>
-          {isAttention ? (
-            <span
-              className={`h-3.5 w-3.5 shrink-0 rounded-full ${priority === "high" ? "bg-[#ef5862]" : "bg-amber-400"}`}
-              title={
-                priority === "high"
-                  ? "Requiere atención"
-                  : "Revisar seguimiento"
-              }
-            />
-          ) : trainedToday ? (
-            <CheckCircle2
-              className="h-[18px] w-[18px] shrink-0 fill-[#747875] text-white"
-              strokeWidth={2.8}
-              aria-label="Entrenamiento completado hoy"
-            />
-          ) : null}
-        </span>
-        <span className="mt-1 block truncate text-[15px] font-normal leading-snug text-[color:var(--text-muted)]">
-          {athleteListDetail(athlete)}
-        </span>
-      </span>
-      <ChevronRight
-        className="h-6 w-6 text-[color:var(--text-muted)]"
-        strokeWidth={1.8}
-      />
-    </button>
+      detail={athleteListDetail(athlete)}
+    />
   );
 }
 
@@ -418,13 +311,15 @@ const goalLabel = (value = "") => {
     general_fitness: "Mejorar su condición",
     maintenance: "Mantenimiento",
     mantenimiento: "Mantenimiento",
+    volumen: "Ganar masa muscular",
+    definicion: "Reducir grasa",
   };
   return labels[normalized.toLowerCase()] || normalized;
 };
 
 const activityImageFor = (routineName = "") => {
   const name = String(routineName).toLowerCase();
-  if (name.includes("upper")) return "/images/routine-upper.webp";
+  if (/upper|torso|superior/.test(name)) return "/images/routine-upper.webp";
   if (name.includes("push") || name.includes("empuje")) {
     return "/images/routine-push.webp";
   }
@@ -433,124 +328,6 @@ const activityImageFor = (routineName = "") => {
   }
   return "/images/routine-lower-a.webp";
 };
-
-function MobileAthleteProfileHeader({
-  athlete,
-  activeSession,
-  title = "Perfil del alumno",
-  planDetail = false,
-  onBack,
-  onMessage,
-  onEditPlan,
-  onRelease,
-  planActionLabel = "Editar plan",
-}) {
-  const lastActivityDays = daysSince(athlete.lastTraining?.date);
-  const activityLabel =
-    lastActivityDays === 0
-      ? "Entrenó hoy"
-      : lastActivityDays != null
-        ? `Último entreno hace ${lastActivityDays} ${lastActivityDays === 1 ? "día" : "días"}`
-        : "Alumno vinculado";
-  return (
-    <div className="lg:hidden">
-      <header className="grid h-14 grid-cols-[44px_minmax(0,1fr)_44px] items-center">
-        <button
-          type="button"
-          onClick={onBack}
-          className="grid h-11 w-11 place-items-center rounded-full transition-colors hover:bg-[color:var(--surface-subtle)]"
-          aria-label="Volver a alumnos"
-        >
-          <ArrowLeft className="h-7 w-7" strokeWidth={1.8} />
-        </button>
-        <h1 className="text-center text-[20px] font-semibold tracking-[-0.025em]">
-          {title}
-        </h1>
-        <details className="overflow-menu relative justify-self-end">
-          <summary
-            className="overflow-menu-trigger grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full [&::-webkit-details-marker]:hidden"
-            aria-label="Opciones del alumno"
-            title="Opciones del alumno"
-          >
-            <MoreHorizontal className="h-7 w-7" strokeWidth={2.2} />
-          </summary>
-          <div className="overflow-menu-panel absolute right-0 top-12 z-30 w-56">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.currentTarget.closest("details")?.removeAttribute("open");
-                onRelease();
-              }}
-              disabled={Boolean(activeSession)}
-              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-500/10"
-              title={
-                activeSession
-                  ? "Finaliza la sesión supervisada antes de desvincular"
-                  : "Quitar alumno de mi cartera"
-              }
-            >
-              <UserMinus className="h-4 w-4" />
-              Desvincular alumno
-            </button>
-          </div>
-        </details>
-      </header>
-
-      <section
-        className={`mt-1 grid items-center gap-x-3 gap-y-3 px-1 ${
-          planDetail
-            ? "grid-cols-[76px_minmax(0,1fr)_112px]"
-            : "grid-cols-[76px_minmax(0,1fr)] min-[440px]:grid-cols-[76px_minmax(90px,1fr)_102px_102px] min-[440px]:gap-x-2.5"
-        }`}
-      >
-        <ProfileAvatar
-          photoId={athlete.profile?.avatarPhotoId}
-          name={athlete.name}
-          className="h-[76px] w-[76px] rounded-full bg-[color:var(--surface-subtle)] text-lg font-semibold"
-        />
-        <div className="min-w-0">
-          <h2 className="truncate text-[22px] font-bold leading-none tracking-[-0.045em]">
-            {compactName(athlete.name)}
-          </h2>
-          <p className="mt-1.5 flex items-center gap-2 text-[13px] text-[color:var(--text-muted)]">
-            <span className="h-3 w-3 rounded-full bg-[#181918] dark:bg-[#eeeae2]" />
-            {activityLabel}
-          </p>
-          {!planDetail ? (
-            <p className="mt-1.5 whitespace-nowrap text-[11px] leading-tight tracking-[-0.01em] text-[color:var(--text-muted)]">
-              Objetivo · {goalLabel(athlete.profile?.goal)}
-            </p>
-          ) : null}
-        </div>
-        <div
-          className={
-            planDetail
-              ? ""
-              : "col-span-2 grid grid-cols-2 gap-2.5 min-[440px]:contents"
-          }
-        >
-          <button
-            type="button"
-            onClick={onMessage}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[12px] border border-[color:var(--border-strong)] bg-[color:var(--card)] px-3 text-[14px] font-semibold transition-transform active:scale-[0.98]"
-          >
-            <MessageCircle className="h-5 w-5" strokeWidth={1.8} />
-            Mensaje
-          </button>
-          {!planDetail ? (
-            <button
-              type="button"
-              onClick={onEditPlan}
-              className="h-11 rounded-[12px] bg-[#181918] px-3 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(20,20,20,0.12)] transition-transform active:scale-[0.98] dark:bg-[#f2f1ec] dark:text-[#151515]"
-            >
-              {planActionLabel}
-            </button>
-          ) : null}
-        </div>
-      </section>
-    </div>
-  );
-}
 
 const intakeAnswerText = (answer) => {
   if (Array.isArray(answer?.value)) return answer.value.join(", ");
@@ -723,597 +500,6 @@ function AthleteIntakeReview({ athlete, hasPlan, onBack, onCreatePlan }) {
   );
 }
 
-function AthleteSummaryView({
-  overview,
-  activePlan,
-  activePlanTimeProgress,
-  recommendedPlanDay,
-  routineNameById,
-  latestCheckIn,
-  onOpenPlan,
-  onOpenHistory,
-  onReviewIntake,
-  onCreatePlan,
-}) {
-  const isLivePlan = activePlan?.status === "active";
-  const todayKey = localDateKey();
-  const recentTrainings = overview?.recentTrainings || [];
-  const todayTraining = recentTrainings.find(
-    (training) => String(training.date || "").slice(0, 10) === todayKey,
-  );
-  const checkInDate = String(
-    latestCheckIn?.dateKey || latestCheckIn?.date || "",
-  ).slice(0, 10);
-  const checkedInToday = checkInDate === todayKey;
-  const plannedRoutineName = routineNameById.get(
-    String(recommendedPlanDay?.routineId || ""),
-  );
-  const todayRoutineName =
-    todayTraining?.routineName || plannedRoutineName || "Entrenamiento";
-
-  const monday = new Date();
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const weekKeys = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    return localDateKey(date);
-  });
-  const weeklyTrainings = recentTrainings.filter((training) =>
-    weekKeys.includes(String(training.date || "").slice(0, 10)),
-  );
-  const completedDays = new Set(
-    weeklyTrainings.map((training) => String(training.date || "").slice(0, 10)),
-  );
-  const durationByDay = new Map();
-  weeklyTrainings.forEach((training) => {
-    const key = String(training.date || "").slice(0, 10);
-    durationByDay.set(
-      key,
-      (durationByDay.get(key) || 0) + Number(training.durationSeconds || 0),
-    );
-  });
-  const longestDaySeconds = Math.max(1, ...durationByDay.values());
-  const weeklyTarget = Math.max(
-    1,
-    (activePlan?.weeklySchedule || []).filter((day) => day.type === "training")
-      .length ||
-      weeklyTrainings.length ||
-      1,
-  );
-  const adherence = Math.min(
-    100,
-    Math.round((completedDays.size / weeklyTarget) * 100),
-  );
-  const averageSeconds = weeklyTrainings.length
-    ? weeklyTrainings.reduce(
-        (total, training) => total + Number(training.durationSeconds || 0),
-        0,
-      ) / weeklyTrainings.length
-    : 0;
-  const startDate = activePlan?.startDate
-    ? new Date(`${String(activePlan.startDate).slice(0, 10)}T12:00:00`)
-    : null;
-  const currentWeek = startDate
-    ? Math.max(
-        1,
-        Math.min(
-          Number(activePlan?.durationWeeks || 1),
-          Math.floor(
-            (new Date(`${todayKey}T12:00:00`).getTime() - startDate.getTime()) /
-              604800000,
-          ) + 1,
-        ),
-      )
-    : 1;
-  const latestTraining = recentTrainings[0];
-  const intakeSubmitted = Boolean(
-    overview.athlete.coachIntake?.status === "submitted" &&
-    overview.athlete.coachIntake?.submittedAt,
-  );
-
-  return (
-    <div className="space-y-7 pb-4 pt-5">
-      {!activePlan ? (
-        <section
-          className={`rounded-[20px] border p-4 ${intakeSubmitted ? "border-[color:var(--border)] bg-[color:var(--card)]" : "border-amber-200 bg-amber-50 dark:bg-amber-950/25"}`}
-        >
-          <div className="flex items-start gap-3">
-            <span
-              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${intakeSubmitted ? "bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black" : "bg-amber-100 text-amber-700"}`}
-            >
-              {intakeSubmitted ? (
-                <CheckCircle2 className="h-6 w-6" />
-              ) : (
-                <ClipboardList className="h-5 w-5" />
-              )}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium opacity-70">
-                Evaluación inicial
-              </p>
-              <h3 className="mt-1 text-lg font-semibold">
-                {intakeSubmitted
-                  ? "Lista para planificar"
-                  : "Pendiente del alumno"}
-              </h3>
-              <p className="mt-1 text-xs leading-5 opacity-70">
-                {intakeSubmitted
-                  ? `${overview.athlete.profile?.weeklyFrequency || "—"} días disponibles · ${experienceLabel(overview.athlete.profile?.experienceLevel)}`
-                  : "Cuando envíe sus respuestas podrás crear un plan con recomendaciones."}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={onReviewIntake}
-              className="h-11 w-full rounded-[12px] border border-current/25 px-3 text-xs font-semibold"
-            >
-              {intakeSubmitted ? "Ver evaluación" : "Ver estado"}
-            </button>
-          </div>
-        </section>
-      ) : (
-        <button
-          type="button"
-          onClick={onReviewIntake}
-          className="flex min-h-16 w-full items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-left"
-        >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)]">
-            <ClipboardList className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <strong className="block text-sm font-semibold">
-              Evaluación y datos del alumno
-            </strong>
-            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-              {intakeSubmitted
-                ? "Inicial completada · Ver respuestas"
-                : "Evaluación inicial pendiente"}
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
-        </button>
-      )}
-      {!activePlan && intakeSubmitted ? (
-        <section>
-          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-            Recomendación
-          </h3>
-          <button
-            type="button"
-            onClick={onCreatePlan}
-            className="mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] p-4 text-left"
-          >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#181918] text-white dark:bg-[#eeeae2] dark:text-black">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <strong className="block text-sm font-semibold">
-                {overview.athlete.profile?.weeklyFrequency || 3} días
-                disponibles ·{" "}
-                {experienceLabel(overview.athlete.profile?.experienceLevel)}
-              </strong>
-              <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
-                Crear una planificación adaptada a su evaluación.
-              </span>
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0" />
-          </button>
-        </section>
-      ) : null}
-      {overview.followUpRecords?.latestAssessment ? (
-        <section className="rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] p-4">
-          <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-[color:var(--text)]">
-              <ClipboardList className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-[color:var(--text-muted)]">
-                Evaluación final ·{" "}
-                {formatDate(overview.followUpRecords.latestAssessment.dateKey)}
-              </p>
-              <h3 className="mt-1 text-lg font-semibold">
-                Progreso{" "}
-                {overview.followUpRecords.latestAssessment.answers?.progress}/5
-              </h3>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                Objetivo:{" "}
-                {overview.followUpRecords.latestAssessment.answers
-                  ?.goalReached === "yes"
-                  ? "alcanzado"
-                  : overview.followUpRecords.latestAssessment.answers
-                        ?.goalReached === "partly"
-                    ? "alcanzado en parte"
-                    : "no alcanzado"}
-              </p>
-            </div>
-          </div>
-          {overview.followUpRecords.latestAssessment.answers?.pain ||
-          overview.followUpRecords.latestAssessment.answers?.feedback ? (
-            <details className="mt-3 border-t border-[color:var(--detail-row-divider)] pt-3">
-              <summary className="cursor-pointer text-sm font-semibold">
-                Ver respuestas
-              </summary>
-              <div className="mt-3 space-y-3 text-sm">
-                {overview.followUpRecords.latestAssessment.answers?.pain ? (
-                  <p>
-                    <strong>Molestias:</strong>{" "}
-                    {overview.followUpRecords.latestAssessment.answers.pain}
-                  </p>
-                ) : null}
-                {overview.followUpRecords.latestAssessment.answers?.feedback ? (
-                  <p>
-                    <strong>Comentario:</strong>{" "}
-                    {overview.followUpRecords.latestAssessment.answers.feedback}
-                  </p>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-        </section>
-      ) : null}
-      {isLivePlan ? (
-        <section>
-          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">Hoy</h3>
-          <div className="mt-3 overflow-hidden rounded-[20px] bg-[#1d1e1d] px-5 text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)] dark:bg-[#111]">
-            <button
-              type="button"
-              onClick={onOpenHistory}
-              className="flex min-h-[82px] w-full items-center gap-4 border-b border-white/20 text-left"
-            >
-              <span
-                className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${todayTraining ? "bg-white text-black" : "bg-white/10 text-white"}`}
-              >
-                {todayTraining ? (
-                  <Check className="h-6 w-6" strokeWidth={2.4} />
-                ) : (
-                  <CalendarDays className="h-5 w-5" />
-                )}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold uppercase tracking-[-0.025em]">
-                {todayRoutineName}
-              </span>
-              <span
-                className={`shrink-0 text-sm font-semibold ${todayTraining ? "text-white" : "text-white/65"}`}
-              >
-                {todayTraining
-                  ? "Completado"
-                  : plannedRoutineName
-                    ? "Programado"
-                    : "Sin sesión"}
-              </span>
-            </button>
-            <div className="flex min-h-[82px] items-center gap-4">
-              <span
-                className={`h-4 w-4 shrink-0 rounded-full ${checkedInToday ? "bg-white" : "bg-[#ff806f]"}`}
-              />
-              <span className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.025em]">
-                Check-in diario
-              </span>
-              <span
-                className={`shrink-0 text-sm font-semibold ${checkedInToday ? "text-white" : "text-[#ff8b7c]"}`}
-              >
-                {checkedInToday ? "Registrado" : "Pendiente"}
-              </span>
-              <ChevronRight className="h-5 w-5 shrink-0 text-white/65" />
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <section>
-        <div className="flex items-end justify-between gap-4">
-          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-            {isLivePlan ? "Plan actual" : "Planificación"}
-          </h3>
-          {activePlan ? (
-            <button
-              type="button"
-              onClick={onOpenPlan}
-              className="flex h-10 items-center gap-1 text-sm font-medium"
-            >
-              Ver plan <ChevronRight className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-        {activePlan ? (
-          <button
-            type="button"
-            onClick={onOpenPlan}
-            className="mt-3 flex min-h-[116px] w-full items-center gap-4 rounded-[18px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-left"
-          >
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-[14px] bg-[color:var(--bg)]">
-              <Dumbbell className="h-7 w-7" strokeWidth={2} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <strong className="block truncate text-[17px] font-semibold tracking-[-0.025em]">
-                {activePlan.name}
-              </strong>
-              <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                {isLivePlan
-                  ? `Semana ${currentWeek} de ${activePlan.durationWeeks || 1}`
-                  : activePlan.status === "scheduled"
-                    ? `Programado para ${formatDate(activePlan.startDate)}`
-                    : activePlan.status === "paused"
-                      ? "Plan pausado"
-                      : activePlan.status === "completed"
-                        ? "Plan finalizado"
-                        : "Borrador en preparación"}
-              </span>
-              {isLivePlan ? (
-                <span className="mt-3 flex items-center gap-3">
-                  <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-                    <span
-                      className="block h-full rounded-full bg-[#181918] dark:bg-[#eeeae2]"
-                      style={{
-                        width: `${activePlanTimeProgress?.percentage || 0}%`,
-                      }}
-                    />
-                  </span>
-                  <span className="text-xs font-medium text-[color:var(--text-muted)]">
-                    {activePlanTimeProgress?.percentage || 0}%
-                  </span>
-                </span>
-              ) : null}
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onOpenPlan}
-            className="mt-3 flex min-h-[92px] w-full items-center justify-between rounded-[18px] border border-[color:var(--border)] px-5 text-left"
-          >
-            <span>
-              <strong className="block text-base font-semibold">
-                Sin plan activo
-              </strong>
-              <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                Crea su primera planificación.
-              </span>
-            </span>
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        )}
-      </section>
-
-      {isLivePlan ? (
-        <section>
-          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-            Esta semana
-          </h3>
-          <div className="mt-4 grid grid-cols-3 divide-x divide-[color:var(--border)] text-center">
-            <div className="px-2">
-              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-                {completedDays.size}/{weeklyTarget}
-              </strong>
-              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-                Entrenos
-              </span>
-            </div>
-            <div className="px-2">
-              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-                {adherence}%
-              </strong>
-              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-                Adherencia
-              </span>
-            </div>
-            <div className="px-2">
-              <strong className="block text-[22px] font-semibold tracking-[-0.04em]">
-                {compactDuration(averageSeconds)}
-              </strong>
-              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
-                Promedio
-              </span>
-            </div>
-          </div>
-          <div className="mt-6 grid grid-cols-7 gap-3 px-2">
-            {weekKeys.map((key, index) => (
-              <div key={key} className="flex flex-col items-center gap-2">
-                <span className="flex h-14 items-end">
-                  <span
-                    className={`block w-7 rounded-[7px] ${completedDays.has(key) ? "bg-[#181918] dark:bg-[#eeeae2]" : "bg-[color:var(--border)] opacity-55"}`}
-                    style={{
-                      height: completedDays.has(key)
-                        ? `${Math.max(
-                            28,
-                            Math.round(
-                              (Number(durationByDay.get(key) || 0) /
-                                longestDaySeconds) *
-                                56,
-                            ),
-                          )}px`
-                        : "52px",
-                    }}
-                  />
-                </span>
-                <span className="text-[11px] font-medium text-[color:var(--text-muted)]">
-                  {["L", "M", "M", "J", "V", "S", "D"][index]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {isLivePlan ? (
-        <section>
-          <h3 className="text-[25px] font-semibold tracking-[-0.045em]">
-            Actividad reciente
-          </h3>
-          <div className="mt-3 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]">
-            {latestTraining ? (
-              <button
-                type="button"
-                onClick={onOpenHistory}
-                className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
-              >
-                <img
-                  src={activityImageFor(latestTraining.routineName)}
-                  alt=""
-                  className="h-16 w-20 shrink-0 rounded-[12px] object-cover"
-                />
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-[16px] font-semibold">
-                    Completó {latestTraining.routineName || "entrenamiento"}
-                  </strong>
-                  <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                    {relativeTrainingDate(latestTraining.date)} ·{" "}
-                    {compactDuration(latestTraining.durationSeconds)}
-                  </span>
-                </span>
-                <ChevronRight className="h-5 w-5 shrink-0" />
-              </button>
-            ) : null}
-            {latestCheckIn ? (
-              <button
-                type="button"
-                onClick={onOpenHistory}
-                className="flex min-h-[82px] w-full items-center gap-4 py-3 text-left"
-              >
-                <span className="grid h-16 w-20 shrink-0 place-items-center rounded-[12px] bg-[color:var(--card)]">
-                  <SquareCheckBig className="h-8 w-8" strokeWidth={1.8} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-[16px] font-semibold">
-                    Registró su estado
-                  </strong>
-                  <span className="mt-1 block text-sm text-[color:var(--text-muted)]">
-                    {checkedInToday ? "Hoy" : formatDate(checkInDate)}
-                  </span>
-                </span>
-                <ChevronRight className="h-5 w-5 shrink-0" />
-              </button>
-            ) : null}
-            {!latestTraining && !latestCheckIn ? (
-              <p className="py-8 text-center text-sm text-[color:var(--text-muted)]">
-                Todavía no hay actividad registrada.
-              </p>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function MobileAthleteFollowUpView({ overview, latestCheckIn }) {
-  const records = overview?.followUpRecords || {};
-  const checkIn = records.checkIns?.[0] || latestCheckIn || null;
-  const weight = records.weights?.[0] || null;
-  const previousWeight = records.weights?.[1] || null;
-  const measurement = records.measurements?.[0] || null;
-  const assessment = records.assessments?.[0] || null;
-  const weightDelta =
-    weight && previousWeight
-      ? Number(weight.weightKg) - Number(previousWeight.weightKg)
-      : null;
-  const items = [
-    checkIn && {
-      id: `checkin-${checkIn._id || checkIn.dateKey}`,
-      label: "Check-in",
-      value: `${checkIn.readinessScore}/100`,
-      detail:
-        checkIn.readinessState === "recover"
-          ? "Requiere recuperación"
-          : checkIn.readinessState === "adjust"
-            ? "Conviene ajustar"
-            : "Listo para entrenar",
-      date: checkIn.dateKey,
-      Icon: ClipboardList,
-    },
-    weight && {
-      id: `weight-${weight._id || weight.dateKey}`,
-      label: "Peso",
-      value: `${weight.weightKg} kg`,
-      detail:
-        weightDelta == null
-          ? "Primer registro"
-          : `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)} kg desde el anterior`,
-      date: weight.dateKey,
-      Icon: Scale,
-    },
-    measurement && {
-      id: `measurement-${measurement._id || measurement.dateKey}`,
-      label: "Medidas",
-      value: `${Object.values(measurement.values || {}).filter((value) => value != null).length} registradas`,
-      detail: measurement.notes || "Registro corporal",
-      date: measurement.dateKey,
-      Icon: Ruler,
-    },
-    records.photos?.[0] && {
-      id: `photos-${records.photos[0]._id || records.photos[0].date}`,
-      label: "Fotos de progreso",
-      value: `${records.photos.length} recientes`,
-      detail: "Visibles para el coach",
-      date: records.photos[0].date,
-      Icon: Camera,
-    },
-    assessment && {
-      id: `assessment-${assessment._id || assessment.dateKey}`,
-      label: "Evaluación final",
-      value: `${assessment.answers?.progress || "—"}/5`,
-      detail: assessment.answers?.feedback || "Bloque evaluado",
-      date: assessment.dateKey,
-      Icon: FileText,
-    },
-  ].filter(Boolean);
-
-  return (
-    <section className="pb-6 pt-5">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            Señales del alumno
-          </p>
-          <h2 className="mt-1 text-[25px] font-bold tracking-[-0.05em]">
-            Seguimiento
-          </h2>
-        </div>
-        <span className="rounded-full bg-[color:var(--surface-subtle)] px-3 py-1 text-xs font-semibold">
-          {items.length} recientes
-        </span>
-      </div>
-      {items.length ? (
-        <div className="mt-4 divide-y divide-[color:var(--detail-row-divider)] border-y border-[color:var(--detail-row-divider)]">
-          {items.map(({ id, label, value, detail, date, Icon }) => (
-            <article
-              key={id}
-              className="grid min-h-[88px] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 py-3"
-            >
-              <span className="grid h-10 w-10 place-items-center rounded-[12px] bg-[color:var(--surface-subtle)]">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0">
-                <strong className="block text-sm font-semibold">{label}</strong>
-                <small className="mt-1 block truncate text-xs text-[color:var(--text-muted)]">
-                  {detail}
-                </small>
-              </span>
-              <span className="text-right">
-                <strong className="block text-sm font-semibold">{value}</strong>
-                <small className="mt-1 block text-[11px] text-[color:var(--text-muted)]">
-                  {formatDate(date)}
-                </small>
-              </span>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-4 rounded-[18px] border border-[color:var(--border)] p-5">
-          <h3 className="text-base font-semibold">Aún no hay registros</h3>
-          <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">
-            Los check-ins, pesos, fotos, medidas y evaluaciones aparecerán aquí.
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
 const shortPlanDate = (value) => {
   if (!value) return "Sin fecha";
   const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -1420,7 +606,13 @@ function MobileAthletePlanView({
         <h2 className="text-[25px] font-bold tracking-[-0.05em]">
           Plan actual
         </h2>
-        <div className="mt-4 rounded-[20px] bg-[#1b1c1b] px-5 py-6 text-white shadow-[0_16px_38px_rgba(0,0,0,0.12)]">
+        <div className="athlete-plan-empty mt-4">
+          <img
+            src="/images/daily-plan-ready-card.webp"
+            alt=""
+            width={512}
+            height={512}
+          />
           <p className="text-xl font-semibold">Sin plan activo</p>
           <p className="mt-2 text-sm text-white/65">
             Crea una planificación para organizar sus entrenamientos.
@@ -1448,8 +640,14 @@ function MobileAthletePlanView({
         <button
           type="button"
           onClick={onEditPlan}
-          className={`${detailMode ? "mt-0" : "mt-3"} grid min-h-[126px] w-full grid-cols-[minmax(0,1fr)_132px] items-center overflow-hidden rounded-[18px] bg-[#1b1c1b] px-5 py-3 text-left text-white shadow-[0_16px_38px_rgba(0,0,0,0.13)]`}
+          className={`athlete-plan-cover ${detailMode ? "mt-0" : "mt-3"}`}
         >
+          <img
+            src="/images/daily-plan-ready-card.webp"
+            alt=""
+            width={512}
+            height={512}
+          />
           <span className="min-w-0 pr-4">
             <strong className="block truncate text-[21px] font-semibold tracking-[-0.035em]">
               {activePlan.name}
@@ -1478,7 +676,8 @@ function MobileAthletePlanView({
             ) : null}
           </span>
           <span className="flex h-full flex-col items-center justify-center border-l border-white/15 pl-5 text-center">
-            <CalendarDays className="h-6 w-6" strokeWidth={1.7} />
+            <strong className="text-2xl">{weekCount}</strong>
+            <small>semanas</small>
             <span className="mt-2 text-[14px] text-white/80">
               Finaliza el {shortPlanDate(endDate)}
             </span>
@@ -1551,7 +750,19 @@ function MobileAthletePlanView({
               <button
                 key={day.slotId || day.dayIndex}
                 type="button"
-                onClick={() => day.routineId && onOpenRoutine(day)}
+                disabled={
+                  !isLivePlan ||
+                  !day.routineId ||
+                  !routine ||
+                  routine.isAvailableForTraining === false ||
+                  routine.isArchived
+                }
+                aria-label={
+                  isLivePlan && day.routineId
+                    ? `Registrar entrenamiento de ${routineName}`
+                    : routineName
+                }
+                onClick={() => onOpenRoutine(day)}
                 className={`grid min-h-[74px] w-full grid-cols-[64px_54px_minmax(0,1fr)_32px] items-center gap-3 text-left ${
                   detailMode
                     ? "rounded-[14px] border border-[color:var(--border)] bg-[color:var(--card)] px-2 py-1"
@@ -1583,7 +794,7 @@ function MobileAthletePlanView({
                     {completed
                       ? "Completado"
                       : routine
-                        ? `${routine.exercises?.length || 0} ejercicios`
+                        ? `${routine.exercises?.length || 0} ejercicios${isLivePlan ? " · Registrar sesión" : ""}`
                         : "Rutina pendiente"}
                   </span>
                 </span>
@@ -1763,7 +974,7 @@ function MobileAthleteHistoryView({
     : sortedTrainings.slice(0, 3);
 
   return (
-    <div className="pb-5 pt-4 lg:hidden">
+    <div className="athlete-history pb-5 pt-4">
       <section>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[25px] font-bold tracking-[-0.05em]">
@@ -2058,430 +1269,6 @@ function CoachDataError({ message, onRetry }) {
   );
 }
 
-function CoachHome({
-  athletes,
-  portfolio,
-  loading,
-  loadError,
-  onReload,
-  user,
-  inviteOpen,
-  setInviteOpen,
-  invitation,
-  invitationLoading,
-  onCopyInvitation,
-  onWhatsAppInvitation,
-  onRevokeInvitation,
-  onRetryInvitation,
-  onOpenAthlete,
-  onNavigate,
-  onDismissWelcome,
-}) {
-  const { profile } = useUserProfile();
-  const [notificationFeed, setNotificationFeed] = useState({
-    items: [],
-    unread: 0,
-    loading: true,
-  });
-  useEffect(() => {
-    let active = true;
-    api
-      .getCoachNotifications()
-      .then((data) => {
-        if (!active) return;
-        setNotificationFeed({
-          items: Array.isArray(data.notifications) ? data.notifications : [],
-          unread: Number(data.unread || 0),
-          loading: false,
-        });
-      })
-      .catch(() => {
-        if (active) {
-          setNotificationFeed((current) => ({ ...current, loading: false }));
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const markNotificationsRead = () => {
-    if (!notificationFeed.unread) return;
-    const readAt = new Date().toISOString();
-    setNotificationFeed((current) => ({
-      ...current,
-      unread: 0,
-      items: current.items.map((item) =>
-        item.readAt ? item : { ...item, readAt },
-      ),
-    }));
-    api.markCoachNotificationsRead().catch(() => {
-      api
-        .getCoachNotifications()
-        .then((data) => {
-          setNotificationFeed({
-            items: Array.isArray(data.notifications) ? data.notifications : [],
-            unread: Number(data.unread || 0),
-            loading: false,
-          });
-        })
-        .catch(() => {
-          // Keep the optimistic state until the next dashboard refresh.
-        });
-    });
-  };
-  const athleteById = useMemo(
-    () =>
-      new Map(
-        athletes.map((athlete) => [
-          String(athlete.id || athlete._id || ""),
-          athlete,
-        ]),
-      ),
-    [athletes],
-  );
-  const alerts = useMemo(() => {
-    if (Array.isArray(portfolio?.alerts) && portfolio.alerts.length) {
-      return portfolio.alerts.slice(0, 3).map((alert) => {
-        const athleteId = String(alert.athleteId || "");
-        return {
-          athleteId,
-          athleteName: alert.athleteName,
-          avatarPhotoId: athleteById.get(athleteId)?.profile?.avatarPhotoId,
-          detail: alert.title,
-          severity: alert.severity,
-        };
-      });
-    }
-    return athletes
-      .map((athlete) => ({
-        athleteId: String(athlete.id || athlete._id || ""),
-        athleteName: athlete.name,
-        avatarPhotoId: athlete.profile?.avatarPhotoId,
-        detail: getBasicCoachAlert(athlete),
-        severity: Number(athlete.routineCount || 0) ? "medium" : "high",
-      }))
-      .filter((item) => item.detail)
-      .slice(0, 3);
-  }, [athleteById, athletes, portfolio]);
-  const recentActivity = useMemo(
-    () =>
-      [...athletes]
-        .filter((athlete) => athlete.lastTraining?.date)
-        .sort((left, right) =>
-          String(right.lastTraining.date).localeCompare(
-            String(left.lastTraining.date),
-          ),
-        )
-        .slice(0, 3),
-    [athletes],
-  );
-  const summary = portfolio?.summary || {};
-  const attentionCount = Number(
-    summary.attention ??
-      athletes.filter((athlete) => getBasicCoachAlert(athlete)).length,
-  );
-  const withoutRoutine = athletes.filter(
-    (athlete) => !Number(athlete.routineCount || 0),
-  ).length;
-  const firstName = String(user?.name || "Coach")
-    .trim()
-    .split(/\s+/)[0];
-  const currentHour = new Date().getHours();
-  const greeting =
-    currentHour < 12
-      ? "Buenos días"
-      : currentHour < 20
-        ? "Buenas tardes"
-        : "Buenas noches";
-  return (
-    <main className="mx-auto w-full max-w-[920px] pb-28 text-[color:var(--text)] sm:pb-12">
-      <header className="flex min-h-[72px] items-center justify-between gap-3 px-1 sm:px-0">
-        <h1 className="text-[36px] font-bold leading-none tracking-[-0.055em] sm:text-[42px]">
-          Mis alumnos
-        </h1>
-        <div className="flex items-center gap-3">
-          <details className="overflow-menu relative">
-            <summary
-              onClick={markNotificationsRead}
-              className="overflow-menu-trigger relative grid h-14 w-14 cursor-pointer list-none place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--card)] transition-transform active:scale-95 [&::-webkit-details-marker]:hidden"
-              aria-label="Notificaciones"
-            >
-              <Bell className="h-6 w-6" strokeWidth={1.8} />
-              {notificationFeed.unread > 0 ? (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-600 ring-2 ring-[color:var(--card)]" />
-              ) : null}
-            </summary>
-            <div className="overflow-menu-panel absolute right-0 top-16 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden">
-              <div className="border-b border-[color:var(--border)] px-4 py-3">
-                <p className="text-sm font-bold">Notificaciones</p>
-              </div>
-              {notificationFeed.loading ? (
-                <p className="px-4 py-5 text-sm text-[color:var(--text-muted)]">
-                  Cargando...
-                </p>
-              ) : notificationFeed.items.length ? (
-                <div className="max-h-80 overflow-y-auto">
-                  {notificationFeed.items.map((item) => (
-                    <button
-                      type="button"
-                      key={item._id}
-                      disabled={!item.athleteId}
-                      onClick={() =>
-                        item.athleteId && onOpenAthlete(item.athleteId)
-                      }
-                      className="block w-full border-b border-[color:var(--border)] px-4 py-3 text-left last:border-b-0 disabled:cursor-default"
-                    >
-                      <div className="flex items-start gap-2">
-                        {!item.readAt ? (
-                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-600" />
-                        ) : null}
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold leading-5">
-                            {item.title}
-                          </p>
-                          <p className="mt-0.5 text-xs leading-4 text-[color:var(--text-muted)]">
-                            {item.message}
-                          </p>
-                          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-subtle)]">
-                            {formatNotificationDate(item.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-4 py-5 text-sm text-[color:var(--text-muted)]">
-                  No tienes notificaciones.
-                </p>
-              )}
-            </div>
-          </details>
-          <button
-            type="button"
-            onClick={() => onNavigate("perfil")}
-            className="shrink-0 rounded-full ring-offset-2 ring-offset-[color:var(--bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--text)]"
-            aria-label="Abrir perfil"
-          >
-            <ProfileAvatar
-              photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
-              name={user?.name}
-              className="h-14 w-14 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-semibold"
-            />
-          </button>
-        </div>
-      </header>
-
-      {loadError ? (
-        <CoachDataError message={loadError} onRetry={onReload} />
-      ) : null}
-      <button
-        type="button"
-        onClick={onReload}
-        disabled={loading}
-        className="mt-4 min-h-11 rounded-full border border-[color:var(--border)] px-4 text-sm font-semibold disabled:opacity-50"
-      >
-        Actualizar panel
-      </button>
-      <section className="mt-7 flex items-center justify-between gap-4 px-1">
-        <div className="min-w-0">
-          <h2 className="truncate text-[26px] font-bold leading-none tracking-[-0.04em] sm:text-[30px]">
-            {greeting}, {firstName}
-          </h2>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setInviteOpen((current) => !current);
-            onDismissWelcome();
-          }}
-          className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-transparent px-4 text-sm font-semibold transition-colors hover:bg-[color:var(--card)] active:scale-[0.98]"
-        >
-          <UserPlus className="h-5 w-5" />
-          Invitar alumno
-        </button>
-      </section>
-
-      {inviteOpen ? (
-        <CoachInvitationPanel
-          invitation={invitation}
-          invitationLoading={invitationLoading}
-          onClose={() => setInviteOpen(false)}
-          onCopy={onCopyInvitation}
-          onWhatsApp={onWhatsAppInvitation}
-          onRevoke={onRevokeInvitation}
-          onRetry={onRetryInvitation}
-        />
-      ) : null}
-
-      <section className="mt-4 overflow-hidden rounded-[28px] bg-[#191a19] px-5 py-6 text-white shadow-[0_22px_55px_rgba(15,15,15,0.12)] dark:bg-[#f2f1ec] dark:text-[#121312] sm:px-7 sm:py-7">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-current/75">
-          Hoy
-        </p>
-        <div className="mt-5 grid grid-cols-2">
-          <button
-            type="button"
-            onClick={() => alerts[0] && onOpenAthlete(alerts[0].athleteId)}
-            className="flex min-w-0 items-center gap-3 border-r border-current/15 pr-4 text-left"
-          >
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/10 dark:bg-black/10">
-              <Users className="h-6 w-6" strokeWidth={1.7} />
-            </span>
-            <span className="min-w-0">
-              <strong className="block text-[34px] font-bold leading-none tracking-[-0.04em]">
-                {loading ? "—" : attentionCount}
-              </strong>
-              <span className="mt-1.5 block text-[13px] leading-tight text-current/70">
-                requieren atención
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate("coach_athletes")}
-            className="flex min-w-0 items-center gap-3 pl-4 text-left"
-          >
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white/10 dark:bg-black/10">
-              <ClipboardList className="h-6 w-6" strokeWidth={1.7} />
-            </span>
-            <span className="min-w-0">
-              <strong className="block text-[34px] font-bold leading-none tracking-[-0.04em]">
-                {loading ? "—" : withoutRoutine}
-              </strong>
-              <span className="mt-1.5 block text-[13px] leading-tight text-current/70">
-                sin rutina asignada
-              </span>
-            </span>
-          </button>
-        </div>
-      </section>
-
-      <div className="mt-7 flex items-center justify-between gap-3 px-1">
-        <h2 className="text-[27px] font-bold tracking-[-0.045em]">
-          Prioridades
-        </h2>
-        <button
-          type="button"
-          onClick={() => onNavigate("coach_athletes")}
-          className="inline-flex h-10 items-center gap-1 px-1 text-sm font-medium text-[color:var(--text-muted)]"
-        >
-          Ver todos <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-
-      <section className="mt-3 space-y-2.5">
-        {loading ? (
-          <div className="space-y-2.5" aria-label="Cargando prioridades">
-            {[0, 1, 2].map((item) => (
-              <div
-                key={item}
-                className="grid min-h-[96px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 sm:px-5"
-              >
-                <span className="h-14 w-14 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
-                <span>
-                  <span className="block h-4 w-24 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
-                  <span className="mt-2 block h-3 w-36 max-w-full animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
-                </span>
-                <span className="h-5 w-3 animate-pulse rounded-full bg-[color:var(--surface-subtle)]" />
-              </div>
-            ))}
-          </div>
-        ) : alerts.length ? (
-          <div className="space-y-2.5">
-            {alerts.map((alert) => (
-              <button
-                key={`${alert.athleteId}-${alert.detail}`}
-                type="button"
-                onClick={() => onOpenAthlete(alert.athleteId)}
-                className="grid min-h-[96px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 text-left shadow-[0_8px_24px_rgba(20,20,20,0.035)] transition-transform active:scale-[0.99] sm:px-5"
-              >
-                <ProfileAvatar
-                  photoId={alert.avatarPhotoId}
-                  name={alert.athleteName}
-                  className="h-14 w-14 rounded-full bg-[color:var(--bg)] text-sm font-semibold"
-                />
-                <span className="min-w-0">
-                  <span className="block truncate text-[18px] font-bold tracking-[-0.025em]">
-                    {compactName(alert.athleteName)}
-                  </span>
-                  <span className="mt-1 block truncate text-[15px] font-normal text-[color:var(--text-muted)]">
-                    {alert.detail}
-                  </span>
-                </span>
-                <ChevronRight className="h-6 w-6 text-[color:var(--text-muted)]" />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex min-h-[96px] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 py-5">
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--bg)]">
-              <CheckCircle2 className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-[17px] font-bold">Sin prioridades hoy</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                Tus alumnos están al día.
-              </p>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="mt-8">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <h2 className="text-[27px] font-bold tracking-[-0.045em]">
-            Actividad reciente
-          </h2>
-          <button
-            type="button"
-            onClick={() => onNavigate("admin_sesiones")}
-            className="inline-flex h-10 items-center gap-1 px-1 text-sm font-medium text-[color:var(--text-muted)]"
-          >
-            Ver todas <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-3 space-y-2.5">
-          {recentActivity.length ? (
-            recentActivity.map((athlete) => (
-              <button
-                key={athlete.id || athlete._id}
-                type="button"
-                onClick={() =>
-                  onOpenAthlete(String(athlete.id || athlete._id || ""))
-                }
-                className="grid min-h-[94px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-4 py-3 text-left shadow-[0_8px_24px_rgba(20,20,20,0.035)] sm:px-5"
-              >
-                <ProfileAvatar
-                  photoId={athlete.profile?.avatarPhotoId}
-                  name={athlete.name}
-                  className="h-14 w-14 rounded-full bg-[color:var(--bg)] text-sm font-semibold"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[18px] font-bold tracking-[-0.025em]">
-                    {compactName(athlete.name)}
-                  </span>
-                  <span className="mt-1 block truncate text-[15px] text-[color:var(--text-muted)]">
-                    Completó{" "}
-                    {athlete.lastTraining?.routineName || "su entrenamiento"}
-                  </span>
-                </span>
-                <span className="text-sm text-[color:var(--text-muted)]">
-                  {relativeTrainingDate(athlete.lastTraining?.date)}
-                </span>
-              </button>
-            ))
-          ) : (
-            <div className="flex min-h-[94px] items-center rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] px-5 text-sm text-[color:var(--text-muted)]">
-              Todavía no hay actividad reciente.
-            </div>
-          )}
-        </div>
-      </section>
-    </main>
-  );
-}
-
 const resolveWeeklyReportWorkload = (report = {}) =>
   report.workload || {
     basis: {
@@ -2690,6 +1477,7 @@ export default function CoachDashboard({
   const [search, setSearch] = useState("");
   const [athleteFilter, setAthleteFilter] = useState("all");
   const [athleteSort, setAthleteSort] = useState("priority");
+  const [athletePage, setAthletePage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [loadingOverview, setLoadingOverview] = useState(false);
@@ -2739,31 +1527,49 @@ export default function CoachDashboard({
     async ({ silent = false } = {}) => {
       try {
         if (!silent) setLoading(true);
+        let nextAthletes;
         if (canUsePortfolio) {
           const data = await api.getCoachPortfolio();
           setPortfolio(data);
-          setAthletes(Array.isArray(data?.athletes) ? data.athletes : []);
+          nextAthletes = Array.isArray(data?.athletes) ? data.athletes : [];
         } else {
           setPortfolio(null);
           const basicAthletes = await api.getCoachAthletes();
-          setAthletes(
-            basicAthletes.map((athlete) => {
-              const alert = getBasicCoachAlert(athlete);
-              const priority = !alert
-                ? "normal"
-                : !Number(athlete.routineCount || 0) ||
-                    !Number(athlete.trainingCount || 0) ||
-                    daysSince(athlete.lastTraining?.date) >= 14
-                  ? "high"
-                  : "medium";
-              return {
-                ...athlete,
-                priority,
-                alerts: alert ? [{ title: alert, severity: priority }] : [],
-              };
-            }),
-          );
+          nextAthletes = basicAthletes.map((athlete) => {
+            const alert = getBasicCoachAlert(athlete);
+            const priority = !alert
+              ? "normal"
+              : !Number(athlete.routineCount || 0) ||
+                  !Number(athlete.trainingCount || 0) ||
+                  daysSince(athlete.lastTraining?.date) >= 14
+                ? "high"
+                : "medium";
+            return {
+              ...athlete,
+              priority,
+              alerts: alert ? [{ title: alert, severity: priority }] : [],
+            };
+          });
         }
+        setAthletes(nextAthletes);
+        setOverview((current) => {
+          if (!current?.athlete) return current;
+          const fresh = nextAthletes.find(
+            (athlete) =>
+              String(athlete.id || athlete._id) ===
+              String(current.athlete.id || current.athlete._id),
+          );
+          return fresh
+            ? {
+                ...current,
+                athlete: {
+                  ...current.athlete,
+                  name: fresh.name,
+                  profile: { ...current.athlete.profile, ...fresh.profile },
+                },
+              }
+            : current;
+        });
         setLoadError("");
       } catch (err) {
         setLoadError(
@@ -2810,7 +1616,28 @@ export default function CoachDashboard({
     } else {
       setPlanCatalog({ plans: [], routines: [] });
     }
-  }, [loadAthletes, user?.role]);
+  }, [loadAthletes, user?.role, pageId]);
+
+  useEffect(() => {
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        await loadAthletes({ silent: true });
+      } finally {
+        refreshing = false;
+      }
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadAthletes]);
 
   useEffect(() => {
     if (!inviteOpen || invitation) return;
@@ -3081,6 +1908,15 @@ export default function CoachDashboard({
         );
       });
   }, [athleteFilter, athleteSort, athletes, search]);
+  const athletePageSize = 8;
+  const currentAthletePage = Math.min(
+    athletePage,
+    Math.max(1, Math.ceil(filteredAthletes.length / athletePageSize)),
+  );
+  const visibleAthletes = filteredAthletes.slice(
+    (currentAthletePage - 1) * athletePageSize,
+    currentAthletePage * athletePageSize,
+  );
   const attentionAthletes = athletes.filter((athlete) =>
     ["high", "medium"].includes(athlete.priority),
   ).length;
@@ -3280,8 +2116,26 @@ export default function CoachDashboard({
     }
   };
 
-  const startTraining = (requestedPlanDay = null) => {
-    if (!selectedAthlete || !trainableRoutines.length) return;
+  const startTraining = (requestedPlanDay) => {
+    const intendedPlanDay = (activeTrainingPlan?.weeklySchedule || []).find(
+      (day) =>
+        day.type === "training" &&
+        String(day.routineId || "") ===
+          String(requestedPlanDay?.routineId || "") &&
+        (requestedPlanDay?.slotId
+          ? String(day.slotId || "") === String(requestedPlanDay.slotId)
+          : Number(day.dayIndex) === Number(requestedPlanDay?.dayIndex)),
+    );
+    if (
+      !selectedAthlete ||
+      !intendedPlanDay?.routineId ||
+      !trainableRoutines.some(
+        (routine) =>
+          String(routine._id || routine.id) ===
+          String(intendedPlanDay.routineId),
+      )
+    )
+      return;
     const selected = onSelectCoachAthlete({
       id: selectedId,
       name: selectedAthlete.name,
@@ -3293,18 +2147,6 @@ export default function CoachDashboard({
       });
       return;
     }
-    const intendedPlanDay = requestedPlanDay
-      ? (activeTrainingPlan?.weeklySchedule || []).find(
-          (day) =>
-            (requestedPlanDay.slotId &&
-              String(day.slotId || "") ===
-                String(requestedPlanDay.slotId || "")) ||
-            (!requestedPlanDay.slotId &&
-              Number(day.dayIndex) === Number(requestedPlanDay.dayIndex) &&
-              String(day.routineId || "") ===
-                String(requestedPlanDay.routineId || "")),
-        )
-      : recommendedPlanDay;
     if (intendedPlanDay?.routineId && typeof localStorage !== "undefined") {
       localStorage.setItem(
         "training_plan_routine_intent",
@@ -3420,21 +2262,38 @@ export default function CoachDashboard({
         athletes={athletes}
         portfolio={portfolio}
         loading={loading}
-        loadError={loadError}
+        profile={profile}
+        describeAthlete={athleteListDetail}
+        errorContent={
+          loadError ? (
+            <CoachDataError
+              message={loadError}
+              onRetry={() => loadAthletes()}
+            />
+          ) : null
+        }
         onReload={() => loadAthletes()}
         user={user}
-        inviteOpen={inviteOpen}
-        setInviteOpen={setInviteOpen}
-        invitation={invitation}
-        invitationLoading={invitationLoading}
-        onCopyInvitation={copyInvitation}
-        onWhatsAppInvitation={openWhatsAppInvitation}
-        onRevokeInvitation={revokeInvitation}
-        onRetryInvitation={() => {
-          setInvitation(null);
-          setInvitationRetry((current) => current + 1);
+        onInvite={() => {
+          setInviteOpen((current) => !current);
+          setCoachWelcome(false);
         }}
-        onDismissWelcome={() => setCoachWelcome(false)}
+        invitationPanel={
+          inviteOpen ? (
+            <CoachInvitationPanel
+              invitation={invitation}
+              invitationLoading={invitationLoading}
+              onClose={() => setInviteOpen(false)}
+              onCopy={copyInvitation}
+              onWhatsApp={openWhatsAppInvitation}
+              onRevoke={revokeInvitation}
+              onRetry={() => {
+                setInvitation(null);
+                setInvitationRetry((current) => current + 1);
+              }}
+            />
+          ) : null
+        }
         onNavigate={onNavigate}
         onOpenAthlete={(athleteId) => {
           if (typeof window !== "undefined") {
@@ -3450,29 +2309,29 @@ export default function CoachDashboard({
   }
 
   return (
-    <main className="dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
+    <main className="coach-directory dashboard-shell routines-shell mx-auto w-full max-w-[1440px] pb-24 text-[color:var(--text)] sm:pb-12">
       {!selectedId ? (
         <header className="flex items-center justify-between gap-4 px-1 pb-2 pt-5 lg:hidden">
-          <h1 className="text-[39px] font-bold leading-none tracking-[-0.06em]">
+          <h1 className="text-[30px] font-semibold leading-none tracking-[-0.04em]">
             Alumnos
           </h1>
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() =>
-                toast.info("Sin notificaciones nuevas", {
-                  description:
-                    "Te avisaremos cuando un alumno requiera atención.",
-                })
-              }
-              className="relative grid h-11 w-11 place-items-center rounded-full transition-transform active:scale-95"
-              aria-label="Notificaciones"
+              onClick={() => loadAthletes()}
+              disabled={loading}
+              aria-label="Actualizar alumnos"
+              className="grid h-11 w-8 place-items-center text-[color:var(--text-muted)]"
             >
-              <Bell className="h-7 w-7" strokeWidth={1.8} />
-              {attentionAthletes > 0 ? (
-                <span className="absolute right-1 top-0.5 h-2.5 w-2.5 rounded-full bg-[#ef5862] ring-[3px] ring-[color:var(--bg)]" />
-              ) : null}
+              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
             </button>
+            <CoachNotifications
+              athletes={athletes}
+              onOpenAthlete={(athleteId) => {
+                setSelectedId(String(athleteId));
+                setAthleteView("summary");
+              }}
+            />
             <button
               type="button"
               onClick={() => onNavigate("perfil")}
@@ -3481,6 +2340,8 @@ export default function CoachDashboard({
             >
               <ProfileAvatar
                 photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+                avatarId={profile?.avatarId || user?.profile?.avatarId}
+                gender={profile?.gender || user?.profile?.gender}
                 name={user?.name}
                 className="h-12 w-12 rounded-full border border-[color:var(--border)] bg-[color:var(--card)] text-sm font-semibold"
               />
@@ -3489,7 +2350,9 @@ export default function CoachDashboard({
         </header>
       ) : null}
 
-      <header className="hidden items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4 lg:flex">
+      <header
+        className={`hidden items-end justify-between gap-4 border-b border-[color:var(--border)] pb-4 ${selectedId ? "" : "lg:flex"}`}
+      >
         <div>
           <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
             Coach · {athletes.length}{" "}
@@ -3500,6 +2363,15 @@ export default function CoachDashboard({
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => loadAthletes()}
+            disabled={loading}
+            aria-label="Actualizar alumnos"
+            className="grid h-11 w-11 place-items-center text-[color:var(--text-muted)]"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
           <Button
             variant="outline"
             className="h-11 gap-2 rounded-md px-3 text-xs font-black uppercase dark:rounded-[3px]"
@@ -3513,28 +2385,31 @@ export default function CoachDashboard({
       </header>
 
       {!selectedId ? (
-        <section className="mt-7 px-1 lg:hidden">
-          <div className="grid grid-cols-[minmax(0,1fr)_60px] gap-3">
+        <section className="mt-4 px-1 lg:hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_48px] gap-2">
             <label className="relative block">
               <Search
-                className="pointer-events-none absolute left-5 top-1/2 h-6 w-6 -translate-y-1/2 text-[color:var(--text-muted)]"
+                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[color:var(--text-muted)]"
                 strokeWidth={1.7}
               />
               <input
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setAthletePage(1);
+                }}
                 placeholder="Buscar alumno"
                 aria-label="Buscar alumno"
-                className="h-[60px] w-full rounded-[20px] border border-[color:var(--border)] bg-[color:var(--card)] pl-14 pr-4 text-[17px] font-normal outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--border-strong)]"
+                className="h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-[14px] font-normal outline-none placeholder:text-[color:var(--text-muted)] focus:border-[color:var(--border-strong)]"
               />
             </label>
             <button
               type="button"
               onClick={() => setInviteOpen((current) => !current)}
-              className="grid h-[60px] w-[60px] place-items-center rounded-full bg-[#181918] text-white shadow-[0_12px_28px_rgba(20,20,20,0.15)] transition-transform active:scale-95 dark:bg-[#f2f1ec] dark:text-[#151515]"
+              className="grid h-12 w-12 place-items-center rounded-xl bg-[#181918] text-white transition-transform active:scale-95 dark:bg-[#f2f1ec] dark:text-[#151515]"
               aria-label="Invitar alumno"
             >
-              <Plus className="h-8 w-8" strokeWidth={1.7} />
+              <Plus className="h-6 w-6" strokeWidth={1.7} />
             </button>
           </div>
 
@@ -3554,8 +2429,11 @@ export default function CoachDashboard({
                   key={filter.id}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => setAthleteFilter(filter.id)}
-                  className={`flex h-[52px] min-w-0 items-center justify-center gap-2 rounded-full px-2 text-[16px] transition-all active:scale-[0.98] ${
+                  onClick={() => {
+                    setAthleteFilter(filter.id);
+                    setAthletePage(1);
+                  }}
+                  className={`flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl px-2 text-[13px] transition-all active:scale-[0.98] ${
                     selected
                       ? "bg-[#181918] font-semibold text-white shadow-[0_8px_20px_rgba(20,20,20,0.12)] dark:bg-[#f2f1ec] dark:text-[#151515]"
                       : "bg-[color:var(--surface-subtle)] font-medium text-[color:var(--text-muted)]"
@@ -3637,14 +2515,6 @@ export default function CoachDashboard({
       {loadError ? (
         <CoachDataError message={loadError} onRetry={() => loadAthletes()} />
       ) : null}
-      <button
-        type="button"
-        onClick={() => loadAthletes()}
-        disabled={loading}
-        className="my-3 min-h-11 rounded-full border border-[color:var(--border)] px-4 text-sm font-semibold disabled:opacity-50"
-      >
-        Actualizar alumnos
-      </button>
       {loading ? (
         <div className="min-h-72 border-y border-[color:var(--border)]">
           <OperationLoader
@@ -3670,13 +2540,13 @@ export default function CoachDashboard({
           </div>
         </section>
       ) : (
-        <div className="mt-7 grid gap-5 lg:mt-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-7">
+        <div className="mt-3 grid gap-5 lg:mt-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:gap-7">
           <aside
             className={`${selectedId ? "hidden lg:block" : "block"} lg:sticky lg:top-4 lg:h-[calc(100dvh-7rem)] lg:border-r lg:border-[color:var(--border)] lg:pr-4`}
           >
             <div className="lg:hidden">
               <div className="mb-4 flex items-center justify-between gap-4 px-1">
-                <h2 className="min-w-0 truncate text-[27px] font-bold tracking-[-0.045em]">
+                <h2 className="min-w-0 truncate text-[20px] font-semibold tracking-[-0.03em]">
                   {athleteFilter === "attention"
                     ? "Requieren atención"
                     : athleteFilter === "active"
@@ -3685,11 +2555,12 @@ export default function CoachDashboard({
                 </h2>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    setAthletePage(1);
                     setAthleteSort((current) =>
                       current === "priority" ? "name" : "priority",
-                    )
-                  }
+                    );
+                  }}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[color:var(--surface-subtle)]"
                   aria-label={
                     athleteSort === "priority"
@@ -3706,8 +2577,8 @@ export default function CoachDashboard({
                   <ArrowDown className="-ml-1 h-5 w-5" strokeWidth={1.8} />
                 </button>
               </div>
-              <div className="space-y-2.5">
-                {filteredAthletes.map((athlete) => {
+              <div className="coach-directory-list">
+                {visibleAthletes.map((athlete) => {
                   const id = athlete.id || athlete._id;
                   return (
                     <MobileAthleteCard
@@ -3739,6 +2610,12 @@ export default function CoachDashboard({
                   </div>
                 ) : null}
               </div>
+              <CoachPagination
+                count={filteredAthletes.length}
+                page={currentAthletePage}
+                pageSize={athletePageSize}
+                onChange={setAthletePage}
+              />
             </div>
 
             <div className="hidden lg:block">
@@ -3754,13 +2631,16 @@ export default function CoachDashboard({
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                 <input
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setAthletePage(1);
+                  }}
                   placeholder="Buscar atleta"
                   className="theme-accent-focus h-11 w-full rounded-md border border-[color:var(--border)] bg-[color:var(--card)] pl-10 pr-3 text-sm font-semibold outline-none dark:rounded-[3px]"
                 />
               </label>
               <div className="mt-2 max-h-[calc(100dvh-11rem)] space-y-1 overflow-y-auto pr-1">
-                {filteredAthletes.map((athlete) => {
+                {visibleAthletes.map((athlete) => {
                   const id = athlete.id || athlete._id;
                   return (
                     <AthleteRow
@@ -3793,6 +2673,12 @@ export default function CoachDashboard({
                   </div>
                 ) : null}
               </div>
+              <CoachPagination
+                count={filteredAthletes.length}
+                page={currentAthletePage}
+                pageSize={athletePageSize}
+                onChange={setAthletePage}
+              />
             </div>
           </aside>
 
@@ -3823,9 +2709,14 @@ export default function CoachDashboard({
               />
             </div>
           ) : (
-            <section className="min-w-0">
-              <MobileAthleteProfileHeader
+            <section className="coach-athlete-profile min-w-0">
+              <CoachAthleteHeader
                 athlete={overview.athlete}
+                goal={goalLabel(overview.athlete.profile?.goal)}
+                lastTraining={
+                  overview.recentTrainings?.[0]?.date ||
+                  overview.athlete.lastTraining?.date
+                }
                 activeSession={activeSession}
                 title={planDetailMode ? "Plan del alumno" : "Perfil del alumno"}
                 planDetail={planDetailMode}
@@ -3853,106 +2744,8 @@ export default function CoachDashboard({
                 onRelease={releaseAthlete}
               />
 
-              <div className="hidden lg:block">
-                <div className="border-b border-[color:var(--border)] pb-4">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-md bg-[#181918] text-lg font-black text-white dark:rounded-[3px] dark:bg-[#eeeae2] dark:text-black">
-                      {initials(overview.athlete.name)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-black uppercase text-[#181918] dark:text-[#eeeae2]">
-                        {goalLabel(overview.athlete.profile?.goal)}
-                      </p>
-                      <h2 className="mt-1 line-clamp-2 break-words text-[22px] font-black uppercase leading-none sm:text-[28px]">
-                        {overview.athlete.name}
-                      </h2>
-                      <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                        {overview.athlete.email}
-                      </p>
-                    </div>
-                    <details className="overflow-menu relative shrink-0 self-center">
-                      <summary
-                        className="overflow-menu-trigger cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                        aria-label="Opciones del atleta"
-                        title="Opciones del atleta"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </summary>
-                      <div className="overflow-menu-panel absolute right-0 top-12 z-30 w-56">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.currentTarget
-                              .closest("details")
-                              ?.removeAttribute("open");
-                            releaseAthlete();
-                          }}
-                          disabled={Boolean(activeSession)}
-                          className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-500/10"
-                          title={
-                            activeSession
-                              ? "Finaliza la sesión supervisada antes de desvincular"
-                              : "Quitar atleta de mi cartera"
-                          }
-                        >
-                          <UserMinus className="h-4 w-4" />
-                          Desvincular atleta
-                        </button>
-                      </div>
-                    </details>
-                  </div>
-                  {trainableRoutines.length || missingPlanRoutineCount ? (
-                    <div className="mt-4 flex items-center gap-2">
-                      <Button
-                        className="h-12 min-w-0 flex-1 gap-2 rounded-md px-4 text-xs font-black uppercase dark:rounded-[3px] sm:max-w-sm"
-                        onClick={() => {
-                          if (
-                            !trainableRoutines.length &&
-                            missingPlanRoutineCount
-                          ) {
-                            setEditingPlan(activePlan);
-                            return;
-                          }
-                          startTraining();
-                        }}
-                        title={
-                          trainableRoutines.length
-                            ? "Iniciar entrenamiento supervisado"
-                            : "Completar las rutinas pendientes del plan"
-                        }
-                      >
-                        {trainableRoutines.length ? (
-                          <Play className="h-4 w-4" />
-                        ) : (
-                          <Pencil className="h-4 w-4" />
-                        )}
-                        {trainableRoutines.length
-                          ? recommendedPlanDay?.routineId
-                            ? "Entrenar sesión de hoy"
-                            : "Elegir entrenamiento"
-                          : `Completar plan · ${missingPlanRoutineCount} pendientes`}
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectCoachAthlete({
-                    id: String(selectedId),
-                    name: overview.athlete.name,
-                  });
-                  onNavigate("nutricion");
-                }}
-                className="my-3 min-h-12 w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] px-4 text-sm font-semibold"
-              >
-                Alimentación · crear dieta y ver cumplimiento
-              </button>
-
               <div
-                className={`mt-2 grid grid-cols-4 border-b border-[color:var(--border)] lg:hidden ${planDetailMode ? "hidden" : ""}`}
+                className={`athlete-profile-tabs ${planDetailMode ? "max-lg:hidden" : ""}`}
                 role="tablist"
                 aria-label="Informacion del alumno"
               >
@@ -3963,51 +2756,15 @@ export default function CoachDashboard({
                   { id: "activity", label: "Historial" },
                 ].map((item) => (
                   <button
-                    key={item.id}
                     type="button"
                     role="tab"
+                    key={item.id}
                     aria-selected={athleteView === item.id}
                     onClick={() => setAthleteView(item.id)}
-                    className={`relative flex h-11 items-center justify-center border-b-[3px] text-[clamp(13px,3.8vw,16px)] transition-colors ${
-                      athleteView === item.id
-                        ? "border-[color:var(--text)] font-semibold text-[color:var(--text)]"
-                        : "border-transparent font-normal text-[color:var(--text-muted)]"
-                    }`}
                   >
                     {item.label}
                   </button>
                 ))}
-              </div>
-
-              <div
-                className="mt-4 hidden grid-cols-4 border-b border-[color:var(--border)] lg:grid"
-                role="tablist"
-                aria-label="Informacion del atleta"
-              >
-                {[
-                  { id: "summary", label: "Resumen", icon: Activity },
-                  { id: "plan", label: "Planificación", icon: CalendarDays },
-                  { id: "activity", label: "Actividad", icon: BarChart3 },
-                  { id: "insights", label: "Seguimiento", icon: FileText },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={athleteView === item.id}
-                      onClick={() => setAthleteView(item.id)}
-                      className={`relative flex h-12 items-center justify-center gap-2 border-b-2 text-[11px] font-black uppercase transition ${
-                        athleteView === item.id
-                          ? "border-[#181918] text-[#181918] dark:border-[#eeeae2] dark:text-[#eeeae2]"
-                          : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" /> {item.label}
-                    </button>
-                  );
-                })}
               </div>
 
               {athleteView === "summary" ? (
@@ -4034,13 +2791,21 @@ export default function CoachDashboard({
                       </button>
                     </div>
                   ) : null}
-                  <AthleteSummaryView
+                  <CoachAthleteSummary
                     overview={overview}
                     activePlan={activePlan}
                     activePlanTimeProgress={activePlanTimeProgress}
                     recommendedPlanDay={recommendedPlanDay}
                     routineNameById={routineNameById}
                     latestCheckIn={latestCheckIn}
+                    activityImageFor={activityImageFor}
+                    onOpenNutrition={() => {
+                      onSelectCoachAthlete({
+                        id: String(selectedId),
+                        name: overview.athlete.name,
+                      });
+                      onNavigate("nutricion");
+                    }}
                     onOpenPlan={() => setAthleteView("plan")}
                     onOpenHistory={() => setAthleteView("activity")}
                     onReviewIntake={() => setIntakeReviewOpen(true)}
@@ -4103,7 +2868,7 @@ export default function CoachDashboard({
                     </section>
 
                     {!selectedPlanId && orderedPlans.length ? (
-                      <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <section className="athlete-plan-catalog">
                         {orderedPlans.map((plan) => {
                           const id = String(plan._id || plan.id);
                           const trainingDays = (
@@ -4112,73 +2877,32 @@ export default function CoachDashboard({
                           const configured = trainingDays.filter(
                             (day) => day.routineId,
                           ).length;
-                          const isCurrent = plan.status === "active";
                           const progress = getPlanTimeProgress(plan);
                           return (
-                            <button
+                            <AthletePhotoCard
                               key={id}
-                              type="button"
+                              image="/images/daily-plan-ready-card.webp"
+                              eyebrow={
+                                PLAN_STATUS_LABELS[plan.status] || plan.status
+                              }
+                              title={plan.name}
+                              description={`${plan.durationWeeks} semanas · ${configured}/${trainingDays.length} rutinas`}
                               onClick={() => setSelectedPlanId(id)}
-                              className={`routines-surface min-h-40 border bg-[color:var(--card)] p-4 text-left transition hover:border-[color:var(--text-muted)] ${
-                                isCurrent
-                                  ? "border-[#181918] dark:border-[#eeeae2]"
-                                  : "border-[color:var(--border)]"
-                              }`}
+                              className="athlete-plan-catalog-card"
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <Badge
-                                  variant={isCurrent ? "active" : plan.status}
-                                >
-                                  {PLAN_STATUS_LABELS[plan.status] ||
-                                    plan.status}
-                                </Badge>
-                                <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
-                              </div>
-                              <h4 className="mt-4 line-clamp-2 text-lg font-black leading-tight">
-                                {plan.name}
-                              </h4>
-                              <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                                {plan.scheduleMode === "fixed"
-                                  ? "Rutina semanal fija"
-                                  : `Ciclo libre · ${plan.weeklySchedule?.length || 0} días`}
-                              </p>
-                              <div className="mt-4">
-                                <div className="flex items-center justify-between text-[11px] font-black uppercase">
-                                  <span className="text-[color:var(--text-muted)]">
-                                    Progreso
-                                  </span>
-                                  <span
-                                    className={
-                                      isCurrent ? "theme-accent-text" : ""
-                                    }
-                                  >
-                                    {progress.percentage}%
-                                  </span>
-                                </div>
-                                <div className="mt-1.5 h-1.5 overflow-hidden bg-[color:var(--border)]">
-                                  <div
-                                    className={
-                                      isCurrent
-                                        ? "theme-accent-solid h-full border-0"
-                                        : "h-full bg-[color:var(--text-muted)]"
-                                    }
-                                    style={{ width: `${progress.percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs font-black">
-                                <span>{plan.durationWeeks} semanas</span>
-                                <span
-                                  className={
-                                    configured === trainingDays.length
-                                      ? "theme-accent-text"
-                                      : "text-[color:var(--text-muted)]"
-                                  }
-                                >
-                                  {configured}/{trainingDays.length} rutinas
-                                </span>
-                              </div>
-                            </button>
+                              <span
+                                className="athlete-photo-card__progress"
+                                role="progressbar"
+                                aria-label={`Progreso temporal de ${plan.name}`}
+                                aria-valuenow={progress.percentage}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                              >
+                                <i
+                                  style={{ width: `${progress.percentage}%` }}
+                                />
+                              </span>
+                            </AthletePhotoCard>
                           );
                         })}
                       </section>
@@ -4368,11 +3092,39 @@ export default function CoachDashboard({
                                 key={day.slotId || day.dayIndex || index}
                                 className="flex min-h-[72px] items-center gap-3 bg-[color:var(--card)] px-2 py-3 sm:px-3"
                               >
+                                <img
+                                  src={
+                                    day.type === "training"
+                                      ? activityImageFor(
+                                          routineNameById.get(
+                                            String(day.routineId),
+                                          ) || day.focus,
+                                        )
+                                      : "/images/dashboard-rest-recovery.webp"
+                                  }
+                                  alt=""
+                                  width={48}
+                                  height={48}
+                                  className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                                  loading="lazy"
+                                />
                                 <div className="w-14 shrink-0 border-r border-[color:var(--border)] pr-3 text-center">
                                   <p className="text-xs font-black uppercase text-[color:var(--text-muted)]">
                                     {activePlan.scheduleMode !== "fixed"
                                       ? `Día ${index + 1}`
-                                      : DAY_NAMES[index]}
+                                      : DAY_NAMES[
+                                          Math.max(
+                                            0,
+                                            Math.min(
+                                              6,
+                                              Number(
+                                                day.dayIndex ||
+                                                  day.order ||
+                                                  index + 1,
+                                              ) - 1,
+                                            ),
+                                          )
+                                        ]}
                                   </p>
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -4402,6 +3154,23 @@ export default function CoachDashboard({
                                 {day.type === "training" && !day.routineId ? (
                                   <Badge variant="pending">Pendiente</Badge>
                                 ) : null}
+                                {activePlan.status === "active" &&
+                                day.type === "training" &&
+                                trainableRoutines.some(
+                                  (routine) =>
+                                    String(routine._id || routine.id) ===
+                                    String(day.routineId),
+                                ) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => startTraining(day)}
+                                    aria-label={`Registrar entrenamiento de ${routineNameById.get(String(day.routineId)) || day.focus}`}
+                                    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-xs font-medium"
+                                  >
+                                    <Play className="h-4 w-4" /> Registrar
+                                    sesión
+                                  </button>
+                                ) : null}
                               </article>
                             ),
                           )}
@@ -4413,12 +3182,18 @@ export default function CoachDashboard({
                         ) : null}
                       </section>
                     ) : !orderedPlans.length ? (
-                      <section className="mt-4 border-y border-[color:var(--border)] py-8 text-center">
+                      <section className="athlete-plan-empty mt-4">
+                        <img
+                          src="/images/daily-plan-ready-card.webp"
+                          alt=""
+                          width={512}
+                          height={512}
+                        />
                         <div>
                           <h3 className="text-sm font-black">
                             Aún no tiene una planificación
                           </h3>
-                          <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                          <p className="mt-1 text-xs font-semibold text-white/75">
                             Crea una planificación para organizar sus días y
                             rutinas.
                           </p>
@@ -4439,7 +3214,8 @@ export default function CoachDashboard({
                       loading={historyLoading}
                       onOpenTraining={openHistoryTraining}
                     />
-                    <div className="hidden lg:block">
+                    <details className="athlete-profile-panel athlete-profile-advanced hidden lg:block">
+                      <summary>Explorar todas las sesiones</summary>
                       <SessionHistory
                         key={selectedId}
                         embedded
@@ -4454,12 +3230,12 @@ export default function CoachDashboard({
                           })
                         }
                       />
-                    </div>
+                    </details>
                   </>
                 ) : null}
                 {athleteView === "insights" ? (
                   <>
-                    <MobileAthleteFollowUpView
+                    <CoachAthleteFollowUp
                       overview={overview}
                       latestCheckIn={latestCheckIn}
                     />
@@ -4512,7 +3288,6 @@ export default function CoachDashboard({
           initialPlanTemplateId={initialPlanTemplateId}
           initialSource={planCreationSource}
           initialData={editingPlan || planDraft?.plan}
-          replacingPlan={editingPlan ? null : activePlan}
           onEditRoutine={(routine, day) => {
             const routineId = String(
               day?.routineId || routine?.id || routine?._id || "",

@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  Bell,
   Camera,
   Check,
   ChevronRight,
@@ -15,6 +14,7 @@ import {
 import WorkoutSeriesCard from "./WorkoutMuscleChart";
 import DashboardPlanTrend from "./DashboardPlanTrend";
 import ProfileAvatar from "../profile/ProfileAvatar";
+import AthleteNotifications from "./AthleteNotifications";
 import "./starter-experience.css";
 import "./daily-workspace.css";
 
@@ -31,19 +31,6 @@ const DAILY_CARD_IMAGES = Object.freeze({
   recovery: "/images/dashboard-rest-recovery.webp",
   weight: "/images/daily-weight-card.webp",
 });
-
-function CardThumbnail({ src }) {
-  return (
-    <img
-      src={src}
-      alt=""
-      width="512"
-      height="512"
-      loading="lazy"
-      decoding="async"
-    />
-  );
-}
 
 const formatHeaderDate = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -87,7 +74,9 @@ function DashboardHeader({
   adminControl,
   onOpenProfile,
   notificationUnread = 0,
-  onOpenNotifications,
+  notifications,
+  onReadNotifications,
+  onOpenNotification,
 }) {
   return (
     <header className="mobile-daily-plan__header">
@@ -100,15 +89,12 @@ function DashboardHeader({
       </div>
       <div className="mobile-daily-plan__header-actions">
         {adminControl}
-        <button
-          type="button"
-          className="mobile-daily-plan__notification"
-          onClick={onOpenNotifications}
-          aria-label={`Notificaciones${notificationUnread ? `, ${notificationUnread} sin leer` : ""}`}
-        >
-          <Bell />
-          {notificationUnread ? <i>{notificationUnread}</i> : null}
-        </button>
+        <AthleteNotifications
+          notifications={notifications}
+          unread={notificationUnread}
+          onRead={onReadNotifications}
+          onOpen={onOpenNotification}
+        />
         <button
           type="button"
           onClick={onOpenProfile}
@@ -117,6 +103,8 @@ function DashboardHeader({
         >
           <ProfileAvatar
             photoId={profile?.avatarPhotoId || user?.profile?.avatarPhotoId}
+            avatarId={profile?.avatarId || user?.profile?.avatarId}
+            gender={profile?.gender || user?.profile?.gender}
             name={profile?.name || user?.name}
             className="h-full w-full"
             fallbackClassName="bg-[#e8e1d8] text-sm font-semibold text-[#252525]"
@@ -124,34 +112,6 @@ function DashboardHeader({
         </button>
       </div>
     </header>
-  );
-}
-
-function CoachContext({ coach, onOpen }) {
-  const coachName = coach?.name || "Tu coach";
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="mobile-daily-plan__coach-card"
-    >
-      <span className="mobile-daily-plan__coach-avatar">
-        {coach?.avatarPhotoId ? (
-          <ProfileAvatar
-            photoId={coach.avatarPhotoId}
-            name={coachName}
-            className="h-full w-full"
-          />
-        ) : (
-          <ProfileAvatar name={coachName} className="h-full w-full" />
-        )}
-      </span>
-      <span className="mobile-daily-plan__coach-copy">
-        <strong>{coachName}</strong>
-        <small className="is-connected">Vinculado como tu coach</small>
-      </span>
-      <ChevronRight aria-hidden="true" />
-    </button>
   );
 }
 
@@ -165,7 +125,7 @@ function ManagedOnboarding({
   const pending = stage === "evaluation_pending";
   const scheduled = stage === "plan_scheduled";
   const title = pending
-    ? "Completa tu evaluación inicial"
+    ? "Tu evaluación inicial"
     : scheduled
       ? "Tu plan está listo"
       : "Tu coach está preparando tu plan";
@@ -181,31 +141,42 @@ function ManagedOnboarding({
       : DAILY_CARD_IMAGES.plan;
   return (
     <>
-      <section className="mobile-daily-plan__onboarding">
-        <div className="mobile-daily-plan__section-heading">
-          <h2>{pending ? "Tu punto de partida" : "Estado de tu plan"}</h2>
-          {!pending ? <span>Evaluación enviada</span> : null}
-        </div>
-        <div className="mobile-daily-plan__onboarding-card">
-          <span className="mobile-daily-plan__onboarding-icon is-image">
-            <CardThumbnail src={thumbnail} />
+      <section
+        className={`managed-start ${pending ? "managed-start--pending" : ""}`}
+        aria-label={pending ? "Tu punto de partida" : "Estado de tu plan"}
+      >
+        <img
+          className="managed-start__photo"
+          src={thumbnail}
+          alt=""
+          width={512}
+          height={512}
+          decoding="async"
+        />
+        <div className="managed-start__shade" />
+        <div className="managed-start__content">
+          <span className="managed-start__badge">
+            {pending ? "Tu punto de partida" : "Evaluación enviada"}
           </span>
-          <div>
-            <h3>{title}</h3>
-            <p>{description}</p>
+          <h2>{title}</h2>
+          <p>
+            {pending ? "Unas preguntas para preparar tu plan." : description}
+          </p>
+          <div className="managed-start__footer">
             <small>
-              <Clock3 /> {pending ? "5–7 min" : formatSubmittedAt(submittedAt)}
+              <Clock3 size={13} />
+              {pending ? "5–7 min" : formatSubmittedAt(submittedAt)}
             </small>
+            {pending && (
+              <button
+                type="button"
+                onClick={onStartEvaluation}
+                className="managed-start__action"
+              >
+                Comenzar evaluación <ArrowRight size={16} />
+              </button>
+            )}
           </div>
-          {pending ? (
-            <button
-              type="button"
-              onClick={onStartEvaluation}
-              className="mobile-daily-plan__primary-action"
-            >
-              Comenzar evaluación
-            </button>
-          ) : null}
         </div>
       </section>
     </>
@@ -550,7 +521,6 @@ export default function MobileDailyPlan({
   readOnly = false,
   onOpenProfile,
   onStartEvaluation,
-  onOpenCoach,
   onOpenPlan,
   onCreateRoutine,
   onOpenLibrary,
@@ -563,6 +533,7 @@ export default function MobileDailyPlan({
   notificationUnread = 0,
   onReadNotifications,
   onOpenNotification,
+  nutritionContent = null,
 }) {
   const requiredTracking = trackingMissions.filter((task) => task.required);
   const requiredTrackingTypes = new Set(
@@ -595,7 +566,7 @@ export default function MobileDailyPlan({
 
   return (
     <section
-      className="mobile-daily-plan daily-workspace"
+      className={`mobile-daily-plan daily-workspace ${journeyStage && journeyStage !== "plan_assigned" ? "daily-workspace--managed-start" : ""} ${journeyStage === "plan_assigned" && nutritionContent ? "daily-workspace--managed-meals" : ""}`}
       aria-label="Tu plan del día"
     >
       <DashboardHeader
@@ -605,38 +576,10 @@ export default function MobileDailyPlan({
         adminControl={adminControl}
         onOpenProfile={onOpenProfile}
         notificationUnread={notificationUnread}
-        onOpenNotifications={() => {
-          const panel = document.getElementById("athlete-notification-panel");
-          if (panel) panel.open = !panel.open;
-          onReadNotifications?.();
-        }}
+        notifications={notifications}
+        onReadNotifications={onReadNotifications}
+        onOpenNotification={onOpenNotification}
       />
-      {notifications.length ? (
-        <details
-          id="athlete-notification-panel"
-          className="mobile-daily-plan__notifications"
-        >
-          <summary>Últimas novedades</summary>
-          {notifications.slice(0, 3).map((item) => (
-            <div key={item._id || item.id}>
-              <strong>{item.title}</strong>
-              <small>{item.message}</small>
-              {item.type === "coach_message" && item.peerId && (
-                <button
-                  type="button"
-                  className="mt-2 min-h-11 text-sm font-semibold underline"
-                  onClick={() => onOpenNotification?.(item)}
-                >
-                  Ver mensaje
-                </button>
-              )}
-            </div>
-          ))}
-        </details>
-      ) : null}
-      {coach && !isDailyWorkspace ? (
-        <CoachContext coach={coach} onOpen={onOpenCoach} />
-      ) : null}
       {isDailyWorkspace && weekDays.length ? (
         <div className="mobile-daily-plan__week" aria-label="Actividad semanal">
           {weekDays.map((day) => (
@@ -654,15 +597,20 @@ export default function MobileDailyPlan({
           onOpenLibrary={onOpenLibrary}
         />
       ) : journeyStage && journeyStage !== "plan_assigned" ? (
-        <>
-          <ManagedOnboarding
-            stage={journeyStage}
-            coach={coach}
-            submittedAt={user?.coachIntake?.submittedAt}
-            planning={planningContext}
-            onStartEvaluation={onStartEvaluation}
-          />
-        </>
+        <div
+          className={`managed-dashboard ${nutritionContent ? "has-meals" : ""}`}
+        >
+          <div>
+            <ManagedOnboarding
+              stage={journeyStage}
+              coach={coach}
+              submittedAt={user?.coachIntake?.submittedAt}
+              planning={planningContext}
+              onStartEvaluation={onStartEvaluation}
+            />
+          </div>
+          {nutritionContent}
+        </div>
       ) : (
         <div className="daily-workspace__content">
           <div className="daily-workspace__today">
@@ -671,6 +619,7 @@ export default function MobileDailyPlan({
               onOpen={onOpenWorkout}
               readOnly={readOnly}
             />
+            {nutritionContent}
             {requiredTracking.length > 0 && (
               <section className="daily-tasks" aria-label="Seguimiento de hoy">
                 {requiredTracking.map((task) => (
@@ -730,7 +679,6 @@ export default function MobileDailyPlan({
                 </div>
               </section>
             ) : null}
-            {coach ? <CoachContext coach={coach} onOpen={onOpenCoach} /> : null}
           </div>
         </div>
       )}
