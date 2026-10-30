@@ -216,6 +216,24 @@ for (const role of ["Entrenador", "Cliente"]) {
       },
     ];
     let sentPayload;
+    if ((page.viewportSize()?.width || 0) < 768) {
+      // Browser automation has no native soft keyboard. Model its visual
+      // viewport separately so dvh stays full-size, as on iOS and Android.
+      await page.addInitScript(({ width, height }) => {
+        const viewport = Object.assign(new EventTarget(), {
+          height,
+          width,
+          offsetTop: 0,
+          offsetLeft: 0,
+          scale: 1,
+        });
+        Object.defineProperty(window, "visualViewport", { value: viewport });
+        window.resizeMessageViewport = (height, offsetTop = 0) => {
+          Object.assign(viewport, { height, offsetTop });
+          viewport.dispatchEvent(new Event("resize"));
+        };
+      }, page.viewportSize());
+    }
     await page.addInitScript(
       ({ user }) => {
         localStorage.setItem("active_page", "coach_messages");
@@ -253,7 +271,7 @@ for (const role of ["Entrenador", "Cliente"]) {
       if (path === `/api/messages/${peer.id}` && req.method() === "POST") {
         sentPayload = req.postDataJSON();
         const message = {
-          _id: "message-2",
+          _id: `message-${messages.length + 1}`,
           ...sentPayload,
           senderId: user.id,
           recipientId: peer.id,
@@ -263,7 +281,9 @@ for (const role of ["Entrenador", "Cliente"]) {
         return json({ message }, 201);
       }
       if (path.endsWith("/read")) {
-        messages[0].readAt = "2026-10-28T12:01:00.000Z";
+        for (const message of messages)
+          if (message.recipientId === user.id)
+            message.readAt = "2026-10-28T12:01:00.000Z";
         return json({ updated: 1 });
       }
       if (path === "/api/auth/profile")
@@ -352,6 +372,94 @@ for (const role of ["Entrenador", "Cliente"]) {
       document.documentElement.classList.remove("dark"),
     );
     if ((page.viewportSize()?.width || 0) < 768) {
+      const input = page.getByLabel("Escribe un mensaje");
+      const chat = page.locator(".messages-page");
+      const navigation = page.locator(".mobile-bottom-nav");
+      const originalViewport = page.viewportSize();
+      const visualHeight = originalViewport.height - 300;
+      const visualTop = 36;
+      await input.fill(
+        "Mensaje con el teclado abierto\nSegunda línea\nTercera línea",
+      );
+      await page.evaluate(
+        ({ height, top }) => window.resizeMessageViewport(height, top),
+        {
+          height: visualHeight,
+          top: visualTop,
+        },
+      );
+      await expect(chat).toHaveAttribute("data-keyboard-open", "true");
+      await expect(navigation).toBeHidden();
+      await expect(pageHeader).toBeHidden();
+      const expectKeyboardLayout = async (height, top) => {
+        await expect
+          .poll(async () => {
+            const header = await page
+              .locator(".messenger__thread-header")
+              .boundingBox();
+            const composer = await page
+              .locator(".messenger__composer")
+              .boundingBox();
+            const history = await page.getByRole("log").boundingBox();
+            return (
+              header.y >= top &&
+              history.height > 0 &&
+              composer.y >= header.y + header.height &&
+              composer.y + composer.height <= top + height
+            );
+          })
+          .toBe(true);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBeLessThanOrEqual(originalViewport.width + 1);
+      };
+      await expectKeyboardLayout(visualHeight, visualTop);
+      await page.getByRole("button", { name: "Enviar mensaje" }).click();
+      await expect(input).toHaveValue("");
+      await expect(input).toBeFocused();
+      await expect(chat).toHaveAttribute("data-keyboard-open", "true");
+      await expectKeyboardLayout(visualHeight, visualTop);
+
+      messages.push({
+        _id: "message-4",
+        senderId: peer.id,
+        recipientId: user.id,
+        text: "Respuesta mientras escribes",
+        readAt: null,
+        createdAt: "2026-10-28T12:02:00.000Z",
+      });
+      const pageScroll = await page.evaluate(() => window.scrollY);
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event("visibilitychange")),
+      );
+      await expect(
+        page.getByRole("log").getByText("Respuesta mientras escribes"),
+      ).toBeVisible();
+      await expect(input).toBeFocused();
+      expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll);
+      await expectKeyboardLayout(visualHeight, visualTop);
+      await page.screenshot({
+        path: testInfo.outputPath(`messages-keyboard-${role}.png`),
+      });
+
+      // Android can also resize the layout viewport when the keyboard opens.
+      await page.setViewportSize({ ...originalViewport, height: visualHeight });
+      await page.evaluate(
+        (height) => window.resizeMessageViewport(height),
+        visualHeight,
+      );
+      await expectKeyboardLayout(visualHeight, 0);
+      await page.setViewportSize(originalViewport);
+      await input.blur();
+      await page.evaluate(
+        (height) => window.resizeMessageViewport(height),
+        originalViewport.height,
+      );
+      await expect(chat).not.toHaveAttribute("data-keyboard-open");
+      await expect(navigation).toBeVisible();
+      await expect(pageHeader).toBeVisible();
+      const restored = await page.locator(".messenger").boundingBox();
+      expect(restored.height).toBeCloseTo(chatBounds.height, 0);
       await page
         .getByRole("button", { name: "Volver a conversaciones" })
         .click();

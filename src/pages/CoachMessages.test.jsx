@@ -225,3 +225,44 @@ it("keeps the history when the selected conversation is clicked again", async ()
     within(screen.getByRole("log")).getByText("Mensaje enviado"),
   ).toBeVisible();
 });
+
+it("scrolls only the history and preserves the position while reading older messages", async () => {
+  render(<CoachMessages />);
+  await open();
+  const history = screen.getByRole("log");
+  Object.defineProperties(history, {
+    scrollHeight: { configurable: true, value: 2000 },
+    clientHeight: { configurable: true, value: 400 },
+  });
+  history.scrollTop = 600;
+  fireEvent.scroll(history);
+  mocks.thread.mockResolvedValue({
+    messages: [
+      message({
+        _id: "message-3",
+        senderId: "athlete",
+        recipientId: "coach",
+        text: "Nueva respuesta",
+      }),
+    ],
+  });
+  fireEvent(document, new Event("visibilitychange"));
+  await within(history).findByText("Nueva respuesta");
+  expect(history.scrollTop).toBe(600);
+
+  history.scrollTop = 1600;
+  fireEvent.scroll(history);
+  mocks.thread.mockResolvedValue({
+    messages: [
+      message({
+        _id: "message-4",
+        senderId: "athlete",
+        recipientId: "coach",
+        text: "Otra respuesta",
+      }),
+    ],
+  });
+  fireEvent(document, new Event("visibilitychange"));
+  await within(history).findByText("Otra respuesta");
+  expect(history.scrollTop).toBe(2000);
+});

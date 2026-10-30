@@ -14,6 +14,7 @@ import ProfileAvatar from "../components/profile/ProfileAvatar";
 import MobilePageHeader from "../components/layout/MobilePageHeader";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../services/api";
+import useMessageViewport from "../hooks/useMessageViewport";
 import "./coachMessages.css";
 
 const mergeMessages = (previous, incoming) =>
@@ -62,12 +63,15 @@ export default function CoachMessages({ onNavigate = () => {} }) {
   const selectedRef = useRef(selectedId);
   const sendInFlight = useRef(false);
   const pendingSend = useRef({});
-  const endRef = useRef(null);
+  const pageRef = useRef(null);
+  const historyRef = useRef(null);
+  const followLatestRef = useRef(true);
   const composerRef = useRef(null);
   const isAthlete = user?.role === "Cliente";
   const currentId = String(user?.id || user?._id || "");
   const selected = conversations.find((item) => item.peer.id === selectedId);
   const draft = drafts[selectedId] || "";
+  useMessageViewport(pageRef, Boolean(selectedId));
 
   useEffect(() => {
     sessionStorage.removeItem("rirfit_message_peer");
@@ -190,13 +194,29 @@ export default function CoachMessages({ onNavigate = () => {} }) {
       composerRef.current.style.height = "auto";
   }, [draft]);
   const lastMessageId = messages.at(-1)?._id;
+  const lastSenderId = messages.at(-1)?.senderId;
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [lastMessageId]);
+    const history = historyRef.current;
+    if (history && (followLatestRef.current || lastSenderId === currentId)) {
+      history.scrollTop = history.scrollHeight;
+      followLatestRef.current = true;
+    }
+  }, [lastMessageId, lastSenderId, currentId]);
+
+  useEffect(() => {
+    const history = historyRef.current;
+    if (!history || !window.ResizeObserver) return;
+    const observer = new ResizeObserver(() => {
+      if (followLatestRef.current) history.scrollTop = history.scrollHeight;
+    });
+    observer.observe(history);
+    return () => observer.disconnect();
+  }, [selectedId]);
 
   const select = (id) => {
     if (id === selectedId) return;
     selectedRef.current = id;
+    followLatestRef.current = true;
     setSelectedId(id);
     setMessages([]);
     setCursor(null);
@@ -300,7 +320,11 @@ export default function CoachMessages({ onNavigate = () => {} }) {
   );
 
   return (
-    <main className="messages-page" aria-label="Centro de mensajes">
+    <main
+      ref={pageRef}
+      className="messages-page"
+      aria-label="Centro de mensajes"
+    >
       <MobilePageHeader
         title="Mensajes"
         variant="main"
@@ -493,9 +517,18 @@ export default function CoachMessages({ onNavigate = () => {} }) {
                 </div>
               )}
               <div
+                ref={historyRef}
                 role="log"
                 aria-label="Historial de mensajes"
                 className="messenger__history"
+                onScroll={(event) => {
+                  const history = event.currentTarget;
+                  followLatestRef.current =
+                    history.scrollHeight -
+                      history.scrollTop -
+                      history.clientHeight <
+                    64;
+                }}
               >
                 {cursor && (
                   <button
@@ -563,7 +596,6 @@ export default function CoachMessages({ onNavigate = () => {} }) {
                     </Fragment>
                   );
                 })}
-                <div ref={endRef} />
               </div>
               <form onSubmit={send} className="messenger__composer">
                 {sendError && (
@@ -606,6 +638,14 @@ export default function CoachMessages({ onNavigate = () => {} }) {
                     aria-label={sending ? "Enviando mensaje" : "Enviar mensaje"}
                     disabled={sending || !selected || !draft.trim()}
                     className="messenger__send"
+                    onPointerDown={(event) => {
+                      // Keep the composer focused so sending does not dismiss the keyboard.
+                      if (
+                        event.button === 0 &&
+                        document.activeElement === composerRef.current
+                      )
+                        event.preventDefault();
+                    }}
                   >
                     {sending ? (
                       <LoaderCircle size={21} className="animate-spin" />

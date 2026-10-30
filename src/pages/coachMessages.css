@@ -273,6 +273,7 @@
 }
 .messenger__thread-header {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 11px;
   min-height: 77px;
@@ -362,6 +363,7 @@
   color: #3297c0;
 }
 .messenger__composer {
+  flex-shrink: 0;
   padding: 15px 21px 11px;
   background: var(--chat-panel);
   border-top: 1px solid var(--chat-line);
@@ -591,6 +593,55 @@
   .messenger__composer-hint {
     margin: 5px 57px 0 7px;
     font-size: 8px;
+  }
+}
+@media (max-width: 1023px) {
+  .messages-page[data-keyboard-open="true"] {
+    position: fixed;
+    z-index: 60;
+    top: var(--messages-viewport-top);
+    left: var(--messages-viewport-left);
+    display: flex;
+    flex-direction: column;
+    width: var(--messages-viewport-width);
+    max-width: none;
+    height: var(--messages-viewport-height);
+    padding: max(6px, env(safe-area-inset-top, 0px))
+      max(6px, env(safe-area-inset-right, 0px)) 6px
+      max(6px, env(safe-area-inset-left, 0px));
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .messages-page[data-keyboard-open="true"] > .messages-page__header {
+    display: none;
+  }
+  .messages-page[data-keyboard-open="true"] > .messenger {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  .messages-page[data-keyboard-open="true"] .messenger__thread-header {
+    min-height: 56px;
+    padding-block: 7px;
+  }
+  .messages-page[data-keyboard-open="true"] .messenger__composer {
+    padding-block: 8px;
+  }
+  .messages-page[data-keyboard-open="true"] .messenger__composer-hint {
+    display: none;
+  }
+  .messages-page[data-keyboard-open="true"] .messenger__composer textarea {
+    max-height: min(128px, calc(var(--messages-viewport-height) * 0.3));
+    font-size: 16px;
+  }
+  .app-shell:has(.messages-page[data-keyboard-open="true"]) .mobile-nav-slot {
+    display: none;
+  }
+  html:has(.messages-page[data-keyboard-open="true"]),
+  body:has(.messages-page[data-keyboard-open="true"]) {
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
