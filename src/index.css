@@ -6348,6 +6348,64 @@ details.training-extra-options {
   object-position: 70% center;
 }
 
+.training-set-entry__previous-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.training-set-entry__previous-date {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.training-set-row__pr {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.625rem;
+  background: var(--surface-subtle);
+  line-height: 1.35;
+}
+.training-set-row__pr-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.training-set-row__pr-label {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+.training-set-row__pr-value {
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.training-set-row__pr-date {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.training-set-row__pr-branch {
+  border-radius: 0.25rem;
+  background: var(--card);
+  padding: 0.125rem 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  overflow-wrap: anywhere;
+}
+
 .training-exercise-card__summary {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr) 44px;
@@ -9462,6 +9520,30 @@ details.training-extra-options {
   .mobile-daily-plan__quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.training-exercise-card .training-exercise-card__surface.is-complete {
+  border: 1px solid var(--success) !important;
+  background: color-mix(in srgb, var(--success) 7%, var(--card)) !important;
+  box-shadow: inset 4px 0 0 var(--success) !important;
+}
+
+.training-exercise-card__completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 15%, var(--card));
+  color: var(--success);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.training-exercise-card__completed > svg {
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

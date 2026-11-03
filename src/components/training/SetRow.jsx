@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
   ArrowUpRight,
   Check,
+  Trophy,
   Trash2,
   X,
 } from "lucide-react";
@@ -17,6 +18,12 @@ import {
 
 const LONG_PRESS_MS = 650;
 const MOVE_TOLERANCE_PX = 10;
+
+const formatLiftLabel = (value) =>
+  value
+    .trim()
+    .replace(/(\d)\s*kg/g, "$1 kg")
+    .replace(/\s+x\s+/g, " × ");
 
 export default function SetRow({
   setId,
@@ -34,6 +41,9 @@ export default function SetRow({
 }) {
   const reduceMotion = useReducedMotion();
   const safeEntries = Array.isArray(entries) ? entries : [];
+  const [prLift = "", ...prContext] = prSummary.split("|");
+  const prValue = formatLiftLabel(prLift);
+  const prDate = prContext.join(" · ").trim();
   const setDone =
     safeEntries.length > 0 ? safeEntries.every((entry) => entry.done) : false;
   const baseClasses =
@@ -165,13 +175,22 @@ export default function SetRow({
               {index}
             </span>
             {prSummary ? (
-              <div className="training-set-row__pr flex min-w-0 items-center gap-1.5">
-                <span className="min-w-0 truncate text-[13px] text-[color:var(--text-muted)]">
-                  Mejor marca: {prSummary}
-                </span>
+              <div className="training-set-row__pr">
+                <Trophy
+                  className="training-set-row__pr-icon"
+                  size={16}
+                  aria-hidden="true"
+                />
+                <span className="training-set-row__pr-label">Mejor marca</span>
+                <strong className="training-set-row__pr-value">
+                  {prValue}
+                </strong>
+                {prDate ? (
+                  <span className="training-set-row__pr-date">{prDate}</span>
+                ) : null}
                 {prBranchLabel ? (
                   <span
-                    className="shrink-0 rounded border border-[color:var(--accent)] bg-[color:var(--accent)] px-2 py-0.5 text-xs font-medium text-[color:var(--accent-contrast)]"
+                    className="training-set-row__pr-branch"
                     title={`Mejor marca registrada en ${prBranchLabel}`}
                   >
                     {prBranchLabel}
@@ -199,6 +218,11 @@ export default function SetRow({
             const entryDone = Boolean(entry.done);
             const isSingleSeries = seriesType === "serie";
             const entryLabel = isSingleSeries ? null : `E${entryIdx + 1}`;
+            const [previousLift = "", ...previousContext] = (
+              entry.previousText || ""
+            ).split("|");
+            const previousValue = formatLiftLabel(previousLift);
+            const previousDate = previousContext.join(" · ").trim();
             const trend = getTrainingSetTrend({
               latestWeight: entry.previousWeight,
               earlierWeight: entry.previousCompareWeight,
@@ -209,7 +233,7 @@ export default function SetRow({
             const trendClass =
               trend === "up"
                 ? "text-[#181918] dark:text-[#e2ff00]"
-                : "text-[color:var(--text-muted)]";
+                : "text-[color:var(--text)]";
             const TrendIcon =
               trend === "up"
                 ? ArrowUpRight
@@ -254,11 +278,21 @@ export default function SetRow({
                         Última sesión
                       </span>
                     ) : null}
-                    <span className="training-set-entry__previous-value min-w-0 truncate">
-                      {entry.previousText || "Sin sesión anterior"}
+                    <span className="training-set-entry__previous-value flex min-w-0 items-center gap-1">
+                      <span>{previousValue || "Sin sesión anterior"}</span>
+                      {TrendIcon ? (
+                        <TrendIcon
+                          className="h-3 w-3 shrink-0"
+                          aria-hidden="true"
+                        />
+                      ) : null}
                     </span>
+                    {previousDate ? (
+                      <span className="training-set-entry__previous-date">
+                        {previousDate}
+                      </span>
+                    ) : null}
                   </span>
-                  {TrendIcon ? <TrendIcon className="h-3 w-3" /> : null}
                 </div>
                 <label className="training-set-entry__field training-set-entry__field--weight grid h-10 min-w-0 grid-cols-[minmax(0,1fr)_1.25rem] items-center overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--bg)] px-1 dark:rounded-[3px]">
                   <input
