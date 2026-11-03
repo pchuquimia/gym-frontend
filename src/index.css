@@ -6478,6 +6478,12 @@ details.training-extra-options {
   font-weight: 500;
   line-height: 1.4;
 }
+.training-exercise-card__status--completed {
+  color: #181918;
+}
+.dark .training-exercise-card__status--completed {
+  color: #e2ff00;
+}
 .training-exercise-card__status > span {
   position: relative;
   flex-shrink: 0;
@@ -9520,30 +9526,6 @@ details.training-extra-options {
   .mobile-daily-plan__quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-.training-exercise-card .training-exercise-card__surface.is-complete {
-  border: 1px solid var(--success) !important;
-  background: color-mix(in srgb, var(--success) 7%, var(--card)) !important;
-  box-shadow: inset 4px 0 0 var(--success) !important;
-}
-
-.training-exercise-card__completed {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--success) 15%, var(--card));
-  color: var(--success);
-  font-size: 0.8125rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.training-exercise-card__completed > svg {
-  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

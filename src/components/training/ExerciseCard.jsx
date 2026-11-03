@@ -492,10 +492,10 @@ export default function ExerciseCard({
                       )}
                       {isComplete && (
                         <span
-                          className="training-exercise-card__completed"
+                          className="training-exercise-card__status training-exercise-card__status--completed"
                           aria-label="Completado"
                         >
-                          <Check size={18} strokeWidth={3} aria-hidden="true" />
+                          <Check className="h-3.5 w-3.5" aria-hidden="true" />
                           Completado
                         </span>
                       )}
