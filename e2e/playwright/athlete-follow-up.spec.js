@@ -226,8 +226,19 @@ test("distingue visualmente registros pendientes, programados y completados", as
       animations: "disabled",
     });
     for (const card of [pending, completed, scheduled]) {
+      const image = card.locator("img");
+      await expect(image).toBeVisible();
+      await expect
+        .poll(() =>
+          image.evaluate(
+            (element) => element.complete && element.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
       const dimensions = await card.boundingBox();
       expect(dimensions.width).toBeGreaterThan(120);
+      expect(dimensions.width).toBeGreaterThan(dimensions.height * 2);
+      expect(dimensions.height).toBeLessThanOrEqual(132);
       const overflows = await card.evaluate(
         (element) => element.scrollWidth > element.clientWidth + 1,
       );

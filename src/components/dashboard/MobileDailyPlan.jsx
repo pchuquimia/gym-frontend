@@ -1,15 +1,11 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  Camera,
   Check,
   ChevronRight,
-  ClipboardList,
   Clock3,
   Dumbbell,
   Plus,
-  Ruler,
-  Weight,
 } from "lucide-react";
 import WorkoutSeriesCard from "./WorkoutMuscleChart";
 import DashboardPlanTrend from "./DashboardPlanTrend";
@@ -358,44 +354,6 @@ function QuickRegistration({ task, onOpen, readOnly, assigned = false }) {
   );
 }
 
-function TrackingMission({ task, onOpen, readOnly, visual = false }) {
-  if (visual)
-    return (
-      <QuickRegistration
-        task={task}
-        onOpen={() => onOpen?.(task.type)}
-        readOnly={readOnly}
-        assigned
-      />
-    );
-  const Icon =
-    { weight: Weight, photos: Camera, measurements: Ruler }[task.type] ||
-    ClipboardList;
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen?.(task.type)}
-      disabled={readOnly}
-      className={`daily-tracking ${task.completed ? "is-complete" : ""}`}
-      aria-label={
-        task.completed
-          ? `Completado: ${task.title}${task.subtitle ? `. ${task.subtitle}` : ""}`
-          : undefined
-      }
-    >
-      <span className="daily-tracking__icon" aria-hidden="true">
-        {task.completed ? <Check /> : <Icon />}
-      </span>
-      <span className="daily-tracking__copy">
-        <strong>{task.title}</strong>
-        <small>{task.subtitle}</small>
-        {!task.required ? <em>Opcional</em> : null}
-      </span>
-      <ChevronRight aria-hidden="true" />
-    </button>
-  );
-}
-
 function ActivePlanContext({ plan, onOpen, summary, chart }) {
   if (!plan) return null;
   return (
@@ -716,18 +674,14 @@ export default function MobileDailyPlan({
                     </span>
                   </div>
                 ) : null}
-                <div
-                  className={
-                    isManagedAthlete ? "daily-tasks__cards" : "daily-tasks"
-                  }
-                >
+                <div className="daily-tasks__cards">
                   {dailyTracking.map((task) => (
-                    <TrackingMission
+                    <QuickRegistration
                       key={task.id || task.type}
                       task={task}
-                      onOpen={openTracking}
+                      onOpen={() => openTracking(task.type)}
                       readOnly={readOnly}
-                      visual={isManagedAthlete}
+                      assigned
                     />
                   ))}
                 </div>

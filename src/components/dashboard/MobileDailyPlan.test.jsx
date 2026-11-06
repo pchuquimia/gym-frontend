@@ -44,6 +44,49 @@ const renderPlan = (props = {}) => {
 };
 
 describe("MobileDailyPlan", () => {
+  it.each([true, false])(
+    "usa fotografias en todas las tareas de seguimiento (atleta con coach: %s)",
+    async (managed) => {
+      const onOpenWeighIn = vi.fn();
+      const onOpenTrackingMission = vi.fn();
+      const types = [
+        ["weight", "daily-weight-card.webp"],
+        ["measurements", "daily-measurements-card.webp"],
+        ["photos", "daily-progress-photos-card.webp"],
+        ["check_in", "daily-checkin-card.webp"],
+        ["final_evaluation", "daily-final-assessment-card.webp"],
+      ];
+      renderPlan({
+        user: { role: "Cliente", assignedTrainerId: managed ? "coach" : null },
+        journeyStage: managed ? "plan_assigned" : null,
+        trackingMissions: types.map(([type]) => ({
+          id: type,
+          type,
+          title: `Registro ${type}`,
+          required: true,
+          completed: false,
+        })),
+        onOpenWeighIn,
+        onOpenTrackingMission,
+      });
+      const tracking = screen.getByRole("region", {
+        name: "Seguimiento de hoy",
+      });
+      for (const [type, image] of types) {
+        const card = within(tracking).getByRole("button", {
+          name: new RegExp(`Registro ${type}`),
+        });
+        expect(card.querySelector("img")).toHaveAttribute(
+          "src",
+          `/images/${image}`,
+        );
+        expect(card).toHaveClass("daily-quick-action", "is-assigned");
+        await userEvent.click(card);
+        if (type === "weight") expect(onOpenWeighIn).toHaveBeenCalledOnce();
+        else expect(onOpenTrackingMission).toHaveBeenCalledWith(type);
+      }
+    },
+  );
   it.each(["evaluation_pending", "plan_assigned"])(
     "keeps the meal section in the daily workspace during %s",
     (journeyStage) => {
